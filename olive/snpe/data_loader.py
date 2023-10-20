@@ -42,7 +42,7 @@ class SNPEDataLoader(ABC):
             return
 
         if self.tmp_dir is None:
-            self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_")
+            self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_")  # pylint: disable=consider-using-with
         self.batch_dir = str(Path(self.tmp_dir.name) / "batch")
 
         batch_input_list = input_list_utils.resolve_input_list(
@@ -107,6 +107,7 @@ class SNPEDataLoader(ABC):
         return self.num_batches
 
     def __iter__(self):
+        # pylint: disable=attribute-defined-outside-init
         self.n = 0
         return self
 
@@ -137,7 +138,7 @@ class SNPEProcessedDataLoader(SNPEDataLoader):
         super().__init__(config, batch_size)
 
     def load_data(self) -> Tuple[str, str, np.ndarray]:
-        self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_")
+        self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_")  # pylint: disable=consider-using-with
         input_list = input_list_utils.get_input_list(
             self.config["data_dir"], self.config["input_list_file"], self.tmp_dir.name
         )
@@ -177,7 +178,7 @@ class SNPERandomDataLoader(SNPEDataLoader):
         super().__init__(config, batch_size)
 
     def load_data(self) -> Tuple[str, str, np.ndarray]:
-        self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_")
+        self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_")  # pylint: disable=consider-using-with
 
         # get data_dir
         if self.config["data_dir"] is None:
@@ -241,20 +242,20 @@ class SNPECommonDataLoader(SNPEDataLoader):
         # get single data sample
         input_data, _ = next(iter(self.config["dataloader"]))
         # source input names
-        for input_name in input_specs:
+        for input_name, input_spec in input_specs.items():
             if input_name in input_data:
                 source_name = input_name
             elif input_name.strip(":0") in input_data:
                 source_name = input_name.strip(":0")
             else:
                 raise ValueError(f"Input name {input_name} not found in dataset")
-            input_specs[input_name]["source_name"] = source_name
+            input_spec["source_name"] = source_name
 
         # source input_shapes and permutations
-        for input_name, input_spec in input_specs.items():
+        for input_spec in input_specs.values():
             # get source shape
             source_shape = list(input_data[input_spec["source_name"]].shape)
-            input_specs[input_name]["source_shape"] = source_shape
+            input_spec["source_shape"] = source_shape
 
             # get permutation from source shape to target shape
             target_shape = input_spec["target_shape"]
@@ -283,10 +284,10 @@ class SNPECommonDataLoader(SNPEDataLoader):
                     f" shape {target_shape}"
                 )
 
-            input_specs[input_name]["permutation"] = permutation
+            input_spec["permutation"] = permutation
         logger.debug(f"Input specs: {input_specs}")
 
-        self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_")
+        self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_")  # pylint: disable=consider-using-with
         data_dir = Path(self.tmp_dir.name) / "data"
         data_dir.mkdir()  # create data dir
 
@@ -330,7 +331,7 @@ class SNPECommonDataLoader(SNPEDataLoader):
         input_list_file = input_list_utils.create_input_list(
             data_dir=str(data_dir),
             input_names=list(input_specs.keys()),
-            input_dirs=[input_specs[input_name]["source_name"] for input_name in input_specs],
+            input_dirs=[input_spec["source_name"] for input_spec in input_specs.values()],
             add_input_names=len(input_specs) > 1,
             add_output_names=len(self.config["io_config"]["output_names"]) > 1,
             output_names=self.config["io_config"]["output_names"],

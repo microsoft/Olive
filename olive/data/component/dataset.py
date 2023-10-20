@@ -9,10 +9,10 @@ from typing import List, Optional, Union
 
 import numpy as np
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset as TorchDataset
 
 
-class BaseDataset(Dataset):
+class BaseDataset(TorchDataset):
     """Define the Olive dataset which should return the data with following format.
 
     1. [data, label] for supervised learning
@@ -80,7 +80,7 @@ class BaseDataset(Dataset):
             data_dict = {k: [] for k in first_input}
             data_dict[label_name] = []
             # loop over the dataset
-            for i in range(len(self)):
+            for i in range(len(self)):  # pylint: disable=consider-using-enumerate
                 data, label = deepcopy(self[i])
                 for k, v in data.items():
                     data_dict[k].append(v)
@@ -98,6 +98,7 @@ class DummyDataset(BaseDataset):
         if input_names is None, the dummy dataset will return a tuple of tensors
         else the dummy dataset will return a dict of tensors
         """
+        # pylint: disable=super-init-not-called
         self.input_shapes = input_shapes
         self.input_names = input_names
         self.input_types = input_types or ["float32"] * len(input_shapes)
@@ -163,6 +164,7 @@ class RawDataset(BaseDataset):
         :param annotations_file: Name of the file containing the annotations. This file should be present in the
         data_dir. It is assumed to be a .npy file containing a numpy array. Default is None.
         """
+        # pylint: disable=super-init-not-called
         self.data_dir = Path(data_dir).resolve()
         self.input_names = input_names
         assert len(input_names) == len(input_shapes), "Number of input shapes should be equal to number of input names."

@@ -69,6 +69,7 @@ def create_new_system_with_cache(origin_system, accelerator):
 
 
 def create_new_system(origin_system, accelerator):
+    # pylint: disable=consider-using-with
     provider_dockerfile_mapping = {
         "CPUExecutionProvider": "Dockerfile.cpu",
         "CUDAExecutionProvider": "Dockerfile.gpu",

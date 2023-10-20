@@ -22,6 +22,9 @@ from olive.strategy.search_parameter import Boolean, Categorical, Conditional
 
 logger = logging.getLogger(__name__)
 
+# pylint: disable=consider-using-with, attribute-defined-outside-init
+
+
 # common config for Vitis-AI quantization
 vai_q_onnx_quantization_config = {
     "data_dir": PassConfigParam(

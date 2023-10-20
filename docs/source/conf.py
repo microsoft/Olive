@@ -8,6 +8,7 @@ import sys
 import sphinx_rtd_theme
 
 # ruff: noqa
+# pylint: skip-file
 sys.path.append(os.path.abspath("exts"))
 # Configuration file for the Sphinx documentation builder.
 #

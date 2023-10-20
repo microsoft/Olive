@@ -398,8 +398,11 @@ class FullPassConfig(ConfigBase):
         return v
 
     def create_pass(self):
+        if not isinstance(self.accelerator, dict):
+            raise ValueError(f"accelerator must be a dict, got {self.accelerator}")
+
         pass_cls = Pass.registry[self.type.lower()]
-        accelerator_spec = AcceleratorSpec(**self.accelerator)
+        accelerator_spec = AcceleratorSpec(**self.accelerator)  # pylint: disable=not-a-mapping
         return pass_cls(accelerator_spec, self.config, self.disable_search)
 
 

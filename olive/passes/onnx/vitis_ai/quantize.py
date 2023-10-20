@@ -19,6 +19,7 @@ from olive.passes.onnx.vitis_ai.calibrate import PowerOfTwoMethod, create_calibr
 from olive.passes.onnx.vitis_ai.quant_utils import get_exclude_nodes, is_ort_version_below_1_16
 from olive.passes.onnx.vitis_ai.quantizer import VitisDPUQuantizer, VitisQDQQuantizer, VitisQOpQuantizer
 
+# pylint: skip-file
 # ruff: noqa
 
 

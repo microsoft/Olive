@@ -18,6 +18,8 @@ from azureml.evaluate import mlflow as aml_mlflow
 
 from olive.model import PyTorchModel
 
+# pylint: disable=attribute-defined-outside-init, consider-using-with
+
 
 class TestPyTorchMLflowModel(unittest.TestCase):
     def setup(self):

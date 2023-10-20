@@ -14,6 +14,8 @@ from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.systems.common import LocalDockerConfig
 from olive.systems.docker.docker_system import DockerSystem
 
+# pylint: disable=attribute-defined-outside-init, consider-using-with, c-extension-no-member
+
 
 class TestDockerSystem:
     @pytest.fixture(autouse=True)

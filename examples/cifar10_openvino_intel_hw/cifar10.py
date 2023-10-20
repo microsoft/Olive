@@ -21,6 +21,7 @@ def main():
         file_template_content = f.read()
         file_template_content = file_template_content.replace("{USER_SCRIPT}", user_script_path)
 
+    # pylint: disable=consider-using-with
     config_file = tempfile.NamedTemporaryFile(delete=False, suffix=".json", prefix="config_")
     with open(config_file.name, "w") as f:  # noqa: PTH123
         f.write(file_template_content)

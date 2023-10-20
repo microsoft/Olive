@@ -6,7 +6,7 @@ import logging
 
 
 def set_verbosity(verbose):
-    logging.getLogger(__name__.split(".")[0]).setLevel(verbose)
+    logging.getLogger(__name__.split(".", maxsplit=1)[0]).setLevel(verbose)
 
 
 def set_verbosity_info():

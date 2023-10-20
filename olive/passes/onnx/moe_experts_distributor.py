@@ -125,6 +125,7 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
     ]
 
     def __init__(self, world_size: int, input_filepath: str, debug=False):
+        # pylint: disable=useless-parent-delegation
         super().__init__(world_size, input_filepath, debug)
 
     @staticmethod

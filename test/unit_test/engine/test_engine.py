@@ -25,6 +25,8 @@ from olive.passes.onnx import OnnxConversion, OnnxDynamicQuantization, OnnxStati
 from olive.systems.common import SystemType
 from olive.systems.local import LocalSystem
 
+# pylint: disable=consider-using-with, protected-access
+
 
 # Please note your test case could still "pass" even if it throws exception to fail.
 # Please check log message to make sure your test case passes.

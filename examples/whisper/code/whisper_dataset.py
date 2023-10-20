@@ -71,7 +71,7 @@ class WhisperDataset:
 
     def __getitem__(self, idx):
         data = self.data[idx]
-        label = self.labels[idx] if self.labels is not None else -1
+        label = self.labels[idx] if self.labels is not None else -1  # pylint: disable=unsubscriptable-object
         return data, label
 
     def __iter__(self):

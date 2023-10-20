@@ -10,6 +10,8 @@ from pydantic import ValidationError
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.passes.onnx import OrtPerfTuning
 
+# pylint: disable=consider-using-with
+
 
 class TestUserScriptConfig:
     def test_no_config(self):

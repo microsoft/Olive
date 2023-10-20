@@ -10,6 +10,8 @@ import pytest
 
 from olive.engine.footprint import Footprint
 
+# pylint: disable=attribute-defined-outside-init
+
 
 class TestFootprint:
     @pytest.fixture(autouse=True)

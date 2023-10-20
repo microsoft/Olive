@@ -5,6 +5,8 @@
 import json
 import os
 
+# pylint: skip-file
+
 
 def check_output(footprints):
     """Check if the search output is valid."""

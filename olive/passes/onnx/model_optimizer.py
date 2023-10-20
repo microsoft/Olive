@@ -43,9 +43,9 @@ class ModelOptimizer:
         self.fuse_transpose_qat()
 
     def fuse_transpose_qat(self):
-        for node_name in self.node_name2module:
-            node = self.node_name2module[node_name][0]
-            node_index = self.node_name2module[node_name][1]
+        for module in self.node_name2module.values():
+            node = module[0]
+            node_index = module[1]
             if node.op_type == "Transpose":
                 if "DequantizeLinear" in node.input[0]:
                     dequant_node_name = node.input[0][:-9]
@@ -188,12 +188,11 @@ class ModelOptimizer:
 
                 logger.debug(f"ModelOptimization: inserted node {cast_node.name}")
 
-        self.model = o_model.model
+        self.model = o_model.model  # pylint: disable=attribute-defined-outside-init
 
     def fuse_reshape_operations(self):
         # Remove unnecessary Reshape operator. Consecutive Reshape operators with latter's input being "[-1]"
         # i.e. flatten the input, the former Reshape operator is useless."""
-        import numpy as np
         from onnxruntime.transformers.onnx_model import OnnxModel as TransformersOnnxModel
 
         o_model = TransformersOnnxModel(self.model)
@@ -215,7 +214,7 @@ class ModelOptimizer:
                 logger.debug(f"ModelOptimization: removed node {input_node_0.name}")
 
         o_model.prune_graph()
-        self.model = o_model.model
+        self.model = o_model.model  # pylint: disable=attribute-defined-outside-init
 
 
 class OnnxModelOptimizer(Pass):

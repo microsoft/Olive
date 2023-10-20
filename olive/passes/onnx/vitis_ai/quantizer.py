@@ -51,6 +51,7 @@ from olive.passes.onnx.vitis_ai.refine import adjust_quantize_info
 
 logger = logging.getLogger(__name__)
 
+# pylint: skip-file
 # ruff: noqa
 
 
@@ -125,7 +126,6 @@ class VitisDPUQuantizer(QDQQuantizer):
         self.is_activation_symmetric = True
 
     def vitis_quantize_initializer(self, weight, bit_width=8, keep_float_weight=False):
-
         # Find if this input is already quantized
         if weight.name in self.quantized_value_map:
             quantized_value = self.quantized_value_map[weight.name]
@@ -162,7 +162,6 @@ class VitisDPUQuantizer(QDQQuantizer):
         return q_weight_name, zp_name, scale_name
 
     def quantize_model(self):
-
         self.tensor_info = {}
         model = self.model.model
         annotate_output_name_list = get_annotate_output_name(model)

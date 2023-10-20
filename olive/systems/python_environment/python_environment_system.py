@@ -70,7 +70,7 @@ class PythonEnvironmentSystem(OliveSystem):
                     os.makedirs(temp_dir)
                 self.environ["TMPDIR"] = temp_dir
             else:
-                self.environ["TMPDIR"] = tempfile.TemporaryDirectory().name
+                self.environ["TMPDIR"] = tempfile.TemporaryDirectory().name  # pylint: disable=consider-using-with
 
         # available eps. This will be populated the first time self.get_supported_execution_providers() is called.
         # used for caching the available eps

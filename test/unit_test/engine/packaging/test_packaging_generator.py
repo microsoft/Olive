@@ -21,6 +21,8 @@ from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.passes.onnx.conversion import OnnxConversion
 
+# pylint: disable=consider-using-with
+
 
 @patch("onnx.external_data_helper.sys.getsizeof")
 @pytest.mark.parametrize(
