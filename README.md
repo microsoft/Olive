@@ -57,7 +57,7 @@ the list of extras and their dependencies.
 
 [![Build Status](https://dev.azure.com/aiinfra/PublicPackages/_apis/build/status%2FOlive%20CI?label=Olive-CI)](https://dev.azure.com/aiinfra/PublicPackages/_build/latest?definitionId=1240)
 
-[![Build Status](https://dev.azure.com/aiinfra/PublicPackages/_apis/build/status%2FOlive%20Formatting?label=Olive-Formatting)](https://dev.azure.com/aiinfra/PublicPackages/_build/latest?definitionId=1239)
+[![Build Status](https://dev.azure.com/aiinfra/PublicPackages/_apis/build/status%2FOlive-ORT-stable?label=Olive-ORT-stable)](https://aiinfra.visualstudio.com/PublicPackages/_build?definitionId=1281)
 
 [![Build Status](https://dev.azure.com/aiinfra/PublicPackages/_apis/build/status%2FOlive-ORT-Nightly?label=Olive-ORT-Nightly)](https://dev.azure.com/aiinfra/PublicPackages/_build/latest?definitionId=1279)
 
