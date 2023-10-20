@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import platform
-import tempfile
 
 import pytest
 
@@ -14,7 +13,7 @@ from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
 from olive.model import ModelConfig
 from olive.passes.onnx import OrtPerfTuning
 
-# pylint: disable=attribute-defined-outside-init, consider-using-with
+# pylint: disable=attribute-defined-outside-init
 
 
 @pytest.mark.skipif(platform.system() == "Windows", reason="Docker target does not support windows")
@@ -34,11 +33,10 @@ class TestOliveManagedDockerSystem:
         )
         download_data()
 
-    def test_run_pass_evaluate(self):
+    def test_run_pass_evaluate(self, tmpdir):
         from test.multiple_ep.utils import get_latency_metric
 
-        temp_dir = tempfile.TemporaryDirectory()
-        output_dir = temp_dir.name
+        output_dir = tmpdir
 
         metric = get_latency_metric()
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])

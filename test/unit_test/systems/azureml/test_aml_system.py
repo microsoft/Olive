@@ -93,10 +93,9 @@ class TestAzureMLSystem:
 
     @patch("olive.systems.azureml.aml_system.retry_func")
     @patch("olive.systems.azureml.aml_system.AzureMLSystem._create_pipeline_for_pass")
-    def test_run_pass(self, mock_create_pipeline, mock_retry_func):
+    def test_run_pass(self, mock_create_pipeline, mock_retry_func, tmp_path):
         # setup
-        tmp_dir = tempfile.TemporaryDirectory()
-        tmp_dir_path = Path(tmp_dir.name)
+        tmp_dir_path = tmp_path
         # dummy pipeline output download path
         pipeline_output_path = tmp_dir_path / "pipeline_output" / "named-outputs" / "pipeline_output"
         pipeline_output_path.mkdir(parents=True, exist_ok=True)
@@ -152,7 +151,7 @@ class TestAzureMLSystem:
         "model_resource_type",
         [ResourceType.AzureMLModel, ResourceType.LocalFile, ResourceType.StringName],
     )
-    def test__create_model_args(self, model_resource_type):
+    def test__create_model_args(self, model_resource_type, tmp_path):
         # setup
         temp_model = tempfile.NamedTemporaryFile(dir=".", suffix=".onnx", prefix="model_0")
         ws_config = {
@@ -179,8 +178,7 @@ class TestAzureMLSystem:
                 "model_path": resource_paths[model_resource_type],
             },
         }
-        tem_dir = tempfile.TemporaryDirectory()
-        tem_dir_path = Path(tem_dir.name)
+        tem_dir_path = tmp_path
         model_config_path = tem_dir_path / "model_config.json"
         if model_resource_type == ResourceType.AzureMLModel:
             expected_model_path = Input(type=AssetTypes.CUSTOM_MODEL, path="azureml:model_name:version")

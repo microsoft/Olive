@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import platform
-import tempfile
 from test.unit_test.utils import create_onnx_model_file, get_latency_metric, get_onnx_model_config
 
 import pytest
@@ -16,7 +15,7 @@ from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
 from olive.passes.onnx import OrtPerfTuning
 from olive.systems.python_environment import PythonEnvironmentSystem
 
-# pylint: disable=attribute-defined-outside-init, consider-using-with
+# pylint: disable=attribute-defined-outside-init
 
 
 class TestOliveManagedPythonEnvironmentSystem:
@@ -26,15 +25,14 @@ class TestOliveManagedPythonEnvironmentSystem:
         self.input_model_config = get_onnx_model_config()
 
     @pytest.mark.skip(reason="No machine to test DML execution provider")
-    def test_run_pass_evaluate_windows(self):
+    def test_run_pass_evaluate_windows(self, tmpdir):
         # use the olive managed python environment as the test environment
         self.system = PythonEnvironmentSystem(
             accelerators=["gpu"],
             olive_managed_env=True,
         )
         self.execution_providers = ["DmlExecutionProvider", "OpenVINOExecutionProvider"]
-        temp_dir = tempfile.TemporaryDirectory()
-        output_dir = temp_dir.name
+        output_dir = tmpdir
 
         metric = get_latency_metric(LatencySubType.AVG)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
@@ -50,15 +48,14 @@ class TestOliveManagedPythonEnvironmentSystem:
         assert openvino_res[tuple(engine.pass_flows[0])]["metrics"]["latency-avg"]
 
     @pytest.mark.skipif(platform.system() == "Windows", reason="Test for Linux only")
-    def test_run_pass_evaluate_linux(self):
+    def test_run_pass_evaluate_linux(self, tmpdir):
         # use the olive managed python environment as the test environment
         self.system = PythonEnvironmentSystem(
             accelerators=["cpu"],
             olive_managed_env=True,
         )
         self.execution_providers = ["CPUExecutionProvider", "OpenVINOExecutionProvider"]
-        temp_dir = tempfile.TemporaryDirectory()
-        output_dir = temp_dir.name
+        output_dir = tmpdir
 
         metric = get_latency_metric(LatencySubType.AVG)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
