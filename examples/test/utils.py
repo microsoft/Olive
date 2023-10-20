@@ -35,12 +35,13 @@ def patch_config(config_json_path: str, search_algorithm: str, execution_order: 
         if search_algorithm == "random" or search_algorithm == "tpe":
             olive_config["engine"]["search_strategy"]["search_algorithm_config"] = {"num_samples": 3, "seed": 0}
 
-    update_azureml_config(olive_config)
+    # update_azureml_config(olive_config)
     if system == "aml_system":
         # set aml_system
         set_aml_system(olive_config, is_gpu=is_gpu)
         olive_config["engine"]["host"] = system
         olive_config["engine"]["target"] = system
+
     elif system == "docker_system":
         # set docker_system
         set_docker_system(olive_config)
