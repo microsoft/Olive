@@ -392,7 +392,12 @@ class Engine:
         self.footprints[accelerator_spec].record(model_id=input_model_id)
 
         try:
-            if evaluate_input_model:
+            if evaluate_input_model and self.no_search and not self.evaluator_config:
+                logger.debug(
+                    "evaluate_input_model is True but no evaluator provided in no-search mode. Skipping input model"
+                    " evaluation."
+                )
+            elif evaluate_input_model:
                 prefix_output_name = (
                     f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}"
                 )
