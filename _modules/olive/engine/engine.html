@@ -520,7 +520,12 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">record</span><span class="p">(</span><span class="n">model_id</span><span class="o">=</span><span class="n">input_model_id</span><span class="p">)</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">evaluate_input_model</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">evaluate_input_model</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                    <span class="s2">&quot;evaluate_input_model is True but no evaluator provided in no-search mode. Skipping input model&quot;</span>
+                    <span class="s2">&quot; evaluation.&quot;</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="n">evaluate_input_model</span><span class="p">:</span>
                 <span class="n">prefix_output_name</span> <span class="o">=</span> <span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">output_name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">_&quot;</span> <span class="k">if</span> <span class="n">output_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">&quot;</span>
                 <span class="p">)</span>
