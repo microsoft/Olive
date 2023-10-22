@@ -12,7 +12,7 @@ import pytest
 from olive.data.config import DataConfig
 from olive.workflows.run.config import INPUT_MODEL_DATA_CONFIG, RunConfig
 
-# pylint: disable=attribute-defined-outside-init,invalid-name
+# pylint: disable=attribute-defined-outside-init
 
 
 class TestRunConfig:

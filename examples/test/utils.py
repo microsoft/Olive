@@ -5,7 +5,7 @@
 import json
 import os
 
-# pylint: skip-file
+# pylint: disable=broad-exception-raised
 
 
 def check_output(footprints):
