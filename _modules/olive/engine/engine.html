@@ -587,11 +587,11 @@
         <span class="c1"># These passes will be added to the search space</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">pass_flows_search_spaces</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">pass_flow</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pass_flows</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">pass_search_spaces</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># pylint: disable=attribute-defined-outside-init</span>
+            <span class="n">pass_search_spaces</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="k">for</span> <span class="n">pass_name</span> <span class="ow">in</span> <span class="n">pass_flow</span><span class="p">:</span>
                 <span class="n">p</span><span class="p">:</span> <span class="n">Pass</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">[</span><span class="n">pass_name</span><span class="p">][</span><span class="s2">&quot;pass&quot;</span><span class="p">]</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">pass_search_spaces</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">pass_name</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">search_space</span><span class="p">()))</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">pass_flows_search_spaces</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pass_search_spaces</span><span class="p">)</span>
+                <span class="n">pass_search_spaces</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">pass_name</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">search_space</span><span class="p">()))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pass_flows_search_spaces</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pass_search_spaces</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">run_no_search</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -1018,6 +1018,7 @@
         <span class="n">should_prune</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="c1"># run all the passes in the step</span>
         <span class="n">model_ids</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">pass_id</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">for</span> <span class="n">pass_id</span><span class="p">,</span> <span class="n">pass_search_point</span> <span class="ow">in</span> <span class="n">passes</span><span class="p">:</span>
             <span class="n">model_config</span><span class="p">,</span> <span class="n">model_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_pass</span><span class="p">(</span>
                 <span class="n">pass_id</span><span class="p">,</span> <span class="n">pass_search_point</span><span class="p">,</span> <span class="n">model_config</span><span class="p">,</span> <span class="n">model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">accelerator_spec</span>
@@ -1030,7 +1031,7 @@
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">should_prune</span><span class="p">:</span>
             <span class="c1"># evaluate the model</span>
-            <span class="n">evaluator_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_for_pass</span><span class="p">(</span><span class="n">pass_id</span><span class="p">)</span>  <span class="c1"># pylint: disable=undefined-loop-variable</span>
+            <span class="n">evaluator_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_for_pass</span><span class="p">(</span><span class="n">pass_id</span><span class="p">)</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span> <span class="ow">and</span> <span class="n">evaluator_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="c1"># skip evaluation if no search and no evaluator</span>
                 <span class="n">signal</span> <span class="o">=</span> <span class="kc">None</span>
