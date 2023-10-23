@@ -4,11 +4,10 @@ import gc
 import os
 
 import gradio as gr
-
-from .app_modules.overwrites import postprocess
-from .app_modules.presets import description, description_top, small_and_beautiful_theme, title
-from .app_modules.utils import cancel_outputing, delete_last_conversation, reset_state, reset_textbox, transfer_input
-from .interface.hddr_llama_onnx_dml_interface import LlamaOnnxDmlInterface
+from app_modules.overwrites import postprocess
+from app_modules.presets import description, description_top, small_and_beautiful_theme, title
+from app_modules.utils import cancel_outputing, delete_last_conversation, reset_state, reset_textbox, transfer_input
+from interface.hddr_llama_onnx_dml_interface import LlamaOnnxDmlInterface
 
 top_directory = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
