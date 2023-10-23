@@ -826,9 +826,11 @@
         <span class="n">targets</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">targets</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
         <span class="n">logits</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">logits</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
         <span class="c1"># move model to cpu</span>
-        <span class="c1"># don&#39;t want model to be kept on gpu since model persists and takes up gpu memory</span>
         <span class="k">if</span> <span class="n">device</span><span class="p">:</span>
             <span class="n">session</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+        <span class="c1"># only move to cpu cannot release gpu memory, call cuda.empty_cache() to release gpu memory</span>
+        <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">empty_cache</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">OliveModelOutput</span><span class="p">(</span><span class="n">preds</span><span class="o">=</span><span class="n">preds</span><span class="p">,</span> <span class="n">logits</span><span class="o">=</span><span class="n">logits</span><span class="p">),</span> <span class="n">targets</span>
 
     <span class="k">def</span> <span class="nf">_evaluate_accuracy</span><span class="p">(</span>
@@ -898,7 +900,9 @@
         <span class="c1"># move model to cpu</span>
         <span class="k">if</span> <span class="n">device</span><span class="p">:</span>
             <span class="n">session</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
-
+        <span class="c1"># only move to cpu cannot release gpu memory, call cuda.empty_cache() to release gpu memory</span>
+        <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">empty_cache</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">compute_latency</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">latencies</span><span class="p">)</span>
 
 
