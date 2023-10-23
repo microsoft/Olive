@@ -269,6 +269,9 @@ class QLoRA(Pass):
 
         # remove loaded model
         new_model.model = None
+        del pytorch_model
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         # remove the device map since we don't want "auto" device map
         new_model.hf_config.model_loading_args.device_map = None
         # remove model_overwrites from model_attributes

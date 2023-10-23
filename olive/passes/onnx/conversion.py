@@ -192,6 +192,8 @@ class OnnxConversion(Pass):
         # Reset to CPU so the resource consumed on GPU could be free.
         if device != "cpu":
             pytorch_model.to("cpu")
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         # save the model to the output path and return the model
         return model_proto_to_olive_model(onnx_model, output_model_path, config)
 
