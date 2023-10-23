@@ -3,7 +3,10 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import re
 from typing import Any, Dict, List
+
+import onnx
 
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModel
@@ -27,8 +30,8 @@ class OnnxBnb4Quantization(Pass):
             "quantized_modules": PassConfigParam(
                 type_=List[str],
                 description=(
-                    "The list of modules to quantize. Will match the end of MatMul nodes with this list to determine"
-                    " which nodes to quantize."
+                    "The list of modules to quantize. Node names will be matched as '.*/{module}/MatMul$'. If not"
+                    " specified, all MatMul nodes will be quantized."
                 ),
             ),
         }
@@ -65,11 +68,41 @@ class OnnxBnb4Quantization(Pass):
         assert quant_type in ["fp4", "nf4"], f"quant_type must be one of 'fp4' or 'nf4'. Got {quant_type}."
         quant_type_enum = getattr(MatMulBnb4Quantizer, quant_type.upper())
 
+        # load the model
         onnx_model = model.load_model()
+
+        # find all MatMul nodes in the graph
+        matmul_nodes = self._find_matmul_nodes(onnx_model.graph)
+        # filter based on quantized_modules
+        quantized_modules = set(quantized_modules or [])
+        nodes_to_exclude = [
+            node
+            for node in matmul_nodes
+            if quantized_modules and not any(re.match(f".*[./]{key}[./]MatMul$", node) for key in quantized_modules)
+        ]
+
+        # quantize the model
         quantizer = MatMulBnb4Quantizer(
-            onnx_model, quant_type=quant_type_enum, block_size=64, nodes_filter=quantized_modules
+            onnx_model, quant_type=quant_type_enum, block_size=64, nodes_to_exclude=nodes_to_exclude
         )
         quantizer.process()
 
         # save the model to the output path and return the model
         return model_proto_to_olive_model(onnx_model, output_model_path, config)
+
+    def _find_matmul_nodes(self, graph: onnx.GraphProto) -> List[str]:
+        """Find all MatMul nodes in the graph and return their names."""
+        matmul_nodes = []
+        for node in graph.node:
+            for attr in node.attribute:
+                if attr.type == onnx.AttributeProto.GRAPH:
+                    # recursive call to take care of sub-graph
+                    matmul_nodes += self._find_matmul_nodes(attr.g)
+                elif attr.type == onnx.AttributeProto.GRAPHS:
+                    for subgraph in attr.graphs:
+                        # recursive call to take care of sub-graph
+                        matmul_nodes += self._find_matmul_nodes(subgraph)
+            if node.op_type == "MatMul":
+                matmul_nodes.append(node.name)
+
+        return matmul_nodes
