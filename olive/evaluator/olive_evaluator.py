@@ -698,9 +698,11 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         targets = torch.cat(targets, dim=0)
         logits = torch.cat(logits, dim=0)
         # move model to cpu
-        # don't want model to be kept on gpu since model persists and takes up gpu memory
         if device:
             session.to("cpu")
+        # only move to cpu cannot release gpu memory, call cuda.empty_cache() to release gpu memory
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         return OliveModelOutput(preds=preds, logits=logits), targets
 
     def _evaluate_accuracy(
@@ -770,7 +772,9 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         # move model to cpu
         if device:
             session.to("cpu")
-
+        # only move to cpu cannot release gpu memory, call cuda.empty_cache() to release gpu memory
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         return OliveEvaluator.compute_latency(metric, latencies)
 
 
