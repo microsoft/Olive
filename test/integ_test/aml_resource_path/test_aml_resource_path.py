@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import tempfile
 from pathlib import Path
 from test.integ_test.utils import get_olive_workspace_config
 
@@ -10,15 +9,12 @@ import pytest
 
 from olive.resource_path import ResourceType, create_resource_path
 
-# pylint: disable=attribute-defined-outside-init, consider-using-with
+# pylint: disable=attribute-defined-outside-init
 
 
 class TestAMLResourcePath:
     @pytest.fixture(autouse=True)
     def setup(self):
-        self.tmp_dir = tempfile.TemporaryDirectory()
-        self.tmp_dir_path = Path(self.tmp_dir.name).resolve()
-
         workspace_config = get_olive_workspace_config()
 
         self.resource_path_configs = {
@@ -75,26 +71,26 @@ class TestAMLResourcePath:
             ResourceType.AzureMLJobOutput,
         ],
     )
-    def test_save_to_dir(self, resource_path_type):
+    def test_save_to_dir(self, resource_path_type, tmp_path):
         resource_path = create_resource_path(self.resource_path_configs[resource_path_type])
 
         save_result = "local_folder" if resource_path_type.endswith("folder") else "model.onnx"
         # test save to dir
-        saved_resource = resource_path.save_to_dir(self.tmp_dir_path / "save_to_dir")
+        saved_resource = resource_path.save_to_dir(tmp_path / "save_to_dir")
         assert Path(saved_resource).exists()
         assert Path(saved_resource).name == save_result
 
         # test save to dir with new name
         new_name = "new_name"
-        saved_resource = resource_path.save_to_dir(self.tmp_dir_path / "save_to_dir", new_name)
+        saved_resource = resource_path.save_to_dir(tmp_path / "save_to_dir", new_name)
         assert Path(saved_resource).exists()
         assert Path(saved_resource).stem == new_name
 
         # test fail to save to dir with existing name
         with pytest.raises(FileExistsError):
-            resource_path.save_to_dir(self.tmp_dir_path / "save_to_dir")
+            resource_path.save_to_dir(tmp_path / "save_to_dir")
 
         # test save to dir with overwrite
-        saved_resource = resource_path.save_to_dir(self.tmp_dir_path / "save_to_dir", overwrite=True)
+        saved_resource = resource_path.save_to_dir(tmp_path / "save_to_dir", overwrite=True)
         assert Path(saved_resource).exists()
         assert Path(saved_resource).name == save_result

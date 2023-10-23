@@ -146,6 +146,7 @@ class Conditional(SearchParameter):
 
         # condition the first parent and create a new conditional
         parent_idx = len(self.parents) - 1
+        parent = None
         for i, parent in enumerate(self.parents):
             if parent in parent_values:
                 parent_value = parent_values[parent]
@@ -164,7 +165,7 @@ class Conditional(SearchParameter):
         new_conditional = Conditional(new_parents, new_support, self.default)
 
         # condition the new conditional if there are more parents to condition, else return the new conditional
-        del parent_values[parent]  # pylint: disable=undefined-loop-variable
+        del parent_values[parent]
         if len(parent_values) == 0:
             return new_conditional
         return new_conditional.condition(parent_values)

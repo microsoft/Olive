@@ -581,7 +581,6 @@ def format_pair_dataset(dataset, args):
     }
 
     if args.pair_format == TextGenPairFormat.ALPACA:
-        # pylint: disable=unnecessary-lambda
 
         def extract_alpaca_dataset(example):
             # extract new input from instruction and input
@@ -592,7 +591,7 @@ def format_pair_dataset(dataset, args):
             return {"input": prompt_format.formate(**example)}
 
         # extract new input from instruction and input
-        dataset = dataset.map(lambda x: extract_alpaca_dataset(x), remove_columns=["instruction"])
+        dataset = dataset.map(extract_alpaca_dataset, remove_columns=["instruction"])
     elif args.pair_format == TextGenPairFormat.CHIP2:
         # separate the human and bot text into input and output
         dataset = dataset.map(

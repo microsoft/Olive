@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import shutil
-import tempfile
 import unittest
 from pathlib import Path
 from types import FunctionType
@@ -18,13 +17,14 @@ from azureml.evaluate import mlflow as aml_mlflow
 
 from olive.model import PyTorchModel
 
-# pylint: disable=attribute-defined-outside-init, consider-using-with
+# pylint: disable=attribute-defined-outside-init
 
 
 class TestPyTorchMLflowModel(unittest.TestCase):
-    def setup(self):
-        self.tempdir = tempfile.TemporaryDirectory()
-        self.root_dir = Path(self.tempdir.name)
+    @pytest.fixture(autouse=True)
+    def setup(self, tmpdir):
+        self.tempdir = tmpdir
+        self.root_dir = Path(self.tempdir)
         self.model_path = str(self.root_dir.resolve() / "mlflow_test")
         self.task = "text-classification"
         self.architecture = "Intel/bert-base-uncased-mrpc"
@@ -46,15 +46,11 @@ class TestPyTorchMLflowModel(unittest.TestCase):
         )
 
     def test_hf_model_attributes(self):
-        self.setup()
-
         olive_model = PyTorchModel(hf_config={"task": self.task, "model_name": self.architecture})
         # model_attributes will be delayed loaded until pass run
         assert olive_model.model_attributes == transformers.AutoConfig.from_pretrained(self.architecture).to_dict()
 
     def test_load_model(self):
-        self.setup()
-
         olive_model = PyTorchModel(model_path=self.model_path, model_file_format="PyTorch.MLflow").load_model()
         mlflow_model = mlflow.pyfunc.load_model(self.model_path)
 
@@ -76,7 +72,6 @@ class TestPyTorchMLflowModel(unittest.TestCase):
         olive_predict_result = [olive_model.config.id2label[olive_result]]
 
         assert mlflow_predict_result == olive_predict_result
-        self.tempdir.cleanup()
 
 
 class TestPyTorchHFModel(unittest.TestCase):

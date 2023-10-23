@@ -80,8 +80,8 @@ class BaseDataset(TorchDataset):
             data_dict = {k: [] for k in first_input}
             data_dict[label_name] = []
             # loop over the dataset
-            for i in range(len(self)):  # pylint: disable=consider-using-enumerate
-                data, label = deepcopy(self[i])
+            for _, d in enumerate(self):
+                data, label = deepcopy(d)
                 for k, v in data.items():
                     data_dict[k].append(v)
                 data_dict[label_name].append(label)
@@ -107,6 +107,12 @@ class DummyDataset(BaseDataset):
         return 256
 
     def __getitem__(self, index):
+        # From https://docs.python.org/3/reference/datamodel.html#object.__getitem__,
+        # __getitem__ should raise IndexError when index is out of range
+        # Otherwise, the enumerate function will enter infinite loop
+        if index < 0 or index >= len(self):
+            raise IndexError("Index out of range")
+
         str_to_type = {
             "float32": torch.float32,
             "float16": torch.float16,
