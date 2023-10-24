@@ -524,6 +524,7 @@ class PyTorchModel(OliveModel):
             ), "model_script must be a local file or a string name."
 
         # io config for conversion to onnx
+        # TODO(trajep): support callable io_config
         if isinstance(io_config, str):
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             io_config = user_module_loader.call_object(io_config, self.hf_config.model_name)

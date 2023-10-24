@@ -43,6 +43,7 @@ Also we need latest version of onnxruntime which provides the support of int4 qu
     git clone https://github.com/microsoft/onnxruntime
     # compile ort with cuda support, which requires the image with cuda and cudnn installed
     bash ./build.sh \
+        --config=Release \
         --build_dir="./test_build" \
         --cuda_home /usr/local/cuda --cudnn_home /usr/lib/x86_64-linux-gnu/ \
         --cuda_version=11.7 \
@@ -52,7 +53,7 @@ Also we need latest version of onnxruntime which provides the support of int4 qu
         --skip_tests --cmake_extra_defines ONNXRUNTIME_VERSION=(cat ./VERSION_NUMBER) \CMAKE_CUDA_ARCHITECTURES="70;75;80" \
         --use_mpi=false
     ```
-Then you can find the wheel file under folder of `build_dir`(`test_build/Debug/dist/` in this case).
+Then you can find the wheel file under folder of `build_dir`(`test_build/Release/dist/` in this case).
 
 2. From nightly-build:
 
@@ -76,13 +77,15 @@ First, install required packages according to passes.
 CPU:
 ```bash
 # run to optimize the model: FP32/INT8/INT4
-python -m olive.workflows.run --config ort_converter_merged_llama2_cpu.json
+python llama2.py --model_name meta-llama/Llama-2-7b-hf
 ```
 
 GPU:
 ```bash
 # run to optimize the model: FP32/INT8/INT4
-python -m olive.workflows.run --config ort_converter_merged_llama2_gpu.json
+python llama2.py --model_name meta-llama/Llama-2-7b-hf --gpu
+# use gqa instead of mha
+python llama2.py --model_name meta-llama/Llama-2-7b-hf --gpu --use_gqa
 ```
 
 ## TODO

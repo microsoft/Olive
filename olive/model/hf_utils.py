@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 class HFComponent(ConfigBase):
     name: str
+    # TODO(trajep): support callable io_config
     io_config: Union[IOConfig, str, Dict[str, Any]]
     component_func: Union[str, Callable] = None
     dummy_inputs_func: Union[str, Callable]
