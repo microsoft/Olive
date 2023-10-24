@@ -297,9 +297,9 @@ class QuantKVDataLoader:
 
             # Pad input data because all model inputs must have same shape
             pad_len = self.pad_max - input_ids.shape[0]
-            input_ids = F.pad(input_ids, (0, pad_len), value=1)
-            attention_mask = F.pad(attention_mask, (0, pad_len), value=0)
-            position_ids = F.pad(position_ids, (0, pad_len), value=0)
+            input_ids = F.pad(input_ids, (0, pad_len), value=1)  # pylint: disable=not-callable
+            attention_mask = F.pad(attention_mask, (0, pad_len), value=0)  # pylint: disable=not-callable
+            position_ids = F.pad(position_ids, (0, pad_len), value=0)  # pylint: disable=not-callable
 
             input_ids_batched.append(input_ids)
             attention_mask_batched.append(attention_mask)
