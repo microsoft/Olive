@@ -13,6 +13,8 @@ from olive.evaluator.metric_backend import HuggingfaceMetrics
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.systems.local import LocalSystem
 
+# pylint: disable=attribute-defined-outside-init, redefined-outer-name
+
 
 class TestMetricBackend:
     @pytest.fixture(autouse=True)
@@ -59,8 +61,6 @@ class TestMetricBackend:
         HF_ACCURACY_TEST_CASE,
     )
     def test_evaluate_backend(self, model_config, metric, expected_res):
-        from olive.evaluator.metric_backend import HuggingfaceMetrics
-
         with patch.object(HuggingfaceMetrics, "measure_sub_metric") as mock_measure:
             mock_measure.return_value = SubMetricResult(value=expected_res, higher_is_better=True, priority=-1)
             system = LocalSystem()

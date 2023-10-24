@@ -26,6 +26,8 @@ from olive.strategy.search_parameter import Boolean, Categorical, Conditional, C
 
 logger = logging.getLogger(__name__)
 
+# pylint: disable=consider-using-with
+
 # common config for both static and dynamic quantization
 _onnx_quantization_config = {
     "weight_type": PassConfigParam(
@@ -220,6 +222,7 @@ class OnnxQuantization(Pass):
 
     def _initialize(self):
         super()._initialize()
+        # pylint: disable=attribute-defined-outside-init
         self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
 
     @staticmethod

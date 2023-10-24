@@ -13,6 +13,8 @@ from torchvision.transforms import ToTensor
 
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
 
+# pylint: disable=redefined-outer-name
+
 
 def get_directories():
     current_dir = Path(__file__).resolve().parent

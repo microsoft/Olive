@@ -81,7 +81,7 @@ class TextGenParams(ConfigBase):
     @validator("drop_short_sequences", always=True)
     def _check_padding(cls, v, values):
         if "pad_to_max_len" not in values:
-            ValueError("Invalid pad_to_max_len")
+            raise ValueError("Invalid pad_to_max_len")
         if v and values["pad_to_max_len"]:
             raise ValueError("pad_to_max_len and drop_short_sequences cannot both be True")
         return v
@@ -463,6 +463,7 @@ def text_gen_pair_pre_process(dataset, tokenizer, all_kwargs):
             if tokenizer.pad_token_id is None:
                 raise ValueError("Tokenizer does not have a pad token")
             # add padding to max_len
+            # pylint: disable=not-callable
             input_ids = torch.nn.functional.pad(
                 input_ids, (0, max_len - input_ids.shape[0]), value=tokenizer.pad_token_id
             )
@@ -590,7 +591,7 @@ def format_pair_dataset(dataset, args):
             return {"input": prompt_format.formate(**example)}
 
         # extract new input from instruction and input
-        dataset = dataset.map(lambda x: extract_alpaca_dataset(x), remove_columns=["instruction"])
+        dataset = dataset.map(extract_alpaca_dataset, remove_columns=["instruction"])
     elif args.pair_format == TextGenPairFormat.CHIP2:
         # separate the human and bot text into input and output
         dataset = dataset.map(

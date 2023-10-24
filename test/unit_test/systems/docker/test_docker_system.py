@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import tempfile
 from pathlib import Path
 from test.unit_test.utils import get_accuracy_metric, get_pytorch_model_config
 from unittest.mock import ANY, MagicMock, patch
@@ -14,12 +13,10 @@ from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.systems.common import LocalDockerConfig
 from olive.systems.docker.docker_system import DockerSystem
 
+# pylint: disable=attribute-defined-outside-init
+
 
 class TestDockerSystem:
-    @pytest.fixture(autouse=True)
-    def setup(self):
-        self.tmp_dir = tempfile.TemporaryDirectory()
-
     @patch("olive.systems.docker.docker_system.docker.from_env")
     def test__init_image_exist(self, mock_from_env):
         # setup
@@ -65,11 +62,11 @@ class TestDockerSystem:
     @patch("olive.systems.docker.docker_system.shutil.copy2")
     @patch("olive.systems.docker.docker_system.docker.from_env")
     @patch("olive.systems.docker.docker_system.tempfile.TemporaryDirectory")
-    def test__init_image_requirements_file_build(self, mock_tempdir, mock_from_env, mock_copy):
+    def test__init_image_requirements_file_build(self, mock_tempdir, mock_from_env, mock_copy, tmpdir):
         # setup
         import docker
 
-        tempdir = self.tmp_dir.name
+        tempdir = tmpdir
         mock_tempdir.return_value.__enter__.return_value = tempdir
         mock_docker_client = MagicMock()
         mock_from_env.return_value = mock_docker_client
@@ -125,6 +122,7 @@ class TestDockerSystem:
     def test_evaluate_model(
         self,
         exit_code,
+        tmpdir,
     ):
         # setup
         import docker
@@ -134,7 +132,7 @@ class TestDockerSystem:
         self.mock_from_env.return_value.containers.run.return_value.wait.return_value = {"StatusCode": exit_code}
         if exit_code != 0:
             self.mock_from_env.return_value.containers.run.return_value.logs.return_value = [b"mock_error"]
-        tempdir = self.tmp_dir.name
+        tempdir = tmpdir
         self.mock_tempdir.return_value.__enter__.return_value = tempdir
         model_config = get_pytorch_model_config()
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)

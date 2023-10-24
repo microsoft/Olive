@@ -34,8 +34,8 @@ def get_layers(model, model_type):
 
 
 def get_layer_submodules(module, submodule_types=None, layer_name_filter=None, name=""):
-    submodule_types = submodule_types or [torch.nn.Conv2d, torch.nn.Linear, transformers.Conv1D]
     """Get the submodules of a module based on the submodule types."""
+    submodule_types = submodule_types or [torch.nn.Conv2d, torch.nn.Linear, transformers.Conv1D]
     if type(module) in submodule_types:
         if layer_name_filter and not any(s in name for s in layer_name_filter):
             # skip this layer
@@ -193,6 +193,7 @@ class SparseGPTModule:
         self.H += batch_input.matmul(batch_input.t())
 
     def prune(self, mode, sparsity=None, n=None, m=None, blocksize=128, percdamp=0.01):
+        # pylint: disable=not-callable
         W = self.get_W()
         H = self.H
         del self.H
@@ -204,7 +205,7 @@ class SparseGPTModule:
         W[:, dead] = 0
 
         # dampen the Hessian
-        assert percdamp >= 0 and percdamp <= 1
+        assert 0 <= percdamp <= 1
         damp = percdamp * torch.mean(torch.diag(H))
         diag = torch.arange(self.columns, device=self.device)
         H[diag, diag] += damp

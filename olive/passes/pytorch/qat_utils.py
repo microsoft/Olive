@@ -154,7 +154,7 @@ class QatTrainer:
             if type(child) in white_list:
                 if type(child) not in skip_list:
                     new = QuantizedModule(child)
-                    new.qconfig = qconfig
+                    new.qconfig = qconfig  # pylint: disable=attribute-defined-outside-init
                     setattr(module, name, new)
 
     def _recursive_hasattr(self, obj, attribs, state=True):

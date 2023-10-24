@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import shutil
+import sys
 from pathlib import Path
 
 import config
@@ -15,6 +16,8 @@ from packaging import version
 from olive.model import CompositeOnnxModel, ONNXModel
 from olive.workflows import run as olive_run
 
+# pylint: disable=redefined-outer-name
+
 
 def optimize(model_name: str, optimized_model_dir: Path):
     from google.protobuf import __version__ as protobuf_version
@@ -22,7 +25,7 @@ def optimize(model_name: str, optimized_model_dir: Path):
     # protobuf 4.x aborts with OOM when optimizing dolly
     if version.parse(protobuf_version) > version.parse("3.20.3"):
         print("This script requires protobuf 3.20.3. Please ensure your package version matches requirements.txt.")
-        exit(1)
+        sys.exit(1)
 
     ort.set_default_logger_severity(4)
     script_dir = Path(__file__).resolve().parent
@@ -103,7 +106,7 @@ if __name__ == "__main__":
         "databricks/dolly-v2-7b": 4096,
     }
 
-    if args.model not in list(model_to_hidden_size.keys()):
+    if args.model not in model_to_hidden_size:
         print(
             f"WARNING: {args.model} is not an officially supported model for this example and may not work as expected."
         )

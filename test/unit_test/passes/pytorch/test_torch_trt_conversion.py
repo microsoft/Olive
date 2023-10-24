@@ -14,6 +14,8 @@ from olive.model import PyTorchModel
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch import TorchTRTConversion
 
+# pylint: disable=abstract-method
+
 
 class MockTRTLinearLayer(torch.nn.Module):
     pass

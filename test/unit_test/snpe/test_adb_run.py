@@ -13,6 +13,8 @@ import pytest
 from olive.snpe.utils.adb import run_adb_command
 from olive.snpe.utils.local import run_snpe_command
 
+# pylint: disable=redefined-outer-name, unused-variable
+
 
 @pytest.fixture
 def android_target():

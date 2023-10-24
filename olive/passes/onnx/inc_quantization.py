@@ -268,9 +268,6 @@ class IncQuantization(Pass):
 
     _requires_user_script = True
 
-    def _initialize(self):
-        super()._initialize()
-
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
         """Override this method to return False by using the accelerator spec information."""
@@ -338,7 +335,7 @@ class IncQuantization(Pass):
             # and return evaluation value.
 
             # temporarily save model as onnx model
-            tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
+            tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")  # pylint: disable=consider-using-with
             tmp_model_path = Path(tmp_dir.name) / "tmp_model.onnx"
 
             # save as olive onnx model

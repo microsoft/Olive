@@ -15,6 +15,8 @@ from olive.data.registry import Registry
 from olive.resource_path import create_resource_path
 from olive.workflows import run as olive_run
 
+# pylint: disable=redefined-outer-name
+
 
 class DummyDataset(Dataset):
     def __init__(self, size):
@@ -218,12 +220,12 @@ def data_config(tmpdir, request):
 def test_data_root_for_dataset(mock_get_local_path, data_config):
     mock_get_local_path.side_effect = lambda x, cache_dir: x.get_path()
 
-    config = data_config
-    data_root = config.get("data_root")
+    config_obj = data_config
+    data_root = config_obj.get("data_root")
 
     mock = MagicMock(side_effect=dummy_dataset_dataroot)
     Registry.register_dataset("dummy_dataset_dataroot")(mock)
-    best = olive_run(config)
+    best = olive_run(config_obj)
     mock.assert_called_with(data_dir=concat_data_dir(data_root, "data"))
 
     data_dir_expected = concat_data_dir(data_root, "perfdata")

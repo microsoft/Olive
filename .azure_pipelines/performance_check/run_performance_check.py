@@ -240,10 +240,10 @@ def run_perf_comparison(cur_dir, model_name, device, model_root_path, test_num):
         olive_config_path = cur_dir / "configs" / olive_config
         run_with_config("olive", olive_config_path, metric_res)
     print(f"All metric results {metric_res}")
-    for model, v in metric_res.items():
+    for v in metric_res.values():
         for metric_name, metric_value_list in v.items():
             vsum = sum(float(v) for v in metric_value_list)
-            metric_res[model][metric_name] = round((vsum / len(metric_value_list)), 4)
+            v[metric_name] = round((vsum / len(metric_value_list)), 4)
     print(f"Avg metric results {metric_res}")
     return metric_res
 

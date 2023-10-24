@@ -5,6 +5,7 @@
 import argparse
 import json
 import shutil
+import sys
 import threading
 import tkinter as tk
 import tkinter.ttk as ttk
@@ -21,6 +22,8 @@ from user_script import get_base_model_name
 
 from olive.model import ONNXModel
 from olive.workflows import run as olive_run
+
+# pylint: disable=redefined-outer-name
 
 
 def run_inference_loop(
@@ -171,7 +174,7 @@ def optimize(
     # protobuf 4.x aborts with OOM when optimizing unet
     if version.parse(protobuf_version) > version.parse("3.20.3"):
         print("This script requires protobuf 3.20.3. Please ensure your package version matches requirements.txt.")
-        exit(1)
+        sys.exit(1)
 
     ort.set_default_logger_severity(4)
     script_dir = Path(__file__).resolve().parent
@@ -325,7 +328,7 @@ if __name__ == "__main__":
         "stabilityai/stable-diffusion-2-1-base": 768,
     }
 
-    if args.model_id not in list(model_to_image_size.keys()):
+    if args.model_id not in model_to_image_size:
         print(
             f"WARNING: {args.model_id} is not an officially supported model for this example and may not work "
             "as expected."
@@ -333,7 +336,7 @@ if __name__ == "__main__":
 
     if version.parse(ort.__version__) < version.parse("1.15.0"):
         print("This script requires onnxruntime-directml 1.15.0 or newer")
-        exit(1)
+        sys.exit(1)
 
     script_dir = Path(__file__).resolve().parent
     unoptimized_model_dir = script_dir / "models" / "unoptimized" / args.model_id

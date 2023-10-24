@@ -130,8 +130,9 @@ class Conditional(SearchParameter):
 
     def get_support(self, parent_values: Dict[str, Any]) -> Union[List[str], List[int], List[float], List[bool]]:
         """Get the support for the search parameter for a given parent value."""
+        # pylint: disable=arguments-differ
         assert parent_values.keys() == set(self.parents), "parent values keys do not match the parents"
-        parent_values = tuple([parent_values[parent] for parent in self.parents])
+        parent_values = tuple(parent_values[parent] for parent in self.parents)
         return self.support.get(parent_values, self.default).get_support()
 
     def condition(self, parent_values: Dict[str, Any]) -> SearchParameter:
@@ -145,6 +146,7 @@ class Conditional(SearchParameter):
 
         # condition the first parent and create a new conditional
         parent_idx = len(self.parents) - 1
+        parent = None
         for i, parent in enumerate(self.parents):
             if parent in parent_values:
                 parent_value = parent_values[parent]
@@ -285,7 +287,7 @@ def json_to_search_parameter(json: Dict[str, Any]) -> SearchParameter:
     search_parameter_type = json["type"]
     if search_parameter_type == "Categorical":
         return Categorical(json["support"])
-    if search_parameter_type == "Conditional" or search_parameter_type == "ConditionalDefault":
+    if search_parameter_type in ("Conditional", "ConditionalDefault"):
 
         def stop_condition(x):
             return isinstance(x, dict) and x.get("olive_parameter_type") == "SearchParameter"

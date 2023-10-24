@@ -124,7 +124,7 @@ class PileDataloader:
             return
 
 
-def calib_dataloader(data_dir, batch_size=1, *args, **kwargs):
+def calib_dataloader(data_dir, batch_size, *args, **kwargs):
     model_path = kwargs.pop("model_path")
     return PileDataloader(model_path, batch_size=batch_size)
 

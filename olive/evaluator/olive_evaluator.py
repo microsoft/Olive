@@ -40,6 +40,8 @@ from olive.snpe.data_loader import SNPECommonDataLoader, SNPEDataLoader
 
 logger = logging.getLogger(__name__)
 
+# pylint: disable=useless-parent-delegation
+
 
 class OliveModelOutput(NamedTuple):
     preds: Any
@@ -479,8 +481,6 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         device: Device,
         execution_providers: Union[str, List[str]],
     ) -> MetricResult:
-        from copy import deepcopy
-
         from mpi4py.futures import MPIPoolExecutor
 
         config = {
@@ -573,8 +573,6 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         device,
         execution_providers: Union[str, List[str]],
     ) -> MetricResult:
-        from copy import deepcopy
-
         from mpi4py.futures import MPIPoolExecutor
 
         config = {
@@ -642,6 +640,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
     @staticmethod
     def disable_ort_fallback(session, execution_providers):
+        # pylint: disable=protected-access
         if execution_providers:
             assert isinstance(execution_providers, (str, list))
             execution_providers = [execution_providers] if isinstance(execution_providers, str) else execution_providers
@@ -699,9 +698,11 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         targets = torch.cat(targets, dim=0)
         logits = torch.cat(logits, dim=0)
         # move model to cpu
-        # don't want model to be kept on gpu since model persists and takes up gpu memory
         if device:
             session.to("cpu")
+        # only move to cpu cannot release gpu memory, call cuda.empty_cache() to release gpu memory
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         return OliveModelOutput(preds=preds, logits=logits), targets
 
     def _evaluate_accuracy(
@@ -728,6 +729,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
+        # pylint: disable=expression-not-assigned
         warmup_num, repeat_test_num, _ = get_latency_config_from_metric(metric)
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 
@@ -770,7 +772,9 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         # move model to cpu
         if device:
             session.to("cpu")
-
+        # only move to cpu cannot release gpu memory, call cuda.empty_cache() to release gpu memory
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         return OliveEvaluator.compute_latency(metric, latencies)
 
 

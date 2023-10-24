@@ -9,10 +9,10 @@ from typing import List, Optional, Union
 
 import numpy as np
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset as TorchDataset
 
 
-class BaseDataset(Dataset):
+class BaseDataset(TorchDataset):
     """Define the Olive dataset which should return the data with following format.
 
     1. [data, label] for supervised learning
@@ -80,8 +80,8 @@ class BaseDataset(Dataset):
             data_dict = {k: [] for k in first_input}
             data_dict[label_name] = []
             # loop over the dataset
-            for i in range(len(self)):
-                data, label = deepcopy(self[i])
+            for _, d in enumerate(self):
+                data, label = deepcopy(d)
                 for k, v in data.items():
                     data_dict[k].append(v)
                 data_dict[label_name].append(label)
@@ -98,6 +98,7 @@ class DummyDataset(BaseDataset):
         if input_names is None, the dummy dataset will return a tuple of tensors
         else the dummy dataset will return a dict of tensors
         """
+        # pylint: disable=super-init-not-called
         self.input_shapes = input_shapes
         self.input_names = input_names
         self.input_types = input_types or ["float32"] * len(input_shapes)
@@ -106,6 +107,12 @@ class DummyDataset(BaseDataset):
         return 256
 
     def __getitem__(self, index):
+        # From https://docs.python.org/3/reference/datamodel.html#object.__getitem__,
+        # __getitem__ should raise IndexError when index is out of range
+        # Otherwise, the enumerate function will enter infinite loop
+        if index < 0 or index >= len(self):
+            raise IndexError("Index out of range")
+
         str_to_type = {
             "float32": torch.float32,
             "float16": torch.float16,
@@ -163,6 +170,7 @@ class RawDataset(BaseDataset):
         :param annotations_file: Name of the file containing the annotations. This file should be present in the
         data_dir. It is assumed to be a .npy file containing a numpy array. Default is None.
         """
+        # pylint: disable=super-init-not-called
         self.data_dir = Path(data_dir).resolve()
         self.input_names = input_names
         assert len(input_names) == len(input_shapes), "Number of input shapes should be equal to number of input names."

@@ -189,6 +189,8 @@ class Engine:
 
     def initialize(self):
         """Initialize engine state. This should be done before running the registered passes."""
+        # pylint: disable=attribute-defined-outside-init
+
         cache_dir = self._config.cache_dir
         if self._config.clean_cache:
             cache_utils.clean_cache(cache_dir)
@@ -210,7 +212,7 @@ class Engine:
         # so we check for both when determining the new model number
         model_files = list(self._model_cache_path.glob("*_*"))
         if len(model_files) > 0:
-            self._new_model_number = max([int(model_file.stem.split("_")[0]) for model_file in model_files]) + 1
+            self._new_model_number = max(int(model_file.stem.split("_")[0]) for model_file in model_files) + 1
 
         # clean pass run cache if requested
         # removes all run cache for pass type and all children elements
@@ -361,7 +363,7 @@ class Engine:
         if packaging_config and self.passes:
             # TODO(trajep): should we support package input model?
             # TODO(trajep): do you support packaging pytorch models?
-            logger.info(f"Package top ranked {sum([len(f.nodes) for f in outputs.values()])} models as artifacts")
+            logger.info(f"Package top ranked {sum(len(f.nodes) for f in outputs.values())} models as artifacts")
             generate_output_artifacts(
                 packaging_config,
                 self.footprints,
@@ -390,7 +392,12 @@ class Engine:
         self.footprints[accelerator_spec].record(model_id=input_model_id)
 
         try:
-            if evaluate_input_model:
+            if evaluate_input_model and self.no_search and not self.evaluator_config:
+                logger.debug(
+                    "evaluate_input_model is True but no evaluator provided in no-search mode. Skipping input model"
+                    " evaluation."
+                )
+            elif evaluate_input_model:
                 prefix_output_name = (
                     f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}"
                 )
@@ -452,11 +459,11 @@ class Engine:
         # These passes will be added to the search space
         self.pass_flows_search_spaces = []
         for pass_flow in self.pass_flows:
-            self.pass_search_spaces = []
+            pass_search_spaces = []
             for pass_name in pass_flow:
                 p: Pass = self.passes[pass_name]["pass"]
-                self.pass_search_spaces.append((pass_name, p.search_space()))
-            self.pass_flows_search_spaces.append(self.pass_search_spaces)
+                pass_search_spaces.append((pass_name, p.search_space()))
+            self.pass_flows_search_spaces.append(pass_search_spaces)
 
     def run_no_search(
         self,
@@ -750,7 +757,7 @@ class Engine:
         while True:
             new_model_number = self._new_model_number
             self._new_model_number += 1
-            if list(self._model_cache_path.glob(f"{new_model_number}_*")) == []:
+            if not list(self._model_cache_path.glob(f"{new_model_number}_*")):
                 break
         return new_model_number
 
@@ -883,6 +890,7 @@ class Engine:
         should_prune = False
         # run all the passes in the step
         model_ids = []
+        pass_id = None
         for pass_id, pass_search_point in passes:
             model_config, model_id = self._run_pass(
                 pass_id, pass_search_point, model_config, model_id, data_root, accelerator_spec

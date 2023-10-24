@@ -151,9 +151,8 @@ def main():
 
     data_download_path = data_dir / "cifar-10-python.tar.gz"
     urllib.request.urlretrieve("https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz", data_download_path)
-    file = tarfile.open(data_download_path)
-    file.extractall(data_dir)
-    file.close()
+    with tarfile.open(data_download_path) as file:
+        file.extractall(data_dir)
 
     prepare_model(args.num_epochs, models_dir, data_dir)
 

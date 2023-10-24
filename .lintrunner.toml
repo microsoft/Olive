@@ -57,13 +57,41 @@ init_command = [
   'run',
   'pip_init',
   '--dry-run={{DRYRUN}}',
-  '--requirement=requirements-lintrunner.txt'
+  '--requirement=requirements-dev.txt'
+]
+is_formatter = true
+
+[[linter]]
+code = 'BLACK-ISORT'
+include_patterns = [
+  '**/*.py'
+]
+exclude_patterns = [
+]
+command = [
+  'python',
+  '-m',
+  'lintrunner_adapters',
+  'run',
+  'black_isort_linter',
+  '--',
+  '@{{PATHSFILE}}'
+]
+init_command = [
+  'python',
+  '-m',
+  'lintrunner_adapters',
+  'run',
+  'pip_init',
+  '--dry-run={{DRYRUN}}',
+  '--requirement=requirements-dev.txt'
 ]
 is_formatter = true
 
 [[linter]]
 code = 'PYLINT'
 include_patterns = [
+  '**/*.py'
 ]
 exclude_patterns = [
 ]
@@ -84,7 +112,7 @@ init_command = [
   'run',
   'pip_init',
   '--dry-run={{DRYRUN}}',
-  '--requirement=requirements-lintrunner.txt'
+  '--requirement=requirements-dev.txt'
 ]
 
 [[linter]]
@@ -207,4 +235,44 @@ init_command = [
   'pip_init',
   '--dry-run={{DRYRUN}}',
   'toml-sort==0.23.1'
+]
+
+[[linter]]
+code = 'EDITORCONFIG-CHECKER'
+include_patterns = ['**']
+exclude_patterns = [
+  '**/*.ipynb'
+]
+command = [
+  'python',
+  '-m',
+  'lintrunner_adapters',
+  'run',
+  'editorconfig_checker_linter',
+  '--',
+  '@{{PATHSFILE}}'
+]
+init_command = [
+  'python',
+  '-m',
+  'lintrunner_adapters',
+  'run',
+  'pip_init',
+  '--dry-run={{DRYRUN}}',
+  '--requirement=requirements-dev.txt'
+]
+
+[[linter]]
+code = 'REQUIREMENTS-TXT'
+is_formatter = true
+include_patterns = ['requirements*.txt']
+exclude_patterns = []
+command = [
+  'python',
+  '-m',
+  'lintrunner_adapters',
+  'run',
+  'requirements_txt_linter',
+  '--',
+  '@{{PATHSFILE}}'
 ]

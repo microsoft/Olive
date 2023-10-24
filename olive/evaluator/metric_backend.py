@@ -80,12 +80,12 @@ class HuggingfaceMetrics(MetricBackend):
             ),
         }
 
-    def measure_sub_metric(self, model_output, target, sub_metric: SubMetric) -> SubMetricResult:
+    def measure_sub_metric(self, model_output, targets, sub_metric: SubMetric) -> SubMetricResult:
         load_params = sub_metric.metric_config.load_params or {}
         evaluator = self.evaluate_module.load(sub_metric.name, **load_params)
 
         compute_params = sub_metric.metric_config.compute_params or {}
-        result = evaluator.compute(predictions=model_output[0], references=target, **compute_params)
+        result = evaluator.compute(predictions=model_output[0], references=targets, **compute_params)
         if not result:
             raise ValueError(
                 f"Cannot find the result for {sub_metric.name} in the metric result. Please check your parameters."

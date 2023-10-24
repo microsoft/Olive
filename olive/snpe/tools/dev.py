@@ -38,7 +38,7 @@ def get_dlc_io_config(dlc_path: str, input_names: List[str], output_names: List[
     input_names: list of input names of source model.
     output_names: list of output names of source model.
     """
-    tmp_csv = tempfile.NamedTemporaryFile(suffix=".csv")
+    tmp_csv = tempfile.NamedTemporaryFile(suffix=".csv")  # pylint: disable=consider-using-with
     dlc_info = get_dlc_info(dlc_path, csv_path=tmp_csv.name)
 
     # add the :0 suffix to the input/output names if present in the DLC
@@ -172,7 +172,7 @@ def to_dlc(model_file: str, model_framework: str, config: dict, output_file: str
 
     # check if conversion succeeded
     if "Conversion completed successfully" not in stderr:
-        raise Exception(stderr)
+        raise RuntimeError(stderr)
 
 
 def quantize_dlc(dlc_path: str, input_list: str, config: dict, output_file: str):
@@ -200,7 +200,7 @@ def quantize_dlc(dlc_path: str, input_list: str, config: dict, output_file: str)
 
     # check if quantization succeeded
     if not ("Writing quantized model" in stderr or "Saved quantized dlc" in stderr):
-        raise Exception(stderr)
+        raise RuntimeError(stderr)
 
 
 def dlc_to_onnx(

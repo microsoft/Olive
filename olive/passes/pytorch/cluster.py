@@ -126,11 +126,11 @@ class BaseClusterEnvironment(ClusterEnvironment, ABC):
 
 
 class AzureMLPerProcessCluster(BaseClusterEnvironment):
-    def _environment_variable_overrides(self, master_port: int = 6105) -> Dict[str, str]:
+    def _environment_variable_overrides(self, port: int = 6105) -> Dict[str, str]:
         """Set the MPI environment variables required for multinode distributed training.
 
         Args:
-            master_port (int): Used to set MASTER_PORT environment variable if its not present.
+            port (int): Used to set MASTER_PORT environment variable if its not present.
         """
         overrides = {}
 
@@ -144,7 +144,7 @@ class AzureMLPerProcessCluster(BaseClusterEnvironment):
 
             # Do not overwrite master port with that defined in AZ_BATCH_MASTER_NODE
             if "MASTER_PORT" not in os.environ:
-                overrides["MASTER_PORT"] = str(master_port)
+                overrides["MASTER_PORT"] = str(port)
         else:
             overrides["MASTER_ADDR"] = os.environ["AZ_BATCHAI_MPI_MASTER_NODE"]
             overrides["MASTER_PORT"] = "54965"
