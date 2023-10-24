@@ -70,7 +70,7 @@ def main(raw_args=None):
     with open(f"llama2_{device}_{gqa}.json", "w") as f:  # noqa: PTH123
         json.dump(template_json, f, indent=4)
 
-    olive_run(template_json)
+    olive_run(template_json)  # pylint: disable=not-callable
 
 
 def update_user_script(file_path, model_name):
