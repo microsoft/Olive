@@ -201,20 +201,34 @@ def get_merged_decoder_with_past_io_config(model_name):
 
 class RandomDataLoader:
     def __init__(
-        self, create_inputs_func, batch_size, torch_dtype, model_framework=Framework.PYTORCH, onnx_merged=False
+        self,
+        create_inputs_func,
+        batch_size,
+        torch_dtype,
+        model_framework=Framework.PYTORCH,
+        onnx_merged=False,
+        use_gqa=False,
     ):
         self.create_input_func = create_inputs_func
         self.batch_size = batch_size
         self.torch_dtype = torch_dtype
         self.model_framework = model_framework
         self.onnx_merged = onnx_merged
+        self.use_gqa = use_gqa
 
     def __getitem__(self, idx):
         label = None
-        return self.create_input_func(self.batch_size, self.torch_dtype, self.model_framework, self.onnx_merged), label
+        return (
+            self.create_input_func(
+                self.batch_size, self.torch_dtype, self.model_framework, self.onnx_merged, self.use_gqa
+            ),
+            label,
+        )
 
 
-def dummy_inputs_for_latency(batch_size, torch_dtype, model_framework=Framework.PYTORCH, onnx_merged=False):
+def dummy_inputs_for_latency(
+    batch_size, torch_dtype, model_framework=Framework.PYTORCH, onnx_merged=False, use_gqa=False
+):
     model_id = "meta-llama/Llama-2-7b-hf"
     if onnx_merged:
         input_ids, attention_mask, position_ids, pkv = get_merged_decoder_with_past_kv_inputs(
@@ -235,7 +249,9 @@ def dummy_inputs_for_latency(batch_size, torch_dtype, model_framework=Framework.
     else:
         inputs["use_cache"] = True
 
-    # TODO(trajep): add past_sequence_length to inputs for GQA
+    if use_gqa:
+        past_seq_len = 0
+        inputs["past_sequence_length"] = np.array([past_seq_len], dtype=np.int64)
     return inputs
 
 
@@ -248,6 +264,13 @@ def dataloader_func_for_merged(data_dir, batch_size, *args, **kwargs):
     # TODO(trajep): after optimization, the model's input will be different
     model_framework = kwargs.get("model_framework", Framework.PYTORCH)
     return RandomDataLoader(dummy_inputs_for_latency, batch_size, torch.float16, model_framework, True)
+
+
+def dataloader_func_for_merged_gqa(data_dir, batch_size, *args, **kwargs):
+    model_framework = kwargs.get("model_framework", Framework.PYTORCH)
+    return RandomDataLoader(
+        dummy_inputs_for_latency, batch_size, torch.float16, model_framework, onnx_merged=True, use_gqa=True
+    )
 
 
 def inc_cali_dataloader_func(data_dir, batch_size, *args, **kwargs):
@@ -297,9 +320,10 @@ class QuantKVDataLoader:
 
             # Pad input data because all model inputs must have same shape
             pad_len = self.pad_max - input_ids.shape[0]
-            input_ids = F.pad(input_ids, (0, pad_len), value=1)  # pylint: disable=not-callable
-            attention_mask = F.pad(attention_mask, (0, pad_len), value=0)  # pylint: disable=not-callable
-            position_ids = F.pad(position_ids, (0, pad_len), value=0)  # pylint: disable=not-callable
+            # pylint: disable=not-callable
+            input_ids = F.pad(input_ids, (0, pad_len), value=1)
+            attention_mask = F.pad(attention_mask, (0, pad_len), value=0)
+            position_ids = F.pad(position_ids, (0, pad_len), value=0)
 
             input_ids_batched.append(input_ids)
             attention_mask_batched.append(attention_mask)
@@ -314,21 +338,17 @@ class QuantKVDataLoader:
         return (input_ids_batched, attention_mask_batched, position_ids_batched), labels
 
     def __iter__(self):
-        try:
-            for (input_ids, attention_mask, position_ids), labels in self.dataloader:
-                # Inputs for decoder_model.onnx
-                inputs = {
-                    "input_ids": input_ids[:, :-1].detach().cpu().numpy().astype(np.int64),
-                    "attention_mask": attention_mask[:, :-1].detach().cpu().numpy().astype(np.int64),
-                    "position_ids": position_ids[:, :-1].detach().cpu().numpy().astype(np.int64),
-                }
-                if self.merged:
-                    inputs.pop("attention_mask", None)
-                label = labels.detach().cpu().numpy()
+        for (input_ids, attention_mask, position_ids), labels in self.dataloader:
+            # Inputs for decoder_model.onnx
+            inputs = {
+                "input_ids": input_ids[:, :-1].detach().cpu().numpy().astype(np.int64),
+                "attention_mask": attention_mask[:, :-1].detach().cpu().numpy().astype(np.int64),
+                "position_ids": position_ids[:, :-1].detach().cpu().numpy().astype(np.int64),
+            }
+            if self.merged:
+                inputs.pop("attention_mask", None)
+            label = labels.detach().cpu().numpy()
 
-                # Yield (inputs, label) tuple for Intel's Neural Compressor:
-                # https://github.com/intel/neural-compressor/blob/d4baed9ea11614e1f0dc8a1f4f55b73ed3ed585c/neural_compressor/quantization.py#L55-L62
-                yield (inputs, label)
-
-        except StopIteration:
-            return
+            # Yield (inputs, label) tuple for Intel's Neural Compressor:
+            # https://github.com/intel/neural-compressor/blob/d4baed9ea11614e1f0dc8a1f4f55b73ed3ed585c/neural_compressor/quantization.py#L55-L62
+            yield (inputs, label)

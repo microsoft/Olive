@@ -13,7 +13,7 @@
     },
     "evaluators": {
         "merged_evaluator": {
-            "metrics":[
+            "metrics": [
                 {
                     "name": "onnx_merged_latency",
                     "type": "latency",
@@ -23,6 +23,23 @@
                     "user_config": {
                         "user_script": "user_script.py",
                         "dataloader_func": "dataloader_func_for_merged",
+                        "batch_size": 1,
+                        "io_bind": true
+                    }
+                }
+            ]
+        },
+        "gqa_evaluator": {
+            "metrics": [
+                {
+                    "name": "onnx_merged_latency",
+                    "type": "latency",
+                    "sub_types": [
+                        {"name": "avg", "priority": 1}
+                    ],
+                    "user_config": {
+                        "user_script": "user_script.py",
+                        "dataloader_func": "dataloader_func_for_merged_gqa",
                         "batch_size": 1,
                         "io_bind": true
                     }
@@ -42,6 +59,7 @@
         "transformers_optimization_fp16": {
             "type": "OrtTransformersOptimization",
             "disable_search": true,
+            "evaluator": "gqa_evaluator",
             "config": {
                 "save_as_external_data": true,
                 "all_tensors_to_one_file": true,
@@ -82,6 +100,7 @@
         "blockwise_quant_int4": {
             "type": "OnnxMatMul4Quantizer",
             "disable_search": true,
+            "evaluator": "gqa_evaluator",
             "config": {
                 "save_as_external_data": true,
                 "all_tensors_to_one_file": true,
