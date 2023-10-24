@@ -5,12 +5,13 @@
 from typing import List, Union
 
 import torch
-from past_helper import PastKeyValuesHelper  # noqa: E402
+from past_helper import PastKeyValuesHelper
 from transformers import WhisperConfig, file_utils
 
 
 class WhisperDecoderInit(torch.nn.Module):
     """A Whisper decoder to create initial past key values.
+
     This model is only called once during starting decoding.
     """
 
@@ -50,7 +51,7 @@ class WhisperDecoderInit(torch.nn.Module):
 
 
 class WhisperDecoder(torch.nn.Module):
-    """A Whisper decoder and past key values"""
+    """A Whisper decoder and past key values."""
 
     def __init__(self, decoder, config):
         super().__init__()
@@ -103,7 +104,7 @@ class WhisperDecoderInputs:
         """Create dummy inputs for WhisperDecoder.
 
         Args:
-            decoder: decoder
+            config: config
             batch_size (int): batch size
             encode_sequence_length (int): sequence length of input_ids for encoder
             past_decode_sequence_length (int): past sequence length of input_ids for decoder

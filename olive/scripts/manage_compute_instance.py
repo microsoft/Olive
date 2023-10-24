@@ -9,12 +9,14 @@ try:
     from azure.ai.ml import MLClient
     from azure.ai.ml.entities import AmlCompute
 except ImportError:
-    raise ImportError("azure-ai-ml is not installed. Please install azure-ai-ml packages to use this script.")
+    raise ImportError("azure-ai-ml is not installed. Please install azure-ai-ml packages to use this script.") from None
 
 try:
     from azure.identity import AzureCliCredential, DefaultAzureCredential, InteractiveBrowserCredential
 except ImportError:
-    raise ImportError("azure-identity is not installed. Please install azure-identity packages to use this script.")
+    raise ImportError(
+        "azure-identity is not installed. Please install azure-identity packages to use this script."
+    ) from None
 
 
 def get_args():
@@ -49,8 +51,7 @@ def get_args():
     parser.add_argument(
         "--idle_time_before_scale_down", type=int, required=False, default=120, help="Idle seconds before scaledown"
     )
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def main():
@@ -87,7 +88,8 @@ def main():
         )
         ml_client.begin_create_or_update(cluster_basic).result()
         print(
-            f"Successfully created compute: {compute_name} at {location} with vm_size:{vm_size} and min_nodes={min_nodes} \
+            f"Successfully created compute: {compute_name} at {location} with \
+                vm_size:{vm_size} and min_nodes={min_nodes} \
                 and max_nodes={max_nodes} and idle_time_before_scale_down={idle_time_before_scale_down}"
         )
     elif is_delete:

@@ -96,6 +96,19 @@ InsertBeamSearch
 --------------------
 .. autoconfigclass:: olive.passes.InsertBeamSearch
 
+.. _qlora:
+
+QLoRA
+-------------------------
+.. autoconfigclass:: olive.passes.QLoRA
+
+.. _qlora_hf_training_arguments:
+
+QLoRA HFTrainingArguments
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autopydantic_settings:: olive.passes.pytorch.qlora.HFTrainingArguments
+
 .. _quantization_aware_training:
 
 QuantizationAwareTraining

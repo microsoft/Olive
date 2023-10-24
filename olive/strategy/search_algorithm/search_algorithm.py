@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from abc import abstractmethod
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, ClassVar, Dict, List, Optional, Type, Union
 
 from olive.common.auto_config import AutoConfigClass
 from olive.common.config_utils import ConfigBase
@@ -12,11 +12,9 @@ from olive.strategy.search_space import SearchSpace
 
 
 class SearchAlgorithm(AutoConfigClass):
-    """
-    Abstract base class for searchers
-    """
+    """Abstract base class for searchers."""
 
-    registry: Dict[str, Type["SearchAlgorithm"]] = {}
+    registry: ClassVar[Dict[str, Type["SearchAlgorithm"]]] = {}
 
     @classmethod
     @property
@@ -44,35 +42,24 @@ class SearchAlgorithm(AutoConfigClass):
         self._higher_is_betters = higher_is_betters
 
         super().__init__(config)
-        # TODO: Stop using _ private methods like _objectives, _config, etc
+        # TODO(jambayk): Stop using _ private methods like _objectives, _config, etc
         self._config = self.config
         self.initialize()
 
     @abstractmethod
     def initialize(self):
-        """
-        Initialize the searcher.
-        """
-        pass
+        """Initialize the searcher."""
 
     def should_stop(self):
-        """
-        Check if the searcher should prune the current trial.
-        """
+        """Check if the searcher should prune the current trial."""
         return False
 
     @abstractmethod
     def suggest(self) -> Dict[str, Dict[str, Any]]:
-        """
-        Suggest a new configuration to try.
-        """
-        pass
+        """Suggest a new configuration to try."""
 
     @abstractmethod
     def report(
         self, search_point: Dict[str, Dict[str, Any]], result: Dict[str, Union[float, int]], should_prune: bool = False
     ):
-        """
-        Report the result of a configuration.
-        """
-        pass
+        """Report the result of a configuration."""

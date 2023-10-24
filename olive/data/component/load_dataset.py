@@ -14,19 +14,17 @@ def local_dataset(data_dir, label_cols=None, **kwargs):
 
 @Registry.register_dataset()
 def simple_dataset(data_dir, input_data, label_cols=None, **kwargs):
-    """
-    This function is used to create a simple dataset from input data which can be:
+    """Create a simple dataset from input data.
+
+    The input data can be:
     1. a text
     2. a tensor
     """
-    pass
 
 
 @Registry.register_dataset()
 def huggingface_dataset(data_dir, data_name=None, subset=None, split="validation", data_files=None, **kwargs):
-    """
-    This function is used to create a dataset from huggingface datasets
-    """
+    """Create a dataset from huggingface datasets."""
     from datasets.utils.logging import disable_progress_bar, set_verbosity_error
 
     disable_progress_bar()

@@ -17,9 +17,7 @@ optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 
 class OptunaSearchAlgorithm(SearchAlgorithm):
-    """
-    Optuna sampler for search algorithms.
-    """
+    """Optuna sampler for search algorithms."""
 
     name = "optuna_sampler"
 
@@ -31,9 +29,7 @@ class OptunaSearchAlgorithm(SearchAlgorithm):
         }
 
     def initialize(self):
-        """
-        Initialize the searcher.
-        """
+        """Initialize the searcher."""
         self._sampler = self._create_sampler()
         directions = ["maximize" if higher_is_better else "minimize" for higher_is_better in self._higher_is_betters]
         self._study = optuna.create_study(directions=directions, sampler=self._sampler)
@@ -41,24 +37,18 @@ class OptunaSearchAlgorithm(SearchAlgorithm):
         self._num_samples_suggested = 0
 
     def should_stop(self):
-        should_stop = (
+        return (
             (self._search_space.empty() and self._num_samples_suggested > 0)
             or (self._num_samples_suggested >= self._config.num_samples)
             or super().should_stop()
         )
-        return should_stop
 
     @abstractmethod
     def _create_sampler(self) -> optuna.samplers.BaseSampler:
-        """
-        Create the sampler.
-        """
-        pass
+        """Create the sampler."""
 
     def suggest(self) -> Dict[str, Dict[str, Any]]:
-        """
-        Suggest a new configuration to try.
-        """
+        """Suggest a new configuration to try."""
         if self.should_stop():
             return None
 
@@ -76,9 +66,7 @@ class OptunaSearchAlgorithm(SearchAlgorithm):
         return search_point
 
     def _get_trial(self) -> Tuple[optuna.trial.Trial, Dict[str, Dict[str, Any]]]:
-        """
-        Get a trial from the study.
-        """
+        """Get a trial from the study."""
         trial = self._study.ask()
         search_point = self._search_space.empty_search_point()
         invalid_trial = False

@@ -1,3 +1,7 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
 import torch
 import transformers
 
@@ -13,12 +17,10 @@ def _get_inputs(batch_size, torch_dtype, device):
     attention_mask_sequence_length = 1
     sequence_length = 2
 
-    inputs = {
+    return {
         "input_ids": torch.randint(10000, (batch_size, sequence_length), dtype=torch.int64, device=device),
         "attention_mask": torch.ones((batch_size, attention_mask_sequence_length), dtype=torch.int64, device=device),
     }
-
-    return inputs
 
 
 # Helper latency-only dataloader that creates random tensors with no label

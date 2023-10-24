@@ -10,6 +10,8 @@ import pytest
 from olive.data.config import DataConfig
 from olive.data.registry import Registry
 
+# pylint: disable=attribute-defined-outside-init
+
 
 class TestDataConfig:
     @pytest.fixture(autouse=True)
@@ -18,7 +20,7 @@ class TestDataConfig:
 
     def test_default_property(self):
         dc_config = DataConfig()
-        for k, _ in dc_config.default_components.items():
+        for k in dc_config.default_components:
             assert k in dc_config.components
         assert dc_config.dataloader
         assert dc_config.load_dataset

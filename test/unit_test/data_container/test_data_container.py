@@ -16,6 +16,8 @@ import pytest
 from olive.data.config import DataConfig
 from olive.data.container.data_container import DataContainer
 
+# pylint: disable=attribute-defined-outside-init
+
 
 class TestDataConfig:
     @pytest.fixture(autouse=True)

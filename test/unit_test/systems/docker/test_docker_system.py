@@ -2,9 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import tempfile
 from pathlib import Path
-from test.unit_test.utils import get_accuracy_metric, get_pytorch_model
+from test.unit_test.utils import get_accuracy_metric, get_pytorch_model_config
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
@@ -14,12 +13,10 @@ from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.systems.common import LocalDockerConfig
 from olive.systems.docker.docker_system import DockerSystem
 
+# pylint: disable=attribute-defined-outside-init
+
 
 class TestDockerSystem:
-    @pytest.fixture(autouse=True)
-    def setup(self):
-        self.tmp_dir = tempfile.TemporaryDirectory()
-
     @patch("olive.systems.docker.docker_system.docker.from_env")
     def test__init_image_exist(self, mock_from_env):
         # setup
@@ -49,7 +46,7 @@ class TestDockerSystem:
             image_name="image_name", build_context_path="build_context_path", dockerfile="dockerfile"
         )
         mock_docker_client.images.get.side_effect = docker.errors.ImageNotFound("msg")
-        mock_docker_client.images.build = MagicMock()
+        mock_docker_client.images.build.return_value = (MagicMock(), [{"stream": "Successfully built mock_image_id"}])
 
         # execute
         DockerSystem(docker_config, is_dev=True)
@@ -65,11 +62,11 @@ class TestDockerSystem:
     @patch("olive.systems.docker.docker_system.shutil.copy2")
     @patch("olive.systems.docker.docker_system.docker.from_env")
     @patch("olive.systems.docker.docker_system.tempfile.TemporaryDirectory")
-    def test__init_image_requirements_file_build(self, mock_tempdir, mock_from_env, mock_copy):
+    def test__init_image_requirements_file_build(self, mock_tempdir, mock_from_env, mock_copy, tmpdir):
         # setup
         import docker
 
-        tempdir = self.tmp_dir.name
+        tempdir = tmpdir
         mock_tempdir.return_value.__enter__.return_value = tempdir
         mock_docker_client = MagicMock()
         mock_from_env.return_value = mock_docker_client
@@ -78,7 +75,7 @@ class TestDockerSystem:
             requirements_file_path="requirements_file_path",
         )
         mock_docker_client.images.get.side_effect = docker.errors.ImageNotFound("msg")
-        mock_docker_client.images.build = MagicMock()
+        mock_docker_client.images.build.return_value = (MagicMock(), [{"stream": "Successfully built mock_image_id"}])
 
         # execute
         docker_system = DockerSystem(docker_config, is_dev=True)
@@ -125,6 +122,7 @@ class TestDockerSystem:
     def test_evaluate_model(
         self,
         exit_code,
+        tmpdir,
     ):
         # setup
         import docker
@@ -134,9 +132,9 @@ class TestDockerSystem:
         self.mock_from_env.return_value.containers.run.return_value.wait.return_value = {"StatusCode": exit_code}
         if exit_code != 0:
             self.mock_from_env.return_value.containers.run.return_value.logs.return_value = [b"mock_error"]
-        tempdir = self.tmp_dir.name
+        tempdir = tmpdir
         self.mock_tempdir.return_value.__enter__.return_value = tempdir
-        olive_model = get_pytorch_model()
+        model_config = get_pytorch_model_config()
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         docker_config = LocalDockerConfig(
             image_name="image_name", build_context_path="build_context_path", dockerfile="dockerfile"
@@ -179,22 +177,22 @@ class TestDockerSystem:
                 docker.errors.ContainerError,
                 match=r".*returned non-zero exit status 1: Docker container evaluation failed with: mock_error",
             ):
-                actual_res = docker_system.evaluate_model(olive_model, data_root, [metric], DEFAULT_CPU_ACCELERATOR)
+                actual_res = docker_system.evaluate_model(model_config, data_root, [metric], DEFAULT_CPU_ACCELERATOR)
         else:
-            actual_res = docker_system.evaluate_model(olive_model, data_root, [metric], DEFAULT_CPU_ACCELERATOR)
+            actual_res = docker_system.evaluate_model(model_config, data_root, [metric], DEFAULT_CPU_ACCELERATOR)
             # assert
             self.mock_create_eval_script_mount.assert_called_once_with(container_root_path)
             self.mock_create_model_mount.assert_called_once_with(
-                model=olive_model, container_root_path=container_root_path
+                model_config=model_config, container_root_path=container_root_path
             )
             dev_mount_path = f"{Path(tempdir) / 'olive'}:{container_root_path / 'olive'}"
-            vol_list = [eval_file_mount_str, dev_mount_path] + model_mount_str_list
+            vol_list = [eval_file_mount_str, dev_mount_path, *model_mount_str_list]
             self.mock_create_metric_volumes_list.assert_called_once_with(
                 data_root=data_root, metrics=[metric], container_root_path=container_root_path, mount_list=vol_list
             )
             self.mock_create_config_file.assert_called_once_with(
                 tempdir=tempdir,
-                model=olive_model,
+                model_config=model_config,
                 metrics=[metric],
                 container_root_path=container_root_path,
                 model_mounts=model_mounts,
@@ -207,6 +205,7 @@ class TestDockerSystem:
                 config_path=config_mount_path,
                 output_path=output_mount_path,
                 output_name=eval_output_name,
+                accelerator=DEFAULT_CPU_ACCELERATOR,
             )
             self.mock_create_run_command.assert_called_once_with(run_params=docker_system.run_params)
             volumes_list.append(config_file_mount_str)

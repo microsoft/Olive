@@ -5,7 +5,7 @@
 import logging
 from abc import abstractmethod
 from inspect import isfunction, signature
-from typing import Any, Callable, Dict, Type, Union
+from typing import Any, Callable, ClassVar, Dict, Type, Union
 
 import torch
 import torchmetrics
@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 class AccuracyBase(AutoConfigClass):
-    registry: Dict[str, Type["AccuracyBase"]] = {}
-    metric_cls_map: Dict[str, Union[torchmetrics.Metric, Callable]] = {
+    registry: ClassVar[Dict[str, Type["AccuracyBase"]]] = {}
+    metric_cls_map: ClassVar[Dict[str, Union[torchmetrics.Metric, Callable]]] = {
         "accuracy_score": torchmetrics.Accuracy,
         "f1_score": torchmetrics.F1Score,
         "precision": torchmetrics.Precision,
@@ -60,7 +60,7 @@ class AccuracyBase(AutoConfigClass):
                 continue
             annotation = info.annotation if info.annotation != info.empty else None
             default_value, required = (info.default, False) if info.default != info.empty else (None, True)
-            if info.kind == info.VAR_KEYWORD or info.kind == info.VAR_POSITIONAL:
+            if info.kind in (info.VAR_KEYWORD, info.VAR_POSITIONAL):
                 required = False
             metric_config[param] = ConfigParam(type_=annotation, required=required, default_value=default_value)
         return metric_config
@@ -79,7 +79,7 @@ class AccuracyBase(AutoConfigClass):
 
     @abstractmethod
     def measure(self, model_output, target):
-        raise NotImplementedError()
+        raise NotImplementedError
 
 
 class AccuracyScore(AccuracyBase):

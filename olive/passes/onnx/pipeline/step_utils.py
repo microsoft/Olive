@@ -6,10 +6,14 @@ import importlib as imp
 from typing import Dict, List, Union
 
 import onnx
-from onnxruntime_extensions.tools.pre_post_processing import *  # noqa: F401, F403
+
+# pylint: disable=wildcard-import
+from onnxruntime_extensions.tools.pre_post_processing import *  # noqa: F401, F403, RUF100
 from onnxruntime_extensions.tools.pre_post_processing.utils import create_named_value
 
 from olive.passes.onnx.pipeline import resolve_placeholder
+
+# ruff: noqa: RUF100, PLW2901
 
 
 def parse_steps(model: onnx.ModelProto, config: List[Dict]):
@@ -142,7 +146,7 @@ def parse_steps(model: onnx.ModelProto, config: List[Dict]):
 
 
 def parse_step_config(model: onnx.ModelProto, config: Dict):
-    """Parse a single step with its config parameters"""
+    """Parse a single step with its config parameters."""
     assert len(config) == 1, "The config should only have one step name and its parameters."
 
     step_config_result = []
@@ -153,7 +157,7 @@ def parse_step_config(model: onnx.ModelProto, config: Dict):
 
 
 def parse_step_params(model: onnx.ModelProto, step_config: Dict):
-    """Parse the step parameters for a single step"""
+    """Parse the step parameters for a single step."""
     step_params = step_config.get("params")
     if step_params is None:
         step_params = step_config
@@ -176,7 +180,7 @@ def parse_step_params(model: onnx.ModelProto, step_config: Dict):
                 # Customized type definition
                 param_cls = get_customized_class(param_type)
                 params[param_name] = param_cls(**param_args)
-            elif param_type == "tuple" or param_type == "list":
+            elif param_type in ("tuple", "list"):
                 param_value = param_value.get("value")
 
                 # explicitly list or tuple type is specified
@@ -202,7 +206,6 @@ def parse_step_params(model: onnx.ModelProto, step_config: Dict):
     io_map = step_config.get("io_map")
     if io_map:
         assert isinstance(io_map, list)
-        # TODO: create IoMapEntry from the list
         params = (params, io_map)
 
     return params

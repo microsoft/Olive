@@ -9,8 +9,6 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Union
 
 import onnx
-from onnxruntime.quantization.preprocess import quant_pre_process
-from onnxruntime.quantization.quant_utils import QuantFormat, QuantType
 
 from olive.cache import get_local_path_from_root
 from olive.common.utils import hash_string
@@ -18,13 +16,14 @@ from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_file, model_proto_to_olive_model
-from olive.passes.onnx.vitis_ai import quantize_static
-from olive.passes.onnx.vitis_ai.quant_utils import PowerOfTwoMethod
 from olive.passes.pass_config import ParamCategory, PassConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, LocalFile
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional
 
 logger = logging.getLogger(__name__)
+
+# pylint: disable=consider-using-with, attribute-defined-outside-init
+
 
 # common config for Vitis-AI quantization
 vai_q_onnx_quantization_config = {
@@ -112,7 +111,7 @@ vai_q_onnx_quantization_config = {
             change the computation graph, making debugging of quantization loss difficult.
         """,
     ),
-    # TODO: enable search if we support onnx external data format
+    # TODO(xiaosheng): enable search if we support onnx external data format
     "use_external_data_format": PassConfigParam(
         type_=bool,
         default_value=True,
@@ -212,9 +211,9 @@ _extra_options_config = {
 
 
 class VitisAIQuantization(Pass):
-    """
-    Quantize ONNX model with onnxruntime where we can search for
-    best parameters for vai_q_onnx quantization at same time.
+    """Quantize ONNX model with onnxruntime.
+
+    We can search for best parameters for vai_q_onnx quantization at same time.
     """
 
     _requires_user_script = True
@@ -225,9 +224,7 @@ class VitisAIQuantization(Pass):
 
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
-        """Override this method to return False by using the
-        accelerator spec information.
-        """
+        """Override this method to return False by using the accelerator spec information."""
         return False
 
     @staticmethod
@@ -258,6 +255,11 @@ class VitisAIQuantization(Pass):
     def _run_for_config(
         self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModel:
+        from onnxruntime.quantization.quant_utils import QuantFormat, QuantType
+
+        from olive.passes.onnx.vitis_ai import quantize_static
+        from olive.passes.onnx.vitis_ai.quant_utils import PowerOfTwoMethod
+
         # start with a copy of the config
         run_config = deepcopy(config)
 
@@ -324,14 +326,14 @@ class VitisAIQuantization(Pass):
         # to be safe, run the quantizer with use_external_data_format set to `True` and
         # `model_output` to a temporary directory
         # reload the model and save to output_model_path using the external data config
-        # TODO: don't default to use_external_data_format=True if the loading and saving model makes
+        # TODO(XiaoSheng): don't default to use_external_data_format=True if the loading and saving model makes
         # the pass inefficient
         tmp_dir = tempfile.TemporaryDirectory(prefix="olive_vaiq_tmp")
         tmp_dir_path = Path(tmp_dir.name)
         tmp_model_path = str(tmp_dir_path / Path(output_model_path).name)
 
         # get the dataloader
-        # TODO: only use data config
+        # TODO(XiaoSheng): only use data config
         if config["dataloader_func"]:
             data_dir = get_local_path_from_root(data_root, config["data_dir"])
             dataloader = self._user_module_loader.call_object(
@@ -360,10 +362,17 @@ class VitisAIQuantization(Pass):
         return model_proto_to_olive_model(onnx_model, output_model_path, config)
 
     def _quant_preprocess(self, model: ONNXModel, output_model_path: str) -> ONNXModel:
+        from onnxruntime.quantization.preprocess import quant_pre_process
+
         try:
-            quant_pre_process(input_model_path=model.model_path, output_model_path=output_model_path, auto_merge=True)
+            quant_pre_process(
+                input_model_path=model.model_path,
+                output_model_path=str(output_model_path),
+                auto_merge=True,
+                save_as_external_data=True,
+            )
         except Exception as e:
-            # TODO: try with `skip_optimization = True`
+            # TODO(xiaosheng): try with `skip_optimization = True`
             # quantization preprocessing will fail if the model is too large and `skip_optimization = False`
             # there are some problems with the path to where the external data is saved
             # need to find out why before enabling this

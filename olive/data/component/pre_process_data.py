@@ -16,24 +16,28 @@ from olive.data.registry import Registry
 
 
 @Registry.register_default_pre_process()
-def pre_process(_dataset):
+def pre_process(dataset):
     """Pre-process data.
 
     Args:
-        data (object): Data to be pre-processed.
+        dataset (object): Data to be pre-processed, reserved for internal dataset assignment.
         **kwargs: Additional arguments.
 
     Returns:
         object: Pre-processed data.
     """
-    return _dataset
+    return dataset
 
 
 def _huggingface_pre_process_helper(dataset, model_name, input_cols, label_cols, map_func, **kwargs):
     """Pre-process data.
 
     Args:
-        data (object): Data to be pre-processed.
+        dataset (object): Data to be pre-processed.
+        model_name (str): Name of the huggingface model.
+        input_cols (list): List of input columns.
+        label_cols (list): List of label columns.
+        map_func (function): Function to be applied to the dataset.
         **kwargs: Additional arguments.
 
     Returns:
@@ -50,11 +54,15 @@ def _huggingface_pre_process_helper(dataset, model_name, input_cols, label_cols,
 
 
 @Registry.register_pre_process()
-def huggingface_pre_process(_dataset, model_name, input_cols, label_cols, max_samples=None, **kwargs):
+def huggingface_pre_process(dataset, model_name, input_cols, label_cols, max_samples=None, **kwargs):
     """Pre-process data.
 
     Args:
-        data (object): Data to be pre-processed.
+        dataset (object): Data to be pre-processed, reserved for internal dataset assignment.
+        model_name (str): Name of the huggingface model.
+        input_cols (list): List of input columns.
+        label_cols (list): List of label columns.
+        max_samples (int, optional): Max number of samples to use. Defaults to None.
         **kwargs: Additional arguments.
 
     Returns:
@@ -71,32 +79,30 @@ def huggingface_pre_process(_dataset, model_name, input_cols, label_cols, max_sa
             is_split_into_words=kwargs.get("is_split_into_words", False),
             add_special_tokens=kwargs.get("add_special_tokens", True),
         )
-        # TODO: support multiple label columns if needed
+        # TODO(trajep): support multiple label columns if needed
         tokenized_inputs["label"] = examples[label_cols[0]]
         # huggingface dataset api limit to return dict and arrow table
         return tokenized_inputs
 
     model_config_path = kwargs.pop("model_config_path", None)
-    # TODO: add the complete data operation mapping like:
+    # TODO(trajep): add the complete data operation mapping like:
     # align_labels -> align_labels_with_mapping
     # Also to support customized operation arguments from users
     if kwargs.pop("align_labels", False):
         model_hf_config = AutoConfig.from_pretrained(model_config_path or model_name)
         if model_hf_config and model_hf_config.label2id:
-            _dataset = _dataset.align_labels_with_mapping(model_hf_config.label2id, label_cols[0])
+            dataset = dataset.align_labels_with_mapping(model_hf_config.label2id, label_cols[0])
 
     tokenized_datasets = _huggingface_pre_process_helper(
-        _dataset, model_name, input_cols, label_cols, _tokenizer_and_align_labels, **kwargs
+        dataset, model_name, input_cols, label_cols, _tokenizer_and_align_labels, **kwargs
     )
     # label_cols is ["label"] since we added label_cols[0] as "label" to tokenized_inputs
     return BaseDataset(tokenized_datasets, label_cols=["label"], max_samples=max_samples)
 
 
 @Registry.register_pre_process()
-def ner_huggingface_preprocess(_dataset, model_name, input_cols, label_cols, max_samples=None, **kwargs):
-    """
-    Pre-process data for ner task.
-    """
+def ner_huggingface_preprocess(dataset, model_name, input_cols, label_cols, max_samples=None, **kwargs):
+    """Pre-process data for ner task."""
     from transformers import AutoTokenizer
 
     def _align_labels_with_tokens(labels, word_ids):
@@ -139,20 +145,19 @@ def ner_huggingface_preprocess(_dataset, model_name, input_cols, label_cols, max
         return tokenized_inputs
 
     tokenized_datasets = _huggingface_pre_process_helper(
-        _dataset, model_name, input_cols, label_cols, _tokenizer_and_align_labels, **kwargs
+        dataset, model_name, input_cols, label_cols, _tokenizer_and_align_labels, **kwargs
     )
     return BaseDataset(tokenized_datasets, label_cols=["label"], max_samples=max_samples)
 
 
 @Registry.register_pre_process()
 def text_generation_huggingface_pre_process(
-    _dataset, model_name: str, dataset_type: TextGenDatasetType, source_max_len: int, max_samples=None, **kwargs
+    dataset, model_name: str, dataset_type: TextGenDatasetType, source_max_len: int, max_samples=None, **kwargs
 ):
-    """
-    Pre-process data for text generation task.
+    """Pre-process data for text generation task.
 
     Args:
-        _dataset (object): Data to be pre-processed.
+        dataset (object): Data to be pre-processed, reserved for internal dataset assignment.
         model_name (str): Name of the huggingface model.
         dataset_type (TextGenDatasetType): Type of the dataset - 'corpus' or 'pair'.
         source_max_len (int): Max length of source sequence. For corpus, this is the max length of each sequence.
@@ -172,6 +177,6 @@ def text_generation_huggingface_pre_process(
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     if dataset_type == TextGenDatasetType.CORPUS:
-        return text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs)
+        return text_gen_corpus_pre_process(dataset, tokenizer, all_kwargs)
     else:
-        return text_gen_pair_pre_process(_dataset, tokenizer, all_kwargs)
+        return text_gen_pair_pre_process(dataset, tokenizer, all_kwargs)

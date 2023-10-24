@@ -1,6 +1,10 @@
 -r requirements.txt
-addict
 black
+editorconfig-checker
 flake8
+isort
+lintrunner
+lintrunner-adapters
 pre-commit
-pytest
+pylint
+ruff==0.1.0

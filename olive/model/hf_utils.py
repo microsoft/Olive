@@ -14,7 +14,7 @@ from pydantic import Field, validator
 from transformers import AutoConfig, AutoModel, AutoTokenizer
 
 from olive.common.config_utils import ConfigBase, ConfigWithExtraArgs
-from olive.model.hf_mappings import MODELS_TO_MAX_LENGTH_MAPPING, TASK_TO_FEATURE
+from olive.model.hf_mappings import FEATURE_TO_PEFT_TASK_TYPE, MODELS_TO_MAX_LENGTH_MAPPING, TASK_TO_FEATURE
 from olive.model.model_config import IOConfig
 
 logger = logging.getLogger(__name__)
@@ -28,8 +28,7 @@ class HFComponent(ConfigBase):
 
 
 class HFModelLoadingArgs(ConfigWithExtraArgs):
-    """
-    Arguments to pass to the `from_pretrained` method of the model class.
+    """Arguments to pass to the `from_pretrained` method of the model class.
 
     Refer to https://github.com/huggingface/transformers/blob/main/src/transformers/modeling_utils.py#L2074
     """
@@ -200,7 +199,7 @@ class HFConfig(ConfigBase):
     # feature is optional if task is specified and don't need past
     # else, provide feature such as "causal-lm-with-past"
     feature: str = None
-    # TODO: remove model_class and only use task
+    # TODO(xiaoyu): remove model_class and only use task
     model_class: str = None
     components: List[HFComponent] = None
     dataset: Dict[str, Any] = None
@@ -214,23 +213,28 @@ class HFConfig(ConfigBase):
         return v
 
     def load_model(self, model_path: str = None):
-        """Load model from model_path or model_name"""
+        """Load model from model_path or model_name."""
         model_name_or_path = model_path or self.model_name
+        logger.info(f"Loading Huggingface model from {model_name_or_path}")
         loading_args = self.model_loading_args.get_loading_args() if self.model_loading_args else {}
         if self.task:
             model = load_huggingface_model_from_task(self.task, model_name_or_path, **loading_args)
         elif self.model_class:
             model = load_huggingface_model_from_model_class(self.model_class, model_name_or_path, **loading_args)
+        else:
+            raise ValueError("Either task or model_class must be specified")
+
         return model
 
     def load_model_config(self, model_path: str = None):
-        """Load model config from model_path or model_name"""
+        """Load model config from model_path or model_name."""
         model_name_or_path = model_path or self.model_name
-        return get_hf_model_config(model_name_or_path)
+        loading_args = self.model_loading_args.get_loading_args() if self.model_loading_args else {}
+        return get_hf_model_config(model_name_or_path, **loading_args)
 
 
 def load_huggingface_model_from_task(task: str, name: str, **kwargs):
-    """Load huggingface model from task and name"""
+    """Load huggingface model from task and name."""
     from transformers.pipelines import check_task
 
     task_results = check_task(task)
@@ -268,33 +272,27 @@ def huggingface_model_loader(model_loader):
         try:
             model_loader = getattr(transformers, model_loader)
         except AttributeError:
-            raise AttributeError(f"{model_loader} is not found in transformers")
+            raise AttributeError(f"{model_loader} is not found in transformers") from None
     elif not isinstance(model_loader, Callable):
         raise ValueError("model_loader must be a callable or a string defined in transformers")
 
     return model_loader.from_pretrained
 
 
-def get_hf_model_config(model_name: str):
-    """
-    Get HF Config for the given model name
-    """
-    return AutoConfig.from_pretrained(model_name)
+def get_hf_model_config(model_name: str, **kwargs):
+    """Get HF Config for the given model name."""
+    return AutoConfig.from_pretrained(model_name, **kwargs)
 
 
 def load_huggingface_model_from_model_class(model_class: str, name: str, **kwargs):
-    """
-    Load huggingface model from model_loader and name
-    """
-    kwargs = kwargs or {}
+    """Load huggingface model from model_loader and name."""
     return huggingface_model_loader(model_class)(name, **kwargs)
 
 
 # patched version of transforrmers.onnx.features.supported_features_mapping
 # to support additional models in olive
 def patched_supported_features_mapping(*supported_features: str, onnx_config_cls: str = None) -> Dict[str, Callable]:
-    """
-    Generate the mapping between supported the features and their corresponding OnnxConfig for a given model.
+    """Generate the mapping between supported the features and their corresponding OnnxConfig for a given model.
 
     Args:
         *supported_features: The names of the supported features.
@@ -322,15 +320,16 @@ def patched_supported_features_mapping(*supported_features: str, onnx_config_cls
 
 
 def get_onnx_config(model_name: str, task: str, feature: Optional[str] = None):
+    # pylint: disable=protected-access
     from transformers.onnx import FeaturesManager
 
     from olive.model.hf_onnx_config import ADDITIONAL_MODEL_TYPES
 
     # patch FeaturesManager._SUPPORTED_MODEL_TYPE to support additional models in olive
-    for model_type in ADDITIONAL_MODEL_TYPES:
+    for model_type, feature_list in ADDITIONAL_MODEL_TYPES.items():
         if model_type in FeaturesManager._SUPPORTED_MODEL_TYPE:
             continue
-        features, onnx_config_cls = ADDITIONAL_MODEL_TYPES[model_type]
+        features, onnx_config_cls = feature_list
         FeaturesManager._SUPPORTED_MODEL_TYPE[model_type] = patched_supported_features_mapping(
             *features, onnx_config_cls=onnx_config_cls
         )
@@ -370,10 +369,20 @@ def get_hf_model_dummy_input(model_name: str, task: str, feature: Optional[str] 
     return model_config.generate_dummy_inputs(tokenizer, framework="pt")
 
 
+def get_peft_task_type_from_task(task: str, fail_on_not_found=False) -> str:
+    """Get peft task type from feature."""
+    feature = TASK_TO_FEATURE.get(task, None)
+    peft_task_type = FEATURE_TO_PEFT_TASK_TYPE.get(feature, None) if feature else None
+    not_found_msg = f"There is no peft task type for task {task}"
+    if peft_task_type is None and fail_on_not_found:
+        raise ValueError(not_found_msg)
+    elif peft_task_type is None:
+        logger.warning(not_found_msg)
+    return peft_task_type
+
+
 def get_model_max_length(model_name: str, fail_on_not_found=False) -> int:
-    """
-    Get max length of the model, extracted from the config
-    """
+    """Get max length of the model, extracted from the config."""
     model_config = get_hf_model_config(model_name)
     model_type = model_config.model_type
 
@@ -391,7 +400,9 @@ def get_model_max_length(model_name: str, fail_on_not_found=False) -> int:
         try:
             return getattr(model_config, default_max_length)
         except AttributeError:
+            not_found_msg = f"Could not find max length for model type {model_type}"
             if fail_on_not_found:
-                raise ValueError(f"Could not find max length for model type {model_type}")
+                raise ValueError(not_found_msg) from None
             else:
+                logger.warning(not_found_msg)
                 return None

@@ -23,6 +23,17 @@ TASK_TO_FEATURE = {
     "translation": "seq2seq-lm",
 }
 
+# mapping from feature to peft task type
+# refer to peft.utils.peft_types.TaskType for all possible values
+FEATURE_TO_PEFT_TASK_TYPE = {
+    "sequence-classification": "SEQ_CLS",
+    "seq2seq-lm": "SEQ_2_SEQ_LM",
+    "causal-lm": "CAUSAL_LM",
+    "token-classification": "TOKEN_CLS",
+    "question-answering": "QUESTION_ANS",
+    # TODO(jambayk): see if we need feature extraction
+}
+
 # model_type -> name for layers
 MODELS_TO_LAYERS_MAPPING = {
     "bloom": "transformer.h",
@@ -61,14 +72,16 @@ MODELS_TO_MAX_LENGTH_MAPPING = {
 # To extend following list/map from huggingface config
 # there is the priority order: NUM_HEADS_NAMES[0] and HIDDEN_SIZE_NAMES[0] are the first choice
 # which means user can override the value in config file
-NUM_HEADS_NAMES = ["num_heads", "num_attention_heads", "n_head", "encoder_attention_heads"]
-HIDDEN_SIZE_NAMES = ["hidden_size", "d_model", "n_embd"]
+NUM_HEADS_NAMES = ["num_heads", "num_attention_heads", "n_head", "n_heads", "encoder_attention_heads"]
+HIDDEN_SIZE_NAMES = ["hidden_size", "dim", "d_model", "n_embd"]
 MODEL_TYPE_MAPPING = {
     "whisper": "bart",
     "camembert": "bert",
     "deberta": "bert",
     "deberta-v2": "bert",
+    "distilbert": "bert",
     "gpt_neox": "gpt2",
     "gpt-j": "gpt2",
     "llama": "gpt2",
+    "roberta": "bert",
 }

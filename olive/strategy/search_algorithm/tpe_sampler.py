@@ -11,8 +11,7 @@ from olive.strategy.search_algorithm.optuna_sampler import OptunaSearchAlgorithm
 
 
 class TPESearchAlgorithm(OptunaSearchAlgorithm):
-    """
-    Sample using TPE (Tree-structured Parzen Estimator) algorithm. Uses optuna TPESampler underneath.
+    """Sample using TPE (Tree-structured Parzen Estimator) algorithm. Uses optuna TPESampler underneath.
 
     Refer to https://optuna.readthedocs.io/en/stable/reference/samplers/generated/optuna.samplers.TPESampler.html
     for more details about the sampler.
@@ -40,9 +39,7 @@ class TPESearchAlgorithm(OptunaSearchAlgorithm):
         }
 
     def _create_sampler(self) -> optuna.samplers.TPESampler:
-        """
-        Create the sampler.
-        """
+        """Create the sampler."""
         return optuna.samplers.TPESampler(
             multivariate=self._config.multivariate, group=self._config.group, seed=self._config.seed
         )

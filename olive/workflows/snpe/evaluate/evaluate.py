@@ -27,8 +27,8 @@ def evaluate(model: str, config: Union[str, Dict], data: str, input_list_file: O
         input_list_file (str, optional): Name of input list file. Optional if it is 'input_list.txt'.
     """
     data_dir = Path(data).resolve()
-    if type(config) is str:
-        with open(Path(config).resolve()) as f:
+    if isinstance(config, str):
+        with Path(config).resolve().open() as f:
             config = json.load(f)
 
     # SNPE Model

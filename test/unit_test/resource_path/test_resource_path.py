@@ -2,23 +2,23 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import tempfile
 from pathlib import Path
 
 import pytest
 
 from olive.resource_path import ResourceType, create_resource_path
 
+# pylint: disable=attribute-defined-outside-init
+
 
 class TestResourcePath:
     @pytest.fixture(autouse=True)
-    def setup(self):
-        self.tmp_dir = tempfile.TemporaryDirectory()
-        self.tmp_dir_path = Path(self.tmp_dir.name).resolve()
+    def setup(self, tmpdir):
+        self.tmp_dir_path = Path(tmpdir).resolve()
 
         # create a local file
         self.local_file = self.tmp_dir_path / "local_file.txt"
-        with open(self.local_file, "w") as f:
+        with self.local_file.open("w") as f:
             f.write("local file content")
 
         # create a local folder

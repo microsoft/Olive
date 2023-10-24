@@ -18,6 +18,8 @@ from olive.passes.pass_config import PassConfigParam
 
 logger = logging.getLogger(__name__)
 
+# ruff: noqa: N806
+
 
 class InsertBeamSearch(Pass):
     """Insert Beam Search Op."""
@@ -75,9 +77,9 @@ class InsertBeamSearch(Pass):
         node.domain = "com.microsoft"
         node.attribute.extend(
             [
-                helper.make_attribute("eos_token_id", model_config.eos_token_id),
-                helper.make_attribute("pad_token_id", model_config.pad_token_id),
-                helper.make_attribute("decoder_start_token_id", model_config.decoder_start_token_id),
+                helper.make_attribute("eos_token_id", model_config["eos_token_id"]),
+                helper.make_attribute("pad_token_id", model_config["pad_token_id"]),
+                helper.make_attribute("decoder_start_token_id", model_config["decoder_start_token_id"]),
                 helper.make_attribute("no_repeat_ngram_size", options["no_repeat_ngram_size"]),
                 helper.make_attribute("early_stopping", True),
                 helper.make_attribute("model_type", 2),
@@ -140,14 +142,12 @@ class InsertBeamSearch(Pass):
         logger.debug(f"Using IR version {model_A.ir_version} for chained model")
 
         # Set IR version of chained model to IR version of subgraphs in order to generate a working E2E model
-        beam_model = helper.make_model_gen_version(
+        return helper.make_model_gen_version(
             beam_graph,
             producer_name="Olive",
             opset_imports=opset_import,
             ir_version=model_A.ir_version,
         )
-
-        return beam_model
 
     def add_attention_mask(self, model: ModelProto):
         mask = helper.make_tensor_value_info(
@@ -164,7 +164,7 @@ class InsertBeamSearch(Pass):
         if not isinstance(model, CompositeOnnxModel):
             raise ValueError
 
-        # FIXME : Right now we are assuming that the composite model only has two components and beam search op
+        # TODO(jambayk): Right now we are assuming that the composite model only has two components and beam search op
         # will be inserted in between them to chain the components. We should add a config option to identify
         # the two components to chain together when there are more than 2 components in the composite model.
 
@@ -188,7 +188,7 @@ class InsertBeamSearch(Pass):
             self.add_attention_mask(model_proto_B)
 
         combined_model = self.chain_model(
-            model_proto_A, model_A_name, model_proto_B, model_B_name, model.get_model_config(), config
+            model_proto_A, model_A_name, model_proto_B, model_B_name, model.model_attributes, config
         )
 
         # save the model to the output path and return the model

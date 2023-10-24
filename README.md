@@ -50,27 +50,20 @@ pip install olive-ai[directml]
 ```
 
 ### Optional Dependencies
-Olive has optional dependencies that can be installed to enable additional features. These dependencies can be installed as extras:
-- **azureml**: To enable AzureML integration. Packages: `azure-ai-ml, azure-identity`
-- **docker**: To enable docker integration. Packages: `docker`
-- **openvino**: To use OpenVINO related passes. Packages: `openvino==2022.3.0, openvino-dev[tensorflow,onnx]==2022.3.0`
+Olive has optional dependencies that can be installed to enable additional features. Please refer to [extra dependencies](./olive/extra_dependencies.json) for
+the list of extras and their dependencies.
+
+## Pipeline Status
+
+[![Build Status](https://dev.azure.com/aiinfra/PublicPackages/_apis/build/status%2FOlive%20CI?label=Olive-CI)](https://dev.azure.com/aiinfra/PublicPackages/_build/latest?definitionId=1240)
+
+[![Build Status](https://dev.azure.com/aiinfra/PublicPackages/_apis/build/status%2FOlive-ORT-stable?label=Olive-ORT-stable)](https://aiinfra.visualstudio.com/PublicPackages/_build?definitionId=1281)
+
+[![Build Status](https://dev.azure.com/aiinfra/PublicPackages/_apis/build/status%2FOlive-ORT-Nightly?label=Olive-ORT-Nightly)](https://dev.azure.com/aiinfra/PublicPackages/_build/latest?definitionId=1279)
 
 ## Contributing
 We’d love to embrace your contribution to Olive. Please refer to [CONTRIBUTING.md](./CONTRIBUTING.md).
 
-### Formatting
-Olive uses pre-commit hooks to check and format code. To install the pre-commit hooks, run the following commands from the root of the repository:
-
-```bash
-# install pre-commit and other dev requirements
-python -m pip install pre-commit
-# install the git hook scripts
-pre-commit install
-# for the first time, run on all files
-pre-commit run --all-files
-```
-
-Every time you make a git commit, the hooks will automatically point out issues in code for changed files and fix them if possible.
 
 ## License
 Copyright (c) Microsoft Corporation. All rights reserved.

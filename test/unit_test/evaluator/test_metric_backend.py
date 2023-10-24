@@ -2,7 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from test.unit_test.utils import get_accuracy_metric, get_onnx_model, get_pytorch_model
+from test.unit_test.utils import get_accuracy_metric, get_onnx_model_config, get_pytorch_model_config
+from typing import ClassVar, List
 from unittest.mock import patch
 
 import pytest
@@ -11,6 +12,8 @@ from olive.evaluator.metric import SubMetricResult
 from olive.evaluator.metric_backend import HuggingfaceMetrics
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.systems.local import LocalSystem
+
+# pylint: disable=attribute-defined-outside-init, redefined-outer-name
 
 
 class TestMetricBackend:
@@ -37,29 +40,35 @@ class TestMetricBackend:
             metric.sub_types[idx].metric_config.result_key = "MISC.precision"
         backend = HuggingfaceMetrics()
         actual_res = backend.measure(self.preds, self.targets, metric)
-        for _, v in actual_res.items():
+        for v in actual_res.values():
             assert v.value == 0.999
 
-    HF_ACCURACY_TEST_CASE = [
-        (get_pytorch_model(), get_accuracy_metric("accuracy", "f1", backend="huggingface_metrics"), 0.99),
-        (get_onnx_model(), get_accuracy_metric("accuracy", "f1", backend="huggingface_metrics"), 0.99),
+    HF_ACCURACY_TEST_CASE: ClassVar[List] = [
+        (
+            get_pytorch_model_config(),
+            get_accuracy_metric("accuracy", "f1", backend="huggingface_metrics"),
+            0.99,
+        ),
+        (
+            get_onnx_model_config(),
+            get_accuracy_metric("accuracy", "f1", backend="huggingface_metrics"),
+            0.99,
+        ),
     ]
 
     @pytest.mark.parametrize(
-        "olive_model,metric,expected_res",
+        "model_config,metric,expected_res",
         HF_ACCURACY_TEST_CASE,
     )
-    def test_evaluate_backend(self, olive_model, metric, expected_res):
-        from olive.evaluator.metric_backend import HuggingfaceMetrics
-
+    def test_evaluate_backend(self, model_config, metric, expected_res):
         with patch.object(HuggingfaceMetrics, "measure_sub_metric") as mock_measure:
             mock_measure.return_value = SubMetricResult(value=expected_res, higher_is_better=True, priority=-1)
             system = LocalSystem()
 
             # execute
-            actual_res = system.evaluate_model(olive_model, None, [metric], DEFAULT_CPU_ACCELERATOR)
+            actual_res = system.evaluate_model(model_config, None, [metric], DEFAULT_CPU_ACCELERATOR)
 
             # assert
-            mock_measure.call_count == len(metric.sub_types)
+            assert mock_measure.call_count == len(metric.sub_types)
             for sub_type in metric.sub_types:
                 assert expected_res == actual_res.get_value(metric.name, sub_type.name)

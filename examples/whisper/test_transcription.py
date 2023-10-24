@@ -10,23 +10,16 @@ import tempfile
 from pathlib import Path
 
 import onnxruntime as ort
+from prepare_whisper_configs import download_audio_test_data
 
 from olive.evaluator.olive_evaluator import OnnxEvaluator
+from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModel
 
 sys.path.append(str(Path(__file__).parent / "code"))
 
+# pylint: disable=wrong-import-position, wrong-import-order
 from whisper_dataset import WhisperDataset  # noqa: E402
-
-# hard-coded audio hyperparameters
-# copied from https://github.com/openai/whisper/blob/main/whisper/audio.py#L12
-SAMPLE_RATE = 16000
-N_FFT = 400
-N_MELS = 80
-HOP_LENGTH = 160
-CHUNK_LENGTH = 30
-N_SAMPLES = CHUNK_LENGTH * SAMPLE_RATE  # 480000 samples in a 30-second chunk
-N_FRAMES = N_SAMPLES // HOP_LENGTH
 
 
 def get_args(raw_args):
@@ -57,7 +50,8 @@ def main(raw_args=None):
     args = get_args(raw_args)
 
     # load config
-    config = json.load(open(args.config, "r"))
+    with open(args.config) as f:  # noqa: PTH123
+        config = json.load(f)
 
     # get model information
     use_audio_decoder = config["passes"]["prepost"]["config"]["tool_command_args"]["use_audio_decoder"]
@@ -65,10 +59,18 @@ def main(raw_args=None):
     if not multilingual and not (args.language == "english" and args.task == "transcribe"):
         print("Model is not multilingual but custom language/task provided. Will ignore custom language/task.")
 
+    # get device and ep
+    device = config["systems"]["local_system"]["config"]["accelerators"][0]
+    ep = config["engine"]["execution_providers"][0]
+    accelerator_spec = AcceleratorSpec(accelerator_type=device, execution_provider=ep)
+
     # load output model json
     output_model_json_path = Path(config["engine"]["output_dir"])
-    for model_json in output_model_json_path.glob(f"**/{config['engine']['output_name']}_cpu-cpu_model.json"):
-        output_model_json = json.load(open(model_json, "r"))
+    for model_json in output_model_json_path.glob(
+        f"**/{config['engine']['output_name']}_{accelerator_spec}_model.json"
+    ):
+        with model_json.open() as f:
+            output_model_json = json.load(f)
         break
 
     # load output model onnx
@@ -76,10 +78,10 @@ def main(raw_args=None):
 
     # load audio data
     if not args.audio_path:
-        args.audio_path = Path(config["passes"]["prepost"]["config"]["tool_command_args"]["testdata_filepath"])
+        args.audio_path = download_audio_test_data()
 
     # temporary directory for storing audio file
-    temp_dir = tempfile.TemporaryDirectory()
+    temp_dir = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
     temp_dir_path = Path(temp_dir.name)
     temp_audio_path = temp_dir_path / Path(args.audio_path).name
     shutil.copy(args.audio_path, temp_audio_path)
@@ -94,12 +96,12 @@ def main(raw_args=None):
     )
 
     # create inference session
-    session = olive_model.prepare_session(None, "cpu")
+    session = olive_model.prepare_session(None, device, [ep])
 
     # get output
-    input, _ = dataset[0]
-    input = OnnxEvaluator.format_input(input, olive_model.get_io_config())
-    output = session.run(None, input)
+    input_data, _ = dataset[0]
+    input_data = OnnxEvaluator.format_input(input_data, olive_model.get_io_config())
+    output = session.run(None, input_data)
     return output[0][0]
 
 

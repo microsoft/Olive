@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import shutil
-import tempfile
 import unittest
 from pathlib import Path
 from types import FunctionType
@@ -18,11 +17,14 @@ from azureml.evaluate import mlflow as aml_mlflow
 
 from olive.model import PyTorchModel
 
+# pylint: disable=attribute-defined-outside-init
+
 
 class TestPyTorchMLflowModel(unittest.TestCase):
-    def setup(self):
-        self.tempdir = tempfile.TemporaryDirectory()
-        self.root_dir = Path(self.tempdir.name)
+    @pytest.fixture(autouse=True)
+    def setup(self, tmpdir):
+        self.tempdir = tmpdir
+        self.root_dir = Path(self.tempdir)
         self.model_path = str(self.root_dir.resolve() / "mlflow_test")
         self.task = "text-classification"
         self.architecture = "Intel/bert-base-uncased-mrpc"
@@ -43,14 +45,17 @@ class TestPyTorchMLflowModel(unittest.TestCase):
             hf_conf=self.hf_conf,
         )
 
-    def test_load_model(self):
-        self.setup()
+    def test_hf_model_attributes(self):
+        olive_model = PyTorchModel(hf_config={"task": self.task, "model_name": self.architecture})
+        # model_attributes will be delayed loaded until pass run
+        assert olive_model.model_attributes == transformers.AutoConfig.from_pretrained(self.architecture).to_dict()
 
+    def test_load_model(self):
         olive_model = PyTorchModel(model_path=self.model_path, model_file_format="PyTorch.MLflow").load_model()
         mlflow_model = mlflow.pyfunc.load_model(self.model_path)
 
         sample_input = {"inputs": {"input_string": self.input_text}}
-        mlflow_predict_result = mlflow_model.predict(pd.DataFrame.from_dict(sample_input)).values[0]
+        mlflow_predict_result = mlflow_model.predict(pd.DataFrame.from_dict(sample_input)).values[0]  # noqa: PD011
 
         encoded_input = self.tokenizer(
             self.input_text,
@@ -67,7 +72,6 @@ class TestPyTorchMLflowModel(unittest.TestCase):
         olive_predict_result = [olive_model.config.id2label[olive_result]]
 
         assert mlflow_predict_result == olive_predict_result
-        self.tempdir.cleanup()
 
 
 class TestPyTorchHFModel(unittest.TestCase):
@@ -188,3 +192,15 @@ class TestPytorchDummyInput:
 
         get_hf_model_dummy_input.assert_called_once_with(self.model_name, self.task, None)
         assert dummy_inputs == 1
+
+
+class TestPyTorchModel:
+    def test_model_to_json(self, tmp_path):
+        script_dir = tmp_path / "model"
+        script_dir.mkdir(exist_ok=True)
+        model = PyTorchModel(model_path="test_path", script_dir=script_dir)
+        model.set_resource("model_script", "model_script")
+        model_json = model.to_json()
+        assert model_json["config"]["model_path"] == "test_path"
+        assert model_json["config"]["script_dir"] == str(script_dir)
+        assert model_json["config"]["model_script"] == "model_script"

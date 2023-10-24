@@ -3,14 +3,16 @@
     "input_model":{
         "type": "OnnxModel",
         "config": {
-            "model_path": "model_4n_2l_8e.onnx"
+            "model_path": "model.onnx"
         }
     },
     "passes": {
         "distribute": {
             "type": "MoEExpertsDistributor",
             "config": {
-                "world_size": 2
+                "world_size": 2,
+                "use_external_data_format": false,
+                "all_tensors_to_one_file": false
             }
         }
     },

@@ -15,6 +15,8 @@ import pytest
 from olive.cache import clean_pass_run_cache, create_cache, download_resource, get_cache_sub_dirs, save_model
 from olive.resource_path import AzureMLModel
 
+# ruff: noqa: PTH123
+
 
 class TestCache:
     @pytest.mark.parametrize(
@@ -35,7 +37,8 @@ class TestCache:
             model_p = str(model_folder)
         else:
             model_p = str(model_cache_dir / model_path)
-            open(model_p, "w")
+            with open(model_p, "w") as _:
+                pass
 
         run_cache_file_path = str((run_cache_dir / f"{pass_type}-p(･◡･)p.json").resolve())
         with open(run_cache_file_path, "w") as run_cache_file:
@@ -52,7 +55,8 @@ class TestCache:
             model_cache_file.write(model_data)
 
         evaluation_cache_file_path = str((evaluation_cache_dir / "0_p(･◡･)p.json").resolve())
-        open(evaluation_cache_file_path, "w")
+        with open(evaluation_cache_file_path, "w") as _:
+            pass
 
         # execute
         clean_pass_run_cache(pass_type, cache_dir)
@@ -94,7 +98,8 @@ class TestCache:
         model_cache_dir.mkdir(parents=True, exist_ok=True)
         model_cache_file_path = str((model_cache_dir / f"{model_id}_p(･◡･)p.json").resolve())
         model_json = {"type": "onnxmodel", "config": {"model_path": model_p}}
-        json.dump(model_json, open(model_cache_file_path, "w"))
+        with open(model_cache_file_path, "w") as f:
+            json.dump(model_json, f)
 
         # output model to output_dir
         output_dir = cache_dir / "output"
@@ -109,7 +114,8 @@ class TestCache:
         assert output_model_path == output_json["config"]["model_path"]
         assert os.path.exists(output_model_path)
         assert os.path.exists(output_json_path)
-        assert output_model_path == json.load(open(output_json_path))["config"]["model_path"]
+        with open(output_json_path) as f:
+            assert output_model_path == json.load(f)["config"]["model_path"]
 
         # cleanup
         shutil.rmtree(cache_dir)
@@ -117,38 +123,38 @@ class TestCache:
     @patch("olive.resource_path.AzureMLModel.save_to_dir")
     def test_download_resource(self, mock_save_to_dir):
         # setup
-        tmp_dir = tempfile.TemporaryDirectory()
-        cache_dir = Path(tmp_dir.name) / "cache_dir"
-        cache_dir2 = Path(tmp_dir.name) / "cache_dir2"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            cache_dir = Path(tmp_dir) / "cache_dir"
+            cache_dir2 = Path(tmp_dir) / "cache_dir2"
 
-        # resource_path
-        resource_path = AzureMLModel(
-            {
-                "azureml_client": {
-                    "workspace_name": "dummy_workspace_name",
-                    "subscription_id": "dummy_subscription_id",
-                    "resource_group": "dummy_resource_group",
-                },
-                "name": "dummy_model_name",
-                "version": "dummy_model_version",
-            }
-        )
+            # resource_path
+            resource_path = AzureMLModel(
+                {
+                    "azureml_client": {
+                        "workspace_name": "dummy_workspace_name",
+                        "subscription_id": "dummy_subscription_id",
+                        "resource_group": "dummy_resource_group",
+                    },
+                    "name": "dummy_model_name",
+                    "version": "dummy_model_version",
+                }
+            )
 
-        mock_save_to_dir.return_value = "dummy_string_name"
+            mock_save_to_dir.return_value = "dummy_string_name"
 
-        # execute
-        # first time
-        cached_path = download_resource(resource_path, cache_dir)
-        assert cached_path.get_path() == "dummy_string_name"
-        assert mock_save_to_dir.call_count == 1
+            # execute
+            # first time
+            cached_path = download_resource(resource_path, cache_dir)
+            assert cached_path.get_path() == "dummy_string_name"
+            assert mock_save_to_dir.call_count == 1
 
-        # second time
-        cached_path = download_resource(resource_path, cache_dir)
-        assert cached_path.get_path() == "dummy_string_name"
-        # uses cached value so save_to_dir is not called again
-        assert mock_save_to_dir.call_count == 1
+            # second time
+            cached_path = download_resource(resource_path, cache_dir)
+            assert cached_path.get_path() == "dummy_string_name"
+            # uses cached value so save_to_dir is not called again
+            assert mock_save_to_dir.call_count == 1
 
-        # change cache_dir
-        cached_path = download_resource(resource_path, cache_dir2)
-        assert cached_path.get_path() == "dummy_string_name"
-        assert mock_save_to_dir.call_count == 2
+            # change cache_dir
+            cached_path = download_resource(resource_path, cache_dir2)
+            assert cached_path.get_path() == "dummy_string_name"
+            assert mock_save_to_dir.call_count == 2

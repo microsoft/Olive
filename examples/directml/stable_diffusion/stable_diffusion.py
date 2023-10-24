@@ -5,6 +5,7 @@
 import argparse
 import json
 import shutil
+import sys
 import threading
 import tkinter as tk
 import tkinter.ttk as ttk
@@ -21,6 +22,8 @@ from user_script import get_base_model_name
 
 from olive.model import ONNXModel
 from olive.workflows import run as olive_run
+
+# pylint: disable=redefined-outer-name
 
 
 def run_inference_loop(
@@ -171,7 +174,7 @@ def optimize(
     # protobuf 4.x aborts with OOM when optimizing unet
     if version.parse(protobuf_version) > version.parse("3.20.3"):
         print("This script requires protobuf 3.20.3. Please ensure your package version matches requirements.txt.")
-        exit(1)
+        sys.exit(1)
 
     ort.set_default_logger_severity(4)
     script_dir = Path(__file__).resolve().parent
@@ -191,7 +194,7 @@ def optimize(
     print("Download stable diffusion PyTorch pipeline...")
     pipeline = DiffusionPipeline.from_pretrained(base_model_id, torch_dtype=torch.float32)
 
-    model_info = dict()
+    model_info = {}
 
     submodel_names = ["vae_encoder", "vae_decoder", "unet", "text_encoder"]
 
@@ -204,7 +207,7 @@ def optimize(
         print(f"\nOptimizing {submodel_name}")
 
         olive_config = None
-        with open(script_dir / f"config_{submodel_name}.json", "r") as fin:
+        with (script_dir / f"config_{submodel_name}.json").open() as fin:
             olive_config = json.load(fin)
 
         if submodel_name in ("unet", "text_encoder"):
@@ -225,7 +228,7 @@ def optimize(
 
             conversion_footprint = None
             optimizer_footprint = None
-            for _, footprint in footprints.items():
+            for footprint in footprints.values():
                 if footprint["from_pass"] == "OnnxConversion":
                     conversion_footprint = footprint
                 elif footprint["from_pass"] == "OrtTransformersOptimization":
@@ -325,15 +328,15 @@ if __name__ == "__main__":
         "stabilityai/stable-diffusion-2-1-base": 768,
     }
 
-    if args.model_id not in list(model_to_image_size.keys()):
+    if args.model_id not in model_to_image_size:
         print(
-            f"WARNING: {args.model_id} is not an officially supported model for this example and may not work as "
-            + "expected."
+            f"WARNING: {args.model_id} is not an officially supported model for this example and may not work "
+            "as expected."
         )
 
     if version.parse(ort.__version__) < version.parse("1.15.0"):
         print("This script requires onnxruntime-directml 1.15.0 or newer")
-        exit(1)
+        sys.exit(1)
 
     script_dir = Path(__file__).resolve().parent
     unoptimized_model_dir = script_dir / "models" / "unoptimized" / args.model_id
@@ -345,7 +348,7 @@ if __name__ == "__main__":
     config.image_size = model_to_image_size.get(args.model_id, 512)
 
     if args.optimize or not optimized_model_dir.exists():
-        # TODO: clean up warning filter (mostly during conversion from torch to ONNX)
+        # TODO(jstoecker): clean up warning filter (mostly during conversion from torch to ONNX)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             optimize(args.model_id, unoptimized_model_dir, optimized_model_dir)

@@ -33,8 +33,7 @@ def text_encoder_inputs(batchsize, torch_dtype):
 
 
 def text_encoder_load(model_name):
-    model = CLIPTextModel.from_pretrained(model_name, subfolder="text_encoder")
-    return model
+    return CLIPTextModel.from_pretrained(model_name, subfolder="text_encoder")
 
 
 def text_encoder_conversion_inputs(model):
@@ -58,8 +57,7 @@ def text_encoder_2_inputs(batchsize, torch_dtype):
 
 
 def text_encoder_2_load(model_name):
-    model = CLIPTextModelWithProjection.from_pretrained(model_name, subfolder="text_encoder_2")
-    return model
+    return CLIPTextModelWithProjection.from_pretrained(model_name, subfolder="text_encoder_2")
 
 
 def text_encoder_2_conversion_inputs(model):
@@ -85,20 +83,19 @@ def unet_inputs(batchsize, torch_dtype, is_conversion_inputs=False):
     if is_conversion_inputs:
         inputs["additional_inputs"] = {
             "added_cond_kwargs": {
-                "text_embeds": torch.rand((2 * batchsize, config.image_size + 256), dtype=torch_dtype),
+                "text_embeds": torch.rand((2 * batchsize, 1280), dtype=torch_dtype),
                 "time_ids": torch.rand((2 * batchsize, config.time_ids_size), dtype=torch_dtype),
             }
         }
     else:
-        inputs["text_embeds"] = torch.rand((2 * batchsize, config.image_size + 256), dtype=torch_dtype)
+        inputs["text_embeds"] = torch.rand((2 * batchsize, 1280), dtype=torch_dtype)
         inputs["time_ids"] = torch.rand((2 * batchsize, config.time_ids_size), dtype=torch_dtype)
 
     return inputs
 
 
 def unet_load(model_name):
-    model = UNet2DConditionModel.from_pretrained(model_name, subfolder="unet")
-    return model
+    return UNet2DConditionModel.from_pretrained(model_name, subfolder="unet")
 
 
 def unet_conversion_inputs(model):

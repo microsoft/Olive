@@ -1,0 +1,9 @@
+apache_beam
+datasets
+evaluate
+neural-compressor
+onnxruntime
+optimum
+scikit-learn
+tabulate
+transformers

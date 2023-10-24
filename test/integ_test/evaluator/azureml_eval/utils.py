@@ -13,6 +13,8 @@ from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
 from olive.systems.azureml import AzureMLDockerConfig, AzureMLSystem
 
+# pylint: disable=redefined-outer-name
+
 
 def get_directories():
     current_dir = Path(__file__).resolve().parent
@@ -34,31 +36,29 @@ def get_accuracy_metric():
     accuracy_metric_config = {
         "user_script": user_script,
         "post_processing_func": "post_process",
-        "data_dir": data_dir,
+        "data_dir": str(data_dir),
         "dataloader_func": "create_dataloader",
     }
-    accuracy_metric = Metric(
+    return Metric(
         name="accuracy",
         type=MetricType.ACCURACY,
         sub_types=[{"name": AccuracySubType.ACCURACY_SCORE}],
         user_config=accuracy_metric_config,
     )
-    return accuracy_metric
 
 
 def get_latency_metric():
     latency_metric_config = {
         "user_script": user_script,
-        "data_dir": data_dir,
+        "data_dir": str(data_dir),
         "dataloader_func": "create_dataloader",
     }
-    latency_metric = Metric(
+    return Metric(
         name="latency",
         type=MetricType.LATENCY,
         sub_types=[{"name": LatencySubType.AVG}],
         user_config=latency_metric_config,
     )
-    return latency_metric
 
 
 def download_models():

@@ -1,6 +1,10 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
 import inspect
 from importlib import import_module
-from typing import Union
+from typing import ClassVar, Dict, Union
 
 from docutils import nodes
 from docutils.parsers.rst import Directive
@@ -13,6 +17,8 @@ from olive.common.auto_config import AutoConfigClass
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.passes import Pass
 
+# pylint: skip-file
+
 
 def import_class(class_name: str):
     module_name = ".".join(class_name.split(".")[:-1])
@@ -24,7 +30,7 @@ def import_class(class_name: str):
 class AutoConfigDirective(Directive):
     has_content = True
     required_arguments = 1
-    option_spec = {}
+    option_spec: ClassVar[Dict] = {}
 
     def make_doc(self, auto_config_class: Union[AutoConfigClass, Pass]):
         class_doc = auto_config_class.__doc__

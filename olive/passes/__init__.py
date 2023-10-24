@@ -10,3 +10,9 @@ from olive.passes.pytorch import *  # noqa: F403
 from olive.passes.snpe import *  # noqa: F403
 
 REGISTRY = Pass.registry
+
+__all__ = [
+    "Pass",
+    "PassParamDefault",
+    "FullPassConfig",
+]

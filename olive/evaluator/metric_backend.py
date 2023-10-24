@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from abc import abstractmethod
-from typing import Any, Dict, NamedTuple, Tuple, Type, Union
+from typing import Any, ClassVar, Dict, NamedTuple, Tuple, Type, Union
 
 from olive.common.auto_config import AutoConfigClass, ConfigBase
 from olive.common.config_utils import ConfigParam
@@ -12,7 +12,7 @@ from olive.evaluator.metric import Metric, MetricResult, SubMetric, SubMetricRes
 
 
 class MetricBackend(AutoConfigClass):
-    registry: Dict[str, Type["MetricBackend"]] = {}
+    registry: ClassVar[Dict[str, Type["MetricBackend"]]] = {}
 
     def __init__(self, config: Union[ConfigBase, Dict[str, Any]] = None) -> None:
         super().__init__(config)
@@ -26,7 +26,7 @@ class MetricBackend(AutoConfigClass):
         self, model_output: Union[Tuple, NamedTuple], targets: Any, sub_metric: SubMetric
     ) -> SubMetricResult:
         # model_output: (preds, logits)
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def measure(self, model_output, targets, metrics: Metric) -> MetricResult:
         metric_results_dict = {}
@@ -57,7 +57,7 @@ class HuggingfaceMetrics(MetricBackend):
         try:
             import evaluate
         except ImportError:
-            raise ImportError("Please install the huggingface/evaluate package to use huggingface metrics.")
+            raise ImportError("Please install the huggingface/evaluate package to use huggingface metrics.") from None
         self.evaluate_module = evaluate
 
     @staticmethod
@@ -80,12 +80,12 @@ class HuggingfaceMetrics(MetricBackend):
             ),
         }
 
-    def measure_sub_metric(self, model_output, target, sub_metric: SubMetric) -> SubMetricResult:
+    def measure_sub_metric(self, model_output, targets, sub_metric: SubMetric) -> SubMetricResult:
         load_params = sub_metric.metric_config.load_params or {}
         evaluator = self.evaluate_module.load(sub_metric.name, **load_params)
 
         compute_params = sub_metric.metric_config.compute_params or {}
-        result = evaluator.compute(predictions=model_output[0], references=target, **compute_params)
+        result = evaluator.compute(predictions=model_output[0], references=targets, **compute_params)
         if not result:
             raise ValueError(
                 f"Cannot find the result for {sub_metric.name} in the metric result. Please check your parameters."

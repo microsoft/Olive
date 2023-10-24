@@ -30,7 +30,7 @@ def _validate_input_types_layouts(v, values, field):
         # shape of input and input encoding
         valid_values = [None]
         valid_values += (
-            [type.value for type in InputType]
+            [input_type.value for input_type in InputType]
             if field.name == "input_types"
             else [layout.value for layout in InputLayout]
         )
@@ -40,8 +40,8 @@ def _validate_input_types_layouts(v, values, field):
 
 
 class SNPEConversion(Pass):
-    """
-    Convert ONNX or TensorFlow model to SNPE DLC.
+    """Convert ONNX or TensorFlow model to SNPE DLC.
+
     Uses snpe-tensorflow-to-dlc or snpe-onnx-to-dlc tools from the SNPE SDK.
     """
 
