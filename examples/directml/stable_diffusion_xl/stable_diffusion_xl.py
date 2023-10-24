@@ -267,6 +267,10 @@ def optimize(
         with open(script_dir / f"config_{submodel_name}.json", "r") as fin:
             olive_config = json.load(fin)
 
+        # TODO: Remove this once we figure out which nodes are causing the black screen
+        if is_refiner_model and submodel_name == "vae_encoder":
+            olive_config["passes"]["optimize"]["config"]["float16"] = False
+            
         olive_config["input_model"]["config"]["model_path"] = model_id
         olive_run(olive_config)
 
