@@ -200,7 +200,8 @@ class OrtTransformersOptimization(Pass):
                 keep_io_types=config["keep_io_types"],
                 op_block_list=op_block_list,
                 force_fp16_inputs=force_fp16_inputs,
-                node_block_list=node_block_list)
+                node_block_list=node_block_list,
+            )
 
 
         if config["input_int32"]:
