@@ -20,7 +20,7 @@ from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import Metric, MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
-from olive.exception import OlivePassError
+from olive.exception import EXCEPTIONS_TO_RAISE, OlivePassError
 from olive.hardware import AcceleratorLookup, AcceleratorSpec, Device
 from olive.model import ModelConfig
 from olive.passes.olive_pass import Pass
@@ -31,8 +31,6 @@ from olive.systems.olive_system import OliveSystem
 from olive.systems.utils import create_new_system_with_cache
 
 logger = logging.getLogger(__name__)
-
-EXCEPTIONS_TO_RAISE = (AssertionError, AttributeError, ImportError, TypeError, ValueError)
 
 
 class Engine:
