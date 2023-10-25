@@ -195,11 +195,11 @@ class OrtTransformersOptimization(Pass):
 
             op_block_list = config["force_fp32_ops"]
             node_block_list = config["force_fp32_nodes"]
-            
+
             optimizer.convert_float_to_float16(
                 keep_io_types=config["keep_io_types"],
-                op_block_list=op_block_list, 
-                force_fp16_inputs=force_fp16_inputs, 
+                op_block_list=op_block_list,
+                force_fp16_inputs=force_fp16_inputs,
                 node_block_list=node_block_list)
 
 
