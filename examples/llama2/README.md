@@ -1,4 +1,4 @@
-# Whisper optimization using ORT toolchain
+# Llama2 optimization using ORT toolchain
 This folder contains a sample use case of Olive to optimize a [Llama2](https://huggingface.co/meta-llama/Llama-2-7b-hf) model using ONNXRuntime tools.
 
 Performs optimization pipeline:
