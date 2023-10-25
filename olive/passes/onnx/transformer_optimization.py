@@ -203,7 +203,6 @@ class OrtTransformersOptimization(Pass):
                 node_block_list=node_block_list,
             )
 
-
         if config["input_int32"]:
             optimizer.change_graph_inputs_to_int32()
 
