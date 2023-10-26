@@ -217,29 +217,6 @@ class OrtTransformersOptimization(Pass):
                 "The transformer optimization will be skipped"
             )
 
-            # for models that doesn't supported, we will only apply float16.
-            from onnx import load_model
-            from onnxruntime.transformers.onnx_model import OnnxModel
-
-            model_proto = load_model(model.model_path)
-            if config["float16"]:
-                force_fp16_inputs = {}
-                if optimization_options:
-                    force_fp16_inputs = optimization_options.get("force_fp16_inputs", {})
-
-                op_block_list = config["force_fp32_ops"]
-
-                onnx_model = OnnxModel(model_proto)
-                onnx_model.convert_float_to_float16(
-                    keep_io_types=config["keep_io_types"],
-                    op_block_list=op_block_list,
-                    force_fp16_inputs=force_fp16_inputs,
-                )
-                onnx_model.topological_sort()
-                logger.info("Sort graphs in topological order")
-                output_model = onnx_model.model
-            else:
-                output_model = model_proto
-
+            model_proto = model.load_model()
             # save the model to the output path and return the model
-            return model_proto_to_olive_model(output_model, output_model_path, config)
+            return model_proto_to_olive_model(model_proto, output_model_path, config)
