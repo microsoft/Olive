@@ -79,7 +79,7 @@ def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, tmp_path):
         p.run(input_model, None, output_folder)
 
 
-def test_transformer_optimization_validation_error(tmp_path):
+def test_transformer_optimization_invalid_model_type(tmp_path):
     input_model = get_onnx_model()
     with pytest.raises(ValueError):
         config = {"model_type": None}
