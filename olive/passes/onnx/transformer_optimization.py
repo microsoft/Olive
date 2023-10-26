@@ -157,13 +157,12 @@ class OrtTransformersOptimization(Pass):
 
         if model.model_attributes:
             model_config = model.model_attributes
-            input_model_type = model_config.get("model_type", "")
-            _model_type = MODEL_TYPE_MAPPING.get(input_model_type, input_model_type)
-            run_config["model_type"] = run_config["model_type"] or _model_type
-            assert run_config["model_type"] in transformers_optimizer.MODEL_TYPES, (
-                f"Unsupported model type: {run_config['model_type']}, please select one from "
-                "{transformers_optimizer.MODEL_TYPES} which need to be set under OrtTransformersOptimization.config"
-            )
+            input_model_type = model_config.get("model_type")
+            if input_model_type:
+                model_type = MODEL_TYPE_MAPPING.get(input_model_type, input_model_type)
+            else:
+                model_type = None
+            run_config["model_type"] = run_config["model_type"] or model_type
             if run_config["num_heads"] == 0:
                 for num_heads_name in NUM_HEADS_NAMES:
                     if num_heads_name in model_config:
@@ -174,6 +173,13 @@ class OrtTransformersOptimization(Pass):
                     if hidden_size_name in model_config:
                         run_config["hidden_size"] = model_config[hidden_size_name]
                         break
+
+        if run_config["model_type"] is None or run_config["model_type"] not in transformers_optimizer.MODEL_TYPES:
+            raise ValueError(
+                f"Unsupported model type: {run_config['model_type']}, please select one from "
+                f"[{', '.join(transformers_optimizer.MODEL_TYPES.keys())}] which need to be set under "
+                "OrtTransformersOptimization.config"
+            )
 
         output_model_path = ONNXModel.resolve_path(os.path.join(output_model_path, os.path.basename(model.model_path)))
 
