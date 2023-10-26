@@ -7,6 +7,8 @@ import re
 from typing import Any, Dict, List
 
 import onnx
+from onnxruntime import __version__ as OrtVersion
+from packaging import version
 
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModel
@@ -30,7 +32,7 @@ class OnnxBnb4Quantization(Pass):
             "quantized_modules": PassConfigParam(
                 type_=List[str],
                 description=(
-                    "The list of modules to quantize. Node names will be matched as '.*/{module}/MatMul$'. If not"
+                    "The list of modules to quantize. Node names will be matched as '.*[./]{module}[./]MatMul$'. If not"
                     " specified, all MatMul nodes will be quantized."
                 ),
             ),
@@ -41,7 +43,11 @@ class OnnxBnb4Quantization(Pass):
     def _run_for_config(
         self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModel:
-        from onnxruntime.quantization import MatMulBnb4Quantizer
+        assert version.parse(OrtVersion) >= version.parse(
+            "1.16.2"
+        ), "Onnx Bnb quantization requires onnxruntime>=1.16.2."
+
+        from onnxruntime.quantization.matmul_bnb4_quantizer import MatMulBnb4Quantizer
 
         output_model_path = ONNXModel.resolve_path(output_model_path)
 
