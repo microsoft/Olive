@@ -131,9 +131,7 @@ def create_dataloader(data_dir, batchsize, *args, **kwargs):
                 raise IndexError
 
             return (
-                self.pictures[index].numpy()[
-                    None,
-                ],
+                self.pictures[index].numpy()[None,],
                 self.labels[index],
             )
 

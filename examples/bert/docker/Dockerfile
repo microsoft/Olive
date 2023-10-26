@@ -10,7 +10,7 @@ FROM mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04
 ARG OPENVINO_VERSION=2023.0.0
 
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get -y update && apt-get -y upgrade
+RUN apt-get -y update && ACCEPT_EULA=Y apt-get -y upgrade
 RUN apt-get install -y --no-install-recommends wget gnupg
 
 RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu

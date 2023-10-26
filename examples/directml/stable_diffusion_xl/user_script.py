@@ -83,12 +83,12 @@ def unet_inputs(batchsize, torch_dtype, is_conversion_inputs=False):
     if is_conversion_inputs:
         inputs["additional_inputs"] = {
             "added_cond_kwargs": {
-                "text_embeds": torch.rand((2 * batchsize, config.image_size + 256), dtype=torch_dtype),
+                "text_embeds": torch.rand((2 * batchsize, 1280), dtype=torch_dtype),
                 "time_ids": torch.rand((2 * batchsize, config.time_ids_size), dtype=torch_dtype),
             }
         }
     else:
-        inputs["text_embeds"] = torch.rand((2 * batchsize, config.image_size + 256), dtype=torch_dtype)
+        inputs["text_embeds"] = torch.rand((2 * batchsize, 1280), dtype=torch_dtype)
         inputs["time_ids"] = torch.rand((2 * batchsize, config.time_ids_size), dtype=torch_dtype)
 
     return inputs

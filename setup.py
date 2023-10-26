@@ -64,7 +64,7 @@ long_description = (
     " taking a set of constraints such as accuracy and latency into consideration."
 )
 
-description = long_description.split(".")[0] + "."
+description = long_description.split(".", maxsplit=1)[0] + "."
 
 setup(
     name="olive-ai",

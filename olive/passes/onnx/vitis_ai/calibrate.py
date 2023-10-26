@@ -23,6 +23,7 @@ from onnxruntime.quantization.quant_utils import QuantType
 
 from olive.passes.onnx.vitis_ai.quant_utils import PowerOfTwoMethod, is_ort_version_below_1_16, quantize_data_pof2s
 
+# pylint: skip-file
 # ruff: noqa
 
 

@@ -30,7 +30,6 @@ from olive.systems.local import LocalSystem
 
 
 class TestOliveEvaluator:
-
     ACCURACY_TEST_CASE: ClassVar[list] = [
         (
             PyTorchEvaluator(),
@@ -206,7 +205,7 @@ class TestDistributedOnnxEvaluator:
         from olive.model import DistributedOnnxModel
 
         filepaths = ["examples/switch/model_4n_2l_8e_00.onnx", "examples/switch/model_4n_2l_8e_01.onnx"]
-        model = DistributedOnnxModel(filepaths, name="model_4n_2l_8e")
+        model = DistributedOnnxModel(filepaths)
 
         user_config = {
             "user_script": "examples/switch/user_script.py",

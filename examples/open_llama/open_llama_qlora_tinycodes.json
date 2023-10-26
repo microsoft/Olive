@@ -19,7 +19,7 @@
                 }
             },
             "params_config": {
-                "dataset_name": "nampdn-ai/tiny-codes",
+                "data_name": "nampdn-ai/tiny-codes",
                 "split": "train",
                 "component_kwargs": {
                     "load_dataset": {

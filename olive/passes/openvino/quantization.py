@@ -107,9 +107,9 @@ class OpenVINOQuantization(Pass):
 
         metric = self._user_module_loader.load_object(config["metric_func"])
         engine = IEEngine(config=config["engine_config"], data_loader=data_loader, metric=metric)
-        self.pipeline = create_pipeline(config["algorithms"], engine)
+        pipeline = create_pipeline(config["algorithms"], engine)
 
-        compressed_model = self.pipeline.run(model=model.load_model())
+        compressed_model = pipeline.run(model=model.load_model())
         compress_model_weights(compressed_model)
         compressed_model_paths = save_model(
             model=compressed_model,

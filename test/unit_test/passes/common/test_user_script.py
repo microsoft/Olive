@@ -31,7 +31,7 @@ class TestUserScriptConfig:
         assert config
 
     def test_with_user_script(self):
-        user_script_file = tempfile.NamedTemporaryFile(delete=False, suffix=".py")
-        config = {"dataloader_func": "dataloader_func", "user_script": user_script_file.name}
-        config = OrtPerfTuning.generate_search_space(DEFAULT_CPU_ACCELERATOR, config, True)
-        assert config
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".py") as user_script_file:
+            config = {"dataloader_func": "dataloader_func", "user_script": user_script_file.name}
+            config = OrtPerfTuning.generate_search_space(DEFAULT_CPU_ACCELERATOR, config, True)
+            assert config

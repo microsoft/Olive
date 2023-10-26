@@ -8,6 +8,7 @@ import tarfile
 import urllib.request
 from pathlib import Path
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torchvision
@@ -19,7 +20,7 @@ from torchvision.models import ResNet50_Weights, resnet50
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--num_epochs", type=int, default=0)
+    parser.add_argument("--num_epochs", type=int, default=1)
     return parser.parse_args()
 
 
@@ -54,11 +55,16 @@ def update_lr(optimizer, lr):
         param_group["lr"] = lr
 
 
-def prepare_model(num_epochs=0, models_dir="models", data_dir="data"):
-    # seed everything to 0
-    random.seed(0)
-    torch.manual_seed(0)
-    torch.cuda.manual_seed(0)
+def prepare_model(num_epochs=1, models_dir="models", data_dir="data"):
+    seed = 0
+    # seed everything to 0 for reproducibility, https://pytorch.org/docs/stable/notes/randomness.html
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    # the following are needed only for GPU
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -145,9 +151,8 @@ def main():
 
     data_download_path = data_dir / "cifar-10-python.tar.gz"
     urllib.request.urlretrieve("https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz", data_download_path)
-    file = tarfile.open(data_download_path)
-    file.extractall(data_dir)
-    file.close()
+    with tarfile.open(data_download_path) as file:
+        file.extractall(data_dir)
 
     prepare_model(args.num_epochs, models_dir, data_dir)
 

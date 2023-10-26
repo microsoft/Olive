@@ -6,6 +6,8 @@ import importlib as imp
 from typing import Dict, List, Union
 
 import onnx
+
+# pylint: disable=wildcard-import
 from onnxruntime_extensions.tools.pre_post_processing import *  # noqa: F401, F403, RUF100
 from onnxruntime_extensions.tools.pre_post_processing.utils import create_named_value
 
@@ -178,7 +180,7 @@ def parse_step_params(model: onnx.ModelProto, step_config: Dict):
                 # Customized type definition
                 param_cls = get_customized_class(param_type)
                 params[param_name] = param_cls(**param_args)
-            elif param_type == "tuple" or param_type == "list":
+            elif param_type in ("tuple", "list"):
                 param_value = param_value.get("value")
 
                 # explicitly list or tuple type is specified

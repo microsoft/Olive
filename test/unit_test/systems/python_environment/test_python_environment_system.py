@@ -21,6 +21,8 @@ from olive.systems.python_environment.available_eps import main as available_eps
 from olive.systems.python_environment.inference_runner import main as inference_runner_main
 from olive.systems.python_environment.is_valid_ep import main as is_valid_ep_main
 
+# pylint: disable=no-value-for-parameter, attribute-defined-outside-init
+
 
 class TestPythonEnvironmentSystem:
     @pytest.fixture(autouse=True)

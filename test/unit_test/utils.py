@@ -231,22 +231,22 @@ def get_data_config():
         ...
 
     @Registry.register_dataloader()
-    def _test_dataloader(test_value):
+    def _test_dataloader(dataset, test_value):
         ...
 
     @Registry.register_pre_process()
-    def _pre_process(test_value):
+    def _pre_process(dataset, test_value):
         ...
 
     @Registry.register_post_process()
-    def _post_process(test_value):
+    def _post_process(output, test_value):
         ...
 
     return DataConfig(
         components={
             "load_dataset": {
                 "name": "test_dataset",
-                "type": "test_dataset",
+                "type": "test_dataset",  # renamed by Registry.register_dataset
                 "params": {"test_value": "test_value"},
             },
             "dataloader": {
@@ -292,8 +292,8 @@ def get_dc_params_config():
     )
 
 
-def create_raw_data(dir, input_names, input_shapes, input_types=None, num_samples=1):  # noqa: A002
-    data_dir = Path(dir)
+def create_raw_data(raw_data_dir, input_names, input_shapes, input_types=None, num_samples=1):
+    data_dir = Path(raw_data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
 
     input_types = input_types or ["float32"] * len(input_names)

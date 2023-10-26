@@ -33,7 +33,7 @@ def generate_output_artifacts(
     pf_footprints: Dict[AcceleratorSpec, Footprint],
     output_dir: Path,
 ):
-    if sum([len(f.nodes) if f.nodes else 0 for f in pf_footprints.values()]) == 0:
+    if sum(len(f.nodes) if f.nodes else 0 for f in pf_footprints.values()) == 0:
         logger.warning("No model is selected. Skip packaging output artifacts.")
         return
     if packaging_config.type == PackagingType.Zipfile:
@@ -101,9 +101,9 @@ def _package_candidate_models(
         model_resource_path = create_resource_path(model_path) if model_path else None
         model_type = pf_footprint.get_model_type(model_id)
         if model_type == "ONNXModel":
-            with tempfile.TemporaryDirectory(dir=model_dir, prefix="olive_tmp") as tempdir:
-                # save to tempdir first since model_path may be a folder
-                temp_resource_path = create_resource_path(model_resource_path.save_to_dir(tempdir, "model", True))
+            with tempfile.TemporaryDirectory(dir=model_dir, prefix="olive_tmp") as model_tempdir:
+                # save to model_tempdir first since model_path may be a folder
+                temp_resource_path = create_resource_path(model_resource_path.save_to_dir(model_tempdir, "model", True))
                 # save to model_dir
                 if temp_resource_path.type == ResourceType.LocalFile:
                     # if model_path is a file, rename it to model_dir / model.onnx
@@ -187,6 +187,7 @@ def _generate_onnx_mlflow_model(model_dir, inference_config):
 
 
 def _package_onnxruntime_packages(tempdir, pf_footprint: Footprint):
+    # pylint: disable=not-an-iterable
     installed_packages = pkg_resources.working_set
     onnxruntime_pkg = [i for i in installed_packages if i.key.startswith("onnxruntime")]
     ort_nightly_pkg = [i for i in installed_packages if i.key.startswith("ort-nightly")]

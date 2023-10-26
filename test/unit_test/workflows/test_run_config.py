@@ -12,6 +12,8 @@ import pytest
 from olive.data.config import DataConfig
 from olive.workflows.run.config import INPUT_MODEL_DATA_CONFIG, RunConfig
 
+# pylint: disable=attribute-defined-outside-init
+
 
 class TestRunConfig:
     # TODO(jiapli): add more tests for different config files to test olive features
@@ -53,7 +55,7 @@ class TestRunConfig:
         user_script_config.pop("azureml_client")
         with pytest.raises(ValueError) as e:
             RunConfig.parse_obj(user_script_config)
-            assert str(e.value) == "AzureML client config is required for AzureML system"
+        assert "AzureML client config is required for AzureML system" in str(e.value)
 
     @pytest.fixture
     def mock_aml_credentials(self):
@@ -152,7 +154,7 @@ class TestDataConfigValidation:
                     "params_config": {
                         "model_name": "dummy_model2",
                         "task": "dummy_task2",
-                        "dataset_name": "dummy_dataset2",
+                        "data_name": "dummy_dataset2",
                     },
                 }
             },
@@ -174,7 +176,7 @@ class TestDataConfigValidation:
         config_dict["data_configs"]["dummy_data_config2"]["params_config"] = {
             "model_name": model_name,
             "task": task,
-            "dataset_name": "dummy_dataset2",
+            "data_name": "dummy_dataset2",
         }
 
         run_config = RunConfig.parse_obj(config_dict)

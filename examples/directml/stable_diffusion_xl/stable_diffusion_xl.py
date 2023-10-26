@@ -5,6 +5,7 @@
 import argparse
 import json
 import shutil
+import sys
 import threading
 import tkinter as tk
 import tkinter.ttk as ttk
@@ -22,6 +23,8 @@ from PIL import Image, ImageTk
 
 from olive.model import ONNXModel
 from olive.workflows import run as olive_run
+
+# pylint: disable=redefined-outer-name
 
 
 def run_inference_loop(
@@ -207,17 +210,17 @@ def run_inference(
         sess_options.add_free_dimension_override_by_name("unet_hidden_batch", batch_size * 2)
         sess_options.add_free_dimension_override_by_name("unet_hidden_sequence", 77)
         sess_options.add_free_dimension_override_by_name("unet_text_embeds_batch", batch_size * 2)
-        sess_options.add_free_dimension_override_by_name("unet_text_embeds_size", image_size + 256)
+        sess_options.add_free_dimension_override_by_name("unet_text_embeds_size", 1280)
         sess_options.add_free_dimension_override_by_name("unet_time_ids_batch", batch_size * 2)
         sess_options.add_free_dimension_override_by_name("unet_time_ids_size", 6)
 
     if base_images is None:
         pipeline = ORTStableDiffusionXLPipeline.from_pretrained(
-            model_dir, provider="DmlExecutionProvider", sess_options=sess_options
+            model_dir, provider="DmlExecutionProvider", session_options=sess_options
         )
     else:
         pipeline = ORTStableDiffusionXLImg2ImgPipeline.from_pretrained(
-            model_dir, provider="DmlExecutionProvider", sess_options=sess_options
+            model_dir, provider="DmlExecutionProvider", session_options=sess_options
         )
 
     if interactive:
@@ -237,7 +240,7 @@ def optimize(
     # protobuf 4.x aborts with OOM when optimizing unet
     if version.parse(protobuf_version) > version.parse("3.20.3"):
         print("This script requires protobuf 3.20.3. Please ensure your package version matches requirements.txt.")
-        exit(1)
+        sys.exit(1)
 
     ort.set_default_logger_severity(4)
     script_dir = Path(__file__).resolve().parent
@@ -431,7 +434,7 @@ if __name__ == "__main__":
         },
     }
 
-    if args.model_id not in list(model_to_config.keys()):
+    if args.model_id not in model_to_config:
         print(
             f"WARNING: {args.model_id} is not an officially supported model for this example and may not work as "
             "expected."
@@ -439,7 +442,7 @@ if __name__ == "__main__":
 
     if version.parse(ort.__version__) < version.parse("1.15.0"):
         print("This script requires onnxruntime-directml 1.15.0 or newer")
-        exit(1)
+        sys.exit(1)
 
     script_dir = Path(__file__).resolve().parent
 
@@ -458,11 +461,11 @@ if __name__ == "__main__":
 
     if is_refiner_model and not args.optimize and args.base_images is None:
         print("--base_images needs to be provided when executing a refiner model without --optimize")
-        exit(1)
+        sys.exit(1)
 
     if not is_refiner_model and args.base_images is not None:
         print("--base_images should only be provided for refiner models")
-        exit(1)
+        sys.exit(1)
 
     if args.optimize or not optimized_model_dir.exists():
         # TODO(PatriceVignola): clean up warning filter (mostly during conversion from torch to ONNX)

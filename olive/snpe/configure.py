@@ -29,7 +29,7 @@ def dev():
     logger.info("Done")
 
 
-def eval():  # noqa: A001
+def eval():  # noqa: A001  #pylint: disable=redefined-builtin
     snpe_arch = get_snpe_target_arch(False)
     if snpe_arch != "ARM64-Windows":
         return

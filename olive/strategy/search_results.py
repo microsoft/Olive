@@ -49,7 +49,7 @@ class SearchResults:
     def check_goals(self, result: MetricResult) -> bool:
         """Check if the result satisfies the constraints."""
         # if goals are not set, return True always
-        if self.goals == {}:
+        if not self.goals:
             return True
 
         for obj, goal in self.goals.items():

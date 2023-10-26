@@ -109,8 +109,9 @@ def _main():
 
         if not np.all(list(results.values())):
             pprint.pprint(results)
-            raise Exception("Inference tests failed!")
+            raise Exception("Inference tests failed!")  # pylint: disable=broad-exception-raised
 
+    print("Inference test completed successfully!")
     return 0
 
 

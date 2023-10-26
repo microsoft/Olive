@@ -4,7 +4,7 @@ FROM mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.6-cudnn8-ubuntu20.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get -y update && apt-get -y upgrade
+RUN apt-get -y update && ACCEPT_EULA=Y apt-get -y upgrade
 RUN apt-get install -y --no-install-recommends wget gnupg
 
 # Install TensorRT

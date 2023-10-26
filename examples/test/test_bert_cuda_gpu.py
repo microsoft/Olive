@@ -20,16 +20,15 @@ def setup():
 
 
 @pytest.mark.parametrize("search_algorithm", ["tpe"])
-@pytest.mark.parametrize("execution_order", ["joint"])
+@pytest.mark.parametrize("execution_order", ["joint", "pass-by-pass"])
 @pytest.mark.parametrize("system", ["aml_system"])
-@pytest.mark.parametrize("olive_json", ["bert_auto_gpu.json"])
-def test_bert(search_algorithm, execution_order, system, olive_json):
-
+@pytest.mark.parametrize("olive_json", ["bert_cuda_gpu.json"])
+@pytest.mark.parametrize("enable_cuda_graph", [True, False])
+def test_bert(search_algorithm, execution_order, system, olive_json, enable_cuda_graph):
     from olive.workflows import run as olive_run
 
     olive_config = patch_config(olive_json, search_algorithm, execution_order, system, is_gpu=True)
-    # do not add tensorrt execution provider as our CI machine does not have tensorrt env
-    olive_config["engine"]["execution_providers"] = ["CUDAExecutionProvider"]
+    olive_config["passes"]["perf_tuning"]["config"]["enable_cuda_graph"] = enable_cuda_graph
 
     footprint = olive_run(olive_config)
     check_output(footprint)

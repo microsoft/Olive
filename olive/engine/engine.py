@@ -23,7 +23,7 @@ from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import Metric, MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
-from olive.exception import OlivePassError
+from olive.exception import EXCEPTIONS_TO_RAISE, OlivePassError
 from olive.hardware import AcceleratorLookup, AcceleratorSpec, Device
 from olive.model import ModelConfig
 from olive.passes.olive_pass import Pass
@@ -34,8 +34,6 @@ from olive.systems.olive_system import OliveSystem
 from olive.systems.utils import create_new_system_with_cache
 
 logger = logging.getLogger(__name__)
-
-EXCEPTIONS_TO_RAISE = (AssertionError, AttributeError, ImportError, TypeError, ValueError)
 
 
 class Engine:
@@ -245,6 +243,8 @@ class Engine:
 
     def initialize(self):
         """Initialize engine state. This should be done before running the registered passes."""
+        # pylint: disable=attribute-defined-outside-init
+
         cache_dir = self._config.cache_dir
         if self._config.clean_cache:
             cache_utils.clean_cache(cache_dir)
@@ -266,7 +266,7 @@ class Engine:
         # so we check for both when determining the new model number
         model_files = list(self._model_cache_path.glob("*_*"))
         if len(model_files) > 0:
-            self._new_model_number = max([int(model_file.stem.split("_")[0]) for model_file in model_files]) + 1
+            self._new_model_number = max(int(model_file.stem.split("_")[0]) for model_file in model_files) + 1
 
         # clean pass run cache if requested
         # removes all run cache for pass type and all children elements
@@ -434,9 +434,8 @@ class Engine:
             self.dump_run_history(run_history, output_dir / f"run_history_{accelerator_spec}.txt")
 
         if packaging_config and self.passes:
-            # TODO(trajep): should we support package input model?
-            # TODO(trajep): do we support packaging pytorch models?
-            logger.info(f"Package top ranked {sum([len(f.nodes) for f in outputs.values()])} models as artifacts")
+            # TODO(trajep): should we support packaging pytorch model?
+            logger.info(f"Package top ranked {sum(len(f.nodes) for f in outputs.values())} models as artifacts")
             generate_output_artifacts(
                 packaging_config,
                 self.footprints,
@@ -464,7 +463,12 @@ class Engine:
         self.footprints[accelerator_spec].record(model_id=input_model_id)
 
         try:
-            if evaluate_input_model:
+            if evaluate_input_model and self.no_search and not self.evaluator_config:
+                logger.debug(
+                    "evaluate_input_model is True but no evaluator provided in no-search mode. Skipping input model"
+                    " evaluation."
+                )
+            elif evaluate_input_model:
                 prefix_output_name = (
                     f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}"
                 )
@@ -528,11 +532,11 @@ class Engine:
         # These passes will be added to the search space
         self.pass_flows_search_spaces = []
         for pass_flow in self.pass_flows:
-            self.pass_search_spaces = []
+            pass_search_spaces = []
             for pass_name in pass_flow:
                 p: Pass = self.passes[pass_name]["pass"]
-                self.pass_search_spaces.append((pass_name, p.search_space()))
-            self.pass_flows_search_spaces.append(self.pass_search_spaces)
+                pass_search_spaces.append((pass_name, p.search_space()))
+            self.pass_flows_search_spaces.append(pass_search_spaces)
 
     def cleanup_passes(self):
         """Cleanup the passes."""
@@ -549,66 +553,30 @@ class Engine:
         output_dir: str = None,
         output_name: str = None,
     ):
-        """Run all the registered Olive passes in no-search model where search strategy is None."""
-        assert (
-            self.search_strategy._config.execution_order == "joint"
-        ), "run_no_search only supports default joint execution order"
-
+        """Run all the registered Olive pass flows in no-search mode."""
         for pass_item in self.passes.values():
             if len(pass_item["pass"].search_space()) > 0:
                 pass_name = pass_item["name"]
                 raise ValueError(f"Pass {pass_name} has search space but search strategy is None")
 
-        evaluator_config = self.evaluator_for_pass(list(self.passes.keys())[-1])
-        if evaluator_config is None:
-            # provide dummy objective
-            objective_dict = {"dummy": {"higher_is_better": True, "goal": 0}}
-        else:
-            objective_dict = self.resolve_objectives(
-                input_model_config, input_model_id, data_root, evaluator_config.metrics, accelerator_spec
-            )
-
-        # initialize the search strategy
-        self.search_strategy.initialize(self.pass_flows_search_spaces, input_model_id, objective_dict)
-
-        iter_num = 0
         output_models = {}
-        while True:
-            iter_num += 1
+        for pass_flow in self.pass_flows:
+            # search point is empty since there is no search
+            passes_to_run = [(pass_id, {}) for pass_id in pass_flow]
 
-            # get the next step
-            next_step = self.search_strategy.next_step()
-
-            if iter_num == 1:
-                assert next_step is not None, "Search strategy returned None for the first step"
-            # if no more steps, break
-            if next_step is None:
-                break
-
-            assert iter_num <= len(self.pass_flows), "No more pass flows to run"
-
-            # get the model id of the first input model
-            model_id = next_step["model_id"]
-            if model_id == input_model_id:
-                model_config = input_model_config
-            else:
-                model_config = self._load_model(model_id)
-
-            logger.debug(f"Step no search with search point {next_step['search_point']} ...")
-
-            # run all the passes in the step
+            # run all the passes in the pass flow
+            logger.debug(f"Running {pass_flow} with no search ...")
             should_prune, signal, model_ids = self._run_passes(
-                next_step["passes"], model_config, model_id, data_root, accelerator_spec
+                passes_to_run, input_model_config, input_model_id, data_root, accelerator_spec
             )
 
-            pass_flow = self.pass_flows[iter_num - 1]
             if should_prune:
                 failed_pass = pass_flow[len(model_ids)]
                 logger.warning(f"Flow {pass_flow} is pruned due to failed or invalid config for pass '{failed_pass}'")
                 continue
 
             # names of the output models of the passes
-            pass_output_names = [self.passes[pass_name]["output_name"] for pass_name, _ in next_step["passes"]]
+            pass_output_names = [self.passes[pass_id]["output_name"] for pass_id in pass_flow]
             pass_output_names = [f"{name}_{accelerator_spec}" if name else None for name in pass_output_names]
 
             # output dir with pass flow
@@ -830,18 +798,19 @@ class Engine:
             for sub_type_name, goal in sub_type_goals.items():
                 # TODO(trajep): make the logic cleaner
                 resolved_goal_value = None
-                baseline_sub_type = baseline.get_value(metric_name, sub_type_name)
-                multiplier = multipliers[metric_name][sub_type_name]
-                if goal.type == "threshold":
-                    resolved_goal_value = goal.value
-                elif goal.type == "max-degradation":
-                    resolved_goal_value = baseline_sub_type - multiplier * goal.value
-                elif goal.type == "min-improvement":
-                    resolved_goal_value = baseline_sub_type + multiplier * goal.value
-                elif goal.type == "percent-max-degradation":
-                    resolved_goal_value = baseline_sub_type * (1 - multiplier * goal.value / 100)
-                elif goal.type == "percent-min-improvement":
-                    resolved_goal_value = baseline_sub_type * (1 + multiplier * goal.value / 100)
+                if goal is not None:
+                    baseline_sub_type = baseline.get_value(metric_name, sub_type_name)
+                    multiplier = multipliers[metric_name][sub_type_name]
+                    if goal.type == "threshold":
+                        resolved_goal_value = goal.value
+                    elif goal.type == "max-degradation":
+                        resolved_goal_value = baseline_sub_type - multiplier * goal.value
+                    elif goal.type == "min-improvement":
+                        resolved_goal_value = baseline_sub_type + multiplier * goal.value
+                    elif goal.type == "percent-max-degradation":
+                        resolved_goal_value = baseline_sub_type * (1 - multiplier * goal.value / 100)
+                    elif goal.type == "percent-min-improvement":
+                        resolved_goal_value = baseline_sub_type * (1 + multiplier * goal.value / 100)
 
                 resolved_goals[joint_metric_key(metric_name, sub_type_name)] = resolved_goal_value
         if len(resolved_goals) > 0:
@@ -867,7 +836,7 @@ class Engine:
         while True:
             new_model_number = self._new_model_number
             self._new_model_number += 1
-            if list(self._model_cache_path.glob(f"{new_model_number}_*")) == []:
+            if not list(self._model_cache_path.glob(f"{new_model_number}_*")):
                 break
         return new_model_number
 
@@ -1000,6 +969,7 @@ class Engine:
         should_prune = False
         # run all the passes in the step
         model_ids = []
+        pass_id = None
         for pass_id, pass_search_point in passes:
             model_config, model_id = self._run_pass(
                 pass_id, pass_search_point, model_config, model_id, data_root, accelerator_spec
@@ -1195,7 +1165,7 @@ class Engine:
                 model_id=model_id,
                 metrics=FootprintNodeMetric(
                     value=signal,
-                    is_goals_met=False,
+                    if_goals_met=False,
                 ),
             )
             return signal
@@ -1214,7 +1184,7 @@ class Engine:
             model_id=model_id,
             metrics=FootprintNodeMetric(
                 value=signal,
-                is_goals_met=False,
+                if_goals_met=False,
             ),
         )
         return signal

@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import json
 import logging
-import tempfile
 from pathlib import Path
 from test.unit_test.utils import (
     get_accuracy_metric,
@@ -24,6 +23,8 @@ from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.passes.onnx import OnnxConversion, OnnxDynamicQuantization, OnnxStaticQuantization
 from olive.systems.common import SystemType
 from olive.systems.local import LocalSystem
+
+# pylint: disable=protected-access
 
 
 # Please note your test case could still "pass" even if it throws exception to fail.
@@ -146,15 +147,14 @@ class TestEngine:
                 "metrics": {
                     "value": metric_result_dict,
                     "cmp_direction": {},
-                    "is_goals_met": True,
+                    "if_goals_met": True,
                 },
             }
             for model_id in model_ids
         }
 
         # execute
-        temp_dir = tempfile.TemporaryDirectory()
-        output_dir = Path(temp_dir.name)
+        output_dir = Path(tmpdir)
         actual_res = engine.run(model_config, output_dir=output_dir)
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
         actual_res = actual_res[accelerator_spec]
@@ -178,7 +178,7 @@ class TestEngine:
             assert engine.get_model_json_path(actual_res.nodes[model_id].model_id).exists()
             for k, v in result.items():
                 if k == "metrics":
-                    assert actual_res.nodes[model_id].metrics.is_goals_met
+                    assert actual_res.nodes[model_id].metrics.if_goals_met
                 else:
                     assert getattr(actual_res.nodes[model_id], k) == v
 
@@ -222,8 +222,7 @@ class TestEngine:
         engine.register(OnnxConversion, disable_search=True, clean_run_cache=True)
         engine.set_pass_flows()
         # output model to output_dir
-        temp_dir = tempfile.TemporaryDirectory()
-        output_dir = Path(temp_dir.name)
+        output_dir = Path(tmpdir)
         expected_output_dir = output_dir / "-".join(engine.pass_flows[0])
 
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
@@ -273,8 +272,7 @@ class TestEngine:
             model_config = get_pytorch_model_config()
 
             # execute
-            temp_dir = tempfile.TemporaryDirectory()
-            output_dir = Path(temp_dir.name)
+            output_dir = Path(tmpdir)
             engine.run(model_config, output_dir=output_dir)
 
             # assert
@@ -313,9 +311,7 @@ class TestEngine:
         engine.register(OnnxConversion, clean_run_cache=True)
 
         # output model to output_dir
-        temp_dir = tempfile.TemporaryDirectory()
-        output_dir = Path(temp_dir.name)
-
+        output_dir = Path(tmpdir)
         expected_res = MetricResult.parse_obj(metric_result_dict)
 
         # execute
@@ -358,9 +354,7 @@ class TestEngine:
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
 
         # output model to output_dir
-        temp_dir = tempfile.TemporaryDirectory()
-        output_dir = Path(temp_dir.name)
-
+        output_dir = Path(tmpdir)
         expected_res = MetricResult.parse_obj(metric_result_dict)
 
         # execute
@@ -411,7 +405,7 @@ class TestEngine:
 
             with pytest.raises(ValueError) as exc_info:
                 engine.initialize()
-                assert str(exc_info.value) == "ValueError: invalid literal for int() with base 10: '435d'"
+            assert str(exc_info.value) == "invalid literal for int() with base 10: '435d'"
 
     @patch("olive.systems.local.LocalSystem")
     @patch("onnxruntime.get_available_providers")
@@ -457,8 +451,7 @@ class TestEngine:
         engine.register(OnnxConversion, clean_run_cache=True)
 
         model_config = get_pytorch_model_config()
-        temp_dir = tempfile.TemporaryDirectory()
-        output_dir = Path(temp_dir.name)
+        output_dir = Path(tmpdir)
         _ = engine.run(model_config, output_dir=output_dir)
 
         mock_local_system.run_pass.assert_called_once()
@@ -501,8 +494,7 @@ class TestEngine:
         engine.register(OnnxConversion, clean_run_cache=True)
 
         model_config = get_pytorch_model_config()
-        temp_dir = tempfile.TemporaryDirectory()
-        output_dir = Path(temp_dir.name)
+        output_dir = Path(tmpdir)
 
         with patch(
             "olive.passes.onnx.conversion.OnnxConversion.is_accelerator_agnostic"
@@ -533,8 +525,7 @@ class TestEngine:
             engine.register(OnnxConversion, clean_run_cache=True)
             model_config = get_pytorch_model_config()
             # execute
-            temp_dir = tempfile.TemporaryDirectory()
-            output_dir = Path(temp_dir.name)
+            output_dir = Path(tmpdir)
             with pytest.raises(ValueError):
                 engine.run(model_config, output_dir=output_dir)
 
@@ -547,8 +538,7 @@ class TestEngine:
 
         onnx_model_config = get_onnx_model_config()
         # output model to output_dir
-        temp_dir = tempfile.TemporaryDirectory()
-        output_dir = Path(temp_dir.name)
+        output_dir = Path(tmpdir)
 
         # setup
         if is_search:

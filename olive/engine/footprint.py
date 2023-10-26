@@ -30,12 +30,12 @@ class FootprintNodeMetric(ConfigBase):
     value: {"metric_name": metrics_value, ...}
     cmp_direction: will be auto suggested. The format will be like: {"metric_name": 1, ...},
         1: higher is better, -1: lower is better
-    is_goals_met: if the goals set by users is met
+    if_goals_met: if the goals set by users are met
     """
 
     value: MetricResult = None
     cmp_direction: DefaultDict[str, int] = None
-    is_goals_met: bool = False
+    if_goals_met: bool = False
 
 
 class FootprintNode(ConfigBase):
@@ -96,7 +96,7 @@ class Footprint:
             if self.nodes[k].metrics.cmp_direction is None:
                 self.nodes[k].metrics.cmp_direction = {}
 
-            is_goals_met = []
+            if_goals_met = []
             for metric_name in v.metrics.value:
                 if metric_name not in self.objective_dict:
                     logger.debug(f"There is no goal set for metric: {metric_name}.")
@@ -107,10 +107,14 @@ class Footprint:
 
                 _goal = self.objective_dict[metric_name]["goal"]
                 if _goal is None:
-                    is_goals_met.append(True)
+                    if_goals_met.append(True)
                 else:
-                    is_goals_met.append(v.metrics.value[metric_name].value * cmp_direction >= _goal)
-            self.nodes[k].metrics.is_goals_met = all(is_goals_met)
+                    if_goals_met.append(
+                        v.metrics.value[metric_name].value >= _goal
+                        if cmp_direction == 1
+                        else v.metrics.value[metric_name].value <= _goal
+                    )
+            self.nodes[k].metrics.if_goals_met = all(if_goals_met)
 
     def record(self, foot_print_node: FootprintNode = None, **kwargs):
         _model_id = kwargs.get("model_id", None)
@@ -127,7 +131,7 @@ class Footprint:
         return {
             k: v
             for k, v in self.nodes.items()
-            if not self._is_empty_metric(v.metrics) and v.parent_model_id is not None
+            if not self._is_empty_metric(v.metrics) and v.parent_model_id is not None and v.metrics.if_goals_met
         }
 
     def mark_pareto_frontier(self):
