@@ -12,3 +12,6 @@ class OlivePassError(OliveError):
 
 class OliveEvaluationError(OliveError):
     """Base class for Olive evaluation exceptions."""
+
+
+EXCEPTIONS_TO_RAISE = (AssertionError, AttributeError, ImportError, TypeError, ValueError)

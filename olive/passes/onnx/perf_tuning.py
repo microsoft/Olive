@@ -10,6 +10,7 @@ from typing import Any, Callable, Dict, Union
 from olive.data.config import DataConfig
 from olive.evaluator.metric import LatencySubType, Metric, MetricType, joint_metric_key
 from olive.evaluator.metric_config import get_user_config_properties_from_metric_type
+from olive.exception import EXCEPTIONS_TO_RAISE
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
@@ -151,6 +152,8 @@ def threads_num_tuning(model, data_root, latency_metric, config, tuning_combo):
             for intra in config.intra_thread_num_list:
                 test_params["session_options"]["intra_op_num_threads"] = intra
                 threads_num_binary_search(model, data_root, latency_metric, config, test_params, tuning_results)
+    except EXCEPTIONS_TO_RAISE:
+        raise
     except Exception:
         logger.error("Optimization failed for tuning combo %s", tuning_combo, exc_info=True)
 
