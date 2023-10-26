@@ -188,23 +188,30 @@ class OrtTransformersOptimization(Pass):
         if optimization_options:
             self._set_fusion_options(run_config)
 
-        optimizer = transformers_optimizer.optimize_model(input=model.model_path, **run_config)
+        try:
+            optimizer = transformers_optimizer.optimize_model(input=model.model_path, **run_config)
 
-        if config["float16"]:
-            force_fp16_inputs = {}
-            if optimization_options:
-                force_fp16_inputs = optimization_options.get("force_fp16_inputs", {})
+            if config["float16"]:
+                force_fp16_inputs = {}
+                if optimization_options:
+                    force_fp16_inputs = optimization_options.get("force_fp16_inputs", {})
 
-            op_block_list = config["force_fp32_ops"]
-            optimizer.convert_float_to_float16(
-                keep_io_types=config["keep_io_types"], op_block_list=op_block_list, force_fp16_inputs=force_fp16_inputs
-            )
+                op_block_list = config["force_fp32_ops"]
+                optimizer.convert_float_to_float16(
+                    keep_io_types=config["keep_io_types"],
+                    op_block_list=op_block_list,
+                    force_fp16_inputs=force_fp16_inputs,
+                )
 
-        if config["input_int32"]:
-            optimizer.change_graph_inputs_to_int32()
+            if config["input_int32"]:
+                optimizer.change_graph_inputs_to_int32()
 
-        # Topologically sort the graph at the end since previous optimizations may have broken it
-        optimizer.topological_sort()
+            # Topologically sort the graph at the end since previous optimizations may have broken it
+            optimizer.topological_sort()
 
-        # save the model to the output path and return the model
-        return model_proto_to_olive_model(optimizer.model, output_model_path, config)
+            # save the model to the output path and return the model
+            return model_proto_to_olive_model(optimizer.model, output_model_path, config)
+        except Exception as e:
+            # if the transformer optimization fails, log the error and return the original model
+            logger.warning(f"Failed to do transformer optimization {model.model_path} with error {e}", exc_info=True)
+            return model
