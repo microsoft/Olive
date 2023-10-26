@@ -176,7 +176,7 @@ class OrtTransformersOptimization(Pass):
 
         if run_config["model_type"] is None:
             raise ValueError(
-                f"Unsupported model type: {run_config['model_type']}, please select one from "
+                f"please specify model_type from "
                 f"[{', '.join(transformers_optimizer.MODEL_TYPES.keys())}] which need to be set under "
                 "OrtTransformersOptimization.config"
             )
@@ -213,8 +213,9 @@ class OrtTransformersOptimization(Pass):
             return model_proto_to_olive_model(optimizer.model, output_model_path, config)
         else:
             logger.warning(
-                f"model_type {run_config['model_type']} is not supported by transformers optimizer. "
-                "The transformer optimization will be skipped"
+                f"model_type '{run_config['model_type']}' is not supported by transformers optimizer. "
+                f"The supported list is [{', '.join(transformers_optimizer.MODEL_TYPES.keys())}]. "
+                "The transformer optimization will be skipped."
             )
 
             model_proto = model.load_model()
