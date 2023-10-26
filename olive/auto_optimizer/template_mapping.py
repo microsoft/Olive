@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 
 import logging
-from copy import deepcopy
+from itertools import product
 from pathlib import Path
 
 import yaml
@@ -12,25 +12,22 @@ import yaml
 logger = logging.getLogger(__name__)
 
 TEMPLATE_CONFIG_PATH = Path(__file__).resolve().parent / "config_template"
-
-model_template_mapping = {
-    "bert": [["OnnxConversion", "OrtTransformersOptimization", "OnnxQuantization", "OrtPerfTuning"]],
-    "open_llama": [["OptimumConversion", "OrtTransformersOptimization", "OptimumMerging"]],
-}
+DEFAULT_ONNX_OPT_STACK = "onnx_pass_flows.yaml"
 
 
-def get_model_template_passes(model_type):
-    # if cannot get model_type, remove None
-    if not model_type:
-        return None
-    return deepcopy(model_template_mapping[model_type])
+def default_onnx_opt_pass_flows():
+    with (TEMPLATE_CONFIG_PATH / DEFAULT_ONNX_OPT_STACK).open() as f:
+        default_pass_groups = yaml.safe_load(f)
+    # extend the pass groups to pass flows
+    default_pass_flows = []
+    pass_groups = default_pass_groups["pass_groups"]
+    pass_flow_groups = default_pass_groups["pass_flow_groups"]
 
+    for pf_group in pass_flow_groups:
+        candidate_list = []
+        for candidate in pf_group:
+            candidate_list.append(pass_groups[candidate]["passes"])
+        for pf in product(*candidate_list):
+            default_pass_flows.append(list(pf))
 
-def get_model_template_config(model_type):
-    model_config = None
-    try:
-        with (TEMPLATE_CONFIG_PATH / f"{model_type}.yaml").open() as f:
-            model_config = yaml.safe_load(f)
-    except FileNotFoundError:
-        logger.warning(f"Cannot find template config for model type: {model_type}")
-    return model_config
+    return default_pass_flows

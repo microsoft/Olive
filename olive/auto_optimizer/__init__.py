@@ -16,11 +16,19 @@ from olive.data.config import DataConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ModelConfig
-from olive.model.hf_mappings import MODEL_TYPE_MAPPING
 
 logger = logging.getLogger(__name__)
 
-passes_may_cause_accuracy_drop = ["OnnxQuantization", "SparseGPT", "QuantizationAwareTraining"]
+
+quant_passes = [
+    "OnnxQuantization",
+    "OnnxStaticQuantization",
+    "OnnxDynamicQuantization",
+    "IncQuantization",
+    "VitisAIQuantization",
+    "QuantizationAwareTraining",
+]
+passes_may_cause_accuracy_drop = ["SparseGPT", "OrtMixedPrecision", *quant_passes]
 
 
 class Precision(str, Enum):
@@ -28,6 +36,7 @@ class Precision(str, Enum):
     FP16 = "fp16"
     INT8 = "int8"
     # TODO(trajep): add more precision bf16, int4 and etc.
+    # ort int4 kernel is not fully optimized, so we disable it for now even we have the int4 quantization
 
 
 class AutoOptimizerConfig(ConfigBase):
@@ -109,8 +118,6 @@ class AutoOptimizer:
                 model_config.config[resource_name] = downloaded_resource_path
         model = model_config.create_model()
         self.model_attr = model.model_attributes or {}
-        _model_type = self.model_attr.get("model_type", None)
-        self.model_type = MODEL_TYPE_MAPPING.get(_model_type, _model_type)
 
         # 2. evaluator config
         self.is_accuracy_drop_tolerance = self.evaluator_config.is_accuracy_drop_tolerance
@@ -139,18 +146,24 @@ class AutoOptimizer:
 
     def regulate(self, pass_config, pass_flows):
         # can be called separately when to user want to regulate defined pass config
-        self.regulate_passes(pass_config, pass_flows)
-        self.regulate_fp16(pass_config, pass_flows)
-        self.regulate_data_config(pass_config, pass_flows)
+        # decide which passes to be skipped
+        self.regulate_pass_flows(pass_flows)
+
+        # clean no-reference pass configs
+        to_del_passes = set(pass_config.keys()) - {p for pf in pass_flows for p in pf}
+        for p in to_del_passes:
+            pass_config.pop(p)
+
+        self.regulate_pass_configs(pass_config)
         return pass_config, pass_flows
 
     def suggest_passes_from_template(self):
-        from olive.auto_optimizer.template_mapping import get_model_template_config, get_model_template_passes
+        from olive.auto_optimizer.template_mapping import default_onnx_opt_pass_flows
 
         assert self.auto_optimizer_config.opt_level == 0, "opt_level must be 0 for suggest_pass_flows_from_template"
 
-        pass_flows = get_model_template_passes(self.model_type)
-        pass_config = get_model_template_config(self.model_type)
+        pass_flows = default_onnx_opt_pass_flows()
+        pass_config = {}
 
         for pass_item in pass_flows:
             for p_name in pass_item:
@@ -163,7 +176,39 @@ class AutoOptimizer:
         assert all(len(p) == len(set(p)) for p in pass_flows), f"duplicated passes in template: {pass_flows}"
         return pass_config, pass_flows
 
-    def regulate_fp16(self, pass_config, pass_flows):
+    def regulate_pass_flows(self, pass_flows):
+        # remove passes that are not supported by execution provider
+        to_del_passes = set(self.auto_optimizer_config.disabled_passes) or set()
+
+        # TODO(trajep): centralize the filter logic to config
+        if self.is_gpu or not self.allow_precision(Precision.INT8):
+            to_del_passes.quant_passes(quant_passes)
+
+        if not self.is_accuracy_drop_tolerance:
+            to_del_passes.update(passes_may_cause_accuracy_drop)
+
+        # del passes
+        for p in to_del_passes:
+            for flow in pass_flows:
+                if p in flow:
+                    flow.remove(p)
+
+        # after removing passes, there may be empty/duplicated pass flows, we should remove them
+        to_del_pf_ids = []
+        list_duplicated_check = set()
+        for idx, flow in enumerate(pass_flows):
+            if not flow or str(flow) in list_duplicated_check:
+                to_del_pf_ids.append(idx)
+                break
+            list_duplicated_check.add(str(flow))
+        for idx in to_del_pf_ids:
+            pass_flows.pop(idx)
+
+    def regulate_pass_configs(self, pass_config):
+        self.regulate_fp16(pass_config)
+        self.regulate_data_config(pass_config)
+
+    def regulate_fp16(self, pass_config):
         if not self.is_gpu or not self.is_accuracy_drop_tolerance:
             return
 
@@ -188,25 +233,7 @@ class AutoOptimizer:
                 self.set_config_value_if_not_exist(pass_config["OrtPerfTuning"], "enable_cuda_graph", cuda_fp16)
                 self.set_config_value_if_not_exist(pass_config["OrtPerfTuning"], "io_bind", True)
 
-    def regulate_passes(self, pass_config, pass_flows):
-        # remove passes that are not supported by execution provider
-        to_del_passes = set(self.auto_optimizer_config.disabled_passes) or set()
-
-        # TODO(trajep): centralize the filter logic to config
-        if self.is_gpu or not self.allow_precision(Precision.INT8):
-            to_del_passes.add("OnnxQuantization")
-
-        if not self.is_accuracy_drop_tolerance:
-            to_del_passes.update(passes_may_cause_accuracy_drop)
-
-        # del passes
-        for p in to_del_passes:
-            pass_config.pop(p, None)
-            for flow in pass_flows:
-                if p in flow:
-                    flow.remove(p)
-
-    def regulate_data_config(self, pass_config, pass_flows):
+    def regulate_data_config(self, pass_config):
         from olive.workflows.run.config import INPUT_MODEL_DATA_CONFIG
 
         # data_config

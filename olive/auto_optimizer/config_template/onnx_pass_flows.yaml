@@ -1,0 +1,23 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
+
+pass_groups:
+  conversion:
+    passes: ["OnnxConversion", "OptimumConversion"]
+
+  transformer_optimization:
+    passes: ["OrtTransformersOptimization"]
+
+  quantization:
+    # ignore "IncQuantization" as it requires fancy extra configs like, calibration dataset, user_configs
+    # TODO(trajep): add int4 support when it is ready
+    passes: ["OnnxQuantization", "VitisAIQuantization"]
+
+  perf_tuning:
+    passes: ["OrtPerfTuning"]
+
+pass_flow_groups:
+  # this list will be extended to pass_flows in the order of the list
+  - ["conversion", "transformer_optimization", "quantization", "perf_tuning"]
