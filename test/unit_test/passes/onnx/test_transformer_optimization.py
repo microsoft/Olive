@@ -77,3 +77,16 @@ def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, tmp_path):
     if not is_pruned:
         output_folder = str(tmp_path / "onnx")
         p.run(input_model, None, output_folder)
+
+
+def test_transformer_optimization_validation_error(tmp_path):
+    input_model = get_onnx_model()
+    with pytest.raises(ValueError):
+        config = {"model_type": None}
+
+        config = OrtTransformersOptimization.generate_search_space(DEFAULT_CPU_ACCELERATOR, config, disable_search=True)
+        p = OrtTransformersOptimization(DEFAULT_CPU_ACCELERATOR, config, True)
+        output_folder = str(tmp_path / "onnx")
+
+        # execute
+        p.run(input_model, None, output_folder)
