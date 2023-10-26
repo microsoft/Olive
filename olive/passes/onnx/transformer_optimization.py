@@ -174,7 +174,7 @@ class OrtTransformersOptimization(Pass):
                         run_config["hidden_size"] = model_config[hidden_size_name]
                         break
 
-        if run_config["model_type"] is None or run_config["model_type"] not in transformers_optimizer.MODEL_TYPES:
+        if run_config["model_type"] is None:
             raise ValueError(
                 f"Unsupported model type: {run_config['model_type']}, please select one from "
                 f"[{', '.join(transformers_optimizer.MODEL_TYPES.keys())}] which need to be set under "
@@ -183,13 +183,12 @@ class OrtTransformersOptimization(Pass):
 
         output_model_path = ONNXModel.resolve_path(os.path.join(output_model_path, os.path.basename(model.model_path)))
 
-        optimization_options = config["optimization_options"]
+        if run_config["model_type"] in transformers_optimizer.MODEL_TYPES:
+            optimization_options = config["optimization_options"]
 
-        if optimization_options:
-            self._set_fusion_options(run_config)
+            if optimization_options:
+                self._set_fusion_options(run_config)
 
-        try:
-            # TODO(myguo): remove the try/except block if we introduce the optional concept for every pass in future.
             optimizer = transformers_optimizer.optimize_model(input=model.model_path, **run_config)
 
             if config["float16"]:
@@ -212,7 +211,35 @@ class OrtTransformersOptimization(Pass):
 
             # save the model to the output path and return the model
             return model_proto_to_olive_model(optimizer.model, output_model_path, config)
-        except Exception as e:
-            # if the transformer optimization fails, log the error and return the original model
-            logger.warning(f"Failed to do transformer optimization {model.model_path} with error {e}", exc_info=True)
-            return model
+        else:
+            logger.warning(
+                f"model_type {run_config['model_type']} is not supported by transformers optimizer. "
+                "The transformer optimization will be skipped"
+            )
+
+            # for models that doesn't supported, we will only apply float16.
+            from onnx import load_model
+            from onnxruntime.transformers.onnx_model import OnnxModel
+
+            model_proto = load_model(model.model_path)
+            if config["float16"]:
+                force_fp16_inputs = {}
+                if optimization_options:
+                    force_fp16_inputs = optimization_options.get("force_fp16_inputs", {})
+
+                op_block_list = config["force_fp32_ops"]
+
+                onnx_model = OnnxModel(model_proto)
+                onnx_model.convert_float_to_float16(
+                    keep_io_types=config["keep_io_types"],
+                    op_block_list=op_block_list,
+                    force_fp16_inputs=force_fp16_inputs,
+                )
+                onnx_model.topological_sort()
+                logger.info("Sort graphs in topological order")
+                output_model = onnx_model.model
+            else:
+                output_model = model_proto
+
+            # save the model to the output path and return the model
+            return model_proto_to_olive_model(output_model, output_model_path, config)

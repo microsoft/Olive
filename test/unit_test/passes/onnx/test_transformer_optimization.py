@@ -2,10 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import logging
 from copy import deepcopy
 from test.unit_test.utils import get_onnx_model
-from unittest.mock import patch
 
 import pytest
 from onnxruntime.transformers.fusion_options import FusionOptions
@@ -91,22 +89,3 @@ def test_transformer_optimization_invalid_model_type(tmp_path):
 
         # execute
         p.run(input_model, None, output_folder)
-
-
-@patch("onnxruntime.transformers.optimizer.optimize_model")
-def test_transformer_optimization_failure(mock_optimize_model, caplog, tmp_path):
-    mock_optimize_model.side_effect = KeyError("INVALID_MODEL_TYPE")
-
-    logger = logging.getLogger("olive")
-    logger.propagate = True
-
-    input_model = get_onnx_model()
-    config = {"model_type": "bert"}
-    config = OrtTransformersOptimization.generate_search_space(DEFAULT_CPU_ACCELERATOR, config, disable_search=True)
-    p = OrtTransformersOptimization(DEFAULT_CPU_ACCELERATOR, config, True)
-    output_folder = str(tmp_path / "onnx")
-    # execute
-    model = p.run(input_model, None, output_folder)
-
-    assert model == input_model
-    assert "KeyError: 'INVALID_MODEL_TYPE" in caplog.text
