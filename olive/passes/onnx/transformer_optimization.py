@@ -34,7 +34,7 @@ class OrtTransformersOptimization(Pass):
         config = {
             "model_type": PassConfigParam(
                 type_=str,
-                required=True,
+                default_value=None,
                 description=(
                     "Transformer based model type, including bert (exported by PyTorch), gpt2 (exported by PyTorch), "
                     "bert_tf (BERT exported by tf2onnx), bert_keras (BERT exported by keras2onnx), and "
