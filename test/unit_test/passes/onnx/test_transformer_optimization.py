@@ -6,6 +6,7 @@ import logging
 from copy import deepcopy
 from test.unit_test.utils import get_onnx_model
 
+import pydantic
 import pytest
 from onnxruntime.transformers.fusion_options import FusionOptions
 
@@ -84,10 +85,26 @@ def test_transformer_optimization_invalid_model_type(tmp_path):
     input_model = get_onnx_model()
     with pytest.raises(ValueError):
         config = {"model_type": None}
-
         config = OrtTransformersOptimization.generate_search_space(DEFAULT_CPU_ACCELERATOR, config, disable_search=True)
         p = OrtTransformersOptimization(DEFAULT_CPU_ACCELERATOR, config, True)
         output_folder = str(tmp_path / "onnx")
 
         # execute
         p.run(input_model, None, output_folder)
+
+
+def test_transformer_optimization_failure(caplog, tmp_path):
+    logger = logging.getLogger("olive")
+    logger.propagate = True
+
+    input_model = get_onnx_model()
+    config = {"model_type": "INVALID_MODEL_TYPE"}
+    config = OrtTransformersOptimization.generate_search_space(DEFAULT_CPU_ACCELERATOR, config, disable_search=True)
+    p = OrtTransformersOptimization(DEFAULT_CPU_ACCELERATOR, config, True)
+    output_folder = str(tmp_path / "onnx")
+    # execute
+    model = p.run(input_model, None, output_folder)
+
+    assert model == input_model
+    assert "KeyError: 'INVALID_MODEL_TYPE" in caplog.text
+

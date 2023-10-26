@@ -34,7 +34,7 @@ class OrtTransformersOptimization(Pass):
         config = {
             "model_type": PassConfigParam(
                 type_=str,
-                default_value=None,
+                required=True,
                 description=(
                     "Transformer based model type, including bert (exported by PyTorch), gpt2 (exported by PyTorch), "
                     "bert_tf (BERT exported by tf2onnx), bert_keras (BERT exported by keras2onnx), and "
@@ -189,6 +189,7 @@ class OrtTransformersOptimization(Pass):
             self._set_fusion_options(run_config)
 
         try:
+            # TODO(myguo): remove the try/except block if we introduce the optional concept for every pass in future.
             optimizer = transformers_optimizer.optimize_model(input=model.model_path, **run_config)
 
             if config["float16"]:
