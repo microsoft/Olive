@@ -28,8 +28,6 @@ Performs optimization pipeline:
 }
 ```
 
-Outputs the final model and latency results.
-
 ## Prerequisites
 ### Clone the repository and install Olive
 
@@ -72,7 +70,12 @@ python -m pip install -r requirements.txt
 ```
 
 ## Run the config to optimize the model
-First, install required packages according to passes.
+You can only generate the optimized config file by running the following command for double checking before running the optimization pipeline:
+```bash
+python llama2.py --model_name meta-llama/Llama-2-7b-hf --only_flag
+```
+
+Or you can run the following command to directly optimize the model:
 
 CPU:
 ```bash
