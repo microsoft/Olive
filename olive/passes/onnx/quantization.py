@@ -546,6 +546,7 @@ class OnnxMatMul4Quantizer(Pass):
         )
         quant.process()
 
+        # TODO(trajep): add more options to save_model_to_file
         new_tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
         tmp_model_path = str(Path(new_tmp_dir.name) / Path(output_model_path).name)
         quant.model.save_model_to_file(tmp_model_path, config["save_as_external_data"])
