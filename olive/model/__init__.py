@@ -475,7 +475,7 @@ class PyTorchModel(OliveModel):
         model_loader: Union[str, Callable] = None,
         model_script: Union[str, Path] = None,
         script_dir: Union[str, Path] = None,
-        io_config: Union[Dict[str, Any], IOConfig] = None,
+        io_config: Union[Dict[str, Any], IOConfig, str] = None,
         dummy_inputs_func: Union[str, Callable] = None,
         hf_config: Union[Dict[str, Any], HFConfig] = None,
         adapter_path: OLIVE_RESOURCE_ANNOTATIONS = None,
@@ -524,6 +524,10 @@ class PyTorchModel(OliveModel):
             ), "model_script must be a local file or a string name."
 
         # io config for conversion to onnx
+        # TODO(trajep): support callable io_config
+        if isinstance(io_config, str):
+            user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
+            io_config = user_module_loader.call_object(io_config, self.hf_config.model_name)
         self.io_config = validate_config(io_config, IOConfig).dict() if io_config else None
         self.dummy_inputs_func = dummy_inputs_func
 
@@ -688,8 +692,12 @@ class PyTorchModel(OliveModel):
         components_dict = {component.name: component for component in self.hf_config.components}
         hf_component = components_dict[component_name]
 
-        user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
-        model_component = user_module_loader.call_object(hf_component.component_func, self.hf_config.model_name)
+        if hf_component.component_func is None:
+            logger.debug("component_func is not provided, using hf_config to get component")
+            model_component = self.hf_config.load_model(self.model_path)
+        else:
+            user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
+            model_component = user_module_loader.call_object(hf_component.component_func, self.hf_config.model_name)
 
         io_config = hf_component.io_config
         if isinstance(io_config, str):

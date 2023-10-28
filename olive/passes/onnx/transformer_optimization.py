@@ -5,7 +5,7 @@
 import logging
 import os
 from copy import deepcopy
-from typing import Any, Dict, List, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Union
 
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModel
@@ -14,6 +14,9 @@ from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional
+
+if TYPE_CHECKING:
+    from onnxruntime.transformers.onnx_model import OnnxModel
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +93,11 @@ class OrtTransformersOptimization(Pass):
             "force_fp32_ops": PassConfigParam(
                 type_=List[str], default_value=None, description="Operators that are forced to run in float32"
             ),
+            "use_gqa": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Replace MultiHeadAttention with GroupQueryAttention.",
+            ),
         }
         config.update(get_external_data_config())
         return config
@@ -109,6 +117,9 @@ class OrtTransformersOptimization(Pass):
             if accelerator_spec.execution_provider == "CPUExecutionProvider":
                 logger.info("CPUExecutionProvider does not support float16 very well, please avoid to use float16.")
                 return False
+        if not search_point.get("float16") and search_point.get("use_gqa"):
+            logger.info("use_gqa is only supported when float16 is True.")
+            return False
         if search_point.get("use_gpu") and accelerator_spec.execution_provider == "CPUExecutionProvider":
             logger.info("CPUExecutionProvider does not support GPU inference, please avoid to use use_gpu.")
             return False
@@ -151,6 +162,7 @@ class OrtTransformersOptimization(Pass):
             run_config["input_int32"],
             run_config["keep_io_types"],
             run_config["force_fp32_ops"],
+            run_config["use_gqa"],
         )
         for key in get_external_data_config():
             del run_config[key]
@@ -199,6 +211,18 @@ class OrtTransformersOptimization(Pass):
             optimizer.convert_float_to_float16(
                 keep_io_types=config["keep_io_types"], op_block_list=op_block_list, force_fp16_inputs=force_fp16_inputs
             )
+            if config["use_gqa"]:
+                # Replace MultiHeadAttention with GroupQueryAttention and remove attention mask nodes
+                num_kv_heads = model.model_attributes.get("num_key_value_heads", None)
+                if num_kv_heads is None:
+                    raise ValueError(
+                        "num_key_value_heads is not specified in the model attributes. "
+                        "Please specify it in the model attributes."
+                    )
+                optimizer = self._replace_mha_with_gqa(optimizer, kv_num_heads=num_kv_heads)
+                optimizer.prune_graph()
+                # add allow_remove_graph_inputs to pass config
+                optimizer.update_graph(allow_remove_graph_inputs=True)
 
         if config["input_int32"]:
             optimizer.change_graph_inputs_to_int32()
@@ -208,3 +232,36 @@ class OrtTransformersOptimization(Pass):
 
         # save the model to the output path and return the model
         return model_proto_to_olive_model(optimizer.model, output_model_path, config)
+
+    @staticmethod
+    def _replace_mha_with_gqa(model: "OnnxModel", past_seq_len: str = "past_sequence_length", kv_num_heads: int = 0):
+        import onnx
+
+        if past_seq_len not in model.get_graphs_input_names():
+            # Replace model input for past sequence length
+            new_input = onnx.helper.make_tensor_value_info(past_seq_len, onnx.TensorProto.INT64, shape=[1])
+            model.model.graph.input.append(new_input)
+
+        # Replace MultiHeadAttention with GroupQueryAttention
+        for node in model.model.graph.node:
+            if node.op_type == "MultiHeadAttention":
+                gqa_node = onnx.helper.make_node(
+                    "GroupQueryAttention",
+                    inputs=[
+                        node.input[0],  # query
+                        node.input[1],  # key
+                        node.input[2],  # value
+                        node.input[6],  # past_key
+                        node.input[7],  # past_value
+                        past_seq_len,  # past_sequence_length
+                    ],
+                    outputs=node.output,
+                    name=node.name.replace("MultiHeadAttention", "GroupQueryAttention"),
+                    domain="com.microsoft",
+                    num_heads=node.attribute[0].i,
+                    kv_num_heads=node.attribute[0].i if kv_num_heads == 0 else kv_num_heads,
+                    is_past_bsnh=0,
+                )
+                model.model.graph.node.remove(node)
+                model.model.graph.node.extend([gqa_node])
+        return model
