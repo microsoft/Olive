@@ -99,6 +99,23 @@ def get_or_create_decoder_model():
 
         # We don't use rope.freqs
         state_dict = torch.load(weights_path)
+
+        # Permutation for sliced rotary
+        def permute(weight):
+            return (
+                weight.view(num_heads, hidden_size // num_heads // 2, 2, hidden_size)
+                .transpose(1, 2)
+                .reshape(hidden_size, hidden_size)
+            )
+
+        for layer_idx in range(num_layers):
+            state_dict[f"layers.{layer_idx}.attention.wq.weight"] = permute(
+                state_dict[f"layers.{layer_idx}.attention.wq.weight"]
+            )
+            state_dict[f"layers.{layer_idx}.attention.wk.weight"] = permute(
+                state_dict[f"layers.{layer_idx}.attention.wk.weight"]
+            )
+
         del state_dict["rope.freqs"]
         config.decoder_model.load_state_dict(state_dict)
 
@@ -122,7 +139,8 @@ def decoder_inputs(model):
 
     return {
         "x": torch.rand((batch_size, seq_len, hidden_size), dtype=torch.float32),
-        "attn_mask": torch.zeros((1, max_seq_len, max_seq_len), dtype=torch.int32),
+        "position_ids": torch.zeros((batch_size, seq_len), dtype=torch.int64),
+        "attn_mask": torch.zeros((batch_size, max_seq_len), dtype=torch.int32),
         "cache": [
             {
                 "key": torch.rand((batch_size, num_heads, max_seq_len, head_size), dtype=torch.float32),
@@ -153,9 +171,8 @@ def decoder_with_past_inputs(model):
     head_size = hidden_size // num_heads
     return {
         "x_increment": torch.rand((batch_size, 1, hidden_size), dtype=torch.float32),
-        "attn_mask": torch.zeros((1, max_seq_len, max_seq_len), dtype=torch.int32),
-        "cos": torch.rand((batch_size, max_seq_len, 1, 64), dtype=torch.float32),
-        "sin": torch.rand((batch_size, max_seq_len, 1, 64), dtype=torch.float32),
+        "position_ids_increment": torch.zeros((batch_size, 1), dtype=torch.int64),
+        "attn_mask": torch.zeros((batch_size, max_seq_len), dtype=torch.int32),
         "cache": [
             {
                 "key": torch.rand((batch_size, num_heads, max_seq_len, head_size), dtype=torch.float32),
@@ -182,7 +199,8 @@ def merged_decoders_inputs(model):
 
     inputs = {
         "x": torch.rand((batch_size, seq_len, hidden_size), dtype=torch.float16),
-        "attn_mask": torch.zeros((1, max_seq_len, max_seq_len), dtype=torch.int32),
+        "position_ids": torch.zeros((batch_size, seq_len), dtype=torch.int64),
+        "attn_mask": torch.zeros((batch_size, max_seq_len), dtype=torch.int32),
     }
 
     for layer_idx in range(num_layers):
@@ -194,8 +212,7 @@ def merged_decoders_inputs(model):
         )
 
     inputs["x_increment"] = torch.rand((batch_size, 1, hidden_size), dtype=torch.float16)
-    inputs["cos"] = torch.rand((batch_size, max_seq_len, 1, 64), dtype=torch.float16)
-    inputs["sin"] = torch.rand((batch_size, max_seq_len, 1, 64), dtype=torch.float16)
+    inputs["position_ids_increment"] = torch.zeros((batch_size, 1), dtype=torch.int64)
     inputs["use_cache_branch"] = torch.ones((1,), dtype=torch.bool)
 
     return inputs

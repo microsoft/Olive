@@ -274,14 +274,7 @@ short answers are usually best"
                     sin = np.roll(sin, padding, axis=1)
 
                 cos = onnxruntime.OrtValue.ortvalue_from_numpy(cos, self.binding_device)
-                cos_out = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
-                    (1, padded_seq_len, 1, 64), self.data_type, self.binding_device
-                )
-
                 sin = onnxruntime.OrtValue.ortvalue_from_numpy(sin, self.binding_device)
-                sin_out = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
-                    (1, padded_seq_len, 1, 64), self.data_type, self.binding_device
-                )
 
                 # Create the attention mask, which contains 1's for values that should stay intact, and 0's for values
                 # that should get added to -10000
@@ -331,8 +324,6 @@ short answers are usually best"
             self.llm_io_binding.bind_ortvalue_input("cos", cos)
             self.llm_io_binding.bind_ortvalue_input("sin", sin)
             self.llm_io_binding.bind_ortvalue_output("attn_mask_out", attn_mask_out)
-            self.llm_io_binding.bind_ortvalue_output("cos_out", cos_out)
-            self.llm_io_binding.bind_ortvalue_output("sin_out", sin_out)
 
             for layer_idx in range(self.n_layers):
                 self.llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.key", self.k_caches[layer_idx])
@@ -365,8 +356,6 @@ short answers are usually best"
                 self.update_embeddings_io_binding.bind_ortvalue_output("embeddings", self.x_increment)
 
             attn_mask_out, attn_mask = attn_mask, attn_mask_out
-            cos_out, cos = cos, cos_out
-            sin_out, sin = sin, sin_out
             self.k_caches, self.k_caches_out = self.k_caches_out, self.k_caches
             self.v_caches, self.v_caches_out = self.v_caches_out, self.v_caches
             seq_len += 1

@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Union
 
-import onnxruntime
 from onnx import ModelProto
 
 from olive.hardware.accelerator import AcceleratorSpec
@@ -63,13 +62,5 @@ class OptimumMerging(Pass):
         output_model_path = os.path.join(output_model_path, "decoder_model_merged.onnx")
 
         olive_model = model_proto_to_olive_model(merged_model, output_model_path, config)
-
-        # Doing a dry run of ORT allows us to remove the initializers that were orphaned by the merging step
-        sess_options = onnxruntime.SessionOptions()
-        sess_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_BASIC
-        sess_options.optimized_model_filepath = output_model_path
-
-        execution_provider = self.accelerator_spec.execution_provider
-        onnxruntime.InferenceSession(output_model_path, sess_options, providers=[execution_provider])
 
         return olive_model

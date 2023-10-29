@@ -69,6 +69,7 @@ def run_llama_v2_io_binding(
 
     llm_session_options = onnxruntime.SessionOptions()
     llm_session_options.add_free_dimension_override_by_name("max_seq_len", max_seq_len)
+    llm_session_options.add_free_dimension_override_by_name("seq_len_increment", 1)
     llm_session = onnxruntime.InferenceSession(
         "models/optimized/llama_v2/llama_v2/decoder_model_merged.onnx",
         sess_options=llm_session_options,
@@ -90,7 +91,6 @@ def run_llama_v2_io_binding(
     hidden_size = x_shape[2]
     n_heads = cache_shape[1]
     attn_mask_shape[1] = max_seq_len
-    attn_mask_shape[2] = max_seq_len
 
     binding_device = "dml"
 
@@ -99,9 +99,11 @@ def run_llama_v2_io_binding(
     tokens = tokenizer.encode(prompt, bos=True, eos=False)
     tokens = onnxruntime.OrtValue.ortvalue_from_numpy(np.asarray(tokens, dtype=np.int64), binding_device)
 
+    seq_len = tokens.shape()[0]
+
     # Create the attention mask, which contains 1's for values that should stay intact, and 0's for values that should
     # get added to -10000
-    attn_mask = np.tril(np.ones(attn_mask_shape)).astype(np.int32)
+    attn_mask = np.pad(np.ones((attn_mask_shape[0], seq_len)), ((0, 0), (max_seq_len - seq_len, 0))).astype(np.int32)
     attn_mask = onnxruntime.OrtValue.ortvalue_from_numpy(attn_mask, binding_device)
     attn_mask_out = onnxruntime.OrtValue.ortvalue_from_shape_and_type(attn_mask_shape, np.int32, binding_device)
 
@@ -117,10 +119,6 @@ def run_llama_v2_io_binding(
         (1, tokens.shape()[0], hidden_size), data_type, binding_device
     )
     x_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, 1, hidden_size), data_type, binding_device)
-    cos = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, max_seq_len, 1, 64), data_type, binding_device)
-    cos_out = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, max_seq_len, 1, 64), data_type, binding_device)
-    sin = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, max_seq_len, 1, 64), data_type, binding_device)
-    sin_out = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, max_seq_len, 1, 64), data_type, binding_device)
 
     # Create the LLM model's I/O binding
     logits_shape = (1, tokenizer.n_words)
@@ -160,15 +158,18 @@ def run_llama_v2_io_binding(
         update_embeddings_session.run_with_iobinding(update_embeddings_io_binding)
         update_embeddings_io_binding.synchronize_outputs()
 
+        if idx == 0:
+            position_ids = np.arange(seq_len, dtype=np.int64).reshape((1, seq_len))
+            llm_io_binding.bind_cpu_input("position_ids", position_ids)
+        else:
+            position_ids_increment = np.array(seq_len, dtype=np.int64).reshape((1, 1))
+            llm_io_binding.bind_cpu_input("position_ids_increment", position_ids_increment)
+
         # Run the LLM model
         llm_io_binding.bind_ortvalue_input("x", x)
         llm_io_binding.bind_ortvalue_input("attn_mask", attn_mask)
         llm_io_binding.bind_ortvalue_input("x_increment", x_increment)
-        llm_io_binding.bind_ortvalue_input("cos", cos)
-        llm_io_binding.bind_ortvalue_input("sin", sin)
         llm_io_binding.bind_ortvalue_output("attn_mask_out", attn_mask_out)
-        llm_io_binding.bind_ortvalue_output("cos_out", cos_out)
-        llm_io_binding.bind_ortvalue_output("sin_out", sin_out)
 
         for layer_idx in range(n_layers):
             llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.key", k_caches[layer_idx])
@@ -197,10 +198,10 @@ def run_llama_v2_io_binding(
             update_embeddings_io_binding.bind_ortvalue_output("embeddings", x_increment)
 
         attn_mask_out, attn_mask = attn_mask, attn_mask_out
-        cos_out, cos = cos, cos_out
-        sin_out, sin = sin, sin_out
         k_caches, k_caches_out = k_caches_out, k_caches
         v_caches, v_caches_out = v_caches_out, v_caches
+
+        seq_len += 1
 
     after_time = time.perf_counter()
     duration = after_time - before_time

@@ -52,8 +52,8 @@ def rotary_mat(
     idx = np.arange(max_seq_len, dtype=dtype)
     freqs = np.outer(idx, freqs)
 
-    cos = np.reshape(np.cos(freqs), [1, max_seq_len, 1, -1])
-    sin = np.reshape(np.sin(freqs), [1, max_seq_len, 1, -1])
+    cos = np.reshape(np.cos(freqs), [max_seq_len, -1])
+    sin = np.reshape(np.sin(freqs), [max_seq_len, -1])
 
     return cos, sin
 
@@ -160,14 +160,7 @@ def run_llama_v2_io_binding(
                 sin = np.roll(sin, padding, axis=1)
 
             cos = onnxruntime.OrtValue.ortvalue_from_numpy(cos, binding_device)
-            cos_out = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
-                (1, padded_seq_len, 1, 64), data_type, binding_device
-            )
-
             sin = onnxruntime.OrtValue.ortvalue_from_numpy(sin, binding_device)
-            sin_out = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
-                (1, padded_seq_len, 1, 64), data_type, binding_device
-            )
 
             # Create the attention mask, which contains 1's for values that should stay intact, and 0's for values that
             # should get added to -10000
@@ -200,15 +193,11 @@ def run_llama_v2_io_binding(
 
         llm_io_binding.bind_ortvalue_input("x", x)
         llm_io_binding.bind_ortvalue_input("x_increment", x_increment)
+        llm_io_binding.bind_ortvalue_input("cos", cos)
+        llm_io_binding.bind_ortvalue_input("sin", sin)
 
         llm_io_binding.bind_ortvalue_input("attn_mask", attn_mask)
         llm_io_binding.bind_ortvalue_output("attn_mask_out", attn_mask_out)
-
-        llm_io_binding.bind_ortvalue_input("cos", cos)
-        llm_io_binding.bind_ortvalue_output("cos_out", cos_out)
-
-        llm_io_binding.bind_ortvalue_input("sin", sin)
-        llm_io_binding.bind_ortvalue_output("sin_out", sin_out)
 
         # Update the embeddings
         update_embeddings_session.run_with_iobinding(update_embeddings_io_binding)
@@ -242,8 +231,6 @@ def run_llama_v2_io_binding(
             update_embeddings_io_binding.bind_ortvalue_output("embeddings", x_increment)
 
         attn_mask_out, attn_mask = attn_mask, attn_mask_out
-        cos_out, cos = cos, cos_out
-        sin_out, sin = sin, sin_out
         k_caches, k_caches_out = k_caches_out, k_caches
         v_caches, v_caches_out = v_caches_out, v_caches
         seq_len += 1

@@ -7,6 +7,8 @@ import os
 from copy import deepcopy
 from typing import Any, Dict, List, Union
 
+from onnxoptimizer import onnx_opt_cpp2py_export
+
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModel
 from olive.model.hf_mappings import HIDDEN_SIZE_NAMES, MODEL_TYPE_MAPPING, NUM_HEADS_NAMES
@@ -79,6 +81,11 @@ class OrtTransformersOptimization(Pass):
             "force_fp32_nodes": PassConfigParam(
                 type_=List[str], default_value=None, description="Nodes that are forced to run in float32"
             ),
+            "convert_constants_to_initializers": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Convert constant nodes to initializers",
+            ),
         }
         config.update(get_external_data_config())
         return config
@@ -141,6 +148,7 @@ class OrtTransformersOptimization(Pass):
             run_config["keep_io_types"],
             run_config["force_fp32_ops"],
             run_config["force_fp32_nodes"],
+            run_config["convert_constants_to_initializers"],
         )
         for key in get_external_data_config():
             del run_config[key]
@@ -186,5 +194,13 @@ class OrtTransformersOptimization(Pass):
         # Topologically sort the graph at the end since previous optimizations may have broken it
         optimizer.topological_sort()
 
-        # save the model to the output path and return the model
-        return model_proto_to_olive_model(optimizer.model, output_model_path, config)
+        # Save the model to the output path and return the model
+        olive_model = model_proto_to_olive_model(optimizer.model, output_model_path, config)
+
+        if config["convert_constants_to_initializers"]:
+            data_file_name = os.path.basename(output_model_path) + ".data"
+            onnx_opt_cpp2py_export.optimize_from_path(
+                output_model_path, output_model_path, ["extract_constant_to_initializer"], data_file_name
+            )
+
+        return olive_model

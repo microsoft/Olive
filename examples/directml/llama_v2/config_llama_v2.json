@@ -10,6 +10,7 @@
                         "io_config": {
                             "input_names": [
                                 "x",
+                                "position_ids",
                                 "attn_mask",
                                 "cache.0.key",
                                 "cache.0.value",
@@ -79,8 +80,6 @@
                             "output_names": [
                                 "logits",
                                 "attn_mask_out",
-                                "cos_out",
-                                "sin_out",
                                 "cache_out.0.key",
                                 "cache_out.0.value",
                                 "cache_out.1.key",
@@ -148,7 +147,8 @@
                             ],
                             "dynamic_axes": {
                                 "x": { "1": "seq_len" },
-                                "attn_mask": { "1": "max_seq_len", "2": "max_seq_len" },
+                                "position_ids": { "1": "seq_len" },
+                                "attn_mask": { "1": "max_seq_len" },
                                 "cache.0.key": { "2": "max_seq_len" },
                                 "cache.0.value": { "2": "max_seq_len" },
                                 "cache.1.key": { "2": "max_seq_len" },
@@ -223,9 +223,8 @@
                         "io_config": {
                             "input_names": [
                                 "x_increment",
+                                "position_ids_increment",
                                 "attn_mask",
-                                "cos",
-                                "sin",
                                 "cache.0.key",
                                 "cache.0.value",
                                 "cache.1.key",
@@ -294,8 +293,6 @@
                             "output_names": [
                                 "logits",
                                 "attn_mask_out",
-                                "cos_out",
-                                "sin_out",
                                 "cache_out.0.key",
                                 "cache_out.0.value",
                                 "cache_out.1.key",
@@ -362,9 +359,9 @@
                                 "cache_out.31.value"
                             ],
                             "dynamic_axes": {
-                                "attn_mask": { "1": "max_seq_len", "2": "max_seq_len" },
-                                "cos": { "1": "max_seq_len" },
-                                "sin": { "1": "max_seq_len" },
+                                "x_increment": { "1": "seq_len_increment" },
+                                "position_ids_increment": { "1": "seq_len_increment" },
+                                "attn_mask": { "1": "max_seq_len" },
                                 "cache.0.key": { "2": "max_seq_len" },
                                 "cache.0.value": { "2": "max_seq_len" },
                                 "cache.1.key": { "2": "max_seq_len" },
@@ -490,7 +487,7 @@
                     "enable_bias_gelu": false,
                     "enable_gelu_approximation": false,
                     "enable_qordered_matmul": false,
-                    "enable_shape_inference": false,
+                    "enable_shape_inference": true,
                     "enable_gemm_fast_gelu": false,
                     "enable_nhwc_conv": false,
                     "enable_group_norm": false,
@@ -499,6 +496,7 @@
                     "enable_packed_kv": true,
                     "enable_bias_add": false
                 },
+                "convert_constants_to_initializers": true,
                 "force_fp32_nodes": [
                     "/layers.0/attention_norm/Pow",
                     "/layers.1/attention_norm/Pow",
