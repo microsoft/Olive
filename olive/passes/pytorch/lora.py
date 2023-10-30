@@ -255,6 +255,34 @@ class LoRABase(Pass):
 
         return train_dataset, eval_dataset
 
+    @staticmethod
+    def prepare_model_for_lora_finetuning(model: PreTrainedModel, use_gradient_checkpointing: bool):
+        """Prepare the model for fine-tuning.
+
+        Freeze base model's layers and prepare model for gradient checkpointing if necessary.
+        Similar to peft.prepare_model_for_kbit_training but no casting to fp32 and gradient checkpointing is
+        also supported for non-quantized models.
+        """
+        for param in model.parameters():
+            # freeze base model's layers
+            param.requires_grad = False
+
+        if use_gradient_checkpointing:
+            # For backward compatibility
+            if hasattr(model, "enable_input_require_grads"):
+                model.enable_input_require_grads()
+            else:
+
+                def make_inputs_require_grad(module_, input_, output_):
+                    output_.requires_grad_(True)
+
+                model.get_input_embeddings().register_forward_hook(make_inputs_require_grad)
+
+            # enable gradient checkpointing for memory efficiency
+            model.gradient_checkpointing_enable()
+
+        return model
+
     def enable_lora(
         self,
         model: PreTrainedModel,
@@ -275,6 +303,8 @@ class LoRABase(Pass):
             self.smart_tokenizer_and_embedding_resize(
                 special_tokens_dict={"pad_token": DEFAULT_PAD_TOKEN}, tokenizer=tokenizer, model=model
             )
+
+        model = self.prepare_model_for_lora_finetuning(model, config.training_args.gradient_checkpointing)
 
         # set model_parallel and is_parallelizable to True
         # we are using "auto" device_map, so model_parallel is True or doing DDP
@@ -303,7 +333,13 @@ class LoRABase(Pass):
         return lora_model
 
     def train_and_save_new_model(
-        self, model, tokenizer, config: ConfigBase, data_root: str, output_model: PyTorchModel, output_model_path: str
+        self,
+        model: torch.nn.Module,
+        tokenizer: PreTrainedTokenizer,
+        config: ConfigBase,
+        data_root: str,
+        output_model: PyTorchModel,
+        output_model_path: str,
     ) -> PyTorchModel:
         if torch.cuda.is_available():
             allow_tf32 = torch.backends.cuda.matmul.allow_tf32
@@ -323,12 +359,6 @@ class LoRABase(Pass):
                 "evaluation_strategy is not None, but eval_dataset is None. Setting evaluation_strategy to 'no'."
             )
             config.training_args.evaluation_strategy = "no"
-
-        # Grandient checkpointing seems to be enabled by specifying requires_grad_(True)
-        # for the first parameter of the model.
-        # However, LoRA training does not train that parameter
-        if config.training_args.gradient_checkpointing:
-            model.enable_input_require_grads()
 
         # We always create a temp dir even if output_dir is provided because we want the temp dir to be deleted
         # after training or if there is an error
@@ -544,9 +574,8 @@ class QLoRA(LoRABase):
 
     def get_model_tokenizer(
         self, model: PyTorchModel, config: ConfigBase
-    ) -> Tuple[PyTorchModel, transformers.PreTrainedModel, transformers.PreTrainedTokenizer]:
+    ) -> Tuple[PyTorchModel, PreTrainedModel, PreTrainedTokenizer]:
         """Get the Olive model, PyTorch model and tokenizer for QLoRA fine-tuning."""
-        from peft import prepare_model_for_kbit_training
         from peft.tuners.lora import LoraLayer
 
         # don't want the original loaded model
@@ -592,20 +621,6 @@ class QLoRA(LoRABase):
 
         # TODO(jambayk): need to see if we still need this line
         # https://github.com/artidoro/qlora/blob/main/qlora.py#L362
-
-        # prepare model for kbit training
-        # Note: this also converts all float16 and bfloat16 parameters to float32
-        pytorch_model = prepare_model_for_kbit_training(
-            pytorch_model, use_gradient_checkpointing=config.training_args.gradient_checkpointing
-        )
-
-        # TODO(jambayk): should we make this optional? fp16 is unstable?
-        # https://github.com/artidoro/qlora/blob/main/qlora.py#L396 doesn't work for all models
-        # mismatch between dtypes
-        # we will just undo the float32 casting from prepare_model_for_kbit_training and cast to torch_dtype
-        for param in pytorch_model.parameters():
-            if param.dtype == torch.float32:
-                param.data = param.data.to(torch_dtype)
 
         # add lora modules
         # this doesn't pick up the embedding layer and projection layer since those are not quantized
