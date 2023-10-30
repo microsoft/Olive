@@ -293,6 +293,7 @@ class LoRABase(Pass):
     ) -> torch.nn.Module:
         """Run LoRA fine-tuning on a Hugging Face PyTorch model."""
         from peft import LoraConfig, get_peft_model
+        from peft.tuners.lora import LoraLayer
 
         logger.debug("Adding LoRA modules")
         # if there is no pad token, add to tokenizer and model
@@ -313,7 +314,7 @@ class LoRABase(Pass):
         setattr(model, "is_parallelizable", True)
 
         logger.debug(
-            f"The number of trainable parameters in the original model: {self.print_trainable_parameters(model)}"
+            f"The number of trainable parameters in the original model: {self.count_trainable_parameters(model)}"
         )
         peft_task_type = get_peft_task_type_from_task(task, fail_on_not_found=True)
         lora_config = LoraConfig(
@@ -328,8 +329,14 @@ class LoRABase(Pass):
 
         lora_model = get_peft_model(model, lora_config)
         logger.debug(
-            f"The number of trainable parameters in the LoRA model: {self.print_trainable_parameters(lora_model)}"
+            f"The number of trainable parameters in the LoRA model: {self.count_trainable_parameters(lora_model)}"
         )
+
+        # cast lora modules to model's dtype, should be same as torch_dtype
+        for module in lora_model.modules():
+            if isinstance(module, LoraLayer):
+                module.to(lora_model.dtype)
+
         return lora_model
 
     def train_and_save_new_model(
@@ -452,8 +459,9 @@ class LoRABase(Pass):
 
     @classmethod
     def input_model_check(cls, model):
+        """Validate the input model and reset model_loading_args and adapter_path."""
         if not model.hf_config:
-            raise ValueError("LoRA/QLoRA pass only supports PyTorchModel with hf_config.")
+            raise ValueError(f"{cls.__name__} pass only supports PyTorchModel with hf_config.")
 
         # load model, reset model_loading_args and adapter_path
         model_loading_args = {}
@@ -474,10 +482,11 @@ class LoRABase(Pass):
         return model
 
     @staticmethod
-    def print_trainable_parameters(model):
+    def count_trainable_parameters(model):
+        """Count and return the number of trainable parameters in a model."""
         trainable_params = 0
         all_param = 0
-        for _, param in model.named_parameters():
+        for param in model.parameters():
             all_param += param.numel()
             if param.requires_grad:
                 trainable_params += param.numel()
@@ -504,24 +513,37 @@ class LoRA(LoRABase):
     def _run_for_config(
         self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModel:
-        transformers_version = transformers.__version__
-        if version.parse(transformers_version) < version.parse("4.30.0"):
-            raise RuntimeError(f"QLoRA pass only supports transformers >= 4.30.0, but {transformers_version} is used.")
-
+        # convert config to pass config class
+        # this will validate the config and convert to the correct types
         config = self._config_class(**config)
+
+        # use default training args if not provided
         config.training_args = config.training_args or HFTrainingArguments()
 
+        # create a copy of the input model, will modify this model
         model.model = None
-        new_model = deepcopy(model)
-        task = new_model.hf_config.task
+        new_model = self.input_model_check(deepcopy(model))
 
-        new_model = self.input_model_check(new_model)
         torch_dtype = self.get_torch_dtype(config.torch_dtype)
-        new_model.hf_config.model_loading_args = HFModelLoadingArgs(torch_dtype=torch_dtype, device_map="auto")
 
+        # load model, reset model_loading_args and adapter_path
+        model_loading_args = (
+            new_model.hf_config.model_loading_args.dict() if new_model.hf_config.model_loading_args else {}
+        )
+        model_loading_args.update({"torch_dtype": torch_dtype, "device_map": "auto"})
+        new_model.hf_config.model_loading_args = HFModelLoadingArgs(**model_loading_args)
         pytorch_model = new_model.load_model()
+        pytorch_model.config.torch_dtype = torch_dtype
+
+        # tokenizer
         tokenizer = AutoTokenizer.from_pretrained(new_model.hf_config.model_name)
-        pytorch_model = self.enable_lora(pytorch_model, tokenizer, task, config, config.target_modules)
+
+        # add lora modules
+        pytorch_model = self.enable_lora(
+            pytorch_model, tokenizer, new_model.hf_config.task, config, config.target_modules
+        )
+
+        # train and return new model
         return self.train_and_save_new_model(pytorch_model, tokenizer, config, data_root, new_model, output_model_path)
 
 
@@ -570,29 +592,23 @@ class QLoRA(LoRABase):
 
         # get models and tokenizer
         new_model, pytorch_model, tokenizer = self.get_model_tokenizer(model, config)
+
+        # train and return new model
         return self.train_and_save_new_model(pytorch_model, tokenizer, config, data_root, new_model, output_model_path)
 
     def get_model_tokenizer(
         self, model: PyTorchModel, config: ConfigBase
     ) -> Tuple[PyTorchModel, PreTrainedModel, PreTrainedTokenizer]:
         """Get the Olive model, PyTorch model and tokenizer for QLoRA fine-tuning."""
-        from peft.tuners.lora import LoraLayer
-
         # don't want the original loaded model
         # also frees gpu memory if original model is on gpu
         model.model = None
         # create copy of the input model, will modify this model
-        new_model = deepcopy(model)
-
-        if not new_model.hf_config:
-            raise ValueError("QLoRA pass only supports PyTorchModel with hf_config.")
-
-        model_name = new_model.hf_config.model_name
-        task = new_model.hf_config.task
+        new_model = self.input_model_check(deepcopy(model))
 
         torch_dtype = self.get_torch_dtype(config.torch_dtype)
 
-        new_model = self.input_model_check(new_model)
+        # load model, reset model_loading_args and adapter_path
         model_loading_args = (
             new_model.hf_config.model_loading_args.dict() if new_model.hf_config.model_loading_args else {}
         )
@@ -612,12 +628,11 @@ class QLoRA(LoRABase):
             }
         )
         new_model.hf_config.model_loading_args = HFModelLoadingArgs(**model_loading_args)
-
         pytorch_model = new_model.load_model()
         pytorch_model.config.torch_dtype = torch_dtype
 
         # tokenizer
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        tokenizer = AutoTokenizer.from_pretrained(new_model.hf_config.model_name)
 
         # TODO(jambayk): need to see if we still need this line
         # https://github.com/artidoro/qlora/blob/main/qlora.py#L362
@@ -626,13 +641,7 @@ class QLoRA(LoRABase):
         # this doesn't pick up the embedding layer and projection layer since those are not quantized
         # this is good since we don't want to touch those, LoRA might not work with input output embedding layers
         target_modules = self.find_all_linear_names(pytorch_model)
-        pytorch_model = self.enable_lora(pytorch_model, tokenizer, task, config, target_modules)
-
-        # cast lora modules to torch_dtype
-        for module in pytorch_model.modules():
-            if isinstance(module, LoraLayer):
-                # TODO(jambayk): why only cast for bfloat16? https://github.com/artidoro/qlora/blob/main/qlora.py#L397
-                module.to(torch_dtype)
+        pytorch_model = self.enable_lora(pytorch_model, tokenizer, new_model.hf_config.task, config, target_modules)
 
         return new_model, pytorch_model, tokenizer
 
