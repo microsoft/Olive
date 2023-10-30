@@ -186,7 +186,7 @@ class ApplyMask(torch.nn.Module):
             inverted_causal_mask = 1.0 - causal_mask
             mask_score += inverted_causal_mask.masked_fill(inverted_causal_mask.to(torch.bool), -10000.0)
 
-        mask_score = mask_score.expand(batch_size, num_heads, seq_len, max_seq_len)
+        mask_score = mask_score.expand(-1, num_heads, -1, -1)
 
         return score + mask_score
 
