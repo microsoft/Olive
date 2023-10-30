@@ -283,6 +283,13 @@ short answers are usually best"
                         self.v_caches[layer_idx].shape(), self.data_type, self.binding_device
                     )
 
+            if i == 0:
+                position_ids = np.arange(seq_len, dtype=np.int64).reshape((1, seq_len))
+                self.llm_io_binding.bind_cpu_input("position_ids", position_ids)
+            else:
+                position_ids_increment = np.array(seq_len, dtype=np.int64).reshape((1, 1))
+                self.llm_io_binding.bind_cpu_input("position_ids_increment", position_ids_increment)
+
             # Bind the inputs/outputs of the LLaMA model
             self.llm_io_binding.bind_ortvalue_input("x", x)
             self.llm_io_binding.bind_ortvalue_input("x_increment", self.x_increment)
