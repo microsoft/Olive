@@ -172,7 +172,7 @@ class ApplyMask(torch.nn.Module):
     ) -> None:
         super().__init__()
 
-    def forward(self, use_cache, score, attn_mask, seq_len, dtype=torch.float32):
+    def forward(self, use_cache, score, attn_mask, seq_len, num_heads, dtype=torch.float32):
         # The mask contains 1's for values that should stay intact, and 0's for values that should get added to -10000
         batch_size, max_seq_len = attn_mask.size()
 
@@ -188,7 +188,7 @@ class ApplyMask(torch.nn.Module):
 
         score += mask_score
 
-        return score
+        return score.expand(batch_size, num_heads, seq_len, max_seq_len)
 
 
 def rotate_half(x):
@@ -294,7 +294,7 @@ class SelfAttention(torch.nn.Module):
         score = torch.matmul(query, key) / self.scale
 
         # Apply the mask
-        score = self.apply_mask(use_cache, score, attn_mask, seq_len)
+        score = self.apply_mask(use_cache, score, attn_mask, seq_len, self.n_heads)
 
         # Calculate attention values
         prob = torch.nn.functional.softmax(score, dim=-1)
