@@ -81,10 +81,10 @@ class OrtTransformersOptimization(Pass):
             "force_fp32_nodes": PassConfigParam(
                 type_=List[str], default_value=None, description="Nodes that are forced to run in float32"
             ),
-            "convert_constants_to_initializers": PassConfigParam(
+            "extract_constant_to_initializer": PassConfigParam(
                 type_=bool,
                 default_value=False,
-                description="Convert constant nodes to initializers",
+                description="Extract constant nodes to initializers",
             ),
         }
         config.update(get_external_data_config())
@@ -148,7 +148,7 @@ class OrtTransformersOptimization(Pass):
             run_config["keep_io_types"],
             run_config["force_fp32_ops"],
             run_config["force_fp32_nodes"],
-            run_config["convert_constants_to_initializers"],
+            run_config["extract_constant_to_initializer"],
         )
         for key in get_external_data_config():
             del run_config[key]
@@ -197,7 +197,7 @@ class OrtTransformersOptimization(Pass):
         # Save the model to the output path and return the model
         olive_model = model_proto_to_olive_model(optimizer.model, output_model_path, config)
 
-        if config["convert_constants_to_initializers"]:
+        if config["extract_constant_to_initializer"]:
             data_file_name = os.path.basename(output_model_path) + ".data"
             onnx_opt_cpp2py_export.optimize_from_path(
                 output_model_path, output_model_path, ["extract_constant_to_initializer"], data_file_name
