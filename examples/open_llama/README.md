@@ -78,7 +78,7 @@ Requirements file: [requirements-sparsegpt.txt](requirements-sparsegpt.txt)
 This workflow fine-tunes LLaMA model using [QLoRA](https://arxiv.org/abs/2305.14314). The output model is still the input transformers model along with a quantization config and
 LoRA adapters that were fine-tuned on the training dataset.
 
-The relevant config file is [llama_qlora.json](llama_qlora.json). It corresponds to the [guqnaco 7b example in the original qlora implementation](https://github.com/artidoro/qlora/blob/main/scripts/finetune_guanaco_7b.sh).
+The relevant config file is [llama_qlora.json](llama_qlora.json). It corresponds to the [guanaco 7b example in the original qlora implementation](https://github.com/artidoro/qlora/blob/main/scripts/finetune_guanaco_7b.sh).
 
 Requirements file: [requirements-lora.txt](requirements-lora.txt)
 
