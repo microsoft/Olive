@@ -10,28 +10,6 @@ from interface.base_interface import BaseLLMInterface
 from sentencepiece import SentencePieceProcessor
 
 
-def rotary_mat(
-    hidden_size: int,
-    n_heads: int,
-    max_seq_len: int,
-    theta: float = 10000.0,
-    head_scale=1.0,
-    dtype=np.float16,
-) -> tuple[np.ndarray, np.ndarray]:
-    head_dim = head_scale * hidden_size / n_heads
-
-    pos = np.arange(0, 2 * (head_dim // 2), step=2, dtype=dtype)
-    freqs = 1.0 / (theta ** (pos / head_dim))
-
-    idx = np.arange(max_seq_len, dtype=dtype)
-    freqs = np.outer(idx, freqs)
-
-    cos = np.reshape(np.cos(freqs), [1, max_seq_len, 1, -1])
-    sin = np.reshape(np.sin(freqs), [1, max_seq_len, 1, -1])
-
-    return cos, sin
-
-
 class Tokenizer:
     def __init__(self, model_path: str):
         # reload tokenizer
@@ -267,25 +245,13 @@ short answers are usually best"
             # Setup the caches, mask and rotary embeddings
             if i == 0 or seq_len % padding == 0:
                 padded_seq_len = padding * (seq_len // padding + 1)
-                cos, sin = rotary_mat(self.hidden_size, self.n_heads, padded_seq_len, head_scale=1.0)
-
-                if i > 0:
-                    cos = np.roll(cos, padding, axis=1)
-                    sin = np.roll(sin, padding, axis=1)
-
-                cos = onnxruntime.OrtValue.ortvalue_from_numpy(cos, self.binding_device)
-                sin = onnxruntime.OrtValue.ortvalue_from_numpy(sin, self.binding_device)
 
                 # Create the attention mask, which contains 1's for values that should stay intact, and 0's for values
                 # that should get added to -10000
-                attn_mask = np.tril(np.ones((1, padded_seq_len, padded_seq_len))).astype(np.int32)
-
-                if i > 0:
-                    attn_mask[:, -1, :padding] = 0
-
+                attn_mask = np.pad(np.ones((1, seq_len)), ((0, 0), (padded_seq_len - seq_len, 0))).astype(np.int32)
                 attn_mask = onnxruntime.OrtValue.ortvalue_from_numpy(attn_mask, self.binding_device)
                 attn_mask_out = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
-                    (1, padded_seq_len, padded_seq_len), np.int32, self.binding_device
+                    (1, padded_seq_len), np.int32, self.binding_device
                 )
 
                 for layer_idx in range(self.n_layers):
@@ -321,8 +287,6 @@ short answers are usually best"
             self.llm_io_binding.bind_ortvalue_input("x", x)
             self.llm_io_binding.bind_ortvalue_input("x_increment", self.x_increment)
             self.llm_io_binding.bind_ortvalue_input("attn_mask", attn_mask)
-            self.llm_io_binding.bind_ortvalue_input("cos", cos)
-            self.llm_io_binding.bind_ortvalue_input("sin", sin)
             self.llm_io_binding.bind_ortvalue_output("attn_mask_out", attn_mask_out)
 
             for layer_idx in range(self.n_layers):
