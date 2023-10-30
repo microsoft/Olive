@@ -496,7 +496,7 @@
                     "enable_packed_kv": true,
                     "enable_bias_add": false
                 },
-                "convert_constants_to_initializers": true,
+                "extract_constant_to_initializer": true,
                 "force_fp32_nodes": [
                     "/layers.0/attention_norm/Pow",
                     "/layers.1/attention_norm/Pow",
