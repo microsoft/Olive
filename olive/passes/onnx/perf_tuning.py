@@ -10,6 +10,7 @@ from typing import Any, Callable, Dict, Union
 from olive.data.config import DataConfig
 from olive.evaluator.metric import LatencySubType, Metric, MetricType, joint_metric_key
 from olive.evaluator.metric_config import get_user_config_properties_from_metric_type
+from olive.exception import EXCEPTIONS_TO_RAISE
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
@@ -87,16 +88,16 @@ def tune_onnx_model(model, data_root, config):
     tuning_results = []
     for tuning_combo in generate_tuning_combos(config):
         tuning_item = ["provider", "execution_mode", "ort_opt_level", "io_bind"]
-        logger.info("Run tuning for: {}".format(list(zip(tuning_item, tuning_combo))))
+        logger.info("Run tuning for: %s", list(zip(tuning_item, tuning_combo)))
         if not valid_config(tuning_combo, config):
             continue
         tuning_results.extend(threads_num_tuning(model, data_root, latency_metric, config, tuning_combo))
 
     for tuning_result in tuning_results:
-        logger.debug("Tuning result: {}".format(tuning_result["latency_ms"]))
+        logger.debug("Tuning result: %s", tuning_result["latency_ms"])
 
     best_result = parse_tuning_result(*tuning_results, pretuning_inference_result)
-    logger.info("Best result: {}".format(best_result))
+    logger.info("Best result: %s", best_result)
     if best_result.get("test_name") != "pretuning":
         optimized_model = copy.copy(model)
         optimized_model.inference_settings = {
@@ -151,9 +152,10 @@ def threads_num_tuning(model, data_root, latency_metric, config, tuning_combo):
             for intra in config.intra_thread_num_list:
                 test_params["session_options"]["intra_op_num_threads"] = intra
                 threads_num_binary_search(model, data_root, latency_metric, config, test_params, tuning_results)
+    except EXCEPTIONS_TO_RAISE:
+        raise
     except Exception:
-        logger.error("Optimization failed for tuning combo {}".format(tuning_combo), exc_info=True)
-        pass
+        logger.error("Optimization failed for tuning combo %s", tuning_combo, exc_info=True)
 
     return tuning_results
 

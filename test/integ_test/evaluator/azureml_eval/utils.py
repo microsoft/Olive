@@ -13,6 +13,8 @@ from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
 from olive.systems.azureml import AzureMLDockerConfig, AzureMLSystem
 
+# pylint: disable=redefined-outer-name
+
 
 def get_directories():
     current_dir = Path(__file__).resolve().parent

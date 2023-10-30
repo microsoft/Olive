@@ -40,6 +40,11 @@ def test_bert(olive_test_knob):
     if olive_test_knob[3] == "aml_system":
         # remove the invalid OpenVINOExecutionProvider for bert aml system.
         olive_config["engine"]["execution_providers"] = ["CPUExecutionProvider"]
+        # remove goal for aml system since sometimes the aml job will be reused.
+        # If the jobs perf cannot meet the goal, the test will fail definitely.
+        metrics = olive_config["evaluators"]["common_evaluator"]["metrics"]
+        metrics[0]["sub_types"][0].pop("goal", None)
+        metrics[1]["sub_types"][0].pop("goal", None)
 
     output = olive_run(olive_config)
     check_output(output)

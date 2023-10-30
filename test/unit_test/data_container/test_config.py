@@ -10,6 +10,8 @@ import pytest
 from olive.data.config import DataConfig
 from olive.data.registry import Registry
 
+# pylint: disable=attribute-defined-outside-init
+
 
 class TestDataConfig:
     @pytest.fixture(autouse=True)

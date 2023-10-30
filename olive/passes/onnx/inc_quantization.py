@@ -127,6 +127,13 @@ _inc_quantization_config = {
             INC weight only quantization config.
         """,
     ),
+    "op_type_dict": PassConfigParam(
+        type_=dict,
+        default_value={},
+        description="""
+            INC weight only quantization config.
+        """,
+    ),
 }
 
 _inc_static_dataloader_config = {
@@ -261,9 +268,6 @@ class IncQuantization(Pass):
 
     _requires_user_script = True
 
-    def _initialize(self):
-        super()._initialize()
-
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
         """Override this method to return False by using the accelerator spec information."""
@@ -331,7 +335,7 @@ class IncQuantization(Pass):
             # and return evaluation value.
 
             # temporarily save model as onnx model
-            tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
+            tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")  # pylint: disable=consider-using-with
             tmp_model_path = Path(tmp_dir.name) / "tmp_model.onnx"
 
             # save as olive onnx model
@@ -509,11 +513,16 @@ class IncQuantization(Pass):
             if key in run_config:
                 del run_config[key]
 
+        run_config["op_type_dict"] = (
+            run_config["op_type_dict"] or {".*": {"weight": weight_only_config}}
+            if run_config["approach"] == "weight_only"
+            else None
+        )
+
         ptq_config = PostTrainingQuantConfig(
             **run_config,
             accuracy_criterion=accuracy_criterion,
             tuning_criterion=tuning_criterion,
-            op_type_dict={".*": {"weight": weight_only_config}} if run_config["approach"] == "weight_only" else None,
         )
 
         inc_calib_dataloader = None

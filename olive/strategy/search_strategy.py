@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 _VALID_EXECUTION_ORDERS = ["joint", "pass-by-pass"]
 
+# pylint: disable=attribute-defined-outside-init
+
 
 class SearchStrategyConfig(ConfigBase):
     execution_order: str

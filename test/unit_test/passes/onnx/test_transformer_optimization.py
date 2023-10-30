@@ -12,6 +12,8 @@ from olive.hardware import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR
 from olive.passes.onnx import OrtTransformersOptimization
 from olive.passes.onnx.common import get_external_data_config
 
+# pylint: disable=redefined-outer-name, abstract-method, protected-access
+
 
 def test_fusion_options():
     config = {"model_type": "bart", "optimization_options": {"use_multi_head_attention": True}}
@@ -74,4 +76,17 @@ def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, tmp_path):
 
     if not is_pruned:
         output_folder = str(tmp_path / "onnx")
+        p.run(input_model, None, output_folder)
+
+
+def test_transformer_optimization_invalid_model_type(tmp_path):
+    input_model = get_onnx_model()
+    with pytest.raises(ValueError):
+        config = {"model_type": None}
+
+        config = OrtTransformersOptimization.generate_search_space(DEFAULT_CPU_ACCELERATOR, config, disable_search=True)
+        p = OrtTransformersOptimization(DEFAULT_CPU_ACCELERATOR, config, True)
+        output_folder = str(tmp_path / "onnx")
+
+        # execute
         p.run(input_model, None, output_folder)

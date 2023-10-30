@@ -34,18 +34,29 @@ class OptimumConversion(Pass):
     ) -> Union[ONNXModel, CompositeOnnxModel]:
         assert len(model.model_components) > 0
 
+        from optimum import version as optimum_version
         from optimum.exporters.onnx import main_export as export_optimum_model
+        from packaging import version
 
         # TODO(jambayk): export into temp dir and then move to sub-dirs of output_model_path
         # so that we only keep the final model files in the output_model_path
         # and track external data if present
         hf_config = deepcopy(model.hf_config) or HFConfig()
-        export_optimum_model(
-            model.model_path or hf_config.model_name,
-            output_model_path,
-            opset=config["target_opset"],
-            no_post_process=True,
-        )
+        if version.parse(optimum_version.__version__) < version.parse("1.14.0"):
+            export_optimum_model(
+                model.model_path or hf_config.model_name,
+                output_model_path,
+                opset=config["target_opset"],
+                no_post_process=True,
+            )
+        else:
+            export_optimum_model(
+                model.model_path or hf_config.model_name,
+                output_model_path,
+                opset=config["target_opset"],
+                legacy=True,
+                no_post_process=True,
+            )
 
         onnx_model_components = [
             ONNXModel(str(Path(output_model_path) / model_component), model_attributes=model.model_attributes)

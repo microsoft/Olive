@@ -9,6 +9,7 @@ from typing import Any, Dict, Union
 
 import onnx
 import torch
+from packaging import version
 
 from olive.common.config_utils import validate_config
 from olive.common.utils import tensor_data_to_device
@@ -98,13 +99,15 @@ class OnnxConversion(Pass):
 
         onnx_model = None
         if config["use_dynamo_exporter"]:
-            # TODO(xiaoyu): remove this import check once torch.onnx.dynamo_export is available in stable pytorch
-            try:
-                from torch.onnx import dynamo_export
-            except ImportError:
-                raise ImportError(
-                    "torch.onnx.dynamo_export is not available. Please upgrade your pytorch version to nightly build."
-                ) from None
+            # available since torch==2.1.0
+            torch_version = torch.__version__
+            if version.parse(torch_version) < version.parse("2.1.0"):
+                raise RuntimeError(
+                    f"torch.onnx.dynamo_export is not available for torch version {torch_version}. "
+                    "Please upgrade your torch version to 2.1.0 or above."
+                )
+            from torch.onnx import dynamo_export
+
             exported = dynamo_export(
                 pytorch_model,
                 *dummy_inputs,
@@ -160,24 +163,22 @@ class OnnxConversion(Pass):
             # there might be multiple files created during export, so we need to track the dir
             # if there are other processes writing to the same dir, we might end up deleting files created by
             # other processes
-            tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
-            tmp_dir_path = Path(tmp_dir.name)
-            tmp_model_path = str(tmp_dir_path / Path(output_model_path).name)
+            with tempfile.TemporaryDirectory(prefix="olive_tmp") as tmp_dir:
+                tmp_dir_path = Path(tmp_dir)
+                tmp_model_path = str(tmp_dir_path / Path(output_model_path).name)
 
-            torch.onnx.export(
-                pytorch_model,
-                dummy_inputs,
-                tmp_model_path,
-                export_params=True,
-                opset_version=config["target_opset"],
-                input_names=input_names,
-                output_names=output_names,
-                dynamic_axes=dynamic_axes,
-            )
-            onnx_model = onnx.load(tmp_model_path)
-
-            # the model is loaded into memory, so it's safe to delete previously exported file(s)
-            tmp_dir.cleanup()
+                torch.onnx.export(
+                    pytorch_model,
+                    dummy_inputs,
+                    tmp_model_path,
+                    export_params=True,
+                    opset_version=config["target_opset"],
+                    input_names=input_names,
+                    output_names=output_names,
+                    dynamic_axes=dynamic_axes,
+                )
+                onnx_model = onnx.load(tmp_model_path)
+                # the model is loaded into memory, so it's safe to delete previously exported file(s)
 
             # Workaround as described under IOConfig.string_to_int_dim_params: change numeric dim_param to dim_value
             if io_config.string_to_int_dim_params:
@@ -194,6 +195,8 @@ class OnnxConversion(Pass):
         # Reset to CPU so the resource consumed on GPU could be free.
         if device != "cpu":
             pytorch_model.to("cpu")
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         # save the model to the output path and return the model
         return model_proto_to_olive_model(onnx_model, output_model_path, config)
 

@@ -25,6 +25,8 @@ from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import ModelConfig
 from olive.systems.local import LocalSystem
 
+# pylint: disable=redefined-builtin
+
 
 class TestLocalEvaluation:
     @pytest.fixture(scope="class", autouse=True)

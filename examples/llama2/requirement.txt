@@ -1,0 +1,6 @@
+git+https://github.com/huggingface/optimum.git
+transformers>=4.33.2
+onnx>=1.14.0
+datasets>=2.8.0
+protobuf==3.20.2
+torch -i https://download.pytorch.org/whl/nightly/cu118

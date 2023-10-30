@@ -12,6 +12,7 @@ refine_op_type = ["DequantizeLinear", "QuantizeLinear"]
 postfix = "_Output"
 logger = logging.getLogger(__name__)
 
+# pylint: skip-file
 # ruff: noqa
 
 
@@ -235,7 +236,6 @@ class QuantPosManager(object):
             shift_sigmoid = 14 + 'input pos' - ' output pos'
         """
         for i, node in enumerate(self.model.model.graph.node):
-
             if node.op_type not in ["Sigmoid"]:
                 continue
             ipos_name = self.get_ipos_name(node)
@@ -281,7 +281,6 @@ class QuantPosManager(object):
         1. 0 <= shift_read <= 15
         """
         for i, node in enumerate(self.model.model.graph.node):
-
             if node.op_type not in ["Add"] or node.op_type not in ["Mul"]:
                 continue
             ipos_layers = []
@@ -339,7 +338,6 @@ class QuantPosManager(object):
         1. -15 <= shift_write <= 15
         """
         for i, node in enumerate(self.model.model.graph.node):
-
             if node.op_type not in ["Add"] or node.op_type not in ["Mul"]:
                 continue
             ipos_layers = []

@@ -98,7 +98,7 @@ class DockerSystem(OliveSystem):
     def run_pass(
         self,
         the_pass: Pass,
-        model: ModelConfig,
+        model_config: ModelConfig,
         data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
@@ -138,7 +138,7 @@ class DockerSystem(OliveSystem):
         volumes_list.append(eval_file_mount_str)
 
         if self.is_dev:
-            dev_mount_path, dev_mount_str = docker_utils.create_dev_mount(tempdir, container_root_path)
+            _, dev_mount_str = docker_utils.create_dev_mount(tempdir, container_root_path)
             volumes_list.append(dev_mount_str)
 
         model_config_copy = copy.deepcopy(model_config)

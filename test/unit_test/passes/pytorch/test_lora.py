@@ -10,6 +10,8 @@ from olive.model import PyTorchModel
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch import LoRA, QLoRA
 
+# pylint: disable=redefined-outer-name
+
 
 def patched_find_all_linear_names(model):
     return ["k_proj", "v_proj", "out_proj", "q_proj", "fc1", "fc2"]

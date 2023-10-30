@@ -6,6 +6,8 @@ import os
 
 from azure.storage.blob import BlobClient
 
+# pylint: disable=broad-exception-raised
+
 
 def get_olive_workspace_config():
     subscription_id = os.environ.get("WORKSPACE_SUBSCRIPTION_ID")

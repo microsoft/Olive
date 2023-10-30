@@ -321,8 +321,8 @@ class ONNXModel(ONNXModelBase):
 
     def prepare_session(
         self,
-        inference_settings: Dict[str, Any],
-        device: Device,
+        inference_settings: Optional[Dict[str, Any]] = None,
+        device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ):
@@ -475,7 +475,7 @@ class PyTorchModel(OliveModel):
         model_loader: Union[str, Callable] = None,
         model_script: Union[str, Path] = None,
         script_dir: Union[str, Path] = None,
-        io_config: Union[Dict[str, Any], IOConfig] = None,
+        io_config: Union[Dict[str, Any], IOConfig, str] = None,
         dummy_inputs_func: Union[str, Callable] = None,
         hf_config: Union[Dict[str, Any], HFConfig] = None,
         adapter_path: OLIVE_RESOURCE_ANNOTATIONS = None,
@@ -524,6 +524,10 @@ class PyTorchModel(OliveModel):
             ), "model_script must be a local file or a string name."
 
         # io config for conversion to onnx
+        # TODO(trajep): support callable io_config
+        if isinstance(io_config, str):
+            user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
+            io_config = user_module_loader.call_object(io_config, self.hf_config.model_name)
         self.io_config = validate_config(io_config, IOConfig).dict() if io_config else None
         self.dummy_inputs_func = dummy_inputs_func
 
@@ -571,49 +575,44 @@ class PyTorchModel(OliveModel):
 
     def load_mlflow_model(self):
         logger.info(f"Loading MLFlow model from {self.model_path}")
-        tmp_dir = tempfile.TemporaryDirectory(prefix="mlflow_tmp")
-        tmp_dir_path = Path(tmp_dir.name)
+        with tempfile.TemporaryDirectory(prefix="mlflow_tmp") as tmp_dir:
+            shutil.copytree(os.path.join(self.model_path, "data/model"), tmp_dir, dirs_exist_ok=True)
+            shutil.copytree(os.path.join(self.model_path, "data/config"), tmp_dir, dirs_exist_ok=True)
+            shutil.copytree(os.path.join(self.model_path, "data/tokenizer"), tmp_dir, dirs_exist_ok=True)
 
-        shutil.copytree(os.path.join(self.model_path, "data/model"), tmp_dir_path, dirs_exist_ok=True)
-        shutil.copytree(os.path.join(self.model_path, "data/config"), tmp_dir_path, dirs_exist_ok=True)
-        shutil.copytree(os.path.join(self.model_path, "data/tokenizer"), tmp_dir_path, dirs_exist_ok=True)
+            with open(os.path.join(self.model_path, "MLmodel")) as fp:  # noqa: PTH123
+                mlflow_data = yaml.safe_load(fp)
+                # default flavor is "hftransformersv2" from azureml.evaluate.mlflow>=0.0.8
+                # "hftransformers" from azureml.evaluate.mlflow<0.0.8
+                # TODO(trajep): let user specify flavor name if needed
+                # to support other flavors in mlflow not only hftransformers
+                hf_pretrained_class = None
+                flavors = mlflow_data.get("flavors", {})
+                if not flavors:
+                    raise ValueError(
+                        "Invalid MLFlow model format. Please make sure the input model"
+                        " format is same with the result of mlflow.transformers.save_model,"
+                        " or aml_mlflow.hftransformers.save_model from azureml.evaluate.mlflow"
+                    )
 
-        with open(os.path.join(self.model_path, "MLmodel")) as fp:  # noqa: PTH123
-            mlflow_data = yaml.safe_load(fp)
-            # default flavor is "hftransformersv2" from azureml.evaluate.mlflow>=0.0.8
-            # "hftransformers" from azureml.evaluate.mlflow<0.0.8
-            # TODO(trajep): let user specify flavor name if needed
-            # to support other flavors in mlflow not only hftransformers
-            hf_pretrained_class = None
-            flavors = mlflow_data.get("flavors", {})
-            if not flavors:
-                raise ValueError(
-                    "Invalid MLFlow model format. Please make sure the input model"
-                    " format is same with the result of mlflow.transformers.save_model,"
-                    " or aml_mlflow.hftransformers.save_model from azureml.evaluate.mlflow"
-                )
+                if "hftransformersv2" in flavors:
+                    hf_pretrained_class = flavors["hftransformersv2"].get("hf_pretrained_class", "AutoModel")
+                elif "hftransformers" in flavors:
+                    hf_pretrained_class = flavors["hftransformers"].get("hf_pretrained_class", "AutoModel")
+                else:
+                    raise ValueError(
+                        "Unsupported MLFlow model flavor. Currently only support hftransformersv2/hftransformers."
+                    )
 
-            if "hftransformersv2" in flavors:
-                hf_pretrained_class = flavors["hftransformersv2"].get("hf_pretrained_class", "AutoModel")
-            elif "hftransformers" in flavors:
-                hf_pretrained_class = flavors["hftransformers"].get("hf_pretrained_class", "AutoModel")
-            else:
-                raise ValueError(
-                    "Unsupported MLFlow model flavor. Currently only support hftransformersv2/hftransformers."
-                )
-
-        model_loader = huggingface_model_loader(hf_pretrained_class)
-        loaded_model = model_loader(tmp_dir_path)
-        loaded_model.eval()
-
-        tmp_dir.cleanup()
-
-        return loaded_model
+            model_loader = huggingface_model_loader(hf_pretrained_class)
+            loaded_model = model_loader(tmp_dir)
+            loaded_model.eval()
+            return loaded_model
 
     def prepare_session(
         self,
-        inference_settings: Dict[str, Any],
-        device: Device,
+        inference_settings: Optional[Dict[str, Any]] = None,
+        device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ):
@@ -693,8 +692,12 @@ class PyTorchModel(OliveModel):
         components_dict = {component.name: component for component in self.hf_config.components}
         hf_component = components_dict[component_name]
 
-        user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
-        model_component = user_module_loader.call_object(hf_component.component_func, self.hf_config.model_name)
+        if hf_component.component_func is None:
+            logger.debug("component_func is not provided, using hf_config to get component")
+            model_component = self.hf_config.load_model(self.model_path)
+        else:
+            user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
+            model_component = user_module_loader.call_object(hf_component.component_func, self.hf_config.model_name)
 
         io_config = hf_component.io_config
         if isinstance(io_config, str):
@@ -784,8 +787,8 @@ class SNPEModel(OliveModel):
 
     def prepare_session(
         self,
-        inference_settings: Dict[str, Any],
-        device: Device,
+        inference_settings: Optional[Dict[str, Any]] = None,
+        device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ) -> SNPEInferenceSession:
@@ -824,8 +827,8 @@ class TensorFlowModel(OliveModel):
 
     def prepare_session(
         self,
-        inference_settings: Dict[str, Any],
-        device: Device,
+        inference_settings: Optional[Dict[str, Any]] = None,
+        device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ):
@@ -876,8 +879,8 @@ class OpenVINOModel(OliveModel):
 
     def prepare_session(
         self,
-        inference_settings: Dict[str, Any],
-        device: Device,
+        inference_settings: Optional[Dict[str, Any]] = None,
+        device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ):
@@ -922,19 +925,23 @@ class DistributedOnnxModel(ONNXModelBase):
     def ranked_model_path(self, rank: int) -> Union[Path, str]:
         return self.model_filepaths[rank]
 
-    def load_model(self, rank: int) -> ONNXModel:
+    def load_model(self, rank: int = None) -> ONNXModel:
         return ONNXModel(self.model_filepaths[rank], inference_settings=self.inference_settings)
 
     def prepare_session(
         self,
         inference_settings: Optional[Dict[str, Any]] = None,
-        device: Device = Device.GPU,
+        device: Device = Device.GPU,  # pylint: disable=signature-differs
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = 0,
     ):
         raise RuntimeError("DistributedOnnxModel doesn't have a session of its own")
 
-    def get_default_execution_providers(self, filepath: str, device: Device):
+    def get_default_execution_providers(self, device: Device):
+        """Return a list of supported default execution providers."""
+        return ["CPUExecutionProvider"]
+
+    def get_default_execution_providers_with_model(self, filepath: str, device: Device):
         # return firstly available ep as ort default ep
         available_providers = DistributedOnnxModel.get_execution_providers(device)
         for ep in available_providers:
@@ -999,8 +1006,8 @@ class CompositeOnnxModel(ONNXModelBase):
 
     def prepare_session(
         self,
-        inference_settings: Dict[str, Any],
-        device: Device,
+        inference_settings: Optional[Dict[str, Any]] = None,
+        device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ):

@@ -52,8 +52,8 @@ class IOConfig(ConfigBase):
             return v
 
         dynamic_axes = v
-        for k, v in dynamic_axes.items():
-            dynamic_axes[k] = {int(kk): vv for kk, vv in v.items()}
+        for k, value in dynamic_axes.items():
+            dynamic_axes[k] = {int(kk): vv for kk, vv in value.items()}
         return dynamic_axes
 
     @validator("string_to_int_dim_params")

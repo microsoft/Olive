@@ -27,6 +27,8 @@ from olive.systems.azureml.aml_pass_runner import main as aml_pass_runner_main
 from olive.systems.azureml.aml_system import AzureMLSystem
 from olive.systems.common import AzureMLDockerConfig
 
+# pylint: disable=attribute-defined-outside-init, protected-access
+
 
 class TestAzureMLSystem:
     @pytest.fixture(autouse=True)
@@ -91,10 +93,9 @@ class TestAzureMLSystem:
 
     @patch("olive.systems.azureml.aml_system.retry_func")
     @patch("olive.systems.azureml.aml_system.AzureMLSystem._create_pipeline_for_pass")
-    def test_run_pass(self, mock_create_pipeline, mock_retry_func):
+    def test_run_pass(self, mock_create_pipeline, mock_retry_func, tmp_path):
         # setup
-        tmp_dir = tempfile.TemporaryDirectory()
-        tmp_dir_path = Path(tmp_dir.name)
+        tmp_dir_path = tmp_path
         # dummy pipeline output download path
         pipeline_output_path = tmp_dir_path / "pipeline_output" / "named-outputs" / "pipeline_output"
         pipeline_output_path.mkdir(parents=True, exist_ok=True)
@@ -150,49 +151,48 @@ class TestAzureMLSystem:
         "model_resource_type",
         [ResourceType.AzureMLModel, ResourceType.LocalFile, ResourceType.StringName],
     )
-    def test__create_model_args(self, model_resource_type):
+    def test__create_model_args(self, model_resource_type, tmp_path):
         # setup
-        temp_model = tempfile.NamedTemporaryFile(dir=".", suffix=".onnx", prefix="model_0")
         ws_config = {
             "workspace_name": "workspace_name",
             "subscription_id": "subscription_id",
             "resource_group": "resource_group",
         }
         self.system.azureml_client_config.get_workspace_config.return_value = ws_config
-        resource_paths = {
-            ResourceType.AzureMLModel: {
-                "type": ResourceType.AzureMLModel,
-                "config": {
-                    "azureml_client": ws_config,
-                    "name": "model_name",
-                    "version": "version",
+        with tempfile.NamedTemporaryFile(dir=".", suffix=".onnx", prefix="model_0") as temp_model:
+            resource_paths = {
+                ResourceType.AzureMLModel: {
+                    "type": ResourceType.AzureMLModel,
+                    "config": {
+                        "azureml_client": ws_config,
+                        "name": "model_name",
+                        "version": "version",
+                    },
                 },
-            },
-            ResourceType.LocalFile: temp_model.name,
-            ResourceType.StringName: "model_name",
-        }
-        model_json = {
-            "type": "pytorchmodel",
-            "config": {
-                "model_path": resource_paths[model_resource_type],
-            },
-        }
-        tem_dir = tempfile.TemporaryDirectory()
-        tem_dir_path = Path(tem_dir.name)
-        model_config_path = tem_dir_path / "model_config.json"
-        if model_resource_type == ResourceType.AzureMLModel:
-            expected_model_path = Input(type=AssetTypes.CUSTOM_MODEL, path="azureml:model_name:version")
-        elif model_resource_type == ResourceType.LocalFile:
-            expected_model_path = Input(type=AssetTypes.URI_FILE, path=Path(temp_model.name).resolve())
-        else:
-            expected_model_path = None
-        expected_model_config = Input(type=AssetTypes.URI_FILE, path=model_config_path)
-        expected_res = {"model_config": expected_model_config, "model_model_path": expected_model_path}
+                ResourceType.LocalFile: temp_model.name,
+                ResourceType.StringName: "model_name",
+            }
+            model_json = {
+                "type": "pytorchmodel",
+                "config": {
+                    "model_path": resource_paths[model_resource_type],
+                },
+            }
+            tem_dir_path = tmp_path
+            model_config_path = tem_dir_path / "model_config.json"
+            if model_resource_type == ResourceType.AzureMLModel:
+                expected_model_path = Input(type=AssetTypes.CUSTOM_MODEL, path="azureml:model_name:version")
+            elif model_resource_type == ResourceType.LocalFile:
+                expected_model_path = Input(type=AssetTypes.URI_FILE, path=Path(temp_model.name).resolve())
+            else:
+                expected_model_path = None
+            expected_model_config = Input(type=AssetTypes.URI_FILE, path=model_config_path)
+            expected_res = {"model_config": expected_model_config, "model_model_path": expected_model_path}
 
-        # execute
-        actual_res = self.system._create_model_args(
-            model_json, {"model_path": create_resource_path(model_json["config"]["model_path"])}, tem_dir_path
-        )
+            # execute
+            actual_res = self.system._create_model_args(
+                model_json, {"model_path": create_resource_path(model_json["config"]["model_path"])}, tem_dir_path
+            )
 
         # assert
         assert actual_res == expected_res

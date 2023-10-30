@@ -13,6 +13,8 @@ from torchvision import transforms
 
 from olive.common.utils import run_subprocess
 
+# pylint: skip-file
+
 
 def get_directories():
     current_dir = Path(__file__).resolve().parent

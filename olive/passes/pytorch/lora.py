@@ -13,7 +13,7 @@ import tempfile
 from copy import deepcopy
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, ClassVar, Dict, List, Tuple, Union, Optional
 
 import torch
 import transformers
@@ -119,6 +119,10 @@ class HFTrainingArguments(ConfigWithExtraArgs):
 class LoRABase(Pass):
     """Base class for LoRA and QLoRA fine-tuning passes."""
 
+    # these are the attributes of the model (in hf_config) that will be overwritten by the pass
+    # values from the input model will be ignored and new values will be set based on the pass config
+    model_overwrites: ClassVar[tuple] = ("torch_dtype", "device_map", "quantization_method", "quantization_config")
+
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
@@ -133,8 +137,9 @@ class LoRABase(Pass):
             "modules_to_save": PassConfigParam(
                 type_=None,
                 default_value=None,
-                description="List of modules apart from LoRA layers to be set as trainable "
-                "and saved in the final checkpoint.",
+                description=(
+                    "List of modules apart from LoRA layers to be set as trainable and saved in the final checkpoint."
+                ),
             ),
             "torch_dtype": PassConfigParam(
                 type_=str,
@@ -148,9 +153,11 @@ class LoRABase(Pass):
             "allow_tf32": PassConfigParam(
                 type_=bool,
                 default_value=True,
-                description="Whether or not to allow TF32 on Ampere GPUs. "
-                "Can be used to speed up training. For more information, "
-                "see 'https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices'",
+                description=(
+                    "Whether or not to allow TF32 on Ampere GPUs. "
+                    "Can be used to speed up training. For more information, "
+                    "see 'https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices'"
+                ),
             ),
             # data parameters
             "train_data_config": PassConfigParam(
@@ -298,7 +305,6 @@ class LoRABase(Pass):
     def train_and_save_new_model(
         self, model, tokenizer, config: ConfigBase, data_root: str, output_model: PyTorchModel, output_model_path: str
     ) -> PyTorchModel:
-
         if torch.cuda.is_available():
             allow_tf32 = torch.backends.cuda.matmul.allow_tf32
             torch.backends.cuda.matmul.allow_tf32 = config.allow_tf32
@@ -364,8 +370,18 @@ class LoRABase(Pass):
         adapter_path.mkdir(parents=True, exist_ok=True)
         model.save_pretrained(adapter_path)
 
+        # remove loaded model
+        output_model.model = None
+        del pytorch_model
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         # remove the device map since we don't want "auto" device map
         output_model.hf_config.model_loading_args.device_map = None
+        # remove model_overwrites from model_attributes
+        if output_model.model_attributes:
+            for k in self.model_overwrites:
+                output_model.model_attributes.pop(k, None)
+
         # set adapter_path
         output_model.set_resource("adapter_path", adapter_path)
         return output_model
@@ -404,16 +420,21 @@ class LoRABase(Pass):
         ), f"torch_dtype must be one of {list(supported_dtypes.keys())} but got {torch_dtype}"
         return supported_dtypes[torch_dtype]
 
-    @staticmethod
-    def input_model_check(model):
+    @classmethod
+    def input_model_check(cls, model):
         if not model.hf_config:
             raise ValueError("LoRA/QLoRA pass only supports PyTorchModel with hf_config.")
 
+        # load model, reset model_loading_args and adapter_path
+        model_loading_args = {}
         if model.hf_config.model_loading_args:
-            logger.warning(
-                "Input model has model_loading_args. Ignoring. QLoRA will use its own model_loading_args based on the"
-                " pass config."
-            )
+            model_loading_args = model.hf_config.model_loading_args.dict()
+            for k in cls.model_overwrites:
+                if model_loading_args.get(k) is not None:
+                    logger.warning(
+                        f"Input model has model_loading_args.{k}. Ignoring. {cls.__name__} will overwrite it based on"
+                        " the pass config."
+                    )
 
         if model.get_resource("adapter_path"):
             logger.warning(
@@ -480,6 +501,8 @@ class QLoRA(LoRABase):
     This pass only supports PyTorchModel with hf_config.
     """
 
+    model_overwrites: ClassVar[tuple] = ("torch_dtype", "device_map", "quantization_method", "quantization_config")
+
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
@@ -541,19 +564,25 @@ class QLoRA(LoRABase):
         torch_dtype = self.get_torch_dtype(config.torch_dtype)
 
         new_model = self.input_model_check(new_model)
-        new_model.hf_config.model_loading_args = HFModelLoadingArgs(
-            torch_dtype=torch_dtype,
-            # TODO(jambayk): Worry about `use_multi_gpu` and distributed training later
-            # this uses all available GPUs, model parallel
-            device_map="auto",
-            quantization_method="bitsandbytes",
-            quantization_config={
-                "load_in_4bit": True,
-                "bnb_4bit_compute_dtype": torch_dtype,
-                "bnb_4bit_use_double_quant": config.double_quant,
-                "bnb_4bit_quant_type": config.quant_type,
-            },
+        model_loading_args = (
+            new_model.hf_config.model_loading_args.dict() if new_model.hf_config.model_loading_args else {}
         )
+        model_loading_args.update(
+            {
+                "torch_dtype": torch_dtype,
+                # TODO(jambayk): Worry about `use_multi_gpu` and distributed training later
+                # this uses all available GPUs, model parallel
+                "device_map": "auto",
+                "quantization_method": "bitsandbytes",
+                "quantization_config": {
+                    "load_in_4bit": True,
+                    "bnb_4bit_compute_dtype": torch_dtype,
+                    "bnb_4bit_use_double_quant": config.double_quant,
+                    "bnb_4bit_quant_type": config.quant_type,
+                },
+            }
+        )
+        new_model.hf_config.model_loading_args = HFModelLoadingArgs(**model_loading_args)
 
         pytorch_model = new_model.load_model()
         pytorch_model.config.torch_dtype = torch_dtype

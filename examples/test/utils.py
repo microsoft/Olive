@@ -5,6 +5,8 @@
 import json
 import os
 
+# pylint: disable=broad-exception-raised
+
 
 def check_output(footprints):
     """Check if the search output is valid."""
@@ -30,7 +32,7 @@ def patch_config(config_json_path: str, search_algorithm: str, execution_order: 
     else:
         olive_config["engine"]["search_strategy"]["search_algorithm"] = search_algorithm
         olive_config["engine"]["search_strategy"]["execution_order"] = execution_order
-        if search_algorithm == "random" or search_algorithm == "tpe":
+        if search_algorithm in ("random", "tpe"):
             olive_config["engine"]["search_strategy"]["search_algorithm_config"] = {"num_samples": 3, "seed": 0}
 
     update_azureml_config(olive_config)

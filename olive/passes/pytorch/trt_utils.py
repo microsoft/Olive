@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 try:
-    import torch_tensorrt  # noqa: F401
+    import torch_tensorrt  # noqa: F401 # pylint: disable=unused-import
 except ImportError:
     raise ImportError("Please install torch_tensorrt with: pip install torch-tensorrt") from None
 
@@ -13,8 +13,8 @@ from contextlib import redirect_stdout
 
 import tensorrt as trt
 import torch
-import torch_tensorrt.fx.tracer.acc_tracer.acc_tracer as acc_tracer
-from torch_tensorrt.fx import InputTensorSpec, TRTInterpreter, TRTModule, compile
+from torch_tensorrt.fx import InputTensorSpec, TRTInterpreter, TRTModule, compile  # pylint: disable=redefined-builtin
+from torch_tensorrt.fx.tracer.acc_tracer import acc_tracer
 
 
 class TRTLinearLayer(TRTModule):

@@ -158,7 +158,7 @@ def snpe_net_run(
     android_persist_ws: Whether to persist the workspace on android.
     android_initialized: Whether the inference session has already been initialized on android using init_snpe_net_adb.
     """
-    tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_")
+    tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_")  # pylint: disable=consider-using-with
     tmp_dir_path = Path(tmp_dir.name)
 
     # Create the snpe-net-run command

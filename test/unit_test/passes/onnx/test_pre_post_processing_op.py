@@ -149,7 +149,6 @@ def get_superresolution_model():
             x = self.relu(self.conv2(x))
             x = self.relu(self.conv3(x))
             return self.pixel_shuffle(self.conv4(x))
-            return x
 
         def _initialize_weights(self):
             init.orthogonal_(self.conv1.weight, init.calculate_gain("relu"))
