@@ -61,9 +61,12 @@ class LlamaOnnxDmlInterface(BaseLLMInterface):
             )
         ]
 
+        llm_session_options = onnxruntime.SessionOptions()
+        llm_session_options.add_free_dimension_override_by_name("seq_len_increment", 1)
+
         self.llm_session = onnxruntime.InferenceSession(
             self.onnx_file,
-            sess_options=onnxruntime.SessionOptions(),
+            sess_options=llm_session_options,
             providers=providers,
         )
 

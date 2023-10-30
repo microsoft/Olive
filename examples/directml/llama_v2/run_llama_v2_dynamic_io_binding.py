@@ -69,6 +69,7 @@ def run_llama_v2_io_binding(
     )
 
     llm_session_options = onnxruntime.SessionOptions()
+    llm_session_options.add_free_dimension_override_by_name("seq_len_increment", 1)
     llm_session = onnxruntime.InferenceSession(
         "models/optimized/llama_v2/llama_v2/decoder_model_merged.onnx",
         sess_options=llm_session_options,
