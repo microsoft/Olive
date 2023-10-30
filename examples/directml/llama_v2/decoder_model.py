@@ -20,8 +20,6 @@ class DecoderModel(torch.nn.Module):
         device=torch.device("cpu"),
     ) -> None:
         super().__init__()
-        use_biases = False
-        interleaved = True
         self.tok_embeddings = torch.nn.Linear(hidden_size, vocab_size, bias=False, device=device)
 
         self.norm = RMSNorm(hidden_size, eps=1e-5)
@@ -33,8 +31,6 @@ class DecoderModel(torch.nn.Module):
                 n_heads,
                 scale_type,
                 device=device,
-                use_biases=use_biases,
-                interleaved=interleaved,
             )
             self.layers.append(layer)
 
@@ -43,38 +39,26 @@ class DecoderModel(torch.nn.Module):
         self.hidden_size = hidden_size
         self.n_heads = n_heads
 
-    def get_input_embeddings(self) -> torch.Tensor:
-        assert self.tok_embeddings is not None
-        return self.tok_embeddings.weight
-
-    def forward_use_cache(self, x_increment, position_ids_increment, attn_mask, cache):
-        use_cache = True
+    def forward_common(self, use_cache, x, position_ids, attn_mask, cache):
         k_caches = []
         v_caches = []
-
-        # For the cache model, we always work on the last element
-        pos_end = attn_mask.size(1)
-        pos = pos_end - 1
 
         for layer_idx, layer in enumerate(self.layers):
             k_cache = cache[layer_idx]["key"].clone().detach()
             v_cache = cache[layer_idx]["value"].clone().detach()
 
-            x_increment, k_cache, v_cache = layer(
-                use_cache, x_increment, position_ids_increment, attn_mask, k_cache, v_cache, pos
-            )
+            x, k_cache, v_cache = layer(use_cache, x, position_ids, attn_mask, k_cache, v_cache)
 
             k_caches.append(k_cache)
             v_caches.append(v_cache)
 
-        x_increment = self.norm(x_increment)
-
-        logits = self.output(x_increment[:, -1, :])
+        x = self.norm(x)
+        logits = self.output(x[:, -1, :])
 
         # For the increment iterations, we only ever use the last row of the mask. This row should look something like
         # this: [0, 0, 0, 0, 1, 1, 1, 1]. By rolling it to the left, it becomes [0, 0, 0, 1, 1, 1, 1, 0] and then all
         # we have to do is set the last element to 1 so it becomes [0, 0, 0, 1, 1, 1, 1, 1].
-        attn_mask = torch.nn.functional.pad(attn_mask[:, 1:], (0, 1), value=1)
+        attn_mask = torch.nn.functional.pad(attn_mask[:, 1:], (0, 1, 0, 0), value=1)
         return_values = [logits, attn_mask]
 
         for k_cache, v_cache in zip(k_caches, v_caches):
@@ -85,35 +69,11 @@ class DecoderModel(torch.nn.Module):
 
     def forward_no_cache(self, x, position_ids, attn_mask, cache):
         use_cache = False
-        k_caches = []
-        v_caches = []
+        return self.forward_common(use_cache, x, position_ids, attn_mask, cache)
 
-        seq_len = x.size(1)
-
-        for layer_idx, layer in enumerate(self.layers):
-            k_cache = cache[layer_idx]["key"].clone().detach()
-            v_cache = cache[layer_idx]["value"].clone().detach()
-
-            x, k_cache, v_cache = layer(use_cache, x, position_ids, attn_mask, k_cache, v_cache, 0)
-
-            k_caches.append(k_cache)
-            v_caches.append(v_cache)
-
-        x = self.norm(x)
-        logits = self.output(x[:, -1, :])
-
-        # Update the mask for the next iteration, which will look like [0, 0, 0, 1, 1]
-        next_total_seq_len = seq_len + 1
-        unpadded_attn_mask = torch.ones([attn_mask.shape[0], next_total_seq_len], dtype=torch.int32)
-        attn_mask = torch.nn.functional.pad(unpadded_attn_mask, (attn_mask.shape[1] - next_total_seq_len, 0))
-
-        return_values = [logits, attn_mask]
-
-        for k_cache, v_cache in zip(k_caches, v_caches):
-            return_values.append(k_cache)
-            return_values.append(v_cache)
-
-        return tuple(return_values)
+    def forward_use_cache(self, x_increment, position_ids_increment, attn_mask, cache):
+        use_cache = True
+        return self.forward_common(use_cache, x_increment, position_ids_increment, attn_mask, cache)
 
     def set_use_cache(self, use_cache):
         self.forward = self.forward_use_cache if use_cache else self.forward_no_cache
@@ -168,8 +128,6 @@ class TransformerLayer(torch.nn.Module):
         n_heads: int,
         scale_type: str,
         device: Union[torch.device, None] = None,
-        use_biases: bool = True,
-        interleaved: bool = False,
     ) -> None:
         super().__init__()
         # these should have variable eps.
@@ -183,8 +141,6 @@ class TransformerLayer(torch.nn.Module):
             n_heads,
             scale_type,
             device=device,
-            use_biases=use_biases,
-            interleaved=interleaved,
         )
         proj_dim = hidden_size * 4
         proj_dim = int(2 * proj_dim / 3)
@@ -199,12 +155,11 @@ class TransformerLayer(torch.nn.Module):
         attn_mask: torch.Tensor,
         k_cache: torch.Tensor,
         v_cache: torch.Tensor,
-        pos: int,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Dimension of x is [batch_size, seq_len, hidden_size] Dimension of
         # k_cache and v_cache is [batch_size, n_layers, pos, n_heads, head_dim]
         h, k_out, v_out = self.attention(
-            use_cache, self.attention_norm(x), position_ids, attn_mask, self.cos, self.sin, k_cache, v_cache, pos
+            use_cache, self.attention_norm(x), position_ids, attn_mask, self.cos, self.sin, k_cache, v_cache
         )
 
         h = x + h
@@ -277,8 +232,6 @@ class SelfAttention(torch.nn.Module):
         n_heads: int,
         scale_type: str,
         device: Union[torch.device, None] = None,
-        use_biases: bool = True,
-        interleaved: bool = False,
     ) -> None:
         super().__init__()
         self.wq = torch.nn.Linear(hidden_size, hidden_size, bias=False, device=device)
@@ -299,8 +252,6 @@ class SelfAttention(torch.nn.Module):
         else:
             raise ValueError(f"Unknown scale type {scale_type}")
 
-        self.interleaved = interleaved
-
     def forward(
         self,
         use_cache: bool,
@@ -311,7 +262,6 @@ class SelfAttention(torch.nn.Module):
         sin: torch.Tensor,
         k_cache: torch.Tensor,
         v_cache: torch.Tensor,
-        pos: int,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         query = self.wq(x)
         key = self.wk(x)
