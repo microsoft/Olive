@@ -13,7 +13,7 @@ import tempfile
 from copy import deepcopy
 from functools import partial
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Tuple, Union, Optional
+from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 
 import torch
 import transformers
@@ -121,7 +121,7 @@ class LoRABase(Pass):
 
     # these are the attributes of the model (in hf_config) that will be overwritten by the pass
     # values from the input model will be ignored and new values will be set based on the pass config
-    model_overwrites: ClassVar[tuple] = ("torch_dtype", "device_map", "quantization_method", "quantization_config")
+    model_overwrites: ClassVar[tuple] = ("torch_dtype", "device_map")
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -372,7 +372,7 @@ class LoRABase(Pass):
 
         # remove loaded model
         output_model.model = None
-        del pytorch_model
+        del model
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         # remove the device map since we don't want "auto" device map
