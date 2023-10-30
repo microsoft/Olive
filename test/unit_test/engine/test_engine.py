@@ -404,7 +404,7 @@ class TestEngine:
 
             with pytest.raises(ValueError) as exc_info:
                 engine.initialize()
-                assert str(exc_info.value) == "ValueError: invalid literal for int() with base 10: '435d'"
+            assert str(exc_info.value) == "invalid literal for int() with base 10: '435d'"
 
     @patch("olive.systems.local.LocalSystem")
     @patch("onnxruntime.get_available_providers")

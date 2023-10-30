@@ -40,4 +40,19 @@ def test_ort_perf_tuning_pass_with_dynamic_shapes(mock_get_io_config, tmp_path):
     with pytest.raises(TypeError) as e:
         # execute
         p.run(input_model, None, output_folder)
-        assert "ones() received an invalid combination of arguments" in str(e.value)
+    assert "ones() received an invalid combination of arguments" in str(e.value)
+
+
+@patch("olive.passes.onnx.perf_tuning.threads_num_binary_search")
+def test_ort_perf_tuning_pass_with_import_error(mock_threads_num_binary_search, tmp_path):
+    mock_threads_num_binary_search.side_effect = ModuleNotFoundError("test")
+
+    input_model = get_onnx_model()
+    p = create_pass_from_dict(OrtPerfTuning, {}, disable_search=True)
+    output_folder = str(tmp_path / "onnx")
+
+    with pytest.raises(ModuleNotFoundError) as e:
+        # execute
+        p.run(input_model, None, output_folder)
+
+    assert "test" in str(e.value)

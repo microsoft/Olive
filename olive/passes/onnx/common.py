@@ -108,6 +108,7 @@ def model_proto_to_file(
             raise RuntimeError(f"Output directory ({output_dir}) for external data is not empty.")
 
     # save model
+    # TODO(trajep): complete the argument list
     onnx.save_model(
         model,
         str(output_path),

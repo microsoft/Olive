@@ -55,7 +55,7 @@ class TestRunConfig:
         user_script_config.pop("azureml_client")
         with pytest.raises(ValueError) as e:
             RunConfig.parse_obj(user_script_config)
-            assert str(e.value) == "AzureML client config is required for AzureML system"
+        assert "AzureML client config is required for AzureML system" in str(e.value)
 
     @pytest.fixture
     def mock_aml_credentials(self):
