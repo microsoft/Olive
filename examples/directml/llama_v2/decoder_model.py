@@ -186,9 +186,9 @@ class ApplyMask(torch.nn.Module):
             inverted_causal_mask = 1.0 - causal_mask
             mask_score += inverted_causal_mask.masked_fill(inverted_causal_mask.to(torch.bool), -10000.0)
 
-        score += mask_score
+        mask_score = mask_score.expand(batch_size, num_heads, seq_len, max_seq_len)
 
-        return score.expand(batch_size, num_heads, seq_len, max_seq_len)
+        return score + mask_score
 
 
 def rotate_half(x):
