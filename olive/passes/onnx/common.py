@@ -41,6 +41,15 @@ def get_external_data_config():
                 " the external data file will be named with <model_path_name>.data"
             ),
         ),
+        "size_threshold": PassConfigParam(
+            type_=int,
+            default_value=1024,
+            description=(
+                "Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor's data"
+                " is >= the size_threshold it will be converted to external data. To convert every tensor with raw data"
+                " to external data set size_threshold=0."
+            ),
+        ),
         "convert_attribute": PassConfigParam(
             type_=bool,
             default_value=False,
@@ -58,6 +67,7 @@ def model_proto_to_file(
     save_as_external_data: Optional[bool] = False,
     all_tensors_to_one_file: Optional[bool] = True,
     external_data_name: Optional[Union[str, Path]] = None,
+    size_threshold: Optional[int] = 1024,
     convert_attribute: Optional[bool] = False,
 ) -> bool:
     """Save the ONNX model to the specified path.
@@ -123,6 +133,7 @@ def model_proto_to_file(
         save_as_external_data=True,
         all_tensors_to_one_file=all_tensors_to_one_file,
         location=location,
+        size_threshold=size_threshold,
         convert_attribute=convert_attribute,
     )
     return True
@@ -145,13 +156,15 @@ def model_proto_to_olive_model(
 
     :return: The ONNXModel.
     """
+    config_keys = [
+        "save_as_external_data",
+        "all_tensors_to_one_file",
+        "external_data_name",
+        "size_threshold",
+        "convert_attribute",
+    ]
     has_external_data = model_proto_to_file(
-        model_proto,
-        output_model_path,
-        save_as_external_data=external_data_config["save_as_external_data"],
-        all_tensors_to_one_file=external_data_config["all_tensors_to_one_file"],
-        external_data_name=external_data_config["external_data_name"],
-        convert_attribute=external_data_config["convert_attribute"],
+        model_proto, output_model_path, **{k: external_data_config[k] for k in config_keys}
     )
     if has_external_data:
         model_path = LocalFolder({"path": Path(output_model_path).parent})
