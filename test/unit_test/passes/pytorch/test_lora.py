@@ -8,7 +8,7 @@ from unittest.mock import patch
 from olive.data.template import huggingface_data_config_template
 from olive.model import PyTorchModel
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.pytorch import QLoRA
+from olive.passes.pytorch import LoRA, QLoRA
 
 # pylint: disable=redefined-outer-name
 
@@ -17,15 +17,8 @@ def patched_find_all_linear_names(model):
     return ["k_proj", "v_proj", "out_proj", "q_proj", "fc1", "fc2"]
 
 
-# quantization requires gpu so we will patch the model loading args with no quantization
-@patch("olive.passes.pytorch.qlora.HFModelLoadingArgs")
-@patch("olive.passes.pytorch.qlora.QLoRA.find_all_linear_names", side_effect=patched_find_all_linear_names)
-def test_qlora(patched_model_loading_args, patched_find_all_linear_names, tmp_path):
-    # setup
-    model_name = "hf-internal-testing/tiny-random-OPTForCausalLM"
-    task = "text-generation"
-    input_model = PyTorchModel(hf_config={"model_name": model_name, "task": task})
-    dataset = {
+def get_dataset():
+    return {
         "data_name": "ptb_text_only",
         "subset": "penn_treebank",
         "split": "train",
@@ -40,9 +33,11 @@ def test_qlora(patched_model_loading_args, patched_find_all_linear_names, tmp_pa
             }
         },
     }
-    # convert to json to ensure the pass can handle serialized data config
+
+
+def get_pass_config(model_name, task, **dataset):
     data_config = huggingface_data_config_template(model_name=model_name, task=task, **dataset).to_json()
-    config = {
+    return {
         "train_data_config": data_config,
         "eval_dataset_size": 2,
         "training_args": {
@@ -55,9 +50,41 @@ def test_qlora(patched_model_loading_args, patched_find_all_linear_names, tmp_pa
         },
     }
 
+
+def test_lora(tmp_path):
+    # setup
+    model_name = "hf-internal-testing/tiny-random-OPTForCausalLM"
+    task = "text-generation"
+    input_model = PyTorchModel(hf_config={"model_name": model_name, "task": task})
+    dataset = get_dataset()
+    # convert to json to ensure the pass can handle serialized data config
+    config = get_pass_config(model_name, task, **dataset)
+    p = create_pass_from_dict(LoRA, config, disable_search=True)
+    output_folder = str(tmp_path / "lora")
+
+    # execute
+    out = p.run(input_model, None, output_folder)
+
+    # assert
+    assert Path(out.get_resource("adapter_path")).exists()
+
+
+# quantization requires gpu so we will patch the model loading args with no quantization
+@patch("olive.passes.pytorch.lora.HFModelLoadingArgs")
+@patch("olive.passes.pytorch.lora.QLoRA.find_all_linear_names", side_effect=patched_find_all_linear_names)
+def test_qlora(patched_model_loading_args, patched_find_all_linear_names, tmp_path):
+    # setup
+    model_name = "hf-internal-testing/tiny-random-OPTForCausalLM"
+    task = "text-generation"
+    input_model = PyTorchModel(hf_config={"model_name": model_name, "task": task})
+    dataset = get_dataset()
+    # convert to json to ensure the pass can handle serialized data config
+    config = get_pass_config(model_name, task, **dataset)
     p = create_pass_from_dict(QLoRA, config, disable_search=True)
     output_folder = str(tmp_path / "qlora")
 
     # execute
     out = p.run(input_model, None, output_folder)
+
+    # assert
     assert Path(out.get_resource("adapter_path")).exists()
