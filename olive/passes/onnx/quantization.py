@@ -537,7 +537,7 @@ class OnnxMatMul4Quantizer(Pass):
         from onnxruntime import __version__ as OrtVersion
 
         if version.parse(OrtVersion) < version.parse("1.17.0"):
-            raise OlivePassError("MatMul4BitsQuantizer is only supported in onnxruntime >= 1.17.0")
+            raise OlivePassError("OnnxLlamaMatMulWeight4Quantizer is only supported in onnxruntime >= 1.17.0")
 
         from onnxruntime.quantization.matmul_4bits_quantizer import MatMul4BitsQuantizer
 
@@ -548,7 +548,7 @@ class OnnxMatMul4Quantizer(Pass):
 
         # TODO(trajep): add more options to save_model_to_file
         new_tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
-        tmp_model_path = str(Path(new_tmp_dir.name) / Path(output_model_path).name / ".onnx")
+        tmp_model_path = str(Path(new_tmp_dir.name) / Path(output_model_path).name)
         quant.model.save_model_to_file(tmp_model_path, config["save_as_external_data"])
 
         # load the model
