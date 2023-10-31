@@ -577,6 +577,18 @@ class PyTorchModel(OliveModel):
 
         return model
 
+    def loads_model_from_hf_config(self) -> bool:
+        """Return True if the model is loaded from hf_config, False otherwise."""
+        return (
+            (not self.model_loader)
+            and (
+                self.model_file_format
+                not in (ModelFileFormat.PYTORCH_TORCH_SCRIPT, ModelFileFormat.PYTORCH_MLFLOW_MODEL)
+            )
+            and self.hf_config
+            and (self.hf_config.model_class or self.hf_config.task)
+        )
+
     def load_mlflow_model(self):
         logger.info(f"Loading MLFlow model from {self.model_path}")
         with tempfile.TemporaryDirectory(prefix="mlflow_tmp") as tmp_dir:

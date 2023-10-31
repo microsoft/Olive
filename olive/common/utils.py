@@ -196,3 +196,22 @@ def get_attr(module, attr, fail_on_not_found=False):
                 logger.warning(not_found_message)
                 return None
     return module
+
+
+def find_submodules(module, submodule_types, full_name=False):
+    """Find all submodules of a given type in a module.
+
+    :param module: module to search.
+    :param submodule_type: type of submodule to search for. Can be a single type or a tuple of types.
+    :param full_name: if True, return full name of submodule. Otherwise, return last part of submodule name.
+    :return: list of submodules names.
+    """
+    submodules = set()
+    for name, submodule in module.named_modules():
+        if isinstance(submodule, submodule_types):
+            if full_name:
+                submodules.add(name)
+            else:
+                submodules.add(name.split(".")[-1])
+    print(submodules)
+    return list(submodules)
