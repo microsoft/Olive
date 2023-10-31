@@ -29,9 +29,7 @@ cd olive/examples/directml/llama_v2
 pip install -r requirements.txt
 ```
 
-3. [Request access](https://forms.microsoft.com/Pages/ResponsePage.aspx?id=v4j5cvGGr0GRqy180BHbR1sq8AbaR35DlqQqW8HAxY1UQlU4UThHTlFWVUUwMzBXV1gxWENRTjRHRi4u) to the Llama 2 ONNX repository from Microsoft and download [embeddings.pth](https://github.com/microsoft/Llama-2-Onnx-7-FT-16/blob/f860aaef9188a63030f88489821c08e0db2ed658/embeddings.pth) once approved
-
-4. [Request access](https://ai.meta.com/resources/models-and-libraries/llama-downloads/) to the Llama 2 weights from Meta
+3. [Request access](https://ai.meta.com/resources/models-and-libraries/llama-downloads/) to the Llama 2 weights from Meta
 
 
 # Conversion to ONNX and Latency Optimization
@@ -42,7 +40,7 @@ The easiest way to optimize the pipeline is with the `llama_v2.py` helper script
 python llama_v2.py
 ```
 
-The first time this script is invoked can take some time since it will need to download the Llama 2 weights from Meta.
+The first time this script is invoked can take some time since it will need to download the Llama 2 weights from Meta. When requested, paste the URL that was sent to your e-mail address by Meta (the link is valid for 24 hours).
 
 The Llama V2 model is very large, and the optimization process is resource intensive. The optimization process can easily take more than 128GB of memory. You can still optimize the model on a machine with less memory, but you'd have to increase your paging file size accordingly and the conversion process will take significantly longer to complete (many hours).
 
@@ -54,4 +52,10 @@ If you only want to run the inference sample (possible after the model has been 
 
 ```
 python run_llama_v2_io_binding.py --prompt=<any_prompt_you_choose>
+```
+
+The previous script works pretty well if you know in advance how long you want the output to be or if you want to limit the user to a maximum number of tokens. If you want to allow conversations of any length, use the following script instead:
+
+```
+python run_llama_v2_dynamic_io_binding.py --prompt=<any_prompt_you_choose>
 ```
