@@ -1,5 +1,5 @@
 import gc
-import os
+from pathlib import Path
 from typing import List
 
 import numpy as np
@@ -13,7 +13,7 @@ from sentencepiece import SentencePieceProcessor
 class Tokenizer:
     def __init__(self, model_path: str):
         # reload tokenizer
-        assert os.path.isfile(model_path), model_path
+        assert Path.isfile(model_path), model_path
         self.sp_model = SentencePieceProcessor(model_file=model_path)
 
         # BOS / EOS token IDs
@@ -25,12 +25,12 @@ class Tokenizer:
         assert self.sp_model.vocab_size() == self.sp_model.get_piece_size()
 
     def encode(self, s: str, bos: bool, eos: bool) -> List[int]:
-        assert type(s) is str
+        assert isinstance(s, str)
         t = self.sp_model.encode(s)
         if bos:
-            t = [self.bos_id] + t
+            t = [self.bos_id, *t]
         if eos:
-            t = t + [self.eos_id]
+            t = [*t, self.eos_id]
         return t
 
     def decode(self, t: List[int]) -> str:
@@ -38,11 +38,10 @@ class Tokenizer:
 
 
 class LlamaOnnxDmlInterface(BaseLLMInterface):
-    def __init__(self, onnx_file="", update_embeddings_onnx_file="", sampling_onnx_file="", tokenizer_path=""):
+    def __init__(self, onnx_file="", sampling_onnx_file="", tokenizer_path=""):
         super().__init__()
 
         self.onnx_file = onnx_file
-        self.update_embeddings_onnx_file = update_embeddings_onnx_file
         self.sampling_onnx_file = sampling_onnx_file
         self.tokenizer_path = tokenizer_path
 
@@ -70,35 +69,16 @@ class LlamaOnnxDmlInterface(BaseLLMInterface):
             providers=providers,
         )
 
-        self.update_embeddings_session = onnxruntime.InferenceSession(
-            self.update_embeddings_onnx_file,
-            sess_options=onnxruntime.SessionOptions(),
-            providers=providers,
-        )
-
         self.sampling_session = onnxruntime.InferenceSession(
             self.sampling_onnx_file,
             sess_options=onnxruntime.SessionOptions(),
             providers=providers,
         )
 
-        # get the data type used by the model
-        data_type_str = self.llm_session.get_inputs()[0].type
-        if data_type_str == "tensor(float16)":
-            self.data_type = np.float16
-        elif data_type_str == "tensor(float32)":
-            self.data_type = np.float32
-        else:
-            raise Exception(f"Unknown data type {data_type_str}")
+        self.data_type = np.float16
 
-        # Get the relevant shapes so we can create the inputs
-        for inputs_meta in self.llm_session._inputs_meta:
-            if inputs_meta.name == "x":
-                x_shape = inputs_meta.shape
-            elif inputs_meta.name == "cache.0.key":
-                self.n_heads = inputs_meta.shape[1]
-
-        self.hidden_size = x_shape[2]
+        self.hidden_size = 4096
+        self.n_heads = 32
         self.n_layers = 32
 
         # Initialize the tokenizer and produce the initial tokens.
@@ -111,7 +91,6 @@ class LlamaOnnxDmlInterface(BaseLLMInterface):
 
         # Create the I/O bindings
         self.sampling_io_binding = self.sampling_session.io_binding()
-        self.update_embeddings_io_binding = self.update_embeddings_session.io_binding()
         self.llm_io_binding = self.llm_session.io_binding()
 
         logits_shape = (1, self.tokenizer.n_words)
@@ -120,10 +99,7 @@ class LlamaOnnxDmlInterface(BaseLLMInterface):
         self.logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
             logits_shape, self.data_type, self.binding_device
         )
-        self.next_token = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1,), np.int64, self.binding_device)
-        self.x_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
-            (1, 1, self.hidden_size), self.data_type, self.binding_device
-        )
+        self.tokens_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, 1), np.int64, self.binding_device)
 
         self.k_caches = [None] * self.n_layers
         self.v_caches = [None] * self.n_layers
@@ -189,8 +165,9 @@ short answers are usually best"
                 p = sampling_value
                 cumulative_probs = np.cumsum(sorted_probs, axis=-1)
                 # find the value of the first cumalitive probability that exceeds p
-                for index_of_interest, cumulative_prob in enumerate(cumulative_probs[0]):
+                for idx, cumulative_prob in enumerate(cumulative_probs[0]):
                     if cumulative_prob > p:
+                        index_of_interest = idx
                         break
 
             probs_of_interest = sorted_probs[:, : index_of_interest + 1]
@@ -217,34 +194,22 @@ short answers are usually best"
     ):
         generated_tokens = []
 
-        tokens = onnxruntime.OrtValue.ortvalue_from_numpy(
-            np.asarray(np.squeeze(input_ids), dtype=np.int64), self.binding_device
-        )
-        x = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
-            (1, tokens.shape()[0], self.hidden_size), self.data_type, self.binding_device
-        )
+        tokens = np.asarray(input_ids, dtype=np.int64)
+        tokens = onnxruntime.OrtValue.ortvalue_from_numpy(tokens, self.binding_device)
 
-        seq_len = tokens.shape()[0]
+        seq_len = tokens.shape()[1]
 
         # Bind the main model's inputs/outputs
         self.llm_io_binding.bind_ortvalue_output("logits", self.logits)
 
         # Bind the sampling model's inputs/outputs
-        self.sampling_io_binding.bind_ortvalue_output("next_token", self.next_token)
-
-        # Bind the embeddings updating model's inputs/outputs
-        self.update_embeddings_io_binding.bind_ortvalue_input("tokens", tokens)
-        self.update_embeddings_io_binding.bind_ortvalue_output("embeddings", x)
+        self.sampling_io_binding.bind_ortvalue_output("next_token", self.tokens_increment)
 
         self.llm_io_binding.bind_cpu_input("use_cache_branch", np.zeros([1], dtype=np.bool_))
 
         padding = 512
 
         for i in range(max_length):
-            # Update the embeddings
-            self.update_embeddings_session.run_with_iobinding(self.update_embeddings_io_binding)
-            self.update_embeddings_io_binding.synchronize_outputs()
-
             # Setup the caches, mask and rotary embeddings
             if i == 0 or seq_len % padding == 0:
                 padded_seq_len = padding * (seq_len // padding + 1)
@@ -294,8 +259,8 @@ short answers are usually best"
                 self.llm_io_binding.bind_cpu_input("position_ids_increment", position_ids_increment)
 
             # Bind the inputs/outputs of the LLaMA model
-            self.llm_io_binding.bind_ortvalue_input("x", x)
-            self.llm_io_binding.bind_ortvalue_input("x_increment", self.x_increment)
+            self.llm_io_binding.bind_ortvalue_input("tokens", tokens)
+            self.llm_io_binding.bind_ortvalue_input("tokens_increment", self.tokens_increment)
             self.llm_io_binding.bind_ortvalue_input("attn_mask", attn_mask)
             self.llm_io_binding.bind_ortvalue_output("attn_mask_out", attn_mask_out)
 
@@ -313,7 +278,7 @@ short answers are usually best"
             self.sampling_io_binding.bind_ortvalue_input("logits", self.logits)
             self.sampling_session.run_with_iobinding(self.sampling_io_binding)
             self.sampling_io_binding.synchronize_outputs()
-            generated_tokens.append(self.next_token.numpy().item())
+            generated_tokens.append(self.tokens_increment.numpy().item())
 
             if i % token_printing_step == 0:
                 yield tokenizer.decode(generated_tokens)
@@ -322,12 +287,10 @@ short answers are usually best"
                 yield tokenizer.decode(generated_tokens)
                 return
 
-            # Update the embeddings for the next iteration
-            self.update_embeddings_io_binding.bind_ortvalue_input("tokens", self.next_token)
+            self.llm_io_binding.bind_ortvalue_input("tokens_increment", self.tokens_increment)
 
             if i == 0:
                 self.llm_io_binding.bind_cpu_input("use_cache_branch", np.ones([1], dtype=np.bool_))
-                self.update_embeddings_io_binding.bind_ortvalue_output("embeddings", self.x_increment)
 
             attn_mask_out, attn_mask = attn_mask, attn_mask_out
             self.k_caches, self.k_caches_out = self.k_caches_out, self.k_caches
@@ -347,11 +310,6 @@ short answers are usually best"
     ):
         if text == "":
             yield chatbot, history, "Empty context."
-            return
-        try:
-            self.llm_session
-        except (ValueError, RuntimeError, TypeError):
-            yield [[text, "No Model Found"]], [], "No Model Found"
             return
 
         inputs = self.generate_prompt_with_history(text, history, self.tokenizer, max_length=max_context_length_tokens)
@@ -380,15 +338,18 @@ short answers are usually best"
             top_p=top_p,
             token_printing_step=token_printing_step,
         ):
-            if is_stop_word_or_prefix(x, ["[|Human|]", "[|AI|]"]) is False:
-                if "[|Human|]" in x:
-                    x = x[: x.index("[|Human|]")].strip()
-                if "[|AI|]" in x:
-                    x = x[: x.index("[|AI|]")].strip()
-                x = x.strip()
-                a, b = [[y[0], convert_to_markdown(y[1])] for y in history] + [
-                    [text, convert_to_markdown(x)]
-                ], history + [[text, x]]
+            sentence = x
+
+            if is_stop_word_or_prefix(sentence, ["[|Human|]", "[|AI|]"]) is False:
+                if "[|Human|]" in sentence:
+                    sentence = sentence[: sentence.index("[|Human|]")].strip()
+                if "[|AI|]" in sentence:
+                    sentence = sentence[: sentence.index("[|AI|]")].strip()
+                sentence = sentence.strip()
+                a, b = [[y[0], convert_to_markdown(y[1])] for y in history] + [[text, convert_to_markdown(sentence)]], [
+                    *history,
+                    [text, sentence],
+                ]
                 yield a, b, "Generating..."
 
             if shared_state.interrupted:
@@ -398,7 +359,6 @@ short answers are usually best"
                     return
                 except Exception as e:
                     print(type(e).__name__, e)
-                    pass
 
         del input_ids
         gc.collect()
@@ -407,7 +367,6 @@ short answers are usually best"
             yield a, b, "Generate: Success"
         except Exception as e:
             print(type(e).__name__, e)
-            pass
 
         return
 
@@ -426,7 +385,7 @@ short answers are usually best"
             return
         chatbot.pop()
         inputs = history.pop()[0]
-        for x in self.predict(
+        yield from self.predict(
             inputs,
             chatbot,
             history,
@@ -434,5 +393,4 @@ short answers are usually best"
             temperature,
             max_length_tokens,
             max_context_length_tokens,
-        ):
-            yield x
+        )

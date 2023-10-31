@@ -11,7 +11,6 @@ import urllib.request
 import warnings
 from pathlib import Path
 
-import config
 from chat_app.app import launch_chat_app
 from run_llama_v2_io_binding import run_llama_v2_io_binding
 
@@ -21,14 +20,14 @@ from olive.workflows import run as olive_run
 
 def optimize(optimized_model_dir: Path):
     script_dir = Path(__file__).resolve().parent
-    model_info = dict()
-    submodel_names = ["argmax_sampling", "update_embeddings", "llama_v2"]
+    model_info = {}
+    submodel_names = ["argmax_sampling", "llama_v2"]
 
     for submodel_name in submodel_names:
         print(f"\nOptimizing {submodel_name}")
 
         olive_config = None
-        with open(script_dir / f"config_{submodel_name}.json", "r") as fin:
+        with Path.open(script_dir / f"config_{submodel_name}.json") as fin:
             olive_config = json.load(fin)
 
         olive_run(olive_config)
@@ -42,7 +41,7 @@ def optimize(optimized_model_dir: Path):
             conversion_footprint = None
             optimizer_footprint = None
             merging_footprint = None
-            for _, footprint in footprints.items():
+            for footprint in footprints.values():
                 if footprint["from_pass"] == "OnnxConversion":
                     conversion_footprint = footprint
                 elif footprint["from_pass"] == "OrtTransformersOptimization":
@@ -66,7 +65,7 @@ def optimize(optimized_model_dir: Path):
             }
 
             print(f"Optimized Model   : {model_info[submodel_name]['optimized']['path']}")
-    optimized_model_dir.stem
+
     print("Copying optimized models...")
     for submodel_name in submodel_names:
         src_path = model_info[submodel_name]["optimized"]["path"]
@@ -131,12 +130,6 @@ def download_checkpoint():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--embeddings_file",
-        type=str,
-        help="The embeddings.pth file downloaded from the 7B_FT_float16 submodule located at "
-        "https://github.com/microsoft/Llama-2-Onnx",
-    )
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
     parser.add_argument("--interactive", action="store_true", help="Run with a GUI")
     parser.add_argument(
@@ -151,16 +144,10 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    config.embeddings_file = args.embeddings_file
-
     script_dir = Path(__file__).resolve().parent
     optimized_model_dir = script_dir / "models" / "optimized" / "llama_v2"
 
     if args.optimize or not optimized_model_dir.exists():
-        if not args.embeddings_file:
-            print("--embeddings_file needs to be provided when the model hasn't been optimized yet")
-            exit(1)
-
         download_checkpoint()
         optimize(optimized_model_dir)
 

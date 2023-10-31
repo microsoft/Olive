@@ -39,7 +39,7 @@ pip install -r requirements.txt
 The easiest way to optimize the pipeline is with the `llama_v2.py` helper script:
 
 ```
-python llama_v2.py --embeddings_file=<path_to_embeddings.pth>
+python llama_v2.py
 ```
 
 The first time this script is invoked can take some time since it will need to download the Llama 2 weights from Meta.

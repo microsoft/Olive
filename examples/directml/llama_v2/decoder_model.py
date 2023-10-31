@@ -3,8 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from typing import Union
-
 import numpy as np
 import torch
 
@@ -17,10 +15,9 @@ class DecoderModel(torch.nn.Module):
         hidden_size: int,
         n_heads: int,
         scale_type: str,
-        device=torch.device("cpu"),
     ) -> None:
         super().__init__()
-        self.tok_embeddings = torch.nn.Linear(hidden_size, vocab_size, bias=False, device=device)
+        self.tok_embeddings = torch.nn.Embedding(vocab_size, hidden_size)
 
         self.norm = RMSNorm(hidden_size, eps=1e-5)
 
@@ -30,18 +27,19 @@ class DecoderModel(torch.nn.Module):
                 hidden_size,
                 n_heads,
                 scale_type,
-                device=device,
             )
             self.layers.append(layer)
 
-        self.output = torch.nn.Linear(hidden_size, vocab_size, bias=False, device=device)
+        self.output = torch.nn.Linear(hidden_size, vocab_size, bias=False)
 
         self.hidden_size = hidden_size
         self.n_heads = n_heads
 
-    def forward_common(self, use_cache, x, position_ids, attn_mask, cache):
+    def forward_common(self, use_cache, tokens, position_ids, attn_mask, cache):
         k_caches = []
         v_caches = []
+
+        x = self.tok_embeddings(tokens)
 
         for layer_idx, layer in enumerate(self.layers):
             k_cache = cache[layer_idx]["key"].clone().detach()
@@ -67,13 +65,13 @@ class DecoderModel(torch.nn.Module):
 
         return tuple(return_values)
 
-    def forward_no_cache(self, x, position_ids, attn_mask, cache):
+    def forward_no_cache(self, tokens, position_ids, attn_mask, cache):
         use_cache = False
-        return self.forward_common(use_cache, x, position_ids, attn_mask, cache)
+        return self.forward_common(use_cache, tokens, position_ids, attn_mask, cache)
 
-    def forward_use_cache(self, x_increment, position_ids_increment, attn_mask, cache):
+    def forward_use_cache(self, tokens_increment, position_ids_increment, attn_mask, cache):
         use_cache = True
-        return self.forward_common(use_cache, x_increment, position_ids_increment, attn_mask, cache)
+        return self.forward_common(use_cache, tokens_increment, position_ids_increment, attn_mask, cache)
 
     def set_use_cache(self, use_cache):
         self.forward = self.forward_use_cache if use_cache else self.forward_no_cache
@@ -85,15 +83,14 @@ def rotary_mat(
     max_seq_len: int,
     theta: float = 10000.0,
     head_scale=1.0,
-    device=torch.device("cpu"),
     dtype=torch.float32,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     head_dim = head_scale * hidden_size / n_heads
 
-    pos = torch.arange(0, head_dim, step=2, device=device, dtype=dtype)
+    pos = torch.arange(0, head_dim, step=2, dtype=dtype)
     freqs = 1.0 / (theta ** (pos / head_dim))
 
-    idx = torch.arange(max_seq_len, device=freqs.device)
+    idx = torch.arange(max_seq_len)
     freqs = torch.outer(idx.to(dtype), freqs)
     freqs = torch.cat((freqs, freqs), dim=-1)
 
@@ -108,7 +105,7 @@ class RMSNorm(torch.nn.Module):
     def __init__(self, dim: int, eps: float = 1e-6) -> None:
         super().__init__()
         self.eps = eps
-        self.weight = torch.nn.Parameter(torch.ones(dim, device=torch.device("cpu")))
+        self.weight = torch.nn.Parameter(torch.ones(dim))
 
     def _norm(self, x) -> torch.Tensor:
         return x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)
@@ -127,25 +124,23 @@ class TransformerLayer(torch.nn.Module):
         hidden_size: int,
         n_heads: int,
         scale_type: str,
-        device: Union[torch.device, None] = None,
     ) -> None:
         super().__init__()
         # these should have variable eps.
         self.attention_norm = RMSNorm(hidden_size, eps=1e-6)
         self.ffn_norm = RMSNorm(hidden_size, eps=1e-6)
 
-        self.cos, self.sin = rotary_mat(hidden_size, n_heads, 4096, head_scale=1.0, device=device.type)
+        self.cos, self.sin = rotary_mat(hidden_size, n_heads, 4096, head_scale=1.0)
 
         self.attention = SelfAttention(
             hidden_size,
             n_heads,
             scale_type,
-            device=device,
         )
         proj_dim = hidden_size * 4
         proj_dim = int(2 * proj_dim / 3)
         proj_dim = 256 * ((proj_dim + 256 - 1) // 256)
-        self.feed_forward = ProjLayerSiluMatMul(hidden_size, proj_dim, device=device)
+        self.feed_forward = ProjLayerSiluMatMul(hidden_size, proj_dim)
 
     def forward(
         self,
@@ -181,7 +176,7 @@ class ApplyMask(torch.nn.Module):
         mask_score = inverted_mask.masked_fill(inverted_mask.to(torch.bool), -10000.0)
 
         if not use_cache:
-            causal_mask = torch.tril(torch.ones((batch_size, max_seq_len, max_seq_len), device=torch.device("cpu")))
+            causal_mask = torch.tril(torch.ones((batch_size, max_seq_len, max_seq_len)))
             causal_mask = causal_mask[:, -seq_len:, :]
             inverted_causal_mask = 1.0 - causal_mask
             mask_score += inverted_causal_mask.masked_fill(inverted_causal_mask.to(torch.bool), -10000.0)
@@ -205,8 +200,7 @@ def apply_rope(x, cos, sin, position_ids):
     sin = sin[:, :head_dim]
     cos = cos[position_ids].unsqueeze(1)  # [bs, 1, seq_len, dim]
     sin = sin[position_ids].unsqueeze(1)  # [bs, 1, seq_len, dim]
-    x_embed = (x * cos) + (rotate_half(x) * sin)
-    return x_embed
+    return (x * cos) + (rotate_half(x) * sin)
 
 
 class RotaryEmbedding(torch.nn.Module):
@@ -231,13 +225,12 @@ class SelfAttention(torch.nn.Module):
         hidden_size: int,
         n_heads: int,
         scale_type: str,
-        device: Union[torch.device, None] = None,
     ) -> None:
         super().__init__()
-        self.wq = torch.nn.Linear(hidden_size, hidden_size, bias=False, device=device)
-        self.wk = torch.nn.Linear(hidden_size, hidden_size, bias=False, device=device)
-        self.wv = torch.nn.Linear(hidden_size, hidden_size, bias=False, device=device)
-        self.wo = torch.nn.Linear(hidden_size, hidden_size, bias=False, device=device)
+        self.wq = torch.nn.Linear(hidden_size, hidden_size, bias=False)
+        self.wk = torch.nn.Linear(hidden_size, hidden_size, bias=False)
+        self.wv = torch.nn.Linear(hidden_size, hidden_size, bias=False)
+        self.wo = torch.nn.Linear(hidden_size, hidden_size, bias=False)
         self.apply_mask = ApplyMask()
         self.rotary_embedding = RotaryEmbedding()
 
@@ -311,15 +304,14 @@ class ProjLayerSiluMatMul(torch.nn.Module):
         self,
         in_feature_size: int,
         hidden_feature_size: int,
-        device: Union[torch.device, None] = None,
     ) -> None:
         super().__init__()
         self.hidden_feature_size = hidden_feature_size
         self.in_feature_size = in_feature_size
 
-        self.w1 = torch.nn.Linear(in_feature_size, hidden_feature_size, bias=False, device=device)
-        self.w2 = torch.nn.Linear(hidden_feature_size, in_feature_size, bias=False, device=device)
-        self.w3 = torch.nn.Linear(in_feature_size, hidden_feature_size, bias=False, device=device)
+        self.w1 = torch.nn.Linear(in_feature_size, hidden_feature_size, bias=False)
+        self.w2 = torch.nn.Linear(hidden_feature_size, in_feature_size, bias=False)
+        self.w3 = torch.nn.Linear(in_feature_size, hidden_feature_size, bias=False)
 
     def forward(self, x):
         w1x = self.w1(x)

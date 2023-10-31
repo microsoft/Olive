@@ -9,7 +9,6 @@ import config
 import torch
 from argmax_sampling_model import ArgmaxSampling
 from decoder_model import DecoderModel
-from update_embeddings_model import UpdateEmbeddings
 
 
 # Helper latency-only dataloader that creates random tensors with no label
@@ -42,28 +41,6 @@ def argmax_sampling_inputs(model):
 
 def argmax_sampling_data_loader(data_dir, batch_size, *args, **kwargs):
     return RandomDataLoader(argmax_sampling_inputs, batch_size)
-
-
-# -----------------------------------------------------------------------------
-# UPDATE EMBEDDINGS
-# -----------------------------------------------------------------------------
-
-
-def load_update_embeddings_model(model_path):
-    vocab_size = 32000
-    hidden_size = 4096
-    model = UpdateEmbeddings(config.embeddings_file, vocab_size, hidden_size)
-    model.eval()
-    return model
-
-
-def update_embeddings_inputs(model):
-    seq_len = 10
-    return torch.zeros((seq_len,), dtype=torch.int64)
-
-
-def update_embeddings_data_loader(data_dir, batch_size, *args, **kwargs):
-    return RandomDataLoader(update_embeddings_inputs, batch_size)
 
 
 # -----------------------------------------------------------------------------
@@ -138,7 +115,7 @@ def decoder_inputs(model):
     head_size = hidden_size // num_heads
 
     return {
-        "x": torch.rand((batch_size, seq_len, hidden_size), dtype=torch.float32),
+        "tokens": torch.zeros((batch_size, seq_len), dtype=torch.int64),
         "position_ids": torch.zeros((batch_size, seq_len), dtype=torch.int64),
         "attn_mask": torch.zeros((batch_size, max_seq_len), dtype=torch.int32),
         "cache": [
@@ -170,7 +147,7 @@ def decoder_with_past_inputs(model):
     num_heads = 32
     head_size = hidden_size // num_heads
     return {
-        "x_increment": torch.rand((batch_size, 1, hidden_size), dtype=torch.float32),
+        "tokens_increment": torch.zeros((batch_size, 1), dtype=torch.int64),
         "position_ids_increment": torch.zeros((batch_size, 1), dtype=torch.int64),
         "attn_mask": torch.zeros((batch_size, max_seq_len), dtype=torch.int32),
         "cache": [
@@ -198,7 +175,7 @@ def merged_decoders_inputs(model):
     seq_len = 10
 
     inputs = {
-        "x": torch.rand((batch_size, seq_len, hidden_size), dtype=torch.float16),
+        "tokens": torch.zeros((batch_size, seq_len), dtype=torch.int64),
         "position_ids": torch.zeros((batch_size, seq_len), dtype=torch.int64),
         "attn_mask": torch.zeros((batch_size, max_seq_len), dtype=torch.int32),
     }
@@ -211,7 +188,7 @@ def merged_decoders_inputs(model):
             (batch_size, num_heads, max_seq_len, head_size), dtype=torch.float32
         )
 
-    inputs["x_increment"] = torch.rand((batch_size, 1, hidden_size), dtype=torch.float16)
+    inputs["tokens_increment"] = torch.zeros((batch_size, 1), dtype=torch.int64)
     inputs["position_ids_increment"] = torch.zeros((batch_size, 1), dtype=torch.int64)
     inputs["use_cache_branch"] = torch.ones((1,), dtype=torch.bool)
 

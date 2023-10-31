@@ -1,7 +1,7 @@
-# -*- coding:utf-8 -*-
 import argparse
 import gc
 import os
+from pathlib import Path
 
 import gradio as gr
 from app_modules.overwrites import postprocess
@@ -15,9 +15,6 @@ available_models = {
     "LLaMA 7B Chat Float16": {
         "onnx_file": os.path.join(
             top_directory, "models", "optimized", "llama_v2", "llama_v2", "decoder_model_merged.onnx"
-        ),
-        "update_embeddings_onnx_file": os.path.join(
-            top_directory, "models", "optimized", "llama_v2", "update_embeddings", "model.onnx"
         ),
         "sampling_onnx_file": os.path.join(
             top_directory, "models", "optimized", "llama_v2", "argmax_sampling", "model.onnx"
@@ -41,7 +38,6 @@ def change_model_listener(new_model_name):
     d = available_models[new_model_name]
     interface = LlamaOnnxDmlInterface(
         onnx_file=d["onnx_file"],
-        update_embeddings_onnx_file=d["update_embeddings_onnx_file"],
         sampling_onnx_file=d["sampling_onnx_file"],
         tokenizer_path=d["tokenizer_path"],
     )
@@ -52,24 +48,18 @@ def change_model_listener(new_model_name):
 
 gr.Chatbot.postprocess = postprocess
 
-with open("chat_app/assets/custom.css", "r", encoding="utf-8") as f:
+with Path.open("chat_app/assets/custom.css") as f:
     custom_css = f.read()
 
 
 def interface_predict(*args):
-    global interface
     res = interface.predict(*args)
-
-    for x in res:
-        yield x
+    yield from res
 
 
 def interface_retry(*args):
-    global interface
     res = interface.retry(*args)
-
-    for x in res:
-        yield x
+    yield from res
 
 
 def launch_chat_app(expose_locally: bool = False):
@@ -98,65 +88,62 @@ def launch_chat_app(expose_locally: bool = False):
                     )
                     retry_button = gr.Button("🔄 Regenerate")
                     delete_last_button = gr.Button("🗑️ Remove Last Turn")
-            with gr.Column():
-                with gr.Column(min_width=50, scale=1):
-                    with gr.Tab(label="Parameter Setting"):
-                        gr.Markdown("# Model")
-                        model_name = gr.Dropdown(
-                            choices=list(available_models.keys()),
-                            label="Model",
-                            show_label=False,  # default="Empty STUB",
-                            value="LLaMA 7B Chat Float16",
-                        )
-                        model_name.change(change_model_listener, inputs=[model_name], outputs=[model_name])
+            with gr.Column(), gr.Column(min_width=50, scale=1), gr.Tab(label="Parameter Setting"):
+                gr.Markdown("# Model")
+                model_name = gr.Dropdown(
+                    choices=list(available_models.keys()),
+                    label="Model",
+                    show_label=False,  # default="Empty STUB",
+                    value="LLaMA 7B Chat Float16",
+                )
+                model_name.change(change_model_listener, inputs=[model_name], outputs=[model_name])
 
-                        gr.Markdown("# Parameters")
-                        top_p = gr.Slider(
-                            minimum=-0,
-                            maximum=1.0,
-                            value=0.9,
-                            step=0.05,
-                            interactive=True,
-                            label="Top-p",
-                        )
-                        temperature = gr.Slider(
-                            minimum=0.1,
-                            maximum=2.0,
-                            value=0.6,
-                            step=0.1,
-                            interactive=True,
-                            label="Temperature",
-                        )
-                        max_length_tokens = gr.Slider(
-                            minimum=0,
-                            maximum=512,
-                            value=256,
-                            step=8,
-                            interactive=True,
-                            label="Max Generation Tokens",
-                        )
-                        max_context_length_tokens = gr.Slider(
-                            minimum=0,
-                            maximum=4096,
-                            value=2048,
-                            step=128,
-                            interactive=True,
-                            label="Max History Tokens",
-                        )
-                        token_printing_step = gr.Slider(
-                            minimum=1,
-                            maximum=10,
-                            value=4,
-                            step=1,
-                            interactive=True,
-                            label="Token Printing Step",
-                        )
+                gr.Markdown("# Parameters")
+                top_p = gr.Slider(
+                    minimum=-0,
+                    maximum=1.0,
+                    value=0.9,
+                    step=0.05,
+                    interactive=True,
+                    label="Top-p",
+                )
+                temperature = gr.Slider(
+                    minimum=0.1,
+                    maximum=2.0,
+                    value=0.6,
+                    step=0.1,
+                    interactive=True,
+                    label="Temperature",
+                )
+                max_length_tokens = gr.Slider(
+                    minimum=0,
+                    maximum=512,
+                    value=256,
+                    step=8,
+                    interactive=True,
+                    label="Max Generation Tokens",
+                )
+                max_context_length_tokens = gr.Slider(
+                    minimum=0,
+                    maximum=4096,
+                    value=2048,
+                    step=128,
+                    interactive=True,
+                    label="Max History Tokens",
+                )
+                token_printing_step = gr.Slider(
+                    minimum=1,
+                    maximum=10,
+                    value=4,
+                    step=1,
+                    interactive=True,
+                    label="Token Printing Step",
+                )
         gr.Markdown(description)
 
-        predict_args = dict(
-            # fn=interface.predict,
-            fn=interface_predict,
-            inputs=[
+        predict_args = {
+            "fn": interface_predict,
+            "inputs": [
                 user_question,
                 chatbot,
                 history,
@@ -166,12 +153,12 @@ def launch_chat_app(expose_locally: bool = False):
                 max_context_length_tokens,
                 token_printing_step,
             ],
-            outputs=[chatbot, history, status_display],
-            show_progress=True,
-        )
-        retry_args = dict(
-            fn=interface_retry,
-            inputs=[
+            "outputs": [chatbot, history, status_display],
+            "show_progress": True,
+        }
+        retry_args = {
+            "fn": interface_retry,
+            "inputs": [
                 user_input,
                 chatbot,
                 history,
@@ -180,19 +167,19 @@ def launch_chat_app(expose_locally: bool = False):
                 max_length_tokens,
                 max_context_length_tokens,
             ],
-            outputs=[chatbot, history, status_display],
-            show_progress=True,
-        )
+            "outputs": [chatbot, history, status_display],
+            "show_progress": True,
+        }
 
-        reset_args = dict(fn=reset_textbox, inputs=[], outputs=[user_input, status_display])
+        reset_args = {"fn": reset_textbox, "inputs": [], "outputs": [user_input, status_display]}
 
         # Chatbot
-        transfer_input_args = dict(
-            fn=transfer_input,
-            inputs=[user_input],
-            outputs=[user_question, user_input, submit_button],
-            show_progress=True,
-        )
+        transfer_input_args = {
+            "fn": transfer_input,
+            "inputs": [user_input],
+            "outputs": [user_question, user_input, submit_button],
+            "show_progress": True,
+        }
 
         predict_event1 = user_input.submit(**transfer_input_args).then(**predict_args)
 

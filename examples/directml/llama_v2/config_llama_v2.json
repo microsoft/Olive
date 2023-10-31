@@ -11,7 +11,7 @@
                         "model_script": "user_script.py",
                         "io_config": {
                             "input_names": [
-                                "x",
+                                "tokens",
                                 "position_ids",
                                 "attn_mask",
                                 "cache.0.key",
@@ -148,7 +148,7 @@
                                 "cache_out.31.value"
                             ],
                             "dynamic_axes": {
-                                "x": { "1": "seq_len" },
+                                "tokens": { "1": "seq_len" },
                                 "position_ids": { "1": "seq_len" },
                                 "attn_mask": { "1": "max_seq_len" },
                                 "cache.0.key": { "2": "max_seq_len" },
@@ -228,7 +228,7 @@
                         "model_script": "user_script.py",
                         "io_config": {
                             "input_names": [
-                                "x_increment",
+                                "tokens_increment",
                                 "position_ids_increment",
                                 "attn_mask",
                                 "cache.0.key",
@@ -365,7 +365,7 @@
                                 "cache_out.31.value"
                             ],
                             "dynamic_axes": {
-                                "x_increment": { "1": "seq_len_increment" },
+                                "tokens_increment": { "1": "seq_len_increment" },
                                 "position_ids_increment": { "1": "seq_len_increment" },
                                 "attn_mask": { "1": "max_seq_len" },
                                 "cache.0.key": { "2": "max_seq_len" },

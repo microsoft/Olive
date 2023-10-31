@@ -3,5 +3,4 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-embeddings_file = None
 decoder_model = None

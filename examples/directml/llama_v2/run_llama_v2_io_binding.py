@@ -1,7 +1,7 @@
 # This program will run the ONNX version of the LlamaV2 model.
 import argparse
-import os
 import time
+from pathlib import Path
 from typing import List
 
 import numpy as np
@@ -12,7 +12,7 @@ from sentencepiece import SentencePieceProcessor
 class Tokenizer:
     def __init__(self, model_path: str):
         # reload tokenizer
-        assert os.path.isfile(model_path), model_path
+        assert Path.isfile(model_path), model_path
         self.sp_model = SentencePieceProcessor(model_file=model_path)
 
         # BOS / EOS token IDs
@@ -24,12 +24,12 @@ class Tokenizer:
         assert self.sp_model.vocab_size() == self.sp_model.get_piece_size()
 
     def encode(self, s: str, bos: bool, eos: bool) -> List[int]:
-        assert type(s) is str
+        assert isinstance(s, str)
         t = self.sp_model.encode(s)
         if bos:
-            t = [self.bos_id] + t
+            t = [self.bos_id, *t]
         if eos:
-            t = t + [self.eos_id]
+            t = [*t, self.eos_id]
         return t
 
     def decode(self, t: List[int]) -> str:
@@ -55,12 +55,6 @@ def run_llama_v2_io_binding(
         )
     ]
 
-    update_embeddings_session = onnxruntime.InferenceSession(
-        "models/optimized/llama_v2/update_embeddings/model.onnx",
-        sess_options=onnxruntime.SessionOptions(),
-        providers=providers,
-    )
-
     argmax_sampling_session = onnxruntime.InferenceSession(
         "models/optimized/llama_v2/argmax_sampling/model.onnx",
         sess_options=onnxruntime.SessionOptions(),
@@ -78,47 +72,33 @@ def run_llama_v2_io_binding(
 
     data_type = np.float16
 
-    # Get the relevant shapes so we can create the inputs
-    for inputs_meta in llm_session._inputs_meta:
-        if inputs_meta.name == "x":
-            x_shape = inputs_meta.shape
-        elif inputs_meta.name == "attn_mask":
-            attn_mask_shape = inputs_meta.shape
-        elif inputs_meta.name == "cache.0.key":
-            cache_shape = inputs_meta.shape
-
+    hidden_size = 4096
+    n_heads = 32
     n_layers = 32
-    hidden_size = x_shape[2]
-    n_heads = cache_shape[1]
-    attn_mask_shape[1] = max_seq_len
 
     binding_device = "dml"
 
     # Initialize the tokenizer and produce the initial tokens.
     tokenizer = Tokenizer(model_path="models/optimized/llama_v2/tokenizer.model")
     tokens = tokenizer.encode(prompt, bos=True, eos=False)
-    tokens = onnxruntime.OrtValue.ortvalue_from_numpy(np.asarray(tokens, dtype=np.int64), binding_device)
+    tokens = np.expand_dims(np.asarray(tokens, dtype=np.int64), 0)
+    tokens = onnxruntime.OrtValue.ortvalue_from_numpy(tokens, binding_device)
+    tokens_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, 1), np.int64, binding_device)
 
-    seq_len = tokens.shape()[0]
+    seq_len = tokens.shape()[1]
 
     # Create the attention mask, which contains 1's for values that should stay intact, and 0's for values that should
     # get added to -10000
-    attn_mask = np.pad(np.ones((attn_mask_shape[0], seq_len)), ((0, 0), (max_seq_len - seq_len, 0))).astype(np.int32)
+    attn_mask = np.pad(np.ones((1, seq_len)), ((0, 0), (max_seq_len - seq_len, 0))).astype(np.int32)
     attn_mask = onnxruntime.OrtValue.ortvalue_from_numpy(attn_mask, binding_device)
-    attn_mask_out = onnxruntime.OrtValue.ortvalue_from_shape_and_type(attn_mask_shape, np.int32, binding_device)
+    attn_mask_out = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, max_seq_len), np.int32, binding_device)
 
     # Create the K and V caches.
     head_dim = int(hidden_size / n_heads)
 
     # Create the argmax sampling's I/O binding
-    next_token = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1,), np.int64, binding_device)
     argmax_sampling_io_binding = argmax_sampling_session.io_binding()
-    argmax_sampling_io_binding.bind_ortvalue_output("next_token", next_token)
-
-    x = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
-        (1, tokens.shape()[0], hidden_size), data_type, binding_device
-    )
-    x_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, 1, hidden_size), data_type, binding_device)
+    argmax_sampling_io_binding.bind_ortvalue_output("next_token", tokens_increment)
 
     # Create the LLM model's I/O binding
     logits_shape = (1, tokenizer.n_words)
@@ -133,7 +113,7 @@ def run_llama_v2_io_binding(
     k_caches_out = []
     v_caches_out = []
 
-    for layer_idx in range(n_layers):
+    for _ in range(n_layers):
         k_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, binding_device))
         v_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, binding_device))
         k_caches_out.append(
@@ -145,19 +125,11 @@ def run_llama_v2_io_binding(
 
     llm_io_binding.bind_cpu_input("use_cache_branch", np.zeros([1], dtype=np.bool_))
 
-    update_embeddings_io_binding = update_embeddings_session.io_binding()
-    update_embeddings_io_binding.bind_ortvalue_input("tokens", tokens)
-    update_embeddings_io_binding.bind_ortvalue_output("embeddings", x)
-
     before_time = time.perf_counter()
 
     # Iteratively generate tokens.
     output_tokens = []
     for idx in range(max_gen_len):
-        # Update the embeddings
-        update_embeddings_session.run_with_iobinding(update_embeddings_io_binding)
-        update_embeddings_io_binding.synchronize_outputs()
-
         if idx == 0:
             position_ids = np.arange(seq_len, dtype=np.int64).reshape((1, seq_len))
             llm_io_binding.bind_cpu_input("position_ids", position_ids)
@@ -166,9 +138,9 @@ def run_llama_v2_io_binding(
             llm_io_binding.bind_cpu_input("position_ids_increment", position_ids_increment)
 
         # Run the LLM model
-        llm_io_binding.bind_ortvalue_input("x", x)
+        llm_io_binding.bind_ortvalue_input("tokens", tokens)
+        llm_io_binding.bind_ortvalue_input("tokens_increment", tokens_increment)
         llm_io_binding.bind_ortvalue_input("attn_mask", attn_mask)
-        llm_io_binding.bind_ortvalue_input("x_increment", x_increment)
         llm_io_binding.bind_ortvalue_output("attn_mask_out", attn_mask_out)
 
         for layer_idx in range(n_layers):
@@ -184,18 +156,14 @@ def run_llama_v2_io_binding(
         argmax_sampling_io_binding.bind_ortvalue_input("logits", logits)
         argmax_sampling_session.run_with_iobinding(argmax_sampling_io_binding)
         argmax_sampling_io_binding.synchronize_outputs()
-        output_tokens.append(next_token.numpy().item())
+        output_tokens.append(tokens_increment.numpy().item())
 
         # Stop if/when we get an ENDOFTEXT token before reaching maximum sequence length
         if not ignore_eos and output_tokens[-1] == tokenizer.eos_id:
             break
 
-        # Update the embeddings for the next iteration
-        update_embeddings_io_binding.bind_ortvalue_input("tokens", next_token)
-
         if idx == 0:
             llm_io_binding.bind_cpu_input("use_cache_branch", np.ones([1], dtype=np.bool_))
-            update_embeddings_io_binding.bind_ortvalue_output("embeddings", x_increment)
 
         attn_mask_out, attn_mask = attn_mask, attn_mask_out
         k_caches, k_caches_out = k_caches_out, k_caches
