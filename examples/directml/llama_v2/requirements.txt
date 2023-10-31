@@ -5,6 +5,7 @@ markdown
 mdtex2html
 optimum
 ort-nightly-directml==1.16.0.dev20230915012
+protobuf==3.20.3 # protobuf 4.x aborts with OOM when optimizing large models
 Pygments
 tabulate
 torch
