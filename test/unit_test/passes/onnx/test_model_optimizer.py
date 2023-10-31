@@ -16,8 +16,8 @@ from olive.passes.onnx import OnnxModelOptimizer
 from olive.passes.onnx.common import model_proto_to_olive_model
 
 
-@pytest.fixture
-def external_data_config():
+@pytest.fixture(name="external_data_config")
+def external_data_config_fixture():
     return {
         "save_as_external_data": False,
         "all_tensors_to_one_file": True,
