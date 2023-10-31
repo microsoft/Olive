@@ -54,7 +54,6 @@ def get_or_create_decoder_model():
     vocab_size = 32000
     hidden_size = 4096
     scale_type = "SquareRootHeadDim"
-    device = torch.device("cpu")
 
     # Lazily load the decoder model the first time it's requested. This is necessary because both the cache and
     # no_cache models need to share the same instance in order to export their common weights with the same names.
@@ -67,7 +66,6 @@ def get_or_create_decoder_model():
             hidden_size,
             num_heads,
             scale_type,
-            device=device,
         )
         config.decoder_model.eval()
 

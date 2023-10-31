@@ -48,7 +48,7 @@ def change_model_listener(new_model_name):
 
 gr.Chatbot.postprocess = postprocess
 
-with Path.open("chat_app/assets/custom.css") as f:
+with Path("chat_app/assets/custom.css").open() as f:
     custom_css = f.read()
 
 

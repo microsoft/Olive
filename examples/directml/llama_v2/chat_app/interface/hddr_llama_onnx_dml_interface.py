@@ -13,7 +13,7 @@ from sentencepiece import SentencePieceProcessor
 class Tokenizer:
     def __init__(self, model_path: str):
         # reload tokenizer
-        assert Path.isfile(model_path), model_path
+        assert Path(model_path).is_file(), model_path
         self.sp_model = SentencePieceProcessor(model_file=model_path)
 
         # BOS / EOS token IDs
