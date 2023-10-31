@@ -17,16 +17,14 @@ def main():
     if platform.system() == "Windows":
         user_script_path = user_script_path.replace("\\", "//")
 
-    with open(config_path, "r") as f:
+    with config_path.open() as f:
         file_template_content = f.read()
         file_template_content = file_template_content.replace("{USER_SCRIPT}", user_script_path)
 
-    config_file = tempfile.NamedTemporaryFile(delete=False, suffix=".json", prefix="config_")
-    with open(config_file.name, "w") as f:
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json", prefix="config_") as f:
         f.write(file_template_content)
 
-    footprint = olive_run(config_file.name)
-    return footprint
+    return olive_run(f.name)
 
 
 if __name__ == "__main__":

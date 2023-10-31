@@ -19,9 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 def serialize_function(function: Union[FunctionType, MethodType]) -> dict:
-    """
-    Serialize a function into a dictionary.
-    """
+    """Serialize a function into a dictionary."""
     return {
         "olive_parameter_type": "Function",
         "name": function.__name__,
@@ -31,9 +29,7 @@ def serialize_function(function: Union[FunctionType, MethodType]) -> dict:
 
 
 def serialize_object(obj: Any) -> dict:
-    """
-    Serialize an object into a dictionary.
-    """
+    """Serialize an object into a dictionary."""
     return {
         "olive_parameter_type": "Object",
         "type": type(obj).__name__,
@@ -47,7 +43,7 @@ def _expanded_default(custom_default: Callable[[Any], Any], obj: Any) -> Any:
             return custom_default(obj)
         except TypeError:
             pass
-    if isinstance(obj, FunctionType) or isinstance(obj, MethodType):
+    if isinstance(obj, (FunctionType, MethodType)):
         return serialize_function(obj)
     if isinstance(obj, Path):
         return str(obj.resolve())
@@ -57,34 +53,30 @@ def _expanded_default(custom_default: Callable[[Any], Any], obj: Any) -> Any:
 
 
 def config_json_dumps(obj: Any, default: Callable[[Any], Any] = None, **kwargs) -> str:
-    """
-    Serialize a Python object into a JSON string. Also serializes functions and objects.
-    """
+    """Serialize a Python object into a JSON string. Also serializes functions and objects."""
     default = partial(_expanded_default, default)
     return json.dumps(obj, default=default, **kwargs)
 
 
 def _expanded_object_hook(custom_object_hook: Callable[[dict], Any], obj: dict) -> Any:
     if obj.get("olive_parameter_type") in ["Function", "Object"]:
-        type = obj.get("type", obj.get("olive_parameter_type"))
-        raise ValueError(f"Cannot load a {type} from JSON. Replace {type} with user_script and name string.")
+        param_type = obj.get("type", obj.get("olive_parameter_type"))
+        raise ValueError(
+            f"Cannot load a {param_type} from JSON. Replace {param_type} with user_script and name string."
+        )
     if custom_object_hook is None:
         return obj
     return custom_object_hook(obj)
 
 
 def config_json_loads(s: Union[str, bytes, bytearray], *, object_hook: Callable[[dict], Any] = None, **kwargs) -> Any:
-    """
-    Deserialize a JSON string into a Python object.
-    """
+    """Deserialize a JSON string into a Python object."""
     object_hook = partial(_expanded_object_hook, object_hook)
     return json.loads(s, object_hook=object_hook, **kwargs)
 
 
 def serialize_to_json(obj: Any, check_object: bool = False) -> dict:
-    """
-    Serialize a Python object into a JSON dict. Also serializes functions and objects.
-    """
+    """Serialize a Python object into a JSON dict. Also serializes functions and objects."""
     if isinstance(obj, BaseModel):
         raw_json = obj.json()
     else:
@@ -97,7 +89,7 @@ def serialize_to_json(obj: Any, check_object: bool = False) -> dict:
             if "user_script" in e:
                 e = e.replace("Cannot load", "Cannot serialize")
                 e = e.replace("from JSON", "to JSON")
-            raise ValueError(e)
+            raise ValueError(e) from None
     return json.loads(raw_json)
 
 
@@ -106,7 +98,7 @@ class ConfigBase(BaseModel):
         arbitrary_types_allowed = True
         json_loads = config_json_loads
         json_dumps = config_json_dumps
-        json_encoders = {Path: lambda x: str(x.resolve())}
+        json_encoders = {Path: lambda x: str(x.resolve())}  # noqa: RUF012
 
     def to_json(self, check_object: bool = False) -> dict:
         return serialize_to_json(self, check_object)
@@ -152,9 +144,9 @@ class ConfigDictBase(ConfigBase):
 
 
 class ConfigWithExtraArgs(ConfigBase):
-    """
-    Config class that automatically gathers all values not defined in the class fields into a dict Field
-    called `extra_args`
+    """Config class that automatically gathers all values.
+
+    The values are not defined in the class fields and inserted into a dict Field called `extra_args`.
     """
 
     extra_args: Dict = Field(
@@ -209,9 +201,7 @@ class ParamCategory(str, Enum):
 
 
 class ConfigParam(ConfigBase):
-    """
-    Dataclass for pass configuration parameters.
-    """
+    """Dataclass for pass configuration parameters."""
 
     type_: Any
     required: bool = False
@@ -236,7 +226,7 @@ def validate_enum(enum_class: type, value: str):
     try:
         value = enum_class(value)
     except ValueError:
-        raise ValueError(f"Invalid value '{value}'. Valid values are {[e.value for e in enum_class]}")
+        raise ValueError(f"Invalid value '{value}'. Valid values are {[e.value for e in enum_class]}") from None
     return value
 
 
@@ -255,7 +245,7 @@ def validate_resource_path(v, values, field):
     try:
         v = create_resource_path(v)
     except ValueError as e:
-        raise ValueError(f"Invalid resource path '{v}': {e}")
+        raise ValueError(f"Invalid resource path '{v}': {e}") from None
     return v
 
 
@@ -265,9 +255,7 @@ def create_config_class(
     base: type = ConfigBase,
     validators: Dict[str, Callable] = None,
 ) -> Type[ConfigBase]:
-    """
-    Create a Pydantic model class from a configuration dictionary.
-    """
+    """Create a Pydantic model class from a configuration dictionary."""
     config = {}
     validators = validators.copy() if validators else {}
     for param, param_config in default_config.items():
@@ -302,8 +290,8 @@ def validate_config(
     instance_class: Optional[Type[T]] = None,
     warn_unused_keys: bool = True,
 ) -> T:
-    """
-    Validate a config dictionary or object against a base class and instance class.
+    """Validate a config dictionary or object against a base class and instance class.
+
     instance class is a subclass of base class.
     """
     config = config or {}

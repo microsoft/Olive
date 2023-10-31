@@ -2,19 +2,22 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from typing import ClassVar
+
 from olive.systems.common import SystemType
 
 
 class AzureMLSystemAlias:
     system_type = SystemType.AzureML
-    accelerators = ["GPU"]
+    accelerators: ClassVar[list] = ["GPU"]
 
 
 class AzureND12SSystem(AzureMLSystemAlias):
     sku = "STANDARD_ND12S"
     num_cpus = 12
     num_gpus = 2
-    # TODO: add other attributes when needed from https://learn.microsoft.com/en-us/azure/virtual-machines/nd-series
+    # TODO(myguo): add other attributes when needed from
+    # https://learn.microsoft.com/en-us/azure/virtual-machines/nd-series
 
 
 class AzureND24RSSystem(AzureMLSystemAlias):
@@ -57,7 +60,7 @@ class AzureND96ASystem(AzureMLSystemAlias):
     # add other attributes when needed from https://learn.microsoft.com/en-us/azure/virtual-machines/nda100-v4-series
 
 
-# TODO: add the following alias system
+# TODO(myguo): add the following alias system
 # STANDARD_DS2_V2
 # STANDARD_DS3_V2
 # STANDARD_NC12
@@ -100,7 +103,7 @@ class AzureND96ASystem(AzureMLSystemAlias):
 # Please add surface readymade system alias from https://learn.microsoft.com/en-us/surface/surface-system-sku-reference
 class SurfaceSystemAlias:
     system_type = SystemType.Local
-    accelerators = ["GPU"]
+    accelerators: ClassVar[list] = ["GPU"]
 
 
 class SurfaceProSystem1796(SurfaceSystemAlias):

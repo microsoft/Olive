@@ -5,13 +5,16 @@
 import argparse
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from olive.evaluator.metric import Metric
 from olive.hardware import AcceleratorSpec
 from olive.model import ModelConfig
 from olive.systems.local import LocalSystem
-from olive.systems.olive_system import OliveSystem
 from olive.systems.utils import get_common_args
+
+if TYPE_CHECKING:
+    from olive.systems.olive_system import OliveSystem
 
 
 def parse_metric_args(raw_args):
@@ -37,11 +40,10 @@ def create_metric(metric_config, metric_args):
         if key == "metric_config":
             continue
         if value is not None:
-            key = key.replace("metric_", "")
-            metric_config["user_config"][key] = value
+            key_mod = key.replace("metric_", "")
+            metric_config["user_config"][key_mod] = value
 
-    p = Metric.from_json(metric_config)
-    return p
+    return Metric.from_json(metric_config)
 
 
 def main(raw_args=None):
@@ -50,24 +52,24 @@ def main(raw_args=None):
     accelerator_args = parse_accelerator_args(extra_args)
 
     # load metric
-    with open(metric_args.metric_config) as f:
+    with open(metric_args.metric_config) as f:  # noqa: PTH123
         metric_config = json.load(f)
     metric = create_metric(metric_config, metric_args)
 
-    # load model
-    model = ModelConfig.from_json(model_config).create_model()
+    # load model config
+    model_config = ModelConfig.from_json(model_config)
 
-    with open(accelerator_args.accelerator_config) as f:
+    with open(accelerator_args.accelerator_config) as f:  # noqa: PTH123
         accelerator_config = json.load(f)
     accelerator_spec = AcceleratorSpec(**accelerator_config)
 
     target: OliveSystem = LocalSystem()
 
     # metric result
-    metric_result = target.evaluate_model(model, None, [metric], accelerator_spec)
+    metric_result = target.evaluate_model(model_config, None, [metric], accelerator_spec)
 
     # save metric result json
-    with open(Path(pipeline_output) / "metric_result.json", "w") as f:
+    with (Path(pipeline_output) / "metric_result.json").open("w") as f:
         f.write(metric_result.json())
 
 

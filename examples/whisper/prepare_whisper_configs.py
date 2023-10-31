@@ -31,6 +31,10 @@ SUPPORTED_WORKFLOWS = {
     ("gpu", "fp16"): ["conversion", "transformers_optimization", "mixed_precision", "insert_beam_search", "prepost"],
     ("gpu", "int8"): ["conversion", "onnx_dynamic_quantization", "insert_beam_search", "prepost"],
 }
+DEVICE_TO_EP = {
+    "cpu": "CPUExecutionProvider",
+    "gpu": "CUDAExecutionProvider",
+}
 
 
 def get_args(raw_args):
@@ -46,6 +50,14 @@ def get_args(raw_args):
         action="store_true",
         help="Support using model for multiple languages. Only supported in ORT >= 1.16.0. Default: False",
     )
+    parser.add_argument(
+        "--package_model",
+        action="store_true",
+        help=(
+            "Package the final model as a zipfile along with the required onnxruntime packages and sample code."
+            " Default: False"
+        ),
+    )
     return parser.parse_args(raw_args)
 
 
@@ -60,7 +72,8 @@ def main(raw_args=None):
         raise ValueError("Multi-lingual support is only supported in ORT >= 1.16.0")
 
     # load template
-    template_json = json.load(open("whisper_template.json", "r"))
+    with open("whisper_template.json") as f:  # noqa: PTH123
+        template_json = json.load(f)
     model_name = args.model_name
 
     # update model name
@@ -77,17 +90,18 @@ def main(raw_args=None):
     # set model name in prepost
     template_json["passes"]["prepost"]["config"]["tool_command_args"]["model_name"] = model_name
 
-    # download audio test data
-    test_audio_path = download_audio_test_data()
-    template_json["passes"]["prepost"]["config"]["tool_command_args"]["testdata_filepath"] = str(test_audio_path)
-
     for device, precision in SUPPORTED_WORKFLOWS:
         workflow = SUPPORTED_WORKFLOWS[(device, precision)]
         config = deepcopy(template_json)
 
         # set output name
         config["engine"]["output_name"] = f"whisper_{device}_{precision}"
-        config["engine"]["packaging_config"]["name"] = f"whisper_{device}_{precision}"
+        # add packaging config
+        if args.package_model:
+            config["engine"]["packaging_config"] = {"type": "Zipfile", "name": f"whisper_{device}_{precision}"}
+
+        # set ep
+        config["engine"]["execution_providers"] = [DEVICE_TO_EP[device]]
 
         # set device for system
         config["systems"]["local_system"]["config"]["accelerators"] = [device]
@@ -103,11 +117,15 @@ def main(raw_args=None):
             config["passes"][pass_name] = pass_config
 
         # dump config
-        json.dump(config, open(f"whisper_{device}_{precision}.json", "w"), indent=4)
+        with open(f"whisper_{device}_{precision}.json", "w") as f:  # noqa: PTH123
+            json.dump(config, f, indent=4)
 
     # update user script
     user_script_path = Path(__file__).parent / "code" / "user_script.py"
     update_user_script(user_script_path, model_name)
+
+    # download audio test data
+    download_audio_test_data()
 
 
 def download_audio_test_data():
@@ -120,22 +138,23 @@ def download_audio_test_data():
         "https://raw.githubusercontent.com/microsoft/onnxruntime-extensions/main/test/data/" + test_audio_name
     )
     test_audio_path = data_dir / test_audio_name
-    request.urlretrieve(test_audio_url, test_audio_path)
+    if not test_audio_path.exists():
+        request.urlretrieve(test_audio_url, test_audio_path)
 
     return test_audio_path.relative_to(cur_dir)
 
 
 def update_user_script(file_path, model_name):
-    with open(file_path, "r") as file:
+    with open(file_path) as file:  # noqa: PTH123
         lines = file.readlines()
 
     new_lines = []
     for line in lines:
         if "<model_name>" in line:
-            line = line.replace("<model_name>", model_name)
+            line = line.replace("<model_name>", model_name)  # noqa: PLW2901
         new_lines.append(line)
 
-    with open(file_path, "w") as file:
+    with open(file_path, "w") as file:  # noqa: PTH123
         file.writelines(new_lines)
 
 

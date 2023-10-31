@@ -23,8 +23,8 @@ def _validate_target_device(v):
 
 
 class SNPEtoONNXConversion(Pass):
-    """
-    Convert a SNPE DLC to ONNX to use with SNPE Execution Provider.
+    """Convert a SNPE DLC to ONNX to use with SNPE Execution Provider.
+
     Creates a ONNX graph with the SNPE DLC as a node.
     """
 

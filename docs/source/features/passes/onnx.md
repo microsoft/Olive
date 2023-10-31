@@ -24,6 +24,8 @@ Please refer to [OnnxConversion](onnx_conversion) for more details about the pas
 `OnnxModelOptimizer` optimizes an ONNX model by fusing nodes. Fusing nodes involves merging multiple nodes in a model into a single node to
 reduce the computational cost and improve the performance of the model. The optimization process involves analyzing the structure of the ONNX model and identifying nodes that can be fused.
 
+Also, inserts a `Cast` operation for cases where `ArgMax` input isn't supported on the device. For example, on GPU inferencing, TensorProto.INT64 isn't supported so a `Cast` operator inserted to cast the inputs to TensorProto.INT32.
+
 Please refer to [OnnxModelOptimizer](onnx_model_optimizer) for more details about the pass and its config parameters.
 
 ### Example Configuration
@@ -82,7 +84,7 @@ Please refer to [OrtTransformersOptimization](ort_transformers_optimization) for
 `AppendPrePostProcessingOps` also supports pre/post processing ops by leveraging the [onnxruntime-extension steps](https://github.com/microsoft/onnxruntime-extensions/tree/main/onnxruntime_extensions/tools/pre_post_processing/steps) and `PrePostProcessor`.
 You can refer to [here](https://github.com/microsoft/onnxruntime-extensions/blob/main/onnxruntime_extensions/tools/Example%20usage%20of%20the%20PrePostProcessor.md) to see how to leverage `PrePostProcessor` to customize pre and post processing ops.
 
-* Olive introduces two placeholders to represent the model input/ouput shape dimension value: `__model_input__` and `__model_output__`.
+* Olive introduces two placeholders to represent the model input/output shape dimension value: `__model_input__` and `__model_output__`.
 * To support the IoMapEntry, the step need choose use the full form. For example:
 ```json
     "YCbCrToPixels": {

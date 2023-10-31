@@ -9,7 +9,7 @@ import tempfile
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, ClassVar, Dict, List, Optional, Union
 
 import onnx
 import torch
@@ -31,7 +31,6 @@ from olive.resource_path import (
     ResourcePathConfig,
     ResourceType,
     create_resource_path,
-    resolve_local_resource,
 )
 from olive.snpe import SNPEDevice, SNPEInferenceSession, SNPESessionOptions
 from olive.snpe.tools.dev import get_dlc_metrics
@@ -41,10 +40,12 @@ logger = logging.getLogger(__name__)
 
 
 class OliveModel(ABC):
-    """
-    Abstraction for logical "Model", it contains model path and related metadata.
+    """Abstraction for logical "Model", it contains model path and related metadata.
+
     Each technique accepts Model as input, return Model as output.
     """
+
+    resource_keys: ClassVar[list] = ["model_path"]
 
     @classmethod
     def __init_subclass__(cls, **kwargs) -> None:
@@ -57,32 +58,37 @@ class OliveModel(ABC):
         framework: Framework,
         model_file_format: ModelFileFormat,
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
-        # resources other than model_path
-        resources: Optional[Dict[str, OLIVE_RESOURCE_ANNOTATIONS]] = None,
+        model_attributes: Optional[Dict[str, Any]] = None,
     ):
         self.framework = framework
         self.model_file_format = model_file_format
         self.composite_parent = None
+        self.model_attributes = model_attributes
         self.io_config = None
         # store resource paths
-        self.resource_paths: Dict[str, ResourcePath] = {}
-        # this is for storing local instances of resource paths
-        self.local_resource_paths: Dict[str, ResourcePath] = {}
-        resources = resources or {}
+        self.resource_paths: Dict[str, str] = {}
+        resources = {}
         resources["model_path"] = model_path
-        for resource_name, resource_path in resources.items():
-            self.resource_paths[resource_name] = create_resource_path(resource_path)
-            # initialize local resource paths to None
-            self.local_resource_paths[resource_name] = None
+        self.add_resources(resources)
 
     @property
     def model_path(self) -> str:
         """Return local model path."""
-        return self.get_local_resource("model_path")
+        return self.get_resource("model_path")
+
+    def add_resources(self, resources: Dict[str, OLIVE_RESOURCE_ANNOTATIONS]):
+        for resource_name, resource_path in resources.items():
+            if resource_path is not None:
+                resolved_resource_path = create_resource_path(resource_path)
+                assert (
+                    resolved_resource_path.is_local_resource_or_string_name()
+                ), f"{resource_name} must be local path or string name."
+                self.resource_paths[resource_name] = resolved_resource_path.get_path()
+            else:
+                self.resource_paths[resource_name] = None
 
     def set_resource(self, resource_name: str, resource_path: Union[Path, str, ResourcePath, ResourcePathConfig]):
-        """
-        Set resource path.
+        """Set resource path.
 
         :param resource_name: name of the resource.
         :param resource_path: resource path.
@@ -91,49 +97,34 @@ class OliveModel(ABC):
             raise ValueError(f"{resource_name} is not a valid resource name.")
         if self.resource_paths[resource_name]:
             logger.debug(f"Overriding {resource_name} from {self.resource_paths[resource_name]} to {resource_path}.")
-        self.resource_paths[resource_name] = create_resource_path(resource_path)
-        self.local_resource_paths[resource_name] = None
 
-    def get_local_resource(self, resource_name: str) -> str:
-        """
-        Get local path of a resource.
+        if resource_path is not None:
+            resolved_resource_path = create_resource_path(resource_path)
+            assert (
+                resolved_resource_path.is_local_resource_or_string_name()
+            ), f"{resource_name} must be local path or string name."
+            resource_path = resolved_resource_path.get_path()
+
+        self.resource_paths[resource_name] = resource_path
+
+    def get_resource(self, resource_name: str) -> str:
+        """Get local path of a resource.
 
         :param resource_name: name of the resource.
         :return: local path.
         """
         assert resource_name in self.resource_paths, f"{resource_name} is not a valid resource name."
-        resource_path = self.resource_paths[resource_name]
-        local_resource_path = self.local_resource_paths[resource_name]
-        local_path = resolve_local_resource(resource_path, local_resource_path)
-        if not local_path and resource_path:
-            raise ValueError(
-                f"{resource_name} is not local and not downloaded yet. Please call download_model() or"
-                f" set_local_resource for {resource_name} first."
-            )
-        return local_path
-
-    def set_local_resource(self, resource_name: str, local_path: Union[Path, str, ResourcePath, ResourcePathConfig]):
-        """
-        Set local path of a resource.
-
-        :param resource_name: name of the resource.
-        :param local_path: local path.
-        """
-        if resource_name not in self.resource_paths:
-            raise ValueError(f"{resource_name} is not a valid resource name.")
-        local_resource_path = create_resource_path(local_path)
-        assert (
-            local_resource_path.is_local_resource() or local_resource_path.is_string_name()
-        ), f"{resource_name} must be local path."
-        self.local_resource_paths[resource_name] = local_resource_path
+        resource = self.resource_paths[resource_name]
+        assert resource is None or isinstance(resource, str)
+        return resource
 
     @abstractmethod
     def load_model(self, rank: int = None) -> object:
-        """
-        Load model from disk, return in-memory model object
+        """Load model from disk, return in-memory model object.
+
         Derived class should implement its specific logic if needed.
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     @abstractmethod
     def prepare_session(
@@ -143,11 +134,11 @@ class OliveModel(ABC):
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ):
-        """
-        Prepare inference session for Olive model, return in-memory inference session.
+        """Prepare inference session for Olive model, return in-memory inference session.
+
         Derived class should implement its specific logic if needed.
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def set_composite_parent(self, cp):
         self.composite_parent = cp
@@ -163,15 +154,16 @@ class OliveModel(ABC):
             "type": self.__class__.__name__,
             "config": {
                 # serialize resource paths
-                resource_name: resource_path.to_json() if resource_path else None
+                resource_name: resource_path if resource_path else None
                 for resource_name, resource_path in self.resource_paths.items()
             },
         }
+        config["config"].update({"model_attributes": self.model_attributes})
         return serialize_to_json(config, check_object)
 
 
 class ModelConfig(ConfigBase):
-    type: str
+    type: str  # noqa: A003
     config: dict
 
     @validator("type")
@@ -180,27 +172,39 @@ class ModelConfig(ConfigBase):
             raise ValueError(f"Unknown model type {v}")
         return v
 
+    def get_resource_keys(self):
+        cls = REGISTRY[self.type.lower()]
+        return cls.resource_keys
+
+    def get_resource_paths(self):
+        resource_keys = self.get_resource_keys()
+        return {k: create_resource_path(v) for k, v in self.config.items() if k in resource_keys}
+
     def create_model(self):
         return REGISTRY[self.type.lower()](**self.config)
 
 
 class ONNXModelBase(OliveModel):
-    """
-    Abstract class to manage ONNX models
-    """
+    """Abstract class to manage ONNX models."""
 
     def __init__(
         self,
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
+        model_attributes: Optional[Dict[str, Any]] = None,
     ):
-        super().__init__(framework=Framework.ONNX, model_file_format=ModelFileFormat.ONNX, model_path=model_path)
+        super().__init__(
+            framework=Framework.ONNX,
+            model_file_format=ModelFileFormat.ONNX,
+            model_path=model_path,
+            model_attributes=model_attributes,
+        )
         self.inference_settings = inference_settings
         self.use_ort_extensions = use_ort_extensions
 
     def _is_valid_ep(self, filepath: str, ep: str = None):
-        # TODO: should be remove if future accelerators is implemented
+        # TODO(shaahji): should be remove if future accelerators is implemented
         # It should be a bug for onnxruntime where the execution provider is not be fallback.
         import onnxruntime as ort
 
@@ -216,16 +220,14 @@ class ONNXModelBase(OliveModel):
         except Exception as e:
             logger.warning(
                 f"Error: {e}Olive will ignore this {ep}."
-                + f"Please make sure the environment with {ep} has the required dependencies."
+                f"Please make sure the environment with {ep} has the required dependencies."
             )
             return False
         return True
 
     @abstractmethod
     def get_default_execution_providers(self, device: Device):
-        """
-        Returns a list of supported default execution providers
-        """
+        """Return a list of supported default execution providers."""
         return ["CPUExecutionProvider"]
 
 
@@ -236,29 +238,27 @@ class ONNXModel(ONNXModelBase):
         onnx_file_name: Optional[str] = None,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
-        hf_config: Union[Dict[str, Any], HFConfig] = None,
+        model_attributes: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
             model_path=model_path,
             inference_settings=inference_settings,
             use_ort_extensions=use_ort_extensions,
+            model_attributes=model_attributes,
         )
         self.onnx_file_name = onnx_file_name
         self.io_config = None
         self.graph = None
         self.all_graphs: Optional[List[GraphProto]] = None
-        # huggingface config
-        self.hf_config = validate_config(hf_config, HFConfig) if hf_config else None
 
-        # if model_path is local folder, check for onnx file name
-        model_resource_path = self.resource_paths["model_path"]
-        if model_resource_path and model_resource_path.type == ResourceType.LocalFolder:
-            self.get_onnx_file_path(model_resource_path.get_path(), self.onnx_file_name)
+        # check for onnx file name since it will do validation
+        _ = self.model_path
 
     @staticmethod
     def get_onnx_file_path(model_path: str, onnx_file_name: Optional[str] = None) -> str:
-        """
-        Get the path to the ONNX model file. If model_path is a file, it is returned as is. If model_path is a
+        """Get the path to the ONNX model file.
+
+        If model_path is a file, it is returned as is. If model_path is a
         directory, the onnx_file_name is appended to it and the resulting path is returned. If onnx_file_name is not
         specified, it is inferred if there is only one .onnx file in the directory, else an error is raised.
         """
@@ -293,17 +293,16 @@ class ONNXModel(ONNXModelBase):
     @property
     def model_path(self) -> str:
         model_path = super().model_path
-        model_path = self.get_onnx_file_path(model_path, self.onnx_file_name) if model_path else None
-        return model_path
+        return self.get_onnx_file_path(model_path, self.onnx_file_name) if model_path else None
 
     @staticmethod
     def resolve_path(file_or_dir_path: str, model_filename: str = "model.onnx") -> str:
-        """
-        The engine provides output paths to ONNX passes that do not contain .onnx
-        extension (these paths are generally locations in the cache). This function
-        will convert such paths to absolute file paths and also ensure the parent
-        directories exist. If the input path is already an ONNX file it is simply
-        returned. Examples:
+        """Get the model full path.
+
+        The engine provides output paths to ONNX passes that do not contain .onnx extension
+        (these paths are generally locations in the cache). This function will convert such
+        paths to absolute file paths and also ensure the parent directories exist.
+        If the input path is already an ONNX file it is simply returned. Examples:
 
         resolve_path("c:/foo/bar.onnx") -> c:/foo/bar.onnx
 
@@ -322,8 +321,8 @@ class ONNXModel(ONNXModelBase):
 
     def prepare_session(
         self,
-        inference_settings: Dict[str, Any],
-        device: Device,
+        inference_settings: Optional[Dict[str, Any]] = None,
+        device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ):
@@ -353,8 +352,7 @@ class ONNXModel(ONNXModelBase):
 
     def nodes(self):
         for graph in self.get_all_graphs():
-            for node in graph.node:
-                yield node
+            yield from graph.node
 
     def get_graph(self):
         if self.graph is not None:
@@ -403,7 +401,6 @@ class ONNXModel(ONNXModelBase):
                 "onnx_file_name": self.onnx_file_name,
                 "inference_settings": self.inference_settings,
                 "use_ort_extensions": self.use_ort_extensions,
-                "hf_config": self.hf_config,
             }
         )
         return serialize_to_json(config, check_object)
@@ -417,8 +414,8 @@ class ONNXModel(ONNXModelBase):
         return super().get_default_execution_providers(device)
 
     def get_io_config(self):
-        """
-        Get input/output names, shapes, types of the onnx model without creating an ort session.
+        """Get input/output names, shapes, types of the onnx model without creating an ort session.
+
         This function loads the onnx model and parses the graph to get the io config.
         """
         if self.io_config:
@@ -451,7 +448,7 @@ class ONNXModel(ONNXModelBase):
                 tensor_type = io.type.tensor_type
                 if tensor_type.elem_type == 0:
                     # sequence type
-                    # TODO: add support for different types
+                    # TODO(jambayk): add support for different types
                     # refer to https://github.com/lutzroeder/netron/blob/main/source/onnx.js#L1424
                     tensor_type = io.type.sequence_type.elem_type.tensor_type
                 data_type = str(tensor_dtype_to_np_dtype(tensor_type.elem_type))
@@ -469,6 +466,8 @@ class ONNXModel(ONNXModelBase):
 
 
 class PyTorchModel(OliveModel):
+    resource_keys: ClassVar[list] = ["model_path", "script_dir", "model_script", "adapter_path"]
+
     def __init__(
         self,
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
@@ -476,10 +475,11 @@ class PyTorchModel(OliveModel):
         model_loader: Union[str, Callable] = None,
         model_script: Union[str, Path] = None,
         script_dir: Union[str, Path] = None,
-        io_config: Union[Dict[str, Any], IOConfig] = None,
+        io_config: Union[Dict[str, Any], IOConfig, str] = None,
         dummy_inputs_func: Union[str, Callable] = None,
         hf_config: Union[Dict[str, Any], HFConfig] = None,
         adapter_path: OLIVE_RESOURCE_ANNOTATIONS = None,
+        model_attributes: Optional[Dict[str, Any]] = None,
     ):
         if not (
             isinstance(model_loader, Callable)
@@ -497,55 +497,73 @@ class PyTorchModel(OliveModel):
             framework=Framework.PYTORCH,
             model_file_format=model_file_format,
             model_path=model_path,
-            resources={"adapter_path": adapter_path, "script_dir": script_dir, "model_script": model_script},
+            model_attributes=model_attributes,
         )
-        # ensure that model_script and script_dirs are local
-        for resource_name in ["script_dir", "model_script"]:
-            if self.resource_paths[resource_name]:
-                assert self.resource_paths[
-                    resource_name
-                ].is_local_resource(), f"{resource_name} must be local file or directory."
+        resources = {"adapter_path": adapter_path, "script_dir": script_dir, "model_script": model_script}
+        self.add_resources(resources)
+
+        self.hf_config = None
+        if hf_config:
+            self.hf_config = validate_config(hf_config, HFConfig)
+            hf_model_config = self.get_hf_model_config().to_dict()
+            model_attr = self.model_attributes or {}
+            hf_model_config.update(model_attr)
+            self.model_attributes = hf_model_config
+
+        # ensure that script_dirs are local folder
+        script_dir_resource = create_resource_path(self.script_dir)
+        if script_dir_resource:
+            assert script_dir_resource.type == ResourceType.LocalFolder, "script_dir must be a local directory."
+
+        # ensure that model_script is local file or string name
+        model_script_resource = create_resource_path(self.model_script)
+        if model_script_resource:
+            assert model_script_resource.type in (
+                ResourceType.LocalFile,
+                ResourceType.StringName,
+            ), "model_script must be a local file or a string name."
 
         # io config for conversion to onnx
+        # TODO(trajep): support callable io_config
+        if isinstance(io_config, str):
+            user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
+            io_config = user_module_loader.call_object(io_config, self.hf_config.model_name)
         self.io_config = validate_config(io_config, IOConfig).dict() if io_config else None
         self.dummy_inputs_func = dummy_inputs_func
 
         self.dummy_inputs = None
 
-        # huggingface config
-        self.hf_config = validate_config(hf_config, HFConfig) if hf_config else None
-
     @property
     def script_dir(self) -> str:
-        return self.get_local_resource("script_dir")
+        return self.get_resource("script_dir")
 
     @property
     def model_script(self) -> str:
-        return self.get_local_resource("model_script")
+        return self.get_resource("model_script")
 
     def load_model(self, rank: int = None) -> torch.nn.Module:
         if self.model is not None:
             return self.model
 
+        # Load special path or format model -> load model from hf config -> load normal path model
         if self.model_loader is not None:
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             model = user_module_loader.call_object(self.model_loader, self.model_path)
+        elif self.model_file_format == ModelFileFormat.PYTORCH_TORCH_SCRIPT:
+            model = torch.jit.load(self.model_path)
+        elif self.model_file_format == ModelFileFormat.PYTORCH_MLFLOW_MODEL:
+            model = self.load_mlflow_model()
         elif self.hf_config and (self.hf_config.model_class or self.hf_config.task):
             model = self.hf_config.load_model(self.model_path)
+        elif self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
+            model = torch.load(self.model_path)
+        elif self.model_file_format == ModelFileFormat.PYTORCH_STATE_DICT:
+            raise ValueError("Please use customized model loader to load state dict of model.")
         else:
-            if self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
-                model = torch.load(self.model_path)
-            elif self.model_file_format == ModelFileFormat.PYTORCH_TORCH_SCRIPT:
-                model = torch.jit.load(self.model_path)
-            elif self.model_file_format == ModelFileFormat.PYTORCH_MLFLOW_MODEL:
-                model = self.load_mlflow_model()
-            elif self.model_file_format == ModelFileFormat.PYTORCH_STATE_DICT:
-                raise ValueError("Please use customized model loader to load state dict of model.")
-            else:
-                raise ValueError(f"Unsupported model file format: {self.model_file_format}")
+            raise ValueError(f"Unsupported model file format: {self.model_file_format}")
 
         # we only have peft adapters for now
-        adapter_path = self.get_local_resource("adapter_path")
+        adapter_path = self.get_resource("adapter_path")
         if adapter_path:
             from peft import PeftModel
 
@@ -556,58 +574,52 @@ class PyTorchModel(OliveModel):
         return model
 
     def load_mlflow_model(self):
-        tmp_dir = tempfile.TemporaryDirectory(prefix="mlflow_tmp")
-        tmp_dir_path = Path(tmp_dir.name)
+        logger.info(f"Loading MLFlow model from {self.model_path}")
+        with tempfile.TemporaryDirectory(prefix="mlflow_tmp") as tmp_dir:
+            shutil.copytree(os.path.join(self.model_path, "data/model"), tmp_dir, dirs_exist_ok=True)
+            shutil.copytree(os.path.join(self.model_path, "data/config"), tmp_dir, dirs_exist_ok=True)
+            shutil.copytree(os.path.join(self.model_path, "data/tokenizer"), tmp_dir, dirs_exist_ok=True)
 
-        shutil.copytree(os.path.join(self.model_path, "data/model"), tmp_dir_path, dirs_exist_ok=True)
-        shutil.copytree(os.path.join(self.model_path, "data/config"), tmp_dir_path, dirs_exist_ok=True)
-        shutil.copytree(os.path.join(self.model_path, "data/tokenizer"), tmp_dir_path, dirs_exist_ok=True)
+            with open(os.path.join(self.model_path, "MLmodel")) as fp:  # noqa: PTH123
+                mlflow_data = yaml.safe_load(fp)
+                # default flavor is "hftransformersv2" from azureml.evaluate.mlflow>=0.0.8
+                # "hftransformers" from azureml.evaluate.mlflow<0.0.8
+                # TODO(trajep): let user specify flavor name if needed
+                # to support other flavors in mlflow not only hftransformers
+                hf_pretrained_class = None
+                flavors = mlflow_data.get("flavors", {})
+                if not flavors:
+                    raise ValueError(
+                        "Invalid MLFlow model format. Please make sure the input model"
+                        " format is same with the result of mlflow.transformers.save_model,"
+                        " or aml_mlflow.hftransformers.save_model from azureml.evaluate.mlflow"
+                    )
 
-        with open(os.path.join(self.model_path, "MLmodel"), "r") as fp:
-            mlflow_data = yaml.safe_load(fp)
-            # default flavor is "hftransformersv2" from azureml.evaluate.mlflow>=0.0.8
-            # "hftransformers" from azureml.evaluate.mlflow<0.0.8
-            # TODO: let user specify flavor name if needed
-            # TODO: to support other flavors in mlflow not only hftransformers
-            hf_pretrained_class = None
-            flavors = mlflow_data.get("flavors", {})
-            if not flavors:
-                raise ValueError(
-                    "Invalid MLFlow model format. Please make sure the input model"
-                    " format is same with the result of mlflow.transformers.save_model,"
-                    " or aml_mlflow.hftransformers.save_model from azureml.evaluate.mlflow"
-                )
+                if "hftransformersv2" in flavors:
+                    hf_pretrained_class = flavors["hftransformersv2"].get("hf_pretrained_class", "AutoModel")
+                elif "hftransformers" in flavors:
+                    hf_pretrained_class = flavors["hftransformers"].get("hf_pretrained_class", "AutoModel")
+                else:
+                    raise ValueError(
+                        "Unsupported MLFlow model flavor. Currently only support hftransformersv2/hftransformers."
+                    )
 
-            if "hftransformersv2" in flavors:
-                hf_pretrained_class = flavors["hftransformersv2"].get("hf_pretrained_class", "AutoModel")
-            elif "hftransformers" in flavors:
-                hf_pretrained_class = flavors["hftransformers"].get("hf_pretrained_class", "AutoModel")
-            else:
-                raise ValueError(
-                    "Unsupported MLFlow model flavor. Currently only support hftransformersv2/hftransformers."
-                )
-
-        model_loader = huggingface_model_loader(hf_pretrained_class)
-        loaded_model = model_loader(tmp_dir_path)
-        loaded_model.eval()
-
-        tmp_dir.cleanup()
-
-        return loaded_model
+            model_loader = huggingface_model_loader(hf_pretrained_class)
+            loaded_model = model_loader(tmp_dir)
+            loaded_model.eval()
+            return loaded_model
 
     def prepare_session(
         self,
-        inference_settings: Dict[str, Any],
-        device: Device,
+        inference_settings: Optional[Dict[str, Any]] = None,
+        device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ):
         return self.load_model().eval()
 
     def get_dummy_inputs(self):
-        """
-        Return a dummy input for the model.
-        """
+        """Return a dummy input for the model."""
         if self.dummy_inputs is not None:
             return self.dummy_inputs
 
@@ -654,25 +666,25 @@ class PyTorchModel(OliveModel):
 
         return dummy_inputs
 
-    def get_model_config(self):
+    def get_hf_model_config(self):
         if self.hf_config is None:
             raise ValueError("HF model_config is not available")
-        return self.hf_config.load_model_config(self.model_path)
+        return (
+            self.hf_config.load_model_config(self.hf_config.model_name)
+            if self.model_file_format == ModelFileFormat.PYTORCH_MLFLOW_MODEL
+            else self.hf_config.load_model_config(self.model_path)
+        )
 
     @property
     def components(self) -> List[str]:
-        """
-        Names of the components of the model.
-        """
+        """Names of the components of the model."""
         if not self.hf_config or not self.hf_config.components:
             return None
 
         return [component.name for component in self.hf_config.components]
 
     def get_component(self, component_name: str) -> "PyTorchModel":
-        """
-        Get a component of the model as a PyTorchModel.
-        """
+        """Get a component of the model as a PyTorchModel."""
         assert self.components, "hf_config.components must be provided to get component"
         assert component_name in self.components, f"component {component_name} not found in hf_config"
 
@@ -680,8 +692,12 @@ class PyTorchModel(OliveModel):
         components_dict = {component.name: component for component in self.hf_config.components}
         hf_component = components_dict[component_name]
 
-        user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
-        model_component = user_module_loader.call_object(hf_component.component_func, self.hf_config.model_name)
+        if hf_component.component_func is None:
+            logger.debug("component_func is not provided, using hf_config to get component")
+            model_component = self.hf_config.load_model(self.model_path)
+        else:
+            user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
+            model_component = user_module_loader.call_object(hf_component.component_func, self.hf_config.model_name)
 
         io_config = hf_component.io_config
         if isinstance(io_config, str):
@@ -702,6 +718,7 @@ class PyTorchModel(OliveModel):
             model_script=self.model_script,
             script_dir=self.script_dir,
             hf_config=HFConfig.parse_obj(component_hf_config),
+            model_attributes=self.model_attributes,
         )
 
     def to_json(self, check_object: bool = False):
@@ -715,11 +732,16 @@ class PyTorchModel(OliveModel):
                 "hf_config": self.hf_config,
             }
         )
-        # convert script_dir and model_script to string
-        # the original config has them as serialized ResourcePath
-        for resource_name in ["script_dir", "model_script"]:
-            if self.resource_paths[resource_name]:
-                config["config"][resource_name] = self.resource_paths[resource_name].get_path()
+        # clean up redundant information in model_attributes
+        config["config"].pop("model_attributes", None)
+        # using a copy of self.model_attributes since config["config"]["model_attributes"] is already
+        # serialized and might not match self.model_attributes
+        model_attributes = deepcopy(self.model_attributes)
+        if model_attributes and self.hf_config:
+            for key, value in self.get_hf_model_config().to_dict().items():
+                if key in model_attributes and model_attributes[key] == value:
+                    del model_attributes[key]
+        config["config"]["model_attributes"] = model_attributes or None
         return serialize_to_json(config, check_object)
 
 
@@ -737,6 +759,43 @@ class OptimumModel(PyTorchModel):
         return serialize_to_json(config, check_object)
 
 
+class CompositePyTorchModel(PyTorchModel):
+    def __init__(self, model_components: List[Dict[str, Any]], **kwargs):
+        super().__init__(
+            model_file_format=ModelFileFormat.PYTORCH_ENTIRE_MODEL,
+            **(kwargs or {}),
+        )
+        self.model_components = {}
+        self.model_component_names = []
+
+        for model_config in model_components:
+            config_copy = deepcopy(model_config)
+
+            assert "name" in config_copy
+            model_name = config_copy["name"]
+            del config_copy["name"]
+
+            self.model_component_names.append(model_name)
+            self.model_components[model_name] = validate_config(config_copy, ModelConfig).create_model()
+
+    def to_json(self, check_object: bool = False):
+        config = super().to_json(check_object)
+        config["config"].update({"model_components": self.model_components})
+        return serialize_to_json(config, check_object)
+
+    @property
+    def components(self) -> List[str]:
+        """Names of the components of the model."""
+        return self.model_component_names
+
+    def get_component(self, component_name: str) -> "PyTorchModel":
+        """Get a component of the model as a PyTorchModel."""
+        assert component_name in self.model_components, f"component {component_name} not found in model_components"
+
+        # get the component from the name
+        return self.model_components[component_name]
+
+
 class SNPEModel(OliveModel):
     def __init__(
         self,
@@ -745,8 +804,14 @@ class SNPEModel(OliveModel):
         output_names: List[str],
         output_shapes: List[List[int]],
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
+        model_attributes: Optional[Dict[str, Any]] = None,
     ):
-        super().__init__(framework=Framework.SNPE, model_file_format=ModelFileFormat.SNPE_DLC, model_path=model_path)
+        super().__init__(
+            framework=Framework.SNPE,
+            model_file_format=ModelFileFormat.SNPE_DLC,
+            model_path=model_path,
+            model_attributes=model_attributes,
+        )
         self.io_config = {
             "input_names": input_names,
             "input_shapes": input_shapes,
@@ -755,12 +820,12 @@ class SNPEModel(OliveModel):
         }
 
     def load_model(self, rank: int = None):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def prepare_session(
         self,
-        inference_settings: Dict[str, Any],
-        device: Device,
+        inference_settings: Optional[Dict[str, Any]] = None,
+        device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ) -> SNPEInferenceSession:
@@ -785,30 +850,40 @@ class TensorFlowModel(OliveModel):
         self,
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         model_file_format: ModelFileFormat = ModelFileFormat.TENSORFLOW_SAVED_MODEL,
+        model_attributes: Optional[Dict[str, Any]] = None,
     ):
-        super().__init__(model_path=model_path, framework=Framework.TENSORFLOW, model_file_format=model_file_format)
+        super().__init__(
+            model_path=model_path,
+            framework=Framework.TENSORFLOW,
+            model_file_format=model_file_format,
+            model_attributes=model_attributes,
+        )
 
     def load_model(self, rank: int = None):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def prepare_session(
         self,
-        inference_settings: Dict[str, Any],
-        device: Device,
+        inference_settings: Optional[Dict[str, Any]] = None,
+        device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ):
-        raise NotImplementedError()
+        raise NotImplementedError
 
 
 class OpenVINOModel(OliveModel):
-    def __init__(self, model_path: OLIVE_RESOURCE_ANNOTATIONS):
+    def __init__(self, model_path: OLIVE_RESOURCE_ANNOTATIONS, model_attributes: Optional[Dict[str, Any]] = None):
         super().__init__(
-            model_path=model_path, framework=Framework.OPENVINO, model_file_format=ModelFileFormat.OPENVINO_IR
+            model_path=model_path,
+            framework=Framework.OPENVINO,
+            model_file_format=ModelFileFormat.OPENVINO_IR,
+            model_attributes=model_attributes,
         )
         # check if the model files (xml, bin) are in the same directory
-        if self.resource_paths["model_path"].is_local_resource():
-            _ = self.model_config
+        model_path = create_resource_path(self.model_path)
+        assert model_path.is_local_resource(), "OpenVINO model_path must be local file or directory."
+        _ = self.model_config
 
     @property
     def model_config(self) -> Dict[str, str]:
@@ -836,46 +911,49 @@ class OpenVINOModel(OliveModel):
         try:
             from openvino.tools.pot import load_model
         except ImportError:
-            raise ImportError("Please install olive-ai[openvino] to use OpenVINO model")
+            raise ImportError("Please install olive-ai[openvino] to use OpenVINO model") from None
         return load_model(self.model_config)
 
     def prepare_session(
         self,
-        inference_settings: Dict[str, Any],
-        device: Device,
+        inference_settings: Optional[Dict[str, Any]] = None,
+        device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ):
         try:
             from openvino.runtime import Core
         except ImportError:
-            raise ImportError("Please install olive-ai[openvino] to use OpenVINO model")
+            raise ImportError("Please install olive-ai[openvino] to use OpenVINO model") from None
         ie = Core()
         model_pot = ie.read_model(model=self.model_config["model"])
         if device == Device.INTEL_MYRIAD:
             device = "MYRIAD"
-        compiled_model = ie.compile_model(model=model_pot, device_name=device.upper())
-        return compiled_model
+        return ie.compile_model(model=model_pot, device_name=device.upper())
 
 
 class DistributedOnnxModel(ONNXModelBase):
-    EXECUTION_PROVIDERS = {
+    resource_keys: ClassVar[list] = ["model_filepaths"]
+
+    EXECUTION_PROVIDERS: ClassVar[dict] = {
         "cpu": ["CPUExecutionProvider"],
         "gpu": ["CUDAExecutionProvider", "CPUExecutionProvider"],
     }
 
     def __init__(
         self,
-        model_filepaths: List[Union[Path, str]] = [],
+        model_filepaths: List[Union[Path, str]] = None,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
+        model_attributes: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
             model_path=None,
             inference_settings=inference_settings,
             use_ort_extensions=use_ort_extensions,
+            model_attributes=model_attributes,
         )
-        self.model_filepaths = model_filepaths
+        self.model_filepaths = model_filepaths or []
 
     @property
     def ranks(self):
@@ -884,19 +962,23 @@ class DistributedOnnxModel(ONNXModelBase):
     def ranked_model_path(self, rank: int) -> Union[Path, str]:
         return self.model_filepaths[rank]
 
-    def load_model(self, rank: int) -> ONNXModel:
+    def load_model(self, rank: int = None) -> ONNXModel:
         return ONNXModel(self.model_filepaths[rank], inference_settings=self.inference_settings)
 
     def prepare_session(
         self,
         inference_settings: Optional[Dict[str, Any]] = None,
-        device: Device = Device.GPU,
+        device: Device = Device.GPU,  # pylint: disable=signature-differs
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = 0,
     ):
         raise RuntimeError("DistributedOnnxModel doesn't have a session of its own")
 
-    def get_default_execution_providers(self, filepath: str, device: Device):
+    def get_default_execution_providers(self, device: Device):
+        """Return a list of supported default execution providers."""
+        return ["CPUExecutionProvider"]
+
+    def get_default_execution_providers_with_model(self, filepath: str, device: Device):
         # return firstly available ep as ort default ep
         available_providers = DistributedOnnxModel.get_execution_providers(device)
         for ep in available_providers:
@@ -920,33 +1002,34 @@ class DistributedOnnxModel(ONNXModelBase):
                 "model_filepaths": self.model_filepaths,
                 "inference_settings": self.inference_settings,
                 "use_ort_extensions": self.use_ort_extensions,
+                "model_attributes": self.model_attributes,
             },
         }
         return serialize_to_json(config, check_object=check_object)
 
 
 class CompositeOnnxModel(ONNXModelBase):
-    """
-    CompositeOnnxModel represents multi component models. Whisper is an example composite
-    model that has encoder and decoder components. CompositeOnnxModel is a collection of
-    OnnxModels.
+    """CompositeOnnxModel represents multiple component models.
+
+    Whisper is an example composite model that has encoder and decoder components.
+    CompositeOnnxModel is a collection of OnnxModels.
     """
 
     def __init__(
         self,
         model_components: List[Union[ONNXModel, Dict[str, Any]]],
         model_component_names: List[str],
-        hf_config: Union[Dict[str, Any], HFConfig] = None,
+        model_attributes: Optional[Dict[str, Any]] = None,
     ):
-        super().__init__(model_path=None)
+        super().__init__(model_path=None, model_attributes=model_attributes)
 
         if isinstance(model_components[0], dict):
             assert all(
-                [m.get("type").lower() == "onnxmodel" for m in model_components]
+                m.get("type").lower() == "onnxmodel" for m in model_components
             ), "All components must be ONNXModel"
             self.model_components = [ONNXModel(**m.get("config", {})) for m in model_components]
         else:
-            assert all([isinstance(m, ONNXModel) for m in model_components]), "All components must be ONNXModel"
+            assert all(isinstance(m, ONNXModel) for m in model_components), "All components must be ONNXModel"
             self.model_components = model_components
 
         assert len(self.model_components) == len(model_component_names), "Number of components and names must match"
@@ -955,22 +1038,20 @@ class CompositeOnnxModel(ONNXModelBase):
         for m in self.model_components:
             m.set_composite_parent(self)
 
-        self.hf_config = validate_config(hf_config, HFConfig) if hf_config else None
-
     def load_model(self, rank: int = None):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def prepare_session(
         self,
-        inference_settings: Dict[str, Any],
-        device: Device,
+        inference_settings: Optional[Dict[str, Any]] = None,
+        device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def get_default_execution_providers(self, device: Device):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def get_model_components(self):
         return self.model_components
@@ -984,15 +1065,10 @@ class CompositeOnnxModel(ONNXModelBase):
     def get_model_component_name(self, idx):
         return self.model_component_names[idx]
 
-    def get_model_config(self):
-        if self.hf_config is None:
-            raise ValueError("HF model_config is not available")
-        return self.hf_config.load_model_config()
-
     def to_json(self, check_object: bool = False):
         json_dict = {
             "type": self.__class__.__name__,
-            "config": {"hf_config": self.hf_config, "model_component_names": self.model_component_names},
+            "config": {"model_attributes": self.model_attributes, "model_component_names": self.model_component_names},
         }
         json_dict["config"]["model_components"] = []
         for m in self.model_components:

@@ -5,7 +5,7 @@
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Union
+from typing import ClassVar, List, Union
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +22,7 @@ class Device(str, Enum):
 
 @dataclass(frozen=True, eq=True)
 class AcceleratorSpec:
-    """Accelerator specification is the concept of a hardware device that can
-    be used to optimize or evaluate a model."""
+    """Accelerator specification is the concept of a hardware device that be used to optimize or evaluate a model."""
 
     accelerator_type: Union[str, Device]
     execution_provider: str
@@ -52,24 +51,30 @@ DEFAULT_GPU_TRT_ACCELERATOR = AcceleratorSpec(
 
 
 class AcceleratorLookup:
-    EXECUTION_PROVIDERS = {
+    EXECUTION_PROVIDERS: ClassVar[dict] = {
         "cpu": ["CPUExecutionProvider", "OpenVINOExecutionProvider"],
         "gpu": [
             "DmlExecutionProvider",
             "CUDAExecutionProvider",
-            "OpenVINOExecutionProvider",
+            "ROCmExecutionProvider",
             "TensorrtExecutionProvider",
             "CPUExecutionProvider",
+            "OpenVINOExecutionProvider",
         ],
         "npu": ["QNNExecutionProvider", "CPUExecutionProvider"],
     }
 
     @staticmethod
-    def get_execution_providers_for_device(device: Device):
-        import onnxruntime as ort
+    def get_managed_supported_execution_providers(device: Device):
+        return AcceleratorLookup.EXECUTION_PROVIDERS.get(device)
 
-        available_providers = ort.get_available_providers()
-        return AcceleratorLookup.get_execution_providers_for_device_by_available_providers(device, available_providers)
+    @staticmethod
+    def get_execution_providers_for_device(device: Device):
+        import onnxruntime
+
+        return AcceleratorLookup.get_execution_providers_for_device_by_available_providers(
+            device, onnxruntime.get_available_providers()
+        )
 
     @staticmethod
     def get_execution_providers_for_device_by_available_providers(device: Device, available_providers):
@@ -93,8 +98,8 @@ class AcceleratorLookup:
 
     @staticmethod
     def infer_accelerators_from_execution_provider(execution_provider: List[str]):
-        """
-        Infer the device from the execution provider name.
+        """Infer the device from the execution provider name.
+
         If all the execution provider is uniquely mapped to a device, return the device list.
         Otherwise, return None.
         For example:
@@ -116,11 +121,11 @@ class AcceleratorLookup:
                     if len(accelerators[idx]) > 1:
                         logger.warning(
                             f"Execution provider {ep} is mapped to multiple accelerators {accelerators[idx]}. "
-                            "Olive cannot infer the device which may cause unexpected behavior"
+                            "Olive cannot infer the device which may cause unexpected behavior. "
                             "Please specify the accelerator in the accelerator configs"
                         )
                         is_unique_inferring = False
 
         if is_unique_inferring:
-            return list(set([accelerator[0] for accelerator in accelerators]))
+            return list({accelerator[0] for accelerator in accelerators})
         return None

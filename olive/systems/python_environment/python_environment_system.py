@@ -3,9 +3,11 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import collections
+import json
 import logging
 import os
 import pickle
+import platform
 import tempfile
 from copy import deepcopy
 from pathlib import Path
@@ -14,7 +16,7 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 import torch
 
-from olive.common.utils import run_subprocess
+from olive.common.utils import get_package_name_from_ep, run_subprocess
 from olive.evaluator.metric import (
     Metric,
     MetricResult,
@@ -24,7 +26,7 @@ from olive.evaluator.metric import (
 )
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveModelOutput, OnnxEvaluator
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec, Device
-from olive.model import OliveModel, ONNXModel
+from olive.model import ModelConfig, ONNXModel
 from olive.passes.olive_pass import Pass
 from olive.systems.common import SystemType
 from olive.systems.olive_system import OliveSystem
@@ -38,24 +40,37 @@ class PythonEnvironmentSystem(OliveSystem):
 
     def __init__(
         self,
-        python_environment_path: Union[Path, str],
+        python_environment_path: Union[Path, str] = None,
         environment_variables: Dict[str, str] = None,
         prepend_to_path: List[str] = None,
         accelerators: List[str] = None,
+        olive_managed_env: bool = False,
+        requirements_file: Union[Path, str] = None,
     ):
-        super().__init__(accelerators=accelerators)
+        super().__init__(accelerators=accelerators, olive_managed_env=olive_managed_env)
         self.config = PythonEnvironmentTargetUserConfig(
             python_environment_path=python_environment_path,
             environment_variables=environment_variables,
             prepend_to_path=prepend_to_path,
             accelerators=accelerators,
+            olive_managed_env=olive_managed_env,
+            requirements_file=requirements_file,
         )
         self.environ = deepcopy(os.environ)
         if self.config.environment_variables:
             self.environ.update(self.config.environment_variables)
         if self.config.prepend_to_path:
             self.environ["PATH"] = os.pathsep.join(self.config.prepend_to_path) + os.pathsep + self.environ["PATH"]
-        self.environ["PATH"] = str(self.config.python_environment_path) + os.pathsep + self.environ["PATH"]
+        if self.config.python_environment_path:
+            self.environ["PATH"] = str(self.config.python_environment_path) + os.pathsep + self.environ["PATH"]
+        if self.config.olive_managed_env:
+            if platform.system() == "Linux":
+                temp_dir = os.path.join(os.environ.get("HOME", ""), "tmp")
+                if not os.path.exists(temp_dir):
+                    os.makedirs(temp_dir)
+                self.environ["TMPDIR"] = temp_dir
+            else:
+                self.environ["TMPDIR"] = tempfile.TemporaryDirectory().name  # pylint: disable=consider-using-with
 
         # available eps. This will be populated the first time self.get_supported_execution_providers() is called.
         # used for caching the available eps
@@ -63,34 +78,66 @@ class PythonEnvironmentSystem(OliveSystem):
 
         # path to inference script
         self.inference_path = Path(__file__).parent.resolve() / "inference_runner.py"
+        self.pass_path = Path(__file__).parent.resolve() / "pass_runner.py"
         self.device = self.accelerators[0] if self.accelerators else Device.CPU
 
     def run_pass(
         self,
         the_pass: Pass,
-        model: OliveModel,
+        model_config: ModelConfig,
         data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
-    ) -> OliveModel:
-        """
-        Run the pass on the model at a specific point in the search space.
-        """
-        raise ValueError("PythonEnvironmentSystem does not support running passes.")
+    ) -> ModelConfig:
+        """Run the pass on the model at a specific point in the search space."""
+        model_config_json = model_config.to_json()
+        pass_config = the_pass.to_json()
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_dir_path = Path(tmp_dir)
+            model_json_path = tmp_dir_path / "model.json"
+            pass_json_path = tmp_dir_path / "pass.json"
+            output_model_json_path = tmp_dir_path / "output_model.json"
+
+            with model_json_path.open("w") as f:
+                json.dump(model_config_json, f, indent=4)
+            with pass_json_path.open("w") as f:
+                json.dump(pass_config, f, indent=4)
+
+            # run pass
+            command = (
+                f"python {self.pass_path} --model_json_path {model_json_path} --pass_json_path {pass_json_path}"
+                f" --output_model_path {output_model_path} --output_model_json_path {output_model_json_path}"
+            )
+            if point:
+                point_json_path = tmp_dir_path / "point.json"
+                with point_json_path.open("w") as f:
+                    point = point or {}
+                    json.dump(point, f, indent=4)
+                command += f" --point_json_path {point_json_path}"
+            if data_root:
+                command += f" --data_root {data_root}"
+
+            run_subprocess(command, env=self.environ, check=True)
+
+            with output_model_json_path.open() as f:
+                model_json = json.load(f)
+                output_model = ModelConfig.from_json(model_json)
+
+        return output_model
 
     def evaluate_model(
-        self, model: OliveModel, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
+        self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
     ) -> MetricResult:
-        """
-        Evaluate the model
-        """
-        if not isinstance(model, ONNXModel):
+        """Evaluate the model."""
+        if not model_config.type.lower() == "ONNXModel".lower():
             raise ValueError("PythonEnvironmentSystem can only evaluate ONNXModel.")
 
         # check if custom metric is present
         if any(metric.type == MetricType.CUSTOM for metric in metrics):
             raise ValueError("PythonEnvironmentSystem does not support custom metrics.")
 
+        model = model_config.create_model()
         metrics_res = {}
         for original_metric in metrics:
             metric = OliveEvaluator.generate_metric_user_config_with_model_io(original_metric, model)
@@ -103,9 +150,7 @@ class PythonEnvironmentSystem(OliveSystem):
     def evaluate_accuracy(
         self, model: ONNXModel, data_root: str, metric: Metric, accelerator: AcceleratorSpec
     ) -> float:
-        """
-        Evaluate the accuracy of the model.
-        """
+        """Evaluate the accuracy of the model."""
         dataloader, _, post_func = OliveEvaluator.get_user_config(model.framework, data_root, metric)
 
         preds = []
@@ -124,7 +169,7 @@ class PythonEnvironmentSystem(OliveSystem):
 
             # save inference settings
             inference_settings_path = tmp_dir_path / "inference_settings.pb"
-            with open(inference_settings_path, "wb") as f:
+            with inference_settings_path.open("wb") as f:
                 pickle.dump(inference_settings, f)
 
             num_batches = 0
@@ -175,9 +220,7 @@ class PythonEnvironmentSystem(OliveSystem):
         return OliveEvaluator.compute_accuracy(metric, model_output, targets)
 
     def evaluate_latency(self, model: ONNXModel, data_root: str, metric: Metric, accelerator: AcceleratorSpec) -> float:
-        """
-        Evaluate the latency of the model.
-        """
+        """Evaluate the latency of the model."""
         dataloader, _, _ = OliveEvaluator.get_user_config(model.framework, data_root, metric)
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
 
@@ -195,7 +238,7 @@ class PythonEnvironmentSystem(OliveSystem):
 
             # save inference settings
             inference_settings_path = tmp_dir_path / "inference_settings.pb"
-            with open(inference_settings_path, "wb") as f:
+            with inference_settings_path.open("wb") as f:
                 pickle.dump(inference_settings, f)
 
             # save input data to npz
@@ -220,9 +263,7 @@ class PythonEnvironmentSystem(OliveSystem):
         return OliveEvaluator.compute_latency(metric, latencies)
 
     def get_inference_settings(self, model: ONNXModel, metric: Metric, accelerator: AcceleratorSpec) -> Dict[str, Any]:
-        """
-        Get the model inference settings.
-        """
+        """Get the model inference settings."""
         metric_inference_settings = metric.user_config.inference_settings
         inference_settings = (
             metric_inference_settings.get(model.framework.lower()) if metric_inference_settings else None
@@ -240,9 +281,7 @@ class PythonEnvironmentSystem(OliveSystem):
         return inference_settings
 
     def get_supported_execution_providers(self) -> List[str]:
-        """
-        Get the available execution providers.
-        """
+        """Get the available execution providers."""
         if self.available_eps:
             return self.available_eps
 
@@ -260,16 +299,12 @@ class PythonEnvironmentSystem(OliveSystem):
             return available_eps
 
     def get_execution_providers(self) -> List[str]:
-        """
-        Get the execution providers for the device.
-        """
+        """Get the execution providers for the device."""
         available_eps = self.get_supported_execution_providers()
         return AcceleratorLookup.get_execution_providers_for_device_by_available_providers(self.device, available_eps)
 
     def get_default_execution_provider(self, model: ONNXModel) -> List[str]:
-        """
-        Get the default execution provider for the model.
-        """
+        """Get the default execution provider for the model."""
         # return first available ep as ort default ep
         available_providers = self.get_execution_providers()
         for ep in available_providers:
@@ -278,9 +313,7 @@ class PythonEnvironmentSystem(OliveSystem):
         return ["CPUExecutionProvider"]
 
     def is_valid_ep(self, ep: str, model: ONNXModel) -> bool:
-        """
-        Check if the execution provider is valid for the model.
-        """
+        """Check if the execution provider is valid for the model."""
         with tempfile.TemporaryDirectory() as temp_dir:
             is_valid_ep_path = Path(__file__).parent.resolve() / "is_valid_ep.py"
             output_path = Path(temp_dir).resolve() / "result.pb"
@@ -307,6 +340,50 @@ class PythonEnvironmentSystem(OliveSystem):
             else:
                 logger.warning(
                     f"Error: {result['error']} Olive will ignore this {ep}."
-                    + f"Please make sure the environment with {ep} has the required dependencies."
+                    f"Please make sure the environment with {ep} has the required dependencies."
                 )
                 return False
+
+    def install_requirements(self, accelerator: AcceleratorSpec):
+        """Install required packages."""
+        # install common packages
+        common_requirements_file = Path(__file__).parent.resolve() / "common_requirements.txt"
+        run_subprocess(
+            f"pip install --cache-dir {self.environ['TMPDIR']} -r {common_requirements_file}",
+            env=self.environ,
+            check=True,
+        )
+
+        # install onnxruntime package
+        onnxruntime_package = get_package_name_from_ep(accelerator.execution_provider)[0]
+        run_subprocess(
+            f"pip install --cache-dir {self.environ['TMPDIR']} {onnxruntime_package}",
+            env=self.environ,
+            check=True,
+        )
+
+        # install user requirements
+        if self.config.requirements_file:
+            run_subprocess(
+                f"pip install --cache-dir {self.environ['TMPDIR']} -r {self.config.requirements_file}",
+                env=self.environ,
+                check=True,
+            )
+
+    def remove(self):
+        import shutil
+
+        vitual_env_path = Path(self.config.python_environment_path).resolve().parent
+
+        try:
+            shutil.rmtree(vitual_env_path)
+            logger.info("Virtual environment '{}' removed.".format(vitual_env_path))
+        except FileNotFoundError:
+            pass
+
+        if platform.system() == "Linux":
+            try:
+                shutil.rmtree(self.environ["TMPDIR"])
+                logger.info("Temporary directory '{}' removed.".format(self.environ["TMPDIR"]))
+            except FileNotFoundError:
+                pass

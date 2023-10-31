@@ -24,7 +24,7 @@
                     "type": "accuracy",
                     "backend": "huggingface_metrics",
                     "sub_types": [
-                        {"name": "accuracy", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
+                        {"name": "accuracy", "priority": 1, "goal": {"type": "max-degradation", "value": 0.05}},
                         {"name": "f1"}
                     ]
                 },
@@ -32,7 +32,7 @@
                     "name": "latency",
                     "type": "latency",
                     "sub_types": [
-                        {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
+                        {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 5}},
                         {"name": "max"},
                         {"name": "min"}
                     ]
@@ -49,13 +49,15 @@
         },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
-            "config": {
-                "float16": false
-            }
+            "disable_search": true
         },
         "quantization": {
             "type": "OnnxQuantization",
             "config": {
+                "quant_preprocess": true,
+                "per_channel": false,
+                "reduce_range": false,
+                "calibrate_method": "MinMax",
                 "data_config": "__input_model_data_config__"
             }
         },

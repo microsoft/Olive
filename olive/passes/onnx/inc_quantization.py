@@ -3,17 +3,20 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import os
 import tempfile
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Union
+
+from packaging import version
 
 from olive.cache import get_local_path_from_root
 from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
 from olive.evaluator.metric import Metric, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
-from olive.exception import OlivePassException
+from olive.exception import OlivePassError
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
@@ -117,6 +120,20 @@ _inc_quantization_config = {
             accuracy aware tuning.
         """,
     ),
+    "weight_only_config": PassConfigParam(
+        type_=dict,
+        default_value={},
+        description="""
+            INC weight only quantization config.
+        """,
+    ),
+    "op_type_dict": PassConfigParam(
+        type_=dict,
+        default_value={},
+        description="""
+            INC weight only quantization config.
+        """,
+    ),
 }
 
 _inc_static_dataloader_config = {
@@ -135,7 +152,7 @@ _inc_static_dataloader_config = {
             Batch size for calibration, only used if dataloader_func is provided.
         """,
     ),
-    # TODO: remove this option once we have a data config ready
+    # TODO(trajep): remove this option once we have a data config ready
     "dataloader_func": PassConfigParam(
         type_=Union[Callable, str],
         category=ParamCategory.OBJECT,
@@ -211,22 +228,49 @@ _inc_tuning_criterion_config = {
     ),
 }
 
+_inc_woq_optional_config = {
+    "bits": PassConfigParam(
+        type_=int,
+        default_value=4,
+        description="""
+            The number of bits to quantize to.
+        """,
+    ),
+    "group_size": PassConfigParam(
+        type_=int,
+        default_value=4,
+        description="""
+            How many elements share one scale/zp.
+            -1 refers to per output channel quantization.
+        """,
+    ),
+    "scheme": PassConfigParam(
+        type_=str,
+        default_value="asym",
+        searchable_values=Categorical(["asym", "sym"]),
+        description="""
+            Symmetrize or asymmetric calibration data for weights.
+        """,
+    ),
+    "algorithm": PassConfigParam(
+        type_=str,
+        default_value="RTN",
+        searchable_values=Categorical(["RTN", "GPTQ"]),
+        description="""
+            Algorithm of weight only quantization. Support 'RTN' and 'GPTQ'.
+        """,
+    ),
+}
+
 
 class IncQuantization(Pass):
-    """
-    Quantize ONNX model with Intel® Neural Compressor.
-    """
+    """Quantize ONNX model with Intel® Neural Compressor."""
 
     _requires_user_script = True
 
-    def _initialize(self):
-        super()._initialize()
-
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
-        """Override this method to return False by using the
-        accelerator spec information.
-        """
+        """Override this method to return False by using the accelerator spec information."""
         return False
 
     @staticmethod
@@ -235,10 +279,10 @@ class IncQuantization(Pass):
             "approach": PassConfigParam(
                 type_=str,
                 default_value="static",
-                searchable_values=Categorical(["dynamic", "static"]),
+                searchable_values=Categorical(["dynamic", "static", "weight_only"]),
                 description="""
                 Intel® Neural Compressor Quantization mode. 'dynamic' for dynamic quantization,
-                'static' for static quantization.
+                'static' for static quantization, "weight_only" for 4-bits weight-only quantization.
             """,
             )
         }
@@ -250,10 +294,14 @@ class IncQuantization(Pass):
         for key, value in deepcopy(_inc_tuning_criterion_config).items():
             config["tuning_criterion"].default_value.update({key: value.default_value})
 
+        # weight only quantization config
+        for key, value in deepcopy(_inc_woq_optional_config).items():
+            config["weight_only_config"].default_value.update({key: value.default_value})
+
         # static quantization config
         config.update(deepcopy(_inc_static_dataloader_config))
         inc_static_optional_config = deepcopy(_inc_static_optional_config)
-        for _, value in inc_static_optional_config.items():
+        for value in inc_static_optional_config.values():
             # default value of quant_format is conditional on approach
             if isinstance(value.searchable_values, Categorical):
                 # ignore the parameter quant_format if approach is dynamic, if approach is static,
@@ -267,9 +315,9 @@ class IncQuantization(Pass):
                 # ignore the parameter quant_format if approach is dynamic, if approach is static,
                 # use the searchable_values in inc_static_optional_config by expanding the parents
                 value.searchable_values = Conditional(
-                    parents=("approach",) + value.searchable_values.parents,
+                    parents=("approach", *value.searchable_values.parents),
                     support={
-                        ("static",) + key: value.searchable_values.support[key]
+                        ("static", *key): value.searchable_values.support[key]
                         for key in value.searchable_values.support
                     },
                     default=Categorical(["default"]),
@@ -287,11 +335,11 @@ class IncQuantization(Pass):
             # and return evaluation value.
 
             # temporarily save model as onnx model
-            tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
+            tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")  # pylint: disable=consider-using-with
             tmp_model_path = Path(tmp_dir.name) / "tmp_model.onnx"
 
             # save as olive onnx model
-            # TODO: investigate why save_as_external_data = True is not working
+            # TODO(jambayk): investigate why save_as_external_data = True is not working
             # it cannot find the external data file
             olive_model = model_proto_to_olive_model(
                 model,
@@ -338,7 +386,7 @@ class IncQuantization(Pass):
             tolerable_loss = -goal_value / 100
             criterion = "relative"
         else:
-            assert False, (
+            raise AssertionError(
                 "Accuracy metric goal type for Intel® Neural Compressor quantization only suuport "
                 "'max-degradation', 'min-improvement', 'percent-max-degradation' and 'percent-min-improvement'."
             )
@@ -358,7 +406,7 @@ class IncQuantization(Pass):
         except ImportError:
             raise ImportError(
                 "Please install `olive-ai[inc]` or `neural-compressor` to use Intel® Neural Compressor quantization"
-            )
+            ) from None
 
         _inc_quantization_config = deepcopy(run_config)
 
@@ -405,6 +453,15 @@ class IncQuantization(Pass):
 
         return eval_func, accuracy_criterion, tuning_criterion
 
+    def _set_woq_config(self, run_config):
+        # set weight only quantization config for INC API
+        weight_only_config = run_config["weight_only_config"]
+        bits = weight_only_config.get("bits", 4)
+        group_size = weight_only_config.get("group_size", 32)
+        scheme = weight_only_config.get("scheme", "asym")
+        algo = weight_only_config.get("algorithm", "RTN")
+        return {"bits": bits, "group_size": group_size, "scheme": scheme, "algorithm": algo}
+
     def _run_for_config(
         self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModel:
@@ -414,19 +471,30 @@ class IncQuantization(Pass):
         except ImportError:
             raise ImportError(
                 "Please install `olive-ai[inc]` or `neural-compressor` to use Intel® Neural Compressor quantization"
-            )
+            ) from None
+
+        # check neural-compressor version for weight only quantization
+        import neural_compressor
+
+        assert not (
+            config["approach"] == "weight_only"
+            and version.parse(neural_compressor.__version__) < version.parse("2.3.0")
+        ), "Require neural-compressor >= 2.3.0 to support weight only quantization."
 
         # start with a copy of the config
         run_config = deepcopy(config)
-        is_static = run_config["approach"] == "static"
-        if is_static:
+        require_dataloader = run_config["approach"] == "static" or (
+            run_config["approach"] == "weight_only" and run_config["weight_only_config"]["algorithm"].upper() == "GPTQ"
+        )
+        if require_dataloader:
             assert (
                 config["dataloader_func"] or config["data_config"]
-            ), "dataloader_func or data_config is required for static quantization."
+            ), "dataloader_func or data_config is required for {} quantization.".format(run_config["approach"])
 
-        output_model_path = ONNXModel.resolve_path(output_model_path)
+        output_model_path = ONNXModel.resolve_path(os.path.join(output_model_path, os.path.basename(model.model_path)))
 
         eval_func, accuracy_criterion, tuning_criterion = self._set_tuning_config(run_config, data_root)
+        weight_only_config = self._set_woq_config(run_config)
 
         # keys not needed for quantization
         to_delete = [
@@ -438,24 +506,31 @@ class IncQuantization(Pass):
             "tuning_criterion",
             "data_config",
             "metric",
+            "weight_only_config",
         ]
         to_delete += list(get_external_data_config().keys())
         for key in to_delete:
             if key in run_config:
                 del run_config[key]
 
+        run_config["op_type_dict"] = (
+            run_config["op_type_dict"] or {".*": {"weight": weight_only_config}}
+            if run_config["approach"] == "weight_only"
+            else None
+        )
+
         ptq_config = PostTrainingQuantConfig(
-            **run_config, accuracy_criterion=accuracy_criterion, tuning_criterion=tuning_criterion
+            **run_config,
+            accuracy_criterion=accuracy_criterion,
+            tuning_criterion=tuning_criterion,
         )
 
         inc_calib_dataloader = None
-        if is_static:
+        if require_dataloader:
             if self._user_module_loader:
                 data_dir = get_local_path_from_root(data_root, config["data_dir"])
                 inc_calib_dataloader = self._user_module_loader.call_object(
-                    config["dataloader_func"],
-                    data_dir,
-                    config["batch_size"],
+                    config["dataloader_func"], data_dir, config["batch_size"], model_path=model.model_path
                 )
             elif config["data_config"]:
                 data_config = validate_config(config["data_config"], DataConfig)
@@ -465,7 +540,7 @@ class IncQuantization(Pass):
             model.model_path, ptq_config, calib_dataloader=inc_calib_dataloader, eval_func=eval_func
         )
         if eval_func is not None and q_model is None:
-            raise OlivePassException(
+            raise OlivePassError(
                 "Intel® Neural Compressor quantization does not "
                 "find any quantized model which meet accuracy goal. "
                 "Try to increase 'max_trials' in 'tuning_criterion'."
@@ -475,7 +550,7 @@ class IncQuantization(Pass):
 
 
 class IncDynamicQuantization(IncQuantization):
-    """Intel® Neural Compressor Dynamic Quantization Pass"""
+    """Intel® Neural Compressor Dynamic Quantization Pass."""
 
     _requires_user_script = False
 
@@ -497,7 +572,7 @@ class IncDynamicQuantization(IncQuantization):
 
 
 class IncStaticQuantization(IncQuantization):
-    """Intel® Neural Compressor Static Quantization Pass"""
+    """Intel® Neural Compressor Static Quantization Pass."""
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, Any]:
@@ -510,6 +585,10 @@ class IncStaticQuantization(IncQuantization):
         # tuning criterion config
         for key, value in deepcopy(_inc_tuning_criterion_config).items():
             config["tuning_criterion"].default_value.update({key: value.default_value})
+
+        # weight only quantization config
+        for key, value in deepcopy(_inc_woq_optional_config).items():
+            config["weight_only_config"].default_value.update({key: value.default_value})
 
         # static quantization specific config
         config.update(deepcopy(_inc_static_dataloader_config))

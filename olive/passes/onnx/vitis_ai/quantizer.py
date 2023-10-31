@@ -51,6 +51,9 @@ from olive.passes.onnx.vitis_ai.refine import adjust_quantize_info
 
 logger = logging.getLogger(__name__)
 
+# pylint: skip-file
+# ruff: noqa
+
 
 class VitisDPUQuantizer(QDQQuantizer):
     def __init__(
@@ -123,7 +126,6 @@ class VitisDPUQuantizer(QDQQuantizer):
         self.is_activation_symmetric = True
 
     def vitis_quantize_initializer(self, weight, bit_width=8, keep_float_weight=False):
-
         # Find if this input is already quantized
         if weight.name in self.quantized_value_map:
             quantized_value = self.quantized_value_map[weight.name]
@@ -160,7 +162,6 @@ class VitisDPUQuantizer(QDQQuantizer):
         return q_weight_name, zp_name, scale_name
 
     def quantize_model(self):
-
         self.tensor_info = {}
         model = self.model.model
         annotate_output_name_list = get_annotate_output_name(model)
@@ -424,6 +425,8 @@ class VitisQOpQuantizer(ONNXQuantizer):
         return q_weight_name, zp_name, scale_name
 
     def calculate_quantization_params(self):
+        from olive.passes.onnx.vitis_ai.quant_utils import is_ort_version_below_1_16
+
         if self.tensors_range is None:
             return
 
@@ -437,17 +440,28 @@ class VitisQOpQuantizer(ONNXQuantizer):
                 continue
             if len(self.model.input_name_to_nodes()[node.input[0]]) != 1:
                 continue
-            if node.input[0] not in self.tensors_range.keys() or node.output[0] not in self.tensors_range.keys():
+            if node.input[0] not in self.tensors_range or node.output[0] not in self.tensors_range:
                 continue
             self.tensors_range[node.input[0]] = self.tensors_range[node.output[0]]
         quantization_params = {}
-        for tensor_name in self.tensors_range.keys():
-            rmin, rmax = self.tensors_range[tensor_name]
-            qmin, qmax = get_qmin_qmax_for_qType(self.activation_qType, symmetric=self.is_activation_symmetric)
+        if is_ort_version_below_1_16():
+            for tensor_name in self.tensors_range.keys():
+                rmin, rmax = self.tensors_range[tensor_name]
+                qmin, qmax = get_qmin_qmax_for_qType(self.activation_qType, symmetric=self.is_activation_symmetric)
 
-            quantization_params[tensor_name] = compute_scale_zp_pof2s(
-                rmin, rmax, qmin, qmax, self.is_activation_symmetric
-            )
+                quantization_params[tensor_name] = compute_scale_zp_pof2s(
+                    rmin, rmax, qmin, qmax, self.is_activation_symmetric
+                )
+        else:
+            from onnxruntime.quantization.onnx_quantizer import QuantizationParams
+
+            for tensor_name in self.tensors_range:
+                td = self.tensors_range[tensor_name]
+                rmin, rmax = td.range_value
+                qmin, qmax = get_qmin_qmax_for_qType(self.activation_qType, symmetric=self.is_activation_symmetric)
+
+                zero, scale = compute_scale_zp_pof2s(rmin, rmax, qmin, qmax, self.is_activation_symmetric)
+                quantization_params[tensor_name] = QuantizationParams(zero_point=zero, scale=scale)
 
         return quantization_params
 
@@ -547,7 +561,6 @@ class VitisQDQQuantizer(VitisQOpQuantizer):
         """
         Quantize tensors. If quant_param_tensor is not None, tensor with name tensor_name will be quantized with same
         quantization parameters as tensor quant_param_tensor
-
         Args:
             tensor_name: name of the tensor to quantize
             quant_sharing_param: name of the tensor that provides quantization parameter
@@ -567,7 +580,6 @@ class VitisQDQQuantizer(VitisQOpQuantizer):
         Args:
             tensor_name: name of the tensor to quantize
             quant_sharing_param: name of the tensor that provides quantization parameter
-
         """
         return self.__quantize_tensor(tensor_name, quant_sharing_param, QDQQuantTensorType.ACTIVATION)
 
@@ -577,7 +589,6 @@ class VitisQDQQuantizer(VitisQOpQuantizer):
         Args:
             tensor_name: name of the tensor to quantize
             quant_sharing_param: name of the tensor that provides quantization parameter
-
         """
         return self.__quantize_tensor(tensor_name, quant_sharing_param, QDQQuantTensorType.WEIGHT)
 

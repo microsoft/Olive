@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 def evaluate_entry(config, output_path, output_name, accelerator_type, execution_provider):
-    with open(config, "r") as f:
+    with open(config) as f:  # noqa: PTH123
         config_json = json.load(f)
     evaluator_config = OliveEvaluatorConfig(metrics=config_json["metrics"])
     model_json = config_json["model"]
@@ -27,7 +27,7 @@ def evaluate_entry(config, output_path, output_name, accelerator_type, execution
         model, None, evaluator_config.metrics, device=accelerator_type, execution_providers=execution_provider
     )
 
-    with open(os.path.join(output_path, f"{output_name}"), "w") as f:
+    with open(os.path.join(output_path, f"{output_name}"), "w") as f:  # noqa: PTH123
         f.write(metrics_res.json())
     logger.info(f"Metric result: {metrics_res}")
 
@@ -44,6 +44,6 @@ if __name__ == "__main__":
 
     args, _ = parser.parse_known_args()
     logger = logging.getLogger("module")
-    logger.info("command line arguments: ", sys.argv)
+    logger.info("command line arguments: %s", sys.argv)
 
     evaluate_entry(args.config, args.output_path, args.output_name, args.accelerator_type, args.execution_provider)

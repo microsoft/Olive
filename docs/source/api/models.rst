@@ -4,6 +4,12 @@ OliveModels
 =================================
 The following models are available in Olive.
 
+.. _model_config:
+
+Model Configuration
+-------------------
+.. autoclass:: olive.model.ModelConfig
+
 .. _onnx_model:
 
 ONNX Model
@@ -39,3 +45,9 @@ PyTorch Model
 SNPE Model
 ----------
 .. autoclass:: olive.model.SNPEModel
+
+CompositePyTorchModel Model
+--------------------------
+.. autoclass:: olive.model.CompositePyTorchModel
+
+.. _distributed_onnx_model:

@@ -11,16 +11,15 @@ from typing import List
 from olive.cache import get_local_path_from_root
 from olive.evaluator.metric import Metric
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import OliveModel
-from olive.resource_path import ResourcePath
+from olive.model import ModelConfig
 
 logger = logging.getLogger(__name__)
 
 
 def create_config_file(
-    tempdir, model: OliveModel, metrics: List[Metric], container_root_path: Path, model_mounts: dict
+    tempdir, model_config: ModelConfig, metrics: List[Metric], container_root_path: Path, model_mounts: dict
 ):
-    model_json = model.to_json(check_object=True)
+    model_json = model_config.to_json(check_object=True)
     for k, v in model_mounts.items():
         model_json["config"][k] = v
 
@@ -46,8 +45,7 @@ def create_evaluate_command(
         f"--accelerator_type {accelerator.accelerator_type}",
         f"--execution_provider {accelerator.execution_provider}",
     ]
-    cmd_line = f"python {eval_script_path} {' '.join(parameters)}"
-    return cmd_line
+    return f"python {eval_script_path} {' '.join(parameters)}"
 
 
 def create_run_command(run_params: dict):
@@ -88,40 +86,20 @@ def create_metric_volumes_list(
     return mount_list
 
 
-def create_resource_path_mount(
-    resource_path: ResourcePath, local_resource_path: ResourcePath, container_root_path: Path
-) -> (str, str):
-    # no need to mount if resource path is None or string name
-    if not resource_path or resource_path.is_string_name():
-        return None, None
-    # the resource we want to mount should be local resource
-    relevant_resource_path = None
-    if resource_path.is_local_resource():
-        relevant_resource_path = resource_path
-    else:
-        assert local_resource_path and local_resource_path.is_local_resource(), "local resource path not set"
-        relevant_resource_path = local_resource_path
-    relevant_path = relevant_resource_path.get_path()
-
-    mount_path = str(container_root_path / Path(relevant_path).name)
-    mount_str = f"{str(Path(relevant_path).resolve())}:{mount_path}"
-    return mount_path, mount_str
-
-
-def create_model_mount(model: OliveModel, container_root_path: Path):
+def create_model_mount(model_config: ModelConfig, container_root_path: Path):
     mounts = {}
     mount_strs = []
-    for resource_name, resource_path in model.resource_paths.items():
-        local_resource_path = model.local_resource_paths[resource_name]
-        resource_path_mount_path, resource_path_mount_str = create_resource_path_mount(
-            resource_path=resource_path,
-            local_resource_path=local_resource_path,
-            container_root_path=container_root_path,
-        )
-        if resource_path_mount_path:
-            # if the resource path is not None or string name, we need to mount it
-            mounts[resource_name] = resource_path_mount_path
-            mount_strs.append(resource_path_mount_str)
+    resource_paths = model_config.get_resource_paths()
+    for resource_name, resource_path in resource_paths.items():
+        # if the resource path is None or string name, we need not to mount it
+        if not resource_path or resource_path.is_string_name():
+            continue
+
+        relevant_path = resource_path.get_path()
+        resource_path_mount_path = str(container_root_path / Path(relevant_path).name)
+        resource_path_mount_str = f"{str(Path(relevant_path).resolve())}:{resource_path_mount_path}"
+        mounts[resource_name] = resource_path_mount_path
+        mount_strs.append(resource_path_mount_str)
     return mounts, mount_strs
 
 
@@ -135,7 +113,7 @@ def create_eval_script_mount(container_root_path: Path):
 def create_dev_mount(tempdir: Path, container_root_path: Path):
     logger.warning(
         "Dev mode is only enabled for CI pipeline! "
-        + "It will overwrite the Olive package in docker container with latest code."
+        "It will overwrite the Olive package in docker container with latest code."
     )
     tempdir = Path(tempdir)
 

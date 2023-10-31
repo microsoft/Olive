@@ -66,9 +66,7 @@ class DirectedGraph:
 
 
 def _search_space_graph(search_space: Dict[str, SearchParameter]) -> DirectedGraph:
-    """
-    Create a directed graph from the search space.
-    """
+    """Create a directed graph from the search space."""
     graph = DirectedGraph(list(search_space.keys()))
     for name, param in search_space.items():
         if isinstance(param, Conditional):
@@ -78,16 +76,12 @@ def _search_space_graph(search_space: Dict[str, SearchParameter]) -> DirectedGra
 
 
 def cyclic_search_space(search_space: Dict[str, SearchParameter]) -> bool:
-    """
-    Check if the search space is cyclic.
-    """
+    """Check if the search space is cyclic."""
     graph = _search_space_graph(search_space)
     return graph.is_cyclic()
 
 
 def order_search_parameters(search_space: Dict[str, SearchParameter]) -> List[str]:
-    """
-    Order the search parameters in a topological order.
-    """
+    """Order the search parameters in a topological order."""
     graph = _search_space_graph(search_space)
     return graph.topological_sort()

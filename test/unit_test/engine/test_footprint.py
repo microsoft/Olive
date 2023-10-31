@@ -10,6 +10,8 @@ import pytest
 
 from olive.engine.footprint import Footprint
 
+# pylint: disable=attribute-defined-outside-init
+
 
 class TestFootprint:
     @pytest.fixture(autouse=True)
@@ -17,6 +19,14 @@ class TestFootprint:
         self.footprint_file = Path(__file__).parent / "mock_data" / "footprints.json"
         self.fp = Footprint.from_file(self.footprint_file)
         self.input_node = {k: v for k, v in self.fp.nodes.items() if v.parent_model_id is None}
+
+    def test_create_from_model_ids(self):
+        new_fp = self.fp.create_footprints_by_model_ids(self.fp.nodes.keys())
+        assert len(new_fp.nodes) == len(self.fp.nodes)
+        assert new_fp.nodes == self.fp.nodes
+        assert new_fp.nodes is not self.fp.nodes
+        assert new_fp.objective_dict == self.fp.objective_dict
+        assert new_fp.objective_dict is not self.fp.objective_dict
 
     def test_file_dump(self):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -30,10 +40,10 @@ class TestFootprint:
         assert len(fp2.nodes) == 3
 
     def test_pareto_frontier(self):
-        pareto_frontier_fp = self.fp.get_pareto_frontier()
+        pareto_frontier_fp = self.fp.create_pareto_frontier()
         assert isinstance(pareto_frontier_fp, Footprint)
         assert len(pareto_frontier_fp.nodes) == 2
-        assert all([v.is_pareto_frontier for v in pareto_frontier_fp.nodes.values()])
+        assert all(v.is_pareto_frontier for v in pareto_frontier_fp.nodes.values())
 
     def test_trace_back_run_history(self):
         for model_id in self.fp.nodes:

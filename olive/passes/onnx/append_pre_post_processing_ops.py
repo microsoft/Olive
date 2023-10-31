@@ -8,6 +8,7 @@ from typing import Any, Callable, Dict, List, Union
 
 import onnx
 from onnxruntime import __version__ as OrtVersion
+from packaging import version
 from pydantic import Field, validator
 
 from olive.common.config_utils import ConfigBase
@@ -41,9 +42,7 @@ class PrePostProcessorInput(ConfigBase):
 
 
 class AppendPrePostProcessingOps(Pass):
-    """
-    Add Pre/Post nodes to the input model
-    """
+    """Add Pre/Post nodes to the input model."""
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, Dict[str, Any]]:
@@ -86,19 +85,21 @@ class AppendPrePostProcessingOps(Pass):
     ) -> ONNXModel:
         output_model_path = ONNXModel.resolve_path(output_model_path)
 
-        # temporary directory to store the model to
-        # we will save the model to the final destination later with the external data config
-        tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
-        tmp_dir_path = Path(tmp_dir.name)
-        tmp_model_path = str(tmp_dir_path / Path(output_model_path).name)
-
         tool_command = config.get("tool_command")
         if tool_command:
             if tool_command == "whisper":
-                from olive.passes.utils.whisper_prepost import add_pre_post_processing_to_model as add_ppp
+                from onnxruntime_extensions import __version__ as ortext_version
 
-                kwargs = config.get("tool_command_args") or {}
-                add_ppp(model.load_model(), tmp_model_path, **kwargs)
+                assert version.parse(ortext_version) >= version.parse(
+                    "0.9.0"
+                ), "Whisper pre-post processing requires onnxruntime-extensions>=0.9.0"
+
+                from olive.passes.utils.whisper_prepost import add_pre_post_processing_to_model
+
+                tool_command_args = config.get("tool_command_args") or {}
+                onnx_model = add_pre_post_processing_to_model(
+                    model.load_model(), config["target_opset"], **tool_command_args
+                )
             else:
                 # Use the pre-defined helper to add pre/post processing to model.
                 from onnxruntime_extensions.tools import add_pre_post_processing_to_model as add_ppp
@@ -106,7 +107,6 @@ class AppendPrePostProcessingOps(Pass):
                 # ORT 1.14 and later support ONNX opset 18, which added antialiasing to the Resize operator.
                 # Results are much better when that can be used. Minimum opset is 16.
                 onnx_opset = config.get("target_opset")
-                from packaging import version
 
                 if version.parse(OrtVersion) >= version.parse("1.14.0"):
                     onnx_opset = 18
@@ -115,27 +115,27 @@ class AppendPrePostProcessingOps(Pass):
                     try:
                         tool_command = getattr(add_ppp, tool_command)
                     except AttributeError:
-                        raise AttributeError(f"{tool_command} is not found in onnxruntime_extensions.tools")
+                        raise AttributeError(f"{tool_command} is not found in onnxruntime_extensions.tools") from None
                 elif not isinstance(tool_command, Callable):
                     raise ValueError(
                         "tool_command must be a callable or a string defined in onnxruntime_extensions.tools"
-                    )
+                    ) from None
 
                 kwargs = config.get("tool_command_args") or {}
                 kwargs["onnx_opset"] = onnx_opset
 
-                # add the processing commands to the mode.
-                tool_command(Path(model.model_path), Path(tmp_model_path), **kwargs)
-
-            # load the model
-            onnx_model = onnx.load(tmp_model_path)
+                # add the processing commands to the model
+                # save the model to a temporary directory, will save it to the output path later with
+                # external data config
+                with tempfile.TemporaryDirectory(prefix="olive_tmp") as tmp_dir:
+                    tmp_dir_path = Path(tmp_dir)
+                    tmp_model_path = tmp_dir_path / Path(output_model_path).name
+                    tool_command(Path(model.model_path), Path(tmp_model_path), **kwargs)
+                    onnx_model = onnx.load(tmp_model_path)
         else:
             # Handle args pre and post
             new_model_proto = self._run_prepost_pipeline(model, config)
             onnx_model = new_model_proto
-
-        # the model is loaded into memory, so it's safe to delete previously exported files
-        tmp_dir.cleanup()
 
         olive_model = model_proto_to_olive_model(onnx_model, output_model_path, config)
         olive_model.use_ort_extensions = True
@@ -172,8 +172,7 @@ class AppendPrePostProcessingOps(Pass):
         if post_steps:
             pipeline.add_post_processing(post_steps)
 
-        new_model = pipeline.run(model_proto)
-        return new_model
+        return pipeline.run(model_proto)
 
     def create_step_from_config(self, step_name, step_params):
         from onnxruntime_extensions.tools.pre_post_processing import IoMapEntry

@@ -4,12 +4,16 @@
 # --------------------------------------------------------------------------
 
 from enum import Enum
+from pathlib import Path
 from random import Random
+from typing import Callable, Dict, List, Union
 
 import torch
+import transformers
 from pydantic import validator
 
-from olive.common.config_utils import ConfigBase, validate_config
+from olive.common.config_utils import ConfigBase, validate_config, validate_object
+from olive.common.user_module_loader import UserModuleLoader
 from olive.data.component.dataset import BaseDataset
 from olive.data.constants import IGNORE_INDEX
 
@@ -51,42 +55,77 @@ class TextGenPairFormat(str, Enum):
     CUSTOM = "custom"
 
 
+# ruff: noqa: N806
+
+
 class TextGenParams(ConfigBase):
-    """
-    Common parameters for text generation tasks.
+    """Common parameters for text generation tasks.
 
     Base dataclass for text generation tasks.
     """
 
+    # TODO(jambayk): need to plan about supporting user_script and script_dir on remote systems
+    # TODO(jambayk): currently data config in general is not fully supported on remote systems
+    user_script: Union[str, Path] = None  # user script use to define formatting functions
+    script_dir: Union[str, Path] = None  # directory with user script dependencies
     max_samples: int = None  # max number of samples to use, None for all
     source_max_len: int  # max length of source sequence
-    # TODO: currently only support padding to max length since we preprocess all data at once
+    # TODO(jambayk): currently only support padding to max length since we preprocess all data at once
     # might have to expose collator for dataloader to support dynamic padding of batches
-    # if false, cannot gaurantee all sequences are same length. data loader will have to handle this during collation
+    # if false, cannot guarantee all sequences are same length. data loader will have to handle this during collation
     pad_to_max_len: bool = True  # pad sequences to max_len, ignored for JOIN corpus strategy
     drop_short_sequences: bool = False  # drop sequences shorter than max_len. Mutually exclusive with pad_to_max_len
-    add_special_tokens: bool = True  # add bos and eos tokens
+    add_special_tokens: bool = True  # add bos and eos tokens to each sequence
+    use_attention_mask: bool = True  # add attention mask to each example
 
     @validator("drop_short_sequences", always=True)
     def _check_padding(cls, v, values):
         if "pad_to_max_len" not in values:
-            ValueError("Invalid pad_to_max_len")
+            raise ValueError("Invalid pad_to_max_len")
         if v and values["pad_to_max_len"]:
             raise ValueError("pad_to_max_len and drop_short_sequences cannot both be True")
         return v
+
+    def get_user_module_loader(self):
+        """Get user module loader."""
+        return UserModuleLoader(self.user_script, self.script_dir)
 
 
 class TextGenCorpusParams(TextGenParams):
     """Parameters for text generation task with 'corpus' dataset type."""
 
-    text_cols: list  # list of text columns
+    # one of text_formatting_func, text_template, or text_cols must be provided
+    # priority: text_formatting_func > text_template > text_cols
+    # function that formats the text, must take in an example dict and return a string
+    text_formatting_func: Union[str, Callable] = None  # name of formatting function for text
+    # a python f-string template for the text with {column_name} as placeholders
+    text_template: str = None
+    # list of text columns, columns are concatenated together using a space
+    text_cols: Union[str, List[str]] = None
+    # in JOIN strategies, the rows of text_cols are concatenated together
     corpus_strategy: TextGenCorpusStrategy = TextGenCorpusStrategy.LINE_BY_LINE
     stride: int = None  # required when corpus_strategy is JOIN_SLIDING_WINDOW
-    joiner: str = " "  # delimiter to use when joining the rows of the input columns.
+    # text to join the rows of input columns when corpus_strategy is JOIN
+    # add_special_tokens: "{bos_token} {text_col1} {eos_token} {joiner} {bos_token} {text_col2} {eos_token}..."
+    # no add_special_tokens: "{text_col1} {joiner} {text_col2}..."
+    # if None, joined with a space
+    joiner: str = None
+    processing_batch_size: int = 1024  # number of examples to process at a time
     random_seed: int = None  # random seed for LINE_BY_LINE_RANDOM and JOIN_RANDOM
     random_retries: int = (
         10  # number of resamples to try before giving up when a sample is too short for RANDOM strategies
     )
+
+    @validator("text_formatting_func")
+    def _check_text_formatting_func(cls, v, values, field):
+        return validate_object(v, values, field)
+
+    @validator("text_cols", always=True)
+    def _check_text_cols(cls, v, values):
+        v = validate_text_source(v, values, "text_cols")
+        if v is not None and isinstance(v, str):
+            v = [v]
+        return v
 
     @validator("stride", always=True)
     def _check_stride(cls, v, values):
@@ -104,6 +143,23 @@ class TextGenCorpusParams(TextGenParams):
             raise ValueError("max_samples must be specified when corpus_strategy is random")
         return v
 
+    @validator("corpus_strategy", always=True)
+    def _check_use_attention_mask(cls, v, values):
+        if "use_attention_mask" not in values:
+            raise ValueError("Invalid use_attention_mask")
+        if "pad_to_max_len" not in values:
+            raise ValueError("Invalid pad_to_max_len")
+        use_attention_mask = values["use_attention_mask"]
+        pad_to_max_len = values["pad_to_max_len"]
+        if "join" in v:
+            # both True and False are valid since attention_mask is all 1s
+            return v
+        if not use_attention_mask and pad_to_max_len:
+            raise ValueError(
+                "pad_to_max_len is True but use_attention_mask is False. Attention mask is required for padding!"
+            )
+        return v
+
     @validator("random_seed", always=True)
     def _check_random(cls, v, values):
         if "corpus_strategy" not in values:
@@ -113,148 +169,203 @@ class TextGenCorpusParams(TextGenParams):
         return v
 
 
+# TODO(jambayk): absorb pair format into corpus format and drop dataset_type
+# This is because pair format is just a special case of corpus format
 class TextGenPairParams(TextGenParams):
     """Parameters for text generation task with 'pair' dataset type."""
 
     pair_format: TextGenPairFormat = TextGenPairFormat.DEFAULT
-    input_col: str = None  # required when pair_format is CUSTOM
-    output_col: str = None  # required when pair_format is CUSTOM
+    # for custom pair_format, one of input_formatting_func, input_template, or input_col must be provided
+    input_formatting_func: Union[str, Callable] = None  # name of formatting function for input
+    input_template: str = None  # a python f-string template for the input with {column_name} as placeholders
+    input_col: str = None  # column name for input
+    # for custom pair_format, one of output_formatting_func, output_template, or output_col must be provided
+    output_formatting_func: Union[str, Callable] = None  # name of formatting function for output
+    output_template: str = None  # a python f-string template for the output with {column_name} as placeholders
+    output_col: str = None  # column name for output
     target_max_len: int  # max length of target sequence
     ignore_source_in_labels: bool = True  # set source tokens to ignore_index in labels
 
+    @validator("input_formatting_func", "output_formatting_func")
+    def _check_formatting_func(cls, v, values, field):
+        return validate_object(v, values, field)
+
     @validator("input_col", "output_col", always=True)
-    def _check_custom(cls, v, field, values):
+    def _check_custom(cls, v, values, field):
         if "pair_format" not in values:
             raise ValueError("Invalid pair_format")
-        if values["pair_format"] == TextGenPairFormat.CUSTOM and v is None:
-            raise ValueError(f"{field.name} must be specified when pair_format is CUSTOM")
+        if values["pair_format"] == TextGenPairFormat.CUSTOM:
+            v = validate_text_source(v, values, field.name)
+        return v
+
+    @validator("use_attention_mask", always=True)
+    def _check_use_attention_mask(cls, v, values):
+        if "pad_to_max_len" not in values:
+            raise ValueError("Invalid pad_to_max_len")
+        if not v and values["pad_to_max_len"]:
+            raise ValueError(
+                "pad_to_max_len is True but use_attention_mask is False. Attention mask is required for padding!"
+            )
         return v
 
 
-def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
-    """
-    Pre-process data for text generation task with 'corpus' dataset type.
+def text_gen_corpus_pre_process(dataset, tokenizer, all_kwargs):
+    """Pre-process data for text generation task with 'corpus' dataset type.
 
     The input dataset is expected to have one or more text columns.
     Depending on the corpus_strategy, the sequences are either joined together or processed individually.
     """
-
     from datasets import Dataset as HFDataset
 
     args = validate_config(all_kwargs, TextGenCorpusParams, warn_unused_keys=True)
 
-    # gather text from all input columns
-    text_list = []
-    for input_col in args.text_cols:
-        text_list += _dataset[input_col]
+    if isinstance(args.text_formatting_func, str):
+        # load text_formatting_func
+        args.text_formatting_func = args.get_user_module_loader().load_object(args.text_formatting_func)
+    # get text from dataset
+    dataset = dataset.map(
+        lambda x: {
+            "text": get_text(
+                x, args.text_formatting_func, args.text_template, args.text_cols, args.add_special_tokens, tokenizer
+            )
+        }
+    )
+    text_list = dataset["text"]
+    total_examples = len(text_list)  # total number of examples
 
     tokenized_inputs = {
         "input_ids": [],
-        "attention_mask": [],
         "labels": [],
     }
+    if args.use_attention_mask:
+        tokenized_inputs["attention_mask"] = []
     if "join" in args.corpus_strategy:
-        # delimiter between the text sequences
-        text = args.joiner.join(text_list)
-
-        # in order to make processing faster we will only tokenize as much as needed
-        # assumes that num words > num tokens
-        split_text = text.split(" ")
-        num_text = len(split_text)
-
-        seqlen = args.source_max_len
+        joiner_tokens = tokenizer.encode(args.joiner, add_special_tokens=False) if args.joiner else []
 
         if args.corpus_strategy != TextGenCorpusStrategy.JOIN_RANDOM:
             # no randomization, just use contiguous blocks of tokens
             if args.corpus_strategy == TextGenCorpusStrategy.JOIN_SLIDING_WINDOW:
                 # we use the stride as both the step between sequences and the context size
-                step, context = args.stride, args.stride
+                step, context = args.stride, args.source_max_len - args.stride
             else:
                 # JOIN corpus_strategy
                 # text is split into non-overlapping sequences and there is no context
-                step, context = seqlen, None
+                step, context = args.source_max_len, None
 
-            # only take as much text as needed
-            # assumes that num words > num tokens, so we can use num tokens as an upper bound
-            max_text = args.max_samples * seqlen if args.max_samples is not None else num_text
-            max_text = min(max_text, num_text)
-            # tokenize the text
-            encodings = tokenizer(" ".join(split_text[:max_text]), add_special_tokens=False, return_tensors="pt")
+            example_idx = 0  # index of the first example in the current batch
+            num_samples = 0  # samples processed so far
+            overflow = []  # tokens overflowed from the previous batch of examples
+            # we will process in batches to make tokenization faster
+            # better than joining all text together and tokenizing all at once
+            while True:
+                if args.max_samples is not None and num_samples >= args.max_samples:
+                    # we have reached max_samples
+                    break
+                if example_idx >= total_examples:
+                    # we have reached the end of the text_list
+                    break
 
-            num_tokens = encodings.input_ids.shape[1]
-            # loop over the number of tokens
-            # all inputs must be seqlen long
-            for begin_loc in range(0, num_tokens - seqlen, step):
-                # end_loc is the beginning of the next sequence
-                end_loc = begin_loc + seqlen
-                # get the input sequence
-                input_ids = encodings.input_ids[0, begin_loc:end_loc].clone()
-                append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer, context=context)
+                examples_to_get = min(args.processing_batch_size, total_examples - example_idx)
+                # batch tokenize
+                batched_input_ids = tokenizer(
+                    text_list[example_idx : example_idx + examples_to_get],  # noqa: E203, RUF100
+                    add_special_tokens=False,
+                    truncation=False,
+                )["input_ids"]
+
+                # join all the input_ids together with joiner_tokens
+                joined_input_ids = overflow
+                for input_ids in batched_input_ids:
+                    joined_input_ids += input_ids + joiner_tokens
+
+                end_loc = 0  # position of unused token in joined_input_ids
+                # '- args.source_max_len' is used to make sure we don't get a sequence that is too short
+                for begin_loc in range(0, len(joined_input_ids) - args.source_max_len, step):
+                    # end_loc is the beginning of the next sequence
+                    end_loc = begin_loc + args.source_max_len
+                    # get the input sequence
+                    input_ids = torch.tensor(joined_input_ids[begin_loc:end_loc])
+                    append_text_gen_input_ids(
+                        tokenized_inputs,
+                        input_ids,
+                        tokenizer,
+                        context=context,
+                        use_attention_mask=args.use_attention_mask,
+                    )
+                    num_samples += 1
+                    if args.max_samples is not None and num_samples >= args.max_samples:
+                        # we have reached max_samples
+                        break
+                # update counters
+                example_idx += examples_to_get
+                overflow = joined_input_ids[end_loc:]
         else:
             # randomization, sample random blocks of tokens
             rng = Random(args.random_seed)
+            # cache to store tokenized examples
             cache = {}
             for _ in range(args.max_samples):
                 resamples = 0
-                encodings = None
+                # will try to sample sequences random_retries times before giving up
                 while resamples < args.random_retries:
-                    # sample a random block of tokens by sampling a random starting location
+                    # sample a beginning example
                     # randint is inclusive, so we need to subtract 1
-                    begin_loc = rng.randint(0, num_text - seqlen - 1)
-                    # heuristic to make sure we don't get a sequence that is too short
-                    if begin_loc not in cache:
-                        encodings = tokenizer(
-                            " ".join(split_text[begin_loc : begin_loc + seqlen]),  # noqa E203
-                            add_special_tokens=False,
-                            return_tensors="pt",
+                    begin_example_idx = rng.randint(0, total_examples - 1)
+                    joined_input_ids = []
+                    # loop through the examples until we have enough tokens
+                    for i in range(begin_example_idx, total_examples):
+                        # get the input_ids
+                        if i not in cache:
+                            cache[i] = tokenizer(
+                                text_list[i],
+                                add_special_tokens=False,
+                                truncation=False,
+                            )["input_ids"]
+                        joined_input_ids += cache[i] + joiner_tokens
+                        # stop if we have enough tokens
+                        if len(joined_input_ids) >= args.source_max_len:
+                            break
+                    # add to samples if we have enough tokens
+                    if len(joined_input_ids) >= args.source_max_len:
+                        # found a good example
+                        input_ids = torch.tensor(joined_input_ids[: args.source_max_len])
+                        append_text_gen_input_ids(
+                            tokenized_inputs, input_ids, tokenizer, use_attention_mask=args.use_attention_mask
                         )
-                        cache[begin_loc] = encodings
-                    else:
-                        encodings = cache[begin_loc]
-                    if encodings.input_ids.shape[1] >= seqlen:
-                        # found a good sample
                         break
                     resamples += 1
-                if not encodings:
-                    # could not find a good sample after resampling
-                    continue
-                input_ids = encodings.input_ids[0, :seqlen]
-                append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer)
-
     else:
-        if args.add_special_tokens:
-            # add bos and eos tokens before tokenizing
-            # some tokenizers like LlamaTokenizer do not add eos token
-            text_list = [f"{tokenizer.bos_token} {text} {tokenizer.eos_token}" for text in text_list]
-
         # each line is a sequence
         if args.corpus_strategy == TextGenCorpusStrategy.LINE_BY_LINE:
             # batched tokenization might be faster so lets tokenize all the text at once
             if not args.max_samples:
                 batched_input_ids = batch_tokenize_text(text_list, tokenizer, args)
-                for input_ids in batched_input_ids:
-                    input_ids = torch.tensor(input_ids)
-                    append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer)
+                for native_input_ids in batched_input_ids:
+                    input_ids = torch.tensor(native_input_ids)
+                    append_text_gen_input_ids(
+                        tokenized_inputs, input_ids, tokenizer, use_attention_mask=args.use_attention_mask
+                    )
             else:
-                total_samples = len(text_list)
+                example_idx = 0  # index of the first example in the current batch
                 num_samples = 0
-                begin_loc = 0
                 while True:
-                    if num_samples >= args.max_samples or begin_loc >= total_samples:
+                    if num_samples >= args.max_samples or example_idx >= total_examples:
                         # we have reached max_samples or the end of the text_list
                         break
-                    # get as many samples as possible without going over max_samples
-                    samples_to_get = min(args.max_samples - num_samples, total_samples - begin_loc)
+                    # get as many examples as possible without going over max_samples
+                    examples_to_get = min(args.max_samples - num_samples, total_examples - example_idx)
                     # batch tokenize
                     batched_input_ids = batch_tokenize_text(
-                        text_list[begin_loc : begin_loc + samples_to_get], tokenizer, args  # noqa E203
+                        text_list[example_idx : example_idx + examples_to_get], tokenizer, args  # noqa: E203, RUF100
                     )
-                    for input_ids in batched_input_ids:
-                        input_ids = torch.tensor(input_ids)
-                        append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer)
+                    for native_input_ids in batched_input_ids:
+                        input_ids = torch.tensor(native_input_ids)
+                        append_text_gen_input_ids(
+                            tokenized_inputs, input_ids, tokenizer, use_attention_mask=args.use_attention_mask
+                        )
                     # update counters
                     num_samples += len(batched_input_ids)
-                    begin_loc += samples_to_get
+                    example_idx += examples_to_get
         else:
             # randomization, sample random lines
             rng = Random(args.random_seed)
@@ -285,7 +396,9 @@ def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
                 if not encodings:
                     # could not find a good sample after resampling
                     continue
-                append_text_gen_input_ids(tokenized_inputs, encodings.input_ids[0], tokenizer)
+                append_text_gen_input_ids(
+                    tokenized_inputs, encodings.input_ids[0], tokenizer, use_attention_mask=args.use_attention_mask
+                )
 
     # convert to HFDataset
     hf_dataset = HFDataset.from_dict(tokenized_inputs)
@@ -295,42 +408,27 @@ def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
     return BaseDataset(hf_dataset, ["labels"], max_samples=args.max_samples)
 
 
-def batch_tokenize_text(text_list, tokenizer, args):
-    """Batch tokenize text."""
-    batched_encodings = tokenizer(
-        text_list,
-        max_length=args.source_max_len,
-        truncation=True,
-        padding="max_length" if args.pad_to_max_len else False,
-        add_special_tokens=False,
-    )
-    batched_input_ids = batched_encodings.input_ids
-    if args.drop_short_sequences:
-        batched_input_ids = [input_ids for input_ids in batched_input_ids if len(input_ids) >= args.source_max_len]
-    return batched_input_ids
-
-
 # based on https://github.com/artidoro/qlora/blob/main/qlora.py
-def text_gen_pair_pre_process(_dataset, tokenizer, all_kwargs):
-    """
-    Pre-process data for text generation task with 'pair' dataset type.
+def text_gen_pair_pre_process(dataset, tokenizer, all_kwargs):
+    """Pre-process data for text generation task with 'pair' dataset type.
 
     Dataset is expected to have two text columns: input and output.
     An example is a dataset with pairs of prompts and completions.
 
-    The input (truncate to source_max_len) and output (truncate to target_max_len) are concatenated together.
+    The input (truncated to source_max_len) and output (truncated to target_max_len) are concatenated together.
     """
     from datasets import Dataset as HFDataset
 
     args = validate_config(all_kwargs, TextGenPairParams, warn_unused_keys=True)
 
-    # format dataset based on pair_format
-    # the formatted dataset has two columns: input and output
-    dataset = format_pair_dataset(_dataset, args.pair_format, args.input_col, args.output_col)
     if args.max_samples is not None:
         # truncate dataset to max_samples
         # makes tokenization faster
         dataset = dataset.select(range(args.max_samples))
+
+    # format dataset based on pair_format
+    # the formatted dataset has two columns: input and output
+    dataset = format_pair_dataset(dataset, args)
 
     # extract elements
     sources = dataset["input"]
@@ -348,9 +446,10 @@ def text_gen_pair_pre_process(_dataset, tokenizer, all_kwargs):
     # build tokenized_inputs
     tokenized_inputs = {
         "input_ids": [],
-        "attention_mask": [],
         "labels": [],
     }
+    if args.use_attention_mask:
+        tokenized_inputs["attention_mask"] = []
     # max_len is the max length of the concatenated input and output
     # if pad_to_max_len is True, max_len is the max length of the concatenated input and output
     max_len = args.source_max_len + args.target_max_len
@@ -361,13 +460,18 @@ def text_gen_pair_pre_process(_dataset, tokenizer, all_kwargs):
             # skip short sequences if drop_short_sequences is True
             continue
         if args.pad_to_max_len:
+            if tokenizer.pad_token_id is None:
+                raise ValueError("Tokenizer does not have a pad token")
             # add padding to max_len
+            # pylint: disable=not-callable
             input_ids = torch.nn.functional.pad(
                 input_ids, (0, max_len - input_ids.shape[0]), value=tokenizer.pad_token_id
             )
         # if ignore_source_in_labels is True, the source tokens are treated as context and set to ignore_index in labels
         context = len(tokenized_source) if args.ignore_source_in_labels else None
-        append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer, context=context)
+        append_text_gen_input_ids(
+            tokenized_inputs, input_ids, tokenizer, context=context, use_attention_mask=args.use_attention_mask
+        )
 
     # convert to HFDataset
     hf_dataset = HFDataset.from_dict(tokenized_inputs)
@@ -376,15 +480,71 @@ def text_gen_pair_pre_process(_dataset, tokenizer, all_kwargs):
     return BaseDataset(hf_dataset, ["labels"], max_samples=args.max_samples)
 
 
-def append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer, context: int = None, ignore_index=IGNORE_INDEX):
+def validate_text_source(v, values, field_name):
+    """Check that one of formatting_func, template, or col is specified."""
+    prefix = field_name.split("_")[0]
+    alternatives = [f"{prefix}_formatting_func", f"{prefix}_template"]
+    for alternative in alternatives:
+        # for good validation error, check that all alternates are in values
+        if alternative not in values:
+            raise ValueError(f"Invalid {alternative}")
+    if not (v or any(values[option] for option in alternatives)):
+        # check that at least one alternate is specified
+        raise ValueError(f"One of {field_name}, {', '.join(alternatives)} must be specified")
+    return v
+
+
+def get_text(
+    example: Dict[str, str],
+    formatting_func: Callable = None,
+    template: str = None,
+    cols: List[str] = None,
+    add_special_tokens: bool = False,
+    tokenizer: transformers.PreTrainedTokenizer = None,
+):
+    """Get text from example using formatting_func, template, or cols."""
+    text = None
+    if formatting_func:
+        text = formatting_func(example)
+    elif template:
+        text = template.format(**example)
+    elif cols:
+        text = " ".join([example[col] for col in cols])
+    else:
+        raise ValueError("None of formatting_func, template, or cols is specified")
+    if add_special_tokens:
+        # add bos and eos tokens
+        text = f"{tokenizer.bos_token} {text} {tokenizer.eos_token}"
+    return text
+
+
+def batch_tokenize_text(text_list, tokenizer, args):
+    """Batch tokenize text."""
+    batched_encodings = tokenizer(
+        text_list,
+        max_length=args.source_max_len,
+        truncation=True,
+        padding="max_length" if args.pad_to_max_len else False,
+        add_special_tokens=False,
+    )
+    batched_input_ids = batched_encodings.input_ids
+    if args.drop_short_sequences:
+        batched_input_ids = [input_ids for input_ids in batched_input_ids if len(input_ids) >= args.source_max_len]
+    return batched_input_ids
+
+
+def append_text_gen_input_ids(
+    tokenized_inputs, input_ids, tokenizer, context: int = None, ignore_index=IGNORE_INDEX, use_attention_mask=True
+):
     """Convert input_ids to inputs dict and append to tokenized_inputs."""
     inputs = {"input_ids": input_ids}
 
     # create attention_mask
-    attention_mask = (
-        torch.ones_like(input_ids) if tokenizer.pad_token_id is None else input_ids.ne(tokenizer.pad_token_id)
-    )
-    inputs["attention_mask"] = attention_mask
+    if use_attention_mask:
+        attention_mask = (
+            torch.ones_like(input_ids) if tokenizer.pad_token_id is None else input_ids.ne(tokenizer.pad_token_id)
+        )
+        inputs["attention_mask"] = attention_mask
 
     # create labels
     # target is not shifted by 1 since causal lm models shifts internally when computing loss
@@ -393,7 +553,8 @@ def append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer, context: i
     if context is not None:
         labels[:context] = ignore_index
     # set padding to ignore_index
-    labels[attention_mask != 1] = ignore_index
+    if use_attention_mask:
+        labels[attention_mask != 1] = ignore_index
     inputs["labels"] = labels
 
     # add to list
@@ -402,9 +563,8 @@ def append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer, context: i
 
 
 # based on https://github.com/artidoro/qlora/blob/main/qlora.py
-def format_pair_dataset(dataset, pair_format, input_col=None, output_col=None):
+def format_pair_dataset(dataset, args):
     """Format dataset based on pair_format."""
-
     # format for input in ALPACA pair format
     # instruction, input (optional), output
     ALPACA_PROMPT_DICT = {
@@ -420,17 +580,19 @@ def format_pair_dataset(dataset, pair_format, input_col=None, output_col=None):
         ),
     }
 
-    def extract_alpaca_dataset(example):
-        # extract new input from instruction and input
-        if example.get("input", "") != "":
-            prompt_format = ALPACA_PROMPT_DICT["prompt_input"]
-        else:
-            prompt_format = ALPACA_PROMPT_DICT["prompt_no_input"]
-        return {"input": prompt_format.format(**example)}
+    if args.pair_format == TextGenPairFormat.ALPACA:
 
-    if pair_format == TextGenPairFormat.ALPACA:
+        def extract_alpaca_dataset(example):
+            # extract new input from instruction and input
+            if example.get("input", "") != "":
+                prompt_format = ALPACA_PROMPT_DICT["prompt_input"]
+            else:
+                prompt_format = ALPACA_PROMPT_DICT["prompt_no_input"]
+            return {"input": prompt_format.formate(**example)}
+
+        # extract new input from instruction and input
         dataset = dataset.map(extract_alpaca_dataset, remove_columns=["instruction"])
-    elif pair_format == TextGenPairFormat.CHIP2:
+    elif args.pair_format == TextGenPairFormat.CHIP2:
         # separate the human and bot text into input and output
         dataset = dataset.map(
             lambda x: {
@@ -438,7 +600,7 @@ def format_pair_dataset(dataset, pair_format, input_col=None, output_col=None):
                 "output": x["text"].split("\n<bot>: ")[1],
             }
         )
-    elif pair_format == TextGenPairFormat.SELF_INSTRUCT:
+    elif args.pair_format == TextGenPairFormat.SELF_INSTRUCT:
         # rename prompt and completion to input and output
         dataset = dataset.map(
             lambda x: {
@@ -446,20 +608,22 @@ def format_pair_dataset(dataset, pair_format, input_col=None, output_col=None):
                 "output": x["completion"],
             }
         )
-    elif pair_format == TextGenPairFormat.CUSTOM:
-        # rename input_col and output_col to input and output
+    elif args.pair_format == TextGenPairFormat.CUSTOM:
+        if isinstance(args.input_formatting_func, str) or isinstance(args.output_formatting_func, str):
+            user_module_loader = args.get_user_module_loader()
+            args.input_formatting_func = user_module_loader.load_object(args.input_formatting_func)
+            args.output_formatting_func = user_module_loader.load_object(args.output_formatting_func)
         dataset = dataset.map(
             lambda x: {
-                "input": x[input_col],
-                "output": x[output_col],
+                "input": get_text(x, args.input_formatting_func, args.input_template, [args.input_col]),
+                "output": get_text(x, args.output_formatting_func, args.output_template, [args.output_col]),
             }
         )
-    elif pair_format == TextGenPairFormat.DEFAULT:
+    elif args.pair_format == TextGenPairFormat.DEFAULT:
         # do nothing
         pass
     else:
-        raise ValueError(f"Invalid pair_format: {pair_format}")
+        raise ValueError(f"Invalid pair_format: {args.pair_format}")
 
     # remove unused columns, keep only input and output
-    dataset = dataset.remove_columns([col for col in dataset.column_names if col not in ["input", "output"]])
-    return dataset
+    return dataset.remove_columns([col for col in dataset.column_names if col not in ["input", "output"]])

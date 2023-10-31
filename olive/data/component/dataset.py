@@ -9,29 +9,25 @@ from typing import List, Optional, Union
 
 import numpy as np
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset as TorchDataset
 
 
-class BaseDataset(Dataset):
-    """
-    This class is used to define the Olive dataset which should return the data with following format:
+class BaseDataset(TorchDataset):
+    """Define the Olive dataset which should return the data with following format.
+
     1. [data, label] for supervised learning
     2. [data] for unsupervised learning
     The data should be a list or dict of numpy arrays or torch tensors
     """
 
     def __init__(self, data, label_cols=None, max_samples=None, **kwargs):
-        """
-        This function is used to initialize the dataset
-        """
+        """Initialize the dataset."""
         self.data = data
         self.label_cols = label_cols or []
         self.max_samples = max_samples
 
     def __len__(self):
-        """
-        This function is used to return the length of the dataset
-        """
+        """Return the length of the dataset."""
         num_samples = len(self.data)
         if self.max_samples is not None:
             # if max_samples is not None, return the min of num_samples and max_samples
@@ -44,26 +40,16 @@ class BaseDataset(Dataset):
         return data, label
 
     def to_numpy(self):
-        """
-        This function is used to convert the dataset to numpy array
-        """
-        pass
+        """Convert the dataset to numpy array."""
 
     def to_torch_tensor(self):
-        """
-        This function is used to convert the dataset to torch tensor
-        """
-        pass
+        """Convert the dataset to torch tensor."""
 
     def to_snpe_dataset(self):
-        """
-        This function is used to convert the dataset to snpe dataset
-        """
-        pass
+        """Convert the dataset to snpe dataset."""
 
     def to_hf_dataset(self, label_name="label"):
-        """
-        This function is used to convert the dataset to huggingface dataset
+        """Convert the dataset to huggingface dataset.
 
         :param label_name: The name of the label column in the new dataset. Default is "label".
         """
@@ -91,11 +77,11 @@ class BaseDataset(Dataset):
             if not isinstance(first_input, dict):
                 raise ValueError("Cannot convert to huggingface dataset since the input is not a dict")
             # convert the dataset to dict of lists
-            data_dict = {k: [] for k in first_input.keys()}
+            data_dict = {k: [] for k in first_input}
             data_dict[label_name] = []
             # loop over the dataset
-            for i in range(len(self)):
-                data, label = deepcopy(self[i])
+            for _, d in enumerate(self):
+                data, label = deepcopy(d)
                 for k, v in data.items():
                     data_dict[k].append(v)
                 data_dict[label_name].append(label)
@@ -107,11 +93,12 @@ class BaseDataset(Dataset):
 
 class DummyDataset(BaseDataset):
     def __init__(self, input_shapes, input_names: Optional[List] = None, input_types: Optional[List] = None):
-        """
-        This function is used to initialize the dummy dataset
+        """Initialize the dummy dataset.
+
         if input_names is None, the dummy dataset will return a tuple of tensors
         else the dummy dataset will return a dict of tensors
         """
+        # pylint: disable=super-init-not-called
         self.input_shapes = input_shapes
         self.input_names = input_names
         self.input_types = input_types or ["float32"] * len(input_shapes)
@@ -120,6 +107,12 @@ class DummyDataset(BaseDataset):
         return 256
 
     def __getitem__(self, index):
+        # From https://docs.python.org/3/reference/datamodel.html#object.__getitem__,
+        # __getitem__ should raise IndexError when index is out of range
+        # Otherwise, the enumerate function will enter infinite loop
+        if index < 0 or index >= len(self):
+            raise IndexError("Index out of range")
+
         str_to_type = {
             "float32": torch.float32,
             "float16": torch.float16,
@@ -156,8 +149,7 @@ class RawDataset(BaseDataset):
         input_order_file: Optional[str] = None,
         annotations_file: Optional[str] = None,
     ):
-        """
-        Initialize the raw dataset.
+        """Initialize the raw dataset.
 
         :param data_dir:  Directory containing the raw data files. This contains the input files, annotations file and
         input order file. Each input file is assumed to be a binary file containing a numpy array.
@@ -178,6 +170,7 @@ class RawDataset(BaseDataset):
         :param annotations_file: Name of the file containing the annotations. This file should be present in the
         data_dir. It is assumed to be a .npy file containing a numpy array. Default is None.
         """
+        # pylint: disable=super-init-not-called
         self.data_dir = Path(data_dir).resolve()
         self.input_names = input_names
         assert len(input_names) == len(input_shapes), "Number of input shapes should be equal to number of input names."
@@ -200,12 +193,12 @@ class RawDataset(BaseDataset):
             input_files = sorted(
                 filter(
                     lambda x: x not in [input_order_file, annotations_file],
-                    map(lambda x: x.name, input_dir.glob(glob_pattern)),
+                    (x.name for x in input_dir.glob(glob_pattern)),
                 )
             )
             self.input_files = input_files
         else:
-            with open(self.data_dir / input_order_file, "r") as f:
+            with open(self.data_dir / input_order_file) as f:  # noqa: PTH123
                 self.input_files = [line.strip() for line in f.readlines()]
 
         # get annotations

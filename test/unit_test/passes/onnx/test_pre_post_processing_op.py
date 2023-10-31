@@ -1,3 +1,8 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
+
 from olive.model import ONNXModel, PyTorchModel
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.append_pre_post_processing_ops import AppendPrePostProcessingOps
@@ -128,7 +133,7 @@ def get_superresolution_model():
 
     class SuperResolutionNet(nn.Module):
         def __init__(self, upscale_factor, inplace=False):
-            super(SuperResolutionNet, self).__init__()
+            super().__init__()
 
             self.relu = nn.ReLU(inplace=inplace)
             self.conv1 = nn.Conv2d(1, 64, (5, 5), (1, 1), (2, 2))
@@ -143,8 +148,7 @@ def get_superresolution_model():
             x = self.relu(self.conv1(x))
             x = self.relu(self.conv2(x))
             x = self.relu(self.conv3(x))
-            x = self.pixel_shuffle(self.conv4(x))
-            return x
+            return self.pixel_shuffle(self.conv4(x))
 
         def _initialize_weights(self):
             init.orthogonal_(self.conv1.weight, init.calculate_gain("relu"))
@@ -167,7 +171,7 @@ def get_superresolution_model():
 
         return torch_model
 
-    pytorch_model = PyTorchModel(
+    return PyTorchModel(
         model_loader=load_pytorch_model,
         io_config={
             "input_names": ["input"],
@@ -177,11 +181,7 @@ def get_superresolution_model():
         },
     )
 
-    return pytorch_model
-
 
 def convert_superresolution_model(pytorch_model, tmp_path):
     onnx_conversion_pass = create_pass_from_dict(OnnxConversion, {"target_opset": 15}, disable_search=True)
-    onnx_model = onnx_conversion_pass.run(pytorch_model, None, str(tmp_path / "onnx"))
-
-    return onnx_model
+    return onnx_conversion_pass.run(pytorch_model, None, str(tmp_path / "onnx"))

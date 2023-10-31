@@ -61,6 +61,37 @@ def test_inc_quantization(tmp_path):
     assert "QLinearConv" in [node.op_type for node in quantized_model.load_model().graph.node]
 
 
+@pytest.mark.skipif(
+    platform.system() == "Windows", reason="Skip test on Windows. neural-compressor import is hanging on Windows."
+)
+def test_inc_weight_only_quantization(tmp_path):
+    ov_model = get_onnx_model(tmp_path)
+    data_dir = tmp_path / "data"
+    data_dir.mkdir(exist_ok=True)
+    config = {"approach": "weight_only", "data_dir": data_dir, "dataloader_func": create_dataloader}
+    output_folder = str(tmp_path / "quantized")
+
+    # create IncQuantization pass
+    p = create_pass_from_dict(IncQuantization, config, disable_search=True)
+    # execute
+    quantized_model = p.run(ov_model, None, output_folder)
+    # assert
+    assert quantized_model.model_path.endswith(".onnx")
+    assert Path(quantized_model.model_path).exists()
+    assert Path(quantized_model.model_path).is_file()
+
+    # clean
+    del p
+    # create IncStaticQuantization pass
+    p = create_pass_from_dict(IncStaticQuantization, config, disable_search=True)
+    # execute
+    quantized_model = p.run(ov_model, None, output_folder)
+    # assert
+    assert quantized_model.model_path.endswith(".onnx")
+    assert Path(quantized_model.model_path).exists()
+    assert Path(quantized_model.model_path).is_file()
+
+
 def get_onnx_model(tmp_path):
     torch_hub_model_path = "chenyaofo/pytorch-cifar-models"
     pytorch_hub_model_name = "cifar10_mobilenetv2_x1_0"
@@ -76,8 +107,7 @@ def get_onnx_model(tmp_path):
     output_folder = str(tmp_path / "onnx")
 
     # execute
-    onnx_model = p.run(pytorch_model, None, output_folder)
-    return onnx_model
+    return p.run(pytorch_model, None, output_folder)
 
 
 def create_dataloader(data_dir, batchsize, *args, **kwargs):
@@ -93,8 +123,8 @@ def create_dataloader(data_dir, batchsize, *args, **kwargs):
 
 class CifarDataset:
     def __init__(self, dataset):
-        """
-        Initialize dataset.
+        """Initialize dataset.
+
         :param dataset: downloaded dataset.
         """
         self.dataset = dataset
@@ -103,8 +133,8 @@ class CifarDataset:
         return len(self.dataset)
 
     def __getitem__(self, index):
-        """
-        Return one sample of picture and label.
+        """Return one sample of picture and label.
+
         :param index: index of the taken sample.
         """
         return self.dataset[index][0].numpy(), self.dataset[index][1]

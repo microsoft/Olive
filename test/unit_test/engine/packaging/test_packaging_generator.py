@@ -3,10 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
-import tempfile
 import zipfile
-from pathlib import Path
-from test.unit_test.utils import get_accuracy_metric, get_pytorch_model
+from test.unit_test.utils import get_accuracy_metric, get_pytorch_model_config
 from unittest.mock import patch
 
 import onnx
@@ -27,7 +25,7 @@ from olive.passes.onnx.conversion import OnnxConversion
     "save_as_external_data, mocked_size_value",
     [(True, 2048), (False, 100)],
 )
-def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, mocked_size_value):
+def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, mocked_size_value, tmp_path):
     # setup
     # onnx will save with external data when tensor size is greater than 1024(default threshold)
     mock_sys_getsizeof.return_value = mocked_size_value
@@ -45,22 +43,23 @@ def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, m
     engine = Engine(options, evaluator_config=evaluator_config)
     engine.register(OnnxConversion, {"save_as_external_data": save_as_external_data})
 
-    input_model = get_pytorch_model()
+    input_model_config = get_pytorch_model_config()
 
     packaging_config = PackagingConfig()
     packaging_config.type = PackagingType.Zipfile
     packaging_config.name = "OutputModels"
 
-    tempdir = tempfile.TemporaryDirectory()
-    output_dir = Path(tempdir.name) / "outputs"
+    output_dir = tmp_path / "outputs"
 
     # execute
-    engine.run(input_model=input_model, data_root=None, packaging_config=packaging_config, output_dir=output_dir)
+    engine.run(
+        input_model_config=input_model_config, data_root=None, packaging_config=packaging_config, output_dir=output_dir
+    )
 
     # assert
     artifacts_path = output_dir / "OutputModels.zip"
     assert artifacts_path.exists()
-    with zipfile.ZipFile(artifacts_path, "r") as zip_ref:
+    with zipfile.ZipFile(artifacts_path) as zip_ref:
         zip_ref.extractall(output_dir)
     assert (output_dir / "SampleCode").exists()
     assert (output_dir / "CandidateModels").exists()
@@ -77,13 +76,13 @@ def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, m
         pytest.fail(f"Failed to load the model: {e}")
 
     metrics_file = candidate_model_path / "metrics.json"
-    with open(metrics_file, "r") as f:
+    with metrics_file.open() as f:
         metrics = json.load(f)
         assert "input_model_metrics" in metrics
         assert "candidate_model_metrics" in metrics
 
 
-def test_generate_zipfile_artifacts_no_search():
+def test_generate_zipfile_artifacts_no_search(tmp_path):
     # setup
     options = {
         "cache_dir": "./cache",
@@ -93,31 +92,71 @@ def test_generate_zipfile_artifacts_no_search():
     engine = Engine(options)
     engine.register(OnnxConversion)
 
-    input_model = get_pytorch_model()
+    input_model_config = get_pytorch_model_config()
 
     packaging_config = PackagingConfig()
     packaging_config.type = PackagingType.Zipfile
     packaging_config.name = "OutputModels"
 
-    tempdir = tempfile.TemporaryDirectory()
-    output_dir = Path(tempdir.name) / "outputs"
+    output_dir = tmp_path / "outputs"
 
     # execute
     engine.run(
-        input_model=input_model, packaging_config=packaging_config, output_dir=output_dir, evaluate_input_model=False
+        input_model_config=input_model_config,
+        packaging_config=packaging_config,
+        output_dir=output_dir,
+        evaluate_input_model=False,
     )
 
     # assert
     artifacts_path = output_dir / "OutputModels.zip"
     assert artifacts_path.exists()
-    with zipfile.ZipFile(artifacts_path, "r") as zip_ref:
+    with zipfile.ZipFile(artifacts_path) as zip_ref:
         zip_ref.extractall(output_dir)
     assert (output_dir / "SampleCode").exists()
     assert (output_dir / "CandidateModels").exists()
     assert (output_dir / "ONNXRuntimePackages").exists()
 
 
-def test_generate_zipfile_artifacts_none_nodes():
+def test_generate_zipfile_artifacts_mlflow(tmp_path):
+    # setup
+    options = {
+        "cache_dir": "./cache",
+        "clean_cache": True,
+        "clean_evaluation_cache": True,
+    }
+    engine = Engine(options)
+    engine.register(OnnxConversion)
+
+    input_model_config = get_pytorch_model_config()
+
+    packaging_config = PackagingConfig()
+    packaging_config.type = PackagingType.Zipfile
+    packaging_config.name = "OutputModels"
+    packaging_config.export_in_mlflow_format = True
+
+    output_dir = tmp_path / "outputs"
+
+    # execute
+    engine.run(
+        input_model_config=input_model_config,
+        packaging_config=packaging_config,
+        output_dir=output_dir,
+        evaluate_input_model=False,
+    )
+
+    # assert
+    artifacts_path = output_dir / "OutputModels.zip"
+    assert artifacts_path.exists()
+    with zipfile.ZipFile(artifacts_path) as zip_ref:
+        zip_ref.extractall(output_dir)
+    assert (output_dir / "SampleCode").exists()
+    assert (output_dir / "CandidateModels").exists()
+    assert (output_dir / "ONNXRuntimePackages").exists()
+    assert (output_dir / "CandidateModels" / "cpu-cpu" / "BestCandidateModel_1" / "mlflow_model").exists()
+
+
+def test_generate_zipfile_artifacts_none_nodes(tmp_path):
     # setup
     packaging_config = PackagingConfig()
     packaging_config.type = PackagingType.Zipfile
@@ -126,8 +165,7 @@ def test_generate_zipfile_artifacts_none_nodes():
     foot_print = Footprint()
     pf_footprint = Footprint()
     pf_footprint.nodes = None
-    tempdir = tempfile.TemporaryDirectory()
-    output_dir = Path(tempdir.name) / "outputs"
+    output_dir = tmp_path / "outputs"
 
     # execute
     generate_output_artifacts(
@@ -139,7 +177,7 @@ def test_generate_zipfile_artifacts_none_nodes():
     assert not artifacts_path.exists()
 
 
-def test_generate_zipfile_artifacts_zero_len_nodes():
+def test_generate_zipfile_artifacts_zero_len_nodes(tmp_path):
     # setup
     packaging_config = PackagingConfig()
     packaging_config.type = PackagingType.Zipfile
@@ -148,8 +186,7 @@ def test_generate_zipfile_artifacts_zero_len_nodes():
     foot_print = Footprint()
     pf_footprint = Footprint()
     pf_footprint.nodes = {}
-    tempdir = tempfile.TemporaryDirectory()
-    output_dir = Path(tempdir.name) / "outputs"
+    output_dir = tmp_path / "outputs"
 
     # execute
     generate_output_artifacts(

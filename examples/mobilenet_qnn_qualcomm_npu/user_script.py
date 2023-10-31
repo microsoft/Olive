@@ -1,3 +1,7 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
 from pathlib import Path
 
 import numpy as np
@@ -39,14 +43,13 @@ class MobileNetCalibrationDataReader(CalibrationDataReader):
         except StopIteration:
             return None
 
-        batch = {k: v.detach().cpu().numpy() for k, v in batch.items()}
-        return batch
+        return {k: v.detach().cpu().numpy() for k, v in batch.items()}
 
     def rewind(self):
         self.iter = None
 
 
-def evaluation_dataloader(data_dir, batch_size=1, *args, **kwargs):
+def evaluation_dataloader(data_dir, batch_size, *args, **kwargs):
     dataset = MobileNetDataset(data_dir)
     return DataLoader(dataset, batch_size=batch_size)
 
@@ -55,5 +58,5 @@ def post_process(output):
     return output.argmax(axis=1)
 
 
-def mobilenet_calibration_reader(data_dir, batch_size=1, *args, **kwargs):
+def mobilenet_calibration_reader(data_dir, batch_size, *args, **kwargs):
     return MobileNetCalibrationDataReader(data_dir, batch_size=batch_size)

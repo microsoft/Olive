@@ -13,6 +13,8 @@ import pytest
 from olive.snpe.utils.adb import run_adb_command
 from olive.snpe.utils.local import run_snpe_command
 
+# pylint: disable=redefined-outer-name, unused-variable
+
 
 @pytest.fixture
 def android_target():
@@ -22,12 +24,12 @@ def android_target():
 @patch("shutil.which")
 @patch("subprocess.run")
 def test_run_adb_command(mock_run_subprocess, mock_which, android_target):
-    ret_val = CompletedProcess(None, returncode=0, stdout="stdout".encode(), stderr="stderr".encode())
+    ret_val = CompletedProcess(None, returncode=0, stdout=b"stdout", stderr=b"stderr")
     mock_run_subprocess.return_value = ret_val
     mock_which.side_effect = lambda x, path: x
     stdout, stderr = run_adb_command("version", android_target)
     mock_run_subprocess.assert_called_once_with(
-        f"adb -s {android_target} version".split(), capture_output=True, env=None, cwd=None
+        f"adb -s {android_target} version".split(), capture_output=True, env=None, cwd=None, check=False
     )
     assert stdout == "stdout"
     assert stderr == "stderr"
@@ -41,9 +43,7 @@ def test_run_snpe_command():
         mock_exists.return_value = True
         mock_glob.return_value = [Path("lib") / "lib/x86_64-windows-vc19"]
         mock_witch.side_effect = lambda x, path: x
-        mock_run_subprocess.return_value = CompletedProcess(
-            None, returncode=0, stdout="stdout".encode(), stderr="stderr".encode()
-        )
+        mock_run_subprocess.return_value = CompletedProcess(None, returncode=0, stdout=b"stdout", stderr=b"stderr")
         stdout, stderr = run_snpe_command("snpe-net-run --container xxxx")
         if platform.system() == "Linux":
             env = {
@@ -58,5 +58,6 @@ def test_run_snpe_command():
             capture_output=True,
             env=env,
             cwd=None,
+            check=False,
         )
         assert stdout.strip() == "stdout"

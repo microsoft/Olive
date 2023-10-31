@@ -9,7 +9,7 @@ from transformers import WhisperConfig
 
 
 class WhisperEncoder(torch.nn.Module):
-    """Whisper encoder outputs only the last hidden state"""
+    """Whisper encoder outputs only the last hidden state."""
 
     def __init__(self, encoder, config: WhisperConfig):
         super().__init__()
@@ -36,11 +36,11 @@ class WhisperEncoderInputs:
             sequence_length (int): sequence length
             feature_size (int): feature size for spectrogram input
             device (torch.device): device of output tensors
+            use_int32_inputs (bool): whether to use int32 inputs
 
         Returns:
             WhisperEncoderInputs: dummy inputs for encoder
         """
-
         input_features = torch.randn(
             size=(batch_size, feature_size, sequence_length),
             device=device,

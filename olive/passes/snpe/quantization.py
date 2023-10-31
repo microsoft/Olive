@@ -19,8 +19,8 @@ from olive.strategy.search_parameter import Boolean
 
 
 class SNPEQuantization(Pass):
-    """
-    Quantize SNPE model.
+    """Quantize SNPE model.
+
     Uses snpe-dlc-quantize tool from the SNPE SDK.
     """
 

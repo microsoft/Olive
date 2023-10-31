@@ -1,0 +1,9 @@
+# mcr image https://github.com/microsoft/mcr
+# tag list https://mcr.microsoft.com/v2/azureml/openmpi4.1.0-ubuntu20.04/tags/list
+FROM mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04
+
+RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+RUN pip install --no-cache-dir pandas plotly psutil datasets transformers onnxruntime==1.15.1 olive-ai
+
+ADD requirements.txt requirements.txt
+RUN pip install -r requirements.txt

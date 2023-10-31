@@ -30,7 +30,7 @@
                     "type": "accuracy",
                     "backend": "huggingface_metrics",
                     "sub_types": [
-                        {"name": "accuracy", "priority": 1}
+                        {"name": "accuracy", "priority": 1, "goal": {"type": "max-degradation", "value": 0.05}}
 
                     ]
                 },
@@ -53,17 +53,13 @@
         },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
-            "disable_search": true,
-            "config": {
-                "model_type": "bert",
-                "num_heads": 12,
-                "hidden_size": 768,
-                "float16": false
-            }
+            "disable_search": true
         },
         "quantization": {
             "type": "OnnxQuantization",
             "config": {
+                "quant_mode": "dynamic",
+                "quant_preprocess": true,
                 "data_config": "__input_model_data_config__"
             }
         },
@@ -86,7 +82,7 @@
         "clean_cache": true,
         "evaluator": "common_evaluator",
         "execution_providers": ["CPUExecutionProvider"],
-        "cache_dir": "cache",
-        "output_dir" : "models/microsoft-deberta"
+        "cache_dir": "run_cache/olive/cache",
+        "output_dir" : "run_cache/olive/microsoft-deberta"
     }
 }

@@ -4,8 +4,9 @@
 # --------------------------------------------------------------------------
 
 import logging
-from collections import OrderedDict, defaultdict, namedtuple
-from typing import DefaultDict, Dict
+from collections import OrderedDict, defaultdict
+from copy import deepcopy
+from typing import DefaultDict, Dict, NamedTuple
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
 from olive.evaluator.metric import MetricResult
@@ -13,17 +14,28 @@ from olive.evaluator.metric import MetricResult
 logger = logging.getLogger(__name__)
 
 
+class RunHistory(NamedTuple):
+    """Run history of a model."""
+
+    model_id: str
+    parent_model_id: str
+    from_pass: str
+    duration_sec: float
+    metrics: str
+
+
 class FootprintNodeMetric(ConfigBase):
-    """
+    """Footprint Node metrics structure.
+
     value: {"metric_name": metrics_value, ...}
     cmp_direction: will be auto suggested. The format will be like: {"metric_name": 1, ...},
         1: higher is better, -1: lower is better
-    is_goals_met: if the goals set by users is met
+    if_goals_met: if the goals set by users are met
     """
 
     value: MetricResult = None
     cmp_direction: DefaultDict[str, int] = None
-    is_goals_met: bool = False
+    if_goals_met: bool = False
 
 
 class FootprintNode(ConfigBase):
@@ -34,7 +46,7 @@ class FootprintNode(ConfigBase):
     from_pass: str = None
     pass_run_config: Dict = None
     is_pareto_frontier: bool = False
-    # TODO add EP/accelerators for same_model_id metrics
+    # TODO(trajep): add EP/accelerators for same_model_id metrics
     metrics: FootprintNodeMetric = None
 
     start_time: float = 0
@@ -46,8 +58,8 @@ class FootprintNode(ConfigBase):
 
 
 class Footprint:
-    """
-    The engine footprint is a class that contains the footprint of the engine runtime.
+    """The engine footprint is a class that contains the footprint of the engine runtime.
+
     It is used to collect the runtime state of the Olive engine and to organize the state
     in a way that is easy to visualize and understand for customers.
     """
@@ -69,6 +81,7 @@ class Footprint:
             if self._is_empty_metric(metric.metrics):
                 continue
             return len(metric.metrics.value)
+        return 0
 
     def record_objective_dict(self, objective_dict):
         self.objective_dict = objective_dict
@@ -83,7 +96,7 @@ class Footprint:
             if self.nodes[k].metrics.cmp_direction is None:
                 self.nodes[k].metrics.cmp_direction = {}
 
-            is_goals_met = []
+            if_goals_met = []
             for metric_name in v.metrics.value:
                 if metric_name not in self.objective_dict:
                     logger.debug(f"There is no goal set for metric: {metric_name}.")
@@ -94,10 +107,14 @@ class Footprint:
 
                 _goal = self.objective_dict[metric_name]["goal"]
                 if _goal is None:
-                    is_goals_met.append(True)
+                    if_goals_met.append(True)
                 else:
-                    is_goals_met.append(v.metrics.value[metric_name].value * cmp_direction >= _goal)
-            self.nodes[k].metrics.is_goals_met = all(is_goals_met)
+                    if_goals_met.append(
+                        v.metrics.value[metric_name].value >= _goal
+                        if cmp_direction == 1
+                        else v.metrics.value[metric_name].value <= _goal
+                    )
+            self.nodes[k].metrics.if_goals_met = all(if_goals_met)
 
     def record(self, foot_print_node: FootprintNode = None, **kwargs):
         _model_id = kwargs.get("model_id", None)
@@ -114,7 +131,7 @@ class Footprint:
         return {
             k: v
             for k, v in self.nodes.items()
-            if not self._is_empty_metric(v.metrics) and v.parent_model_id is not None
+            if not self._is_empty_metric(v.metrics) and v.parent_model_id is not None and v.metrics.if_goals_met
         }
 
     def mark_pareto_frontier(self):
@@ -153,20 +170,22 @@ class Footprint:
             self.nodes[k].is_pareto_frontier = cmp_flag
         self.is_marked_pareto_frontier = True
 
-    def get_footprints_by_model_ids(self, model_ids):
+    def create_footprints_by_model_ids(self, model_ids):
         nodes = OrderedDict()
         for model_id in model_ids:
-            nodes[model_id] = self.nodes[model_id]
-        return Footprint(nodes=nodes, objective_dict=self.objective_dict, is_marked_pareto_frontier=True)
+            nodes[model_id] = deepcopy(self.nodes[model_id])
+        return Footprint(nodes=nodes, objective_dict=deepcopy(self.objective_dict))
 
-    def get_pareto_frontier(self):
+    def create_pareto_frontier(self):
         self.mark_pareto_frontier()
         rls = {k: v for k, v in self.nodes.items() if v.is_pareto_frontier}
-        for _, v in rls.items():
+        for v in rls.values():
             logger.info(f"pareto frontier points: {v.model_id} \n{v.metrics.value}")
 
         # restructure the pareto frontier points to instance of Footprints node for further analysis
-        return Footprint(nodes=rls, objective_dict=self.objective_dict, is_marked_pareto_frontier=True)
+        return Footprint(
+            nodes=deepcopy(rls), objective_dict=deepcopy(self.objective_dict), is_marked_pareto_frontier=True
+        )
 
     def update_nodes(self, nodes):
         node_dict = OrderedDict()
@@ -175,8 +194,8 @@ class Footprint:
         self.nodes = node_dict
 
     def _get_metrics_name_by_indices(self, indices):
-        rls = list()
-        for _, v in self.nodes.items():
+        rls = []
+        for v in self.nodes.values():
             if not self._is_empty_metric(v.metrics):
                 for index in indices:
                     if isinstance(index, str):
@@ -199,8 +218,8 @@ class Footprint:
         self.plot_pareto_frontier(index, save_path, is_show, "image")
 
     def plot_pareto_frontier(self, ranks=None, save_path=None, is_show=True, save_format="html"):
-        """
-        plot pareto frontier with plotly
+        """Plot pareto frontier with plotly.
+
         :param ranks: the rank list of the metrics to be shown in the pareto frontier chart
         :param save_path: the path to save the pareto frontier chart
         :param is_show: whether to show the pareto frontier chart
@@ -255,13 +274,13 @@ class Footprint:
                 y=dict_data[metric_column[index[1]]],
                 mode="markers",
                 name="all footprints",
-                marker=dict(color=dict_data["marker_color"], size=dict_data["marker_size"]),
+                marker={"color": dict_data["marker_color"], "size": dict_data["marker_size"]},
                 customdata=dict_data["show_text"],
                 hovertemplate="%{customdata}",
             )
         )
         pareto_frontiers_data = data.loc[data["is_pareto_frontier"]]
-        pareto_frontiers_data.sort_values(metric_column, ascending=True, inplace=True)
+        pareto_frontiers_data = pareto_frontiers_data.sort_values(metric_column, ascending=True)
         fig.add_trace(
             go.Scatter(
                 x=pareto_frontiers_data[metric_column[index[0]]],
@@ -285,12 +304,10 @@ class Footprint:
             fig.show()
 
     def summarize_run_history(self):
+        """Summarize the run history of a model.
+
+        The summarization includes the columns of model_id, parent_model_id, from_pass, duration, metrics
         """
-        Summarize the run history of a model with the columns of
-        model_id, parent_model_id, from_pass, duration, metrics
-        """
-        headers = ["model_id", "parent_model_id", "from_pass", "duration_sec", "metrics"]
-        RunHistory = namedtuple("RunHistory", headers)
         rls = []
         for model_id, node in self.nodes.items():
             # get the run duration between current model and its parent model
@@ -309,9 +326,9 @@ class Footprint:
         return rls
 
     def trace_back_run_history(self, model_id):
-        """
-        Trace back the run history of a model with the order of
-        model_id -> parent_model_id1 -> parent_model_id2 -> ...
+        """Trace back the run history of a model.
+
+        The trace order: model_id -> parent_model_id1 -> parent_model_id2 -> ...
         """
         rls = OrderedDict()
         while model_id is not None:
@@ -336,12 +353,12 @@ class Footprint:
         return cls(nodes=nodes)
 
     def to_file(self, file_path):
-        with open(file_path, "w") as f:
+        with open(file_path, "w") as f:  # noqa: PTH123
             f.write(self.to_json())
 
     @classmethod
     def from_file(cls, file_path):
-        with open(file_path, "r") as f:
+        with open(file_path) as f:  # noqa: PTH123
             return cls.from_json(f.read())
 
     def get_model_inference_config(self, model_id):
@@ -380,5 +397,4 @@ class Footprint:
         return model_config.get("config", {}).get("use_ort_extensions", False)
 
     def get_input_node(self):
-        input_node = [v for _, v in self.nodes.items() if v.parent_model_id is None][0]
-        return input_node
+        return next(v for _, v in self.nodes.items() if v.parent_model_id is None)

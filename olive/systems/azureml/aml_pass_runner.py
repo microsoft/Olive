@@ -50,11 +50,10 @@ def create_pass(pass_config, pass_args):
     for key, value in vars(pass_args).items():
         if value is not None:
             # remove the pass_ prefix, the 1 is to only replace the first occurrence
-            key = key.replace("pass_", "", 1)
-            pass_config["config"][key] = value
+            normalized_key = key.replace("pass_", "", 1)
+            pass_config["config"][normalized_key] = value
 
-    p = FullPassConfig.from_json(pass_config).create_pass()
-    return p
+    return FullPassConfig.from_json(pass_config).create_pass()
 
 
 def main(raw_args=None):
@@ -62,7 +61,7 @@ def main(raw_args=None):
     pass_config_arg, extra_args = parse_pass_config_arg(extra_args)
 
     # pass config
-    with open(pass_config_arg.pass_config) as f:
+    with open(pass_config_arg.pass_config) as f:  # noqa: PTH123
         pass_config = json.load(f)
     pass_type = pass_config["type"].lower()
 
@@ -75,9 +74,9 @@ def main(raw_args=None):
 
         # Some passes create temporary files in the same directory as the model
         # original directory for model path is read only, so we need to copy the model to a temp directory
-        input_model_path = input_model_config["config"]["model_path"]
+        input_model_path = input_model_config["config"].get("model_path")
         if input_model_path is not None:
-            tmp_dir = tempfile.TemporaryDirectory()
+            tmp_dir = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
             old_path = Path(input_model_path).resolve()
             new_path = Path(tmp_dir.name).resolve() / old_path.name
             if old_path.is_file():
@@ -106,18 +105,14 @@ def main(raw_args=None):
     # save model json
     model_json = output_model.to_json()
 
-    # Replace output model HF config with input model HF config only if the output model HF config is empty
-    if not model_json["config"].get("hf_config", None) and input_model_config["config"].get("hf_config"):
-        model_json["config"]["hf_config"] = input_model_config["config"]["hf_config"]
-
     # Replace local paths with relative paths
     # keep track of the resource names that are relative paths
     # during download in aml system, the relative paths will be resolved to the pipeline output
     model_json["resource_names"] = []
     # keep track of the resource names that are the same as the input model
     model_json["same_resources_as_input"] = []
-    for resource_name, resource_path in output_model.resource_paths.items():
-        resource_path = create_resource_path(resource_path)  # just in case
+    for resource_name, resource_path_value in output_model.resource_paths.items():
+        resource_path = create_resource_path(resource_path_value)  # just in case
         if not resource_path or resource_path.is_string_name():
             # nothing to do if the path is None or a string name
             continue
@@ -143,7 +138,7 @@ def main(raw_args=None):
         model_json["resource_names"].append(resource_name)
 
     # save model json
-    with open(Path(pipeline_output) / "output_model_config.json", "w") as f:
+    with (Path(pipeline_output) / "output_model_config.json").open("w") as f:
         json.dump(model_json, f, indent=4)
 
 

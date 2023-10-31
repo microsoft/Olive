@@ -1,12 +1,14 @@
 {
     "input_model":{
-        "type": "PyTorchModel",
+        "type": "CompositePyTorchModel",
         "config": {
-            "model_script": "user_script.py",
-            "hf_config": {
-                "components": [
-                    {
-                        "name": "decoder_model",
+            "model_path": "llama_v2",
+            "model_components": [
+                {
+                    "name": "decoder_model",
+                    "type": "PyTorchModel",
+                    "config": {
+                        "model_script": "user_script.py",
                         "io_config": {
                             "input_names": [
                                 "x",
@@ -215,11 +217,15 @@
                                 "cache.31.value": { "2": "max_seq_len" }
                             }
                         },
-                        "component_func": "load_decoder_model",
+                        "model_loader": "load_decoder_model",
                         "dummy_inputs_func": "decoder_inputs"
-                    },
-                    {
-                        "name": "decoder_with_past_model",
+                    }
+                },
+                {
+                    "name": "decoder_with_past_model",
+                    "type": "PyTorchModel",
+                    "config": {
+                        "model_script": "user_script.py",
                         "io_config": {
                             "input_names": [
                                 "x_increment",
@@ -428,11 +434,11 @@
                                 "cache.31.value": { "2": "max_seq_len" }
                             }
                         },
-                        "component_func": "load_decoder_with_past_model",
+                        "model_loader": "load_decoder_with_past_model",
                         "dummy_inputs_func": "decoder_with_past_inputs"
                     }
-                ]
-            }
+                }
+            ]
         }
     },
     "systems": {

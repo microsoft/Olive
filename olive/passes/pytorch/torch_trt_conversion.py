@@ -27,10 +27,9 @@ logger = logging.getLogger(__name__)
 
 
 class TorchTRTConversion(Pass):
-    """
-    Convert torch.nn.Linear modules in the transformer layers of a Hugging Face PyTorch model to TensorRT modules with
-    fp16 precision and sparse weights, if applicable.
+    """Convert torch.nn.Linear modules in the transformer layers of a HuggingFace PyTorch model to TensorRT modules.
 
+    The conversion would include fp16 precision and sparse weights, if applicable.
     The entire model is saved using `torch.save` and can be loaded using `torch.load`. Loading the model requires
     `torch-tensorrt` and Olive to be installed.
 
@@ -81,8 +80,7 @@ class TorchTRTConversion(Pass):
     ) -> PyTorchModel:
         from olive.passes.pytorch.trt_utils import compile_trt_model
 
-        model_config = model.get_model_config()
-        model_type = model_config.model_type
+        model_type = model.model_attributes["model_type"]
         if model_type not in supported_models:
             raise ValueError(f"Unsupported model type: {model_type}. Supported types: {supported_models}")
 
@@ -139,8 +137,8 @@ class TorchTRTConversion(Pass):
 
             # add forward hook to submodules in layer
             def get_handler(layer_idx, submodule_name):
-                def handler(_, input, output):
-                    layer_info[layer_idx]["input_shapes"][submodule_name] = input[0].shape
+                def handler(_, inputs, output):
+                    layer_info[layer_idx]["input_shapes"][submodule_name] = inputs[0].shape
 
                 return handler
 
@@ -161,9 +159,9 @@ class TorchTRTConversion(Pass):
         for layer_index, info in layer_info.items():
             logger.debug(f"Converting layer {layer_index}...")
             for name, shape in info["input_shapes"].items():
-                input = torch.zeros(shape, dtype=torch.float16, device=device)
+                inputs = torch.zeros(shape, dtype=torch.float16, device=device)
                 # create trt module
-                trt_module = compile_trt_model(info["submodules"][name], input, batch_size, seqlen)
+                trt_module = compile_trt_model(info["submodules"][name], inputs, batch_size, seqlen)
                 # get parent module
                 parent_name = ".".join(name.split(".")[:-1])
                 parent_module = get_attr(layers[layer_index], parent_name)
@@ -173,7 +171,7 @@ class TorchTRTConversion(Pass):
                 setattr(parent_module, module_name, trt_module)
                 # remove submodule from layer_info
                 del info["submodules"][name]
-                # TODO: is the empty cache necessary? does it add processing time?
+                # TODO(jambayk): is the empty cache necessary? does it add processing time?
                 # torch.cuda.empty_cache()
                 # gc.collect()
 

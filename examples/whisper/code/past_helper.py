@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class PastKeyValuesHelper:
-    """Helper functions to process past key values for encoder-decoder model"""
+    """Helper functions to process past key values for encoder-decoder model."""
 
     @staticmethod
     def get_past_names(num_layers, present: bool = False):
@@ -33,6 +33,7 @@ class PastKeyValuesHelper:
     @staticmethod
     def group_by_self_or_cross(present_key_values):
         """Split present state from grouped by layer to grouped by self/cross attention.
+
         Before: (past_key_self_0, past_value_self_0, past_key_cross_0, past_value_cross_0),
                 (past_key_self_1, past_value_self_1, past_key_cross_1, past_value_cross_1), ...
         After: (past_key_self_0, past_value_self_0, past_key_self_1, past_value_self_1, ...),
@@ -56,6 +57,7 @@ class PastKeyValuesHelper:
     @staticmethod
     def group_by_layer(past, num_layers):
         """Reorder past state from grouped by self/cross attention to grouped by layer.
+
         Before: past_key_self_0, past_value_self_0, past_key_self_1, past_value_self_1, ...,
                 past_key_cross_0, past_value_cross_0, past_key_cross_1, past_value_cross_1, ...
         After: (past_key_self_0, past_value_self_0, past_key_cross_0, past_value_cross_0),
@@ -74,7 +76,7 @@ class PastKeyValuesHelper:
 
     @staticmethod
     def back_group_by_layer(past_key_values: Tuple[Tuple[torch.Tensor]]):
-        """Categorize present_key_values from self and cross attention to layer by layer.
+        """Categorize past_key_values from self and cross attention to layer by layer.
 
         Reorder past state from grouped by self/cross attention to grouped by layer.
         Before: past_key_self_0, past_value_self_0, past_key_self_1, past_value_self_1, ...,
@@ -83,7 +85,7 @@ class PastKeyValuesHelper:
                 (past_key_self_1, past_value_self_1, past_key_cross_1, past_value_cross_1),
 
         Args:
-            present_key_values: From past_key_values of a model (group by self and cross attention)
+            past_key_values: From past_key_values of a model (group by self and cross attention)
 
         Returns:
             past_tuples: present key and values grouped by layer.
@@ -138,6 +140,7 @@ class PastKeyValuesHelper:
 
         Args:
             past_key_values: Consider `self` and `cross` past_key_values
+            encoder: If encoder or decoder
 
         Returns:
             names (List[string]): input names

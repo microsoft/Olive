@@ -3,3 +3,5 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from olive.workflows.run.run import run
+
+__all__ = ["run"]

@@ -16,6 +16,22 @@ You can run Olive workflow with your AML workspace registered model. In the inpu
 ```
 Olive will automatically download the model and run the workflow in the specified target or host with this model as input model.
 
+
+### Using AzureML curated model
+You can run Olive workflow with AML registered model. In the input model section, define the model config as:
+```
+"model_path": {
+    "type": "azureml_registry_model",
+    "config": {
+        "name": "model_name",
+        "registry_name": "registry_name",
+        "version": 1
+    }
+}
+```
+Olive will automatically download the model and run the workflow in the specified target or host with this model as input model.
+
+
 ### Using model stored in AzureML datastore
 You can specify your model path from an AzureML datastore as:
 ```
@@ -74,13 +90,13 @@ You can specify your Azure ML Compute as an Olive System and use it as a host to
 "systems": {
     "aml_system": {
         "type": "AzureML",
-    	 "config": {
+        "config": {
             "aml_compute": "cpu-cluster",
             "aml_docker_config": {
                 "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
                 "conda_file_path": "conda.yaml"
             }
-         }  
+        }
     }
 }
 ```
@@ -99,6 +115,6 @@ Please follow this instruction to setup your local device: [Self-hosted Kubernet
 
 
 ## Azure ML Helper Scripts
-Olive offers several scripts to assit you in managing your Azure ML assets.
+Olive offers several scripts to assist you in managing your Azure ML assets.
 
 For details on the available scripts, refer to: [Azure ML scripts](../tutorials/azureml_scripts.md)
