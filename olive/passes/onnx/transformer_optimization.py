@@ -93,13 +93,13 @@ class OrtTransformersOptimization(Pass):
             "force_fp32_ops": PassConfigParam(
                 type_=List[str], default_value=None, description="Operators that are forced to run in float32"
             ),
-            "force_fp32_nodes": PassConfigParam(
-                type_=List[str], default_value=None, description="Nodes that are forced to run in float32"
-            ),
             "use_gqa": PassConfigParam(
                 type_=bool,
                 default_value=False,
                 description="Replace MultiHeadAttention with GroupQueryAttention.",
+            ),
+            "force_fp32_nodes": PassConfigParam(
+                type_=List[str], default_value=None, description="Nodes that are forced to run in float32"
             ),
         }
         config.update(get_external_data_config())
@@ -167,6 +167,7 @@ class OrtTransformersOptimization(Pass):
             run_config["force_fp32_ops"],
             run_config["force_fp32_nodes"],
             run_config["use_gqa"],
+            run_config["force_fp32_nodes"],
         )
         for key in get_external_data_config():
             del run_config[key]
@@ -217,8 +218,8 @@ class OrtTransformersOptimization(Pass):
             optimizer.convert_float_to_float16(
                 keep_io_types=config["keep_io_types"],
                 op_block_list=op_block_list,
-                node_block_list=node_block_list,
                 force_fp16_inputs=force_fp16_inputs,
+                node_block_list=node_block_list,
             )
 
             if config["use_gqa"]:

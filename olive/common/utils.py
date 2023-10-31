@@ -41,7 +41,7 @@ def get_package_name_from_ep(execution_provider):
         "CPUExecutionProvider": ("onnxruntime", "ort-nightly"),
         "CUDAExecutionProvider": ("onnxruntime-gpu", "ort-nightly-gpu"),
         "TensorrtExecutionProvider": ("onnxruntime-gpu", "ort-nightly-gpu"),
-        "RocmExecutionProvider": ("onnxruntime-gpu", "ort-nightly-gpu"),
+        "ROCMExecutionProvider": ("onnxruntime-gpu", "ort-nightly-gpu"),
         "OpenVINOExecutionProvider": ("onnxruntime-openvino", None),
         "DmlExecutionProvider": ("onnxruntime-directml", "ort-nightly-directml"),
     }

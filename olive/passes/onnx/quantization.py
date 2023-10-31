@@ -537,9 +537,11 @@ class OnnxMatMul4Quantizer(Pass):
         from onnxruntime import __version__ as OrtVersion
 
         if version.parse(OrtVersion) < version.parse("1.17.0"):
-            raise OlivePassError("OnnxLlamaMatMulWeight4Quantizer is only supported in onnxruntime >= 1.17.0")
+            raise OlivePassError("MatMul4BitsQuantizer is only supported in onnxruntime >= 1.17.0")
 
         from onnxruntime.quantization.matmul_4bits_quantizer import MatMul4BitsQuantizer
+
+        output_model_path = ONNXModel.resolve_path(output_model_path)
 
         quant = MatMul4BitsQuantizer(
             model.load_model(), config["block_size"], config["is_symmetric"], config["nodes_to_exclude"]
