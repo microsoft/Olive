@@ -41,6 +41,14 @@ def get_external_data_config():
                 " the external data file will be named with <model_path_name>.data"
             ),
         ),
+        "convert_attribute": PassConfigParam(
+            type_=bool,
+            default_value=False,
+            description=(
+                "Effective only if save_as_external_data is True. If true, convert all tensors to external data If"
+                " false, convert only non-attribute tensors to external data"
+            ),
+        ),
     }
 
 
@@ -50,6 +58,7 @@ def model_proto_to_file(
     save_as_external_data: Optional[bool] = False,
     all_tensors_to_one_file: Optional[bool] = True,
     external_data_name: Optional[Union[str, Path]] = None,
+    convert_attribute: Optional[bool] = False,
 ) -> bool:
     """Save the ONNX model to the specified path.
 
@@ -108,13 +117,13 @@ def model_proto_to_file(
             raise RuntimeError(f"Output directory ({output_dir}) for external data is not empty.")
 
     # save model
-    # TODO(trajep): complete the argument list
     onnx.save_model(
         model,
         str(output_path),
         save_as_external_data=True,
         all_tensors_to_one_file=all_tensors_to_one_file,
         location=location,
+        convert_attribute=convert_attribute,
     )
     return True
 
@@ -142,6 +151,7 @@ def model_proto_to_olive_model(
         save_as_external_data=external_data_config["save_as_external_data"],
         all_tensors_to_one_file=external_data_config["all_tensors_to_one_file"],
         external_data_name=external_data_config["external_data_name"],
+        convert_attribute=external_data_config["convert_attribute"],
     )
     if has_external_data:
         model_path = LocalFolder({"path": Path(output_model_path).parent})
