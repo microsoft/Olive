@@ -92,7 +92,7 @@ def main(raw_args=None):
     config_name = f"llama2_{device}_{gqa}"
 
     # create user script
-    user_script_path = Path(__file__).parent / f"user_script.py"
+    user_script_path = Path(__file__).parent / "user_script.py"
     config_script_path = Path(__file__).parent / f"{config_name}_user_script.py"
     update_user_script(user_script_path, config_script_path, model_name)
 
@@ -102,7 +102,7 @@ def main(raw_args=None):
     template_json = json.loads(template_json)
 
     # dump config
-    with open(f"llama2_{device}_{gqa}.json", "w") as f:  # noqa: PTH123
+    with open(f"{config_name}.json", "w") as f:  # noqa: PTH123
         json.dump(template_json, f, indent=4)
 
     if not args.only_config:
