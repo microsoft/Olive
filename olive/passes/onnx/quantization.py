@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-import tempfile
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, Dict, Union
@@ -23,6 +22,7 @@ from olive.passes.onnx.common import get_external_data_config, model_proto_to_fi
 from olive.passes.pass_config import ParamCategory, PassConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, LocalFile
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional, ConditionalDefault
+from olive.tmp_dir import get_temporary_directory
 
 logger = logging.getLogger(__name__)
 
@@ -223,7 +223,7 @@ class OnnxQuantization(Pass):
     def _initialize(self):
         super()._initialize()
         # pylint: disable=attribute-defined-outside-init
-        self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
+        self.tmp_dir = get_temporary_directory()
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -389,7 +389,7 @@ class OnnxQuantization(Pass):
         # reload the model and save to output_model_path using the external data config
         # TODO(jambayk): don't default to use_external_data_format=True if the loading and saving model makes
         # the pass inefficient
-        new_tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
+        new_tmp_dir = get_temporary_directory()
         tmp_model_path = str(Path(new_tmp_dir.name) / Path(output_model_path).name)
 
         if is_static:

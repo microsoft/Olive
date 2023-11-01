@@ -16,6 +16,7 @@ from olive.hardware import Device
 from olive.logging import set_default_logger_severity, set_verbosity_info
 from olive.passes import Pass
 from olive.systems.common import SystemType
+from olive.tmp_dir import set_tmp_dir_root
 from olive.workflows.run.config import RunConfig
 
 logger = logging.getLogger(__name__)
@@ -143,6 +144,10 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
     # set ort log level
     set_default_logger_severity(config.engine.log_severity_level)
     ort.set_default_logger_severity(config.engine.ort_log_severity_level)
+
+    # set tmp dir root
+    if config.engine.tmp_dir_root is not None:
+        set_tmp_dir_root(config.engine.tmp_dir_root)
 
     # input model
     input_model = config.input_model

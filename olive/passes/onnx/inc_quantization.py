@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import logging
 import os
-import tempfile
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Union
@@ -24,6 +23,7 @@ from olive.passes.onnx.common import get_external_data_config, model_proto_to_ol
 from olive.passes.pass_config import ParamCategory, PassConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional
+from olive.tmp_dir import get_temporary_directory
 
 logger = logging.getLogger(__name__)
 
@@ -335,7 +335,7 @@ class IncQuantization(Pass):
             # and return evaluation value.
 
             # temporarily save model as onnx model
-            tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")  # pylint: disable=consider-using-with
+            tmp_dir = get_temporary_directory()
             tmp_model_path = Path(tmp_dir.name) / "tmp_model.onnx"
 
             # save as olive onnx model

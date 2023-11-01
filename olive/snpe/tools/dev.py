@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import csv
-import tempfile
 from pathlib import Path
 from typing import List
 
@@ -11,6 +10,7 @@ import onnx
 from onnx import TensorProto, helper
 
 from olive.snpe.utils.local import run_snpe_command
+from olive.tmp_dir import get_named_temporary_file
 
 
 def get_snpe_version() -> str:
@@ -38,7 +38,7 @@ def get_dlc_io_config(dlc_path: str, input_names: List[str], output_names: List[
     input_names: list of input names of source model.
     output_names: list of output names of source model.
     """
-    tmp_csv = tempfile.NamedTemporaryFile(suffix=".csv")  # pylint: disable=consider-using-with
+    tmp_csv = get_named_temporary_file(suffix=".csv")
     dlc_info = get_dlc_info(dlc_path, csv_path=tmp_csv.name)
 
     # add the :0 suffix to the input/output names if present in the DLC

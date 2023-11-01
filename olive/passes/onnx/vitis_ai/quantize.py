@@ -7,7 +7,6 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-import tempfile
 from pathlib import Path
 
 from onnxruntime.quantization.calibrate import CalibrationDataReader, CalibrationMethod
@@ -18,6 +17,7 @@ from onnxruntime.quantization.registry import QDQRegistry, QLinearOpsRegistry
 from olive.passes.onnx.vitis_ai.calibrate import PowerOfTwoMethod, create_calibrator_power_of_two
 from olive.passes.onnx.vitis_ai.quant_utils import get_exclude_nodes, is_ort_version_below_1_16
 from olive.passes.onnx.vitis_ai.quantizer import VitisDPUQuantizer, VitisQDQQuantizer, VitisQOpQuantizer
+from olive.tmp_dir import get_temporary_directory
 
 # pylint: skip-file
 # ruff: noqa
@@ -195,7 +195,7 @@ def quantize_static(
         key: extra_options.get(name) for (name, key) in calib_extra_options_keys if name in extra_options
     }
 
-    with tempfile.TemporaryDirectory(prefix="ort.quant.") as quant_tmp_dir:
+    with get_temporary_directory(prefix="ort.quant.") as quant_tmp_dir:
         calibrator = create_calibrator_power_of_two(
             Path(model_input),
             op_types_to_quantize,

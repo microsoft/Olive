@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import logging
 import shutil
-import tempfile
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Tuple
@@ -13,6 +12,7 @@ import numpy as np
 import torch
 
 import olive.snpe.utils.input_list as input_list_utils
+from olive.tmp_dir import get_temporary_directory
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ class SNPEDataLoader(ABC):
             return
 
         if self.tmp_dir is None:
-            self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_")  # pylint: disable=consider-using-with
+            self.tmp_dir = get_temporary_directory()
         self.batch_dir = str(Path(self.tmp_dir.name) / "batch")
 
         batch_input_list = input_list_utils.resolve_input_list(
@@ -138,7 +138,7 @@ class SNPEProcessedDataLoader(SNPEDataLoader):
         super().__init__(config, batch_size)
 
     def load_data(self) -> Tuple[str, str, np.ndarray]:
-        self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_")  # pylint: disable=consider-using-with
+        self.tmp_dir = get_temporary_directory()
         input_list = input_list_utils.get_input_list(
             self.config["data_dir"], self.config["input_list_file"], self.tmp_dir.name
         )
@@ -178,7 +178,7 @@ class SNPERandomDataLoader(SNPEDataLoader):
         super().__init__(config, batch_size)
 
     def load_data(self) -> Tuple[str, str, np.ndarray]:
-        self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_")  # pylint: disable=consider-using-with
+        self.tmp_dir = get_temporary_directory()
 
         # get data_dir
         if self.config["data_dir"] is None:
@@ -287,7 +287,7 @@ class SNPECommonDataLoader(SNPEDataLoader):
             input_spec["permutation"] = permutation
         logger.debug(f"Input specs: {input_specs}")
 
-        self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_")  # pylint: disable=consider-using-with
+        self.tmp_dir = get_temporary_directory()
         data_dir = Path(self.tmp_dir.name) / "data"
         data_dir.mkdir()  # create data dir
 

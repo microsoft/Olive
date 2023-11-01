@@ -5,7 +5,6 @@
 import json
 import logging
 import shutil
-import tempfile
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -35,6 +34,7 @@ from olive.resource_path import (
 )
 from olive.systems.common import AzureMLDockerConfig, SystemType
 from olive.systems.olive_system import OliveSystem
+from olive.tmp_dir import get_temporary_directory
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +122,7 @@ class AzureMLSystem(OliveSystem):
         pass_config = the_pass.to_json(check_object=True)
         pass_config["config"].update(the_pass.serialize_config(config, check_object=True))
 
-        with tempfile.TemporaryDirectory() as tempdir:
+        with get_temporary_directory() as tempdir:
             pipeline_job = self._create_pipeline_for_pass(
                 data_root, tempdir, model_config, pass_config, the_pass.path_params
             )
@@ -506,7 +506,7 @@ class AzureMLSystem(OliveSystem):
         if model_config.type.lower() == "OpenVINOModel".lower():
             raise NotImplementedError("OpenVINO model does not support azureml evaluation")
 
-        with tempfile.TemporaryDirectory() as tempdir:
+        with get_temporary_directory() as tempdir:
             ml_client = self.azureml_client_config.create_client()
             pipeline_job = self._create_pipeline_for_evaluation(data_root, tempdir, model_config, metrics, accelerator)
 

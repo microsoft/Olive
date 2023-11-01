@@ -5,7 +5,6 @@
 import logging
 import os
 import shutil
-import tempfile
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from pathlib import Path
@@ -34,6 +33,7 @@ from olive.resource_path import (
 )
 from olive.snpe import SNPEDevice, SNPEInferenceSession, SNPESessionOptions
 from olive.snpe.tools.dev import get_dlc_metrics
+from olive.tmp_dir import get_temporary_directory
 
 REGISTRY = {}
 logger = logging.getLogger(__name__)
@@ -575,7 +575,7 @@ class PyTorchModel(OliveModel):
 
     def load_mlflow_model(self):
         logger.info(f"Loading MLFlow model from {self.model_path}")
-        with tempfile.TemporaryDirectory(prefix="mlflow_tmp") as tmp_dir:
+        with get_temporary_directory(prefix="mlflow_tmp") as tmp_dir:
             shutil.copytree(os.path.join(self.model_path, "data/model"), tmp_dir, dirs_exist_ok=True)
             shutil.copytree(os.path.join(self.model_path, "data/config"), tmp_dir, dirs_exist_ok=True)
             shutil.copytree(os.path.join(self.model_path, "data/tokenizer"), tmp_dir, dirs_exist_ok=True)

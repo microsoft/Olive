@@ -34,6 +34,7 @@ class RunEngineConfig(EngineConfig):
     packaging_config: PackagingConfig = None
     log_severity_level: int = 1
     ort_log_severity_level: int = 3
+    tmp_dir_root: str = None  # if None, will use the whatever is set in OLIVE_TMP_DIR_ROOT
 
     def create_engine(self):
         config = self.dict()
@@ -44,6 +45,7 @@ class RunEngineConfig(EngineConfig):
             "packaging_config",
             "log_severity_level",
             "ort_log_severity_level",
+            "tmp_dir_root",
         ]
         for key in to_del:
             del config[key]

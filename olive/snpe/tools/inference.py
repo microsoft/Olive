@@ -5,7 +5,6 @@
 import logging
 import platform
 import shutil
-import tempfile
 from pathlib import Path
 from typing import List, Tuple
 
@@ -16,6 +15,7 @@ from olive.common.config_utils import validate_enum
 from olive.snpe.constants import PerfProfile, ProfilingLevel, SNPEDevice
 from olive.snpe.utils.input_list import get_input_ids, resolve_input_list
 from olive.snpe.utils.local import run_snpe_command
+from olive.tmp_dir import get_temporary_directory
 
 logger = logging.getLogger(__name__)
 
@@ -158,7 +158,7 @@ def snpe_net_run(
     android_persist_ws: Whether to persist the workspace on android.
     android_initialized: Whether the inference session has already been initialized on android using init_snpe_net_adb.
     """
-    tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_")  # pylint: disable=consider-using-with
+    tmp_dir = get_temporary_directory()
     tmp_dir_path = Path(tmp_dir.name)
 
     # Create the snpe-net-run command

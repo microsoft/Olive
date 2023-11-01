@@ -6,7 +6,6 @@ import copy
 import json
 import logging
 import shutil
-import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
@@ -22,6 +21,7 @@ from olive.model import ModelConfig
 from olive.passes import Pass
 from olive.systems.common import LocalDockerConfig, SystemType
 from olive.systems.olive_system import OliveSystem
+from olive.tmp_dir import get_temporary_directory
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +76,7 @@ class DockerSystem(OliveSystem):
                         f"requirements.txt {local_docker_config.requirements_file_path}"
                     )
                     dockerfile_path = str(Path(__file__).resolve().parent / self.BASE_DOCKERFILE)
-                    with tempfile.TemporaryDirectory() as tempdir:
+                    with get_temporary_directory() as tempdir:
                         build_context_path = tempdir
                         shutil.copy2(dockerfile_path, build_context_path)
                         shutil.copy2(local_docker_config.requirements_file_path, build_context_path)
@@ -111,7 +111,7 @@ class DockerSystem(OliveSystem):
         self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
     ) -> Dict[str, Any]:
         container_root_path = Path("/olive-ws/")
-        with tempfile.TemporaryDirectory() as tempdir:
+        with get_temporary_directory() as tempdir:
             metrics_res = None
             metric_json = self._run_container(
                 tempdir, model_config, data_root, metrics, accelerator, container_root_path

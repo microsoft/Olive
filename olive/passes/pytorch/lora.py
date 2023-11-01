@@ -9,7 +9,6 @@
 # --------------------------------------------------------------------------
 import dataclasses
 import logging
-import tempfile
 from copy import deepcopy
 from functools import partial
 from pathlib import Path
@@ -29,6 +28,7 @@ from olive.model import PyTorchModel
 from olive.model.hf_utils import HFModelLoadingArgs, get_peft_task_type_from_task
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
+from olive.tmp_dir import get_temporary_directory
 
 logger = logging.getLogger(__name__)
 
@@ -371,11 +371,11 @@ class LoRABase(Pass):
         # after training or if there is an error
         # With a context manager, the temp dir will be deleted automatically as soon as the context is exited or
         # there is an error
-        # If we do `tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")` and there is an error before
+        # If we do `tmp_dir = get_temporary_directory()` and there is an error before
         # cleanup or run returns (tmp_dir goes out of scopt), the temp dir will not be deleted until the the exception
         # is handled by the caller (after try except) or the program exits
         # Plus the cleanup after error doesn't work as expected with notebooks
-        with tempfile.TemporaryDirectory(prefix="olive_tmp") as temp_dir:
+        with get_temporary_directory() as temp_dir:
             if not config.training_args.output_dir:
                 logger.info("No training_output_dir provided. Using a temp dir.")
                 config.training_args.output_dir = temp_dir

@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import tempfile
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Union
 
@@ -18,6 +17,7 @@ from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.onnx.pipeline import TENSOR_TYPE_MAP
 from olive.passes.pass_config import PassConfigParam
+from olive.tmp_dir import get_temporary_directory
 
 
 class PrePostProcessorInput(ConfigBase):
@@ -127,7 +127,7 @@ class AppendPrePostProcessingOps(Pass):
                 # add the processing commands to the model
                 # save the model to a temporary directory, will save it to the output path later with
                 # external data config
-                with tempfile.TemporaryDirectory(prefix="olive_tmp") as tmp_dir:
+                with get_temporary_directory() as tmp_dir:
                     tmp_dir_path = Path(tmp_dir)
                     tmp_model_path = tmp_dir_path / Path(output_model_path).name
                     tool_command(Path(model.model_path), Path(tmp_model_path), **kwargs)

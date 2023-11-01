@@ -88,6 +88,8 @@ def create_new_system(origin_system, accelerator):
 
         from olive.systems.python_environment import PythonEnvironmentSystem
 
+        # TODO(jambayk): the tmp dir objects here immediately go out of scope and are deleted
+        # need to handle this better
         if platform.system() == "Linux":
             destination_dir = os.path.join(os.environ.get("HOME", ""), "tmp")
             if not os.path.exists(destination_dir):

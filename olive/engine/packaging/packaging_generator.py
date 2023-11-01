@@ -21,6 +21,7 @@ from olive.engine.packaging.packaging_config import PackagingConfig, PackagingTy
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.resource_path import ResourceType, create_resource_path
+from olive.tmp_dir import get_temporary_directory
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,7 @@ def _generate_zipfile_output(
 ) -> None:
     logger.info("Packaging Zipfile output artifacts")
     cur_path = Path(__file__).parent
-    with tempfile.TemporaryDirectory() as temp_dir:
+    with get_temporary_directory() as temp_dir:
         tempdir = Path(temp_dir)
         _package_sample_code(cur_path, tempdir)
         for accelerator_spec, pf_footprint in pf_footprints.items():

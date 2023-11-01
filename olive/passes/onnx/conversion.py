@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-import tempfile
 from pathlib import Path
 from typing import Any, Dict, Union
 
@@ -20,6 +19,7 @@ from olive.model.model_config import IOConfig
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
+from olive.tmp_dir import get_temporary_directory
 
 logger = logging.getLogger(__name__)
 
@@ -163,7 +163,7 @@ class OnnxConversion(Pass):
             # there might be multiple files created during export, so we need to track the dir
             # if there are other processes writing to the same dir, we might end up deleting files created by
             # other processes
-            with tempfile.TemporaryDirectory(prefix="olive_tmp") as tmp_dir:
+            with get_temporary_directory() as tmp_dir:
                 tmp_dir_path = Path(tmp_dir)
                 tmp_model_path = str(tmp_dir_path / Path(output_model_path).name)
 

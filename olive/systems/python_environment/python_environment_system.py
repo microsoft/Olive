@@ -31,6 +31,7 @@ from olive.passes.olive_pass import Pass
 from olive.systems.common import SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import PythonEnvironmentTargetUserConfig
+from olive.tmp_dir import get_temporary_directory
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,8 @@ class PythonEnvironmentSystem(OliveSystem):
                     os.makedirs(temp_dir)
                 self.environ["TMPDIR"] = temp_dir
             else:
+                # TODO(jambayk): the tmp dir objects here immediately go out of scope and are deleted
+                # need to handle this better
                 self.environ["TMPDIR"] = tempfile.TemporaryDirectory().name  # pylint: disable=consider-using-with
 
         # available eps. This will be populated the first time self.get_supported_execution_providers() is called.
@@ -93,7 +96,7 @@ class PythonEnvironmentSystem(OliveSystem):
         model_config_json = model_config.to_json()
         pass_config = the_pass.to_json()
 
-        with tempfile.TemporaryDirectory() as tmp_dir:
+        with get_temporary_directory() as tmp_dir:
             tmp_dir_path = Path(tmp_dir)
             model_json_path = tmp_dir_path / "model.json"
             pass_json_path = tmp_dir_path / "pass.json"
@@ -159,7 +162,7 @@ class PythonEnvironmentSystem(OliveSystem):
         logits_dict = collections.defaultdict(list)
         inference_settings = self.get_inference_settings(model, metric, accelerator)
         io_config = model.get_io_config()
-        with tempfile.TemporaryDirectory() as tmp_dir:
+        with get_temporary_directory() as tmp_dir:
             tmp_dir_path = Path(tmp_dir)
             # create input and output dir
             input_dir = tmp_dir_path / "input"
@@ -228,7 +231,7 @@ class PythonEnvironmentSystem(OliveSystem):
         inference_settings = self.get_inference_settings(model, metric, accelerator)
         io_config = model.get_io_config()
 
-        with tempfile.TemporaryDirectory() as tmp_dir:
+        with get_temporary_directory() as tmp_dir:
             tmp_dir_path = Path(tmp_dir)
             # create input and output dir
             input_dir = tmp_dir_path / "input"
@@ -285,7 +288,7 @@ class PythonEnvironmentSystem(OliveSystem):
         if self.available_eps:
             return self.available_eps
 
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with get_temporary_directory() as temp_dir:
             available_eps_path = Path(__file__).parent.resolve() / "available_eps.py"
             output_path = Path(temp_dir).resolve() / "available_eps.pb"
             run_subprocess(
@@ -314,7 +317,7 @@ class PythonEnvironmentSystem(OliveSystem):
 
     def is_valid_ep(self, ep: str, model: ONNXModel) -> bool:
         """Check if the execution provider is valid for the model."""
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with get_temporary_directory() as temp_dir:
             is_valid_ep_path = Path(__file__).parent.resolve() / "is_valid_ep.py"
             output_path = Path(temp_dir).resolve() / "result.pb"
             run_subprocess(

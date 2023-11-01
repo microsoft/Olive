@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: MIT
 #
 import logging
-import tempfile
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, Dict, Union
@@ -19,6 +18,7 @@ from olive.passes.onnx.common import get_external_data_config, model_proto_to_fi
 from olive.passes.pass_config import ParamCategory, PassConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, LocalFile
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional
+from olive.tmp_dir import get_temporary_directory
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +220,7 @@ class VitisAIQuantization(Pass):
 
     def _initialize(self):
         super()._initialize()
-        self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_vaiq_tmp")
+        self.tmp_dir = get_temporary_directory(prefix="olive_vaiq_tmp")
 
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
@@ -328,7 +328,7 @@ class VitisAIQuantization(Pass):
         # reload the model and save to output_model_path using the external data config
         # TODO(XiaoSheng): don't default to use_external_data_format=True if the loading and saving model makes
         # the pass inefficient
-        tmp_dir = tempfile.TemporaryDirectory(prefix="olive_vaiq_tmp")
+        tmp_dir = get_temporary_directory(prefix="olive_vaiq_tmp")
         tmp_dir_path = Path(tmp_dir.name)
         tmp_model_path = str(tmp_dir_path / Path(output_model_path).name)
 
