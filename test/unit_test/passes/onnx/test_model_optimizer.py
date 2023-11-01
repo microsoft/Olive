@@ -6,6 +6,7 @@ from pathlib import Path
 from test.unit_test.utils import get_onnx_model
 from typing import Any, Dict
 
+import pytest
 from onnx import TensorProto, helper
 
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR
@@ -13,6 +14,17 @@ from olive.model import ONNXModel
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx import OnnxModelOptimizer
 from olive.passes.onnx.common import model_proto_to_olive_model
+
+
+@pytest.fixture(name="external_data_config")
+def external_data_config_fixture():
+    return {
+        "save_as_external_data": False,
+        "all_tensors_to_one_file": True,
+        "external_data_name": None,
+        "size_threshold": 1024,
+        "convert_attribute": False,
+    }
 
 
 def test_onnx_model_optimizer_pass(tmp_path):
@@ -50,12 +62,12 @@ def _make_model_for_patch_unsupported_argmax_operator(
     return model_proto_to_olive_model(model, filepath, config)
 
 
-def test_onnx_model_optimizer_pass_patch_unsupported_argmax_operator_modified(tmp_path):
-    pass_config = {"save_as_external_data": False, "all_tensors_to_one_file": False, "external_data_name": False}
-
-    m = _make_model_for_patch_unsupported_argmax_operator(TensorProto.INT64, str(tmp_path / "input.onnx"), pass_config)
+def test_onnx_model_optimizer_pass_patch_unsupported_argmax_operator_modified(tmp_path, external_data_config):
+    m = _make_model_for_patch_unsupported_argmax_operator(
+        TensorProto.INT64, str(tmp_path / "input.onnx"), external_data_config
+    )
     p = create_pass_from_dict(
-        OnnxModelOptimizer, pass_config, disable_search=True, accelerator_spec=DEFAULT_GPU_CUDA_ACCELERATOR
+        OnnxModelOptimizer, external_data_config, disable_search=True, accelerator_spec=DEFAULT_GPU_CUDA_ACCELERATOR
     )
 
     actual_model = p.run(m, None, str(tmp_path / "onnx"))
@@ -80,12 +92,12 @@ def test_onnx_model_optimizer_pass_patch_unsupported_argmax_operator_modified(tm
     assert others_op_count == 0
 
 
-def test_onnx_model_optimizer_pass_patch_unsupported_argmax_operator_unmodified(tmp_path):
-    pass_config = {"save_as_external_data": False, "all_tensors_to_one_file": False, "external_data_name": False}
-
-    m = _make_model_for_patch_unsupported_argmax_operator(TensorProto.INT32, str(tmp_path / "input.onnx"), pass_config)
+def test_onnx_model_optimizer_pass_patch_unsupported_argmax_operator_unmodified(tmp_path, external_data_config):
+    m = _make_model_for_patch_unsupported_argmax_operator(
+        TensorProto.INT32, str(tmp_path / "input.onnx"), external_data_config
+    )
     p = create_pass_from_dict(
-        OnnxModelOptimizer, pass_config, disable_search=True, accelerator_spec=DEFAULT_GPU_CUDA_ACCELERATOR
+        OnnxModelOptimizer, external_data_config, disable_search=True, accelerator_spec=DEFAULT_GPU_CUDA_ACCELERATOR
     )
 
     actual_model = p.run(m, None, str(tmp_path / "onnx"))
@@ -106,7 +118,7 @@ def test_onnx_model_optimizer_pass_patch_unsupported_argmax_operator_unmodified(
     assert others_op_count == 0
 
 
-def test_onnx_model_optimizer_pass_fuse_reshape_operations(tmp_path):
+def test_onnx_model_optimizer_pass_fuse_reshape_operations(tmp_path, external_data_config):
     import numpy as np
 
     X = helper.make_tensor_value_info("X", TensorProto.INT64, [None])  # noqa: N806
@@ -150,11 +162,9 @@ def test_onnx_model_optimizer_pass_fuse_reshape_operations(tmp_path):
         opset_imports=opset_imports,
     )
 
-    pass_config = {"save_as_external_data": False, "all_tensors_to_one_file": False, "external_data_name": False}
-
-    m = model_proto_to_olive_model(model, str(tmp_path / "input.onnx"), pass_config)
+    m = model_proto_to_olive_model(model, str(tmp_path / "input.onnx"), external_data_config)
     p = create_pass_from_dict(
-        OnnxModelOptimizer, pass_config, disable_search=True, accelerator_spec=DEFAULT_CPU_ACCELERATOR
+        OnnxModelOptimizer, external_data_config, disable_search=True, accelerator_spec=DEFAULT_CPU_ACCELERATOR
     )
 
     actual_model = p.run(m, None, str(tmp_path / "onnx"))
