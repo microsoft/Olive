@@ -491,7 +491,8 @@ This is a dictionary that contains the information of the engine. The informatio
   If `search_strategy` is `true`, the search strategy will be the default search strategy. The default search strategy is `exhaustive` search
   algorithm with `joint` execution order.
 
-- `evaluate_input_model: [Boolean]` In this mode, the engine will evaluate the input model using the engine's evaluator and return the results. If the engine has no evaluator, it will raise an error. This is `true` by default.
+- `evaluate_input_model: [Boolean]` In this mode, the engine will evaluate the input model using the engine's evaluator and return the results. If the
+    engine has no evaluator, it will raise an error. This is `true` by default.
 
 - `host: [str | Dict]` The host of the engine. It can be a string or a dictionary. If it is a string, it is the name of a system in `systems`.
     If it is a dictionary, it contains the system information. If not specified, it is the local system.
@@ -527,6 +528,10 @@ This is a dictionary that contains the information of the engine. The informatio
 
 - `ort_log_severity_level: [int]` The log severity level of ONNX Runtime. The options are `0` for `VERBOSE`, `1` for
     `INFO`, `2` for `WARNING`, `3` for `ERROR`, `4` for `FATAL`. The default value is `3` for `ERROR`.
+
+- `tmp_dir_root: [str]` The root directory to store temporary files. If not specified, the default temporary directory root will be used. Set this to a local
+    directory if you want to avoid using the default temporary directory root for reasons such as disk space and permission. This value can also be set
+    by the environment variable `OLIVE_TMP_DIR_ROOT`.
 
 Please find the detailed config options from following table for each search algorithm:
 
