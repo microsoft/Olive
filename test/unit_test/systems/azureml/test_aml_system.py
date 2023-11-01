@@ -64,7 +64,7 @@ class TestAzureMLSystem:
     )
     @patch("olive.systems.azureml.aml_system.retry_func")
     @patch("olive.systems.azureml.aml_system.AzureMLSystem._create_pipeline_for_evaluation")
-    @patch("olive.systems.azureml.aml_system.tempfile.TemporaryDirectory")
+    @patch("tempfile.TemporaryDirectory")
     def test_evaluate_model(self, mock_tempdir, mock_create_pipeline, mock_retry_func, metric):
         # setup
         model_config = get_pytorch_model_config()
@@ -133,7 +133,7 @@ class TestAzureMLSystem:
         self.system.azureml_client_config.max_operation_retries = 3
         self.system.azureml_client_config.operation_retry_interval = 5
 
-        with patch("olive.systems.azureml.aml_system.tempfile.TemporaryDirectory") as mock_tempdir:
+        with patch("tempfile.TemporaryDirectory") as mock_tempdir:
             mock_tempdir.return_value.__enter__.return_value = output_folder
             # execute
             actual_res = self.system.run_pass(p, model_config, None, output_model_path)

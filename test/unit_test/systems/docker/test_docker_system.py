@@ -61,7 +61,7 @@ class TestDockerSystem:
 
     @patch("olive.systems.docker.docker_system.shutil.copy2")
     @patch("olive.systems.docker.docker_system.docker.from_env")
-    @patch("olive.systems.docker.docker_system.tempfile.TemporaryDirectory")
+    @patch("tempfile.TemporaryDirectory")
     def test__init_image_requirements_file_build(self, mock_tempdir, mock_from_env, mock_copy, tmpdir):
         # setup
         import docker
@@ -91,7 +91,7 @@ class TestDockerSystem:
     @pytest.fixture
     def mock_docker_system_info(self):
         self.mock_from_env = patch("olive.systems.docker.docker_system.docker.from_env").start()
-        self.mock_tempdir = patch("olive.systems.docker.docker_system.tempfile.TemporaryDirectory").start()
+        self.mock_tempdir = patch("tempfile.TemporaryDirectory").start()
         self.mock_create_eval_script_mount = patch(
             "olive.systems.docker.docker_system.docker_utils.create_eval_script_mount"
         ).start()
