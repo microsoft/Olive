@@ -82,24 +82,40 @@ class OrtTransformersOptimization(Pass):
             "float16": PassConfigParam(
                 type_=bool, default_value=False, description="Whether half-precision float will be used."
             ),
-            "input_int32": PassConfigParam(
-                type_=bool, default_value=False, description="Whether int32 tensors will be used as input."
-            ),
             "keep_io_types": PassConfigParam(
                 type_=bool,
                 default_value=True,
-                description="Keep input and output tensors in their original data type",
+                description=(
+                    "Keep input and output tensors in their original data type. Only used when float16 is True."
+                ),
             ),
             "force_fp32_ops": PassConfigParam(
-                type_=List[str], default_value=None, description="Operators that are forced to run in float32"
+                type_=List[str],
+                default_value=None,
+                description="Operators that are forced to run in float32. Only used when float16 is True.",
+            ),
+            "force_fp32_nodes": PassConfigParam(
+                type_=List[str],
+                default_value=None,
+                description="Nodes that are forced to run in float32. Only used when float16 is True.",
+            ),
+            "force_fp16_inputs": PassConfigParam(
+                type_=Dict[str, List[int]],
+                default_value=None,
+                description=(
+                    "Force the conversion of the inputs of some operators to float16, even if"
+                    " 'convert_float_to_float16` tool prefers it to keep them in float32."
+                ),
             ),
             "use_gqa": PassConfigParam(
                 type_=bool,
                 default_value=False,
-                description="Replace MultiHeadAttention with GroupQueryAttention.",
+                description=(
+                    "Replace MultiHeadAttention with GroupQueryAttention. True is only supported when float16 is True."
+                ),
             ),
-            "force_fp32_nodes": PassConfigParam(
-                type_=List[str], default_value=None, description="Nodes that are forced to run in float32"
+            "input_int32": PassConfigParam(
+                type_=bool, default_value=False, description="Whether int32 tensors will be used as input."
             ),
         }
         config.update(get_external_data_config())
@@ -160,15 +176,17 @@ class OrtTransformersOptimization(Pass):
 
         # start with a copy of the config
         run_config = deepcopy(config)
-        del (
-            run_config["float16"],
-            run_config["input_int32"],
-            run_config["keep_io_types"],
-            run_config["force_fp32_ops"],
-            run_config["use_gqa"],
-            run_config["force_fp32_nodes"],
-        )
-        for key in get_external_data_config():
+        keys_to_remove = [
+            "float16",
+            "keep_io_types",
+            "force_fp32_ops",
+            "force_fp32_nodes",
+            "force_fp16_inputs",
+            "use_gqa",
+            "input_int32",
+        ]
+        keys_to_remove += get_external_data_config()
+        for key in keys_to_remove:
             del run_config[key]
 
         if model.model_attributes:
@@ -207,18 +225,11 @@ class OrtTransformersOptimization(Pass):
         optimizer = transformers_optimizer.optimize_model(input=model.model_path, **run_config)
 
         if config["float16"]:
-            force_fp16_inputs = {}
-            if optimization_options:
-                force_fp16_inputs = optimization_options.get("force_fp16_inputs", {})
-
-            op_block_list = config["force_fp32_ops"]
-            node_block_list = config["force_fp32_nodes"]
-
             optimizer.convert_float_to_float16(
                 keep_io_types=config["keep_io_types"],
-                op_block_list=op_block_list,
-                force_fp16_inputs=force_fp16_inputs,
-                node_block_list=node_block_list,
+                op_block_list=config["force_fp32_ops"],
+                node_block_list=config["force_fp32_nodes"],
+                force_fp16_inputs=config["force_fp16_inputs"],
             )
             if config["use_gqa"]:
                 # Replace MultiHeadAttention with GroupQueryAttention and remove attention mask nodes
