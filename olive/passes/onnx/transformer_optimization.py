@@ -165,7 +165,6 @@ class OrtTransformersOptimization(Pass):
             run_config["input_int32"],
             run_config["keep_io_types"],
             run_config["force_fp32_ops"],
-            run_config["force_fp32_nodes"],
             run_config["use_gqa"],
             run_config["force_fp32_nodes"],
         )
