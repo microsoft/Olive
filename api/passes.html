@@ -468,18 +468,9 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-input_int32">
-<span class="sig-name descname"><span class="pre">input_int32</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-input_int32" title="Permalink to this definition">¶</a></dt>
-<dd><p>Whether int32 tensors will be used as input.</p>
-<p><strong>type:</strong> bool</p>
-<p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
-</dd></dl>
-
-<dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-keep_io_types">
 <span class="sig-name descname"><span class="pre">keep_io_types</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-keep_io_types" title="Permalink to this definition">¶</a></dt>
-<dd><p>Keep input and output tensors in their original data type</p>
+<dd><p>Keep input and output tensors in their original data type. Only used when float16 is True.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
 <p><strong>searchable_values:</strong> None</p>
@@ -488,8 +479,26 @@
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-force_fp32_ops">
 <span class="sig-name descname"><span class="pre">force_fp32_ops</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-force_fp32_ops" title="Permalink to this definition">¶</a></dt>
-<dd><p>Operators that are forced to run in float32</p>
+<dd><p>Operators that are forced to run in float32. Only used when float16 is True.</p>
 <p><strong>type:</strong> List[str]</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-force_fp32_nodes">
+<span class="sig-name descname"><span class="pre">force_fp32_nodes</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-force_fp32_nodes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Nodes that are forced to run in float32. Only used when float16 is True.</p>
+<p><strong>type:</strong> List[str]</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-force_fp16_inputs">
+<span class="sig-name descname"><span class="pre">force_fp16_inputs</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-force_fp16_inputs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Force the conversion of the inputs of some operators to float16, even if ‘convert_float_to_float16` tool prefers it to keep them in float32.</p>
+<p><strong>type:</strong> Dict[str, List[int]]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
@@ -497,18 +506,18 @@
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-use_gqa">
 <span class="sig-name descname"><span class="pre">use_gqa</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-use_gqa" title="Permalink to this definition">¶</a></dt>
-<dd><p>Replace MultiHeadAttention with GroupQueryAttention.</p>
+<dd><p>Replace MultiHeadAttention with GroupQueryAttention. True is only supported when float16 is True.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-force_fp32_nodes">
-<span class="sig-name descname"><span class="pre">force_fp32_nodes</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-force_fp32_nodes" title="Permalink to this definition">¶</a></dt>
-<dd><p>Nodes that are forced to run in float32</p>
-<p><strong>type:</strong> List[str]</p>
-<p><strong>default_value:</strong> None</p>
+<dt class="sig sig-object std" id="cmdoption-arg-input_int32">
+<span class="sig-name descname"><span class="pre">input_int32</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-input_int32" title="Permalink to this definition">¶</a></dt>
+<dd><p>Whether int32 tensors will be used as input.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 
