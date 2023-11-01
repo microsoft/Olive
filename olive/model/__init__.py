@@ -248,8 +248,6 @@ class ONNXModel(ONNXModelBase):
         )
         self.onnx_file_name = onnx_file_name
         self.io_config = None
-        self.graph = None
-        self.all_graphs: Optional[List[GraphProto]] = None
 
         # check for onnx file name since it will do validation
         _ = self.model_path
@@ -349,50 +347,6 @@ class ONNXModel(ONNXModelBase):
             ]
 
         return get_ort_inference_session(self.model_path, inference_settings, self.use_ort_extensions)
-
-    def nodes(self):
-        for graph in self.get_all_graphs():
-            yield from graph.node
-
-    def get_graph(self):
-        if self.graph is not None:
-            return self.graph
-        self.graph = self.load_model().graph
-        return self.graph
-
-    def get_all_graphs(self):
-        if self.all_graphs is not None:
-            return self.all_graphs
-        self.all_graphs = []
-        graph_queue = [self.get_graph()]
-        while graph_queue:
-            graph = graph_queue.pop(0)
-            self.all_graphs.append(graph)
-            for node in graph.node:
-                for attr in node.attribute:
-                    if attr.type == AttributeProto.AttributeType.GRAPH:
-                        assert isinstance(attr.g, GraphProto)
-                        graph_queue.append(attr.g)
-                    if attr.type == AttributeProto.AttributeType.GRAPHS:
-                        for g in attr.graphs:
-                            assert isinstance(g, GraphProto)
-                            graph_queue.append(g)
-        return self.all_graphs
-
-    def output_name_to_node(self):
-        output_name_to_node = {}
-        for node in self.nodes():
-            for output_name in node.output:
-                if output_name:  # could be empty when it is optional
-                    output_name_to_node[output_name] = node
-        return output_name_to_node
-
-    def get_initializer(self, name):
-        for graph in self.get_all_graphs():
-            for tensor in graph.initializer:
-                if tensor.name == name:
-                    return tensor
-        return None
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)

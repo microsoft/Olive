@@ -27,9 +27,24 @@ SUPPORTED_WORKFLOWS = {
         "insert_beam_search",
         "prepost",
     ],
+    ("cpu", "int4"): [
+        "conversion",
+        "transformers_optimization",
+        "blockwise_quant_int4",
+        "insert_beam_search",
+        "prepost",
+    ],
     ("gpu", "fp32"): ["conversion", "transformers_optimization", "insert_beam_search", "prepost"],
     ("gpu", "fp16"): ["conversion", "transformers_optimization", "mixed_precision", "insert_beam_search", "prepost"],
     ("gpu", "int8"): ["conversion", "onnx_dynamic_quantization", "insert_beam_search", "prepost"],
+    ("gpu", "int4"): [
+        "conversion",
+        "transformers_optimization",
+        "mixed_precision",
+        "blockwise_quant_int4",
+        "insert_beam_search",
+        "prepost",
+    ],
 }
 DEVICE_TO_EP = {
     "cpu": "CPUExecutionProvider",
