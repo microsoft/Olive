@@ -2,8 +2,8 @@
 
 PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
 
-## LoRA 
-Low-Rank Adaptation, or `LoRA`, is a fine-tuning approach which freezes the pre-trained model weights and injects trainable rank decomposition matrices (called adapters) into the layers of the model. 
+## LoRA
+Low-Rank Adaptation, or `LoRA`, is a fine-tuning approach which freezes the pre-trained model weights and injects trainable rank decomposition matrices (called adapters) into the layers of the model.
 It is based on the [LoRA paper](https://arxiv.org/abs/2106.09685).
 
 The output model is the input transformers model along with the fine-tuned LoRA adapters. The adapters can be loaded and/or merged into the original model using the `peft` library from Hugging Face.
