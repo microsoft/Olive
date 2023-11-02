@@ -166,6 +166,8 @@
 <p class="admonition-title">Note</p>
 <p><code class="docutils literal notranslate"><span class="pre">olive.workflows.run</span></code> in python code also accepts python dictionary equivalent of the config JSON object.</p>
 <p>You can use setup mode <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">olive.workflows.run</span> <span class="pre">--config</span> <span class="pre">my_model_acceleration_description.json</span> <span class="pre">--setup</span></code> to identify list of additional packages you may need to install for your workflow.</p>
+<p>You can also change the default directory for temporary files and directories using <code class="docutils literal notranslate"><span class="pre">--tempdir</span></code> option.
+Set this to a local directory if you want to avoid using the default tempdir for reasons such as disk space and permissions.</p>
 </div>
 <section id="information-needed-to-accelerate-a-model">
 <h2>Information needed to accelerate a model<a class="headerlink" href="#information-needed-to-accelerate-a-model" title="Permalink to this heading">¶</a></h2>
