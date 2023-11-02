@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import List, Union
 
@@ -143,6 +144,13 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
     # set ort log level
     set_default_logger_severity(config.engine.log_severity_level)
     ort.set_default_logger_severity(config.engine.ort_log_severity_level)
+
+    # set tmp dir root
+    if config.engine.tmp_dir_root:
+        tmp_dir_root = Path(config.engine.tmp_dir_root).resolve()
+        tmp_dir_root.mkdir(parents=True, exist_ok=True)
+        logger.debug(f"Set tempfile.tempdir to {tmp_dir_root}")
+        tempfile.tempdir = str(tmp_dir_root)
 
     # input model
     input_model = config.input_model
