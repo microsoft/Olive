@@ -49,7 +49,7 @@ def get_args(raw_args):
         "--only_config",
         action="store_true",
         required=False,
-        help="Whether to use GQA(grouped query attention) instead of MHA(multi-head attention).",
+        help="Whether to only dump the config file without running the optimization.",
     )
 
     return parser.parse_args(raw_args)
@@ -87,21 +87,29 @@ def main(raw_args=None):
         del template_json["passes"]["blockwise_quant_int4"]["evaluator"]
         del template_json["evaluators"]["gqa_evaluator"]
 
-    # update user script
-    user_script_path = Path(__file__).parent / "user_script.py"
-    update_user_script(user_script_path, model_name)
-
     device = "gpu" if args.gpu else "cpu"
     gqa = "gqa" if args.use_gqa else "mha"
+    config_name = f"llama2_{device}_{gqa}"
+
+    # create user script
+    user_script_path = Path(__file__).parent / "user_script.py"
+    config_script_path = Path(__file__).parent / f"{config_name}_user_script.py"
+    update_user_script(user_script_path, config_script_path, model_name)
+
+    # update user script path in config
+    template_json = json.dumps(template_json)
+    template_json = template_json.replace("user_script.py", f"{config_name}_user_script.py")
+    template_json = json.loads(template_json)
+
     # dump config
-    with open(f"llama2_{device}_{gqa}.json", "w") as f:  # noqa: PTH123
+    with open(f"{config_name}.json", "w") as f:  # noqa: PTH123
         json.dump(template_json, f, indent=4)
 
     if not args.only_config:
         olive_run(template_json)  # pylint: disable=not-callable
 
 
-def update_user_script(file_path, model_name):
+def update_user_script(file_path, new_file_path, model_name):
     with open(file_path) as file:  # noqa: PTH123
         lines = file.readlines()
 
@@ -112,7 +120,7 @@ def update_user_script(file_path, model_name):
             updated_line = re.sub(r"meta-llama/Llama-2-(\d+)b-hf", model_name, line)
         new_lines.append(updated_line)
 
-    with open(file_path, "w") as file:  # noqa: PTH123
+    with open(new_file_path, "w") as file:  # noqa: PTH123
         file.writelines(new_lines)
 
 
