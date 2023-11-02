@@ -528,9 +528,6 @@ This is a dictionary that contains the information of the engine. The informatio
 - `ort_log_severity_level: [int]` The log severity level of ONNX Runtime. The options are `0` for `VERBOSE`, `1` for
     `INFO`, `2` for `WARNING`, `3` for `ERROR`, `4` for `FATAL`. The default value is `3` for `ERROR`.
 
-- `tmp_dir_root: [str]` The root directory to store temporary files. If not specified, the default temporary directory root will be used.
-    Set this to a local directory if you want to avoid using the default temporary directory root for reasons such as disk space and permission.
-
 Please find the detailed config options from following table for each search algorithm:
 
 | Algorithm  | Description |
