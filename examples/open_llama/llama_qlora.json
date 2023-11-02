@@ -71,6 +71,6 @@
         },
         "execution_providers": ["CPUExecutionProvider"],
         "cache_dir": "cache",
-        "output_dir" : "models/qlora"
+        "output_dir" : "models/huggyllama_qlora"
     }
 }

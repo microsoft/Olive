@@ -83,7 +83,7 @@ The relevant config file is [llama_qlora.json](llama_qlora.json). It corresponds
 Requirements file: [requirements-lora.txt](requirements-lora.txt)
 
 ### Fine-tune Open Llama Model on a code generation dataset using LoRA
-This workflow fine-tunes Open LLaMA model using [LoRA] to generate code given a prompt.
+This workflow fine-tunes Open LLaMA model using [LoRA](https://arxiv.org/abs/2106.09685) to generate code given a prompt.
 
 The relevant config file is [open_llama_lora_tinycodes.json](open_llama_lora_tinycodes.json). The code language is set to `Python` but can be changed to other languages by changing the `language` field in the config file.
 Supported languages are Python, TypeScript, JavaScript, Ruby, Julia, Rust, C++, Bash, Java, C#, and Go. Refer to the [dataset card](https://huggingface.co/datasets/nampdn-ai/tiny-codes) for more details on the dataset.
