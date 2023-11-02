@@ -34,6 +34,7 @@ class RunEngineConfig(EngineConfig):
     packaging_config: PackagingConfig = None
     log_severity_level: int = 1
     ort_log_severity_level: int = 3
+    ort_py_log_severity_level: int = 3
 
     def create_engine(self):
         config = self.dict()
@@ -44,6 +45,7 @@ class RunEngineConfig(EngineConfig):
             "packaging_config",
             "log_severity_level",
             "ort_log_severity_level",
+            "ort_py_log_severity_level",
         ]
         for key in to_del:
             del config[key]

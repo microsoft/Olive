@@ -542,10 +542,6 @@ class OnnxMatMul4Quantizer(Pass):
 
         from onnxruntime.quantization.matmul_4bits_quantizer import MatMul4BitsQuantizer
 
-        # MatMul4BitsQuantizer sets basicConfig to INFO and prints verbose logs as INFO, suppress them
-        # TODO(jambayk): Use the ort logging severity from the workflow if we expose it as environment variable
-        logging.getLogger("onnxruntime.quantization.matmul_4bits_quantizer").setLevel(logging.ERROR)
-
         output_model_path = ONNXModel.resolve_path(output_model_path)
 
         quant = MatMul4BitsQuantizer(
