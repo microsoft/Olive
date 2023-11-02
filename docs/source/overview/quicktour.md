@@ -30,6 +30,9 @@ olive_run("my_model_acceleration_description.json")
 `olive.workflows.run` in python code also accepts python dictionary equivalent of the config JSON object.
 
 You can use setup mode `python -m olive.workflows.run --config my_model_acceleration_description.json --setup` to identify list of additional packages you may need to install for your workflow.
+
+You can also change the default directory for temporary files and directories using `--tempdir` option.
+Set this to a local directory if you want to avoid using the default tempdir for reasons such as disk space and permissions.
 ```
 
 ## Information needed to accelerate a model
