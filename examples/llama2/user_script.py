@@ -14,140 +14,115 @@ from torch.utils.data import DataLoader
 from transformers import LlamaConfig, LlamaTokenizer
 
 from olive.constants import Framework
+from olive.model import PyTorchModel
+
+# -----------------------------------------------------------------------------
+# Dummy Inputs
+# -----------------------------------------------------------------------------
 
 
-def get_position_ids(attention_mask: torch.Tensor, use_past_kv: bool):
+def get_merged_decoder_with_past_dummy_inputs(model: PyTorchModel):
+    """Get dummy inputs for merged decoder model with past_key_values."""
+    # Dummy values for export
+    batch_size, seq_length, past_seq_length = 2, 8, 0
+    return get_merged_sample_with_past_kv_inputs(model, batch_size, seq_length, past_seq_length)
+
+
+def get_merged_sample_with_past_kv_inputs(
+    model: PyTorchModel,
+    batch_size: int,
+    seq_len: int,
+    past_seq_len: int,
+    use_fp16: bool = False,
+    model_id: str = "",
+):
+    """Get inputs for forward pass with past_key_values.
+
+    This is for the "merged" model which can be used for both prompt generation and token generation.
+    For prompt generation, past_seq_len = 0 and seq_len >= 1. past_kv is a list of tuples of empty tensors.
+    For token generation, past_seq_len >= 1 and seq_len = 1.
+
+    Shape of outputs:
+        input_ids: (batch_size, seq_len)
+        attention_mask: (batch_size, past_seq_len + seq_len)
+        position_ids: (batch_size, seq_len)
+        past_key: (batch_size, num_heads, past_seq_len, head_size)
+        past_value: (batch_size, num_heads, past_seq_len, head_size)
+    """
+    # Note: No need for separate function for legacy prompt and token generation
+    # prompt generation (get_sample_inputs):
+    #   past_seq_len = 0, seq_len >= 1, use_gqa = False, use_fp16 = False
+    #   and remove past_kv from the output
+    # token generation (get_sample_with_past_kv_inputs):
+    #   past_seq_len >= 1, seq_len = 1, use_gqa = False, use_fp16 = False
+    # By using a single function with no default values, we can avoid confusion and are deliberate about the sizes
+    # can instead write dummy input functions like 'get_merged_decoder_with_past_dummy_inputs' if needed
+
+    if model_id:
+        config = LlamaConfig.from_pretrained(model_id)
+    else:
+        config = LlamaConfig.from_pretrained(model.hf_config.model_name)
+
+    input_ids = torch.randint(low=0, high=config.vocab_size, size=(batch_size, seq_len), dtype=torch.int64)
+    attention_mask = torch.ones(batch_size, past_seq_len + seq_len, dtype=torch.int64)
+    position_ids = get_position_ids(attention_mask, past_seq_len=past_seq_len)
+    past_kv = get_past_kv_inputs(config, batch_size, past_seq_len, use_fp16=use_fp16)
+
+    return (input_ids, attention_mask, position_ids, past_kv)
+
+
+def get_position_ids(attention_mask: torch.Tensor, past_seq_len: int):
+    """Get position_ids from attention_mask."""
+    # this is generic but in practice we only expect to see two scenarios for (past_seq_len, seq_len)
+    # prompt generation: (0, seq_len) -> position_ids = (batch_size, seq_len)
+    # token generation: (past_seq_len, 1) -> position_ids = (batch_size, 1)
     position_ids = attention_mask.long().cumsum(-1) - 1
     position_ids.masked_fill_(attention_mask == 0, 1)
-    if use_past_kv:
-        position_ids = position_ids[:, -1].unsqueeze(-1)
-    return position_ids
+    return position_ids[:, past_seq_len:]
 
 
-def get_decoder_inputs(model, batch_size=2, seq_len=100, model_id=""):
-    device = torch.device("cpu")
-    if model_id:
-        config = LlamaConfig.from_pretrained(model_id)
-    else:
-        config = LlamaConfig.from_pretrained(model.hf_config.model_name)
+def get_past_kv_inputs(config: LlamaConfig, batch_size: int, past_seq_len: int, use_fp16: bool):
+    """Get past_key_values for all layers.
 
-    input_ids = torch.randint(
-        low=0, high=config.vocab_size, size=(batch_size, seq_len), device=device, dtype=torch.int64
-    )
-    attention_mask = torch.ones(batch_size, seq_len, device=device, dtype=torch.int64)
-    # position_ids is of shape (batch_size, seq_len)
-    position_ids = get_position_ids(attention_mask, use_past_kv=False)
-
-    return (input_ids, attention_mask, position_ids)
-
-
-def get_decoder_with_past_kv_inputs(model, batch_size=2, seq_len=1, past_seq_len=100, use_fp16=False, model_id=""):
-    if model_id:
-        config = LlamaConfig.from_pretrained(model_id)
-    else:
-        config = LlamaConfig.from_pretrained(model.hf_config.model_name)
-
-    device = torch.device("cpu")
-
-    input_ids = torch.randint(
-        low=0, high=config.vocab_size, size=(batch_size, seq_len), device=device, dtype=torch.int64
-    )
-    attention_mask = torch.ones(batch_size, past_seq_len + seq_len, device=device, dtype=torch.int64)
-    # position_ids is of shape (batch_size, 1)
-    position_ids = get_position_ids(attention_mask, use_past_kv=True)
-    past_key_values = get_sample_past_kv_inputs(config, device, batch_size, past_seq_len, use_fp16=use_fp16)
-
-    return (input_ids, attention_mask, position_ids, past_key_values)
-
-
-def get_merged_decoder_with_past_kv_inputs(model, batch_size=2, seq_len=8, past_seq_len=0, use_fp16=False, model_id=""):
-    input_ids, attention_mask, position_ids, past_key_values = get_decoder_with_past_kv_inputs(
-        model, batch_size, seq_len, past_seq_len, use_fp16, model_id
-    )
-    # position_ids is of shape (batch_size, seq_len) for prompt generation, (batch_size, 1) for token generation
-    position_ids = get_position_ids(attention_mask, use_past_kv=(past_seq_len != 0))
-
-    return input_ids, attention_mask, position_ids, past_key_values
-
-
-def get_sample_past_kv_inputs(
-    config: LlamaConfig, device: torch.device, batch_size: int, past_seq_len: int, use_fp16: bool
-):
+    Shape of past_key_values is (batch_size, num_heads, past_seq_len, head_size).
+    """
     num_heads, head_size = config.num_key_value_heads, config.hidden_size // config.num_key_value_heads
     torch_dtype = torch.float16 if use_fp16 else torch.float32
     return [
         (
-            torch.rand(batch_size, num_heads, past_seq_len, head_size, device=device, dtype=torch_dtype),
-            torch.rand(batch_size, num_heads, past_seq_len, head_size, device=device, dtype=torch_dtype),
+            torch.rand(batch_size, num_heads, past_seq_len, head_size, dtype=torch_dtype),
+            torch.rand(batch_size, num_heads, past_seq_len, head_size, dtype=torch_dtype),
         )
         for _ in range(config.num_hidden_layers)
     ]
 
 
-def flatten_past_kv_inputs(past_key_values: List[Tuple[torch.Tensor, torch.Tensor]], use_fp16: bool):
+def flatten_past_kv_inputs(past_key_values: List[Tuple[torch.Tensor, torch.Tensor]]):
+    """Flatten past_key_values to a dict of past_key and past_value. For ONNX model only."""
     past_kv = {}
-    np_dtype = np.float16 if use_fp16 else np.float32
     # Convert list of past_kv to dict of past_key and past_value
     for i, (past_k, past_v) in enumerate(past_key_values):
-        past_kv[f"past_key_values.{i}.key"] = past_k.detach().cpu().numpy().astype(np_dtype)
-        past_kv[f"past_key_values.{i}.value"] = past_v.detach().cpu().numpy().astype(np_dtype)
+        past_kv[f"past_key_values.{i}.key"] = past_k
+        past_kv[f"past_key_values.{i}.value"] = past_v
     return past_kv
 
 
-def get_model_dynamic_axes(input_names: List[str], output_names: List[str]):
-    dynamic_axes = {}
-    for name in input_names + output_names:
-        if name in input_names:
-            # shape is (batch_size, sequence_length)
-            dynamic_axes[name] = {0: "batch_size", 1: "sequence_length"}
-        elif name == "logits":
-            # shape is (batch_size, sequence_length, vocab_size)
-            dynamic_axes[name] = {0: "batch_size", 1: "sequence_length"}
-        elif "present" in name:
-            # shape is (batch_size, num_heads, sequence_length, head_size)
-            dynamic_axes[name] = {0: "batch_size", 2: "sequence_length"}
-        else:
-            raise ValueError("Unknown input or output name found")
-    return dynamic_axes
+def enable_past_present_share_buffer(ort_inputs: dict, past_seq_len: int, max_seq_len: int):
+    """Enable past-present share buffer for GQA. For ONNX model + FP16 + GQA only."""
+    for k, v in ort_inputs.items():
+        # Allocate new buffers with max_seq_len for GQA
+        if "past_key_values" in k:
+            # Copy v (BxSxPxH) into new_v (BxSxMxH)
+            batch_size, num_heads, _, head_size = v.shape
+            new_v = torch.zeros((batch_size, num_heads, max_seq_len, head_size), dtype=v.dtype)
+            new_v[:batch_size, :num_heads, :past_seq_len, :head_size] = v
+            ort_inputs[k] = new_v
+    return ort_inputs
 
 
-def get_decoder_io_config(model_name, merged=False):
-    config = LlamaConfig.from_pretrained(model_name)
-
-    input_names = ["input_ids", "attention_mask", "position_ids"]
-    output_names = [
-        "logits",
-        *list(chain.from_iterable((f"present.{i}.key", f"present.{i}.value") for i in range(config.num_hidden_layers))),
-    ]
-    dynamic_axes = get_model_dynamic_axes(input_names, output_names)
-    return {
-        "input_names": input_names,
-        "dynamic_axes": dynamic_axes,
-        "output_names": output_names,
-    }
-
-
-def get_model_with_past_kv_dynamic_axes(input_names: List[str], output_names: List[str]):
-    dynamic_axes = {}
-    for name in input_names + output_names:
-        if name in {"input_ids", "position_ids"}:
-            # shape is (batch_size, 1)
-            dynamic_axes[name] = {0: "batch_size"}
-        elif name == "attention_mask":
-            # shape is (batch_size, past_sequence_length + 1)
-            dynamic_axes[name] = {0: "batch_size", 1: "past_sequence_length + 1"}
-        elif "past" in name:
-            # shape is (batch_size, num_heads, past_sequence_length, head_size)
-            dynamic_axes[name] = {0: "batch_size", 2: "past_sequence_length"}
-        elif name == "logits":
-            # shape is (batch_size, 1, vocab_size)
-            dynamic_axes[name] = {0: "batch_size"}
-        elif "present" in name:
-            # shape is (batch_size, num_heads, past_sequence_length + 1, head_size)
-            dynamic_axes[name] = {0: "batch_size", 2: "past_sequence_length + 1"}
-        else:
-            raise ValueError("Unknown input or output name found")
-    return dynamic_axes
+# -----------------------------------------------------------------------------
+# Conversion Arguments (Inputs, Outputs, Dynamic Axes)
+# -----------------------------------------------------------------------------
 
 
 def get_merged_model_dynamic_axes(input_names: List[str], output_names: List[str]):
@@ -178,99 +153,120 @@ def get_merged_model_dynamic_axes(input_names: List[str], output_names: List[str
     return dynamic_axes
 
 
-def get_decoder_with_past_io_config(model_name):
+def get_merged_decoder_with_past_io_config(model_name):
     config = LlamaConfig.from_pretrained(model_name)
-    io_config = get_decoder_io_config(model_name)
 
-    io_config["input_names"].extend(
-        list(
+    input_names = [
+        "input_ids",
+        "attention_mask",
+        "position_ids",
+        *list(
             chain.from_iterable(
                 (f"past_key_values.{i}.key", f"past_key_values.{i}.value") for i in range(config.num_hidden_layers)
             )
-        )
-    )
-    io_config["dynamic_axes"] = get_model_with_past_kv_dynamic_axes(io_config["input_names"], io_config["output_names"])
-    return io_config
+        ),
+    ]
+    output_names = [
+        "logits",
+        *list(chain.from_iterable((f"present.{i}.key", f"present.{i}.value") for i in range(config.num_hidden_layers))),
+    ]
+    dynamic_axes = get_merged_model_dynamic_axes(input_names, output_names)
+    return {
+        "input_names": input_names,
+        "dynamic_axes": dynamic_axes,
+        "output_names": output_names,
+    }
 
 
-def get_merged_decoder_with_past_io_config(model_name):
-    io_config = get_decoder_with_past_io_config(model_name)
-    io_config["dynamic_axes"] = get_merged_model_dynamic_axes(io_config["input_names"], io_config["output_names"])
-    return io_config
+# -----------------------------------------------------------------------------
+# Metric Data Loader
+# -----------------------------------------------------------------------------
 
 
 class RandomDataLoader:
     def __init__(
         self,
-        create_inputs_func,
-        batch_size,
-        torch_dtype,
-        model_framework=Framework.PYTORCH,
-        onnx_merged=False,
-        use_gqa=False,
+        model_id: str,
+        batch_size: int,
+        seq_len: int,
+        past_seq_len: int,
+        max_seq_len: int,
+        model_framework: str = Framework.PYTORCH,
+        use_fp16: bool = False,
+        use_gqa: bool = False,
     ):
-        self.create_input_func = create_inputs_func
+        self.model_id = model_id
         self.batch_size = batch_size
-        self.torch_dtype = torch_dtype
+        self.seq_len = seq_len
+        self.past_seq_len = past_seq_len
+        # TODO(anyone): should we get max_seq_len from config?
+        self.max_seq_len = max_seq_len
         self.model_framework = model_framework
-        self.onnx_merged = onnx_merged
+        if use_gqa and (model_framework != Framework.ONNX or not use_fp16):
+            raise ValueError("GQA is only supported for ONNX model with FP16")
+        self.use_fp16 = use_fp16
         self.use_gqa = use_gqa
 
     def __getitem__(self, idx):
-        label = None
-        return (
-            self.create_input_func(
-                self.batch_size, self.torch_dtype, self.model_framework, self.onnx_merged, self.use_gqa
-            ),
-            label,
+        input_ids, attention_mask, position_ids, past_kv = get_merged_sample_with_past_kv_inputs(
+            model=None,
+            batch_size=self.batch_size,
+            seq_len=self.seq_len,
+            past_seq_len=self.past_seq_len,
+            use_fp16=self.use_fp16,
+            model_id=self.model_id,
         )
+        inputs = {
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+            "position_ids": position_ids,
+            "past_key_values": past_kv,
+        }
+        if self.model_framework == Framework.ONNX:
+            inputs.update(flatten_past_kv_inputs(past_kv))
+            del inputs["past_key_values"]
 
+            if self.use_gqa:
+                # GQA supports a causal mask by default
+                del inputs["attention_mask"]
+                inputs["past_sequence_length"] = torch.tensor([self.past_seq_len], dtype=torch.int64)
+                inputs = enable_past_present_share_buffer(inputs, self.past_seq_len, self.max_seq_len)
 
-def dummy_inputs_for_latency(
-    batch_size, torch_dtype, model_framework=Framework.PYTORCH, onnx_merged=False, use_gqa=False
-):
-    model_id = "meta-llama/Llama-2-7b-hf"
-    if onnx_merged:
-        input_ids, attention_mask, position_ids, pkv = get_merged_decoder_with_past_kv_inputs(
-            model=None, model_id=model_id
-        )
-    else:
-        input_ids, attention_mask, position_ids, pkv = get_decoder_with_past_kv_inputs(model=None, model_id=model_id)
-    inputs = {
-        "input_ids": input_ids,
-        "attention_mask": attention_mask,
-        "position_ids": position_ids,
-        "past_key_values": pkv,
-    }
-    if model_framework == Framework.ONNX:
-        inputs.update(flatten_past_kv_inputs(pkv, use_fp16=torch_dtype == torch.float16))
-        inputs["use_cache_branch"] = torch.ones((1,), dtype=torch.bool)
-        del inputs["past_key_values"]
-    else:
-        inputs["use_cache"] = True
-
-    if use_gqa:
-        past_seq_len = 0
-        inputs["past_sequence_length"] = np.array([past_seq_len], dtype=np.int64)
-    return inputs
-
-
-def dataloader_func(data_dir, batch_size, *args, **kwargs):
-    model_framework = kwargs.get("model_framework", Framework.PYTORCH)
-    return RandomDataLoader(dummy_inputs_for_latency, batch_size, torch.float16, model_framework)
+        return (inputs, None)
 
 
 def dataloader_func_for_merged(data_dir, batch_size, *args, **kwargs):
-    # TODO(trajep): after optimization, the model's input will be different
+    """Return data loader for input PyTorch model and ONNX models with past_key_values."""
+    model_id = "meta-llama/Llama-2-7b-hf"
+    batch_size, seq_length, past_seq_length = 2, 8, 0
+    max_seq_length = 2048
     model_framework = kwargs.get("model_framework", Framework.PYTORCH)
-    return RandomDataLoader(dummy_inputs_for_latency, batch_size, torch.float16, model_framework, True)
+    return RandomDataLoader(
+        model_id, batch_size, seq_length, past_seq_length, max_seq_length, model_framework=model_framework
+    )
 
 
 def dataloader_func_for_merged_gqa(data_dir, batch_size, *args, **kwargs):
+    """Return data loader for ONNX model + FP16 + GQA."""
+    model_id = "meta-llama/Llama-2-7b-hf"
+    batch_size, seq_length, past_seq_length = 2, 8, 0
+    max_seq_length = 2048
     model_framework = kwargs.get("model_framework", Framework.PYTORCH)
     return RandomDataLoader(
-        dummy_inputs_for_latency, batch_size, torch.float16, model_framework, onnx_merged=True, use_gqa=True
+        model_id,
+        batch_size,
+        seq_length,
+        past_seq_length,
+        max_seq_length,
+        model_framework=model_framework,
+        use_fp16=True,
+        use_gqa=True,
     )
+
+
+# -----------------------------------------------------------------------------
+# Inc Smooth Quant Calibration Data Loader
+# -----------------------------------------------------------------------------
 
 
 def inc_cali_dataloader_func(data_dir, batch_size, *args, **kwargs):
@@ -315,7 +311,7 @@ class QuantKVDataLoader:
             # Set inputs for model
             input_ids = text["input_ids"]
             attention_mask = torch.ones(len(input_ids))
-            position_ids = get_position_ids(attention_mask, use_past_kv=False)
+            position_ids = get_position_ids(attention_mask, past_seq_len=0)
             label = len(input_ids) - 1
 
             # Pad input data because all model inputs must have same shape
