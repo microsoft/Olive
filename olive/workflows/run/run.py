@@ -140,12 +140,12 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
     else:
         config = RunConfig.parse_obj(config)
 
-    # set ort log level
+    # set log level for olive
     set_default_logger_severity(config.engine.log_severity_level)
-    # the ort_log_severity_level is used to control the C++ logging levels.
-    # As the result, we use the Olive logger level to control the ORT Python logging level.
-    # TODO(myguo): do we need use another config to control the ORT Python logging?
-    set_ort_logger_severity(config.engine.log_severity_level)
+    # for onnxruntime
+    # ort_py_log_severity_level: python logging levels
+    # ort_log_severity_level: C++ logging levels
+    set_ort_logger_severity(config.engine.ort_py_log_severity_level)
     ort.set_default_logger_severity(config.engine.ort_log_severity_level)
 
     # input model
