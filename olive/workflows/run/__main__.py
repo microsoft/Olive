@@ -20,7 +20,8 @@ if __name__ == "__main__":
     if args.tempdir is not None:
         tempdir = Path(args.tempdir).resolve()
         tempdir.mkdir(parents=True, exist_ok=True)
-        tempfile.tempdir = tempdir
+        # setting as string to be safe
+        tempfile.tempdir = str(tempdir)
 
     var_args = vars(args)
     del var_args["tempdir"]
