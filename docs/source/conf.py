@@ -91,6 +91,6 @@ autodoc_pydantic_settings_member_order = "bysource"  # is groupwise and alphabet
 # we could enable it when the issue is fixed
 linkcheck_anchors = False
 linkcheck_ignore = [
-    # TODO(trajep): remove this when the issue is fixed
-    r"https://developer.qualcomm.com/*",
+    # TODO(jambayk): remove this when the issue is fixed
+    r"https://www.intel.com/*"
 ]
