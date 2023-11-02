@@ -92,5 +92,5 @@ autodoc_pydantic_settings_member_order = "bysource"  # is groupwise and alphabet
 linkcheck_anchors = False
 linkcheck_ignore = [
     # TODO(jambayk): remove this when the issue is fixed
-    r"https://www.intel.com/*"
+    r"https://www.intel.com/*",
 ]
