@@ -69,6 +69,6 @@
         },
         "execution_providers": ["CPUExecutionProvider"],
         "cache_dir": "cache",
-        "output_dir" : "models/qlora-tiny-codes"
+        "output_dir" : "models/open_llama_qlora_tinycodes"
     }
 }
