@@ -445,6 +445,7 @@ class OnnxQuantization(Pass):
                 output_model_path=str(output_model_path),
                 auto_merge=True,
                 save_as_external_data=True,
+                verbose=3,  # set verbose to 3 to get more information about the preprocessing
             )
         except Exception as e:
             # TODO(jambayk): try with `skip_optimization = True`

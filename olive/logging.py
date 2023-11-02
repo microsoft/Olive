@@ -62,7 +62,7 @@ def set_ort_logger_severity(level):
     ort_logger = logging.getLogger("onnxruntime")
     ort_logger.setLevel(level_map[level])
     formatter = logging.Formatter(
-        "[%(asctime)s] [%(levelname)s] [onnxruntime-%(filename)s:%(lineno)d:%(funcName)s] %(message)s"
+        "[%(asctime)s] [%(levelname)s] [onnxruntime]-[%(filename)s:%(lineno)d:%(funcName)s] %(message)s"
     )
     stream_handler = logging.StreamHandler(stream=sys.stdout)
     stream_handler.setFormatter(formatter)
