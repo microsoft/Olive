@@ -875,10 +875,9 @@
 
 <span class="k">class</span> <span class="nc">OptimumModel</span><span class="p">(</span><span class="n">PyTorchModel</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_components</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
-            <span class="n">model_file_format</span><span class="o">=</span><span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">OPTIMUM</span><span class="p">,</span>
-            <span class="o">**</span><span class="p">(</span><span class="n">kwargs</span> <span class="ow">or</span> <span class="p">{}),</span>
-        <span class="p">)</span>
+        <span class="n">kwargs</span> <span class="o">=</span> <span class="n">kwargs</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;model_file_format&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">OPTIMUM</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">),</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model_components</span> <span class="o">=</span> <span class="n">model_components</span>
 
     <span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
@@ -1024,8 +1023,6 @@
 
 
 <div class="viewcode-block" id="DistributedOnnxModel"><a class="viewcode-back" href="../../api/models.html#olive.model.DistributedOnnxModel">[docs]</a><span class="k">class</span> <span class="nc">DistributedOnnxModel</span><span class="p">(</span><span class="n">ONNXModelBase</span><span class="p">):</span>
-    <span class="n">resource_keys</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">list</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;model_filepaths&quot;</span><span class="p">]</span>
-
     <span class="n">EXECUTION_PROVIDERS</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;cpu&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">],</span>
         <span class="s2">&quot;gpu&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;CUDAExecutionProvider&quot;</span><span class="p">,</span> <span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">],</span>
@@ -1033,28 +1030,30 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model_filepaths</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">model_path</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]],</span>
+        <span class="n">model_name_pattern</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">num_ranks</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">use_ort_extensions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">model_attributes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
-            <span class="n">model_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">model_path</span><span class="o">=</span><span class="n">model_path</span><span class="p">,</span>
             <span class="n">inference_settings</span><span class="o">=</span><span class="n">inference_settings</span><span class="p">,</span>
             <span class="n">use_ort_extensions</span><span class="o">=</span><span class="n">use_ort_extensions</span><span class="p">,</span>
             <span class="n">model_attributes</span><span class="o">=</span><span class="n">model_attributes</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">model_filepaths</span> <span class="o">=</span> <span class="n">model_filepaths</span> <span class="ow">or</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_name_pattern</span> <span class="o">=</span> <span class="n">model_name_pattern</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_ranks</span> <span class="o">=</span> <span class="n">num_ranks</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">ranks</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_filepaths</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">ranked_model_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name_pattern</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">rank</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">ranked_model_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_filepaths</span><span class="p">[</span><span class="n">rank</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">ranked_model_name</span><span class="p">(</span><span class="n">rank</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ONNXModel</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">ONNXModel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_filepaths</span><span class="p">[</span><span class="n">rank</span><span class="p">],</span> <span class="n">inference_settings</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">inference_settings</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ONNXModel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ranked_model_path</span><span class="p">(</span><span class="n">rank</span><span class="p">),</span> <span class="n">inference_settings</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">inference_settings</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -1087,15 +1086,13 @@
         <span class="k">return</span> <span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">get_execution_providers</span><span class="p">(</span><span class="n">eps_per_device</span><span class="p">,</span> <span class="n">available_providers</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
-        <span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
-            <span class="s2">&quot;config&quot;</span><span class="p">:</span> <span class="p">{</span>
-                <span class="s2">&quot;model_filepaths&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_filepaths</span><span class="p">,</span>
-                <span class="s2">&quot;inference_settings&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">inference_settings</span><span class="p">,</span>
-                <span class="s2">&quot;use_ort_extensions&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_ort_extensions</span><span class="p">,</span>
-                <span class="s2">&quot;model_attributes&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_attributes</span><span class="p">,</span>
-            <span class="p">},</span>
-        <span class="p">}</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="p">)</span>
+        <span class="n">config</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;model_name_pattern&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name_pattern</span><span class="p">,</span>
+                <span class="s2">&quot;num_ranks&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_ranks</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
         <span class="k">return</span> <span class="n">serialize_to_json</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">check_object</span><span class="o">=</span><span class="n">check_object</span><span class="p">)</span></div>
 
 

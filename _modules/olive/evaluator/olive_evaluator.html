@@ -614,7 +614,7 @@
         <span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;model_path&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
             <span class="s2">&quot;local_rank&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
-            <span class="s2">&quot;world_size&quot;</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">ranks</span><span class="p">,</span>
+            <span class="s2">&quot;world_size&quot;</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">num_ranks</span><span class="p">,</span>
             <span class="s2">&quot;inference_settings&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_inference_settings</span><span class="p">(</span><span class="n">metric</span><span class="p">),</span>
             <span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="o">.</span><span class="n">to_json</span><span class="p">(),</span>
         <span class="p">}</span>
@@ -629,7 +629,7 @@
             <span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;providers&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">execution_providers</span>
             <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>
 
-        <span class="k">with</span> <span class="n">MPIPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">ranks</span><span class="p">)</span> <span class="k">as</span> <span class="n">executor</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">MPIPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">num_ranks</span><span class="p">)</span> <span class="k">as</span> <span class="n">executor</span><span class="p">:</span>
             <span class="n">results</span> <span class="o">=</span> <span class="n">executor</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">OnnxEvaluator</span><span class="o">.</span><span class="n">_evaluate_distributed_accuracy_worker</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
             <span class="n">executor</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
 
@@ -706,13 +706,13 @@
         <span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;model_path&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
             <span class="s2">&quot;local_rank&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
-            <span class="s2">&quot;world_size&quot;</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">ranks</span><span class="p">,</span>
+            <span class="s2">&quot;world_size&quot;</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">num_ranks</span><span class="p">,</span>
             <span class="s2">&quot;inference_settings&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_inference_settings</span><span class="p">(</span><span class="n">metric</span><span class="p">),</span>
             <span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="o">.</span><span class="n">to_json</span><span class="p">(),</span>
         <span class="p">}</span>
 
         <span class="n">args</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">rank</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">ranks</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">rank</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">num_ranks</span><span class="p">):</span>
             <span class="n">cfg</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
             <span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;local_rank&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rank</span>
             <span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;model_path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">ranked_model_path</span><span class="p">(</span><span class="n">rank</span><span class="p">)</span>
@@ -721,7 +721,7 @@
             <span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;providers&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">execution_providers</span>
             <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>
 
-        <span class="k">with</span> <span class="n">MPIPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">ranks</span><span class="p">)</span> <span class="k">as</span> <span class="n">executor</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">MPIPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">num_ranks</span><span class="p">)</span> <span class="k">as</span> <span class="n">executor</span><span class="p">:</span>
             <span class="n">results</span> <span class="o">=</span> <span class="n">executor</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">OnnxEvaluator</span><span class="o">.</span><span class="n">_evaluate_distributed_latency_worker</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
             <span class="n">executor</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
 
