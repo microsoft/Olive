@@ -26,7 +26,7 @@
                     "user_config": {
                         "user_script": "user_script.py",
                         "dataloader_func": "dataloader_func_for_merged",
-                        "batch_size": 1,
+                        "batch_size": 2,
                         "io_bind": true
                     }
                 }
@@ -46,7 +46,7 @@
                     "user_config": {
                         "user_script": "user_script.py",
                         "dataloader_func": "dataloader_func_for_merged_gqa",
-                        "batch_size": 1,
+                        "batch_size": 2,
                         "io_bind": true
                     }
                 }
