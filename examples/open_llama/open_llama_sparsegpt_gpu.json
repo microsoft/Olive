@@ -90,6 +90,6 @@
         },
         "execution_providers": ["CPUExecutionProvider"],
         "cache_dir": "cache",
-        "output_dir" : "models/sparsegpt"
+        "output_dir" : "models/open_llama_sparsegpt"
     }
 }

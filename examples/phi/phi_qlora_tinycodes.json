@@ -3,8 +3,11 @@
         "type": "PyTorchModel",
         "config": {
             "hf_config": {
-                "model_name": "openlm-research/open_llama_7b_v2",
-                "task": "text-generation"
+                "model_name": "microsoft/phi-1_5",
+                "task": "text-generation",
+                "model_loading_args": {
+                    "trust_remote_code": true
+                }
             }
         }
     },
@@ -12,7 +15,7 @@
         "tiny-codes-train": {
             "name": "tiny-codes-train",
             "type": "HuggingfaceContainer",
-            "user_script": "lora_user_script.py",
+            "user_script": "user_script.py",
             "components": {
                 "load_dataset": {
                     "type": "load_tiny_code_dataset"
@@ -30,7 +33,8 @@
                         "dataset_type": "corpus",
                         "corpus_strategy": "join",
                         "text_template": "### Question: {prompt} \n### Answer: {response}",
-                        "source_max_len": 1024
+                        "source_max_len": 1024,
+                        "use_attention_mask": false
                     }
                 }
             }
@@ -44,9 +48,9 @@
                 "train_data_config": "tiny-codes-train",
                 "eval_dataset_size": 1024,
                 "training_args": {
-                    "per_device_train_batch_size": 16,
-                    "per_device_eval_batch_size": 16,
-                    "gradient_accumulation_steps": 1,
+                    "per_device_train_batch_size": 4,
+                    "per_device_eval_batch_size": 4,
+                    "gradient_accumulation_steps": 4,
                     "max_steps": 1500,
                     "logging_steps": 100,
                     "evaluation_strategy": "steps",
@@ -69,6 +73,6 @@
         },
         "execution_providers": ["CPUExecutionProvider"],
         "cache_dir": "cache",
-        "output_dir" : "models/open_llama_qlora_tinycodes"
+        "output_dir" : "models/phi_qlora_tinycodes"
     }
 }
