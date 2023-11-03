@@ -182,8 +182,7 @@ class TestDistributedOnnxEvaluator:
     def test_evaluate(self):
         from olive.model import DistributedOnnxModel
 
-        filepaths = ["examples/switch/model_4n_2l_8e_00.onnx", "examples/switch/model_4n_2l_8e_01.onnx"]
-        model = DistributedOnnxModel(filepaths)
+        model = DistributedOnnxModel("examples/switch", "model_4n_2l_8e_{:02d}.onnx", 2)
 
         user_config = {
             "user_script": "examples/switch/user_script.py",
