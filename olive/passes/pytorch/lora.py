@@ -305,6 +305,13 @@ class LoRABase(Pass):
                 special_tokens_dict={"pad_token": DEFAULT_PAD_TOKEN}, tokenizer=tokenizer, model=model
             )
 
+        if config.training_args.gradient_checkpointing and not model.supports_gradient_checkpointing:
+            logger.warning(
+                "gradient_checkpointing is True, but model does not support gradient checkpointing! Setting"
+                " gradient_checkpoing to False"
+            )
+            config.training_args.gradient_checkpointing = False
+
         model = self.prepare_model_for_lora_finetuning(model, config.training_args.gradient_checkpointing)
 
         # set model_parallel and is_parallelizable to True

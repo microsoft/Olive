@@ -8,7 +8,9 @@ This workflow fine-tunes [phi-1.5 model](https://huggingface.co/microsoft/phi-1_
 The relevant config file is [phi_qlora_tinycodes.json](phi_qlora_tinycodes.json). The code language is set to `Python` but can be changed to other languages by changing the `language` field in the config file.
 Supported languages are Python, TypeScript, JavaScript, Ruby, Julia, Rust, C++, Bash, Java, C#, and Go. Refer to the [dataset card](https://huggingface.co/datasets/nampdn-ai/tiny-codes) for more details on the dataset.
 
-Note: You must be logged in to HuggingFace using `huggingface-cli login` to download the dataset or update `token` field in the config file with your HuggingFace token.
+Note:
+- You must be logged in to HuggingFace using `huggingface-cli login` to download the dataset or update `token` field in the config file with your HuggingFace token.
+- This model doesn't support gradient_checkpointing yet.
 
 Requirements file: [requirements-lora.txt](requirements-lora.txt)
 
