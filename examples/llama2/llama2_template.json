@@ -4,7 +4,7 @@
         "config": {
             "model_script": "user_script.py",
             "io_config": "get_merged_decoder_with_past_io_config",
-            "dummy_inputs_func": "get_merged_decoder_with_past_kv_inputs",
+            "dummy_inputs_func": "get_merged_decoder_with_past_dummy_inputs",
             "hf_config": {
                 "model_name": "meta-llama/Llama-2-7b-hf",
                 "model_class": "LlamaForCausalLM"
@@ -26,7 +26,7 @@
                     "user_config": {
                         "user_script": "user_script.py",
                         "dataloader_func": "dataloader_func_for_merged",
-                        "batch_size": 1,
+                        "batch_size": 2,
                         "io_bind": true
                     }
                 }
@@ -46,7 +46,7 @@
                     "user_config": {
                         "user_script": "user_script.py",
                         "dataloader_func": "dataloader_func_for_merged_gqa",
-                        "batch_size": 1,
+                        "batch_size": 2,
                         "io_bind": true
                     }
                 }

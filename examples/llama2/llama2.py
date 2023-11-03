@@ -6,6 +6,7 @@
 import argparse
 import json
 import re
+import tempfile
 from pathlib import Path
 
 from onnxruntime import __version__ as OrtVersion
@@ -43,7 +44,7 @@ def get_args(raw_args):
         "--use_gqa",
         action="store_true",
         required=False,
-        help="Whether to use GQA(grouped query attention) instead of MHA(multi-head attention).",
+        help="Whether to use GQA(grouped query attention) instead of MHA(multi-head attention). Only supported on gpu.",
     )
     parser.add_argument(
         "--only_config",
@@ -51,18 +52,25 @@ def get_args(raw_args):
         required=False,
         help="Whether to only dump the config file without running the optimization.",
     )
+    parser.add_argument("--tempdir", type=str, help="Root directory for tempfile directories and files", required=False)
 
     return parser.parse_args(raw_args)
 
 
 def main(raw_args=None):
+    if version.parse(OrtVersion) < version.parse("1.16.2"):
+        raise ValueError("Please use onnxruntime>=1.16.2 for llama2 optimization")
+
     args = get_args(raw_args)
 
-    # version check
-    version_1_17 = version.parse(OrtVersion) >= version.parse("1.17.0")
+    if args.use_gqa and not args.gpu:
+        raise ValueError("GQA is only supported on gpu.")
 
-    if not version_1_17:
-        raise ValueError("Please use onnxruntime>=1.17.0 for llama2 optimization")
+    if args.tempdir is not None:
+        # set tempdir if specified
+        tempdir = Path(args.tempdir).resolve()
+        tempdir.mkdir(parents=True, exist_ok=True)
+        tempfile.tempdir = str(tempdir)
 
     json_file_template = "llama2_template.json"
     with open(json_file_template) as f:  # noqa: PTH123
@@ -72,33 +80,41 @@ def main(raw_args=None):
     # update model name
     template_json["input_model"]["config"]["hf_config"]["model_name"] = model_name
 
-    # update ep
-    device = "cpu" if not args.gpu else "gpu"
-    template_json["pass_flows"] = SUPPORTED_WORKFLOWS[device]
-
-    template_json["engine"]["execution_providers"] = [DEVICE_TO_EP[device]]
-    template_json["engine"]["output_dir"] = f"llama2_{device}/{model_name}"
-
-    if not args.use_gqa and args.gpu:
-        template_json["passes"]["transformers_optimization_fp16"]["config"]["use_gqa"] = False
-        # after applying GQA, the model's input will be changed, we need to remove the special dataloader implementation
-
-        del template_json["passes"]["transformers_optimization_fp16"]["evaluator"]
-        del template_json["passes"]["blockwise_quant_int4"]["evaluator"]
-        del template_json["evaluators"]["gqa_evaluator"]
-
+    # update configs
     device = "gpu" if args.gpu else "cpu"
     gqa = "gqa" if args.use_gqa else "mha"
     config_name = f"llama2_{device}_{gqa}"
 
+    # add pass flows
+    template_json["pass_flows"] = SUPPORTED_WORKFLOWS[device]
+    # remove unused passes and set gqa related configs
+    used_passes = {pass_name for pass_flow in SUPPORTED_WORKFLOWS[device] for pass_name in pass_flow}
+    for pass_name in list(template_json["passes"].keys()):
+        if pass_name not in used_passes:
+            del template_json["passes"][pass_name]
+            continue
+        if not args.use_gqa and template_json["passes"][pass_name].get("evaluator", None) == "gqa_evaluator":
+            # remove gqa evaluator if not using gqa
+            del template_json["passes"][pass_name]["evaluator"]
+        if not args.use_gqa and template_json["passes"][pass_name]["config"].get("use_gqa", False):
+            # set use_gqa to False if not using gqa
+            template_json["passes"][pass_name]["config"]["use_gqa"] = False
+    if not args.use_gqa:
+        del template_json["evaluators"]["gqa_evaluator"]
+
+    template_json["engine"]["execution_providers"] = [DEVICE_TO_EP[device]]
+    template_json["engine"]["output_dir"] = f"models/{config_name}/{model_name}"
+
     # create user script
     user_script_path = Path(__file__).parent / "user_script.py"
-    config_script_path = Path(__file__).parent / f"{config_name}_user_script.py"
+    # use model name here so that we can reuse input model cache for the same model
+    model_name_squashed = model_name.replace("/", "_")
+    config_script_path = Path(__file__).parent / f"user_script_{model_name_squashed}.py"
     update_user_script(user_script_path, config_script_path, model_name)
 
     # update user script path in config
     template_json = json.dumps(template_json)
-    template_json = template_json.replace("user_script.py", f"{config_name}_user_script.py")
+    template_json = template_json.replace("user_script.py", f"user_script_{model_name_squashed}.py")
     template_json = json.loads(template_json)
 
     # dump config
