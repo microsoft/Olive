@@ -1,26 +1,17 @@
-# from olive.workflows import run as olive_run
-# olive_run("phi_1_config.json")
-
 # -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import argparse
 import json
-import os
 import shutil
-import sys
 from pathlib import Path
 
 import onnxruntime as ort
-from packaging import version
+
 from olive.workflows import run as olive_run
 
-# pylint: disable=redefined-outer-name
-
-
 def optimize(model_name: str, optimized_model_dir: Path):
-
     ort.set_default_logger_severity(4)
     script_dir = Path(__file__).resolve().parent
 
@@ -30,7 +21,7 @@ def optimize(model_name: str, optimized_model_dir: Path):
     print(f"\nOptimizing {model_name}")
 
     olive_config = None
-    with (script_dir / "phi_1_config.json").open() as fin:
+    with (script_dir / "config_phi_1.json").open() as fin:
         olive_config = json.load(fin)
 
     olive_config["input_model"]["config"]["model_path"] = model_name
@@ -53,9 +44,7 @@ def optimize(model_name: str, optimized_model_dir: Path):
         print(f"Unoptimized Model : {model_info['unoptimized']['path']}")
 
     # Create a copy of the unoptimized model directory, then overwrite with optimized models from the olive cache.
-    shutil.copytree(
-        model_info["unoptimized"]["path"], optimized_model_dir
-    )
+    shutil.copytree(model_info["unoptimized"]["path"], optimized_model_dir)
 
 
 if __name__ == "__main__":
@@ -64,7 +53,7 @@ if __name__ == "__main__":
     parser.add_argument("--model", default="microsoft/phi-1", type=str)
     parser.add_argument("--inference", action="store_true", help="Runs the inference step")
     parser.add_argument("--max_length", default=200, type=int, help="max iterations to generate output")
-    
+
     args = parser.parse_args()
 
     script_dir = Path(__file__).resolve().parent
@@ -78,19 +67,24 @@ if __name__ == "__main__":
         optimize(args.model, optimized_model_dir)
 
     if args.inference:
-        from transformers import AutoTokenizer
         import numpy as np
+        from transformers import AutoTokenizer
+
         tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True)
-        inputs = tokenizer('''def print_prime(n):
+        inputs = tokenizer(
+            '''def print_prime(n):
                """
                Print all primes between 1 and n
-               """''', return_tensors="pt", return_attention_mask=False)
+               """''',
+            return_tensors="pt",
+            return_attention_mask=False,
+        )
 
         model_path = optimized_model_dir / "model.onnx"
-        session = ort.InferenceSession(model_path, providers=['DmlExecutionProvider'])
+        session = ort.InferenceSession(model_path, providers=["DmlExecutionProvider"])
 
         inputs_numpy = inputs["input_ids"].numpy()
-        for i in range(args.max_length):
+        for _ in range(args.max_length):
             outputs = session.run(["output"], {"input_ids": inputs_numpy})
             prediction = np.argmax(outputs, -1, keepdims=False)[0][0][-1]
             inputs_numpy = np.append(inputs_numpy, [[prediction]], axis=1)

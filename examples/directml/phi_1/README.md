@@ -31,12 +31,10 @@ The easiest way to optimize the pipeline is with the `microsoft_phi.py` helper s
 python microsoft_phi.py --optimize
 ```
 
-The language model phi-1 is large, and the optimization process is resource intensive. The optimization process can easily take more than 128GB of memory. You can still optimize the model on a machine with less memory, but you'd have to increase your paging file size accordingly and the conversion process will take significantly longer to complete (many hours).
-
 Once the script successfully completes, the optimized ONNX pipeline will be stored under `models/optimized/microsoft/phi-1`.
 
 # Test Inference
-Re-running the script with `--inference` 
+Re-running the script with `--inference`
 ```
 # sample inputs
 inputs = tokenizer('''def print_prime(n):
