@@ -24,7 +24,7 @@ def optimize(model_name: str, optimized_model_dir: Path):
     print(f"\nOptimizing {model_name}")
 
     olive_config = None
-    with (script_dir / "config_phi_1.json").open() as fin:
+    with (script_dir / "config_phi.json").open() as fin:
         olive_config = json.load(fin)
 
     olive_config["input_model"]["config"]["model_path"] = model_name

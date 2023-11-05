@@ -1,5 +1,5 @@
 # Microsoft/phi-1 Latency Optimization with DirectML
-This folder contains a sample use case of Olive to optimize the [Microsoft/phi-1](https://huggingface.co/microsoft/phi-1) model using ONNX conversion and general ONNX performance tuning.
+This folder contains a sample use case of Olive to optimize the [Microsoft/phi-1](https://huggingface.co/microsoft/phi-1) model and [Microsoft/phi-1_5](https://huggingface.co/microsoft/phi-1_5) using ONNX conversion and general ONNX performance tuning.
 
 Performs optimization pipeline:
 
@@ -19,7 +19,7 @@ python -m pip install .
 
 Once you've installed Olive, install the requirements for this sample matching the version of the library you are using:
 ```
-cd olive/examples/directml/phi_1
+cd olive/examples/directml/phi
 pip install -r requirements.txt
 ```
 
@@ -28,10 +28,10 @@ pip install -r requirements.txt
 The easiest way to optimize the pipeline is with the `microsoft_phi.py` helper script:
 
 ```
-python microsoft_phi.py --optimize
+python microsoft_phi.py --optimize --model_path ["microsoft/phi-1" or "microsoft/phi-1_5"]
 ```
 
-Once the script successfully completes, the optimized ONNX pipeline will be stored under `models/optimized/microsoft/phi-1`.
+Once the script successfully completes, the optimized ONNX pipeline will be stored under `models/optimized/microsoft/phi-1` or `models/optimized/microsoft/phi-1_5`.
 
 # Test Inference
 Re-running the script with `--inference`
