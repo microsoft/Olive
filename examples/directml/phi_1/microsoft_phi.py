@@ -11,6 +11,9 @@ import onnxruntime as ort
 
 from olive.workflows import run as olive_run
 
+# pylint: disable=redefined-outer-name
+
+
 def optimize(model_name: str, optimized_model_dir: Path):
     ort.set_default_logger_severity(4)
     script_dir = Path(__file__).resolve().parent
