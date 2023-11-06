@@ -15,11 +15,12 @@ class DecoderModel(torch.nn.Module):
         hidden_size: int,
         n_heads: int,
         scale_type: str,
+        use_layer_norm: bool,
     ) -> None:
         super().__init__()
         self.tok_embeddings = torch.nn.Embedding(vocab_size, hidden_size)
 
-        self.norm = RMSNorm(hidden_size, eps=1e-5)
+        self.norm = LayerNorm(hidden_size, eps=1e-5) if use_layer_norm else RMSNorm(hidden_size, eps=1e-5)
 
         self.layers = torch.nn.ModuleList()
         for _ in range(n_layers):
@@ -27,6 +28,7 @@ class DecoderModel(torch.nn.Module):
                 hidden_size,
                 n_heads,
                 scale_type,
+                use_layer_norm,
             )
             self.layers.append(layer)
 
@@ -107,9 +109,6 @@ class RMSNorm(torch.nn.Module):
         self.eps = eps
         self.weight = torch.nn.Parameter(torch.ones(dim))
 
-    def _norm(self, x) -> torch.Tensor:
-        return x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)
-
     def forward(self, hidden_states):
         input_dtype = hidden_states.dtype
         hidden_states = hidden_states.to(torch.float32)
@@ -118,17 +117,32 @@ class RMSNorm(torch.nn.Module):
         return self.weight * hidden_states.to(input_dtype)
 
 
+class LayerNorm(torch.nn.Module):
+    def __init__(self, dim: int, eps: float = 1e-6) -> None:
+        super().__init__()
+        self.eps = eps
+        self.weight = torch.nn.Parameter(torch.ones(dim))
+        self.bias = torch.zeros(dim)
+
+    def forward(self, hidden_states):
+        diff = hidden_states - hidden_states.mean(-1, keepdim=True)
+        variance = diff.pow(2).mean(-1, keepdim=True)
+        hidden_states = diff / torch.sqrt(variance + self.eps)
+        return self.weight * hidden_states + self.bias
+
+
 class TransformerLayer(torch.nn.Module):
     def __init__(
         self,
         hidden_size: int,
         n_heads: int,
         scale_type: str,
+        use_layer_norm: bool,
     ) -> None:
         super().__init__()
         # these should have variable eps.
-        self.attention_norm = RMSNorm(hidden_size, eps=1e-6)
-        self.ffn_norm = RMSNorm(hidden_size, eps=1e-6)
+        self.attention_norm = LayerNorm(hidden_size, eps=1e-6) if use_layer_norm else RMSNorm(hidden_size, eps=1e-6)
+        self.ffn_norm = LayerNorm(hidden_size, eps=1e-6) if use_layer_norm else RMSNorm(hidden_size, eps=1e-6)
 
         self.cos, self.sin = rotary_mat(hidden_size, n_heads, 4096, head_scale=1.0)
 

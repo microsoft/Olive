@@ -66,6 +66,7 @@ def get_or_create_decoder_model():
             hidden_size,
             num_heads,
             scale_type,
+            config.use_layer_norm,
         )
         config.decoder_model.eval()
 

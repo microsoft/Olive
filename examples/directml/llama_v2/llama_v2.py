@@ -11,6 +11,7 @@ import urllib.request
 import warnings
 from pathlib import Path
 
+import config
 from chat_app.app import launch_chat_app
 from run_llama_v2_io_binding import run_llama_v2_io_binding
 
@@ -29,6 +30,19 @@ def optimize(optimized_model_dir: Path):
         olive_config = None
         with Path.open(script_dir / f"config_{submodel_name}.json") as fin:
             olive_config = json.load(fin)
+
+            # ORT-DML doesn't support SimplifiedLayerNorm or SkipSimplifiedLayerNorm yet, so only enable the fusions if
+            # LayerNorm is selected
+            if submodel_name == "llama_v2":
+                olive_config["passes"]["optimize"]["config"]["optimization_options"][
+                    "enable_layer_norm"
+                ] = config.use_layer_norm
+                olive_config["passes"]["optimize"]["config"]["optimization_options"][
+                    "enable_skip_layer_norm"
+                ] = config.use_layer_norm
+
+                if config.use_layer_norm:
+                    del olive_config["passes"]["optimize"]["config"]["force_fp32_nodes"]
 
         olive_run(olive_config)
 
@@ -137,12 +151,19 @@ if __name__ == "__main__":
         action="store_true",
         help="Expose the web UI on the local network (does nothing if --interactive is not supplied)",
     )
+    parser.add_argument(
+        "--use_layer_norm",
+        action="store_true",
+        help="If true, use LayerNorm normalization. Otherwise, use RMS (Root Mean Squared Normlization)",
+    )
     parser.add_argument("--prompt", default="What is the lightest element?", type=str)
     parser.add_argument("--max_seq_len", default=2048, type=int, help="The size of the cache")
     parser.add_argument(
         "--max_gen_len", default=256, type=int, help="The maximum number of tokens that can be included in an answer"
     )
     args = parser.parse_args()
+
+    config.use_layer_norm = args.use_layer_norm
 
     script_dir = Path(__file__).resolve().parent
     optimized_model_dir = script_dir / "models" / "optimized" / "llama_v2"
