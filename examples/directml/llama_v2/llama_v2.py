@@ -37,9 +37,6 @@ def optimize(optimized_model_dir: Path):
                 olive_config["passes"]["optimize"]["config"]["optimization_options"][
                     "enable_layer_norm"
                 ] = config.use_layer_norm
-                olive_config["passes"]["optimize"]["config"]["optimization_options"][
-                    "enable_skip_layer_norm"
-                ] = config.use_layer_norm
 
                 if config.use_layer_norm:
                     del olive_config["passes"]["optimize"]["config"]["force_fp32_nodes"]
