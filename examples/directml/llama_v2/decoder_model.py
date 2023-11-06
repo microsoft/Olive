@@ -183,13 +183,12 @@ class ApplyMask(torch.nn.Module):
 
     def forward(self, use_cache, score, attn_mask, seq_len, num_heads, dtype=torch.float32):
         # The mask contains 1's for values that should stay intact, and 0's for values that should get added to -10000
-        batch_size, max_seq_len = attn_mask.size()
-
-        expanded_mask = attn_mask[:, None, None, :].expand(batch_size, 1, seq_len, max_seq_len).to(dtype)
+        expanded_mask = attn_mask[:, None, None, :].expand(-1, 1, seq_len, -1).to(dtype)
         inverted_mask = 1.0 - expanded_mask
         mask_score = inverted_mask.masked_fill(inverted_mask.to(torch.bool), -10000.0)
 
         if not use_cache:
+            batch_size, max_seq_len = attn_mask.size()
             causal_mask = torch.tril(torch.ones((batch_size, max_seq_len, max_seq_len)))
             causal_mask = causal_mask[:, -seq_len:, :]
             inverted_causal_mask = 1.0 - causal_mask
