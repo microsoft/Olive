@@ -98,23 +98,6 @@ def launch_chat_app(expose_locally: bool = False):
                 )
                 model_name.change(change_model_listener, inputs=[model_name], outputs=[model_name])
 
-                gr.Markdown("# Parameters")
-                top_p = gr.Slider(
-                    minimum=-0,
-                    maximum=1.0,
-                    value=0.9,
-                    step=0.05,
-                    interactive=True,
-                    label="Top-p",
-                )
-                temperature = gr.Slider(
-                    minimum=0.1,
-                    maximum=2.0,
-                    value=0.6,
-                    step=0.1,
-                    interactive=True,
-                    label="Temperature",
-                )
                 max_length_tokens = gr.Slider(
                     minimum=0,
                     maximum=512,
@@ -147,8 +130,6 @@ def launch_chat_app(expose_locally: bool = False):
                 user_question,
                 chatbot,
                 history,
-                top_p,
-                temperature,
                 max_length_tokens,
                 max_context_length_tokens,
                 token_printing_step,
@@ -159,13 +140,11 @@ def launch_chat_app(expose_locally: bool = False):
         retry_args = {
             "fn": interface_retry,
             "inputs": [
-                user_input,
                 chatbot,
                 history,
-                top_p,
-                temperature,
                 max_length_tokens,
                 max_context_length_tokens,
+                token_printing_step,
             ],
             "outputs": [chatbot, history, status_display],
             "show_progress": True,

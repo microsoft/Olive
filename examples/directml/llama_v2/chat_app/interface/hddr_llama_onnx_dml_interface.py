@@ -134,62 +134,11 @@ short answers are usually best"
         else:
             return None
 
-    def sample_logits(
-        self,
-        logits: np.ndarray,
-        sampling_method: str = "greedy",
-        sampling_value: float = None,
-        temperature: float = 1.0,
-    ) -> np.ndarray:
-        if temperature == 0 or sampling_method == "greedy":
-            next_token = np.argmax(logits, axis=-1).astype(np.int64)
-
-        elif sampling_method == "top_k" or sampling_method == "top_p":
-            assert sampling_value is not None
-
-            # temperature, converting to probabilities and sorting are common to both top-k and top-p
-            # convert logits to 32-bit float to avoid numerical issues with np.exp
-            logits = logits.astype(np.float32)
-            # Scale the logits by the temperature
-            logits /= temperature
-            # Convert logits to probabilities
-            probs = np.exp(logits) / np.sum(np.exp(logits))
-            # Sort th probabilities and indexes
-            sorted_probs = np.sort(probs)[:, ::-1]
-            sorted_indices = np.argsort(probs)[:, ::-1]
-
-            # find the index of interest for each of the methods.
-            if sampling_method == "top_k":
-                index_of_interest = int(sampling_value)
-            elif sampling_method == "top_p":
-                p = sampling_value
-                cumulative_probs = np.cumsum(sorted_probs, axis=-1)
-                # find the value of the first cumalitive probability that exceeds p
-                for idx, cumulative_prob in enumerate(cumulative_probs[0]):
-                    if cumulative_prob > p:
-                        index_of_interest = idx
-                        break
-
-            probs_of_interest = sorted_probs[:, : index_of_interest + 1]
-            indices_of_interest = sorted_indices[:, : index_of_interest + 1]
-            # Normalize the probabilities and select the next token
-            probs_of_interest /= np.sum(probs_of_interest)
-            next_token = np.array([np.random.choice(indices_of_interest[0], p=probs_of_interest[0])])
-        else:
-            raise Exception(f"Unknown sampling method {sampling_method}")
-
-        return next_token
-
     def greedy_search(
         self,
         input_ids,
-        model,
         tokenizer,
-        stop_words: list,
         max_length: int,
-        temperature: float = 1.0,
-        top_p: float = 1.0,
-        top_k: int = 25,
         token_printing_step: int = 4,
     ):
         generated_tokens = []
@@ -302,8 +251,6 @@ short answers are usually best"
         text,
         chatbot,
         history,
-        top_p,
-        temperature,
         max_length_tokens,
         max_context_length_tokens,
         token_printing_step,
@@ -318,7 +265,7 @@ short answers are usually best"
             yield chatbot, history, "Input too long."
             return
         else:
-            prompt, inputs = inputs
+            _, inputs = inputs
 
         input_ids = inputs[:, -max_context_length_tokens:]
 
@@ -330,12 +277,8 @@ short answers are usually best"
 
         for x in self.greedy_search(
             input_ids,
-            self.llm_session,
             self.tokenizer,
-            stop_words=["[|Human|]", "[|AI|]"],
             max_length=max_length_tokens,
-            temperature=temperature,
-            top_p=top_p,
             token_printing_step=token_printing_step,
         ):
             sentence = x
@@ -370,16 +313,7 @@ short answers are usually best"
 
         return
 
-    def retry(
-        self,
-        text,
-        chatbot,
-        history,
-        top_p,
-        temperature,
-        max_length_tokens,
-        max_context_length_tokens,
-    ):
+    def retry(self, chatbot, history, max_length_tokens, max_context_length_tokens, token_printing_step):
         if len(history) == 0:
             yield chatbot, history, "Empty context"
             return
@@ -389,8 +323,7 @@ short answers are usually best"
             inputs,
             chatbot,
             history,
-            top_p,
-            temperature,
             max_length_tokens,
             max_context_length_tokens,
+            token_printing_step,
         )
