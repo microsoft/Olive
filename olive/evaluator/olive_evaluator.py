@@ -492,7 +492,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         }
 
         args = []
-        for rank in range(model.ranks):
+        for rank in range(model.num_ranks):
             cfg = deepcopy(config)
             cfg["local_rank"] = rank
             cfg["model_path"] = model.ranked_model_path(rank)

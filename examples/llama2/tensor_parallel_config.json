@@ -1,0 +1,45 @@
+{
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "model_script": "tensor_parallel_user_script.py",
+            "io_config": "get_io_config",
+            "dummy_inputs_func": "get_dummy_inputs",
+            "hf_config": {
+                "model_name": "meta-llama/Llama-2-7b-hf",
+                "model_class": "LlamaForCausalLM",
+                "task": "text-generation"
+            }
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": ["gpu"]
+            }
+        }
+    },
+    "passes": {
+        "tensor_parallel": {
+            "type": "LlamaPyTorchTensorParallel",
+            "config": {
+                "world_size": 4
+            }
+        }
+    },
+    "engine": {
+        "log_severity_level": 0,
+        "search_strategy": false,
+        "evaluate_input_model": false,
+        "target": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": ["gpu"]
+            }
+        },
+        "execution_providers": ["CUDAExecutionProvider"],
+        "cache_dir": "cache",
+        "output_dir": "models/llama2"
+    }
+}
