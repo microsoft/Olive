@@ -98,7 +98,7 @@ def prepare_model(num_epochs=1, models_dir="models", data_dir="data"):
             images = images.to(device)
             labels = labels.to(device)
             # Forward pass
-            outputs = model(images)  # pylint: disable=not-callable
+            outputs = model(images)
             loss = criterion(outputs, labels)
             # Backward and optimize
             optimizer.zero_grad()
@@ -124,7 +124,7 @@ def prepare_model(num_epochs=1, models_dir="models", data_dir="data"):
             for images, labels in test_loader:
                 images = images.to(device)
                 labels = labels.to(device)
-                outputs = model(images)  # pylint: disable=not-callable
+                outputs = model(images)
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()

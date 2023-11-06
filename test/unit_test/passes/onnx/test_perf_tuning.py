@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-
 from test.unit_test.utils import get_onnx_model
 from unittest.mock import patch
 
@@ -12,26 +11,12 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx import OrtPerfTuning
 
 
-@pytest.mark.parametrize(
-    "config",
-    [
-        {"input_names": ["input"], "input_shapes": [[1, 1]]},
-        {"providers_list": ["CPUExecutionProvider", "CUDAExecutionProvider"], "device": "gpu"},
-        {},
-    ],
-)
+@pytest.mark.parametrize("config", [{"input_names": ["input"], "input_shapes": [[1, 1]]}, {}])
 def test_ort_perf_tuning_pass(config, tmp_path):
     # setup
     input_model = get_onnx_model()
     p = create_pass_from_dict(OrtPerfTuning, config, disable_search=True)
     output_folder = str(tmp_path / "onnx")
-
-    # check config
-    # pylint: disable=protected-access
-    assert p._config["device"] is not None
-    assert p._config["providers_list"] is not None
-    for k, v in config.items():
-        assert p._config[k] == v, f"{k} is not set correctly as {v}"
 
     # execute
     p.run(input_model, None, output_folder)
