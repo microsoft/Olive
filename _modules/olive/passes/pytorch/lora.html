@@ -433,6 +433,13 @@
                 <span class="n">special_tokens_dict</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;pad_token&quot;</span><span class="p">:</span> <span class="n">DEFAULT_PAD_TOKEN</span><span class="p">},</span> <span class="n">tokenizer</span><span class="o">=</span><span class="n">tokenizer</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="n">model</span>
             <span class="p">)</span>
 
+        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">gradient_checkpointing</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">model</span><span class="o">.</span><span class="n">supports_gradient_checkpointing</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;gradient_checkpointing is True, but model does not support gradient checkpointing! Setting&quot;</span>
+                <span class="s2">&quot; gradient_checkpoing to False&quot;</span>
+            <span class="p">)</span>
+            <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">gradient_checkpointing</span> <span class="o">=</span> <span class="kc">False</span>
+
         <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_model_for_lora_finetuning</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">gradient_checkpointing</span><span class="p">)</span>
 
         <span class="c1"># set model_parallel and is_parallelizable to True</span>
