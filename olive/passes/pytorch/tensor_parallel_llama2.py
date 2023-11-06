@@ -73,7 +73,7 @@ def tp_llama_attention_init(self, config):
 
 
 # Overwrite original functions
-def apply_rotary_pos_emb(q, k, cos, sin, position_ids):
+def tp_llama_apply_rotary_pos_emb(q, k, cos, sin, position_ids):
     from transformers.models.llama.modeling_llama import rotate_half
 
     # The first two dimensions of cos and sin are always 1, so we can `squeeze` them.
@@ -139,10 +139,10 @@ def tp_llama_attention_forward(
 
     kv_seq_len = key_states.shape[-2]
     if past_key_value is not None:
-        kv_seq_len += past_key_value[0].shape[-2]
+        kv_seq_len = kv_seq_len + past_key_value[0].shape[-2]
 
     cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
-    query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
+    query_states, key_states = tp_llama_apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
 
     if past_key_value is not None:
         # reuse k, v, self_attention
@@ -210,28 +210,43 @@ class LlamaPyTorchTensorParallel(PyTorchTensorParallel):
     def __init__(
         self, accelerator_spec: AcceleratorSpec, config: Dict[str, Any], disable_search: Optional[bool] = False
     ):
-        from transformers.models.llama.modeling_llama import LlamaAttention, LlamaMLP
+        from transformers.models import llama
 
         super().__init__(accelerator_spec, config, disable_search)
-        self.mlp_init = LlamaMLP.__init__
-        self.attention_init = LlamaAttention.__init__
-        self.attention_forward = LlamaAttention.forward
+        self.mlp_init = llama.modeling_llama.LlamaMLP.__init__
+        self.attention_init = llama.modeling_llama.LlamaAttention.__init__
+        self.attention_forward = llama.modeling_llama.LlamaAttention.forward
+        self.apply_rotary_pos_emb = llama.modeling_llama.apply_rotary_pos_emb
+
+        self.uniform_ = torch.nn.init.uniform_
+        self.kaiming_normal_ = torch.nn.init.kaiming_normal_
+        self.kaiming_uniform_ = torch.nn.init.kaiming_uniform_
 
     def replace_layers(self):
-        from transformers.models.llama.modeling_llama import LlamaAttention, LlamaMLP
+        from transformers.models import llama
 
-        LlamaMLP.__init__ = tp_llama_mlp_init
-        LlamaAttention.__init__ = tp_llama_attention_init
-        LlamaAttention.forward = tp_llama_attention_forward
-        LlamaAttention.parallel_split = tp_llama_attention_parallel_split
+        llama.modeling_llama.LlamaMLP.__init__ = tp_llama_mlp_init
+        llama.modeling_llama.LlamaAttention.__init__ = tp_llama_attention_init
+        llama.modeling_llama.LlamaAttention.forward = tp_llama_attention_forward
+        llama.modeling_llama.LlamaAttention.parallel_split = tp_llama_attention_parallel_split
+        llama.modeling_llama.apply_rotary_pos_emb = tp_llama_apply_rotary_pos_emb
+
+        torch.nn.init.uniform_ = lambda x, *args, **kwargs: x
+        torch.nn.init.kaiming_normal_ = lambda x, *args, **kwargs: x
+        torch.nn.init.kaiming_uniform_ = lambda x, *args, **kwargs: x
 
     def restore_layers(self):
-        from transformers.models.llama.modeling_llama import LlamaAttention, LlamaMLP
+        from transformers.models import llama
 
-        LlamaMLP.__init__ = self.mlp_init
-        LlamaAttention.__init__ = self.attention_init
-        LlamaAttention.forward = self.attention_forward
-        LlamaAttention.parallel_split = None
+        llama.modeling_llama.LlamaMLP.__init__ = self.mlp_init
+        llama.modeling_llama.LlamaAttention.__init__ = self.attention_init
+        llama.modeling_llama.LlamaAttention.forward = self.attention_forward
+        llama.modeling_llama.LlamaAttention.parallel_split = None
+        llama.modeling_llama.apply_rotary_pos_emb = self.apply_rotary_pos_emb
+
+        torch.nn.init.uniform_ = self.uniform_
+        torch.nn.init.kaiming_normal_ = self.kaiming_normal_
+        torch.nn.init.kaiming_uniform_ = self.kaiming_uniform_
 
     def split_weights(self, model: torch.nn.Module, world_size: int):
         from transformers.models.llama.modeling_llama import LlamaAttention
