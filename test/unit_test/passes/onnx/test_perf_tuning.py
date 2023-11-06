@@ -14,11 +14,7 @@ from olive.passes.onnx import OrtPerfTuning
 
 @pytest.mark.parametrize(
     "config",
-    [
-        {"input_names": ["input"], "input_shapes": [[1, 1]]},
-        {"providers_list": ["CPUExecutionProvider", "CUDAExecutionProvider"], "device": "gpu"},
-        {},
-    ],
+    [{"input_names": ["input"], "input_shapes": [[1, 1]]}, {}],
 )
 def test_ort_perf_tuning_pass(config, tmp_path):
     # setup
@@ -26,15 +22,38 @@ def test_ort_perf_tuning_pass(config, tmp_path):
     p = create_pass_from_dict(OrtPerfTuning, config, disable_search=True)
     output_folder = str(tmp_path / "onnx")
 
-    # check config
-    # pylint: disable=protected-access
-    assert p._config["device"] is not None
-    assert p._config["providers_list"] is not None
-    for k, v in config.items():
-        assert p._config[k] == v, f"{k} is not set correctly as {v}"
-
     # execute
     p.run(input_model, None, output_folder)
+
+
+@patch("olive.passes.onnx.OrtPerfTuning._run_for_config")
+@pytest.mark.parametrize(
+    "config",
+    [
+        {},
+        {"providers_list": ["CPUExecutionProvider", "CUDAExecutionProvider"], "device": "gpu"},
+    ],
+)
+def test_ort_perf_tuning_with_customized_configs(mock_run, config):
+    # setup
+    input_model = get_onnx_model()
+    p = create_pass_from_dict(OrtPerfTuning, config, disable_search=True)
+
+    # execute
+    p.run(input_model, None, None)
+
+    # assert
+    if "providers_list" not in config:
+        assert mock_run.call_args.args[2]["providers_list"] == ["CPUExecutionProvider"], (
+            "providers_list is not set correctly as ['CPUExecutionProvider'] by default when"
+            " user does not specify it"
+        )
+    if "device" not in config:
+        assert (
+            mock_run.call_args.args[2]["device"] == "cpu"
+        ), "device is not set correctly as cpu by default when user does not specify it"
+    for k, v in config.items():
+        assert mock_run.call_args.args[2][k] == v, f"{k} is not set correctly as {v}"
 
 
 @patch("olive.model.ONNXModel.get_io_config")
