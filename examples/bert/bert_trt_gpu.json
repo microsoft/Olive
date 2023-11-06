@@ -35,7 +35,8 @@
                         {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
                         {"name": "max"},
                         {"name": "min"}
-                    ]
+                    ],
+                    "user_config": {"io_bind": true}
                 }
             ]
         }

@@ -312,6 +312,22 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             if k in input_names
         }
 
+    @staticmethod
+    def prepare_io_bindings(session, input_data, device):
+        """Convert input from numpy array to OrtValue."""
+        # TODO(trajep): add device_id to the OrtValue
+        from onnxruntime import OrtValue
+
+        io_bind_op = session.io_binding()
+        io_bind_device = "cuda" if device == "gpu" else "cpu"
+        for k, v in input_data.items():
+            new_v = OrtValue.ortvalue_from_numpy(v, io_bind_device)
+            io_bind_op.bind_ortvalue_input(k, new_v)
+        for item in session.get_outputs():
+            io_bind_op.bind_output(item.name, io_bind_device)
+
+        return io_bind_op
+
     def _inference(
         self,
         model: ONNXModel,
@@ -398,12 +414,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         input_dict = OnnxEvaluator.format_input(input_data, io_config)
 
         if metric.user_config.io_bind:
-            io_bind_op = session.io_binding()
-            io_bind_device = "cuda" if device == "gpu" else "cpu"
-            for k, v in input_dict.items():
-                io_bind_op.bind_cpu_input(k, v)
-            for item in session.get_outputs():
-                io_bind_op.bind_output(item.name, io_bind_device)
+            io_bind_op = OnnxEvaluator.prepare_io_bindings(session, input_dict, device)
 
         for _ in range(warmup_num):
             if metric.user_config.io_bind:
@@ -545,12 +556,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         input_feed = OnnxEvaluator.format_input(input_feed, io_config)
 
         if metric.user_config.io_bind:
-            io_bind_op = session.io_binding()
-            for k, v in input_feed.items():
-                io_bind_op.bind_cpu_input(k, v)
-            for item in session.get_outputs():
-                io_bind_op.bind_output(item.name, "cuda")
-
+            io_bind_op = OnnxEvaluator.prepare_io_bindings(session, input_feed, Device.GPU)
         latencies = []
         for i in range(warmup_num + repeat_test_num):
             MPI.COMM_WORLD.barrier()  # Synchronize before starting each run

@@ -18,6 +18,12 @@ def test_ort_perf_tuning_pass(config, tmp_path):
     p = create_pass_from_dict(OrtPerfTuning, config, disable_search=True)
     output_folder = str(tmp_path / "onnx")
 
+    # check config
+    assert p._config["device"] is not None
+    assert p._config["providers_list"] is not None
+    for k, v in config.items():
+        assert p._config[k] == v, f"{k} is not set correctly as {v}"
+
     # execute
     p.run(input_model, None, output_folder)
 
