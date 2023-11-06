@@ -19,6 +19,7 @@ def test_ort_perf_tuning_pass(config, tmp_path):
     output_folder = str(tmp_path / "onnx")
 
     # check config
+    # pylint: disable=protected-access
     assert p._config["device"] is not None
     assert p._config["providers_list"] is not None
     for k, v in config.items():
