@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+
 from pathlib import Path
 from typing import Callable, List, Union
 
@@ -25,6 +26,7 @@ _common_user_config = {
     "input_names": ConfigParam(type_=List),
     "input_shapes": ConfigParam(type_=List),
     "input_types": ConfigParam(type_=List),
+    "shared_kv_buffer": ConfigParam(type_=bool, default_value=False),
 }
 
 _common_user_config_validators = {}

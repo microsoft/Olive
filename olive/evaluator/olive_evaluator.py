@@ -291,6 +291,8 @@ class OliveEvaluator(ABC):
 
 
 class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
+    KV_CACHE_ORTVALUES = None
+
     def __init__(self):
         super().__init__()
 
@@ -313,18 +315,45 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         }
 
     @staticmethod
-    def prepare_io_bindings(session, input_data, device):
-        """Convert input from numpy array to OrtValue."""
-        # TODO(trajep): add device_id to the OrtValue
+    def prepare_io_bindings(session, input_data, device, device_id: int = 0, shared_kv_buffer: bool = False):
+        """Convert input from numpy array to OrtValue.
+
+        session: ONNXRuntime session
+        input_data: dict of input data, value is numpy array
+        device: olive device
+        device_id: 0 by default. TODO(trajep): support user to specified device id
+        shared_kv_buffer: whether to share the key/value buffer across multiple runs, it is False by default,
+            and only used when we observe kv cache and fp16 is used.
+            TODO(trajep): how shared_kv_buffer works with generation task
+        """
         from onnxruntime import OrtValue
 
+        use_fp16 = any(v.dtype == np.float16 for v in input_data.values())
         io_bind_op = session.io_binding()
         io_bind_device = "cuda" if device == "gpu" else "cpu"
+
+        if shared_kv_buffer:
+            OnnxEvaluator.KV_CACHE_ORTVALUES = OnnxEvaluator.KV_CACHE_ORTVALUES or {}
+
         for k, v in input_data.items():
-            new_v = OrtValue.ortvalue_from_numpy(v, io_bind_device)
-            io_bind_op.bind_ortvalue_input(k, new_v)
+            if shared_kv_buffer and use_fp16 and ("cache" in k or "past_key_values" in k):
+                if k not in OnnxEvaluator.KV_CACHE_ORTVALUES:
+                    OnnxEvaluator.KV_CACHE_ORTVALUES[k] = OrtValue.ortvalue_from_numpy(v, io_bind_device, device_id)
+                else:
+                    OnnxEvaluator.KV_CACHE_ORTVALUES[k].update_inplace(v)
+                ort_v = OnnxEvaluator.KV_CACHE_ORTVALUES[k]
+            else:
+                ort_v = OrtValue.ortvalue_from_numpy(v, io_bind_device, device_id)
+            io_bind_op.bind_ortvalue_input(k, ort_v)
+
         for item in session.get_outputs():
-            io_bind_op.bind_output(item.name, io_bind_device)
+            name = item.name
+            if shared_kv_buffer and use_fp16 and ("out" in name or "present" in name):
+                # Bind present KV cache outputs to past KV cache inputs in order to use shared buffer
+                input_name = name.replace("out", "cache").replace("present", "past_key_values")
+                io_bind_op.bind_ortvalue_output(name, OnnxEvaluator.KV_CACHE_ORTVALUES[input_name])
+            else:
+                io_bind_op.bind_output(name, io_bind_device)
 
         return io_bind_op
 
@@ -414,7 +443,9 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         input_dict = OnnxEvaluator.format_input(input_data, io_config)
 
         if metric.user_config.io_bind:
-            io_bind_op = OnnxEvaluator.prepare_io_bindings(session, input_dict, device)
+            io_bind_op = OnnxEvaluator.prepare_io_bindings(
+                session, input_dict, device, shared_kv_buffer=metric.user_config.shared_kv_buffer
+            )
 
         for _ in range(warmup_num):
             if metric.user_config.io_bind:
@@ -556,7 +587,9 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         input_feed = OnnxEvaluator.format_input(input_feed, io_config)
 
         if metric.user_config.io_bind:
-            io_bind_op = OnnxEvaluator.prepare_io_bindings(session, input_feed, Device.GPU)
+            io_bind_op = OnnxEvaluator.prepare_io_bindings(
+                session, input_feed, Device.GPU, shared_kv_buffer=metric.user_config.shared_kv_buffer
+            )
         latencies = []
         for i in range(warmup_num + repeat_test_num):
             MPI.COMM_WORLD.barrier()  # Synchronize before starting each run
