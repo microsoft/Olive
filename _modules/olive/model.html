@@ -345,7 +345,7 @@
                 <span class="n">sess_options</span><span class="o">.</span><span class="n">register_custom_ops_library</span><span class="p">(</span><span class="n">get_library_path</span><span class="p">())</span>
 
             <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="n">sess_options</span><span class="p">,</span> <span class="n">providers</span><span class="o">=</span><span class="p">[</span><span class="n">ep</span><span class="p">])</span>
-        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>  <span class="c1"># pylint: disable=broad-except</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">Olive will ignore this </span><span class="si">{</span><span class="n">ep</span><span class="si">}</span><span class="s2">.&quot;</span>
                 <span class="sa">f</span><span class="s2">&quot;Please make sure the environment with </span><span class="si">{</span><span class="n">ep</span><span class="si">}</span><span class="s2"> has the required dependencies.&quot;</span>
@@ -668,6 +668,10 @@
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">model_script</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_resource</span><span class="p">(</span><span class="s2">&quot;model_script&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">adapter_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_resource</span><span class="p">(</span><span class="s2">&quot;adapter_path&quot;</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">:</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -1030,7 +1034,7 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model_path</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]],</span>
+        <span class="n">model_path</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span><span class="p">,</span>
         <span class="n">model_name_pattern</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">num_ranks</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -1094,6 +1098,96 @@
             <span class="p">}</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">serialize_to_json</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">check_object</span><span class="o">=</span><span class="n">check_object</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="DistributedPyTorchModel"><a class="viewcode-back" href="../../api/models.html#olive.model.DistributedPyTorchModel">[docs]</a><span class="k">class</span> <span class="nc">DistributedPyTorchModel</span><span class="p">(</span><span class="n">OliveModel</span><span class="p">):</span>
+    <span class="n">resource_keys</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">list</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;model_path&quot;</span><span class="p">,</span> <span class="s2">&quot;script_dir&quot;</span><span class="p">,</span> <span class="s2">&quot;model_script&quot;</span><span class="p">,</span> <span class="s2">&quot;adapter_path&quot;</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model_path</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span><span class="p">,</span>
+        <span class="n">model_name_pattern</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">num_ranks</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">model_file_format</span><span class="p">:</span> <span class="n">ModelFileFormat</span> <span class="o">=</span> <span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">PYTORCH_ENTIRE_MODEL</span><span class="p">,</span>
+        <span class="n">model_loader</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">model_script</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">script_dir</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">io_config</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">IOConfig</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">dummy_inputs_func</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">hf_config</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">HFConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">adapter_path</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">model_attributes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">framework</span><span class="o">=</span><span class="n">Framework</span><span class="o">.</span><span class="n">PYTORCH</span><span class="p">,</span>
+            <span class="n">model_file_format</span><span class="o">=</span><span class="n">model_file_format</span><span class="p">,</span>
+            <span class="n">model_path</span><span class="o">=</span><span class="n">model_path</span><span class="p">,</span>
+            <span class="n">model_attributes</span><span class="o">=</span><span class="n">model_attributes</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">resources</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;adapter_path&quot;</span><span class="p">:</span> <span class="n">adapter_path</span><span class="p">,</span> <span class="s2">&quot;script_dir&quot;</span><span class="p">:</span> <span class="n">script_dir</span><span class="p">,</span> <span class="s2">&quot;model_script&quot;</span><span class="p">:</span> <span class="n">model_script</span><span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_resources</span><span class="p">(</span><span class="n">resources</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_name_pattern</span> <span class="o">=</span> <span class="n">model_name_pattern</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_ranks</span> <span class="o">=</span> <span class="n">num_ranks</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_loader</span> <span class="o">=</span> <span class="n">model_loader</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span> <span class="o">=</span> <span class="n">io_config</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs_func</span> <span class="o">=</span> <span class="n">dummy_inputs_func</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span> <span class="o">=</span> <span class="n">hf_config</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">script_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_resource</span><span class="p">(</span><span class="s2">&quot;script_dir&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">model_script</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_resource</span><span class="p">(</span><span class="s2">&quot;model_script&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">adapter_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_resource</span><span class="p">(</span><span class="s2">&quot;adapter_path&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">ranked_model_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name_pattern</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">rank</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">ranked_model_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">ranked_model_name</span><span class="p">(</span><span class="n">rank</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">PyTorchModel</span><span class="p">(</span>
+            <span class="n">model_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ranked_model_path</span><span class="p">(</span><span class="n">rank</span><span class="p">),</span>
+            <span class="n">model_loader</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model_loader</span><span class="p">,</span>
+            <span class="n">model_script</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model_script</span><span class="p">,</span>
+            <span class="n">script_dir</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">script_dir</span><span class="p">,</span>
+            <span class="n">io_config</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">io_config</span><span class="p">,</span>
+            <span class="n">dummy_inputs_func</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs_func</span><span class="p">,</span>
+            <span class="n">hf_config</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="p">,</span>
+            <span class="n">adapter_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">adapter_path</span><span class="p">,</span>
+            <span class="n">model_attributes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model_attributes</span><span class="p">,</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">load_model</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">GPU</span><span class="p">,</span>  <span class="c1"># pylint: disable=signature-differs</span>
+        <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">rank</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">rank</span><span class="p">)</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="p">)</span>
+        <span class="n">config</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;model_name_pattern&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name_pattern</span><span class="p">,</span>
+                <span class="s2">&quot;num_ranks&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_ranks</span><span class="p">,</span>
+                <span class="s2">&quot;model_loader&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_loader</span><span class="p">,</span>
+                <span class="s2">&quot;io_config&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span><span class="p">,</span>
+                <span class="s2">&quot;dummy_inputs_func&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs_func</span><span class="p">,</span>
+                <span class="s2">&quot;hf_config&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">serialize_to_json</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">check_object</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="CompositeOnnxModel"><a class="viewcode-back" href="../../api/models.html#olive.model.CompositeOnnxModel">[docs]</a><span class="k">class</span> <span class="nc">CompositeOnnxModel</span><span class="p">(</span><span class="n">ONNXModelBase</span><span class="p">):</span>

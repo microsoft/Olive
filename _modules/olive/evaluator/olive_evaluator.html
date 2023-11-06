@@ -620,7 +620,7 @@
         <span class="p">}</span>
 
         <span class="n">args</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">rank</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">ranks</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">rank</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">num_ranks</span><span class="p">):</span>
             <span class="n">cfg</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
             <span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;local_rank&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rank</span>
             <span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;model_path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">ranked_model_path</span><span class="p">(</span><span class="n">rank</span><span class="p">)</span>
