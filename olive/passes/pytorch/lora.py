@@ -100,6 +100,8 @@ class HFTrainingArguments(ConfigWithExtraArgs):
             v = {}
         # make sure extra args are fields of transformers.Trainer
         training_args_fields = {f.name for f in dataclasses.fields(transformers.TrainingArguments) if f.init}
+        # use_module_with_loss is a field of optimum.onnxruntime.ORTTrainingArguments
+        training_args_fields.add("use_module_with_loss")
         for k in list(v):  # need a copy of the keys since we are mutating the dict
             if k == "output_dir":
                 logger.warning(f"Extra arg {k} is not allowed. Please use `training_output_dir` instead.")
@@ -109,12 +111,21 @@ class HFTrainingArguments(ConfigWithExtraArgs):
                 del v[k]
         return v
 
-    def create_training_args(self) -> transformers.TrainingArguments:
+    def create_training_args(self, use_ort_trainer: bool) -> transformers.TrainingArguments:
         args = self.dict()
         if not args["output_dir"]:
             raise ValueError("output_dir must be provided.")
         extra_args = args.pop("extra_args")
-        return transformers.TrainingArguments(**args, **extra_args)
+        if use_ort_trainer:
+            from optimum.onnxruntime import ORTTrainingArguments
+
+            training_args_cls = ORTTrainingArguments
+        else:
+            training_args_cls = transformers.TrainingArguments
+            if "use_module_with_loss" in extra_args:
+                logger.warning("use_module_with_loss is not supported by transformers.TrainingArguments. Ignoring.")
+                extra_args.pop("use_module_with_loss")
+        return training_args_cls(**args, **extra_args)
 
 
 class LoRABase(Pass):
@@ -127,6 +138,9 @@ class LoRABase(Pass):
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
+            "use_ort_trainer": PassConfigParam(
+                type_=bool, default_value=False, description="Whether or not to use ORTTrainer."
+            ),
             "lora_r": PassConfigParam(type_=int, default_value=64, description="Lora attention dimension."),
             "lora_alpha": PassConfigParam(
                 type_=float, default_value=16, description="The alpha parameter for Lora scaling."
@@ -390,11 +404,17 @@ class LoRABase(Pass):
                 # set save_total_limit to 1 since the temp dir will be deleted after training
                 config.training_args.extra_args["save_total_limit"] = 1
 
+            trainer_cls = transformers.Trainer
+            if config.use_ort_trainer:
+                from optimum.onnxruntime import ORTTrainer
+
+                trainer_cls = ORTTrainer
+
             # get trainer
-            trainer = transformers.Trainer(
+            trainer = trainer_cls(
                 model=model,
                 tokenizer=tokenizer,
-                args=config.training_args.create_training_args(),
+                args=config.training_args.create_training_args(config.use_ort_trainer),
                 train_dataset=train_dataset,
                 eval_dataset=eval_dataset,
                 data_collator=partial(self.collate_batch, tokenizer=tokenizer),
