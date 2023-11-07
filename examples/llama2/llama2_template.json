@@ -6,7 +6,7 @@
             "io_config": "get_merged_decoder_with_past_io_config",
             "dummy_inputs_func": "get_merged_decoder_with_past_dummy_inputs",
             "hf_config": {
-                "model_name": "meta-llama/Llama-2-7b-hf",
+                "model_name": "<model_name_placeholder>",
                 "model_class": "LlamaForCausalLM"
             }
         }
@@ -26,6 +26,11 @@
                     "user_config": {
                         "user_script": "user_script.py",
                         "dataloader_func": "dataloader_func_for_merged",
+                        "func_kwargs": {
+                            "dataloader_func": {
+                                "model_id": "<model_name_placeholder>"
+                            }
+                        },
                         "batch_size": 2,
                         "io_bind": true
                     }
@@ -46,6 +51,11 @@
                     "user_config": {
                         "user_script": "user_script.py",
                         "dataloader_func": "dataloader_func_for_merged_gqa",
+                        "func_kwargs": {
+                            "dataloader_func": {
+                                "model_id": "<model_name_placeholder>"
+                            }
+                        },
                         "batch_size": 2,
                         "io_bind": true
                     }
@@ -129,6 +139,6 @@
         },
         "evaluator": "merged_evaluator",
         "cache_dir": "cache",
-        "output_dir": "models/llama2-7b"
+        "output_dir": "<output_dir_placeholder>"
     }
 }

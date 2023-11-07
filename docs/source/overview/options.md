@@ -274,7 +274,7 @@ information of the evaluator contains following items:
         - `metric_func: [str]` The name of the function provided by the user to compute metric from the model output. The function should take the post processed output and target as input and return the
         metric result. Only valid for `custom` type when `evaluate_func` is not provided.
 
-        - `func_kwargs: [Dict[Dict[str, Any]]]` Keyword arguments for the functions provided by the user. The key is the name of the function and the value is the keyword arguments for the function. The
+        - `func_kwargs: [Dict[str, Dict[str, Any]]]` Keyword arguments for the functions provided by the user. The key is the name of the function and the value is the keyword arguments for the function. The
         functions must be able to take the keyword arguments either through the function signature or through `**kwargs`.
 
     Note that for above `data_dir` config which is related to resource path, Olive supports local file, local folder or AML Datastore. Take AML Datastore as an example, Olive can parse the resource type automatically from `config dict`, or `url`. Please refer to our [Resnet](https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-ptq-on-cpu) example for more details.

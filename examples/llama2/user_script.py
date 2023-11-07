@@ -269,14 +269,14 @@ def dataloader_func_for_merged_gqa(data_dir, batch_size, *args, **kwargs):
 
 def inc_cali_dataloader_func(data_dir, batch_size, *args, **kwargs):
     return QuantKVDataLoader(
-        hf_model_id="meta-llama/Llama-2-7b-hf",
+        hf_model_id=kwargs["model_id"],
         dataset_name="NeelNanda/pile-10k",
     )
 
 
 def inc_cali_merged_dataloader_func(data_dir, batch_size, *args, **kwargs):
     return QuantKVDataLoader(
-        hf_model_id="meta-llama/Llama-2-7b-hf",
+        hf_model_id=kwargs["model_id"],
         dataset_name="NeelNanda/pile-10k",
         merged=True,
     )
