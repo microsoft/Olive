@@ -440,6 +440,55 @@
             <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">input_names</span>
         <span class="p">}</span>
 
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">prepare_io_bindings</span><span class="p">(</span>
+        <span class="n">session</span><span class="p">,</span> <span class="n">input_data</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">device_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">shared_kv_buffer</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">kv_cache_ortvalues</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert input from numpy array to OrtValue.</span>
+
+<span class="sd">        session: ONNXRuntime session</span>
+<span class="sd">        input_data: dict of input data, value is numpy array</span>
+<span class="sd">        device: olive device</span>
+<span class="sd">        device_id: 0 by default. TODO(trajep): support user to specified device id</span>
+<span class="sd">        shared_kv_buffer: whether to share the key/value buffer across multiple runs, it is False by default,</span>
+<span class="sd">            and only used when we observe kv cache and fp16 is used.</span>
+<span class="sd">            TODO(trajep): how shared_kv_buffer works with generation task</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">onnxruntime</span> <span class="kn">import</span> <span class="n">OrtValue</span>
+
+        <span class="n">use_fp16</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float16</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">input_data</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+        <span class="n">io_bind_op</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">io_binding</span><span class="p">()</span>
+        <span class="n">io_bind_device</span> <span class="o">=</span> <span class="s2">&quot;cuda&quot;</span> <span class="k">if</span> <span class="n">device</span> <span class="o">==</span> <span class="s2">&quot;gpu&quot;</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span>
+
+        <span class="k">if</span> <span class="n">shared_kv_buffer</span><span class="p">:</span>
+            <span class="n">kv_cache_ortvalues</span> <span class="o">=</span> <span class="n">kv_cache_ortvalues</span> <span class="ow">or</span> <span class="p">{}</span>
+
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">input_data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="c1"># &quot;cache&quot;: from microsoft llama model&quot; https://github.com/microsoft/Llama-2-Onnx#before-you-start</span>
+            <span class="c1"># &quot;past_key_values&quot;: from huggingface llama2 https://huggingface.co/meta-llama/Llama-2-13b-hf</span>
+            <span class="k">if</span> <span class="n">shared_kv_buffer</span> <span class="ow">and</span> <span class="n">use_fp16</span> <span class="ow">and</span> <span class="p">(</span><span class="s2">&quot;cache&quot;</span> <span class="ow">in</span> <span class="n">k</span> <span class="ow">or</span> <span class="s2">&quot;past_key_values&quot;</span> <span class="ow">in</span> <span class="n">k</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kv_cache_ortvalues</span><span class="p">:</span>
+                    <span class="n">kv_cache_ortvalues</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">OrtValue</span><span class="o">.</span><span class="n">ortvalue_from_numpy</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">io_bind_device</span><span class="p">,</span> <span class="n">device_id</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">kv_cache_ortvalues</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">update_inplace</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+                <span class="n">ort_v</span> <span class="o">=</span> <span class="n">kv_cache_ortvalues</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">ort_v</span> <span class="o">=</span> <span class="n">OrtValue</span><span class="o">.</span><span class="n">ortvalue_from_numpy</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">io_bind_device</span><span class="p">,</span> <span class="n">device_id</span><span class="p">)</span>
+            <span class="n">io_bind_op</span><span class="o">.</span><span class="n">bind_ortvalue_input</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">ort_v</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">session</span><span class="o">.</span><span class="n">get_outputs</span><span class="p">():</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">name</span>
+            <span class="c1"># &quot;out&quot;: from microsoft llama model&quot; https://github.com/microsoft/Llama-2-Onnx#before-you-start</span>
+            <span class="c1"># &quot;present&quot;: from huggingface llama2 https://huggingface.co/meta-llama/Llama-2-13b-hf</span>
+            <span class="k">if</span> <span class="n">shared_kv_buffer</span> <span class="ow">and</span> <span class="n">use_fp16</span> <span class="ow">and</span> <span class="p">(</span><span class="s2">&quot;out&quot;</span> <span class="ow">in</span> <span class="n">name</span> <span class="ow">or</span> <span class="s2">&quot;present&quot;</span> <span class="ow">in</span> <span class="n">name</span><span class="p">):</span>
+                <span class="c1"># Bind present KV cache outputs to past KV cache inputs in order to use shared buffer</span>
+                <span class="n">input_name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;out&quot;</span><span class="p">,</span> <span class="s2">&quot;cache&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;present&quot;</span><span class="p">,</span> <span class="s2">&quot;past_key_values&quot;</span><span class="p">)</span>
+                <span class="n">io_bind_op</span><span class="o">.</span><span class="n">bind_ortvalue_output</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">kv_cache_ortvalues</span><span class="p">[</span><span class="n">input_name</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">io_bind_op</span><span class="o">.</span><span class="n">bind_output</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">io_bind_device</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">io_bind_op</span>
+
     <span class="k">def</span> <span class="nf">_inference</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="n">ONNXModel</span><span class="p">,</span>
@@ -524,14 +573,17 @@
 
         <span class="n">input_data</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">dataloader</span><span class="p">))</span>
         <span class="n">input_dict</span> <span class="o">=</span> <span class="n">OnnxEvaluator</span><span class="o">.</span><span class="n">format_input</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">io_config</span><span class="p">)</span>
+        <span class="c1"># no deepcopy for kv_cache_ortvalues, will update the value inplace and keep it shared across runs</span>
+        <span class="n">kv_cache_ortvalues</span> <span class="o">=</span> <span class="p">{}</span> <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">shared_kv_buffer</span> <span class="k">else</span> <span class="kc">None</span>
 
         <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">io_bind</span><span class="p">:</span>
-            <span class="n">io_bind_op</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">io_binding</span><span class="p">()</span>
-            <span class="n">io_bind_device</span> <span class="o">=</span> <span class="s2">&quot;cuda&quot;</span> <span class="k">if</span> <span class="n">device</span> <span class="o">==</span> <span class="s2">&quot;gpu&quot;</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span>
-            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">input_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="n">io_bind_op</span><span class="o">.</span><span class="n">bind_cpu_input</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">session</span><span class="o">.</span><span class="n">get_outputs</span><span class="p">():</span>
-                <span class="n">io_bind_op</span><span class="o">.</span><span class="n">bind_output</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">io_bind_device</span><span class="p">)</span>
+            <span class="n">io_bind_op</span> <span class="o">=</span> <span class="n">OnnxEvaluator</span><span class="o">.</span><span class="n">prepare_io_bindings</span><span class="p">(</span>
+                <span class="n">session</span><span class="p">,</span>
+                <span class="n">input_dict</span><span class="p">,</span>
+                <span class="n">device</span><span class="p">,</span>
+                <span class="n">shared_kv_buffer</span><span class="o">=</span><span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">shared_kv_buffer</span><span class="p">,</span>
+                <span class="n">kv_cache_ortvalues</span><span class="o">=</span><span class="n">kv_cache_ortvalues</span><span class="p">,</span>
+            <span class="p">)</span>
 
         <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">warmup_num</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">io_bind</span><span class="p">:</span>
@@ -671,14 +723,16 @@
 
         <span class="n">input_feed</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">dataloader</span><span class="p">))</span>
         <span class="n">input_feed</span> <span class="o">=</span> <span class="n">OnnxEvaluator</span><span class="o">.</span><span class="n">format_input</span><span class="p">(</span><span class="n">input_feed</span><span class="p">,</span> <span class="n">io_config</span><span class="p">)</span>
+        <span class="n">kv_cache_ortvalues</span> <span class="o">=</span> <span class="p">{}</span> <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">shared_kv_buffer</span> <span class="k">else</span> <span class="kc">None</span>
 
         <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">io_bind</span><span class="p">:</span>
-            <span class="n">io_bind_op</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">io_binding</span><span class="p">()</span>
-            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">input_feed</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="n">io_bind_op</span><span class="o">.</span><span class="n">bind_cpu_input</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">session</span><span class="o">.</span><span class="n">get_outputs</span><span class="p">():</span>
-                <span class="n">io_bind_op</span><span class="o">.</span><span class="n">bind_output</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;cuda&quot;</span><span class="p">)</span>
-
+            <span class="n">io_bind_op</span> <span class="o">=</span> <span class="n">OnnxEvaluator</span><span class="o">.</span><span class="n">prepare_io_bindings</span><span class="p">(</span>
+                <span class="n">session</span><span class="p">,</span>
+                <span class="n">input_feed</span><span class="p">,</span>
+                <span class="n">Device</span><span class="o">.</span><span class="n">GPU</span><span class="p">,</span>
+                <span class="n">shared_kv_buffer</span><span class="o">=</span><span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">shared_kv_buffer</span><span class="p">,</span>
+                <span class="n">kv_cache_ortvalues</span><span class="o">=</span><span class="n">kv_cache_ortvalues</span><span class="p">,</span>
+            <span class="p">)</span>
         <span class="n">latencies</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">warmup_num</span> <span class="o">+</span> <span class="n">repeat_test_num</span><span class="p">):</span>
             <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="o">.</span><span class="n">barrier</span><span class="p">()</span>  <span class="c1"># Synchronize before starting each run</span>
