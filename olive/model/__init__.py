@@ -217,7 +217,7 @@ class ONNXModelBase(OliveModel):
                 sess_options.register_custom_ops_library(get_library_path())
 
             ort.InferenceSession(filepath, sess_options, providers=[ep])
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             logger.warning(
                 f"Error: {e}Olive will ignore this {ep}."
                 f"Please make sure the environment with {ep} has the required dependencies."
@@ -541,6 +541,10 @@ class PyTorchModel(OliveModel):
     def model_script(self) -> str:
         return self.get_resource("model_script")
 
+    @property
+    def adapter_path(self) -> str:
+        return self.get_resource("adapter_path")
+
     def load_model(self, rank: int = None) -> torch.nn.Module:
         if self.model is not None:
             return self.model
@@ -747,10 +751,9 @@ class PyTorchModel(OliveModel):
 
 class OptimumModel(PyTorchModel):
     def __init__(self, model_components: List[str], **kwargs):
-        super().__init__(
-            model_file_format=ModelFileFormat.OPTIMUM,
-            **(kwargs or {}),
-        )
+        kwargs = kwargs or {}
+        kwargs["model_file_format"] = ModelFileFormat.OPTIMUM
+        super().__init__(**kwargs)
         self.model_components = model_components
 
     def to_json(self, check_object: bool = False):
@@ -761,11 +764,11 @@ class OptimumModel(PyTorchModel):
 
 class CompositePyTorchModel(PyTorchModel):
     def __init__(self, model_components: List[Dict[str, Any]], **kwargs):
-        super().__init__(
-            model_file_format=ModelFileFormat.PYTORCH_ENTIRE_MODEL,
-            **(kwargs or {}),
-        )
-        self.model_components = {}
+        kwargs = kwargs or {}
+        kwargs["model_file_format"] = ModelFileFormat.PYTORCH_ENTIRE_MODEL
+        super().__init__(**kwargs)
+        self.model_components = model_components
+        self.pytorch_models = {}
         self.model_component_names = []
 
         for model_config in model_components:
@@ -776,7 +779,7 @@ class CompositePyTorchModel(PyTorchModel):
             del config_copy["name"]
 
             self.model_component_names.append(model_name)
-            self.model_components[model_name] = validate_config(config_copy, ModelConfig).create_model()
+            self.pytorch_models[model_name] = validate_config(config_copy, ModelConfig).create_model()
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
@@ -790,10 +793,10 @@ class CompositePyTorchModel(PyTorchModel):
 
     def get_component(self, component_name: str) -> "PyTorchModel":
         """Get a component of the model as a PyTorchModel."""
-        assert component_name in self.model_components, f"component {component_name} not found in model_components"
+        assert component_name in self.pytorch_models, f"component {component_name} not found in model_components"
 
         # get the component from the name
-        return self.model_components[component_name]
+        return self.pytorch_models[component_name]
 
 
 class SNPEModel(OliveModel):
@@ -933,8 +936,6 @@ class OpenVINOModel(OliveModel):
 
 
 class DistributedOnnxModel(ONNXModelBase):
-    resource_keys: ClassVar[list] = ["model_filepaths"]
-
     EXECUTION_PROVIDERS: ClassVar[dict] = {
         "cpu": ["CPUExecutionProvider"],
         "gpu": ["CUDAExecutionProvider", "CPUExecutionProvider"],
@@ -942,28 +943,30 @@ class DistributedOnnxModel(ONNXModelBase):
 
     def __init__(
         self,
-        model_filepaths: List[Union[Path, str]] = None,
+        model_path: OLIVE_RESOURCE_ANNOTATIONS,
+        model_name_pattern: str,
+        num_ranks: int,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
         model_attributes: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
-            model_path=None,
+            model_path=model_path,
             inference_settings=inference_settings,
             use_ort_extensions=use_ort_extensions,
             model_attributes=model_attributes,
         )
-        self.model_filepaths = model_filepaths or []
+        self.model_name_pattern = model_name_pattern
+        self.num_ranks = num_ranks
 
-    @property
-    def ranks(self):
-        return len(self.model_filepaths)
+    def ranked_model_name(self, rank: int) -> str:
+        return self.model_name_pattern.format(rank)
 
     def ranked_model_path(self, rank: int) -> Union[Path, str]:
-        return self.model_filepaths[rank]
+        return Path(self.model_path) / self.ranked_model_name(rank)
 
     def load_model(self, rank: int = None) -> ONNXModel:
-        return ONNXModel(self.model_filepaths[rank], inference_settings=self.inference_settings)
+        return ONNXModel(self.ranked_model_path(rank), inference_settings=self.inference_settings)
 
     def prepare_session(
         self,
@@ -996,16 +999,104 @@ class DistributedOnnxModel(ONNXModelBase):
         return AcceleratorLookup.get_execution_providers(eps_per_device, available_providers)
 
     def to_json(self, check_object: bool = False):
-        config = {
-            "type": self.__class__.__name__,
-            "config": {
-                "model_filepaths": self.model_filepaths,
-                "inference_settings": self.inference_settings,
-                "use_ort_extensions": self.use_ort_extensions,
-                "model_attributes": self.model_attributes,
-            },
-        }
+        config = super().to_json(check_object)
+        config["config"].update(
+            {
+                "model_name_pattern": self.model_name_pattern,
+                "num_ranks": self.num_ranks,
+            }
+        )
         return serialize_to_json(config, check_object=check_object)
+
+
+class DistributedPyTorchModel(OliveModel):
+    resource_keys: ClassVar[list] = ["model_path", "script_dir", "model_script", "adapter_path"]
+
+    def __init__(
+        self,
+        model_path: OLIVE_RESOURCE_ANNOTATIONS,
+        model_name_pattern: str,
+        num_ranks: int,
+        model_file_format: ModelFileFormat = ModelFileFormat.PYTORCH_ENTIRE_MODEL,
+        model_loader: Union[str, Callable] = None,
+        model_script: Union[str, Path] = None,
+        script_dir: Union[str, Path] = None,
+        io_config: Union[Dict[str, Any], IOConfig, str] = None,
+        dummy_inputs_func: Union[str, Callable] = None,
+        hf_config: Union[Dict[str, Any], HFConfig] = None,
+        adapter_path: OLIVE_RESOURCE_ANNOTATIONS = None,
+        model_attributes: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(
+            framework=Framework.PYTORCH,
+            model_file_format=model_file_format,
+            model_path=model_path,
+            model_attributes=model_attributes,
+        )
+
+        resources = {"adapter_path": adapter_path, "script_dir": script_dir, "model_script": model_script}
+        self.add_resources(resources)
+
+        self.model_name_pattern = model_name_pattern
+        self.num_ranks = num_ranks
+        self.model_loader = model_loader
+        self.io_config = io_config
+        self.dummy_inputs_func = dummy_inputs_func
+        self.hf_config = hf_config
+
+    @property
+    def script_dir(self) -> str:
+        return self.get_resource("script_dir")
+
+    @property
+    def model_script(self) -> str:
+        return self.get_resource("model_script")
+
+    @property
+    def adapter_path(self) -> str:
+        return self.get_resource("adapter_path")
+
+    def ranked_model_name(self, rank: int) -> str:
+        return self.model_name_pattern.format(rank)
+
+    def ranked_model_path(self, rank: int) -> Union[Path, str]:
+        return Path(self.model_path) / self.ranked_model_name(rank)
+
+    def load_model(self, rank: int = None) -> torch.nn.Module:
+        return PyTorchModel(
+            model_path=self.ranked_model_path(rank),
+            model_loader=self.model_loader,
+            model_script=self.model_script,
+            script_dir=self.script_dir,
+            io_config=self.io_config,
+            dummy_inputs_func=self.dummy_inputs_func,
+            hf_config=self.hf_config,
+            adapter_path=self.adapter_path,
+            model_attributes=self.model_attributes,
+        ).load_model()
+
+    def prepare_session(
+        self,
+        inference_settings: Optional[Dict[str, Any]] = None,
+        device: Device = Device.GPU,  # pylint: disable=signature-differs
+        execution_providers: Union[str, List[str]] = None,
+        rank: Optional[int] = 0,
+    ):
+        return self.load_model(rank).eval()
+
+    def to_json(self, check_object: bool = False):
+        config = super().to_json(check_object)
+        config["config"].update(
+            {
+                "model_name_pattern": self.model_name_pattern,
+                "num_ranks": self.num_ranks,
+                "model_loader": self.model_loader,
+                "io_config": self.io_config,
+                "dummy_inputs_func": self.dummy_inputs_func,
+                "hf_config": self.hf_config,
+            }
+        )
+        return serialize_to_json(config, check_object)
 
 
 class CompositeOnnxModel(ONNXModelBase):
