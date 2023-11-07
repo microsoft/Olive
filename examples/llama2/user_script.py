@@ -237,9 +237,8 @@ class RandomDataLoader:
 
 def dataloader_func_for_merged(data_dir, batch_size, *args, **kwargs):
     """Return data loader for input PyTorch model and ONNX models with past_key_values."""
-    model_id = "meta-llama/Llama-2-7b-hf"
-    seq_length, past_seq_length = 8, 0
-    max_seq_length = 2048
+    model_id = kwargs["model_id"]
+    seq_length, past_seq_length, max_seq_length = 8, 0, 2048
     model_framework = kwargs.get("model_framework", Framework.PYTORCH)
     return RandomDataLoader(
         model_id, batch_size, seq_length, past_seq_length, max_seq_length, model_framework=model_framework
@@ -248,9 +247,8 @@ def dataloader_func_for_merged(data_dir, batch_size, *args, **kwargs):
 
 def dataloader_func_for_merged_gqa(data_dir, batch_size, *args, **kwargs):
     """Return data loader for ONNX model + FP16 + GQA."""
-    model_id = "meta-llama/Llama-2-7b-hf"
-    seq_length, past_seq_length = 8, 0
-    max_seq_length = 2048
+    model_id = kwargs["model_id"]
+    seq_length, past_seq_length, max_seq_length = 8, 0, 2048
     model_framework = kwargs.get("model_framework", Framework.PYTORCH)
     return RandomDataLoader(
         model_id,
