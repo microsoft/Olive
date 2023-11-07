@@ -2,6 +2,7 @@
     "input_model":{
         "type": "CompositePyTorchModel",
         "config": {
+            "model_type": "PyTorchEntireModel",
             "model_path": "llama_v2",
             "model_components": [
                 {

@@ -24,8 +24,9 @@ When you run the example config for other larger models, you may need
 1. change the `model_path` to the one you use in `open_llama_config.json` and `user_script.py`.
     ```json
     "input_model":{
-        "type": "OptimumModel",
+        "type": "CompositePyTorchModel",
         "config": {
+            "model_type": "Optimum",
             "model_path": "openlm-research/open_llama_3b", // to change based on the model you use
             "model_components": ["decoder_model.onnx", "decoder_with_past_model.onnx"],
             "hf_config": {

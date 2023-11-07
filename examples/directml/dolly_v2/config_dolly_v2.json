@@ -1,7 +1,8 @@
 {
     "input_model":{
-        "type": "OptimumModel",
+        "type": "CompositePyTorchModel",
         "config": {
+            "model_type": "Optimum",
             "model_path": "databricks/dolly-v2-7b",
             "model_components": ["decoder_model.onnx", "decoder_with_past_model.onnx"]
         }

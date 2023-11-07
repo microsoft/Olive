@@ -745,38 +745,35 @@ class PyTorchModel(OliveModel):
         return serialize_to_json(config, check_object)
 
 
-class OptimumModel(PyTorchModel):
-    def __init__(self, model_components: List[str], **kwargs):
-        super().__init__(
-            model_file_format=ModelFileFormat.OPTIMUM,
-            **(kwargs or {}),
-        )
-        self.model_components = model_components
-
-    def to_json(self, check_object: bool = False):
-        config = super().to_json(check_object)
-        config["config"].update({"model_components": self.model_components})
-        return serialize_to_json(config, check_object)
-
-
 class CompositePyTorchModel(PyTorchModel):
-    def __init__(self, model_components: List[Dict[str, Any]], **kwargs):
+    def __init__(self, model_type: str, model_components: List[Union[str, Dict[str, Any]]], **kwargs):
+        model_file_format = {
+            "Optimum": ModelFileFormat.OPTIMUM,
+            "PyTorchEntireModel": ModelFileFormat.PYTORCH_ENTIRE_MODEL,
+        }[model_type]
+
         super().__init__(
-            model_file_format=ModelFileFormat.PYTORCH_ENTIRE_MODEL,
+            model_file_format=model_file_format,
             **(kwargs or {}),
         )
-        self.model_components = {}
-        self.model_component_names = []
 
-        for model_config in model_components:
-            config_copy = deepcopy(model_config)
+        if model_file_format == ModelFileFormat.OPTIMUM:
+            self.model_components = model_components
+        elif model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
+            self.model_components = {}
+            self.model_component_names = []
 
-            assert "name" in config_copy
-            model_name = config_copy["name"]
-            del config_copy["name"]
+            for model_config in model_components:
+                config_copy = deepcopy(model_config)
 
-            self.model_component_names.append(model_name)
-            self.model_components[model_name] = validate_config(config_copy, ModelConfig).create_model()
+                assert "name" in config_copy
+                model_name = config_copy["name"]
+                del config_copy["name"]
+
+                self.model_component_names.append(model_name)
+                self.model_components[model_name] = validate_config(config_copy, ModelConfig).create_model()
+        else:
+            raise NotImplementedError
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)

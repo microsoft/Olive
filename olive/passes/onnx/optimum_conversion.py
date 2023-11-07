@@ -6,8 +6,9 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, Union
 
+from olive.constants import ModelFileFormat
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import CompositeOnnxModel, ONNXModel, OptimumModel
+from olive.model import CompositeOnnxModel, CompositePyTorchModel, ONNXModel
 from olive.model.hf_utils import HFConfig
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config
@@ -30,9 +31,10 @@ class OptimumConversion(Pass):
         return config
 
     def _run_for_config(
-        self, model: OptimumModel, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: CompositePyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> Union[ONNXModel, CompositeOnnxModel]:
         assert len(model.model_components) > 0
+        assert model.model_file_format == ModelFileFormat.OPTIMUM
 
         from optimum import version as optimum_version
         from optimum.exporters.onnx import main_export as export_optimum_model
