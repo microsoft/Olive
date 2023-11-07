@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from test.unit_test.utils import get_accuracy_metric, get_custom_eval, get_latency_metric
+from test.unit_test.utils import get_accuracy_metric, get_custom_metric, get_latency_metric
 from typing import ClassVar, List
 from unittest.mock import MagicMock, patch
 
@@ -50,7 +50,7 @@ class TestLocalSystem:
         (get_latency_metric(LatencySubType.P95)),
         (get_latency_metric(LatencySubType.P99)),
         (get_latency_metric(LatencySubType.P999)),
-        (get_custom_eval()),
+        (get_custom_metric()),
     ]
 
     @pytest.mark.parametrize(
