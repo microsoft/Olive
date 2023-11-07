@@ -336,6 +336,8 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             kv_cache_ortvalues = kv_cache_ortvalues or {}
 
         for k, v in input_data.items():
+            # "cache": from microsoft llama model" https://github.com/microsoft/Llama-2-Onnx#before-you-start
+            # "past_key_values": from huggingface llama2 https://huggingface.co/meta-llama/Llama-2-13b-hf
             if shared_kv_buffer and use_fp16 and ("cache" in k or "past_key_values" in k):
                 if k not in kv_cache_ortvalues:
                     kv_cache_ortvalues[k] = OrtValue.ortvalue_from_numpy(v, io_bind_device, device_id)
@@ -348,6 +350,8 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
         for item in session.get_outputs():
             name = item.name
+            # "out": from microsoft llama model" https://github.com/microsoft/Llama-2-Onnx#before-you-start
+            # "present": from huggingface llama2 https://huggingface.co/meta-llama/Llama-2-13b-hf
             if shared_kv_buffer and use_fp16 and ("out" in name or "present" in name):
                 # Bind present KV cache outputs to past KV cache inputs in order to use shared buffer
                 input_name = name.replace("out", "cache").replace("present", "past_key_values")
@@ -441,6 +445,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
         input_data, _ = next(iter(dataloader))
         input_dict = OnnxEvaluator.format_input(input_data, io_config)
+        # no deepcopy for kv_cache_ortvalues, will update the value inplace and keep it shared across runs
         kv_cache_ortvalues = {} if metric.user_config.shared_kv_buffer else None
 
         if metric.user_config.io_bind:
