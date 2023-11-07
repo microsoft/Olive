@@ -5,28 +5,10 @@ Performs optimization pipeline:
 - CPU, FP32: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model fp32*
 - CPU, INT8: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model fp32 -> Onnx Dynamic Quantization*
 - CPU, INT4: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model fp32 -> Onnx Block wise int4 Quantization*
-- GPU, FP32: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model fp32*
-- GPU, FP16: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model fp16 + Grouped Query Attention*
-- GPU, INT4: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model fp16 + Grouped Query Attention -> Onnx Block wise int4 Quantization*
+- GPU, FP16: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model fp16 + Grouped Query Attention (optional)*
+- GPU, INT4: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model fp16 + Grouped Query Attention (optional) -> Onnx Block wise int4 Quantization*
 
-**Note that**: Currently, grouped query attention is only supported on GPU with fp16 and it requires the cuda architecture >= 80. You can just set `use_gqa` to `false` in the config file to disable it.
-```json
-"transformers_optimization_fp16": {
-    "type": "OrtTransformersOptimization",
-    "disable_search": true,
-    "evaluator": "gqa_evaluator",
-    "config": {
-        "save_as_external_data": true,
-        "all_tensors_to_one_file": true,
-        "model_type": "gpt2",
-        "opt_level": 0,
-        "only_onnxruntime": false,
-        "keep_io_types": false,
-        "float16": true,
-        "use_gqa": false // <----------- disable gqa
-    }
-}
-```
+**Note:** Group Query Attention is optional and can be enabled by passing `--use_gqa` flag to the script. It is only supported for GPU.
 
 ## Prerequisites
 ### Clone the repository and install Olive
@@ -34,6 +16,7 @@ Performs optimization pipeline:
 Refer to the instructions in the [examples README](../README.md) to clone the repository and install Olive.
 
 ### Install onnxruntime
+<!-- TODO(anyone): remove this section after onnxruntime 1.16.2 is released -->
 Also we need latest version of onnxruntime which provides the support of int4 quantization/grouped query attention. Please install the latest version of onnxruntime:
 
 1. From source:
@@ -51,11 +34,13 @@ Also we need latest version of onnxruntime which provides the support of int4 qu
         --skip_tests --cmake_extra_defines ONNXRUNTIME_VERSION=(cat ./VERSION_NUMBER) \CMAKE_CUDA_ARCHITECTURES="70;75;80" \
         --use_mpi=false
     ```
-Then you can find the wheel file under folder of `build_dir`(`test_build/Release/dist/` in this case).
+    Then you can find the wheel file under folder of `build_dir`(`test_build/Release/dist/` in this case).
 
 2. From nightly-build:
-
-    Installation package table: https://onnxruntime.ai/docs/install/#inference-install-table-for-all-languages
+    ```bash
+    python -m pip uninstall -y onnxruntime onnxruntime-gpu ort-nightly ort-nightly-gpu
+    python -m pip install ort-nightly-gpu --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
+    ```
 
 After installation, you can run the following command to check if the onnxruntime is installed successfully:
 ```python
@@ -72,7 +57,7 @@ python -m pip install -r requirements.txt
 ## Run the config to optimize the model
 You can only generate the optimized config file by running the following command for double checking before running the optimization pipeline:
 ```bash
-python llama2.py --model_name meta-llama/Llama-2-7b-hf --only_flag
+python llama2.py --model_name meta-llama/Llama-2-7b-hf --only_config
 ```
 
 Or you can run the following command to directly optimize the model:
@@ -85,7 +70,7 @@ python llama2.py --model_name meta-llama/Llama-2-7b-hf
 
 GPU:
 ```bash
-# run to optimize the model: FP32/INT8/INT4
+# run to optimize the model: FP16/INT4
 python llama2.py --model_name meta-llama/Llama-2-7b-hf --gpu
 # use gqa instead of mha
 python llama2.py --model_name meta-llama/Llama-2-7b-hf --gpu --use_gqa

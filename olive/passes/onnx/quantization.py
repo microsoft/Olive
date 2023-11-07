@@ -162,6 +162,10 @@ _static_dataloader_config = {
             required if quant_mode is 'static' and data_config is None.
         """,
     ),
+    "dataloader_func_kwargs": PassConfigParam(
+        type_=Dict[str, Any],
+        description="Keyword arguments for dataloader_func.",
+    ),
     "data_config": PassConfigParam(
         type_=Union[DataConfig, Dict],
         description="""
@@ -401,6 +405,7 @@ class OnnxQuantization(Pass):
                     config["dataloader_func"],
                     data_dir,
                     config["batch_size"],
+                    **(config["dataloader_func_kwargs"] or {}),
                 )
             elif config["data_config"]:
                 data_config = validate_config(config["data_config"], DataConfig)

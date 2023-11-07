@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+
 import copy
 import itertools
 import logging
@@ -73,6 +74,8 @@ def tune_onnx_model(model, data_root, config):
     for eval_config in get_user_config_properties_from_metric_type(MetricType.LATENCY):
         if eval_config in config_dict:
             latency_user_config[eval_config] = config_dict.get(eval_config)
+    if config_dict.get("dataloader_func_kwargs"):
+        latency_user_config["func_kwargs"] = {"dataloader_func": config_dict.get("dataloader_func_kwargs")}
     latency_sub_types = [{"name": LatencySubType.AVG}]
     latency_metric_config = {
         "name": "latency",
@@ -277,6 +280,9 @@ class OrtPerfTuning(Pass):
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+        device = accelerator_spec.accelerator_type
+        execution_provider = accelerator_spec.execution_provider
+
         return {
             "data_dir": PassConfigParam(
                 type_=OLIVE_RESOURCE_ANNOTATIONS,
@@ -287,6 +293,10 @@ class OrtPerfTuning(Pass):
                 type_=Union[Callable, str],
                 category=ParamCategory.OBJECT,
                 description="Dataloader function to load data from given data_dir with given batch size.",
+            ),
+            "dataloader_func_kwargs": PassConfigParam(
+                type_=Dict[str, Any],
+                description="Keyword arguments for dataloader_func.",
             ),
             "batch_size": PassConfigParam(type_=int, description="Batch size for inference."),
             "data_config": PassConfigParam(
@@ -303,7 +313,7 @@ class OrtPerfTuning(Pass):
                 type_=list, default_value=None, description="Input types list for ONNX model."
             ),
             "device": PassConfigParam(
-                type_=str, default_value="cpu", description="Device selected for tuning process."
+                type_=str, default_value=device, description="Device selected for tuning process."
             ),
             "cpu_cores": PassConfigParam(
                 type_=int, default_value=None, description="CPU cores used for thread tuning."
@@ -320,7 +330,7 @@ class OrtPerfTuning(Pass):
             ),
             "providers_list": PassConfigParam(
                 type_=list,
-                default_value=None,
+                default_value=[execution_provider],
                 description="Execution providers framework list to execute the ONNX models.",
             ),
             "execution_mode_list": PassConfigParam(
@@ -348,14 +358,6 @@ class OrtPerfTuning(Pass):
     def _run_for_config(
         self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModel:
-        # TODO(trajep): remove this when we have a concrete investigation on the backcompat issue
-        if not config.get("providers_list"):
-            # add the provider to the config if user doesn't provide the execution providers
-            config["providers_list"] = [self.accelerator_spec.execution_provider]
-
-        if not config.get("device"):
-            config["device"] = self.accelerator_spec.accelerator_type
-
         config = self._config_class(**config)
         # TODO(jambayk): decide on whether to ignore the output_model_path
         # if we want to ignore it, we can just return the model
