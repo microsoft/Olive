@@ -172,6 +172,24 @@ def tensor_data_to_device(data, device: str):
         return data
 
 
+def resolve_torch_dtype(dtype):
+    """Get torch dtype from string or torch dtype.
+
+    :param dtype: dtype to resolve. Can be a string (float16, torch.float16, etc) or torch dtype.
+    :return: torch dtype.
+    """
+    import torch
+
+    if isinstance(dtype, str):
+        dtype = dtype.replace("torch.", "")
+        try:
+            dtype = getattr(torch, dtype)
+        except AttributeError as e:
+            raise AttributeError(f"Invalid dtype '{dtype}'.") from e
+    assert isinstance(dtype, torch.dtype), f"dtype must be a string or torch.dtype, got {type(dtype)}."
+    return dtype
+
+
 def get_attr(module, attr, fail_on_not_found=False):
     """Get attribute from module.
 

@@ -15,8 +15,8 @@ import torch
 from packaging import version
 
 from olive.common.config_utils import validate_config
-from olive.common.utils import find_submodules, tensor_data_to_device
-from olive.hardware import AcceleratorSpec, Device
+from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device
+from olive.hardware import AcceleratorSpec
 from olive.model import CompositeOnnxModel, DistributedOnnxModel, DistributedPyTorchModel, ONNXModel, PyTorchModel
 from olive.model.hf_utils import HFModelLoadingArgs, get_hf_model_io_config
 from olive.model.model_config import IOConfig
@@ -63,6 +63,20 @@ class OnnxConversion(Pass):
             "use_dynamo_exporter": PassConfigParam(
                 type_=bool, default_value=False, description="Whether to use dynamo_export API to export ONNX model."
             ),
+            "use_device": PassConfigParam(
+                type_=str,
+                description=(
+                    "The device to use for conversion, e.g., 'cuda' or 'cpu'. If not specified, will use 'cpu' for"
+                    " PyTorch model and 'cuda' for DistributedPyTorchModel."
+                ),
+            ),
+            "torch_dtype": PassConfigParam(
+                type_=str,
+                description=(
+                    "The dtype to cast the model to before conversion, e.g., 'float32' or 'float16'. If not specified,"
+                    " will use the model as is."
+                ),
+            ),
         }
         config.update(get_external_data_config())
         return config
@@ -70,10 +84,20 @@ class OnnxConversion(Pass):
     def _run_for_config(
         self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> Union[CompositeOnnxModel, DistributedOnnxModel, ONNXModel]:
+        # get the device to use for conversion
+        # default to "cpu" for PyTorchModel and "cuda" for DistributedPyTorchModel
+        device = config["use_device"] or "cpu"
+        # get the dtype to use for conversion
+        torch_dtype = resolve_torch_dtype(config["torch_dtype"]) if config["torch_dtype"] else None
+        if torch_dtype == torch.float16 and device == "cpu":
+            raise ValueError("Conversion to float16 is not supported for CPU.")
+
         if isinstance(model, DistributedPyTorchModel):
-            accel_type = self.accelerator_spec.accelerator_type
-            device = torch.device("cuda") if accel_type == Device.GPU else torch.device(accel_type)
-            return self._convert_distributed_model_on_device(model, data_root, config, output_model_path, device)
+            if not config["use_device"]:
+                device = "cuda"
+            return self._convert_distributed_model_on_device(
+                model, data_root, config, output_model_path, device, torch_dtype
+            )
 
         # check if the model has components
         if model.components:
@@ -84,7 +108,7 @@ class OnnxConversion(Pass):
                 component_model = model.get_component(component_name)
                 component_output_path = str(Path(output_model_path).with_suffix("") / component_name)
                 output_model_component = self._convert_model_on_device(
-                    component_model, data_root, config, component_output_path, "cpu"
+                    component_model, data_root, config, component_output_path, device, torch_dtype
                 )
                 # inherit model attributes from the input model if the output model does not have model attributes
                 output_model_component.model_attributes = (
@@ -94,7 +118,7 @@ class OnnxConversion(Pass):
                 component_names.append(component_name)
             return CompositeOnnxModel(onnx_models, component_names)
 
-        return self._convert_model_on_device(model, data_root, config, output_model_path, "cpu")
+        return self._convert_model_on_device(model, data_root, config, output_model_path, device, torch_dtype)
 
     @staticmethod
     def _export_pytorch_model(
@@ -103,6 +127,7 @@ class OnnxConversion(Pass):
         io_config,
         config: Dict[str, Any],
         device: str,
+        torch_dtype: Optional[torch.dtype] = None,
     ) -> onnx.ModelProto:
         """Export a torch.nn.Module to ONNX and return the loaded ONNX model.
 
@@ -110,6 +135,8 @@ class OnnxConversion(Pass):
         :param dummy_inputs: the dummy inputs to the model. Can be None if using dynamo_exporter
         :param io_config: the io_config for the model. This consists of the input and output names, and dynamic axes
         :param config: the config for the pass
+        :param device: the device to use for conversion
+        :param torch_dtype: the dtype to cast the model to before conversion
         """
         # if pytorch_model is PeftModel, we need to get the base model
         # otherwise, the model forward has signature (*args, **kwargs) and torch.onnx.export ignores the dummy_inputs
@@ -119,9 +146,11 @@ class OnnxConversion(Pass):
             if isinstance(pytorch_model, PeftModel):
                 pytorch_model = pytorch_model.get_base_model()
 
-        # TODO(trajep): add e2e test for model on cpu but data on gpu; model on gpu but data on cpu
         # put pytorch_model and dummy_inputs at the same device
         pytorch_model.to(device)
+        if torch_dtype:
+            pytorch_model = pytorch_model.to(torch_dtype)
+
         dummy_inputs = tensor_data_to_device(dummy_inputs, device)
         if isinstance(pytorch_model, torch.jit.RecursiveScriptModule):
             pytorch_model = TraceModelWrapper(pytorch_model)
@@ -221,14 +250,18 @@ class OnnxConversion(Pass):
         return onnx_model
 
     @staticmethod
-    def _load_pytorch_model(model: PyTorchModel, device: str) -> Tuple[torch.nn.Module, Optional[Dict]]:
+    def _load_pytorch_model(
+        model: PyTorchModel, device: str, torch_dtype: Optional[torch.dtype] = None
+    ) -> Tuple[torch.nn.Module, Optional[Dict]]:
         """Load the model and return the model and the model attributes.
 
         This method handles the following cases:
         1. model is not loaded from hf config, or the model loading args is not specified
             - load the model directly
         2. model is loaded from hf config, and the model loading args is specified
-            - if "device" != "cpu" and the dtype is float16 or bfloat16, change the dtype to float32
+            - update model_loading_args.torch_dtype if torch_dtype is specified
+            - if torch_dtype not specified, make sure the model loading args specify a dtype that is supported for
+                conversion on the specified device
             - if quantization_method == "bitsandbytes" and load_in_4bit is True
                 - remove quantization config from the model loading args
                 - find quantized modules and add them to the model attributes
@@ -241,18 +274,27 @@ class OnnxConversion(Pass):
             return model.load_model(), None
 
         model_loading_args = model.hf_config.model_loading_args
+        model_dtype = model_loading_args.get_torch_dtype()
         new_model_loading_args = deepcopy(model_loading_args.dict())
         new_model_attributes = model.model_attributes or {}
-        if "cuda" not in device and model_loading_args.get_torch_dtype() in (torch.float16, torch.bfloat16):
-            # TODO(jambayk): update this when we add 'use_device' pass config param
+        if torch_dtype and torch_dtype != model_dtype:
+            # if the model loading args specify a different dtype, update the model loading args
+            logger.debug(
+                f"Changing torch_dtype in model loading args from {model_loading_args.get_torch_dtype()} to"
+                f" {torch_dtype}."
+            )
+            new_model_loading_args["torch_dtype"] = torch_dtype
+            new_model_attributes["torch_dtype"] = str(torch_dtype).replace("torch.", "")
+        elif model_dtype == torch.float16 and device == "cpu":
             logger.warning(
-                "Loading model on CPU, but the model loading args specify dtype"
-                f" {model_loading_args.get_torch_dtype()} which is not supported for conversion on CPU. The dtype"
-                " is changed to float32. Use OrtTransformersOptimization or OnnxFloatToFloat16 after conversion to"
+                "Loading model on CPU, but the model loading args specify dtype float16 which is not supported  for"
+                " conversion on CPU. The dtype is changed to float32. If float16 model is desired, please specify"
+                " use_device as 'cuda' or use OrtTransformerOptimization/OnnxFloatToFloat16 pass after conversion to"
                 " convert the model to float16."
             )
             new_model_loading_args["torch_dtype"] = torch.float32
-            new_model_attributes["torch_dtype"] = str(torch.float32).replace("torch.", "")
+            new_model_attributes["torch_dtype"] = "float32"
+
         if (
             model_loading_args.quantization_method == "bitsandbytes"
             and model_loading_args.quantization_config["load_in_4bit"]
@@ -291,10 +333,11 @@ class OnnxConversion(Pass):
         config: Dict[str, Any],
         output_model_path: str,
         device: str,
+        torch_dtype: Optional[torch.dtype] = None,
     ) -> ONNXModel:
         """Convert a PyTorchModel to an ONNXModel."""
         # load the model
-        pytorch_model, model_attributes = self._load_pytorch_model(model, device)
+        pytorch_model, model_attributes = self._load_pytorch_model(model, device, torch_dtype)
         pytorch_model.eval()
 
         # get dummy inputs
@@ -302,7 +345,7 @@ class OnnxConversion(Pass):
         io_config = None if config["use_dynamo_exporter"] else get_io_config(model)
 
         converted_onnx_model = OnnxConversion._export_pytorch_model(
-            pytorch_model, dummy_inputs, io_config, config, device
+            pytorch_model, dummy_inputs, io_config, config, device, torch_dtype
         )
 
         # save the model to the output path and return the model
@@ -320,11 +363,12 @@ class OnnxConversion(Pass):
             model_config: the config for the DistributedPytorchModel
             world_size: the number of ranks
             device: the device to use for conversion. Expected to be "cuda"
+            torch_dtype: the dtype to cast the model to before conversion
             local_rank: the rank of the current process as well as the rank of the model to be converted
             output_dirpath: the path to the directory to save the model. The .onnx model will be saved in this
                 directory with the name specified by DistributedOnnxModel.DEFAULT_RANKED_MODEL_NAME_FORMAT
         """
-        pass_config, model_config, world_size, device, local_rank, output_dirpath = params
+        pass_config, model_config, world_size, device, torch_dtype, local_rank, output_dirpath = params
 
         os.environ["OMPI_COMM_WORLD_RANK"] = str(local_rank)
         os.environ["OMPI_COMM_WORLD_SIZE"] = str(world_size)
@@ -363,7 +407,7 @@ class OnnxConversion(Pass):
 
         COMM_WORLD.Barrier()
         ranked_onnx_model = OnnxConversion._export_pytorch_model(
-            pytorch_model, dummy_inputs, io_config, pass_config, device
+            pytorch_model, dummy_inputs, io_config, pass_config, device, torch_dtype
         )
         COMM_WORLD.Barrier()
 
@@ -377,6 +421,7 @@ class OnnxConversion(Pass):
         config: Dict[str, Any],
         output_model_path: str,
         device: str,
+        torch_dtype: Optional[torch.dtype] = None,
     ) -> DistributedOnnxModel:
         """Convert a DistributedPyTorchModel to a DistributedOnnxModel."""
         from mpi4py.futures import MPIPoolExecutor
@@ -392,6 +437,7 @@ class OnnxConversion(Pass):
                 model_config,
                 world_size,
                 device,
+                torch_dtype,
                 rank,
                 output_model_path,
             )
