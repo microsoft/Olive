@@ -7,11 +7,8 @@ from .utils import convert_asis, convert_mdtext, detect_converted_mark
 
 
 def postprocess(self, y: List[Tuple[str | None, str | None]]) -> List[Tuple[str | None, str | None]]:
-    """
-    Parameters:
-        y: List of tuples representing the message and response pairs.
-        Each message and response should be a string,
-        which may be in Markdown format.
+    """Each message and response should be a string, which may be in Markdown format.
+
     Returns:
         List of tuples representing the message and response.
         Each message and response will be a string of HTML.

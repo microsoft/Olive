@@ -1,4 +1,3 @@
-# -*- coding:utf-8 -*-
 from __future__ import annotations
 
 import html
@@ -37,8 +36,7 @@ def markdown_to_html_with_syntax_highlight(md_str):
     code_block_pattern = r"```(\w+)?\n([\s\S]+?)\n```"
     md_str = re.sub(code_block_pattern, replacer, md_str, flags=re.MULTILINE)
 
-    html_str = markdown(md_str)
-    return html_str
+    return markdown(md_str)
 
 
 def normalize_markdown(md_text: str) -> str:
@@ -70,17 +68,17 @@ def convert_mdtext(md_text):
     non_code_parts = code_block_pattern.split(md_text)[::2]
 
     result = []
-    for non_code, code in zip(non_code_parts, code_blocks + [""]):
+    for non_code, code in zip(non_code_parts, [*code_blocks, ""]):
         if non_code.strip():
-            non_code = normalize_markdown(non_code)
-            if inline_code_pattern.search(non_code):
-                result.append(markdown(non_code, extensions=["tables"]))
+            formatted_non_code = normalize_markdown(non_code)
+            if inline_code_pattern.search(formatted_non_code):
+                result.append(markdown(formatted_non_code, extensions=["tables"]))
             else:
-                result.append(mdtex2html.convert(non_code, extensions=["tables"]))
+                result.append(mdtex2html.convert(formatted_non_code, extensions=["tables"]))
         if code.strip():
-            code = f"\n```{code}\n\n```"
-            code = markdown_to_html_with_syntax_highlight(code)
-            result.append(code)
+            formatted_code = f"\n```{code}\n\n```"
+            formatted_code = markdown_to_html_with_syntax_highlight(formatted_code)
+            result.append(formatted_code)
     result = "".join(result)
     result += ALREADY_CONVERTED_MARK
     return result
@@ -91,10 +89,7 @@ def convert_asis(userinput):
 
 
 def detect_converted_mark(userinput):
-    if userinput.endswith(ALREADY_CONVERTED_MARK):
-        return True
-    else:
-        return False
+    return bool(userinput.endswith(ALREADY_CONVERTED_MARK))
 
 
 def detect_language(code):
@@ -138,9 +133,9 @@ def convert_to_markdown(text):
         elif in_code_block:
             markdown_text += f"{line}\n"
         else:
-            line = replace_leading_tabs_and_spaces(line)
-            line = re.sub(r"^(#)", r"\\\1", line)
-            markdown_text += f"{line}  \n"
+            stripped_line = replace_leading_tabs_and_spaces(line)
+            stripped_line = re.sub(r"^(#)", r"\\\1", stripped_line)
+            markdown_text += f"{stripped_line}  \n"
 
     return markdown_text
 
@@ -166,8 +161,7 @@ def add_language_tag(text):
         else:
             return match.group(1) + code_block + "```"
 
-    text2 = code_block_pattern.sub(replacement, text)
-    return text2
+    return code_block_pattern.sub(replacement, text)
 
 
 def delete_last_conversation(chatbot, history):

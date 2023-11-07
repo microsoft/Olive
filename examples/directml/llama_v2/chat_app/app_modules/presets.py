@@ -1,4 +1,3 @@
-# -*- coding:utf-8 -*-
 import gradio as gr
 
 title = """<h1 align="left" style="min-width:200px; margin-top:0;">Llama 2 Chat UI, Powered By ONNX</h1>"""
