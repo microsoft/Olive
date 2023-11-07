@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 class MoEExpertDistributionPatternMatcher:
     DEFAULT_DOMAIN: ClassVar[str] = "com.microsoft"
     JSON_SEPARATORS: ClassVar[Tuple] = (",", ": ")
+    RANKED_MODEL_NAME_FORMAT: ClassVar[str] = "model_{:02d}.onnx"
 
     def __init__(self, world_size: int, input_filepath: str, debug=False):
         self.world_size = world_size
@@ -249,7 +250,7 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
             debug,
         ) = params
 
-        basename = Path(input_filepath).stem
+        basename = MoEExpertDistributionPatternMatcher.RANKED_MODEL_NAME_FORMAT.format(rank)
         output_dirpath = Path(output_dirpath)
 
         model = OnnxModel(onnx.load_model(input_filepath))
@@ -266,7 +267,7 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
         )
 
         model.prune_graph()
-        output_filepath = str(output_dirpath / f"{basename}_{rank:02d}.onnx")
+        output_filepath = str(output_dirpath / basename)
         model.save_model_to_file(
             output_filepath,
             use_external_data_format=use_external_data_format,
@@ -275,9 +276,7 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
         onnx.checker.check_model(model.model)
 
         if debug:
-            MoEExpertDistributionPatternMatcher._dump_graph(
-                model.model, str(output_dirpath / f"{basename}_{rank:02d}.graph")
-            )
+            MoEExpertDistributionPatternMatcher._dump_graph(model.model, str(output_dirpath / (basename + ".graph")))
 
         return output_filepath
 
@@ -396,11 +395,15 @@ class MoEExpertsDistributor(Pass):
 
         matcher = MoEExpertDistributionPatternMatcherA(config["world_size"], model.model_path)
         experts, num_experts = matcher.identify_experts(output_model_path)
-        output_filepaths = matcher.distribute(
+        matcher.distribute(
             experts,
             num_experts,
             output_model_path,
             use_external_data_format=config["save_as_external_data"],
             all_tensors_to_one_file=config["all_tensors_to_one_file"],
         )
-        return DistributedOnnxModel(sorted(output_filepaths))
+        return DistributedOnnxModel(
+            model_path=str(Path(output_model_path).with_suffix("")),
+            model_name_pattern=MoEExpertDistributionPatternMatcher.RANKED_MODEL_NAME_FORMAT,
+            num_ranks=config["world_size"],
+        )

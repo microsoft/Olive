@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import sys
 
 
 def set_verbosity(verbose):
@@ -43,3 +44,26 @@ def set_default_logger_severity(level):
 
     # set logger level
     set_verbosity(level_map[level])
+
+
+def set_ort_logger_severity(level):
+    """Set log level for onnxruntime package.
+
+    :param level: 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL
+    """
+    # mapping from level to logging level
+    level_map = {0: logging.DEBUG, 1: logging.INFO, 2: logging.WARNING, 3: logging.ERROR, 4: logging.CRITICAL}
+
+    # check if level is valid
+    if level not in level_map:
+        raise ValueError(f"Invalid level {level}, should be one of {list(level_map.keys())}")
+
+    # set logger level
+    ort_logger = logging.getLogger("onnxruntime")
+    ort_logger.setLevel(level_map[level])
+    formatter = logging.Formatter(
+        "[%(asctime)s] [%(levelname)s] [onnxruntime]-[%(filename)s:%(lineno)d:%(funcName)s] %(message)s"
+    )
+    stream_handler = logging.StreamHandler(stream=sys.stdout)
+    stream_handler.setFormatter(formatter)
+    ort_logger.addHandler(stream_handler)

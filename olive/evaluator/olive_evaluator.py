@@ -486,13 +486,13 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         config = {
             "model_path": None,
             "local_rank": None,
-            "world_size": model.ranks,
+            "world_size": model.num_ranks,
             "inference_settings": self.get_inference_settings(metric),
             "metric": metric.to_json(),
         }
 
         args = []
-        for rank in range(model.ranks):
+        for rank in range(model.num_ranks):
             cfg = deepcopy(config)
             cfg["local_rank"] = rank
             cfg["model_path"] = model.ranked_model_path(rank)
@@ -501,7 +501,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             cfg["providers"] = execution_providers
             args.append(cfg)
 
-        with MPIPoolExecutor(max_workers=model.ranks) as executor:
+        with MPIPoolExecutor(max_workers=model.num_ranks) as executor:
             results = executor.map(OnnxEvaluator._evaluate_distributed_accuracy_worker, args)
             executor.shutdown()
 
@@ -578,13 +578,13 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         config = {
             "model_path": None,
             "local_rank": None,
-            "world_size": model.ranks,
+            "world_size": model.num_ranks,
             "inference_settings": self.get_inference_settings(metric),
             "metric": metric.to_json(),
         }
 
         args = []
-        for rank in range(model.ranks):
+        for rank in range(model.num_ranks):
             cfg = deepcopy(config)
             cfg["local_rank"] = rank
             cfg["model_path"] = model.ranked_model_path(rank)
@@ -593,7 +593,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             cfg["providers"] = execution_providers
             args.append(cfg)
 
-        with MPIPoolExecutor(max_workers=model.ranks) as executor:
+        with MPIPoolExecutor(max_workers=model.num_ranks) as executor:
             results = executor.map(OnnxEvaluator._evaluate_distributed_latency_worker, args)
             executor.shutdown()
 

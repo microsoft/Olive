@@ -445,6 +445,7 @@ class OnnxQuantization(Pass):
                 output_model_path=str(output_model_path),
                 auto_merge=True,
                 save_as_external_data=True,
+                verbose=3,  # set verbose to 3 to get more information about the preprocessing
             )
         except Exception as e:
             # TODO(jambayk): try with `skip_optimization = True`
@@ -536,8 +537,8 @@ class OnnxMatMul4Quantizer(Pass):
     ) -> ONNXModel:
         from onnxruntime import __version__ as OrtVersion
 
-        if version.parse(OrtVersion) < version.parse("1.17.0"):
-            raise OlivePassError("MatMul4BitsQuantizer is only supported in onnxruntime >= 1.17.0")
+        if version.parse(OrtVersion) < version.parse("1.16.2"):
+            raise OlivePassError("MatMul4BitsQuantizer is only supported in onnxruntime >= 1.16.2")
 
         from onnxruntime.quantization.matmul_4bits_quantizer import MatMul4BitsQuantizer
 
@@ -547,13 +548,9 @@ class OnnxMatMul4Quantizer(Pass):
             model.load_model(), config["block_size"], config["is_symmetric"], config["nodes_to_exclude"]
         )
         quant.process()
+        # topologically sort the graph at the end since previous optimizations may have broken it
+        quant.model.topological_sort()
+        # quant.model._check_init is not needed since it's only meant for float8 quantization
 
-        # TODO(trajep): add more options to save_model_to_file
-        new_tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
-        tmp_model_path = str(Path(new_tmp_dir.name) / Path(output_model_path).name)
-        quant.model.save_model_to_file(tmp_model_path, config["save_as_external_data"])
-
-        # load the model
-        onnx_model = onnx.load(tmp_model_path)
-        new_tmp_dir.cleanup()
-        return model_proto_to_olive_model(onnx_model, output_model_path, config)
+        # save the model to the output path and return the model
+        return model_proto_to_olive_model(quant.model.model, output_model_path, config)
