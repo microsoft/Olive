@@ -904,6 +904,8 @@ class DistributedOnnxModel(ONNXModelBase):
         "gpu": ["CUDAExecutionProvider", "CPUExecutionProvider"],
     }
 
+    DEFAULT_RANKED_MODEL_NAME_FORMAT: ClassVar[str] = "model_{:02d}.onnx"
+
     def __init__(
         self,
         model_path: OLIVE_RESOURCE_ANNOTATIONS,
@@ -975,6 +977,8 @@ class DistributedOnnxModel(ONNXModelBase):
 class DistributedPyTorchModel(OliveModel):
     resource_keys: ClassVar[list] = ["model_path", "script_dir", "model_script", "adapter_path"]
 
+    DEFAULT_RANKED_MODEL_NAME_FORMAT: ClassVar[str] = "model_{:02d}"
+
     def __init__(
         self,
         model_path: OLIVE_RESOURCE_ANNOTATIONS,
@@ -1025,7 +1029,7 @@ class DistributedPyTorchModel(OliveModel):
     def ranked_model_path(self, rank: int) -> Union[Path, str]:
         return Path(self.model_path) / self.ranked_model_name(rank)
 
-    def load_model(self, rank: int = None) -> torch.nn.Module:
+    def load_model(self, rank: int = None) -> PyTorchModel:
         return PyTorchModel(
             model_path=self.ranked_model_path(rank),
             model_loader=self.model_loader,
@@ -1036,7 +1040,7 @@ class DistributedPyTorchModel(OliveModel):
             hf_config=self.hf_config,
             adapter_path=self.adapter_path,
             model_attributes=self.model_attributes,
-        ).load_model()
+        )
 
     def prepare_session(
         self,
@@ -1044,8 +1048,8 @@ class DistributedPyTorchModel(OliveModel):
         device: Device = Device.GPU,  # pylint: disable=signature-differs
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = 0,
-    ):
-        return self.load_model(rank).eval()
+    ) -> torch.nn.Module:
+        return self.load_model(rank).load_model().eval()
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)

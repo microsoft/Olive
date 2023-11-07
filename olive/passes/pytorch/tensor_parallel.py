@@ -8,7 +8,7 @@
 import logging
 from abc import abstractmethod
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Dict
+from typing import Any, Callable, Dict
 
 import torch
 from pydantic import validator
@@ -22,8 +22,6 @@ logger = logging.getLogger(__name__)
 
 
 class PyTorchTensorParallel(Pass):
-    RANKED_MODEL_NAME_FORMAT: ClassVar[str] = "model_{:02d}"
-
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         # Note : The default world_size should be the no of gpus (AceleratorSpec.Device == GPU)
@@ -67,20 +65,21 @@ class PyTorchTensorParallel(Pass):
         # 3. Split the weights
         self.split_weights(pytorch_model, world_size)
 
-        # 4. Save the weights for each rank
-        for rank in range(world_size):
-            self.load_rank_weights(pytorch_model, rank, world_size)
-            output_model_name = PyTorchTensorParallel.RANKED_MODEL_NAME_FORMAT.format(rank)
-            output_filepath = str(output_model_path / output_model_name)
-            pytorch_model.save_pretrained(output_filepath)
-
-        # 5. Restore layers that were replaced
-        self.restore_layers()
+        try:
+            # 4. Save the weights for each rank
+            for rank in range(world_size):
+                self.load_rank_weights(pytorch_model, rank, world_size)
+                output_model_name = DistributedPyTorchModel.DEFAULT_RANKED_MODEL_NAME_FORMAT.format(rank)
+                output_filepath = str(output_model_path / output_model_name)
+                pytorch_model.save_pretrained(output_filepath)
+        finally:
+            # 5. Restore layers that were replaced
+            self.restore_layers()
 
         # 6. Construct DistributedPyTorchModel from saved wegihts for each rank
         model_config = model.to_json()["config"]
         model_config["model_path"] = output_model_path
-        model_config["model_name_pattern"] = PyTorchTensorParallel.RANKED_MODEL_NAME_FORMAT
+        model_config["model_name_pattern"] = DistributedPyTorchModel.DEFAULT_RANKED_MODEL_NAME_FORMAT
         model_config["num_ranks"] = world_size
         return DistributedPyTorchModel(**model_config)
 

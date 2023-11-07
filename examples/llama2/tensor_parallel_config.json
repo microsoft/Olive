@@ -2,9 +2,9 @@
     "input_model":{
         "type": "PyTorchModel",
         "config": {
-            "model_script": "tensor_parallel_user_script.py",
-            "io_config": "get_io_config",
-            "dummy_inputs_func": "get_dummy_inputs",
+            "model_script": "user_script.py",
+            "io_config": "get_merged_decoder_with_past_io_config",
+            "dummy_inputs_func": "get_merged_decoder_with_past_dummy_inputs",
             "hf_config": {
                 "model_name": "meta-llama/Llama-2-7b-hf",
                 "model_class": "LlamaForCausalLM",
@@ -24,7 +24,15 @@
         "tensor_parallel": {
             "type": "LlamaPyTorchTensorParallel",
             "config": {
-                "world_size": 4
+                "world_size": 2
+            }
+        },
+        "conversion": {
+            "type": "OnnxConversion",
+            "config": {
+                "target_opset": 17,
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true
             }
         }
     },

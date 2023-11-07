@@ -31,7 +31,6 @@ logger = logging.getLogger(__name__)
 class MoEExpertDistributionPatternMatcher:
     DEFAULT_DOMAIN: ClassVar[str] = "com.microsoft"
     JSON_SEPARATORS: ClassVar[Tuple] = (",", ": ")
-    RANKED_MODEL_NAME_FORMAT: ClassVar[str] = "model_{:02d}.onnx"
 
     def __init__(self, world_size: int, input_filepath: str, debug=False):
         self.world_size = world_size
@@ -250,7 +249,7 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
             debug,
         ) = params
 
-        basename = MoEExpertDistributionPatternMatcher.RANKED_MODEL_NAME_FORMAT.format(rank)
+        basename = DistributedOnnxModel.DEFAULT_RANKED_MODEL_NAME_FORMAT.format(rank)
         output_dirpath = Path(output_dirpath)
 
         model = OnnxModel(onnx.load_model(input_filepath))
@@ -404,6 +403,6 @@ class MoEExpertsDistributor(Pass):
         )
         return DistributedOnnxModel(
             model_path=str(Path(output_model_path).with_suffix("")),
-            model_name_pattern=MoEExpertDistributionPatternMatcher.RANKED_MODEL_NAME_FORMAT,
+            model_name_pattern=DistributedOnnxModel.DEFAULT_RANKED_MODEL_NAME_FORMAT,
             num_ranks=config["world_size"],
         )
