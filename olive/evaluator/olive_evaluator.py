@@ -312,6 +312,55 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             if k in input_names
         }
 
+    @staticmethod
+    def prepare_io_bindings(
+        session, input_data, device, device_id: int = 0, shared_kv_buffer: bool = False, kv_cache_ortvalues: dict = None
+    ):
+        """Convert input from numpy array to OrtValue.
+
+        session: ONNXRuntime session
+        input_data: dict of input data, value is numpy array
+        device: olive device
+        device_id: 0 by default. TODO(trajep): support user to specified device id
+        shared_kv_buffer: whether to share the key/value buffer across multiple runs, it is False by default,
+            and only used when we observe kv cache and fp16 is used.
+            TODO(trajep): how shared_kv_buffer works with generation task
+        """
+        from onnxruntime import OrtValue
+
+        use_fp16 = any(v.dtype == np.float16 for v in input_data.values())
+        io_bind_op = session.io_binding()
+        io_bind_device = "cuda" if device == "gpu" else "cpu"
+
+        if shared_kv_buffer:
+            kv_cache_ortvalues = kv_cache_ortvalues or {}
+
+        for k, v in input_data.items():
+            # "cache": from microsoft llama model" https://github.com/microsoft/Llama-2-Onnx#before-you-start
+            # "past_key_values": from huggingface llama2 https://huggingface.co/meta-llama/Llama-2-13b-hf
+            if shared_kv_buffer and use_fp16 and ("cache" in k or "past_key_values" in k):
+                if k not in kv_cache_ortvalues:
+                    kv_cache_ortvalues[k] = OrtValue.ortvalue_from_numpy(v, io_bind_device, device_id)
+                else:
+                    kv_cache_ortvalues[k].update_inplace(v)
+                ort_v = kv_cache_ortvalues[k]
+            else:
+                ort_v = OrtValue.ortvalue_from_numpy(v, io_bind_device, device_id)
+            io_bind_op.bind_ortvalue_input(k, ort_v)
+
+        for item in session.get_outputs():
+            name = item.name
+            # "out": from microsoft llama model" https://github.com/microsoft/Llama-2-Onnx#before-you-start
+            # "present": from huggingface llama2 https://huggingface.co/meta-llama/Llama-2-13b-hf
+            if shared_kv_buffer and use_fp16 and ("out" in name or "present" in name):
+                # Bind present KV cache outputs to past KV cache inputs in order to use shared buffer
+                input_name = name.replace("out", "cache").replace("present", "past_key_values")
+                io_bind_op.bind_ortvalue_output(name, kv_cache_ortvalues[input_name])
+            else:
+                io_bind_op.bind_output(name, io_bind_device)
+
+        return io_bind_op
+
     def _inference(
         self,
         model: ONNXModel,
@@ -396,14 +445,17 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
         input_data, _ = next(iter(dataloader))
         input_dict = OnnxEvaluator.format_input(input_data, io_config)
+        # no deepcopy for kv_cache_ortvalues, will update the value inplace and keep it shared across runs
+        kv_cache_ortvalues = {} if metric.user_config.shared_kv_buffer else None
 
         if metric.user_config.io_bind:
-            io_bind_op = session.io_binding()
-            io_bind_device = "cuda" if device == "gpu" else "cpu"
-            for k, v in input_dict.items():
-                io_bind_op.bind_cpu_input(k, v)
-            for item in session.get_outputs():
-                io_bind_op.bind_output(item.name, io_bind_device)
+            io_bind_op = OnnxEvaluator.prepare_io_bindings(
+                session,
+                input_dict,
+                device,
+                shared_kv_buffer=metric.user_config.shared_kv_buffer,
+                kv_cache_ortvalues=kv_cache_ortvalues,
+            )
 
         for _ in range(warmup_num):
             if metric.user_config.io_bind:
@@ -543,14 +595,16 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
         input_feed, _ = next(iter(dataloader))
         input_feed = OnnxEvaluator.format_input(input_feed, io_config)
+        kv_cache_ortvalues = {} if metric.user_config.shared_kv_buffer else None
 
         if metric.user_config.io_bind:
-            io_bind_op = session.io_binding()
-            for k, v in input_feed.items():
-                io_bind_op.bind_cpu_input(k, v)
-            for item in session.get_outputs():
-                io_bind_op.bind_output(item.name, "cuda")
-
+            io_bind_op = OnnxEvaluator.prepare_io_bindings(
+                session,
+                input_feed,
+                Device.GPU,
+                shared_kv_buffer=metric.user_config.shared_kv_buffer,
+                kv_cache_ortvalues=kv_cache_ortvalues,
+            )
         latencies = []
         for i in range(warmup_num + repeat_test_num):
             MPI.COMM_WORLD.barrier()  # Synchronize before starting each run
