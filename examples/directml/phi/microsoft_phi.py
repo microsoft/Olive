@@ -11,12 +11,10 @@ import onnxruntime as ort
 
 from olive.workflows import run as olive_run
 
-# pylint: disable=redefined-outer-name
 
-
-def optimize(model_name: str, optimized_model_dir: Path):
+def optimize(model_name: str, optimized_model_des: Path):
     ort.set_default_logger_severity(4)
-    script_dir = Path(__file__).resolve().parent
+    cur_dir = Path(__file__).resolve().parent
 
     model_info = {}
 
@@ -24,7 +22,7 @@ def optimize(model_name: str, optimized_model_dir: Path):
     print(f"\nOptimizing {model_name}")
 
     olive_config = None
-    with (script_dir / "config_phi.json").open() as fin:
+    with (cur_dir / "config_phi.json").open() as fin:
         olive_config = json.load(fin)
 
     olive_config["input_model"]["config"]["model_path"] = model_name
@@ -46,8 +44,8 @@ def optimize(model_name: str, optimized_model_dir: Path):
         }
         print(f"Unoptimized Model : {model_info['unoptimized']['path']}")
 
-    # Create a copy of the unoptimized model directory, then overwrite with optimized models from the olive cache.
-    shutil.copytree(model_info["unoptimized"]["path"], optimized_model_dir)
+    # Create a copy of the unoptimized model directory
+    shutil.copytree(model_info["unoptimized"]["path"], optimized_model_des)
 
 
 if __name__ == "__main__":

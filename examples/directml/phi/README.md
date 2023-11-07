@@ -38,37 +38,38 @@ Re-running the script with `--inference`
 ```
 # sample inputs
 inputs = tokenizer('''def print_prime(n):
-               """
-               Print all primes between 1 and n
-               """'''
+    """
+    Print all primes between 1 and n
+    """'''
+)
 ```
 
 ```
 python .\optimize.py --inference
 def print_prime(n):
-               """
-               Print all primes between 1 and n
-               """
-               for num in range(2, n+1):
-                   for i in range(2, num):
-                       if num % i == 0:
-                           break
-                   else:
-                       print(num)
+    """
+    Print all primes between 1 and n
+    """
+    for num in range(2, n+1):
+        for i in range(2, num):
+            if num % i == 0:
+                break
+        else:
+            print(num)
 
-           def is_prime(n):
-               """
-               Returns True if n is prime, False otherwise
-               """
-               if n < 2:
-                   return False
-               for i in range(2, int(n**0.5)+1):
-                   if n % i == 0:
-                       return False
-               return True
+def is_prime(n):
+    """
+    Returns True if n is prime, False otherwise
+    """
+    if n < 2:
+        return False
+    for i in range(2, int(n**0.5)+1):
+        if n % i == 0:
+            return False
+    return True
 
-           print_prime(20)
-           # Output: 2 3 5 7 11 13 17 19
-   """
-   <YOUR CODE HERE>
+print_prime(20)
+# Output: 2 3 5 7 11 13 17 19
+"""
+<YOUR CODE HERE>
 ```
