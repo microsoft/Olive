@@ -1,0 +1,135 @@
+{
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "model_script": "user_script.py",
+            "io_config": "get_merged_decoder_with_past_io_config",
+            "dummy_inputs_func": "get_merged_decoder_with_past_dummy_inputs",
+            "hf_config": {
+                "model_name": "meta-llama/Llama-2-7b-hf",
+                "task": "text-generation"
+            }
+        }
+    },
+    "data_configs": {
+        "tiny-codes-train": {
+            "name": "tiny-codes-train",
+            "type": "HuggingfaceContainer",
+            "user_script": "user_script.py",
+            "components": {
+                "load_dataset": {
+                    "type": "load_tiny_code_dataset"
+                }
+            },
+            "params_config": {
+                "data_name": "nampdn-ai/tiny-codes",
+                "split": "train",
+                "component_kwargs": {
+                    "load_dataset": {
+                        "language": "Python",
+                        "token": true
+                    },
+                    "pre_process_data": {
+                        "dataset_type": "corpus",
+                        "corpus_strategy": "join",
+                        "text_template": "### Question: {prompt} \n### Answer: {response}",
+                        "source_max_len": 1024
+                    }
+                }
+            }
+        }
+    },
+    "evaluators": {
+        "merged_evaluator": {
+            "metrics": [
+                {
+                    "name": "onnx_merged_latency",
+                    "type": "latency",
+                    "sub_types": [
+                        {
+                            "name": "avg",
+                            "priority": 1
+                        }
+                    ],
+                    "user_config": {
+                        "user_script": "user_script.py",
+                        "dataloader_func": "dataloader_func_for_merged",
+                        "func_kwargs": {
+                            "dataloader_func": {
+                                "model_id": "meta-llama/Llama-2-7b-hf"
+                            }
+                        },
+                        "batch_size": 2,
+                        "io_bind": true
+                    }
+                }
+            ]
+        }
+    },
+    "passes": {
+        "qlora": {
+            "type": "QLoRA",
+            "config": {
+                "lora_dropout": 0.1,
+                "train_data_config": "tiny-codes-train",
+                "eval_dataset_size": 1024,
+                "training_args": {
+                    "per_device_train_batch_size": 16,
+                    "per_device_eval_batch_size": 16,
+                    "gradient_accumulation_steps": 1,
+                    "max_steps": 1500,
+                    "logging_steps": 100,
+                    "evaluation_strategy": "steps",
+                    "adam_beta2": 0.999,
+                    "max_grad_norm": 0.3,
+                    "load_best_model_at_end": true
+                }
+            }
+        },
+        "conversion": {
+            "type": "OnnxConversion",
+            "config": {
+                "target_opset": 17,
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true,
+                "torch_dtype": "float32"
+            }
+        },
+        "transformers_optimization": {
+            "type": "OrtTransformersOptimization",
+            "disable_search": true,
+            "config": {
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true,
+                "model_type": "gpt2",
+                "opt_level": 0,
+                "only_onnxruntime": false,
+                "keep_io_types": false,
+                "float16": true,
+                "optimization_options": {
+                    "enable_rotary_embeddings": false
+                }
+            }
+        },
+        "bnb_quantization": {
+            "type": "OnnxBnb4Quantization",
+            "config": {
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true
+            }
+        }
+    },
+    "engine": {
+        "search_strategy": false,
+        "evaluator": "merged_evaluator",
+        "target": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": ["gpu"]
+            }
+        },
+        "execution_providers": ["CUDAExecutionProvider"],
+        "cache_dir": "cache",
+        "output_dir" : "models/qlora"
+    }
+}

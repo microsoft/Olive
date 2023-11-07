@@ -147,6 +147,7 @@ class OnnxConversion(Pass):
                 pytorch_model = pytorch_model.get_base_model()
 
         # put pytorch_model and dummy_inputs at the same device
+        logger.debug(f"Converting model on device {device} with dtype {torch_dtype}.")
         pytorch_model.to(device)
         if torch_dtype:
             pytorch_model = pytorch_model.to(torch_dtype)

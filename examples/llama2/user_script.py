@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 
 from itertools import chain
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 import numpy as np
 import torch
@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader
 from transformers import LlamaConfig, LlamaTokenizer
 
 from olive.constants import Framework
+from olive.data.registry import Registry
 from olive.model import PyTorchModel
 
 # -----------------------------------------------------------------------------
@@ -346,3 +347,14 @@ class QuantKVDataLoader:
             # Yield (inputs, label) tuple for Intel's Neural Compressor:
             # https://github.com/intel/neural-compressor/blob/d4baed9ea11614e1f0dc8a1f4f55b73ed3ed585c/neural_compressor/quantization.py#L55-L62
             yield (inputs, label)
+
+
+# -----------------------------------------------------------------------------
+#  QLoRA load_dataset component
+# -----------------------------------------------------------------------------
+
+
+@Registry.register_dataset()
+def load_tiny_code_dataset(data_name: str, split: str, language: str, token: Union[bool, str] = True):
+    dataset = load_dataset(data_name, split=split, token=token)
+    return dataset.filter(lambda x: x["programming_language"] == language)

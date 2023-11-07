@@ -231,5 +231,4 @@ def find_submodules(module, submodule_types, full_name=False):
                 submodules.add(name)
             else:
                 submodules.add(name.split(".")[-1])
-    print(submodules)
     return list(submodules)

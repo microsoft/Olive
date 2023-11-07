@@ -93,7 +93,7 @@ Note: You must be logged in to HuggingFace using `huggingface-cli login` to down
 Requirements file: [requirements-lora.txt](requirements-lora.txt)
 
 ### Fine-tune Open Llama Model on a code generation dataset using QLoRA
-This workflow fine-tunes Open LLaMA model using [QLoRA] to generate code given a prompt.
+This workflow fine-tunes Open LLaMA model using [QLoRA](https://arxiv.org/abs/2305.14314) to generate code given a prompt.
 
 The relevant config file is [open_llama_qlora_tinycodes.json](open_llama_qlora_tinycodes.json). The code language is set to `Python` but can be changed to other languages by changing the `language` field in the config file.
 Supported languages are Python, TypeScript, JavaScript, Ruby, Julia, Rust, C++, Bash, Java, C#, and Go. Refer to the [dataset card](https://huggingface.co/datasets/nampdn-ai/tiny-codes) for more details on the dataset.
