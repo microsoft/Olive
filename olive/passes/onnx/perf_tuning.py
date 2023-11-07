@@ -81,6 +81,7 @@ def tune_onnx_model(model, data_root, config):
         "sub_types": latency_sub_types,
         "user_config": latency_user_config,
         "data_config": config_dict.get("data_config"),
+        "func_kwargs": {"dataloader_func": config_dict.get("dataloader_func_kwargs")},
     }
     latency_metric = Metric(**latency_metric_config)
 
@@ -291,6 +292,10 @@ class OrtPerfTuning(Pass):
                 type_=Union[Callable, str],
                 category=ParamCategory.OBJECT,
                 description="Dataloader function to load data from given data_dir with given batch size.",
+            ),
+            "dataloader_func_kwargs": PassConfigParam(
+                type_=Dict[str, Any],
+                description="Keyword arguments for dataloader_func.",
             ),
             "batch_size": PassConfigParam(type_=int, description="Batch size for inference."),
             "data_config": PassConfigParam(

@@ -161,6 +161,10 @@ _inc_static_dataloader_config = {
             required if approach is 'static' and data_config is None.
         """,
     ),
+    "dataloader_func_kwargs": PassConfigParam(
+        type_=Dict[str, Any],
+        description="Keyword arguments for dataloader_func.",
+    ),
     "data_config": PassConfigParam(
         type_=Union[DataConfig, Dict],
         description="""
@@ -503,6 +507,7 @@ class IncQuantization(Pass):
             "data_dir",
             "batch_size",
             "dataloader_func",
+            "dataloader_func_kwargs",
             "tuning_criterion",
             "data_config",
             "metric",
@@ -530,7 +535,11 @@ class IncQuantization(Pass):
             if self._user_module_loader:
                 data_dir = get_local_path_from_root(data_root, config["data_dir"])
                 inc_calib_dataloader = self._user_module_loader.call_object(
-                    config["dataloader_func"], data_dir, config["batch_size"], model_path=model.model_path
+                    config["dataloader_func"],
+                    data_dir,
+                    config["batch_size"],
+                    model_path=model.model_path,
+                    **(config["dataloader_func_kwargs"] or {}),
                 )
             elif config["data_config"]:
                 data_config = validate_config(config["data_config"], DataConfig)

@@ -44,6 +44,10 @@ class OpenVINOQuantization(Pass):
                     "Function/function name to generate dataloader for calibration, required if data_config is None."
                 ),
             ),
+            "dataloader_func_kwargs": PassConfigParam(
+                type_=Dict[str, Any],
+                description="Keyword arguments for dataloader_func.",
+            ),
             "data_dir": PassConfigParam(
                 type_=OLIVE_RESOURCE_ANNOTATIONS,
                 category=ParamCategory.DATA,
@@ -98,7 +102,7 @@ class OpenVINOQuantization(Pass):
         if config["dataloader_func"]:
             data_dir = get_local_path_from_root(data_root, config["data_dir"])
             data_loader = self._user_module_loader.call_object(
-                config["dataloader_func"], data_dir, config["batch_size"]
+                config["dataloader_func"], data_dir, config["batch_size"], **(config["dataloader_func_kwargs"] or {})
             )
         elif config["data_config"]:
             data_config = validate_config(config["data_config"], DataConfig)
@@ -128,6 +132,7 @@ class OpenVINOQuantization(Pass):
 
         class _OVDataloader(DataLoader):
             def __init__(self, dataloader):
+                # pylint: disable=super-init-not-called
                 self.data = []
                 self.labels = []
                 for data_k, label in dataloader:
