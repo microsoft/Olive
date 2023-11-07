@@ -135,6 +135,7 @@
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
 <span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
 <span class="kn">from</span> <span class="nn">numbers</span> <span class="kn">import</span> <span class="n">Number</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">NamedTuple</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
 
@@ -337,13 +338,26 @@
         <span class="k">return</span> <span class="n">metric</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">get_user_config</span><span class="p">(</span><span class="n">framework</span><span class="p">:</span> <span class="n">Framework</span><span class="p">,</span> <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_get_func_kwargs</span><span class="p">(</span><span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">func_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the function kwargs from the metric config.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">func_kwargs</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">func_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">func_name</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="k">return</span> <span class="p">{}</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">get_user_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">framework</span><span class="p">:</span> <span class="n">Framework</span><span class="p">,</span> <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">):</span>
         <span class="k">assert</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="p">,</span> <span class="s2">&quot;user_config is not specified in the metric config&quot;</span>
         <span class="n">user_module</span> <span class="o">=</span> <span class="n">UserModuleLoader</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">user_script</span><span class="p">,</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">script_dir</span><span class="p">)</span>
 
+        <span class="c1"># load the post processing function</span>
         <span class="n">post_processing_func</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="p">,</span> <span class="s2">&quot;post_processing_func&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="n">post_func</span> <span class="o">=</span> <span class="n">user_module</span><span class="o">.</span><span class="n">load_object</span><span class="p">(</span><span class="n">post_processing_func</span><span class="p">)</span>
+        <span class="n">post_func_kwargs</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_get_func_kwargs</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="s2">&quot;post_processing_func&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">post_func_kwargs</span><span class="p">:</span>
+            <span class="c1"># apply the kwargs to the post processing function</span>
+            <span class="n">post_func</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">post_func</span><span class="p">,</span> <span class="o">**</span><span class="n">post_func_kwargs</span><span class="p">)</span>
 
+        <span class="c1"># load the dataloader function and create the dataloader</span>
         <span class="n">dataloader_func</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="p">,</span> <span class="s2">&quot;dataloader_func&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">dataloader_func</span><span class="p">:</span>
             <span class="n">data_dir</span> <span class="o">=</span> <span class="n">get_local_path_from_root</span><span class="p">(</span><span class="n">data_root</span><span class="p">,</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">data_dir</span><span class="p">)</span>
@@ -352,21 +366,29 @@
                 <span class="n">data_dir</span><span class="p">,</span>
                 <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">batch_size</span><span class="p">,</span>
                 <span class="n">model_framework</span><span class="o">=</span><span class="n">framework</span><span class="p">,</span>
+                <span class="o">**</span><span class="bp">cls</span><span class="o">.</span><span class="n">_get_func_kwargs</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="s2">&quot;dataloader_func&quot;</span><span class="p">),</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">dataloader</span> <span class="o">=</span> <span class="kc">None</span>
 
+        <span class="c1"># load the evaluate function</span>
+        <span class="c1"># priority: evaluate_func &gt; metric_func</span>
         <span class="n">eval_func</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">MetricType</span><span class="o">.</span><span class="n">CUSTOM</span><span class="p">:</span>
             <span class="n">evaluate_func</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="p">,</span> <span class="s2">&quot;evaluate_func&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">kwargs</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_get_func_kwargs</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="s2">&quot;evaluate_func&quot;</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">evaluate_func</span><span class="p">:</span>
                 <span class="n">evaluate_func</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="p">,</span> <span class="s2">&quot;metric_func&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="n">kwargs</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_get_func_kwargs</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="s2">&quot;metric_func&quot;</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="ow">not</span> <span class="n">evaluate_func</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;evaluate_func or metric_func is not specified in the metric config&quot;</span><span class="p">)</span>
 
             <span class="n">eval_func</span> <span class="o">=</span> <span class="n">user_module</span><span class="o">.</span><span class="n">load_object</span><span class="p">(</span><span class="n">evaluate_func</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">kwargs</span><span class="p">:</span>
+                <span class="n">eval_func</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">eval_func</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
+        <span class="c1"># get dataloader and/or post processing function from data_config if not specified in the metric config</span>
         <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">dataloader</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">post_func</span><span class="p">)</span> <span class="ow">and</span> <span class="n">metric</span><span class="o">.</span><span class="n">data_config</span><span class="p">:</span>
             <span class="n">dc</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">data_config</span><span class="o">.</span><span class="n">to_data_container</span><span class="p">()</span>
 
@@ -375,6 +397,8 @@
             <span class="n">dataloader</span> <span class="o">=</span> <span class="n">dataloader</span> <span class="ow">or</span> <span class="n">dc</span><span class="o">.</span><span class="n">create_dataloader</span><span class="p">(</span><span class="n">data_root</span><span class="p">)</span>
             <span class="n">post_func</span> <span class="o">=</span> <span class="n">post_func</span> <span class="ow">or</span> <span class="n">dc</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">post_process</span>
 
+        <span class="c1"># get dataloader and/or post processing function from model io_config if not specified in the metric config</span>
+        <span class="c1"># or data config</span>
         <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">input_names</span> <span class="ow">and</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">input_shapes</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">dataloader</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">eval_func</span><span class="p">:</span>
             <span class="n">dataloader</span> <span class="o">=</span> <span class="p">(</span>
                 <span class="n">data_config_template</span><span class="o">.</span><span class="n">dummy_data_config_template</span><span class="p">(</span>
