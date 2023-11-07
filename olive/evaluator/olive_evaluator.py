@@ -7,6 +7,7 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from copy import deepcopy
+from functools import partial
 from numbers import Number
 from typing import Any, ClassVar, Dict, List, NamedTuple, Tuple, Type, Union
 
@@ -209,13 +210,26 @@ class OliveEvaluator(ABC):
         return metric
 
     @staticmethod
-    def get_user_config(framework: Framework, data_root: str, metric: Metric):
+    def _get_func_kwargs(metric: Metric, func_name: str):
+        """Get the function kwargs from the metric config."""
+        if metric.user_config.func_kwargs:
+            return metric.user_config.func_kwargs.get(func_name, {})
+        return {}
+
+    @classmethod
+    def get_user_config(cls, framework: Framework, data_root: str, metric: Metric):
         assert metric.user_config, "user_config is not specified in the metric config"
         user_module = UserModuleLoader(metric.user_config.user_script, metric.user_config.script_dir)
 
+        # load the post processing function
         post_processing_func = getattr(metric.user_config, "post_processing_func", None)
         post_func = user_module.load_object(post_processing_func)
+        post_func_kwargs = cls._get_func_kwargs(metric, "post_processing_func")
+        if post_func_kwargs:
+            # apply the kwargs to the post processing function
+            post_func = partial(post_func, **post_func_kwargs)
 
+        # load the dataloader function and create the dataloader
         dataloader_func = getattr(metric.user_config, "dataloader_func", None)
         if dataloader_func:
             data_dir = get_local_path_from_root(data_root, metric.user_config.data_dir)
@@ -224,21 +238,29 @@ class OliveEvaluator(ABC):
                 data_dir,
                 metric.user_config.batch_size,
                 model_framework=framework,
+                **cls._get_func_kwargs(metric, "dataloader_func"),
             )
         else:
             dataloader = None
 
+        # load the evaluate function
+        # priority: evaluate_func > metric_func
         eval_func = None
         if metric.type == MetricType.CUSTOM:
             evaluate_func = getattr(metric.user_config, "evaluate_func", None)
+            kwargs = cls._get_func_kwargs(metric, "evaluate_func")
             if not evaluate_func:
                 evaluate_func = getattr(metric.user_config, "metric_func", None)
+                kwargs = cls._get_func_kwargs(metric, "metric_func")
 
             if not evaluate_func:
                 raise ValueError("evaluate_func or metric_func is not specified in the metric config")
 
             eval_func = user_module.load_object(evaluate_func)
+            if kwargs:
+                eval_func = partial(eval_func, **kwargs)
 
+        # get dataloader and/or post processing function from data_config if not specified in the metric config
         if (not dataloader or not post_func) and metric.data_config:
             dc = metric.data_config.to_data_container()
 
@@ -247,6 +269,8 @@ class OliveEvaluator(ABC):
             dataloader = dataloader or dc.create_dataloader(data_root)
             post_func = post_func or dc.config.post_process
 
+        # get dataloader and/or post processing function from model io_config if not specified in the metric config
+        # or data config
         if metric.user_config.input_names and metric.user_config.input_shapes and not dataloader and not eval_func:
             dataloader = (
                 data_config_template.dummy_data_config_template(

@@ -260,17 +260,22 @@ information of the evaluator contains following items:
 
         - `batch_size: [int]` The batch size for the metric evaluation.
 
-        - `dataloader_func: [str]` The name of the function provided by the user to load the data for the metric evaluation. The
-        function should take the `data_dir`, `batch_size`, `*args`, `**kwargs` as input and return the data loader. Only valid for `accuracy` and `latency`
-         type.
+        - `inference_settings: [Dict]` Inference settings for the different runtime.
 
-        - `inference_settings: [Dict]` Inference settings for the different runtime. Only valid for `accuracy` and `latency` type.
+        - `dataloader_func: [str]` The name of the function provided by the user to load the data for the metric evaluation. The function should take the `data_dir`, `batch_size`, `model_framework`
+        as input and return the data loader. Not valid for `custom` type when `evaluate_func` is provided.
 
-        - `post_processing_func: [str]` The name of the function provided by the user to post process the model output. The function
-        should take the model output and return the post processed output. Only valid for `accuracy` type.
+        - `post_processing_func: [str]` The name of the function provided by the user to post process the model output. The function should take the model output as input and return the post processed
+        output. Only valid for `accuracy` type or `custom` type when `evaluate_func` is not provided.
 
-        - `evaluate_func: [str]` The name of the function provided by the user to evaluate the model. The function should take the
-        model, `data_dir` and `batch_size` as input and return the evaluation result. Only valid for `custom` type.
+        - `evaluate_func: [str]` The name of the function provided by the user to evaluate the model. The function should take the model, `data_dir`, `batch_size`, `device`, `execution_providers` as input
+        and return the evaluation result. Only valid for `custom` type.
+
+        - `metric_func: [str]` The name of the function provided by the user to compute metric from the model output. The function should take the post processed output and target as input and return the
+        metric result. Only valid for `custom` type when `evaluate_func` is not provided.
+
+        - `func_kwargs: [Dict[Dict[str, Any]]]` Keyword arguments for the functions provided by the user. The key is the name of the function and the value is the keyword arguments for the function. The
+        functions must be able to take the keyword arguments either through the function signature or through `**kwargs`.
 
     Note that for above `data_dir` config which is related to resource path, Olive supports local file, local folder or AML Datastore. Take AML Datastore as an example, Olive can parse the resource type automatically from `config dict`, or `url`. Please refer to our [Resnet](https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-ptq-on-cpu) example for more details.
     ```json
