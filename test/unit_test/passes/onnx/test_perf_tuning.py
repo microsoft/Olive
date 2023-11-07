@@ -2,8 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-
-from test.unit_test.utils import get_onnx_model
+from test.unit_test.utils import create_dataloader, get_onnx_model
 from unittest.mock import patch
 
 import pytest
@@ -14,7 +13,12 @@ from olive.passes.onnx import OrtPerfTuning
 
 @pytest.mark.parametrize(
     "config",
-    [{"input_names": ["input"], "input_shapes": [[1, 1]]}, {}],
+    [
+        {"input_names": ["input"], "input_shapes": [[1, 1]]},
+        {},
+        {"dataloader_func": create_dataloader},
+        {"dataloader_func": create_dataloader, "dataloader_func_kwargs": {"dummy_kwarg": 1}},
+    ],
 )
 def test_ort_perf_tuning_pass(config, tmp_path):
     # setup
@@ -45,10 +49,9 @@ def test_ort_perf_tuning_with_customized_configs(mock_run, config):
 
     # assert
     if "providers_list" not in config:
-        assert mock_run.call_args.args[2]["providers_list"] == ["CPUExecutionProvider"], (
-            "providers_list is not set correctly as ['CPUExecutionProvider'] by default when"
-            " user does not specify it"
-        )
+        assert mock_run.call_args.args[2]["providers_list"] == [
+            "CPUExecutionProvider"
+        ], "providers_list is not set correctly as ['CPUExecutionProvider'] by default when user does not specify it"
     if "device" not in config:
         assert (
             mock_run.call_args.args[2]["device"] == "cpu"

@@ -5,7 +5,6 @@
 
 import argparse
 import json
-import re
 import tempfile
 from pathlib import Path
 
@@ -78,7 +77,9 @@ def main(raw_args=None):
 
     model_name = args.model_name
     # update model name
-    template_json["input_model"]["config"]["hf_config"]["model_name"] = model_name
+    template_json_str = json.dumps(template_json)
+    template_json_str = template_json_str.replace("<model_name_placeholder>", model_name)
+    template_json = json.loads(template_json_str)
 
     # update configs
     device = "gpu" if args.gpu else "cpu"
@@ -105,39 +106,12 @@ def main(raw_args=None):
     template_json["engine"]["execution_providers"] = [DEVICE_TO_EP[device]]
     template_json["engine"]["output_dir"] = f"models/{config_name}/{model_name}"
 
-    # create user script
-    user_script_path = Path(__file__).parent / "user_script.py"
-    # use model name here so that we can reuse input model cache for the same model
-    model_name_squashed = model_name.replace("/", "_")
-    config_script_path = Path(__file__).parent / f"user_script_{model_name_squashed}.py"
-    update_user_script(user_script_path, config_script_path, model_name)
-
-    # update user script path in config
-    template_json = json.dumps(template_json)
-    template_json = template_json.replace("user_script.py", f"user_script_{model_name_squashed}.py")
-    template_json = json.loads(template_json)
-
     # dump config
     with open(f"{config_name}.json", "w") as f:  # noqa: PTH123
         json.dump(template_json, f, indent=4)
 
     if not args.only_config:
         olive_run(template_json)  # pylint: disable=not-callable
-
-
-def update_user_script(file_path, new_file_path, model_name):
-    with open(file_path) as file:  # noqa: PTH123
-        lines = file.readlines()
-
-    new_lines = []
-    for line in lines:
-        updated_line = line
-        if "meta-llama/Llama-2" in line:
-            updated_line = re.sub(r"meta-llama/Llama-2-(\d+)b-hf", model_name, line)
-        new_lines.append(updated_line)
-
-    with open(new_file_path, "w") as file:  # noqa: PTH123
-        file.writelines(new_lines)
 
 
 if __name__ == "__main__":

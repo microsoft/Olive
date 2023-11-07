@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 
 from pathlib import Path
-from typing import Callable, List, Union
+from typing import Any, Callable, Dict, List, Union
 
 from pydantic import validator
 
@@ -22,6 +22,7 @@ _common_user_config = {
     "inference_settings": ConfigParam(type_=dict),
     "data_dir": ConfigParam(type_=OLIVE_RESOURCE_ANNOTATIONS, category=ParamCategory.DATA),
     "dataloader_func": ConfigParam(type_=Union[Callable, str], category=ParamCategory.OBJECT),
+    "func_kwargs": ConfigParam(type_=Dict[str, Dict[str, Any]]),
     "batch_size": ConfigParam(type_=int, default_value=1),
     "input_names": ConfigParam(type_=List),
     "input_shapes": ConfigParam(type_=List),
@@ -39,6 +40,7 @@ _type_to_user_config = {
         "post_processing_func": ConfigParam(type_=Union[Callable, str], category=ParamCategory.OBJECT),
     },
     "custom": {
+        "post_processing_func": ConfigParam(type_=Union[Callable, str], category=ParamCategory.OBJECT),
         "evaluate_func": ConfigParam(type_=Union[Callable, str], required=False, category=ParamCategory.OBJECT),
         "metric_func": ConfigParam(type_=Union[Callable, str], required=False, category=ParamCategory.OBJECT),
     },
