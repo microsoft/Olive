@@ -31,6 +31,7 @@ def test_ort_perf_tuning_pass(config, tmp_path):
     "config",
     [
         {},
+        {"input_names": ["input"], "input_shapes": [[1, 1]]},
         {"providers_list": ["CPUExecutionProvider", "CUDAExecutionProvider"], "device": "gpu"},
     ],
 )
