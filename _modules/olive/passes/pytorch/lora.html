@@ -150,6 +150,7 @@
 <span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">AutoTokenizer</span><span class="p">,</span> <span class="n">PreTrainedModel</span><span class="p">,</span> <span class="n">PreTrainedTokenizer</span>
 
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">ConfigWithExtraArgs</span>
+<span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">find_submodules</span>
 <span class="kn">from</span> <span class="nn">olive.data.config</span> <span class="kn">import</span> <span class="n">DataConfig</span>
 <span class="kn">from</span> <span class="nn">olive.data.constants</span> <span class="kn">import</span> <span class="n">IGNORE_INDEX</span>
 <span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">AcceleratorSpec</span>
@@ -696,10 +697,10 @@
             <span class="c1"># quantization parameters</span>
             <span class="s2">&quot;double_quant&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
                 <span class="n">type_</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span>
-                <span class="n">default_value</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">default_value</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
                 <span class="n">description</span><span class="o">=</span><span class="p">(</span>
-                    <span class="s2">&quot;Whether tonested quantization where the quantization constants from the first quantization are&quot;</span>
-                    <span class="s2">&quot; quantized again&quot;</span>
+                    <span class="s2">&quot;Whether to use nested quantization where the quantization constants from the first quantization&quot;</span>
+                    <span class="s2">&quot; are quantized again.&quot;</span>
                 <span class="p">),</span>
             <span class="p">),</span>
             <span class="s2">&quot;quant_type&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
@@ -726,15 +727,22 @@
         <span class="n">config</span><span class="o">.</span><span class="n">training_args</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span> <span class="ow">or</span> <span class="n">HFTrainingArguments</span><span class="p">()</span>
 
         <span class="c1"># get models and tokenizer</span>
-        <span class="n">new_model</span><span class="p">,</span> <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">tokenizer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_model_tokenizer</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+        <span class="n">new_model</span><span class="p">,</span> <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">,</span> <span class="n">quantized_modules</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_model_tokenizer</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
 
-        <span class="c1"># train and return new model</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_and_save_new_model</span><span class="p">(</span><span class="n">pytorch_model</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">new_model</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">)</span>
+        <span class="c1"># train and get new model</span>
+        <span class="n">output_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_and_save_new_model</span><span class="p">(</span>
+            <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">new_model</span><span class="p">,</span> <span class="n">output_model_path</span>
+        <span class="p">)</span>
+        <span class="c1"># add quantized_modules attributes</span>
+        <span class="n">output_model</span><span class="o">.</span><span class="n">model_attributes</span><span class="p">[</span><span class="s2">&quot;quantized_modules&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">quantized_modules</span>
+        <span class="k">return</span> <span class="n">output_model</span>
 
     <span class="k">def</span> <span class="nf">get_model_tokenizer</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">PyTorchModel</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ConfigBase</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">PyTorchModel</span><span class="p">,</span> <span class="n">PreTrainedModel</span><span class="p">,</span> <span class="n">PreTrainedTokenizer</span><span class="p">]:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">PyTorchModel</span><span class="p">,</span> <span class="n">PreTrainedModel</span><span class="p">,</span> <span class="n">PreTrainedTokenizer</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the Olive model, PyTorch model and tokenizer for QLoRA fine-tuning.&quot;&quot;&quot;</span>
+        <span class="kn">import</span> <span class="nn">bitsandbytes</span> <span class="k">as</span> <span class="nn">bnb</span>
+
         <span class="c1"># don&#39;t want the original loaded model</span>
         <span class="c1"># also frees gpu memory if original model is on gpu</span>
         <span class="n">model</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="kc">None</span>
@@ -775,22 +783,10 @@
         <span class="c1"># add lora modules</span>
         <span class="c1"># this doesn&#39;t pick up the embedding layer and projection layer since those are not quantized</span>
         <span class="c1"># this is good since we don&#39;t want to touch those, LoRA might not work with input output embedding layers</span>
-        <span class="n">target_modules</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">find_all_linear_names</span><span class="p">(</span><span class="n">pytorch_model</span><span class="p">)</span>
+        <span class="n">target_modules</span> <span class="o">=</span> <span class="n">find_submodules</span><span class="p">(</span><span class="n">pytorch_model</span><span class="p">,</span> <span class="n">bnb</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear4bit</span><span class="p">)</span>
         <span class="n">pytorch_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">enable_lora</span><span class="p">(</span><span class="n">pytorch_model</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">,</span> <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">task</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">target_modules</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">new_model</span><span class="p">,</span> <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">tokenizer</span>
-
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">find_all_linear_names</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Find all linear layers in a model.&quot;&quot;&quot;</span>
-        <span class="kn">import</span> <span class="nn">bitsandbytes</span> <span class="k">as</span> <span class="nn">bnb</span>
-
-        <span class="n">linear_cls</span> <span class="o">=</span> <span class="n">bnb</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear4bit</span>
-        <span class="n">lora_module_names</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">module</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">named_modules</span><span class="p">():</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">linear_cls</span><span class="p">):</span>
-                <span class="n">lora_module_names</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
-        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">lora_module_names</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">new_model</span><span class="p">,</span> <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">,</span> <span class="n">target_modules</span>
 </pre></div>
 
            </div>
