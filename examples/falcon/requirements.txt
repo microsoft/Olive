@@ -1,1 +1,1 @@
-onnxruntime
+onnxruntime-gpu
