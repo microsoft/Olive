@@ -82,7 +82,7 @@ class HFModelLoadingArgs(ConfigWithExtraArgs):
         description=(
             "Whether to trust remote code. Refer to `trust_remote_code` in the docstring of"
             " `transformers.PreTrainedModel.from_pretrained` for more details."
-        ),    
+        ),
     )
     # other kwargs to pass during model loading
     extra_args: Dict = Field(
