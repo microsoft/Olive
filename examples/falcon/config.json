@@ -46,6 +46,7 @@
         },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
+            "disable_search": true,
             "config": {
                 "float16": true
             }
