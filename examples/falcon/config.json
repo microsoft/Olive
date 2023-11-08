@@ -64,7 +64,7 @@
         "host": "local_system",
         "target": "local_system",
         "execution_providers": ["CUDAExecutionProvider"],
-        "cache_dir": "/mnt/olive/examples/cache",
-        "output_dir" : "/mnt/olive/examples/falcon"
+        "cache_dir": "cache",
+        "output_dir" : "models/falcon"
     }
 }
