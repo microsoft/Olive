@@ -2,8 +2,11 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import sys
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from olive.data.template import huggingface_data_config_template
 from olive.model import PyTorchModel
@@ -13,7 +16,7 @@ from olive.passes.pytorch import LoRA, QLoRA
 # pylint: disable=redefined-outer-name
 
 
-def patched_find_all_linear_names(model):
+def patched_find_submodules(*args, **kwargs):
     return ["k_proj", "v_proj", "out_proj", "q_proj", "fc1", "fc2"]
 
 
@@ -69,10 +72,20 @@ def test_lora(tmp_path):
     assert Path(out.get_resource("adapter_path")).exists()
 
 
+@pytest.fixture(name="mock_bitsandbytes")
+def mock_bitsandbytes_fixture():
+    # mock bitesandbtes since we don't install it in the test environment
+    # it requires gpu and windows package is not published yet
+    mock_bitsandbytes = MagicMock()
+    sys.modules["bitsandbytes"] = mock_bitsandbytes
+    yield mock_bitsandbytes
+    del sys.modules["bitsandbytes"]
+
+
 # quantization requires gpu so we will patch the model loading args with no quantization
 @patch("olive.passes.pytorch.lora.HFModelLoadingArgs")
-@patch("olive.passes.pytorch.lora.QLoRA.find_all_linear_names", side_effect=patched_find_all_linear_names)
-def test_qlora(patched_model_loading_args, patched_find_all_linear_names, tmp_path):
+@patch("olive.passes.pytorch.lora.find_submodules", side_effect=patched_find_submodules)
+def test_qlora(patched_model_loading_args, patched_find_submodules, tmp_path, mock_bitsandbytes):
     # setup
     model_name = "hf-internal-testing/tiny-random-OPTForCausalLM"
     task = "text-generation"

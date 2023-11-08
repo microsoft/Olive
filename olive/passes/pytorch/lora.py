@@ -22,6 +22,7 @@ from pydantic import Field, validator
 from transformers import AutoTokenizer, PreTrainedModel, PreTrainedTokenizer
 
 from olive.common.config_utils import ConfigBase, ConfigWithExtraArgs
+from olive.common.utils import find_submodules
 from olive.data.config import DataConfig
 from olive.data.constants import IGNORE_INDEX
 from olive.hardware.accelerator import AcceleratorSpec
@@ -568,10 +569,10 @@ class QLoRA(LoRABase):
             # quantization parameters
             "double_quant": PassConfigParam(
                 type_=bool,
-                default_value=True,
+                default_value=False,
                 description=(
-                    "Whether tonested quantization where the quantization constants from the first quantization are"
-                    " quantized again"
+                    "Whether to use nested quantization where the quantization constants from the first quantization"
+                    " are quantized again."
                 ),
             ),
             "quant_type": PassConfigParam(
@@ -598,15 +599,22 @@ class QLoRA(LoRABase):
         config.training_args = config.training_args or HFTrainingArguments()
 
         # get models and tokenizer
-        new_model, pytorch_model, tokenizer = self.get_model_tokenizer(model, config)
+        new_model, pytorch_model, tokenizer, quantized_modules = self.get_model_tokenizer(model, config)
 
-        # train and return new model
-        return self.train_and_save_new_model(pytorch_model, tokenizer, config, data_root, new_model, output_model_path)
+        # train and get new model
+        output_model = self.train_and_save_new_model(
+            pytorch_model, tokenizer, config, data_root, new_model, output_model_path
+        )
+        # add quantized_modules attributes
+        output_model.model_attributes["quantized_modules"] = quantized_modules
+        return output_model
 
     def get_model_tokenizer(
         self, model: PyTorchModel, config: ConfigBase
-    ) -> Tuple[PyTorchModel, PreTrainedModel, PreTrainedTokenizer]:
+    ) -> Tuple[PyTorchModel, PreTrainedModel, PreTrainedTokenizer, List[str]]:
         """Get the Olive model, PyTorch model and tokenizer for QLoRA fine-tuning."""
+        import bitsandbytes as bnb
+
         # don't want the original loaded model
         # also frees gpu memory if original model is on gpu
         model.model = None
@@ -647,19 +655,7 @@ class QLoRA(LoRABase):
         # add lora modules
         # this doesn't pick up the embedding layer and projection layer since those are not quantized
         # this is good since we don't want to touch those, LoRA might not work with input output embedding layers
-        target_modules = self.find_all_linear_names(pytorch_model)
+        target_modules = find_submodules(pytorch_model, bnb.nn.Linear4bit)
         pytorch_model = self.enable_lora(pytorch_model, tokenizer, new_model.hf_config.task, config, target_modules)
 
-        return new_model, pytorch_model, tokenizer
-
-    @staticmethod
-    def find_all_linear_names(model: torch.nn.Module) -> List[str]:
-        """Find all linear layers in a model."""
-        import bitsandbytes as bnb
-
-        linear_cls = bnb.nn.Linear4bit
-        lora_module_names = set()
-        for name, module in model.named_modules():
-            if isinstance(module, linear_cls):
-                lora_module_names.add(name.split(".")[-1])
-        return list(lora_module_names)
+        return new_model, pytorch_model, tokenizer, target_modules

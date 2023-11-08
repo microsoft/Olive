@@ -1,0 +1,6 @@
+-r requirements.txt
+accelerate
+bitsandbytes
+peft
+scikit-learn
+sentencepiece

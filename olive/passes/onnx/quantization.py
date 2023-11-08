@@ -530,7 +530,7 @@ class OnnxMatMul4Quantizer(Pass):
             ),
             "nodes_to_exclude": PassConfigParam(
                 type_=list,
-                default_value=[],
+                default_value=None,
                 description="List of node names to exclude from quantization.",
             ),
         }

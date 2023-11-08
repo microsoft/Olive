@@ -48,6 +48,6 @@
         },
         "execution_providers": ["CUDAExecutionProvider"],
         "cache_dir": "cache",
-        "output_dir": "models/llama2"
+        "output_dir": "models/tensor_parallel"
     }
 }
