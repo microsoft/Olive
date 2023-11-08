@@ -7,7 +7,7 @@ from test.unit_test.utils import get_onnx_model, pytorch_model_loader
 from unittest.mock import MagicMock, patch
 
 import onnx
-import onnxruntime as ort
+import onnxruntime
 import pytest
 import torch
 from packaging import version
@@ -21,11 +21,11 @@ from olive.passes.onnx import OnnxBnb4Quantization
 
 # TODO(jambayk): Remove this fixture after ORT 1.16.2 is released
 # replace with skipif
-@pytest.fixture(name="mock_ort_1_16_2")
+@pytest.fixture
 def mock_ort_1_16_2():
     mock_matmul_bnb4_quantizer = MagicMock()
     sys.modules["onnxruntime.quantization.matmul_bnb4_quantizer"] = mock_matmul_bnb4_quantizer
-    with patch("onnxruntime.__version__", "1.16.2"):
+    with patch("olive.passes.onnx.bnb_quantization.OrtVersion", "1.16.2"):
         yield
     del sys.modules["onnxruntime.quantization.matmul_bnb4_quantizer"]
 
@@ -62,7 +62,7 @@ def get_onnx_gemm_model(model_path=None, model_attributes=None):
             None,
             {"quantization_config": {"bnb_4bit_quant_type": "nf4"}},
             None,
-        ),  # quant_type from model_attributes is fp4
+        ),  # quant_type from model_attributes is nf4
         (
             None,
             {"quantization_config": {"bnb_4bit_quant_type": "invalid"}},
@@ -111,7 +111,7 @@ def count_matmulbnb4_nodes(model: onnx.ModelProto):
 
 
 @pytest.mark.skipif(
-    version.parse(ort.__version__) < version.parse("1.16.2"),
+    version.parse(onnxruntime.__version__) < version.parse("1.16.2"),
     reason="MatMulBnb4Quantizer is only supported in onnxruntime >= 1.16.2",
 )
 @pytest.mark.parametrize(
