@@ -269,7 +269,7 @@ class OnnxConversion(Pass):
                 - the onnx model must be quantized using OnnxBnb4Quantization pass after conversion
         Model attributes is None if the output model should inherit the model attributes from the input model.
         """
-        if not model.loads_model_from_hf_config() or not model.hf_config.model_loading_args:
+        if not model.is_model_loaded_from_hf_config() or not model.hf_config.model_loading_args:
             # if the model is not loaded from hf config, or the model loading args is not specified,
             # we can load the model directly
             return model.load_model(), None

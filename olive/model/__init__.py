@@ -577,7 +577,7 @@ class PyTorchModel(OliveModel):
 
         return model
 
-    def loads_model_from_hf_config(self) -> bool:
+    def is_model_loaded_from_hf_config(self) -> bool:
         """Return True if the model is loaded from hf_config, False otherwise."""
         return (
             (not self.model_loader)

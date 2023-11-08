@@ -63,7 +63,7 @@ class OnnxBnb4Quantization(Pass):
 
             # extract quant_type from model_attributes if not specified in config
             if not quant_type:
-                quant_config = model.model_attributes.get("quantization_config")
+                quant_config = model.model_attributes.get("quantization_config") or {}
 
                 if quant_config.get("load_in_8bit"):
                     raise ValueError("load_in_8bit is not supported. Only 4-bit quantization is supported.")
@@ -106,18 +106,19 @@ class OnnxBnb4Quantization(Pass):
         # save the model to the output path and return the model
         return model_proto_to_olive_model(onnx_model, output_model_path, config)
 
-    def _find_matmul_nodes(self, graph: onnx.GraphProto) -> List[str]:
+    @classmethod
+    def _find_matmul_nodes(cls, graph: onnx.GraphProto) -> List[str]:
         """Find all MatMul nodes in the graph and return their names."""
         matmul_nodes = []
         for node in graph.node:
             for attr in node.attribute:
                 if attr.type == onnx.AttributeProto.GRAPH:
                     # recursive call to take care of sub-graph
-                    matmul_nodes += self._find_matmul_nodes(attr.g)
+                    matmul_nodes += cls._find_matmul_nodes(attr.g)
                 elif attr.type == onnx.AttributeProto.GRAPHS:
                     for subgraph in attr.graphs:
                         # recursive call to take care of sub-graph
-                        matmul_nodes += self._find_matmul_nodes(subgraph)
+                        matmul_nodes += cls._find_matmul_nodes(subgraph)
             if node.op_type == "MatMul":
                 matmul_nodes.append(node.name)
 
