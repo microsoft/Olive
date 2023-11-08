@@ -75,6 +75,14 @@ class HFModelLoadingArgs(ConfigWithExtraArgs):
             " details for the supported parameters."
         ),
     )
+    # whether to trust remote code
+    trust_remote_code: bool = Field(
+        None,
+        description=(
+            "Whether to trust remote code. Refer to `trust_remote_code` in the docstring of"
+            " `transformers.PreTrainedModel.from_pretrained` for more details."
+        ),    
+    )
     # other kwargs to pass during model loading
     extra_args: Dict = Field(
         None,
@@ -134,6 +142,8 @@ class HFModelLoadingArgs(ConfigWithExtraArgs):
         quantization_config = self.get_quantization_config()
         if quantization_config:
             loading_args["quantization_config"] = quantization_config
+        if self.trust_remote_code:
+            loading_args["trust_remote_code"] = self.trust_remote_code
         # add extra args
         if self.extra_args:
             loading_args.update(deepcopy(self.extra_args))
