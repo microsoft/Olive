@@ -122,12 +122,6 @@
     "engine": {
         "search_strategy": false,
         "evaluator": "merged_evaluator",
-        "target": {
-            "type": "LocalSystem",
-            "config": {
-                "accelerators": ["gpu"]
-            }
-        },
         "execution_providers": ["CUDAExecutionProvider"],
         "cache_dir": "cache",
         "output_dir" : "models/qlora"

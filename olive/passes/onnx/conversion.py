@@ -320,12 +320,10 @@ class OnnxConversion(Pass):
                 del quantized_model
                 model.model = None
 
-        # don't want the original loaded model
-        # also frees gpu memory if original model is on gpu
-        model.model = None
-        new_model = deepcopy(model)
-        new_model.hf_config.model_loading_args = HFModelLoadingArgs(**new_model_loading_args)
-        return new_model.load_model(), new_model_attributes
+        # load the model with the updated model loading args
+        new_hf_config = deepcopy(model.hf_config)
+        new_hf_config.model_loading_args = HFModelLoadingArgs(**new_model_loading_args)
+        return new_hf_config.load_model(model.model_path), new_model_attributes
 
     def _convert_model_on_device(
         self,
