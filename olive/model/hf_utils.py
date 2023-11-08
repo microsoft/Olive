@@ -75,7 +75,7 @@ class HFModelLoadingArgs(ConfigWithExtraArgs):
             " details for the supported parameters."
         ),
     )
-    # TODO: seems not working. need to check.
+    # TODO(xiaoyuzhang): seems not working. need to check.
     # whether to trust remote code
     trust_remote_code: bool = Field(
         None,
