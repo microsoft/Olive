@@ -1,0 +1,70 @@
+{
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "hf_config": {
+                "model_name": "tiiuae/falcon-7b",
+                "task": "text-generation",
+                "dataset": {
+                    "data_name":"tiiuae/falcon-refinedweb",
+                    "split": "train",
+                    "input_cols": ["content"],
+                    "batch_size": 1
+                }
+            }
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": ["GPU"]
+            }
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics":[
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_types": [
+                        {"name": "avg", "priority": 1, "goal": {"type": "percent-min-improvement", "value": 5}},
+                        {"name": "max"},
+                        {"name": "min"}
+                    ]
+                }
+            ]
+        }
+    },
+    "passes": {
+        "conversion": {
+            "type": "OnnxConversion",
+            "config": {
+                "target_opset": 13
+            }
+        },
+        "transformers_optimization": {
+            "type": "OrtTransformersOptimization",
+            "config": {
+                "float16": true
+            }
+        }
+    },
+    "engine": {
+        "search_strategy": {
+            "execution_order": "pass-by-pass",
+            "search_algorithm": "tpe",
+            "search_algorithm_config": {
+                "num_samples": 3,
+                "seed": 0
+            }
+        },
+        "evaluator": "common_evaluator",
+        "host": "local_system",
+        "target": "local_system",
+        "execution_providers": ["CUDAExecutionProvider"],
+        "cache_dir": "/mnt/olive/examples/cache",
+        "output_dir" : "/mnt/olive/examples/falcon"
+    }
+}
