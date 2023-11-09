@@ -1,8 +1,8 @@
-# Falcon Optimization
-This folder contains a sample use case of Olive to optimize a [falcon-7b](https://huggingface.co/tiiuae/falcon-7b) model using ONNXRuntime tools.
+# Yi Optimization
+This folder contains a sample use case of Olive to optimize a [Yi-6B-200K](https://huggingface.co/01-ai/Yi-6B-200K) model using ONNXRuntime tools.
 
 ## Optimization Workflows
-This workflow performs Falcon optimization on GPU with ONNX Runtime. It performs the optimization pipeline:
+This workflow performs Yi optimization on GPU with ONNX Runtime. It performs the optimization pipeline:
 - *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model fp16*
 
 Config file: [config.json](config.json)
