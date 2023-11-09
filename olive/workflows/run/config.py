@@ -152,13 +152,6 @@ class RunConfig(ConfigBase):
 
     @validator("engine", pre=True)
     def validate_engine(cls, v, values):
-        # if there is only one system, set it as host and target
-        system = values.get("systems", None)
-        if system and len(system) == 1:
-            system_alias = next(iter(system.keys()))
-            v["host"] = v.get("host") or system_alias
-            v["target"] = v.get("target") or system_alias
-
         v = _resolve_system(v, values, "host")
         v = _resolve_system(v, values, "target")
         return _resolve_evaluator(v, values)
