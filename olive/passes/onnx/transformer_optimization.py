@@ -245,7 +245,7 @@ class OrtTransformersOptimization(Pass):
                     )
                 # TODO(anyone): Access `world_size` from the pass config or the model attributes
                 # this is needed for tensor parallel models
-                optimizer = self._replace_mha_with_gqa(optimizer, "attention_mask", kv_num_heads=num_kv_heads)
+                optimizer = self._replace_mha_with_gqa(optimizer, kv_num_heads=num_kv_heads)
                 optimizer.prune_graph()
                 # add allow_remove_graph_inputs to pass config
                 optimizer.update_graph(allow_remove_graph_inputs=True)
@@ -260,7 +260,9 @@ class OrtTransformersOptimization(Pass):
         return model_proto_to_olive_model(optimizer.model, output_model_path, config)
 
     @staticmethod
-    def _replace_mha_with_gqa(model: "OnnxModel", attn_mask: str, kv_num_heads: int = 0, world_size: int = 1):
+    def _replace_mha_with_gqa(
+        model: "OnnxModel", attn_mask: str = "attention_mask", kv_num_heads: int = 0, world_size: int = 1
+    ):
         # Insert attention_mask subgraph to calculate shared inputs for all GroupQueryAttention nodes
         #
         #                attention_mask
