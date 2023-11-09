@@ -7,6 +7,8 @@ import os
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Dict, List, Union
 
+import onnx
+
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModel
 from olive.model.hf_mappings import HIDDEN_SIZE_NAMES, MODEL_TYPE_MAPPING, NUM_HEADS_NAMES
@@ -270,13 +272,11 @@ class OrtTransformersOptimization(Pass):
         #          seqlens_k   total_sequence_length
         #              |                |
         #        Cast to int32    Cast to int32
-        import onnx
-        from onnx import TensorProto
 
         model.add_initializer(
             onnx.helper.make_tensor(
                 name="one",
-                data_type=TensorProto.INT64,
+                data_type=onnx.TensorProto.INT64,
                 dims=[1],
                 vals=[1],
             )
@@ -298,7 +298,7 @@ class OrtTransformersOptimization(Pass):
             inputs=["seqlens_k_int64"],
             outputs=["seqlens_k"],
             name=model.create_node_name("Cast"),
-            to=TensorProto.INT32,
+            to=onnx.TensorProto.INT32,
         )
         shape_node = onnx.helper.make_node(
             "Shape",
@@ -318,7 +318,7 @@ class OrtTransformersOptimization(Pass):
             inputs=["total_seq_len_int64"],
             outputs=["total_seq_len"],
             name=model.create_node_name("Cast"),
-            to=TensorProto.INT32,
+            to=onnx.TensorProto.INT32,
         )
         model.model.graph.node.extend(
             [reduce_sum_node, sub_node, seqlen_k_cast_node, shape_node, gather_node, total_seqlen_cast_node]
