@@ -33,37 +33,19 @@ Requirements file: [requirements-qlora.txt](requirements-qlora.txt)
 Refer to the instructions in the [examples README](../README.md) to clone the repository and install Olive.
 
 ### Install onnxruntime
-<!-- TODO(anyone): remove this section after onnxruntime 1.16.2 is released -->
-Also we need latest version of onnxruntime which provides the support of int4 quantization/grouped query attention. Please install the latest version of onnxruntime:
+This example requires onnxruntime>=1.16.2. Please install the latest version of onnxruntime:
 
-1. From source:
-    ```bash
-    git clone https://github.com/microsoft/onnxruntime
-    # compile ort with cuda support, which requires the image with cuda and cudnn installed
-    bash ./build.sh \
-        --config=Release \
-        --build_dir="./test_build" \
-        --cuda_home /usr/local/cuda --cudnn_home /usr/lib/x86_64-linux-gnu/ \
-        --cuda_version=11.7 \
-        --use_cuda --update --build \
-        --build_wheel \
-        --parallel \
-        --skip_tests --cmake_extra_defines ONNXRUNTIME_VERSION=(cat ./VERSION_NUMBER) \CMAKE_CUDA_ARCHITECTURES="70;75;80" \
-        --use_mpi=false
-    ```
-    Then you can find the wheel file under folder of `build_dir`(`test_build/Release/dist/` in this case).
-
-2. From nightly-build:
-    ```bash
-    python -m pip uninstall -y onnxruntime onnxruntime-gpu ort-nightly ort-nightly-gpu
-    python -m pip install ort-nightly-gpu --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
-    ```
-
-After installation, you can run the following command to check if the onnxruntime is installed successfully:
-```python
-import onnxruntime as ort
-ort.get_available_providers()  # should contain 'CUDAExecutionProvider'
+For CPU:
+```bash
+python -m pip install onnxruntime>=1.16.2
 ```
+
+For GPU:
+```bash
+python -m pip install onnxruntime-gpu>=1.16.2
+```
+
+**Note:** The GPU package also works for CPU.
 
 ### Install extra dependencies
 Install the necessary python packages:

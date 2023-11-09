@@ -57,7 +57,8 @@
                             }
                         },
                         "batch_size": 2,
-                        "io_bind": true
+                        "io_bind": true,
+                        "shared_kv_buffer": true
                     }
                 }
             ]
