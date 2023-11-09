@@ -5,3 +5,4 @@
 
 decoder_model = None
 use_layer_norm = False
+model_type = None

@@ -71,7 +71,7 @@ def get_or_create_decoder_model():
         config.decoder_model.eval()
 
         script_dir = Path(__file__).resolve().parent
-        weights_path = script_dir / "raw_model_data" / "7B-chat" / "llama-2-7b-chat.pth"
+        weights_path = script_dir / "raw_model_data" / config.model_type / f"llama-2-{config.model_type}.pth"
 
         # We don't use rope.freqs
         state_dict = torch.load(weights_path)

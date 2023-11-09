@@ -19,7 +19,7 @@ from olive.model import ONNXModel
 from olive.workflows import run as olive_run
 
 
-def optimize(optimized_model_dir: Path):
+def optimize(optimized_model_dir: Path, model_type: str):
     script_dir = Path(__file__).resolve().parent
     model_info = {}
     submodel_names = ["argmax_sampling", "llama_v2"]
@@ -89,7 +89,7 @@ def optimize(optimized_model_dir: Path):
             dst_weights_path = dst_path.with_suffix(".onnx.data")
             shutil.copyfile(src_weights_path, dst_weights_path)
 
-    raw_data_folder = Path(__file__).resolve().parent / "raw_model_data" / "7B-chat"
+    raw_data_folder = Path(__file__).resolve().parent / "raw_model_data" / model_type
     raw_data_folder.mkdir(exist_ok=True, parents=True)
     src_tokenizer_path = raw_data_folder / "tokenizer.model"
     dst_tokenizer_path = optimized_model_dir / "tokenizer.model"
@@ -98,11 +98,10 @@ def optimize(optimized_model_dir: Path):
     print(f"The optimized pipeline is located here: {optimized_model_dir}")
 
 
-def download_checkpoint():
-    model_size = "7B-chat"
-    model_name = "llama-2-7b-chat"
+def download_checkpoint(model_type: str):
+    model_name = f"llama-2-{model_type}"
 
-    raw_data_folder = Path(__file__).resolve().parent / "raw_model_data" / model_size
+    raw_data_folder = Path(__file__).resolve().parent / "raw_model_data" / model_type
     raw_data_folder.mkdir(exist_ok=True, parents=True)
 
     license_path = raw_data_folder / "LICENSE"
@@ -158,16 +157,25 @@ if __name__ == "__main__":
     parser.add_argument(
         "--max_gen_len", default=256, type=int, help="The maximum number of tokens that can be included in an answer"
     )
+    parser.add_argument(
+        "--model_type",
+        default="7b-chat",
+        choices=["7b", "7b-chat"],
+        help="Which model to convert. The 7b model is the original one without any finetuning, and the 7b-chat "
+        "version is the finetuned model optimized for chat.",
+        type=str,
+    )
     args = parser.parse_args()
 
     config.use_layer_norm = args.use_layer_norm
+    config.model_type = args.model_type
 
     script_dir = Path(__file__).resolve().parent
     optimized_model_dir = script_dir / "models" / "optimized" / "llama_v2"
 
     if args.optimize or not optimized_model_dir.exists():
-        download_checkpoint()
-        optimize(optimized_model_dir)
+        download_checkpoint(args.model_type)
+        optimize(optimized_model_dir, args.model_type)
 
     if not args.optimize:
         if args.interactive:
