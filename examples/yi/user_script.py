@@ -1,8 +1,4 @@
 import torch
-from transformers import AutoConfig
-
-model_id = "01-ai/Yi-6B-200K"
-config = AutoConfig.from_pretrained(model_id)
 
 def dummy_inputs(model):
     attention_mask_sequence_length = 19
