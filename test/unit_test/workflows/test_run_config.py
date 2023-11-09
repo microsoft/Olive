@@ -135,8 +135,8 @@ class TestRunConfig:
         default_engine_config_file = Path(__file__).parent / "mock_data" / "default_engine.json"
         run_config = RunConfig.parse_file(default_engine_config_file)
         assert run_config.evaluators is None
-        assert run_config.engine.host.type == "LocalSystem"
-        assert run_config.engine.target.type.value == "LocalSystem"
+        assert run_config.engine.host is None
+        assert run_config.engine.target is None
 
 
 class TestDataConfigValidation:
