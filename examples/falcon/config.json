@@ -53,14 +53,7 @@
         }
     },
     "engine": {
-        "search_strategy": {
-            "execution_order": "pass-by-pass",
-            "search_algorithm": "tpe",
-            "search_algorithm_config": {
-                "num_samples": 3,
-                "seed": 0
-            }
-        },
+        "search_strategy": false,
         "evaluator": "common_evaluator",
         "host": "local_system",
         "target": "local_system",
