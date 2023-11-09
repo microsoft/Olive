@@ -78,6 +78,7 @@
         "evaluator": "common_evaluator",
         "execution_providers": ["CUDAExecutionProvider"],
         "cache_dir": "cache",
+        "clean_cache": true,
         "output_dir" : "models/bert_cuda"
     }
 }

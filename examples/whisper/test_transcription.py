@@ -62,6 +62,7 @@ def main(raw_args=None):
     # get device and ep
     device = config["systems"]["local_system"]["config"]["accelerators"][0]
     ep = config["engine"]["execution_providers"][0]
+    # TODO(trajep): add device_id for whisper
     accelerator_spec = AcceleratorSpec(accelerator_type=device, execution_provider=ep)
 
     # load output model json

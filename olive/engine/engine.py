@@ -145,7 +145,9 @@ class Engine:
         self.accelerator_specs: List[AcceleratorSpec] = []
         is_cpu_available = "cpu" in [accelerator.lower() for accelerator in accelerators]
         for accelerator in accelerators:
-            device = Device(accelerator.lower())
+            accelerator_list = accelerator.lower().split(":")
+            device = Device.GPU if accelerator_list[0] == "cuda" else Device(accelerator_list[0])
+            device_id = accelerator_list[1] if len(accelerator_list) > 1 else 0
             if self.target.olive_managed_env:
                 available_eps = AcceleratorLookup.get_managed_supported_execution_providers(device)
             elif self.target.system_type in (SystemType.Local, SystemType.PythonEnvironment):
@@ -166,7 +168,7 @@ class Engine:
                         "Ignore the CPUExecutionProvider for non-cpu device since cpu accelerator is also present."
                     )
                 elif ep in supported_eps:
-                    self.accelerator_specs.append(AcceleratorSpec(device, ep))
+                    self.accelerator_specs.append(AcceleratorSpec(device, ep, device_id=device_id))
                     ep_to_process.remove(ep)
 
         assert self.accelerator_specs, (

@@ -30,10 +30,11 @@ class AcceleratorSpec:
     version: str = None
     memory: int = None
     num_cores: int = None
+    device_id: int = 0
 
     def __str__(self) -> str:
-        # remove the suffix "ExecutionProvider", len("ExecutionProvider") = 17
-        ep = self.execution_provider[:-17] or self.execution_provider
+        suffix_len = len("ExecutionProvider")
+        ep = self.execution_provider[:-suffix_len] or self.execution_provider
         return f"{str(self.accelerator_type).lower()}-{ep.lower()}"
 
     def to_json(self):

@@ -254,7 +254,7 @@ def get_benchmark(model, data_root, latency_metric, config, test_params=None):
     evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
     joint_key = joint_metric_key(latency_metric.name, latency_metric.sub_types[0].name)
     test_result["latency_ms"] = evaluator.evaluate(
-        model, data_root, [latency_metric], config.device, config.providers_list
+        model, data_root, [latency_metric], config.device, config.device_id, config.providers_list
     )[joint_key].value
     return test_result
 
@@ -281,6 +281,7 @@ class OrtPerfTuning(Pass):
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         device = accelerator_spec.accelerator_type
+        device_id = accelerator_spec.device_id
         execution_provider = accelerator_spec.execution_provider
 
         return {
@@ -314,6 +315,9 @@ class OrtPerfTuning(Pass):
             ),
             "device": PassConfigParam(
                 type_=str, default_value=device, description="Device selected for tuning process."
+            ),
+            "device_id": PassConfigParam(
+                type_=int, default_value=device_id, description="Device id selected for tuning process."
             ),
             "cpu_cores": PassConfigParam(
                 type_=int, default_value=None, description="CPU cores used for thread tuning."

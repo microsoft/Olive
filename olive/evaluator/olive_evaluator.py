@@ -80,6 +80,7 @@ class OliveEvaluator(ABC):
         dataloader: Dataset,
         post_func=None,
         device: Device = Device.CPU,
+        device_id: int = 0,
         execution_providers: Union[str, List[str]] = None,
     ) -> Tuple[OliveModelOutput, Any]:
         raise NotImplementedError
@@ -93,6 +94,7 @@ class OliveEvaluator(ABC):
         dataloader: Dataset,
         post_func=None,
         device: Device = Device.CPU,
+        device_id: int = 0,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
         raise NotImplementedError
@@ -106,6 +108,7 @@ class OliveEvaluator(ABC):
         dataloader: Dataset,
         post_func=None,
         device: Device = Device.CPU,
+        device_id: int = 0,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
         raise NotImplementedError
@@ -119,6 +122,7 @@ class OliveEvaluator(ABC):
         eval_func,
         post_func=None,
         device: Device = Device.CPU,
+        device_id: int = 0,
         execution_providers=None,
     ) -> MetricResult:
         raw_res = None
@@ -128,11 +132,12 @@ class OliveEvaluator(ABC):
                 get_local_path_from_root(data_root, metric.user_config.data_dir),
                 metric.user_config.batch_size,
                 device,
+                device_id,
                 execution_providers,
             )
         else:
             inference_output, targets = self._inference(
-                model, metric, dataloader, post_func, device, execution_providers
+                model, metric, dataloader, post_func, device, device_id, execution_providers
             )
             raw_res = eval_func(inference_output, targets)
 
@@ -158,6 +163,7 @@ class OliveEvaluator(ABC):
         data_root: str,
         metrics: List[Metric],
         device: Device = Device.CPU,
+        device_id: int = 0,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
         metrics_res = {}
@@ -170,15 +176,15 @@ class OliveEvaluator(ABC):
 
             if metric.type == MetricType.ACCURACY:
                 metrics_res[metric.name] = self._evaluate_accuracy(
-                    model, data_root, metric, dataloader, post_func, device, execution_providers
+                    model, data_root, metric, dataloader, post_func, device, device_id, execution_providers
                 )
             elif metric.type == MetricType.LATENCY:
                 metrics_res[metric.name] = self._evaluate_latency(
-                    model, data_root, metric, dataloader, post_func, device, execution_providers
+                    model, data_root, metric, dataloader, post_func, device, device_id, execution_providers
                 )
             elif metric.type == MetricType.CUSTOM:
                 metrics_res[metric.name] = self._evaluate_custom(
-                    model, data_root, metric, dataloader, eval_func, post_func, device, execution_providers
+                    model, data_root, metric, dataloader, eval_func, post_func, device, device_id, execution_providers
                 )
             else:
                 raise TypeError(f"{metric.type} is not a supported metric type")
@@ -345,7 +351,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         session: ONNXRuntime session
         input_data: dict of input data, value is numpy array
         device: olive device
-        device_id: 0 by default. TODO(trajep): support user to specified device id
+        device_id: 0 by default.
         shared_kv_buffer: whether to share the key/value buffer across multiple runs, it is False by default,
             and only used when we observe kv cache and fp16 is used.
             TODO(trajep): how shared_kv_buffer works with generation task
@@ -381,7 +387,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
                 input_name = name.replace("out", "cache").replace("present", "past_key_values")
                 io_bind_op.bind_ortvalue_output(name, kv_cache_ortvalues[input_name])
             else:
-                io_bind_op.bind_output(name, io_bind_device)
+                io_bind_op.bind_output(name, io_bind_device, device_id)
 
         return io_bind_op
 
@@ -392,11 +398,13 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         dataloader: Dataset,
         post_func=None,
         device: Device = Device.CPU,
+        device_id: int = 0,
         execution_providers: Union[str, List[str]] = None,
     ) -> Tuple[OliveModelOutput, Any]:
         session = model.prepare_session(
             inference_settings=self.get_inference_settings(metric),
             device=device,
+            rank=device_id,
             execution_providers=execution_providers,
         )
 
@@ -442,9 +450,12 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         dataloader: Dataset,
         post_func=None,
         device: Device = Device.CPU,
+        device_id: int = 0,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
-        inference_output, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
+        inference_output, targets = self._inference(
+            model, metric, dataloader, post_func, device, device_id, execution_providers
+        )
         return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
 
     def _evaluate_onnx_latency(
@@ -454,6 +465,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         dataloader: Dataset,
         post_func=None,
         device: Device = Device.CPU,
+        device_id: int = 0,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
@@ -461,6 +473,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         session = model.prepare_session(
             inference_settings=self.get_inference_settings(metric),
             device=device,
+            rank=device_id,
             execution_providers=execution_providers,
         )
         OnnxEvaluator.disable_ort_fallback(session, execution_providers)
@@ -686,10 +699,13 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         dataloader: Dataset,
         post_func=None,
         device: Device = Device.CPU,
+        device_id: int = 0,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
         if isinstance(model, ONNXModel):
-            return self._evaluate_onnx_accuracy(model, metric, dataloader, post_func, device, execution_providers)
+            return self._evaluate_onnx_accuracy(
+                model, metric, dataloader, post_func, device, device_id, execution_providers
+            )
         elif isinstance(model, DistributedOnnxModel):
             if device != Device.GPU:
                 raise ValueError("Distributed inferencing is supported only on GPU")
@@ -705,10 +721,13 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         dataloader: Dataset,
         post_func=None,
         device: Device = Device.CPU,
+        device_id: int = 0,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
         if isinstance(model, ONNXModel):
-            return self._evaluate_onnx_latency(model, metric, dataloader, post_func, device, execution_providers)
+            return self._evaluate_onnx_latency(
+                model, metric, dataloader, post_func, device, device_id, execution_providers
+            )
         elif isinstance(model, DistributedOnnxModel):
             if device != Device.GPU:
                 raise ValueError("Distributed inferencing is supported only on GPU")
@@ -737,8 +756,8 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         super().__init__()
 
     @staticmethod
-    def _device_string_to_torch_device(device: Device):
-        return torch.device("cuda") if device == Device.GPU else torch.device(device)
+    def _device_string_to_torch_device(device: Device, device_id: int = 0):
+        return torch.device(f"cuda:{device_id}") if device == Device.GPU else torch.device(device)
 
     @torch.no_grad()
     def _inference(
@@ -748,9 +767,12 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         dataloader: Dataset,
         post_func=None,
         device: Device = Device.CPU,
+        device_id: int = 0,
         execution_providers: Union[str, List[str]] = None,
     ) -> Tuple[OliveModelOutput, Any]:
-        session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
+        session = model.prepare_session(
+            inference_settings=self.get_inference_settings(metric), device=device, rank=device_id
+        )
 
         preds = []
         targets = []
@@ -791,9 +813,12 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         dataloader: Dataset,
         post_func=None,
         device: Device = Device.CPU,
+        device_id: int = 0,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
-        inference_output, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
+        inference_output, targets = self._inference(
+            model, metric, dataloader, post_func, device, device_id, execution_providers
+        )
         return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
 
     @torch.no_grad()
@@ -805,15 +830,18 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         dataloader: Dataset,
         post_func=None,
         device: Device = Device.CPU,
+        device_id: int = 0,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
         # pylint: disable=expression-not-assigned
         warmup_num, repeat_test_num, _ = get_latency_config_from_metric(metric)
-        session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
+        session = model.prepare_session(
+            inference_settings=self.get_inference_settings(metric), device=device, rank=device_id
+        )
 
         input_data, _ = next(iter(dataloader))
-        device = PyTorchEvaluator._device_string_to_torch_device(device)
         is_cuda = device == Device.GPU
+        device = PyTorchEvaluator._device_string_to_torch_device(device, device_id)
         if device:
             session.to(device)
             input_data = tensor_data_to_device(input_data, device)
@@ -867,10 +895,13 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         dataloader: Dataset,
         post_func=None,
         device: Device = Device.CPU,
+        device_id: int = 0,
         execution_providers: Union[str, List[str]] = None,
     ) -> Tuple[OliveModelOutput, Any]:
         dataloader = self._prepare_dataloader(dataloader, model)
-        session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
+        session = model.prepare_session(
+            inference_settings=self.get_inference_settings(metric), device=device, rank=device_id
+        )
 
         preds = []
         targets = []
@@ -895,9 +926,12 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         dataloader: Dataset,
         post_func=None,
         device: Device = Device.CPU,
+        device_id: int = 0,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
-        inference_output, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
+        inference_output, targets = self._inference(
+            model, metric, dataloader, post_func, device, device_id, execution_providers
+        )
         return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
 
     def _evaluate_latency(
@@ -908,11 +942,14 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         dataloader: Dataset,
         post_func=None,
         device: Device = Device.CPU,
+        device_id: int = 0,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
         dataloader = self._prepare_dataloader(dataloader, model)
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
-        session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
+        session = model.prepare_session(
+            inference_settings=self.get_inference_settings(metric), device=device, rank=device_id
+        )
 
         data_dir, input_data, _ = next(iter(dataloader))
         total_runs = warmup_num + repeat_test_num
@@ -938,9 +975,12 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
         dataloader: Dataset,
         post_func=None,
         device: Device = Device.CPU,
+        device_id: int = 0,
         execution_providers: Union[str, List[str]] = None,
     ) -> Tuple[OliveModelOutput, Any]:
-        session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
+        session = model.prepare_session(
+            inference_settings=self.get_inference_settings(metric), device=device, rank=device_id
+        )
 
         preds = []
         targets = []
@@ -963,9 +1003,12 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
         dataloader: Dataset,
         post_func=None,
         device: Device = Device.CPU,
+        device_id: int = 0,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
-        inference_output, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
+        inference_output, targets = self._inference(
+            model, metric, dataloader, post_func, device, device_id, execution_providers
+        )
         return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
 
     def _evaluate_latency(
@@ -976,9 +1019,12 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
         dataloader: Dataset,
         post_func=None,
         device: Device = Device.CPU,
+        device_id: int = 0,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
-        session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
+        session = model.prepare_session(
+            inference_settings=self.get_inference_settings(metric), device=device, rank=device_id
+        )
 
         latencies = []
         for input_data, _ in dataloader:

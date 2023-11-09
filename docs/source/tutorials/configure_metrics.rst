@@ -160,7 +160,7 @@ for :code:`"user_script.py"`.
 Here is an example of the :code:`"eval_accuracy"` function in :code:`"user_script.py"`:
 In your :code:`"user_script.py"`, you need to define a function that takes in an Olive model, the data directory, and the batch size, and returns a metric value::
 
-        def eval_accuracy(model, data_dir, batch_size, device, execution_providers):
+        def eval_accuracy(model, data_dir, batch_size, device, device_id, execution_providers):
             # load data
             # evaluate model
             # return metric value

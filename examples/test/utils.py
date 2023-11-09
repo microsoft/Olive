@@ -86,7 +86,7 @@ def set_aml_system(olive_config, is_gpu=False):
         olive_config["systems"]["aml_system"] = {
             "type": "AzureML",
             "config": {
-                "accelerators": ["GPU"],
+                "accelerators": ["gpu"],
                 "aml_compute": "gpu-cluster",
                 "aml_docker_config": {
                     "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.6-cudnn8-ubuntu20.04",

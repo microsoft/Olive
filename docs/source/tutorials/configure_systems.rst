@@ -35,6 +35,11 @@ Local System
 
 Please refer to :ref:`local_system_config` for more details on the config options.
 
+.. note::
+
+    If you decide to use gpu accelerators, you can set the value of :code:`"accelerators"` as :code:`["gpu"]` to use default gpu device-0 or :code:`["cuda:1"]` to use default gpu device-1 as `torch` did.
+
+
 AzureML System
 ---------------
 

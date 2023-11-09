@@ -5,7 +5,7 @@
 from olive.model import OliveModel
 
 
-def eval_func(model: OliveModel, data_dir, batch_size, device, execution_providers):
+def eval_func(model: OliveModel, data_dir, batch_size, device, device_id, execution_providers):
     return 0.382715310
 
 

@@ -129,7 +129,7 @@ def calib_dataloader(data_dir, batch_size, *args, **kwargs):
     return PileDataloader(model_path, batch_size=batch_size)
 
 
-def eval_accuracy(model: OliveModel, data_dir, batch_size, device, execution_providers):
+def eval_accuracy(model: OliveModel, data_dir, batch_size, device, device_id, execution_providers):
     from intel_extension_for_transformers.llm.evaluation.lm_eval import evaluate
 
     if model.framework == Framework.PYTORCH:

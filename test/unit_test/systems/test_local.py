@@ -94,15 +94,15 @@ class TestLocalSystem:
         # assert
         if metric.type == MetricType.ACCURACY:
             mock_evaluate_accuracy.assert_called_once_with(
-                olive_model, None, metric, None, None, "cpu", "CPUExecutionProvider"
+                olive_model, None, metric, None, None, "cpu", 0, "CPUExecutionProvider"
             )
         if metric.type == MetricType.LATENCY:
             mock_evaluate_latency.assert_called_once_with(
-                olive_model, None, metric, None, None, "cpu", "CPUExecutionProvider"
+                olive_model, None, metric, None, None, "cpu", 0, "CPUExecutionProvider"
             )
         if metric.type == MetricType.CUSTOM:
             mock_evaluate_custom.assert_called_once_with(
-                olive_model, None, metric, None, None, None, "cpu", "CPUExecutionProvider"
+                olive_model, None, metric, None, None, None, "cpu", 0, "CPUExecutionProvider"
             )
 
         joint_keys = [joint_metric_key(metric.name, sub_metric.name) for sub_metric in metric.sub_types]

@@ -343,10 +343,15 @@ class ONNXModel(ONNXModelBase):
             pass
         inference_settings["execution_provider"] = execution_providers
 
-        if (device == Device.GPU) and (rank is not None) and not inference_settings.get("provider_options"):
-            inference_settings["provider_options"] = [
-                {"device_id": str(rank)} if ep == "CUDAExecutionProvider" else {} for ep in execution_providers
-            ]
+        if device == Device.GPU:
+            # if provider_options is already set, we don't need to set it again
+            # provider_options can be [] if we run inference_settings.get("provider_options", [{}])
+            provider_options = inference_settings.get("provider_options", [{}]) or [{}]
+            is_device_id_set = any(opt.get("device_id") for opt in provider_options)
+            is_cuda_ep = any("CUDAExecutionProvider" in ep for ep in execution_providers)
+            if not is_device_id_set and is_cuda_ep:
+                provider_options[0].update({"device_id": rank})
+                inference_settings["provider_options"] = provider_options
 
         return get_ort_inference_session(self.model_path, inference_settings, self.use_ort_extensions)
 

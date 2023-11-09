@@ -190,11 +190,13 @@ def inc_glue_calibration_reader(data_dir, batch_size, *args, **kwargs):
 # -------------------------------------------------------------------------
 
 
-def eval_accuracy(model: OliveModel, data_dir, batch_size, device, execution_providers):
+def eval_accuracy(model: OliveModel, data_dir, batch_size, device, device_id, execution_providers):
     dataloader = create_dataloader(data_dir, batch_size)
     preds = []
     target = []
-    sess = model.prepare_session(inference_settings=None, device=device, execution_providers=execution_providers)
+    sess = model.prepare_session(
+        inference_settings=None, device=device, rank=device_id, execution_providers=execution_providers
+    )
     if model.framework == Framework.ONNX:
         input_names = [i.name for i in sess.get_inputs()]
         output_names = [o.name for o in sess.get_outputs()]
