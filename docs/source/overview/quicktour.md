@@ -33,6 +33,21 @@ You can use setup mode `python -m olive.workflows.run --config my_model_accelera
 
 You can also change the default directory for temporary files and directories using `--tempdir` option.
 Set this to a local directory if you want to avoid using the default tempdir for reasons such as disk space and permissions.
+
+If you want to use different device ids specially for cuda device, please set `CUDA_VISIBLE_DEVICES` to the desired device ids, like:
+
+    # linux
+    CUDA_VISIBLE_DEVICES=2,3 python -m olive.workflows.run --config my_model_acceleration_description.json
+
+    # windows
+    set CUDA_VISIBLE_DEVICES=2,3 & python -m olive.workflows.run --config my_model_acceleration_description.json
+
+    # python
+    import os
+    from olive.workflows import run as olive_run
+    os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
+    olive_run("my_model_acceleration_description.json")
+
 ```
 
 ## Information needed to accelerate a model
