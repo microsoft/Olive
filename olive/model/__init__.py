@@ -752,7 +752,7 @@ class PyTorchModel(OliveModel):
 class OptimumModel(PyTorchModel):
     def __init__(self, model_components: List[str], **kwargs):
         kwargs = kwargs or {}
-        kwargs["model_file_format"] = ModelFileFormat.OPTIMUM
+        kwargs["model_file_format"] = ModelFileFormat.COMPOSITE_MODEL
         super().__init__(**kwargs)
         self.model_components = model_components
 
@@ -765,7 +765,7 @@ class OptimumModel(PyTorchModel):
 class CompositePyTorchModel(PyTorchModel):
     def __init__(self, model_components: List[Dict[str, Any]], **kwargs):
         kwargs = kwargs or {}
-        kwargs["model_file_format"] = ModelFileFormat.PYTORCH_ENTIRE_MODEL
+        kwargs["model_file_format"] = ModelFileFormat.COMPOSITE_MODEL
         super().__init__(**kwargs)
         self.model_components = model_components
         self.pytorch_models = {}
