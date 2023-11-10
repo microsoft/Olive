@@ -33,13 +33,9 @@ def optimize(optimized_model_dir: Path, model_type: str):
 
             # ORT-DML doesn't support SimplifiedLayerNorm or SkipSimplifiedLayerNorm yet, so only enable the fusions if
             # LayerNorm is selected
-            if submodel_name == "llama_v2":
-                olive_config["passes"]["optimize"]["config"]["optimization_options"][
-                    "enable_layer_norm"
-                ] = config.use_layer_norm
-
-                if config.use_layer_norm:
-                    del olive_config["passes"]["optimize"]["config"]["force_fp32_nodes"]
+            if submodel_name == "llama_v2" and config.normalization_type == "layer_norm":
+                olive_config["passes"]["optimize"]["config"]["optimization_options"]["enable_layer_norm"] = True
+                del olive_config["passes"]["optimize"]["config"]["force_fp32_nodes"]
 
         olive_run(olive_config)
 
@@ -148,9 +144,11 @@ if __name__ == "__main__":
         help="Expose the web UI on the local network (does nothing if --interactive is not supplied)",
     )
     parser.add_argument(
-        "--use_layer_norm",
-        action="store_true",
-        help="If true, use LayerNorm normalization. Otherwise, use RMS (Root Mean Squared Normlization)",
+        "--normalization_type",
+        default="layer_norm",
+        choices=["layer_norm", "rms"],
+        help="Whether to use LayerNorm for the normalization layers or RMS.",
+        type=str,
     )
     parser.add_argument("--prompt", default="What is the lightest element?", type=str)
     parser.add_argument("--max_seq_len", default=2048, type=int, help="The size of the cache")
@@ -167,8 +165,8 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    config.use_layer_norm = args.use_layer_norm
     config.model_type = args.model_type
+    config.normalization_type = args.normalization_type
 
     script_dir = Path(__file__).resolve().parent
     optimized_model_dir = script_dir / "models" / "optimized" / "llama_v2"

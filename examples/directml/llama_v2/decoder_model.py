@@ -15,12 +15,15 @@ class DecoderModel(torch.nn.Module):
         hidden_size: int,
         n_heads: int,
         scale_type: str,
-        use_layer_norm: bool,
+        normalization_type: str,
     ) -> None:
         super().__init__()
         self.tok_embeddings = torch.nn.Embedding(vocab_size, hidden_size)
 
-        self.norm = LayerNorm(hidden_size, eps=1e-5) if use_layer_norm else RMSNorm(hidden_size, eps=1e-5)
+        self.norm = {
+            "layer_norm": LayerNorm(hidden_size, eps=1e-5),
+            "rms": RMSNorm(hidden_size, eps=1e-5),
+        }[normalization_type]
 
         self.layers = torch.nn.ModuleList()
         for _ in range(n_layers):
@@ -28,7 +31,7 @@ class DecoderModel(torch.nn.Module):
                 hidden_size,
                 n_heads,
                 scale_type,
-                use_layer_norm,
+                normalization_type,
             )
             self.layers.append(layer)
 
@@ -137,12 +140,18 @@ class TransformerLayer(torch.nn.Module):
         hidden_size: int,
         n_heads: int,
         scale_type: str,
-        use_layer_norm: bool,
+        normalization_type: str,
     ) -> None:
         super().__init__()
-        # these should have variable eps.
-        self.attention_norm = LayerNorm(hidden_size, eps=1e-6) if use_layer_norm else RMSNorm(hidden_size, eps=1e-6)
-        self.ffn_norm = LayerNorm(hidden_size, eps=1e-6) if use_layer_norm else RMSNorm(hidden_size, eps=1e-6)
+        self.attention_norm = {
+            "layer_norm": LayerNorm(hidden_size, eps=1e-6),
+            "rms": RMSNorm(hidden_size, eps=1e-6),
+        }[normalization_type]
+
+        self.ffn_norm = {
+            "layer_norm": LayerNorm(hidden_size, eps=1e-6),
+            "rms": RMSNorm(hidden_size, eps=1e-6),
+        }[normalization_type]
 
         self.cos, self.sin = rotary_mat(hidden_size, n_heads, 4096, head_scale=1.0)
 

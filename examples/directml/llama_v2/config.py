@@ -4,5 +4,5 @@
 # --------------------------------------------------------------------------
 
 decoder_model = None
-use_layer_norm = False
+normalization_type = None
 model_type = None
