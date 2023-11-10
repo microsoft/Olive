@@ -892,14 +892,51 @@
 <span class="k">class</span> <span class="nc">OptimumModel</span><span class="p">(</span><span class="n">PyTorchModel</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_components</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="n">kwargs</span> <span class="o">=</span> <span class="n">kwargs</span> <span class="ow">or</span> <span class="p">{}</span>
-        <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;model_file_format&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">OPTIMUM</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">),</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;model_file_format&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">COMPOSITE_MODEL</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model_components</span> <span class="o">=</span> <span class="n">model_components</span>
 
     <span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
         <span class="n">config</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="p">)</span>
         <span class="n">config</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;model_components&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_components</span><span class="p">})</span>
         <span class="k">return</span> <span class="n">serialize_to_json</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">check_object</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="CompositePyTorchModel"><a class="viewcode-back" href="../../api/models.html#olive.model.CompositePyTorchModel">[docs]</a><span class="k">class</span> <span class="nc">CompositePyTorchModel</span><span class="p">(</span><span class="n">PyTorchModel</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_components</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">kwargs</span> <span class="o">=</span> <span class="n">kwargs</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;model_file_format&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">COMPOSITE_MODEL</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_components</span> <span class="o">=</span> <span class="n">model_components</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pytorch_models</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_component_names</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">model_config</span> <span class="ow">in</span> <span class="n">model_components</span><span class="p">:</span>
+            <span class="n">config_copy</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">model_config</span><span class="p">)</span>
+
+            <span class="k">assert</span> <span class="s2">&quot;name&quot;</span> <span class="ow">in</span> <span class="n">config_copy</span>
+            <span class="n">model_name</span> <span class="o">=</span> <span class="n">config_copy</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
+            <span class="k">del</span> <span class="n">config_copy</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">model_component_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">model_name</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pytorch_models</span><span class="p">[</span><span class="n">model_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">config_copy</span><span class="p">,</span> <span class="n">ModelConfig</span><span class="p">)</span><span class="o">.</span><span class="n">create_model</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="p">)</span>
+        <span class="n">config</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;model_components&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_components</span><span class="p">})</span>
+        <span class="k">return</span> <span class="n">serialize_to_json</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">check_object</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">components</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Names of the components of the model.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_component_names</span>
+
+    <span class="k">def</span> <span class="nf">get_component</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">component_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;PyTorchModel&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a component of the model as a PyTorchModel.&quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="n">component_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pytorch_models</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;component </span><span class="si">{</span><span class="n">component_name</span><span class="si">}</span><span class="s2"> not found in model_components&quot;</span>
+
+        <span class="c1"># get the component from the name</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pytorch_models</span><span class="p">[</span><span class="n">component_name</span><span class="p">]</span></div>
 
 
 <div class="viewcode-block" id="SNPEModel"><a class="viewcode-back" href="../../api/models.html#olive.model.SNPEModel">[docs]</a><span class="k">class</span> <span class="nc">SNPEModel</span><span class="p">(</span><span class="n">OliveModel</span><span class="p">):</span>
