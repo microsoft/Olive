@@ -74,7 +74,11 @@ def run_llama_v2_io_binding(
 
     hidden_size = 4096
     n_heads = 32
-    n_layers = 32
+    n_layers = 0
+
+    for inputs_meta in llm_session._inputs_meta:
+        if inputs_meta.name.startswith("cache.") and inputs_meta.name.endswith(".key"):
+            n_layers += 1
 
     binding_device = "dml"
 
