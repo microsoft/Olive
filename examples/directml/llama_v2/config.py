@@ -6,3 +6,4 @@
 decoder_model = None
 normalization_type = None
 model_type = None
+num_layers = 32

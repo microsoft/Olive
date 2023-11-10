@@ -49,7 +49,6 @@ def argmax_sampling_data_loader(data_dir, batch_size, *args, **kwargs):
 
 
 def get_or_create_decoder_model():
-    num_layers = 32
     num_heads = 32
     vocab_size = 32000
     hidden_size = 4096
@@ -61,7 +60,7 @@ def get_or_create_decoder_model():
     # very difficult.
     if config.decoder_model is None:
         config.decoder_model = DecoderModel(
-            num_layers,
+            config.num_layers,
             vocab_size,
             hidden_size,
             num_heads,
@@ -84,7 +83,7 @@ def get_or_create_decoder_model():
                 .reshape(hidden_size, hidden_size)
             )
 
-        for layer_idx in range(num_layers):
+        for layer_idx in range(config.num_layers):
             state_dict[f"layers.{layer_idx}.attention.wq.weight"] = permute(
                 state_dict[f"layers.{layer_idx}.attention.wq.weight"]
             )
@@ -93,7 +92,8 @@ def get_or_create_decoder_model():
             )
 
         del state_dict["rope.freqs"]
-        config.decoder_model.load_state_dict(state_dict)
+        strict = config.num_layers == 32
+        config.decoder_model.load_state_dict(state_dict, strict=strict)
 
     return config.decoder_model
 
@@ -109,7 +109,6 @@ def decoder_inputs(model):
     seq_len = 10
     hidden_size = 4096
     max_seq_len = 2048
-    num_layers = 32
     num_heads = 32
     head_size = hidden_size // num_heads
 
@@ -122,7 +121,7 @@ def decoder_inputs(model):
                 "key": torch.rand((batch_size, num_heads, max_seq_len, head_size), dtype=torch.float32),
                 "value": torch.rand((batch_size, num_heads, max_seq_len, head_size), dtype=torch.float32),
             }
-            for _ in range(num_layers)
+            for _ in range(config.num_layers)
         ],
     }
 
@@ -142,7 +141,6 @@ def decoder_with_past_inputs(model):
     batch_size = 1
     hidden_size = 4096
     max_seq_len = 2048
-    num_layers = 32
     num_heads = 32
     head_size = hidden_size // num_heads
     return {
@@ -154,7 +152,7 @@ def decoder_with_past_inputs(model):
                 "key": torch.rand((batch_size, num_heads, max_seq_len, head_size), dtype=torch.float32),
                 "value": torch.rand((batch_size, num_heads, max_seq_len, head_size), dtype=torch.float32),
             }
-            for _ in range(num_layers)
+            for _ in range(config.num_layers)
         ],
     }
 
@@ -168,7 +166,6 @@ def merged_decoders_inputs(model):
     batch_size = 1
     hidden_size = 4096
     max_seq_len = 2048
-    num_layers = 32
     num_heads = 32
     head_size = hidden_size // num_heads
     seq_len = 10
@@ -179,7 +176,7 @@ def merged_decoders_inputs(model):
         "attn_mask": torch.zeros((batch_size, max_seq_len), dtype=torch.int32),
     }
 
-    for layer_idx in range(num_layers):
+    for layer_idx in range(config.num_layers):
         inputs[f"cache.{layer_idx}.key"] = torch.rand(
             (batch_size, num_heads, max_seq_len, head_size), dtype=torch.float32
         )

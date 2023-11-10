@@ -33,9 +33,37 @@ def optimize(optimized_model_dir: Path, model_type: str):
 
             # ORT-DML doesn't support SimplifiedLayerNorm or SkipSimplifiedLayerNorm yet, so only enable the fusions if
             # LayerNorm is selected
-            if submodel_name == "llama_v2" and config.normalization_type == "layer_norm":
-                olive_config["passes"]["optimize"]["config"]["optimization_options"]["enable_layer_norm"] = True
-                del olive_config["passes"]["optimize"]["config"]["force_fp32_nodes"]
+            if submodel_name == "llama_v2":
+                if config.normalization_type == "layer_norm":
+                    olive_config["passes"]["optimize"]["config"]["optimization_options"]["enable_layer_norm"] = True
+                    del olive_config["passes"]["optimize"]["config"]["force_fp32_nodes"]
+
+                # Fewer than 32 layers can be provided for debugging purposes so we have to remove them from the config
+                if config.num_layers < 32:
+                    model_components = olive_config["input_model"]["config"]["model_components"]
+                    for model_component in model_components:
+                        layer_range = range(config.num_layers, 32)
+
+                        # Remove the extra inputs
+                        key_inputs_to_remove = {f"cache.{idx}.key" for idx in layer_range}
+                        value_inputs_to_remove = {f"cache.{idx}.value" for idx in layer_range}
+                        input_names = model_component["config"]["io_config"]["input_names"]
+                        input_names = [x for x in input_names if x not in key_inputs_to_remove]
+                        input_names = [x for x in input_names if x not in value_inputs_to_remove]
+                        model_component["config"]["io_config"]["input_names"] = input_names
+
+                        # Remove the extra outputs
+                        key_output_to_remove = {f"cache_out.{idx}.key" for idx in layer_range}
+                        value_output_to_remove = {f"cache_out.{idx}.value" for idx in layer_range}
+                        output_names = model_component["config"]["io_config"]["output_names"]
+                        output_names = [x for x in output_names if x not in key_output_to_remove]
+                        output_names = [x for x in output_names if x not in value_output_to_remove]
+                        model_component["config"]["io_config"]["output_names"] = output_names
+
+                        # Remove the dynamic axes
+                        for idx in layer_range:
+                            del model_component["config"]["io_config"]["dynamic_axes"][f"cache.{idx}.key"]
+                            del model_component["config"]["io_config"]["dynamic_axes"][f"cache.{idx}.value"]
 
         olive_run(olive_config)
 
@@ -163,10 +191,19 @@ if __name__ == "__main__":
         "version is the finetuned model optimized for chat.",
         type=str,
     )
+    parser.add_argument(
+        "--num_layers",
+        default=32,
+        help="This is a debugging option to be able to quickly generate and optimize an ONNX model with fewer layers "
+        "than 32 that barely takes any memory and is easy to load in Netron. This value should ALWAYS be 32 for "
+        "production purposes.",
+        type=int,
+    )
     args = parser.parse_args()
 
     config.model_type = args.model_type
     config.normalization_type = args.normalization_type
+    config.num_layers = args.num_layers
 
     script_dir = Path(__file__).resolve().parent
     optimized_model_dir = script_dir / "models" / "optimized" / "llama_v2"
