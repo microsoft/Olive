@@ -764,14 +764,51 @@ class PyTorchModel(OliveModel):
 class OptimumModel(PyTorchModel):
     def __init__(self, model_components: List[str], **kwargs):
         kwargs = kwargs or {}
-        kwargs["model_file_format"] = ModelFileFormat.OPTIMUM
-        super().__init__(**kwargs),
+        kwargs["model_file_format"] = ModelFileFormat.COMPOSITE_MODEL
+        super().__init__(**kwargs)
         self.model_components = model_components
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
         config["config"].update({"model_components": self.model_components})
         return serialize_to_json(config, check_object)
+
+
+class CompositePyTorchModel(PyTorchModel):
+    def __init__(self, model_components: List[Dict[str, Any]], **kwargs):
+        kwargs = kwargs or {}
+        kwargs["model_file_format"] = ModelFileFormat.COMPOSITE_MODEL
+        super().__init__(**kwargs)
+        self.model_components = model_components
+        self.pytorch_models = {}
+        self.model_component_names = []
+
+        for model_config in model_components:
+            config_copy = deepcopy(model_config)
+
+            assert "name" in config_copy
+            model_name = config_copy["name"]
+            del config_copy["name"]
+
+            self.model_component_names.append(model_name)
+            self.pytorch_models[model_name] = validate_config(config_copy, ModelConfig).create_model()
+
+    def to_json(self, check_object: bool = False):
+        config = super().to_json(check_object)
+        config["config"].update({"model_components": self.model_components})
+        return serialize_to_json(config, check_object)
+
+    @property
+    def components(self) -> List[str]:
+        """Names of the components of the model."""
+        return self.model_component_names
+
+    def get_component(self, component_name: str) -> "PyTorchModel":
+        """Get a component of the model as a PyTorchModel."""
+        assert component_name in self.pytorch_models, f"component {component_name} not found in model_components"
+
+        # get the component from the name
+        return self.pytorch_models[component_name]
 
 
 class SNPEModel(OliveModel):

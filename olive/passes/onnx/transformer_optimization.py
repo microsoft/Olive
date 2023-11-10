@@ -233,6 +233,7 @@ class OrtTransformersOptimization(Pass):
                 node_block_list=config["force_fp32_nodes"],
                 force_fp16_inputs=config["force_fp16_inputs"],
             )
+
             if config["use_gqa"]:
                 # Replace MultiHeadAttention with GroupQueryAttention
                 # TODO(anyone): treat `num_key_value_heads` like `num_heads` and `hidden_size`.

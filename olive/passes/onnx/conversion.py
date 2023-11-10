@@ -188,19 +188,16 @@ class OnnxConversion(Pass):
             if isinstance(dummy_inputs, dict):
                 dummy_input_keys = set(dummy_inputs.keys())
 
-                # handle dummy inputs for hf model with past, which has past_key_values
+                # handle dummy inputs for model with past, which has past_key_values
                 # match input names in `past_key_values.(hidden_layer_num).(key|value)` pattern
-                from transformers.modeling_utils import PreTrainedModel
-
-                if issubclass(type(pytorch_model), PreTrainedModel):
-                    for name, dm_input in dummy_inputs.items():
-                        if isinstance(dm_input, list):
-                            key_value_names = set(
-                                [f"{name}.{idx}.key" for idx in range(len(dm_input))]
-                                + [f"{name}.{idx}.value" for idx in range(len(dm_input))]
-                            )
-                            if key_value_names.issubset(set(input_names)):
-                                dummy_input_keys.discard(name)
+                for name, dm_input in dummy_inputs.items():
+                    if isinstance(dm_input, list):
+                        key_value_names = set(
+                            [f"{name}.{idx}.key" for idx in range(len(dm_input))]
+                            + [f"{name}.{idx}.value" for idx in range(len(dm_input))]
+                        )
+                        if key_value_names.issubset(set(input_names)):
+                            dummy_input_keys.discard(name)
 
                 unused_keys = dummy_input_keys - set(input_names)
 
