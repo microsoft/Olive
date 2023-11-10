@@ -407,7 +407,7 @@ class LoRABase(Pass):
                 # use fp16 mixed precision training
                 config.training_args.extra_args["fp16"] = True
             # create training args
-            logger.debug(f"Training args: {config.training_args}")
+            logger.debug(f"Training args: {config.training_args.dict()}")
 
             trainer_cls = transformers.Trainer
             if config.use_ort_trainer:
