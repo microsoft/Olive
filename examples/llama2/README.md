@@ -105,7 +105,7 @@ python -m olive.workflows.run --config lamma2_qlora.json
 | GPU-V100 | ONNX Runtime | INT4 | 118.51050 |
 
 1. cpu info:  Intel(R) Xeon(R) Platinum 8168 CPU @ 2.70GHz
-2. int4 is fully optimized for inference as of now.
+2. int4 is not fully optimized for inference as of now.
 
 
 ## TODO
