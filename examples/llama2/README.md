@@ -37,12 +37,12 @@ This example requires onnxruntime>=1.16.2. Please install the latest version of 
 
 For CPU:
 ```bash
-python -m pip install onnxruntime>=1.16.2
+python -m pip install "onnxruntime>=1.16.2"
 ```
 
 For GPU:
 ```bash
-python -m pip install onnxruntime-gpu>=1.16.2
+python -m pip install "onnxruntime-gpu>=1.16.2"
 ```
 
 **Note:** The GPU package also works for CPU.
@@ -82,6 +82,31 @@ Run the following command to execute the workflow:
 python -m olive.workflows.run --config lamma2_qlora.json
 ```
 
+
+## Performance comparison
+### meta-llama/Llama-2-7b-hf
+
+| Device | Framework | Precision | Latency (ms) |
+| :--- | :--- | :---: | :--- |
+| **CPU** | | | |
+| CPU | PyTorch | FP32 | 6970.78555 |
+| CPU | ONNX Runtime | FP32 | 1890.88653 |
+| CPU | ONNX Runtime | INT8 | <span style="color:green">1021.12089</span> |
+| CPU | ONNX Runtime | INT4 | 6502.83326 |
+| **GPU-A100** | | |  |
+| GPU-A100 | PyTorch | FP32 | 37.87534 |
+| GPU-A100 | ONNX Runtime | FP32 | 24.04713 |
+| GPU-A100 | ONNX Runtime | FP16 | <span style="color:green">11.02307</span> |
+| GPU-A100 | ONNX Runtime | INT4 | 21.92193 |
+| **GPU-V100** | | | |
+| GPU-V100 | PyTorch | FP16 | 122.27091 |
+| GPU-V100 | ONNX Runtime | FP32 | 195.86112 |
+| GPU-V100 | ONNX Runtime | FP16 | <span style="color:green">52.72360</span> |
+| GPU-V100 | ONNX Runtime | INT4 | 118.51050 |
+
+1. cpu info:  Intel(R) Xeon(R) Platinum 8168 CPU @ 2.70GHz
+2. int4 is not fully optimized for inference as of now.
+
+
 ## TODO
 - [ ] Add generation example of the optimized model.
-- [ ] Attach the benchmark results.
