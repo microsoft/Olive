@@ -103,8 +103,8 @@ class HFTrainingArguments(ConfigWithExtraArgs):
         # use_module_with_loss is a field of optimum.onnxruntime.ORTTrainingArguments
         training_args_fields.add("use_module_with_loss")
         for k in list(v):  # need a copy of the keys since we are mutating the dict
-            if k == "output_dir":
-                logger.warning(f"Extra arg {k} is not allowed. Please use `training_output_dir` instead.")
+            if k == "fp16":
+                logger.warning(f"Extra arg {k} is not allowed. Please use `torch_dtype` instead.")
                 del v[k]
             elif k not in training_args_fields:
                 logger.warning(f"Extra arg {k} is not a field of transformers.TrainingArguments. Ignoring.")
@@ -160,9 +160,8 @@ class LoRABase(Pass):
                 type_=str,
                 default_value="bfloat16",
                 description=(
-                    "Data type for model weights and adapter weights. For 4bit quantized model, "
-                    "it is also the computation data type for the quantized modules. "
-                    "Should be one of `bfloat16`, `float16` or `float32`."
+                    "Data type to use for training. Should be one of `bfloat16`, `float16` or `float32`. If `float16`"
+                    " will use fp16 mixed-precision training."
                 ),
             ),
             "allow_tf32": PassConfigParam(
@@ -369,6 +368,7 @@ class LoRABase(Pass):
         data_root: str,
         output_model: PyTorchModel,
         output_model_path: str,
+        torch_dtype: torch.dtype,
     ) -> PyTorchModel:
         if torch.cuda.is_available():
             allow_tf32 = torch.backends.cuda.matmul.allow_tf32
@@ -399,10 +399,15 @@ class LoRABase(Pass):
         # Plus the cleanup after error doesn't work as expected with notebooks
         with tempfile.TemporaryDirectory(prefix="olive_tmp") as temp_dir:
             if not config.training_args.output_dir:
-                logger.info("No training_output_dir provided. Using a temp dir.")
+                logger.info("No training_args.output_dir provided. Using a temp dir.")
                 config.training_args.output_dir = temp_dir
                 # set save_total_limit to 1 since the temp dir will be deleted after training
                 config.training_args.extra_args["save_total_limit"] = 1
+            if torch_dtype == torch.float16:
+                # use fp16 mixed precision training
+                config.training_args.extra_args["fp16"] = True
+            # create training args
+            logger.debug(f"Training args: {config.training_args}")
 
             trainer_cls = transformers.Trainer
             if config.use_ort_trainer:
@@ -553,15 +558,17 @@ class LoRA(LoRABase):
         new_model = self.input_model_check(deepcopy(model))
 
         torch_dtype = self.get_torch_dtype(config.torch_dtype)
+        # will use mixed precision since full fp16 is unstable
+        model_dtype = torch_dtype if torch_dtype != torch.float16 else torch.float32
 
         # load model, reset model_loading_args and adapter_path
         model_loading_args = (
             new_model.hf_config.model_loading_args.dict() if new_model.hf_config.model_loading_args else {}
         )
-        model_loading_args.update({"torch_dtype": torch_dtype, "device_map": "auto"})
+        model_loading_args.update({"torch_dtype": model_dtype, "device_map": "auto"})
         new_model.hf_config.model_loading_args = HFModelLoadingArgs(**model_loading_args)
         pytorch_model = new_model.load_model()
-        pytorch_model.config.torch_dtype = torch_dtype
+        pytorch_model.config.torch_dtype = model_dtype
 
         # tokenizer
         tokenizer = AutoTokenizer.from_pretrained(new_model.hf_config.model_name)
@@ -572,7 +579,9 @@ class LoRA(LoRABase):
         )
 
         # train and return new model
-        return self.train_and_save_new_model(pytorch_model, tokenizer, config, data_root, new_model, output_model_path)
+        return self.train_and_save_new_model(
+            pytorch_model, tokenizer, config, data_root, new_model, output_model_path, torch_dtype
+        )
 
 
 class QLoRA(LoRABase):
@@ -600,6 +609,13 @@ class QLoRA(LoRABase):
                 default_value="nf4",
                 description="Quantization data type to use. Should be one of `fp4` or `nf4`.",
             ),
+            "compute_dtype": PassConfigParam(
+                type_=str,
+                description=(
+                    "Computation data type for the quantized modules. If not provided, will use the same dtype as"
+                    " torch_dtype"
+                ),
+            ),
         }
         config.update(LoRABase._default_config(accelerator_spec))
         return config
@@ -619,11 +635,11 @@ class QLoRA(LoRABase):
         config.training_args = config.training_args or HFTrainingArguments()
 
         # get models and tokenizer
-        new_model, pytorch_model, tokenizer, quantized_modules = self.get_model_tokenizer(model, config)
+        new_model, pytorch_model, tokenizer, quantized_modules, torch_dtype = self.get_model_tokenizer(model, config)
 
         # train and get new model
         output_model = self.train_and_save_new_model(
-            pytorch_model, tokenizer, config, data_root, new_model, output_model_path
+            pytorch_model, tokenizer, config, data_root, new_model, output_model_path, torch_dtype
         )
         # add quantized_modules attributes
         output_model.model_attributes["quantized_modules"] = quantized_modules
@@ -631,7 +647,7 @@ class QLoRA(LoRABase):
 
     def get_model_tokenizer(
         self, model: PyTorchModel, config: ConfigBase
-    ) -> Tuple[PyTorchModel, PreTrainedModel, PreTrainedTokenizer, List[str]]:
+    ) -> Tuple[PyTorchModel, PreTrainedModel, PreTrainedTokenizer, List[str], torch.dtype]:
         """Get the Olive model, PyTorch model and tokenizer for QLoRA fine-tuning."""
         import bitsandbytes as bnb
 
@@ -642,6 +658,8 @@ class QLoRA(LoRABase):
         new_model = self.input_model_check(deepcopy(model))
 
         torch_dtype = self.get_torch_dtype(config.torch_dtype)
+        # will use mixed precision since full fp16 is unstable
+        model_dtype = torch_dtype if torch_dtype != torch.float16 else torch.float32
 
         # load model, reset model_loading_args and adapter_path
         model_loading_args = (
@@ -649,14 +667,14 @@ class QLoRA(LoRABase):
         )
         model_loading_args.update(
             {
-                "torch_dtype": torch_dtype,
+                "torch_dtype": model_dtype,
                 # TODO(jambayk): Worry about `use_multi_gpu` and distributed training later
                 # this uses all available GPUs, model parallel
                 "device_map": "auto",
                 "quantization_method": "bitsandbytes",
                 "quantization_config": {
                     "load_in_4bit": True,
-                    "bnb_4bit_compute_dtype": torch_dtype,
+                    "bnb_4bit_compute_dtype": self.get_torch_dtype(config.compute_dtype or config.torch_dtype),
                     "bnb_4bit_use_double_quant": config.double_quant,
                     "bnb_4bit_quant_type": config.quant_type,
                 },
@@ -664,7 +682,7 @@ class QLoRA(LoRABase):
         )
         new_model.hf_config.model_loading_args = HFModelLoadingArgs(**model_loading_args)
         pytorch_model = new_model.load_model()
-        pytorch_model.config.torch_dtype = torch_dtype
+        pytorch_model.config.torch_dtype = model_dtype
 
         # tokenizer
         tokenizer = AutoTokenizer.from_pretrained(new_model.hf_config.model_name)
@@ -678,4 +696,4 @@ class QLoRA(LoRABase):
         target_modules = find_submodules(pytorch_model, bnb.nn.Linear4bit)
         pytorch_model = self.enable_lora(pytorch_model, tokenizer, new_model.hf_config.task, config, target_modules)
 
-        return new_model, pytorch_model, tokenizer, target_modules
+        return new_model, pytorch_model, tokenizer, target_modules, torch_dtype
