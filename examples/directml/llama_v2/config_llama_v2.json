@@ -897,7 +897,10 @@
             }
         },
         "merge": {
-            "type": "OptimumMerging"
+            "type": "OptimumMerging",
+            "config": {
+                "run_ort_postprocess": false
+            }
         }
     },
     "engine": {

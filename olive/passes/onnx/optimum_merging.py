@@ -28,7 +28,15 @@ class OptimumMerging(Pass):
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        return get_external_data_config()
+        config = {
+            "run_ort_postprocess": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                description="Whether to run the model through ORT at the end to apply some optimizations.",
+            ),
+        }
+        config.update(get_external_data_config())
+        return config
 
     def _run_for_config(
         self, model: CompositeOnnxModel, data_root: str, config: Dict[str, Any], output_model_path: str
@@ -61,12 +69,13 @@ class OptimumMerging(Pass):
 
         olive_model = model_proto_to_olive_model(merged_model, output_model_path, config)
 
-        # Doing a dry run of ORT allows us to remove the initializers that were orphaned by the merging step
-        sess_options = onnxruntime.SessionOptions()
-        sess_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_BASIC
-        sess_options.optimized_model_filepath = output_model_path
+        if config["run_ort_postprocess"]:
+            # Doing a dry run of ORT allows us to remove the initializers that were orphaned by the merging step
+            sess_options = onnxruntime.SessionOptions()
+            sess_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_BASIC
+            sess_options.optimized_model_filepath = output_model_path
 
-        execution_provider = self.accelerator_spec.execution_provider
-        onnxruntime.InferenceSession(output_model_path, sess_options, providers=[execution_provider])
+            execution_provider = self.accelerator_spec.execution_provider
+            onnxruntime.InferenceSession(output_model_path, sess_options, providers=[execution_provider])
 
         return olive_model
