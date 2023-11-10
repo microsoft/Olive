@@ -15,7 +15,7 @@
         "merged_evaluator": {
             "metrics": [
                 {
-                    "name": "onnx_merged_latency",
+                    "name": "latency_prompt_processing",
                     "type": "latency",
                     "sub_types": [
                         {
@@ -28,7 +28,33 @@
                         "dataloader_func": "dataloader_func_for_merged",
                         "func_kwargs": {
                             "dataloader_func": {
-                                "model_id": "<model_name_placeholder>"
+                                "model_id": "<model_name_placeholder>",
+                                "past_seq_length": 0,
+                                "seq_length": 8,
+                                "max_seq_length": 2048
+                            }
+                        },
+                        "batch_size": 2,
+                        "io_bind": true
+                    }
+                },
+                {
+                    "name": "latency_token_generation",
+                    "type": "latency",
+                    "sub_types": [
+                        {
+                            "name": "avg"
+                        }
+                    ],
+                    "user_config": {
+                        "user_script": "user_script.py",
+                        "dataloader_func": "dataloader_func_for_merged",
+                        "func_kwargs": {
+                            "dataloader_func": {
+                                "model_id": "<model_name_placeholder>",
+                                "past_seq_length": 8,
+                                "seq_length": 1,
+                                "max_seq_length": 2048
                             }
                         },
                         "batch_size": 2,
@@ -40,7 +66,7 @@
         "gqa_evaluator": {
             "metrics": [
                 {
-                    "name": "onnx_merged_latency",
+                    "name": "latency_prompt_processing",
                     "type": "latency",
                     "sub_types": [
                         {
@@ -53,7 +79,34 @@
                         "dataloader_func": "dataloader_func_for_merged_gqa",
                         "func_kwargs": {
                             "dataloader_func": {
-                                "model_id": "<model_name_placeholder>"
+                                "model_id": "<model_name_placeholder>",
+                                "past_seq_length": 0,
+                                "seq_length": 8,
+                                "max_seq_length": 2048
+                            }
+                        },
+                        "batch_size": 2,
+                        "io_bind": true,
+                        "shared_kv_buffer": true
+                    }
+                },
+                {
+                    "name": "latency_token_generation",
+                    "type": "latency",
+                    "sub_types": [
+                        {
+                            "name": "avg"
+                        }
+                    ],
+                    "user_config": {
+                        "user_script": "user_script.py",
+                        "dataloader_func": "dataloader_func_for_merged_gqa",
+                        "func_kwargs": {
+                            "dataloader_func": {
+                                "model_id": "<model_name_placeholder>",
+                                "past_seq_length": 8,
+                                "seq_length": 1,
+                                "max_seq_length": 2048
                             }
                         },
                         "batch_size": 2,
