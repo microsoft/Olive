@@ -145,7 +145,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--normalization_type",
-        default="layer_norm",
+        default="rms",
         choices=["layer_norm", "rms"],
         help="Whether to use LayerNorm for the normalization layers or RMS.",
         type=str,
