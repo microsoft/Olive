@@ -6,12 +6,9 @@
 from itertools import chain
 from typing import List, Tuple, Union
 
-import numpy as np
 import torch
-import torch.nn.functional as F
 from datasets import load_dataset
-from torch.utils.data import DataLoader
-from transformers import LlamaConfig, LlamaTokenizer
+from transformers import LlamaConfig
 
 from olive.constants import Framework
 from olive.data.registry import Registry
@@ -77,6 +74,7 @@ def get_position_ids(attention_mask: torch.Tensor, past_seq_len: int):
     # this is generic but in practice we only expect to see two scenarios for (past_seq_len, seq_len)
     # prompt generation: (0, seq_len) -> position_ids = (batch_size, seq_len)
     # token generation: (past_seq_len, 1) -> position_ids = (batch_size, 1)
+    # Note: The merged model only works in these two scenarios
     position_ids = attention_mask.long().cumsum(-1) - 1
     position_ids.masked_fill_(attention_mask == 0, 1)
     return position_ids[:, past_seq_len:]
@@ -228,9 +226,6 @@ class RandomDataLoader:
             del inputs["past_key_values"]
 
             if self.use_gqa:
-                # GQA supports a causal mask by default
-                del inputs["attention_mask"]
-                inputs["past_sequence_length"] = torch.tensor([self.past_seq_len], dtype=torch.int64)
                 inputs = enable_past_present_share_buffer(inputs, self.past_seq_len, self.max_seq_len)
 
         return (inputs, None)
@@ -261,92 +256,6 @@ def dataloader_func_for_merged_gqa(data_dir, batch_size, *args, **kwargs):
         use_fp16=True,
         use_gqa=True,
     )
-
-
-# -----------------------------------------------------------------------------
-# Inc Smooth Quant Calibration Data Loader
-# -----------------------------------------------------------------------------
-
-
-def inc_cali_dataloader_func(data_dir, batch_size, *args, **kwargs):
-    return QuantKVDataLoader(
-        hf_model_id=kwargs["model_id"],
-        dataset_name="NeelNanda/pile-10k",
-    )
-
-
-def inc_cali_merged_dataloader_func(data_dir, batch_size, *args, **kwargs):
-    return QuantKVDataLoader(
-        hf_model_id=kwargs["model_id"],
-        dataset_name="NeelNanda/pile-10k",
-        merged=True,
-    )
-
-
-class QuantKVDataLoader:
-    def __init__(self, hf_model_id: str = "", dataset_name: str = "", pad_max: int = 196, merged: bool = False):
-        self.batch_size = 1
-        self.pad_max = pad_max
-        self.merged = merged
-
-        tokenizer = LlamaTokenizer.from_pretrained(hf_model_id)
-        dataset = load_dataset(dataset_name, split="train")
-        dataset = dataset.map(lambda examples: tokenizer(examples["text"]), batched=True)
-        dataset.set_format(type="torch", columns=["input_ids", "attention_mask"])
-        self.dataloader = DataLoader(
-            dataset,
-            batch_size=self.batch_size,
-            shuffle=False,
-            collate_fn=self.collate_batch,
-        )
-
-    def collate_batch(self, batch):
-        input_ids_batched = []
-        attention_mask_batched = []
-        position_ids_batched = []
-        labels = []
-
-        for text in batch:
-            # Set inputs for model
-            input_ids = text["input_ids"]
-            attention_mask = torch.ones(len(input_ids))
-            position_ids = get_position_ids(attention_mask, past_seq_len=0)
-            label = len(input_ids) - 1
-
-            # Pad input data because all model inputs must have same shape
-            pad_len = self.pad_max - input_ids.shape[0]
-            # pylint: disable=not-callable
-            input_ids = F.pad(input_ids, (0, pad_len), value=1)
-            attention_mask = F.pad(attention_mask, (0, pad_len), value=0)
-            position_ids = F.pad(position_ids, (0, pad_len), value=0)
-
-            input_ids_batched.append(input_ids)
-            attention_mask_batched.append(attention_mask)
-            position_ids_batched.append(position_ids)
-            labels.append(label)
-
-        input_ids_batched = torch.vstack(input_ids_batched)
-        attention_mask_batched = torch.vstack(attention_mask_batched)
-        position_ids_batched = torch.vstack(position_ids_batched)
-        labels = torch.tensor(labels)
-
-        return (input_ids_batched, attention_mask_batched, position_ids_batched), labels
-
-    def __iter__(self):
-        for (input_ids, attention_mask, position_ids), labels in self.dataloader:
-            # Inputs for decoder_model.onnx
-            inputs = {
-                "input_ids": input_ids[:, :-1].detach().cpu().numpy().astype(np.int64),
-                "attention_mask": attention_mask[:, :-1].detach().cpu().numpy().astype(np.int64),
-                "position_ids": position_ids[:, :-1].detach().cpu().numpy().astype(np.int64),
-            }
-            if self.merged:
-                inputs.pop("attention_mask", None)
-            label = labels.detach().cpu().numpy()
-
-            # Yield (inputs, label) tuple for Intel's Neural Compressor:
-            # https://github.com/intel/neural-compressor/blob/d4baed9ea11614e1f0dc8a1f4f55b73ed3ed585c/neural_compressor/quantization.py#L55-L62
-            yield (inputs, label)
 
 
 # -----------------------------------------------------------------------------
