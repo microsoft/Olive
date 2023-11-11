@@ -1011,9 +1011,10 @@ class OliveEvaluatorConfig(ConfigBase):
         rank_set = set()
         for metric in v:
             for sub_type in metric.sub_types:
-                sub_type_names.add(joint_metric_key(metric.name, sub_type.name))
+                unique_metric_name = joint_metric_key(metric.name, sub_type.name)
+                sub_type_names.add(unique_metric_name)
                 if sub_type.priority != -1:
-                    sub_type_with_rank.add(sub_type.name)
+                    sub_type_with_rank.add(unique_metric_name)
                     rank_set.add(sub_type.priority)
 
         if not rank_set and len(sub_type_names) == 1:

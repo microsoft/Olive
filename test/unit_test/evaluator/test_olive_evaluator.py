@@ -17,10 +17,12 @@ from typing import ClassVar
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic.error_wrappers import ValidationError
 
 from olive.evaluator.metric import AccuracySubType, LatencySubType
 from olive.evaluator.olive_evaluator import (
     OliveEvaluator,
+    OliveEvaluatorConfig,
     OnnxEvaluator,
     OpenVINOEvaluator,
     PyTorchEvaluator,
@@ -254,3 +256,43 @@ class TestDistributedOnnxEvaluator:
         # assert
         for sub_type in latency_metric.sub_types:
             assert actual_res.get_value(latency_metric.name, sub_type.name) > 1
+
+
+class TestOliveEvaluatorConfig:
+    @pytest.mark.parametrize(
+        "priorities, has_exception", [((1, 2), False), ((1, 1), True), ((2, 1), False), ((1, 0), True)]
+    )
+    def test_priority(self, priorities, has_exception):
+        metric_config = [
+            {
+                "name": "latency1",
+                "type": "latency",
+                "sub_types": [
+                    {
+                        "name": "avg",
+                        "priority": priorities[0],
+                        "goal": {"type": "percent-min-improvement", "value": 20},
+                    },
+                    {"name": "max"},
+                    {"name": "min"},
+                ],
+            },
+            {
+                "name": "latency2",
+                "type": "latency",
+                "sub_types": [
+                    {
+                        "name": "avg",
+                        "priority": priorities[1],
+                        "goal": {"type": "percent-min-improvement", "value": 20},
+                    },
+                    {"name": "max"},
+                    {"name": "min"},
+                ],
+            },
+        ]
+        if has_exception:
+            with pytest.raises(ValidationError):
+                OliveEvaluatorConfig(metrics=metric_config)
+        else:
+            OliveEvaluatorConfig(metrics=metric_config)
