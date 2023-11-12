@@ -231,21 +231,20 @@ class RandomDataLoader:
         return (inputs, None)
 
 
-def dataloader_func_for_merged(data_dir, batch_size, *args, **kwargs):
-    """Return data loader for input PyTorch model and ONNX models with past_key_values."""
+def _dataloader_func(**kwargs):
+    """Return dataloader for both prompt generation and token generation with/without GQA + FP16."""
+    batch_size = kwargs["batch_size"]
     model_id = kwargs["model_id"]
-    seq_length, past_seq_length, max_seq_length = 8, 0, 2048
-    model_framework = kwargs.get("model_framework", Framework.PYTORCH)
-    return RandomDataLoader(
-        model_id, batch_size, seq_length, past_seq_length, max_seq_length, model_framework=model_framework
+    seq_length = kwargs["seq_length"]
+    past_seq_length = kwargs["past_seq_length"]
+    assert (seq_length >= 1 and past_seq_length == 0) or (seq_length == 1 and past_seq_length >= 1), (
+        "Invalid seq_length and past_seq_length. Must be either prompt generation: (seq_length >= 1 and past_seq_length"
+        " == 0) or token generation: (seq_length == 1 and past_seq_length >= 1)."
     )
-
-
-def dataloader_func_for_merged_gqa(data_dir, batch_size, *args, **kwargs):
-    """Return data loader for ONNX model + FP16 + GQA."""
-    model_id = kwargs["model_id"]
-    seq_length, past_seq_length, max_seq_length = 8, 0, 2048
+    max_seq_length = kwargs["max_seq_length"]
     model_framework = kwargs.get("model_framework", Framework.PYTORCH)
+    use_fp16 = kwargs.get("use_fp16", False)
+    use_gqa = kwargs.get("use_gqa", False)
     return RandomDataLoader(
         model_id,
         batch_size,
@@ -253,9 +252,19 @@ def dataloader_func_for_merged_gqa(data_dir, batch_size, *args, **kwargs):
         past_seq_length,
         max_seq_length,
         model_framework=model_framework,
-        use_fp16=True,
-        use_gqa=True,
+        use_fp16=use_fp16,
+        use_gqa=use_gqa,
     )
+
+
+def dataloader_func_for_merged(data_dir, batch_size, **kwargs):
+    """Return data loader for input PyTorch model and ONNX models with past_key_values."""
+    return _dataloader_func(batch_size=batch_size, **kwargs)
+
+
+def dataloader_func_for_merged_gqa(data_dir, batch_size, **kwargs):
+    """Return data loader for ONNX model + FP16 + GQA."""
+    return _dataloader_func(batch_size=batch_size, use_fp16=True, use_gqa=True, **kwargs)
 
 
 # -----------------------------------------------------------------------------

@@ -86,26 +86,30 @@ python -m olive.workflows.run --config lamma2_qlora.json
 ## Performance comparison
 ### meta-llama/Llama-2-7b-hf
 
-| Device | Framework | Precision | Latency (ms) |
-| :--- | :--- | :---: | :--- |
-| **CPU** | | | |
-| CPU | PyTorch | FP32 | 6970.78555 |
-| CPU | ONNX Runtime | FP32 | 1890.88653 |
-| CPU | ONNX Runtime | INT8 | <span style="color:green">1021.12089</span> |
-| CPU | ONNX Runtime | INT4 | 6502.83326 |
-| **GPU-A100** | | |  |
-| GPU-A100 | PyTorch | FP32 | 37.87534 |
-| GPU-A100 | ONNX Runtime | FP32 | 24.04713 |
-| GPU-A100 | ONNX Runtime | FP16 | <span style="color:green">11.02307</span> |
-| GPU-A100 | ONNX Runtime | INT4 | 21.92193 |
-| **GPU-V100** | | | |
-| GPU-V100 | PyTorch | FP16 | 122.27091 |
-| GPU-V100 | ONNX Runtime | FP32 | 195.86112 |
-| GPU-V100 | ONNX Runtime | FP16 | <span style="color:green">52.72360</span> |
-| GPU-V100 | ONNX Runtime | INT4 | 118.51050 |
+| Device | Framework | Precision | Prompt Processing Latency (ms) | Token Generation Latency (ms) |
+| :--- | :--- | :---: | :--- | :--- |
+| **CPU** | | | | |
+| CPU | PyTorch | FP32 | 6970.78555 | NA |
+| CPU | ONNX Runtime | FP32 | 1890.88653 | NA |
+| CPU | ONNX Runtime | INT8 | <span style="color:green">1021.12089</span> | NA |
+| CPU | ONNX Runtime | INT4 | 6502.83326 |  NA |
+| **GPU-A100** | | |  | |
+| GPU-A100 | PyTorch | FP32 | 37.94705 | 37.94705 |
+| GPU-A100 | ONNX Runtime | FP32 | 23.99358 | 23.40321 |
+| GPU-A100 | ONNX Runtime | FP16 | <span style="color:green">11.09707</span> | <span style="color:green">10.64472</span> |
+| GPU-A100 | ONNX Runtime | INT4 | 22.2181 | 21.50822 |
+| **GPU-V100** | | | | |
+| GPU-V100 | PyTorch | FP16 | 122.27091 | NA |
+| GPU-V100 | ONNX Runtime | FP32 | 195.86112 | NA |
+| GPU-V100 | ONNX Runtime | FP16 | <span style="color:green">52.72360</span> | NA |
+| GPU-V100 | ONNX Runtime | INT4 | 118.51050 | NA |
 
 1. cpu info:  Intel(R) Xeon(R) Platinum 8168 CPU @ 2.70GHz
 2. int4 is not fully optimized for inference as of now.
+3. Latency is measure with the following settings for `(batch_size, past_sequence_length, sequence_length)`:
+    - Prompt Processing: `(2, 0, 8)`
+    - Token Generation: `(2, 8, 1)`
+4. `max_sequence_length` is set to `2048` for kv buffer sharing.
 
 
 ## TODO
