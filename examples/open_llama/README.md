@@ -111,7 +111,7 @@ Requirements file: [requirements-qlora-ort.txt](requirements-qlora-ort.txt)
 
 It also requires the latest version of onnxruntime-training:
 ```bash
-python -m pip unisntall -y onnxruntime onnxruntime-gpu ort-nightly ort-nightly-gpu
+python -m pip uninstall -y onnxruntime onnxruntime-gpu ort-nightly ort-nightly-gpu
 python -m pip install onnxruntime-training --pre --upgrade --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
 ```
 
