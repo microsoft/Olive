@@ -79,10 +79,10 @@ The default value is 3. User can increase if there are network issues and the op
 
 User should specify input model type and configuration using `input model` dictionary. It contains following items:
 
-- `type: [str]` Type of the input model. The supported types are `PyTorchModel`, `ONNXModel`, `OpenVINOModel`, and `SNPEModel`. It is
-case insensitive.
+- `type: [str]` Type of the input model which is case insensitive.. The supported types contain `PyTorchModel`, `ONNXModel`, `OpenVINOModel`,`SNPEModel` and etc. You can
+find more details in [Olive Models](https://microsoft.github.io/Olive/api/models.html).
 
-- `config: [Dict]` The input model config dictionary specifies following items:
+- `config: [Dict]` For example, for `PytorchModel`, the input model config dictionary specifies following items:
 
     - `model_path: [str | Dict]` The model path can be a string or a dictionary. If it is a string, it is either a string name
     used by the model loader or the path to the model file/directory. If it is a dictionary, it contains information about the model path.
@@ -92,6 +92,15 @@ case insensitive.
     input and return the loaded model.
 
     - `model_script: [str]` The name of the script provided by the user to assist with model loading.
+
+    - `script_dir: [str]` The directory that contains dependencies for the model script.
+
+    - `io_config: [Dict[str, Any], IOConfig, str]`: The inputs and outputs information of the model. It can be a dictionary, an IOConfig object or a function string under `model_script`. Basically, it contains following items:
+        - `input_names: [List[str]]` The input names of the model.
+        - `input_types: [List[str]]` The input types of the model.
+        - `input_shapes: [List[List[int]]]` The input shapes of the model.
+        - `output_names: [List[str]]` The output names of the model.
+        - `dynamic_axes: [Dict[str, Dict[str, str]]]` The dynamic axes of the model. The key is the name of the input or output and the value is a dictionary that contains the dynamic axes of the input or output. The key of the value dictionary is the index of the dynamic axis and the value is the name of the dynamic axis. For example, `{"input": {"0": "batch_size"}, "output": {"0": "batch_size"}}` means the first dimension of the input and output is dynamic and the name of the dynamic axis is `batch_size`.
 
     - <a name="hf_config"></a> `hf_config: [Dict]` Instead of `model_path` or `model_loader`, the model can be specified using a dictionary describing a huggingface
     model. This dictionary specifies the following items:
@@ -152,6 +161,7 @@ Please find the detailed config options from following table for each model type
         "model_script": "user_script.py",
         "io_config": {
             "input_names": ["input"],
+            "input_types": ["int32"],
             "input_shapes": [[1, 3, 32, 32]],
             "output_names": ["output"],
             "dynamic_axes": {
