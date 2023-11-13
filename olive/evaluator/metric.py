@@ -20,7 +20,19 @@ logger = logging.getLogger(__name__)
 class MetricType(str, Enum):
     ACCURACY = "accuracy"
     LATENCY = "latency"
+    THROUGHPUT = "throughput"
     CUSTOM = "custom"
+
+    @classmethod
+    def map_to_metric_type(cls, metric_alias):
+        if metric_alias == cls.ACCURACY:
+            return AccuracySubType
+        elif metric_alias == cls.LATENCY:
+            return LatencySubType
+        elif metric_alias == cls.THROUGHPUT:
+            return ThroughputSubType
+
+        raise ValueError(f"Invalid metric alias {metric_alias}")
 
 
 class AccuracySubType(str, Enum):
@@ -33,6 +45,20 @@ class AccuracySubType(str, Enum):
 
 
 class LatencySubType(str, Enum):
+    # unit: millisecond
+    AVG = "avg"
+    MAX = "max"
+    MIN = "min"
+    P50 = "p50"
+    P75 = "p75"
+    P90 = "p90"
+    P95 = "p95"
+    P99 = "p99"
+    P999 = "p999"
+
+
+class ThroughputSubType(str, Enum):
+    # unit: token per second, tps
     AVG = "avg"
     MAX = "max"
     MIN = "min"
@@ -114,7 +140,7 @@ class Metric(ConfigBase):
                 raise ValueError(f"higher_is_better must be specified for ranked custom metric: {v['name']}")
             return v
         # name
-        sub_type_enum = AccuracySubType if values["type"] == MetricType.ACCURACY else LatencySubType
+        sub_type_enum = MetricType.map_to_metric_type(values["type"])
         try:
             # backend joint checking
             if values["backend"] == "huggingface_metrics":
@@ -139,7 +165,7 @@ class Metric(ConfigBase):
                 from olive.evaluator.metric_backend import HuggingfaceMetrics
 
                 metric_config_cls = HuggingfaceMetrics.get_config_class()
-        elif sub_type_enum is LatencySubType:
+        elif sub_type_enum in [LatencySubType, ThroughputSubType]:
             v["higher_is_better"] = v.get("higher_is_better", False)
             metric_config_cls = LatencyMetricConfig
         v["metric_config"] = validate_config(v.get("metric_config", {}), ConfigBase, metric_config_cls)

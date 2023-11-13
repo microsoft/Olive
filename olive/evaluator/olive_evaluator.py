@@ -28,6 +28,7 @@ from olive.evaluator.metric import (
     MetricResult,
     MetricType,
     SubMetricResult,
+    ThroughputSubType,
     flatten_metric_result,
     get_latency_config_from_metric,
     joint_metric_key,
@@ -98,6 +99,19 @@ class OliveEvaluator(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def _evaluate_raw_latency(
+        self,
+        model: OliveModel,
+        data_root: str,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ) -> List[float]:
+        """For given repeat_test_num, return a list of latencies(ms)."""
+        raise NotImplementedError
+
     def _evaluate_latency(
         self,
         model: OliveModel,
@@ -108,7 +122,25 @@ class OliveEvaluator(ABC):
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
-        raise NotImplementedError
+        latencies = self._evaluate_raw_latency(
+            model, data_root, metric, dataloader, post_func, device, execution_providers
+        )
+        return OliveEvaluator.compute_latency(metric, latencies)
+
+    def _evaluate_throughput(
+        self,
+        model: OliveModel,
+        data_root: str,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ):
+        latencies = self._evaluate_raw_latency(
+            model, data_root, metric, dataloader, post_func, device, execution_providers
+        )
+        return OliveEvaluator.compute_throughput(metric, latencies)
 
     def _evaluate_custom(
         self,
@@ -174,6 +206,10 @@ class OliveEvaluator(ABC):
                 )
             elif metric.type == MetricType.LATENCY:
                 metrics_res[metric.name] = self._evaluate_latency(
+                    model, data_root, metric, dataloader, post_func, device, execution_providers
+                )
+            elif metric.type == MetricType.THROUGHPUT:
+                metrics_res[metric.name] = self._evaluate_throughput(
                     model, data_root, metric, dataloader, post_func, device, execution_providers
                 )
             elif metric.type == MetricType.CUSTOM:
@@ -291,9 +327,8 @@ class OliveEvaluator(ABC):
         return evaluate_backend_cls().measure(model_outputs, targets, metric)
 
     @staticmethod
-    def compute_latency(metric: Metric, latencies: Any) -> MetricResult:
-        """Compute latency metrics."""
-        latency_metrics = {
+    def latency_helper(latencies) -> Dict:
+        return {
             LatencySubType.AVG: round(sum(latencies) / len(latencies) * 1000, 5),
             LatencySubType.MAX: round(max(latencies) * 1000, 5),
             LatencySubType.MIN: round(min(latencies) * 1000, 5),
@@ -304,10 +339,31 @@ class OliveEvaluator(ABC):
             LatencySubType.P99: round(np.percentile(latencies, 99) * 1000, 5),
             LatencySubType.P999: round(np.percentile(latencies, 99.9) * 1000, 5),
         }
+
+    @staticmethod
+    def compute_latency(metric: Metric, latencies: Any) -> MetricResult:
+        """Compute latency metrics."""
+        latency_metrics = OliveEvaluator.latency_helper(latencies)
         metric_res = {}
         for sub_type in metric.sub_types:
             metric_res[sub_type.name] = SubMetricResult(
                 value=latency_metrics[sub_type.name],
+                priority=sub_type.priority,
+                higher_is_better=sub_type.higher_is_better,
+            )
+        return MetricResult.parse_obj(metric_res)
+
+    @staticmethod
+    def compute_throughput(metric: Metric, latencies: Any) -> MetricResult:
+        """Compute latency metrics."""
+        latency_metrics = OliveEvaluator.latency_helper(latencies)
+        metric_res = {}
+        batch_size = metric.user_config.batch_size
+        for sub_type in metric.sub_types:
+            latency_sub_type_name = LatencySubType.MAX if sub_type.name == ThroughputSubType.MIN else LatencySubType.MIN
+            metric_res[sub_type.name] = SubMetricResult(
+                # per second, so multiply by 1000
+                value=round(batch_size / latency_metrics[latency_sub_type_name] * 1000, 5),
                 priority=sub_type.priority,
                 higher_is_better=sub_type.higher_is_better,
             )
@@ -483,15 +539,20 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
         for _ in range(warmup_num):
             if metric.user_config.io_bind:
+                io_bind_op.synchronize_inputs()
                 session.run_with_iobinding(io_bind_op)
+                io_bind_op.synchronize_outputs()
             else:
                 session.run(input_feed=input_dict, output_names=None)
 
         latencies = []
         for _ in range(repeat_test_num):
             if metric.user_config.io_bind:
+                io_bind_op.synchronize_inputs()
+                # count the time after data are all in gpu after data copy
                 t = time.perf_counter()
                 session.run_with_iobinding(io_bind_op)
+                io_bind_op.synchronize_outputs()
                 latencies.append(time.perf_counter() - t)
             else:
                 t = time.perf_counter()
@@ -499,7 +560,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
                 latencies.append(time.perf_counter() - t)
             time.sleep(sleep_num)
 
-        return OliveEvaluator.compute_latency(metric, latencies)
+        return latencies
 
     @staticmethod
     def _evaluate_distributed_accuracy_worker(config) -> Tuple[List[Any], List[Any]]:
@@ -675,8 +736,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             results = executor.map(OnnxEvaluator._evaluate_distributed_latency_worker, args)
             executor.shutdown()
 
-        latencies = [x for r in results for x in r]
-        return OliveEvaluator.compute_latency(metric, latencies)
+        return [x for r in results for x in r]
 
     def _evaluate_accuracy(
         self,
@@ -697,7 +757,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         else:
             raise TypeError(f"Cannot evaluate accuracy for model of type: {type(model)}")
 
-    def _evaluate_latency(
+    def _evaluate_raw_latency(
         self,
         model: OliveModel,
         data_root: str,
@@ -797,7 +857,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
 
     @torch.no_grad()
-    def _evaluate_latency(
+    def _evaluate_raw_latency(
         self,
         model: PyTorchModel,
         data_root: str,
@@ -806,7 +866,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         post_func=None,
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
-    ) -> MetricResult:
+    ):
         # pylint: disable=expression-not-assigned
         warmup_num, repeat_test_num, _ = get_latency_config_from_metric(metric)
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
@@ -853,7 +913,8 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         # only move to cpu cannot release gpu memory, call cuda.empty_cache() to release gpu memory
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-        return OliveEvaluator.compute_latency(metric, latencies)
+
+        return latencies
 
 
 class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
@@ -900,7 +961,7 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         inference_output, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
         return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
 
-    def _evaluate_latency(
+    def _evaluate_raw_latency(
         self,
         model: SNPEModel,
         data_root: str,
@@ -917,9 +978,7 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         data_dir, input_data, _ = next(iter(dataloader))
         total_runs = warmup_num + repeat_test_num
         results = session(input_data, data_dir, runs=total_runs, sleep=sleep_num)
-        latencies = results["latencies"]["total_inference_time"][warmup_num:]
-
-        return OliveEvaluator.compute_latency(metric, latencies)
+        return results["latencies"]["total_inference_time"][warmup_num:]
 
     def _prepare_dataloader(self, dataloader: Dataset, model: SNPEModel) -> SNPEDataLoader:
         if isinstance(dataloader, SNPEDataLoader):
@@ -985,8 +1044,7 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
             t = time.perf_counter()
             session(input_data)
             latencies.append(time.perf_counter() - t)
-
-        return OliveEvaluator.compute_latency(metric, latencies)
+        return latencies
 
 
 class OliveEvaluatorFactory:

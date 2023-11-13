@@ -11,6 +11,7 @@ from test.unit_test.utils import (
     get_mock_snpe_model,
     get_onnx_model,
     get_pytorch_model,
+    get_throughput_metric,
 )
 from types import FunctionType
 from typing import ClassVar
@@ -19,7 +20,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic.error_wrappers import ValidationError
 
-from olive.evaluator.metric import AccuracySubType, LatencySubType
+from olive.evaluator.metric import AccuracySubType, LatencySubType, ThroughputSubType
 from olive.evaluator.olive_evaluator import (
     OliveEvaluator,
     OliveEvaluatorConfig,
@@ -150,6 +151,45 @@ class TestOliveEvaluator:
         LATENCY_TEST_CASE,
     )
     def test_evaluate_latency(self, evaluator, model_loader, metric, expected_res):
+        olive_model = model_loader()
+        # execute
+        actual_res = evaluator.evaluate(olive_model, None, [metric])
+
+        # assert
+        for sub_type in metric.sub_types:
+            assert expected_res > actual_res.get_value(metric.name, sub_type.name)
+
+    THROUGHPUT_TEST_CASE: ClassVar[list] = [
+        (
+            PyTorchEvaluator(),
+            get_pytorch_model,
+            get_throughput_metric(ThroughputSubType.AVG, ThroughputSubType.MAX),
+            10,
+        ),
+        (PyTorchEvaluator(), get_pytorch_model, get_throughput_metric(ThroughputSubType.MAX), 10),
+        (PyTorchEvaluator(), get_pytorch_model, get_throughput_metric(ThroughputSubType.MIN), 10),
+        (PyTorchEvaluator(), get_pytorch_model, get_throughput_metric(ThroughputSubType.P50), 10),
+        (PyTorchEvaluator(), get_pytorch_model, get_throughput_metric(ThroughputSubType.P75), 10),
+        (PyTorchEvaluator(), get_pytorch_model, get_throughput_metric(ThroughputSubType.P90), 10),
+        (PyTorchEvaluator(), get_pytorch_model, get_throughput_metric(ThroughputSubType.P95), 10),
+        (PyTorchEvaluator(), get_pytorch_model, get_throughput_metric(ThroughputSubType.P99), 10),
+        (PyTorchEvaluator(), get_pytorch_model, get_throughput_metric(ThroughputSubType.P999), 10),
+        (OnnxEvaluator(), get_onnx_model, get_throughput_metric(ThroughputSubType.AVG), 10),
+        (OnnxEvaluator(), get_onnx_model, get_throughput_metric(ThroughputSubType.MAX), 10),
+        (OnnxEvaluator(), get_onnx_model, get_throughput_metric(ThroughputSubType.MIN), 10),
+        (OnnxEvaluator(), get_onnx_model, get_throughput_metric(ThroughputSubType.P50), 10),
+        (OnnxEvaluator(), get_onnx_model, get_throughput_metric(ThroughputSubType.P75), 10),
+        (OnnxEvaluator(), get_onnx_model, get_throughput_metric(ThroughputSubType.P90), 10),
+        (OnnxEvaluator(), get_onnx_model, get_throughput_metric(ThroughputSubType.P95), 10),
+        (OnnxEvaluator(), get_onnx_model, get_throughput_metric(ThroughputSubType.P99), 10),
+        (OnnxEvaluator(), get_onnx_model, get_throughput_metric(ThroughputSubType.P999), 10),
+    ]
+
+    @pytest.mark.parametrize(
+        "evaluator,model_loader,metric,expected_res",
+        THROUGHPUT_TEST_CASE,
+    )
+    def test_evaluate_throughput(self, evaluator, model_loader, metric, expected_res):
         olive_model = model_loader()
         # execute
         actual_res = evaluator.evaluate(olive_model, None, [metric])
