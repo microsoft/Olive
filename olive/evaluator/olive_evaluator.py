@@ -1027,7 +1027,7 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
         inference_output, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
         return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
 
-    def _evaluate_latency(
+    def _evaluate_raw_latency(
         self,
         model: OpenVINOModel,
         data_root: str,

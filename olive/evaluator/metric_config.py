@@ -74,6 +74,12 @@ class LatencyMetricConfig(ConfigBase):
     sleep_num: int = SLEEP_NUM
 
 
+class ThroughputMetricConfig(ConfigBase):
+    warmup_num: int = WARMUP_NUM
+    repeat_test_num: int = REPEAT_TEST_NUM
+    sleep_num: int = SLEEP_NUM
+
+
 class MetricGoal(ConfigBase):
     type: str  # threshold , deviation, percent-deviation, # noqa: A003
     value: float

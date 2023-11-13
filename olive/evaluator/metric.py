@@ -12,7 +12,7 @@ from pydantic import validator
 from olive.common.config_utils import ConfigBase, ConfigDictBase, validate_config
 from olive.data.config import DataConfig
 from olive.evaluator.accuracy import AccuracyBase
-from olive.evaluator.metric_config import LatencyMetricConfig, MetricGoal, get_user_config_class
+from olive.evaluator.metric_config import LatencyMetricConfig, MetricGoal, ThroughputMetricConfig, get_user_config_class
 
 logger = logging.getLogger(__name__)
 
@@ -165,9 +165,12 @@ class Metric(ConfigBase):
                 from olive.evaluator.metric_backend import HuggingfaceMetrics
 
                 metric_config_cls = HuggingfaceMetrics.get_config_class()
-        elif sub_type_enum in [LatencySubType, ThroughputSubType]:
+        elif sub_type_enum is LatencySubType:
             v["higher_is_better"] = v.get("higher_is_better", False)
             metric_config_cls = LatencyMetricConfig
+        elif sub_type_enum is ThroughputSubType:
+            v["higher_is_better"] = v.get("higher_is_better", True)
+            metric_config_cls = ThroughputMetricConfig
         v["metric_config"] = validate_config(v.get("metric_config", {}), ConfigBase, metric_config_cls)
 
         return v
