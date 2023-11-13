@@ -188,6 +188,7 @@ olive_run(&quot;my_model_acceleration_description.json&quot;)
 <p>Typically, you need to have input model information such as model type, input names and shapes, where the model is stored. You would also know your desired performance requirements in terms of Latency, Accuracy etc. Along with this information you need to provide Olive list of model transformations and optimizations you want to apply. Optionally you can also select target hardware and select additional Olive features. Now, let’s take a look at how you can include this information in the json configuration file you will use as an Olive input.</p>
 <section id="input-model">
 <h3>Input Model<a class="headerlink" href="#input-model" title="Permalink to this heading">¶</a></h3>
+<p>Olive can accept ONNX, Torch, OpenVINO and SNPE models as of now. The config for each of these models is slightly different. You can find more information about each of these models in <a class="reference external" href="https://microsoft.github.io/Olive/api/models.html">Input Model configuration</a>.</p>
 <p>Let’s use a PyTorch resnet model as an example which you can describe in the json file as follows. You can use any PyTorch model.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="w">    </span><span class="nt">&quot;input_model&quot;</span><span class="p">:{</span>
 <span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PyTorchModel&quot;</span><span class="p">,</span>
