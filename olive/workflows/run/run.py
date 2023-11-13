@@ -75,6 +75,8 @@ def dependency_setup(config):
             "OptimumConversion": extras.get("optimum"),
             "OptimumMerging": extras.get("optimum"),
             "TorchTRTConversion": extras.get("torch-tensorrt"),
+            "LoRA": extras.get("lora"),
+            "QLoRA": extras.get("qlora"),
         },
     }
     ort_packages = ["onnxruntime", "onnxruntime-directml", "onnxruntime-gpu", "onnxruntime-openvino"]

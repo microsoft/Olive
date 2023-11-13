@@ -209,6 +209,25 @@ class LoRABase(Pass):
             ),
         }
 
+    def validate_search_point(
+        self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
+    ) -> bool:
+        if with_fixed_value:
+            search_point = self.config_at_search_point(search_point or {})
+        if search_point.get("use_ort_trainer"):
+            if search_point.get("torch_dtype") == "bfloat16":
+                logger.info(
+                    "bfloat16 is not supported by onnxruntime-training yet. Please use a different torch_dtype."
+                )
+                return False
+            if search_point.get("training_args", {}).get("gradient_checkpointing"):
+                logger.info(
+                    "gradient_checkpointing is not supported by onnxruntime-training. Please set gradient_checkpointing"
+                    " to False."
+                )
+                return False
+        return True
+
     @staticmethod
     def collate_batch(batch: List[Dict], tokenizer: transformers.PreTrainedTokenizer) -> Dict[str, torch.Tensor]:
         """Collate a batch of samples into a padded batch of tensors.
@@ -565,9 +584,14 @@ class LoRA(LoRABase):
         model_loading_args = (
             new_model.hf_config.model_loading_args.dict() if new_model.hf_config.model_loading_args else {}
         )
-        model_loading_args.update({"torch_dtype": model_dtype, "device_map": "auto"})
+        model_loading_args.update(
+            {"torch_dtype": model_dtype, "device_map": "auto" if not config.use_ort_trainer else None}
+        )
         new_model.hf_config.model_loading_args = HFModelLoadingArgs(**model_loading_args)
         pytorch_model = new_model.load_model()
+        if torch.cuda.is_available() and config.use_ort_trainer:
+            # put the model on GPU since device_map is None and the model will be on CPU
+            pytorch_model.to("cuda")
         pytorch_model.config.torch_dtype = model_dtype
 
         # tokenizer
@@ -627,9 +651,21 @@ class QLoRA(LoRABase):
         if version.parse(transformers_version) < version.parse("4.30.0"):
             raise RuntimeError(f"QLoRA pass only supports transformers >= 4.30.0, but {transformers_version} is used.")
 
+        # GPU is required for bitsandbytes quantized models
+        if not torch.cuda.is_available():
+            raise RuntimeError("QLoRA pass requires GPU to run.")
+
         # convert config to pass config class
         # this will validate the config and convert to the correct types
         config = self._config_class(**config)
+
+        # MatMulBnb4 contrib op doesn't support double quantization so the trainer falls back to PythonOp
+        # which uses more memory and is slower
+        if config.use_ort_trainer and config.double_quant:
+            logger.warning(
+                "double_quant is set to True but it is inefficient with onnxruntime-training! Consider setting it to"
+                " False."
+            )
 
         # use default training args if not provided
         config.training_args = config.training_args or HFTrainingArguments()
@@ -670,7 +706,9 @@ class QLoRA(LoRABase):
                 "torch_dtype": model_dtype,
                 # TODO(jambayk): Worry about `use_multi_gpu` and distributed training later
                 # this uses all available GPUs, model parallel
-                "device_map": "auto",
+                # ORTTrainer falls back to pytorch when model parallel is used
+                # use `None` device_map to only use one GPU
+                "device_map": "auto" if not config.use_ort_trainer else None,
                 "quantization_method": "bitsandbytes",
                 "quantization_config": {
                     "load_in_4bit": True,

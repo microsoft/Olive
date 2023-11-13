@@ -31,5 +31,22 @@
     ],
     "torch-tensorrt": [
         "torch-tensorrt"
+    ],
+    "lora": [
+        "accelerate",
+        "peft"
+    ],
+    "qlora": [
+        "accelerate",
+        "bitsandbytes",
+        "peft"
+    ],
+    "qlora-ort": [
+        "accelerate",
+        "bitsandbytes",
+        "onnxruntime-training",
+        "optimum",
+        "peft",
+        "torch-ort"
     ]
 }

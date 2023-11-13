@@ -102,6 +102,19 @@ Note: You must be logged in to HuggingFace using `huggingface-cli login` to down
 
 Requirements file: [requirements-lora.txt](requirements-lora.txt)
 
+**Train using ONNX Runtime Training**
+You can also train the model using [ONNX Runtime Training](https://techcommunity.microsoft.com/t5/ai-machine-learning-blog/onnx-runtime-training-technical-deep-dive/ba-p/1398310).
+
+The relevant config file is [open_llama_qlora_ort_tinycodes.json](open_llama_qlora_ort_tinycodes.json).
+
+Requirements file: [requirements-qlora-ort.txt](requirements-qlora-ort.txt)
+
+It also requires the latest version of onnxruntime-training:
+```bash
+python -m pip unisntall -y onnxruntime onnxruntime-gpu ort-nightly ort-nightly-gpu
+python -m pip install onnxruntime-training --pre --upgrade --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
+```
+
 ### Optimizing Open Llama Model with Azure Arc
 This workflow optimizes Open Llama model on Azure ML compute, and evaluate output models on your device. Please connect your device to Azure Arc by following instruction: [Self-hosted Kubernetes cluster](https://microsoft.github.io/Olive/tutorials/azure_arc.html)
 
