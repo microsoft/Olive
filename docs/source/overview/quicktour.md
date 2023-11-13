@@ -56,6 +56,8 @@ Typically, you need to have input model information such as model type, input na
 
 ### Input Model
 
+Olive can accept ONNX, Torch, OpenVINO and SNPE models as of now. The config for each of these models is slightly different. You can find more information about each of these models in [Input Model configuration](https://microsoft.github.io/Olive/api/models.html).
+
 Let's use a PyTorch resnet model as an example which you can describe in the json file as follows. You can use any PyTorch model.
 
 ```json
