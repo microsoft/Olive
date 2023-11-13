@@ -51,7 +51,7 @@ SNPE Model
 .. autoclass:: olive.model.SNPEModel
 
 CompositePyTorchModel Model
---------------------------
+---------------------------
 .. autoclass:: olive.model.CompositePyTorchModel
 
-.. _distributed_onnx_model:
+.. _distributed_pytorch_model:
