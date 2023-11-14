@@ -16,7 +16,6 @@ from olive.workflows.run.config import INPUT_MODEL_DATA_CONFIG, RunConfig
 
 
 class TestRunConfig:
-    # TODO(jiapli): add more tests for different config files to test olive features
     # like: Systems/Evaluation/Model and etc.
     @pytest.fixture(autouse=True)
     def setup(self):
@@ -131,6 +130,13 @@ class TestRunConfig:
 
         cfg = RunConfig.parse_obj(user_script_config)
         assert cfg.engine.target.config.accelerators == ["GPU"]
+
+    def test_default_engine(self):
+        default_engine_config_file = Path(__file__).parent / "mock_data" / "default_engine.json"
+        run_config = RunConfig.parse_file(default_engine_config_file)
+        assert run_config.evaluators is None
+        assert run_config.engine.host is None
+        assert run_config.engine.target is None
 
 
 class TestDataConfigValidation:

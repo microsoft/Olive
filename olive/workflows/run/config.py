@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 from pathlib import Path
 from typing import Dict, List, Union
 
@@ -18,6 +19,8 @@ from olive.model import ModelConfig
 from olive.passes import FullPassConfig, Pass
 from olive.resource_path import AZUREML_RESOURCE_TYPES
 from olive.systems.system_config import SystemConfig
+
+logger = logging.getLogger(__name__)
 
 
 class RunPassConfig(FullPassConfig):
@@ -62,8 +65,8 @@ class RunConfig(ConfigBase):
     data_root: str = None
     data_configs: Dict[str, DataConfig] = None
     evaluators: Dict[str, OliveEvaluatorConfig] = None
+    engine: RunEngineConfig = None
     pass_flows: List[List[str]] = None
-    engine: RunEngineConfig
     passes: Dict[str, RunPassConfig] = None
 
     @validator("input_model", pre=True)
@@ -78,6 +81,12 @@ class RunConfig(ConfigBase):
 
         if _have_aml_client(input_model_path, values):
             v["config"]["model_path"]["config"]["azureml_client"] = values["azureml_client"]
+        return v
+
+    @validator("engine", pre=True, always=True)
+    def default_engine_config(cls, v):
+        if v is None:
+            v = {}
         return v
 
     @validator("data_configs", pre=True, always=True)
@@ -150,7 +159,8 @@ class RunConfig(ConfigBase):
     @validator("engine")
     def validate_evaluate_input_model(cls, v):
         if v.evaluate_input_model and v.evaluator is None:
-            raise ValueError("Evaluation only requires evaluator")
+            logger.info("No evaluator is specified, skip to evaluate model")
+            v.evaluate_input_model = False
         return v
 
     @validator("passes", pre=True, each_item=True)
