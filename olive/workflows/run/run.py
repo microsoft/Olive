@@ -10,8 +10,6 @@ import subprocess
 from pathlib import Path
 from typing import List, Union
 
-import onnxruntime as ort
-
 from olive.hardware import Device
 from olive.logging import set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
 from olive.passes import Pass
@@ -64,16 +62,16 @@ def dependency_setup(config):
             SystemType.Local: {Device.CPU: extras.get("cpu"), Device.GPU: extras.get("gpu")},
         },
         "pass": {
+            "IncDynamicQuantization": extras.get("inc"),
+            "IncQuantization": extras.get("inc"),
+            "IncStaticQuantization": extras.get("inc"),
             "OnnxFloatToFloat16": ["onnxconverter-common"],
-            "OrtPerfTuning": ["psutil"],
-            "QuantizationAwareTraining": ["pytorch-lightning"],
             "OpenVINOConversion": extras.get("openvino"),
             "OpenVINOQuantization": extras.get("openvino"),
-            "IncQuantization": extras.get("inc"),
-            "IncDynamicQuantization": extras.get("inc"),
-            "IncStaticQuantization": extras.get("inc"),
             "OptimumConversion": extras.get("optimum"),
             "OptimumMerging": extras.get("optimum"),
+            "OrtPerfTuning": ["psutil"],
+            "QuantizationAwareTraining": ["pytorch-lightning"],
             "TorchTRTConversion": extras.get("torch-tensorrt"),
             "LoRA": extras.get("lora"),
             "QLoRA": extras.get("qlora"),
@@ -142,14 +140,6 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
     else:
         config = RunConfig.parse_obj(config)
 
-    # set log level for olive
-    set_default_logger_severity(config.engine.log_severity_level)
-    # for onnxruntime
-    # ort_py_log_severity_level: python logging levels
-    # ort_log_severity_level: C++ logging levels
-    set_ort_logger_severity(config.engine.ort_py_log_severity_level)
-    ort.set_default_logger_severity(config.engine.ort_log_severity_level)
-
     # input model
     input_model = config.input_model
 
@@ -169,35 +159,45 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
         set_verbosity_info()
         dependency_setup(config)
         return None
-    else:
-        # passes
-        if config.passes:
-            for pass_name, pass_config in config.passes.items():
-                host = pass_config.host.create_system() if pass_config.host is not None else None
-                engine.register(
-                    Pass.registry[pass_config.type.lower()],
-                    config=pass_config.config,
-                    disable_search=pass_config.disable_search,
-                    name=pass_name,
-                    host=host,
-                    evaluator_config=pass_config.evaluator,
-                    clean_run_cache=pass_config.clean_run_cache,
-                    output_name=pass_config.output_name,
-                )
-            engine.set_pass_flows(config.pass_flows)
 
-        if data_root is None:
-            data_root = config.data_root
+    # set log level for olive
+    set_default_logger_severity(config.engine.log_severity_level)
+    # for onnxruntime
+    # ort_py_log_severity_level: python logging levels
+    # ort_log_severity_level: C++ logging levels
+    import onnxruntime as ort
 
-        # run
-        return engine.run(
-            input_model,
-            data_root,
-            config.engine.packaging_config,
-            config.engine.output_dir,
-            config.engine.output_name,
-            config.engine.evaluate_input_model,
-        )
+    set_ort_logger_severity(config.engine.ort_py_log_severity_level)
+    ort.set_default_logger_severity(config.engine.ort_log_severity_level)
+
+    # passes
+    if config.passes:
+        for pass_name, pass_config in config.passes.items():
+            host = pass_config.host.create_system() if pass_config.host is not None else None
+            engine.register(
+                Pass.registry[pass_config.type.lower()],
+                config=pass_config.config,
+                disable_search=pass_config.disable_search,
+                name=pass_name,
+                host=host,
+                evaluator_config=pass_config.evaluator,
+                clean_run_cache=pass_config.clean_run_cache,
+                output_name=pass_config.output_name,
+            )
+        engine.set_pass_flows(config.pass_flows)
+
+    if data_root is None:
+        data_root = config.data_root
+
+    # run
+    return engine.run(
+        input_model,
+        data_root,
+        config.engine.packaging_config,
+        config.engine.output_dir,
+        config.engine.output_name,
+        config.engine.evaluate_input_model,
+    )
 
 
 def check_local_ort_installation(package_name: str):
