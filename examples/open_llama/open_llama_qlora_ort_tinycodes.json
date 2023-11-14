@@ -37,17 +37,20 @@
         }
     },
     "passes": {
-        "lora": {
-            "type": "LoRA",
+        "qlora": {
+            "type": "QLoRA",
             "config": {
+                "use_ort_trainer": true,
+                "torch_dtype": "float32",
                 "lora_dropout": 0.1,
                 "train_data_config": "tiny-codes-train",
                 "eval_dataset_size": 1024,
                 "training_args": {
-                    "per_device_train_batch_size": 8,
-                    "per_device_eval_batch_size": 8,
-                    "gradient_accumulation_steps": 1,
-                    "max_steps": 500,
+                    "per_device_train_batch_size": 1,
+                    "per_device_eval_batch_size": 1,
+                    "gradient_accumulation_steps": 16,
+                    "gradient_checkpointing": false,
+                    "max_steps": 1500,
                     "logging_steps": 100,
                     "save_steps": 100,
                     "evaluation_strategy": "steps",
@@ -70,6 +73,6 @@
         },
         "execution_providers": ["CPUExecutionProvider"],
         "cache_dir": "cache",
-        "output_dir" : "models/open_llama_lora_tinycodes"
+        "output_dir" : "models/open_llama_qlora_ort_tinycodes"
     }
 }

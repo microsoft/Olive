@@ -49,6 +49,7 @@
                     "gradient_accumulation_steps": 1,
                     "max_steps": 1500,
                     "logging_steps": 100,
+                    "save_steps": 100,
                     "evaluation_strategy": "steps",
                     "adam_beta2": 0.999,
                     "max_grad_norm": 0.3,
