@@ -40,6 +40,7 @@ def run_llama_v2_io_binding(
     prompt: str,
     max_seq_len: int = 2048,
     max_gen_len: int = 256,
+    device_id: int = 0,
     disable_metacommands: bool = False,
     ignore_eos: bool = False,
 ) -> str:
@@ -51,6 +52,7 @@ def run_llama_v2_io_binding(
             "DmlExecutionProvider",
             {
                 "disable_metacommands": disable_metacommands,
+                "device_id": device_id,
             },
         )
     ]
@@ -192,11 +194,13 @@ if __name__ == "__main__":
     parser.add_argument("--max_gen_len", type=int, default=256)
     parser.add_argument("--disable_metacommands", action="store_true")
     parser.add_argument("--ignore_eos", action="store_true")
+    parser.add_argument("--device_id", type=int, default=0)
     args = parser.parse_args()
     run_llama_v2_io_binding(
         args.prompt,
         args.max_seq_len,
         args.max_gen_len,
+        args.device_id,
         args.disable_metacommands,
         args.ignore_eos,
     )
