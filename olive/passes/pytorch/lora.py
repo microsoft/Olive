@@ -651,10 +651,6 @@ class QLoRA(LoRABase):
         if version.parse(transformers_version) < version.parse("4.30.0"):
             raise RuntimeError(f"QLoRA pass only supports transformers >= 4.30.0, but {transformers_version} is used.")
 
-        # GPU is required for bitsandbytes quantized models
-        if not torch.cuda.is_available():
-            raise RuntimeError("QLoRA pass requires GPU to run.")
-
         # convert config to pass config class
         # this will validate the config and convert to the correct types
         config = self._config_class(**config)
