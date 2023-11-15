@@ -252,6 +252,5 @@ def get_huggingface_token():
             f"Please make sure the token file exists."
         )
         return None
-    with open(token_path, "r") as f:
-        token = f.read().strip()
-    return token
+    with Path(token_path).open() as f:
+        return f.read().strip()
