@@ -7,6 +7,7 @@ from typing import Any, Dict
 
 from onnx import ModelProto, TensorProto, helper
 from onnxruntime import __version__ as OrtVersion
+from onnxruntime.transformers import onnx_model as ort_onnx_model
 from onnxruntime.transformers.convert_generation import get_shared_initializers
 from packaging import version
 
@@ -187,10 +188,11 @@ class InsertBeamSearch(Pass):
             self.add_attention_mask(model_proto_A)
             self.add_attention_mask(model_proto_B)
 
+        ort_onnx_model.OnnxModel.graph_topological_sort(model_proto_A.graph)
+        ort_onnx_model.OnnxModel.graph_topological_sort(model_proto_B.graph)
         combined_model = self.chain_model(
             model_proto_A, model_A_name, model_proto_B, model_B_name, model.model_attributes, config
         )
-
         # save the model to the output path and return the model
         output_model_path = ONNXModel.resolve_path(output_model_path)
         return model_proto_to_olive_model(combined_model, output_model_path, config, True)
