@@ -34,12 +34,9 @@
     ],
     "lora": [
         "accelerate",
-        "peft"
-    ],
-    "qlora": [
-        "accelerate",
         "bitsandbytes",
-        "peft"
+        "peft",
+        "scipy"
     ],
     "qlora-ort": [
         "accelerate",

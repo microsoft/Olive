@@ -21,7 +21,7 @@ from packaging import version
 from pydantic import Field, validator
 from transformers import AutoTokenizer, PreTrainedModel, PreTrainedTokenizer
 
-from olive.common.config_utils import ConfigBase, ConfigWithExtraArgs
+from olive.common.config_utils import ConfigBase, ConfigWithExtraArgs, validate_config
 from olive.common.utils import find_submodules
 from olive.data.config import DataConfig
 from olive.data.constants import IGNORE_INDEX
@@ -262,6 +262,7 @@ class LoRABase(Pass):
         eval_dataset_size = config.eval_dataset_size
 
         # load training dataset
+        train_data_config = validate_config(train_data_config, DataConfig)
         train_data_container = train_data_config.to_data_container()
         train_dataset = train_data_container.pre_process(train_data_container.load_dataset(data_root))
         train_dataset = train_dataset.to_hf_dataset(label_name="labels")
@@ -269,6 +270,7 @@ class LoRABase(Pass):
         # load evaluation dataset if needed
         if eval_data_config:
             # eval data config has been provided
+            eval_data_config = validate_config(eval_data_config, DataConfig)
             eval_data_container = eval_data_config.to_data_container()
             eval_dataset = eval_data_container.pre_process(eval_data_container.load_dataset(data_root))
             eval_dataset = eval_dataset.to_hf_dataset(label_name="labels")

@@ -326,11 +326,16 @@ class AzureMLSystem(OliveSystem):
             "pass_accelerator_type": pass_config["accelerator"]["accelerator_type"],
             "pass_execution_provider": pass_config["accelerator"]["execution_provider"],
         }
+
+        # prepare data config
+        data_config_inputs, data_config_args = self._get_data_configs(pass_config["config"])
+
         # prepare inputs
         model_resource_paths = model_config.get_resource_paths()
         inputs = {
             **self._create_model_inputs(model_resource_paths),
             **self._create_pass_inputs(pass_path_params),
+            **data_config_inputs,
             **accelerator_info,
         }
         # prepare outputs
@@ -361,6 +366,7 @@ class AzureMLSystem(OliveSystem):
         args = {
             **self._create_model_args(model_json, model_resource_paths, tmp_dir),
             **self._create_pass_args(pass_config, pass_path_params, data_root, tmp_dir),
+            **data_config_args,
             **accelerator_info,
         }
 
@@ -372,6 +378,29 @@ class AzureMLSystem(OliveSystem):
             return outputs
 
         return pass_runner_pipeline()
+
+    def _get_data_configs(self, pass_config: dict):
+        data_config_inputs = {}
+        data_config_args = {}
+        if pass_config.get("train_data_config", None):
+            self._get_data_config_items(pass_config["train_data_config"], "train", data_config_inputs, data_config_args)
+        if pass_config.get("eval_data_config", None):
+            self._get_data_config_items(pass_config["eval_data_config"], "eval", data_config_inputs, data_config_args)
+        return data_config_inputs, data_config_args
+
+    def _get_data_config_items(
+        self, data_config: dict, data_name: str, data_config_inputs: dict, data_config_args: dict
+    ):
+        if "user_script" in data_config:
+            data_config_inputs.update({f"{data_name}_user_script": Input(type=AssetTypes.URI_FILE, optional=True)})
+            data_config_args.update(
+                {f"{data_name}_user_script": Input(type=AssetTypes.URI_FILE, path=data_config["user_script"])}
+            )
+        if "script_dir" in data_config and data_config["script_dir"]:
+            data_config_inputs.update({f"{data_name}_script_dir": Input(type=AssetTypes.URI_FOLDER, optional=True)})
+            data_config_args.update(
+                {f"{data_name}_script_dir": Input(type=AssetTypes.URI_FOLDER, path=data_config["script_dir"])}
+            )
 
     def _run_job(
         self,

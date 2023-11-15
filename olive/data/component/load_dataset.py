@@ -27,6 +27,11 @@ def huggingface_dataset(data_dir, data_name=None, subset=None, split="validation
     """Create a dataset from huggingface datasets."""
     from datasets.utils.logging import disable_progress_bar, set_verbosity_error
 
+    if kwargs.get("huggingface_token") is not None:
+        from huggingface_hub import login
+
+        login(token=kwargs["huggingface_token"])
+
     disable_progress_bar()
     set_verbosity_error()
     from datasets import load_dataset

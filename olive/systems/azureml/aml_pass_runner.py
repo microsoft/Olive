@@ -33,6 +33,17 @@ def parse_pass_config_arg(raw_args):
     return parser.parse_known_args(raw_args)
 
 
+def parse_data_config_arg(raw_args):
+    parser = argparse.ArgumentParser("Pass config")
+
+    parser.add_argument("--train_user_script", type=str, help="train user script")
+    parser.add_argument("--train_script_dir", type=str, help="train script dir")
+    parser.add_argument("--eval_user_script", type=str, help="eval user script")
+    parser.add_argument("--eval_script_dir", type=str, help="eval script dir")
+
+    return parser.parse_known_args(raw_args)
+
+
 def parse_pass_args(pass_type, accelerator_spec, raw_args):
     pass_class = PASS_REGISTRY[pass_type]
 
@@ -56,14 +67,27 @@ def create_pass(pass_config, pass_args):
     return FullPassConfig.from_json(pass_config).create_pass()
 
 
+def update_data_config(pass_config, data_config):
+    if data_config.train_user_script is not None:
+        pass_config["config"]["train_data_config"]["user_script"] = data_config.train_user_script
+    if data_config.train_script_dir is not None:
+        pass_config["config"]["train_data_config"]["script_dir"] = data_config.train_script_dir
+    if data_config.eval_user_script is not None:
+        pass_config["config"]["eval_data_config"]["user_script"] = data_config.eval_user_script
+    if data_config.eval_script_dir is not None:
+        pass_config["config"]["eval_data_config"]["script_dir"] = data_config.eval_script_dir
+
+
 def main(raw_args=None):
     input_model_config, pipeline_output, extra_args = get_common_args(raw_args)
     pass_config_arg, extra_args = parse_pass_config_arg(extra_args)
+    data_config, extra_args = parse_data_config_arg(extra_args)
 
     # pass config
     with open(pass_config_arg.pass_config) as f:  # noqa: PTH123
         pass_config = json.load(f)
     pass_type = pass_config["type"].lower()
+    update_data_config(pass_config, data_config)
 
     if version.parse(ort_version) < version.parse("1.16.0"):
         # In onnxruntime, the following PRs will make the optimize_model save external data in the temporary folder
