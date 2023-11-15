@@ -19,7 +19,7 @@ from azure.core.exceptions import HttpResponseError, ServiceResponseError
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.cache import normalize_data_path
 from olive.common.config_utils import ParamCategory, validate_config
-from olive.common.utils import retry_func
+from olive.common.utils import get_huggingface_token, retry_func
 from olive.evaluator.metric import Metric, MetricResult
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ModelConfig
@@ -269,6 +269,7 @@ class AzureMLSystem(OliveSystem):
         inputs,
         outputs,
         script_name,
+        environment_variables=None,
     ):
         # create arguments for inputs and outputs
         parameters = []
@@ -290,6 +291,7 @@ class AzureMLSystem(OliveSystem):
             command=cmd_line,
             resources=resources,
             environment=aml_environment,
+            environment_variables=environment_variables,
             code=str(code),
             inputs=inputs,
             outputs=outputs,
@@ -328,7 +330,10 @@ class AzureMLSystem(OliveSystem):
         }
 
         # prepare data config
-        data_config_inputs, data_config_args = self._get_data_configs(pass_config["config"])
+        data_config_inputs, data_config_args, need_hf_token = self._get_data_configs(pass_config["config"])
+        environment_variables = {}
+        if need_hf_token:
+            environment_variables.update({"HF_TOKEN": get_huggingface_token()})
 
         # prepare inputs
         model_resource_paths = model_config.get_resource_paths()
@@ -350,6 +355,7 @@ class AzureMLSystem(OliveSystem):
             display_name=pass_type,
             description=f"Run olive {pass_type} pass",
             aml_environment=self.environment,
+            environment_variables=environment_variables,
             code=str(code_root),
             compute=self.compute,
             resources=self.resources,
@@ -382,11 +388,14 @@ class AzureMLSystem(OliveSystem):
     def _get_data_configs(self, pass_config: dict):
         data_config_inputs = {}
         data_config_args = {}
+        need_hf_token = False
         if pass_config.get("train_data_config", None):
             self._get_data_config_items(pass_config["train_data_config"], "train", data_config_inputs, data_config_args)
+            need_hf_token = self._check_token(pass_config["train_data_config"])
         if pass_config.get("eval_data_config", None):
             self._get_data_config_items(pass_config["eval_data_config"], "eval", data_config_inputs, data_config_args)
-        return data_config_inputs, data_config_args
+            need_hf_token = need_hf_token or self._check_token(pass_config["eval_data_config"])
+        return data_config_inputs, data_config_args, need_hf_token
 
     def _get_data_config_items(
         self, data_config: dict, data_name: str, data_config_inputs: dict, data_config_args: dict
@@ -401,6 +410,12 @@ class AzureMLSystem(OliveSystem):
             data_config_args.update(
                 {f"{data_name}_script_dir": Input(type=AssetTypes.URI_FOLDER, path=data_config["script_dir"])}
             )
+
+    def _check_token(self, data_config: dict):
+        try:
+            return data_config["components"]["load_dataset"]["params"]["token"]
+        except KeyError:
+            return False
 
     def _run_job(
         self,

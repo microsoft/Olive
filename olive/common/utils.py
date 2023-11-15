@@ -13,6 +13,7 @@ import shlex
 import shutil
 import subprocess
 import time
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -232,3 +233,25 @@ def find_submodules(module, submodule_types, full_name=False):
             else:
                 submodules.add(name.split(".")[-1])
     return list(submodules)
+
+
+def get_huggingface_token():
+    """Get huggingface token from environment variable or token file."""
+    import os
+
+    if os.getenv("HF_TOKEN", None):
+        return os.getenv("HF_TOKEN")
+
+    token_path = Path.home() / ".huggingface" / "token"
+    if not token_path.exists():
+        logger.warning(
+            "Huggingface token is required at this step."
+            f"Could not find huggingface token at {token_path}. "
+            "Please login to huggingface first using `huggingface-cli login`. "
+            "If you already logged in, Olive will get token from '~/.huggingface/token' file'. "
+            f"Please make sure the token file exists."
+        )
+        return None
+    with open(token_path, "r") as f:
+        token = f.read().strip()
+    return token

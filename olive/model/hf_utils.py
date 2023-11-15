@@ -207,7 +207,6 @@ class HFConfig(ConfigBase):
     # feature is optional if task is specified and don't need past
     # else, provide feature such as "causal-lm-with-past"
     feature: str = None
-    token: str = None
     # TODO(xiaoyu): remove model_class and only use task
     model_class: str = None
     components: List[HFComponent] = None
@@ -223,11 +222,6 @@ class HFConfig(ConfigBase):
 
     def load_model(self, model_path: str = None):
         """Load model from model_path or model_name."""
-        if self.token:
-            from huggingface_hub import login
-
-            login(token=self.token)
-
         model_name_or_path = model_path or self.model_name
         logger.info(f"Loading Huggingface model from {model_name_or_path}")
         loading_args = self.model_loading_args.get_loading_args() if self.model_loading_args else {}

@@ -7,6 +7,7 @@ from typing import ClassVar, Optional
 from pydantic import BaseModel
 
 from olive.cache import get_local_path_from_root
+from olive.common.utils import get_huggingface_token
 from olive.data.component.dataloader import default_calibration_dataloader
 from olive.data.config import DataConfig, DefaultDataComponentCombos
 from olive.data.constants import DataContainerType, DefaultDataContainer
@@ -38,6 +39,13 @@ class DataContainer(BaseModel):
         data_dir = get_local_path_from_root(data_root_path, data_dir)
         if data_dir:
             params_config["data_dir"] = data_dir
+
+        if params_config.get("token", False):
+            from huggingface_hub import login
+
+            token = get_huggingface_token()
+            login(token=token)
+
         return self.config.load_dataset(**params_config)
 
     def pre_process(self, dataset):
