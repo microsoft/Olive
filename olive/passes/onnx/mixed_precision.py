@@ -74,7 +74,7 @@ class OrtMixedPrecision(Pass):
         else:
             logger.warning(f"Failed to find MatMul node for logits. Found {node.op_type} of node {node.name}")
 
-        keep_io_types = True
+        keep_io_types = []
         node_block_list = []
         if (not is_weight_fp16_precision) and (last_matmul_node is not None):
             # When original weight is float32 precision,

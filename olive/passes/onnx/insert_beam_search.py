@@ -43,6 +43,11 @@ class InsertBeamSearch(Pass):
                     " 1.16.0"
                 ),
             ),
+            "fp16": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Is the model in fp16 precision.",
+            ),
         }
         config.update(get_external_data_config())
         return config
@@ -58,19 +63,43 @@ class InsertBeamSearch(Pass):
         model_B.graph.name = f"{model_B_name} subgraph"
 
         beam_inputs = [
-            "input_features",
+            "input_features_fp16" if options["fp16"] else "input_features",
             "max_length",
             "min_length",
             "num_beams",
             "num_return_sequences",
-            "length_penalty",
-            "repetition_penalty",
+            "length_penalty_fp16" if options["fp16"] else "length_penalty",
+            "repetition_penalty_fp16" if options["fp16"] else "repetition_penalty",
             "",
             "",
             "" if version_1_16 else "attention_mask",
         ]
         if version_1_16:
             beam_inputs.extend(["decoder_input_ids" if options["use_forced_decoder_ids"] else "", ""])
+
+        input_features_cast_node, len_pen_cast_node, rep_pen_cast_node = None, None, None
+        if options["fp16"]:
+            input_features_cast_node = helper.make_node(
+                "Cast",
+                inputs=["input_features"],
+                outputs=["input_features_fp16"],
+                name="CastInputFeaturesToFp16",
+                to=TensorProto.FLOAT16,
+            )
+            len_pen_cast_node = helper.make_node(
+                "Cast",
+                inputs=["length_penalty"],
+                outputs=["length_penalty_fp16"],
+                name="CastLengthPenaltyToFp16",
+                to=TensorProto.FLOAT16,
+            )
+            rep_pen_cast_node = helper.make_node(
+                "Cast",
+                inputs=["repetition_penalty"],
+                outputs=["repetition_penalty_fp16"],
+                name="CastRepetitionPenaltyToFp16",
+                to=TensorProto.FLOAT16,
+            )
 
         beam_outputs = ["sequences"]
 
@@ -124,6 +153,16 @@ class InsertBeamSearch(Pass):
         )
         graph_outputs = [sequences]
 
+        if options["fp16"] and version_1_16:
+            from onnxruntime.transformers.convert_generation import (
+                update_decoder_subgraph_share_buffer_and_use_decoder_masked_mha as update_decoder_with_ort,
+            )
+
+            if update_decoder_with_ort(model_B.graph):
+                logger.info("Updated whisper decoder subgraph to use DecoderMaskedMultiHeadAttention successfully!")
+            else:
+                logger.warning("DecoderMaskedMultiHeadAttention could not be applied to whisper decoder subgraph")
+
         # Initializers/opsets
         # Delete shared data between decoder/encoder and move to larger graph initializers
         initializers = get_shared_initializers(model_A, model_B)
@@ -137,8 +176,11 @@ class InsertBeamSearch(Pass):
             helper.make_opsetid(domain="com.microsoft", version=1),
             helper.make_opsetid(domain="", version=17),
         ]
+        graph_nodes = (
+            [input_features_cast_node, len_pen_cast_node, rep_pen_cast_node, node] if options["fp16"] else [node]
+        )
 
-        beam_graph = helper.make_graph([node], "beam-search-test", graph_inputs, graph_outputs, initializers)
+        beam_graph = helper.make_graph(graph_nodes, "beam-search-test", graph_inputs, graph_outputs, initializers)
         assert model_A.ir_version == model_B.ir_version
         logger.debug(f"Using IR version {model_A.ir_version} for chained model")
 
