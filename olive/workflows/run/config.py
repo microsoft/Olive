@@ -143,7 +143,7 @@ class RunConfig(ConfigBase):
             for key in ["model_name", "task"]:
                 if not v["params_config"].get(key, None):
                     v["params_config"][key] = hf_config.get(key, None)
-            # auto insert token and trust_remote_code from input model hf config
+            # auto insert trust_remote_code from input model hf config
             # won't override if value was set to False explicitly
             for key in ["trust_remote_code"]:
                 if hf_config.get("model_loading_args", {}).get(key, None) and v["params_config"].get(key, None) is None:

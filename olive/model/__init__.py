@@ -672,7 +672,6 @@ class PyTorchModel(OliveModel):
                 logger.debug("Using hf onnx_config to get dummy inputs")
                 kwargs = {}
                 if self.hf_config.model_loading_args:
-                    kwargs["token"] = self.hf_config.model_loading_args.token
                     kwargs["trust_remote_code"] = self.hf_config.model_loading_args.trust_remote_code
                 dummy_inputs = get_hf_model_dummy_input(
                     self.hf_config.model_name, self.hf_config.task, self.hf_config.feature, **kwargs
