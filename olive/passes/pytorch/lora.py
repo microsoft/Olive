@@ -215,11 +215,11 @@ class LoRABase(Pass):
         if with_fixed_value:
             search_point = self.config_at_search_point(search_point or {})
         if search_point.get("use_ort_trainer"):
-            # if search_point.get("torch_dtype") == "bfloat16":
-            #     logger.info(
-            #         "bfloat16 is not supported by onnxruntime-training yet. Please use a different torch_dtype."
-            #     )
-            #     return False
+            if search_point.get("torch_dtype") == "bfloat16":
+                logger.info(
+                    "bfloat16 is not supported by onnxruntime-training yet. Please use a different torch_dtype."
+                )
+                return False
             if search_point.get("training_args", {}).get("gradient_checkpointing"):
                 logger.info(
                     "gradient_checkpointing is not supported by onnxruntime-training. Please set gradient_checkpointing"
