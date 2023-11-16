@@ -80,7 +80,8 @@ class HFModelLoadingArgs(ConfigWithExtraArgs):
         None,
         description=(
             "The token to use as HTTP bearer authorization for remote files. If `True`, will use the token generated "
-            " when running `huggingface-cli login`."
+            " when running `huggingface-cli login`. `True` is recommended over a string token since the token will be "
+            " stored in the config file in plain text if a string token is provided."
         ),
     )
     # whether to trust remote code
@@ -376,9 +377,11 @@ def get_hf_model_io_config(model_name: str, task: str, feature: Optional[str] = 
     return io_config
 
 
-def get_hf_model_dummy_input(model_name: str, task: str, feature: Optional[str] = None):
+def get_hf_model_dummy_input(
+    model_name: str, task: str, feature: Optional[str] = None, token=None, trust_remote_code=None
+):
     model_config = get_onnx_config(model_name, task, feature)
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, token=token, trust_remote_code=trust_remote_code)
     return model_config.generate_dummy_inputs(tokenizer, framework="pt")
 
 
