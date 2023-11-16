@@ -70,30 +70,26 @@ if __name__ == "__main__":
     if args.inference:
         import numpy as np
         from transformers import AutoTokenizer
-        from transformers import pipeline
         from transformers import AutoModelForCausalLM
-        import torch
-        
+
+        tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True)
+        inputs = tokenizer(
+            '''"Girafatron is obsessed with giraffes, the most glorious animal on the face of this Earth. Giraftron believes all other animals are irrelevant when compared to the glorious majesty of the giraffe.\nDaniel: Hello, Girafatron!\nGirafatron:",''',
+            return_tensors="pt",
+            return_attention_mask=False,
+        )
         model_path = optimized_model_dir / "model.onnx"
         session = ort.InferenceSession(model_path, providers=["DmlExecutionProvider"])
-        
-        tokenizer = AutoTokenizer.from_pretrained(args.model)
-        args.model = AutoModelForCausalLM.from_pretrained(args.model, device_map="auto", offload_folder = script_dir / "offload", trust_remote_code=True)
-        pipeline_ = pipeline(
-            "text-generation",
-            model=args.model,
-            tokenizer=tokenizer,
-            torch_dtype=torch.bfloat16,
-            trust_remote_code=True,
-            device_map="auto",
-        )
-        sequences = pipeline_(
-           "Girafatron is obsessed with giraffes, the most glorious animal on the face of this Earth. Giraftron believes all other animals are irrelevant when compared to the glorious majesty of the giraffe.\nDaniel: Hello, Girafatron!\nGirafatron:",
-            max_length=200,
-            do_sample=True,
-            top_k=10,
-            num_return_sequences=1,
-            eos_token_id=tokenizer.eos_token_id,
-        )
-        for seq in sequences:
-            print(f"Result: {seq['generated_text']}")
+
+        inputs_numpy = inputs["input_ids"].numpy()
+        print("in shape:", inputs_numpy.shape)
+        print("in content:", inputs_numpy)
+        for _ in range(args.max_length):
+            outputs = session.run(None, {"input_ids": inputs_numpy})
+            prediction = np.argmax(outputs[0], -1, keepdims=False)[0][-1]
+            inputs_numpy = np.append(inputs_numpy, [[prediction]], axis=1)
+
+        text = tokenizer.batch_decode(inputs_numpy)[0]
+        print(text)
+        print("out shape:", inputs_numpy.shape)
+        print("out content:", inputs_numpy[0])

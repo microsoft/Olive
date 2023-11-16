@@ -21,4 +21,4 @@ def create_dataloader(data_dir, batchsize, *args, **kwargs):
     return DataLoader(batchsize)
 
 def dummy_inputs(model):
-    return torch.zeros((1, 77), dtype=torch.int64)
+    return torch.zeros((1, 62), dtype=torch.int64)

@@ -58,32 +58,29 @@
         "all_tensors_to_one_file": true
       }
     },
-    "optimize": {
-      "type": "OrtTransformersOptimization",
-      "disable_search": true
+    "perf_tuning": {
+      "type": "OrtPerfTuning",
+      "config": {
+        "user_script": "user_script.py",
+        "dataloader_func": "create_dataloader",
+        "device": "gpu",
+        "batch_size": 1,
+        "execution_mode_list": [ "ORT_SEQUENTIAL" ],
+        "providers_list": [ "DmlExecutionProvider" ]
+      }
     }
   },
-  "perf_tuning": {
-    "type": "OrtPerfTuning",
-    "config": {
-      "user_script": "user_script.py",
-      "dataloader_func": "create_dataloader",
-      "device": "gpu",
-      "batch_size": 1,
-      "execution_mode_list": [ "ORT_SEQUENTIAL" ],
-      "providers_list": [ "DmlExecutionProvider" ]
-    }
-  }, 
   "engine": {
-  "log_severity_level": 0,
-  "search_strategy": {
-    "execution_order": "joint",
-    "search_algorithm": "exhaustive"
-  },
-  "evaluator": "common_evaluator",
-  "evaluate_input_model": false,
-  "host": "local_system",
-  "target": "local_system",
-  "clean_cache": true,
-  "cache_dir": "cache"
-} }
+    "log_severity_level": 0,
+    "search_strategy": {
+      "execution_order": "joint",
+      "search_algorithm": "exhaustive"
+    },
+    "evaluator": "common_evaluator",
+    "evaluate_input_model": false,
+    "host": "local_system",
+    "target": "local_system",
+    "clean_cache": true,
+    "cache_dir": "cache"
+  }
+}
