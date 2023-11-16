@@ -5,6 +5,7 @@
 
 
 from copy import deepcopy
+from typing import Optional
 
 from olive.data.component.dataset import BaseDataset
 from olive.data.component.text_generation import (
@@ -65,7 +66,7 @@ def huggingface_pre_process(
         input_cols (list): List of input columns.
         label_cols (list): List of label columns.
         max_samples (int, optional): Max number of samples to use. Defaults to None.
-        token (str | bool, optional): The token to use as HTTP bearer authorization for remote files. If `True`, will
+        token (str, optional): The token to use as HTTP bearer authorization for remote files. If `True`, will
             use the token generated  when running `huggingface-cli login`. Defaults to None.
         trust_remote_code (bool, optional): Whether or not to allow for custom models defined on the Hub in their own
             modeling files. Defaults to None.
@@ -166,9 +167,9 @@ def text_generation_huggingface_pre_process(
     model_name: str,
     source_max_len: int,
     dataset_type: TextGenDatasetType = TextGenDatasetType.CORPUS,
-    max_samples=None,
-    token=None,
-    trust_remote_code=None,
+    max_samples: Optional[int] = None,
+    token: Optional[bool] = None,
+    trust_remote_code: Optional[bool] = None,
     **kwargs
 ):
     """Pre-process data for text generation task.
@@ -180,7 +181,7 @@ def text_generation_huggingface_pre_process(
             For pair, this is the max length of the input sequence.
         dataset_type (TextGenDatasetType): Type of the dataset - 'corpus' or 'pair'. Defaults to 'corpus'.
         max_samples (int, optional): Max number of samples to use. Defaults to None.
-        token (str | bool, optional): The token to use as HTTP bearer authorization for remote files. If `True`, will
+        token (str, optional): The token to use as HTTP bearer authorization for remote files. If `True`, will
             use the token generated  when running `huggingface-cli login`. Defaults to None.
         trust_remote_code (bool, optional): Whether or not to allow for custom models defined on the Hub in their own
             modeling files. Defaults to None.

@@ -198,10 +198,9 @@ class TestDataConfigValidation:
             (True, True, None, True),
             (True, None, None, None),
             (True, None, True, True),
-            (True, "dummy_token", None, "dummy_token"),
-            (True, "dummy_token", True, True),
-            (True, "dummy_token", False, False),
-            (True, "dummy_token", "dummy_token2", "dummy_token2"),
+            (True, None, False, False),
+            (True, True, False, False),
+            (True, False, True, True),
         ],
     )
     def test_auto_insert_token(self, has_loading_args, token, data_config_token, expected_token):
