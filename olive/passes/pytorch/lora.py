@@ -597,7 +597,6 @@ class LoRA(LoRABase):
         # tokenizer
         tokenizer = AutoTokenizer.from_pretrained(
             new_model.hf_config.model_name,
-            token=new_model.hf_config.model_loading_args.token,
             trust_remote_code=new_model.hf_config.model_loading_args.trust_remote_code,
         )
 
@@ -725,7 +724,6 @@ class QLoRA(LoRABase):
         # tokenizer
         tokenizer = AutoTokenizer.from_pretrained(
             new_model.hf_config.model_name,
-            token=new_model.hf_config.model_loading_args.token,
             trust_remote_code=new_model.hf_config.model_loading_args.trust_remote_code,
         )
 

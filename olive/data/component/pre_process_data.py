@@ -56,7 +56,7 @@ def _huggingface_pre_process_helper(dataset, model_name, input_cols, label_cols,
 
 @Registry.register_pre_process()
 def huggingface_pre_process(
-    dataset, model_name, input_cols, label_cols, max_samples=None, token=None, trust_remote_code=None, **kwargs
+    dataset, model_name, input_cols, label_cols, max_samples=None, trust_remote_code=None, **kwargs
 ):
     """Pre-process data.
 
@@ -66,8 +66,6 @@ def huggingface_pre_process(
         input_cols (list): List of input columns.
         label_cols (list): List of label columns.
         max_samples (int, optional): Max number of samples to use. Defaults to None.
-        token (bool, optional): The token to use as HTTP bearer authorization for remote files. If `True`, will
-            use the token generated  when running `huggingface-cli login`. Defaults to None.
         trust_remote_code (bool, optional): Whether or not to allow for custom models defined on the Hub in their own
             modeling files. Defaults to None.
         **kwargs: Additional arguments.
@@ -78,7 +76,7 @@ def huggingface_pre_process(
     from transformers import AutoConfig, AutoTokenizer
 
     def _tokenizer_and_align_labels(examples):
-        tokenizer = AutoTokenizer.from_pretrained(model_name, token=token, trust_remote_code=trust_remote_code)
+        tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=trust_remote_code)
         tokenized_inputs = tokenizer(
             *[examples[input_col] for input_col in input_cols],
             padding=kwargs.get("padding", True),
@@ -97,7 +95,7 @@ def huggingface_pre_process(
     # Also to support customized operation arguments from users
     if kwargs.pop("align_labels", False):
         model_hf_config = AutoConfig.from_pretrained(
-            model_config_path or model_name, token=token, trust_remote_code=trust_remote_code
+            model_config_path or model_name, trust_remote_code=trust_remote_code
         )
         if model_hf_config and model_hf_config.label2id:
             dataset = dataset.align_labels_with_mapping(model_hf_config.label2id, label_cols[0])
@@ -111,7 +109,7 @@ def huggingface_pre_process(
 
 @Registry.register_pre_process()
 def ner_huggingface_preprocess(
-    dataset, model_name, input_cols, label_cols, max_samples=None, token=None, trust_remote_code=None, **kwargs
+    dataset, model_name, input_cols, label_cols, max_samples=None, trust_remote_code=None, **kwargs
 ):
     """Pre-process data for ner task."""
     from transformers import AutoTokenizer
@@ -138,7 +136,7 @@ def ner_huggingface_preprocess(
         return new_labels
 
     def _tokenizer_and_align_labels(examples):
-        tokenizer = AutoTokenizer.from_pretrained(model_name, token=token, trust_remote_code=trust_remote_code)
+        tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=trust_remote_code)
         tokenized_inputs = tokenizer(
             *[examples[input_col] for input_col in input_cols],
             padding=kwargs.get("padding", True),
@@ -168,7 +166,6 @@ def text_generation_huggingface_pre_process(
     source_max_len: int,
     dataset_type: TextGenDatasetType = TextGenDatasetType.CORPUS,
     max_samples: Optional[int] = None,
-    token: Optional[bool] = None,
     trust_remote_code: Optional[bool] = None,
     **kwargs
 ):
@@ -181,8 +178,6 @@ def text_generation_huggingface_pre_process(
             For pair, this is the max length of the input sequence.
         dataset_type (TextGenDatasetType): Type of the dataset - 'corpus' or 'pair'. Defaults to 'corpus'.
         max_samples (int, optional): Max number of samples to use. Defaults to None.
-        token (bool, optional): The token to use as HTTP bearer authorization for remote files. If `True`, will
-            use the token generated  when running `huggingface-cli login`. Defaults to None.
         trust_remote_code (bool, optional): Whether or not to allow for custom models defined on the Hub in their own
             modeling files. Defaults to None.
         **kwargs: Additional arguments.
@@ -196,7 +191,7 @@ def text_generation_huggingface_pre_process(
     all_kwargs = deepcopy(kwargs)
     all_kwargs.update({"max_samples": max_samples, "source_max_len": source_max_len})
 
-    tokenizer = AutoTokenizer.from_pretrained(model_name, token=token, trust_remote_code=trust_remote_code)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=trust_remote_code)
 
     if dataset_type == TextGenDatasetType.CORPUS:
         return text_gen_corpus_pre_process(dataset, tokenizer, all_kwargs)

@@ -23,9 +23,7 @@ def simple_dataset(data_dir, input_data, label_cols=None, **kwargs):
 
 
 @Registry.register_dataset()
-def huggingface_dataset(
-    data_dir, data_name=None, subset=None, split="validation", data_files=None, token=False, **kwargs
-):
+def huggingface_dataset(data_dir, data_name=None, subset=None, split="validation", data_files=None, **kwargs):
     """Create a dataset from huggingface datasets."""
     from datasets.utils.logging import disable_progress_bar, set_verbosity_error
 
@@ -34,7 +32,7 @@ def huggingface_dataset(
     from datasets import load_dataset
 
     assert data_name is not None, "Please specify the data name"
-    return load_dataset(path=data_name, name=subset, split=split, data_files=data_files, token=token, **kwargs)
+    return load_dataset(path=data_name, name=subset, split=split, data_files=data_files, **kwargs)
 
 
 @Registry.register_dataset()

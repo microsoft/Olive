@@ -191,7 +191,7 @@ class TestDataConfigValidation:
 
     # works similarly for trust_remote_args
     @pytest.mark.parametrize(
-        "has_loading_args,token,data_config_token,expected_token",
+        "has_loading_args,trust_remote_code,data_config_trust_remote_code,expected_trust_remote_code",
         [
             (False, None, None, None),
             (False, None, True, True),
@@ -203,18 +203,27 @@ class TestDataConfigValidation:
             (True, False, True, True),
         ],
     )
-    def test_auto_insert_token(self, has_loading_args, token, data_config_token, expected_token):
+    def test_auto_insert_trust_remote_code(
+        self, has_loading_args, trust_remote_code, data_config_trust_remote_code, expected_trust_remote_code
+    ):
         config_dict = self.template.copy()
         if has_loading_args:
-            config_dict["input_model"]["config"]["hf_config"]["model_loading_args"] = {"token": token}
-        if data_config_token is not None:
-            config_dict["data_configs"]["dummy_data_config2"]["params_config"]["token"] = data_config_token
+            config_dict["input_model"]["config"]["hf_config"]["model_loading_args"] = {
+                "trust_remote_code": trust_remote_code
+            }
+        if data_config_trust_remote_code is not None:
+            config_dict["data_configs"]["dummy_data_config2"]["params_config"][
+                "trust_remote_code"
+            ] = data_config_trust_remote_code
 
         run_config = RunConfig.parse_obj(config_dict)
-        if expected_token is None:
-            assert "token" not in run_config.data_configs["dummy_data_config2"].params_config
+        if expected_trust_remote_code is None:
+            assert "trust_remote_code" not in run_config.data_configs["dummy_data_config2"].params_config
         else:
-            assert run_config.data_configs["dummy_data_config2"].params_config["token"] == expected_token
+            assert (
+                run_config.data_configs["dummy_data_config2"].params_config["trust_remote_code"]
+                == expected_trust_remote_code
+            )
 
     @pytest.mark.parametrize(
         "data_config_str",

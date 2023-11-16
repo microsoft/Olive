@@ -75,15 +75,6 @@ class HFModelLoadingArgs(ConfigWithExtraArgs):
             " details for the supported parameters."
         ),
     )
-    # for remote files that require authentication
-    # expose `str` type if needed in the future
-    token: bool = Field(
-        None,
-        description=(
-            "The token to use as HTTP bearer authorization for remote files. If `True`, will use the token generated "
-            " when running `huggingface-cli login`."
-        ),
-    )
     # whether to trust remote code
     trust_remote_code: bool = Field(
         None,
@@ -140,7 +131,7 @@ class HFModelLoadingArgs(ConfigWithExtraArgs):
     def get_loading_args(self):
         loading_args = {}
         # copy args that can be directly copied
-        direct_copy_args = ["device_map", "max_memory", "token", "trust_remote_code"]
+        direct_copy_args = ["device_map", "max_memory"]
         for arg in direct_copy_args:
             if getattr(self, arg):
                 loading_args[arg] = deepcopy(getattr(self, arg))
@@ -151,6 +142,8 @@ class HFModelLoadingArgs(ConfigWithExtraArgs):
         quantization_config = self.get_quantization_config()
         if quantization_config:
             loading_args["quantization_config"] = quantization_config
+        if self.trust_remote_code:
+            loading_args["trust_remote_code"] = self.trust_remote_code
         # add extra args
         if self.extra_args:
             loading_args.update(deepcopy(self.extra_args))
@@ -381,11 +374,10 @@ def get_hf_model_dummy_input(
     model_name: str,
     task: str,
     feature: Optional[str] = None,
-    token: Optional[bool] = None,
     trust_remote_code: Optional[bool] = None,
 ):
     model_config = get_onnx_config(model_name, task, feature)
-    tokenizer = AutoTokenizer.from_pretrained(model_name, token=token, trust_remote_code=trust_remote_code)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=trust_remote_code)
     return model_config.generate_dummy_inputs(tokenizer, framework="pt")
 
 
