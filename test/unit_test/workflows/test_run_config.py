@@ -189,6 +189,34 @@ class TestDataConfigValidation:
         assert run_config.data_configs["dummy_data_config2"].params_config["model_name"] == expected_model_name
         assert run_config.data_configs["dummy_data_config2"].params_config["task"] == expected_task
 
+    # works similarly for trust_remote_args
+    @pytest.mark.parametrize(
+        "has_loading_args,token,data_config_token,expected_token",
+        [
+            (False, None, None, None),
+            (False, None, True, True),
+            (True, True, None, True),
+            (True, None, None, None),
+            (True, None, True, True),
+            (True, "dummy_token", None, "dummy_token"),
+            (True, "dummy_token", True, True),
+            (True, "dummy_token", False, False),
+            (True, "dummy_token", "dummy_token2", "dummy_token2"),
+        ],
+    )
+    def test_auto_insert_token(self, has_loading_args, token, data_config_token, expected_token):
+        config_dict = self.template.copy()
+        if has_loading_args:
+            config_dict["input_model"]["config"]["hf_config"]["model_loading_args"] = {"token": token}
+        if data_config_token is not None:
+            config_dict["data_configs"]["dummy_data_config2"]["params_config"]["token"] = data_config_token
+
+        run_config = RunConfig.parse_obj(config_dict)
+        if expected_token is None:
+            assert "token" not in run_config.data_configs["dummy_data_config2"].params_config
+        else:
+            assert run_config.data_configs["dummy_data_config2"].params_config["token"] == expected_token
+
     @pytest.mark.parametrize(
         "data_config_str",
         [None, INPUT_MODEL_DATA_CONFIG, "dummy_data_config2"],

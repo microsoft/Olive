@@ -105,14 +105,20 @@ class RunConfig(ConfigBase):
         hf_config = values["input_model"].dict()["config"].get("hf_config", {})
         hf_config_dataset = hf_config.get("dataset", None)
         if hf_config_dataset:
+            params_config = {
+                "model_name": hf_config.get("model_name", None),
+                "task": hf_config.get("task", None),
+                **hf_config_dataset,
+            }
+            # insert token and trust_remote_code from model_loading_args if present
+            # won't override if value was set to False explicitly
+            for key in ["token", "trust_remote_code"]:
+                if hf_config.get("model_loading_args", {}).get(key, None) and params_config.get(key, None) is None:
+                    params_config[key] = hf_config["model_loading_args"][key]
             v[INPUT_MODEL_DATA_CONFIG] = {
                 "name": INPUT_MODEL_DATA_CONFIG,
                 "type": HuggingfaceContainer.__name__,
-                "params_config": {
-                    "model_name": hf_config.get("model_name", None),
-                    "task": hf_config.get("task", None),
-                    **hf_config_dataset,
-                },
+                "params_config": params_config,
             }
         return v
 
@@ -132,9 +138,15 @@ class RunConfig(ConfigBase):
 
         if v["type"] == HuggingfaceContainer.__name__:
             # auto insert model_name and task from input model hf config if not present
+            # both are required for huggingface container
             for key in ["model_name", "task"]:
                 if not v["params_config"].get(key, None):
                     v["params_config"][key] = hf_config.get(key, None)
+            # auto insert token and trust_remote_code from input model hf config
+            # won't override if value was set to False explicitly
+            for key in ["token", "trust_remote_code"]:
+                if hf_config.get("model_loading_args", {}).get(key, None) and v["params_config"].get(key, None) is None:
+                    v["params_config"][key] = hf_config["model_loading_args"][key]
 
         return validate_config(v, DataConfig)
 
