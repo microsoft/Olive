@@ -66,7 +66,7 @@ def huggingface_pre_process(
         input_cols (list): List of input columns.
         label_cols (list): List of label columns.
         max_samples (int, optional): Max number of samples to use. Defaults to None.
-        token (str, optional): The token to use as HTTP bearer authorization for remote files. If `True`, will
+        token (bool, optional): The token to use as HTTP bearer authorization for remote files. If `True`, will
             use the token generated  when running `huggingface-cli login`. Defaults to None.
         trust_remote_code (bool, optional): Whether or not to allow for custom models defined on the Hub in their own
             modeling files. Defaults to None.
@@ -181,7 +181,7 @@ def text_generation_huggingface_pre_process(
             For pair, this is the max length of the input sequence.
         dataset_type (TextGenDatasetType): Type of the dataset - 'corpus' or 'pair'. Defaults to 'corpus'.
         max_samples (int, optional): Max number of samples to use. Defaults to None.
-        token (str, optional): The token to use as HTTP bearer authorization for remote files. If `True`, will
+        token (bool, optional): The token to use as HTTP bearer authorization for remote files. If `True`, will
             use the token generated  when running `huggingface-cli login`. Defaults to None.
         trust_remote_code (bool, optional): Whether or not to allow for custom models defined on the Hub in their own
             modeling files. Defaults to None.
