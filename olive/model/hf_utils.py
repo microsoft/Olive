@@ -75,7 +75,6 @@ class HFModelLoadingArgs(ConfigWithExtraArgs):
             " details for the supported parameters."
         ),
     )
-    # TODO(xiaoyuzhang): seems not working. need to check.
     # whether to trust remote code
     trust_remote_code: bool = Field(
         None,
@@ -371,9 +370,14 @@ def get_hf_model_io_config(model_name: str, task: str, feature: Optional[str] = 
     return io_config
 
 
-def get_hf_model_dummy_input(model_name: str, task: str, feature: Optional[str] = None):
+def get_hf_model_dummy_input(
+    model_name: str,
+    task: str,
+    feature: Optional[str] = None,
+    trust_remote_code: Optional[bool] = None,
+):
     model_config = get_onnx_config(model_name, task, feature)
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=trust_remote_code)
     return model_config.generate_dummy_inputs(tokenizer, framework="pt")
 
 

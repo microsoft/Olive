@@ -19,7 +19,6 @@ def test_sparsegpt(tmp_path):
         "split": "train",
         "component_kwargs": {
             "pre_process_data": {
-                "dataset_type": "corpus",
                 "text_cols": ["sentence"],
                 "corpus_strategy": "join-random",
                 "source_max_len": 1024,
