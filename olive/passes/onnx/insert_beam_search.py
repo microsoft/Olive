@@ -11,7 +11,7 @@ from onnxruntime.transformers import onnx_model as ort_onnx_model
 from onnxruntime.transformers.convert_generation import get_shared_initializers
 from packaging import version
 
-from olive.hardware.accelerator import AcceleratorSpec
+from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import CompositeOnnxModel, OliveModel, ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
@@ -29,6 +29,7 @@ class InsertBeamSearch(Pass):
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+        use_gpu = accelerator_spec.accelerator_type == Device.GPU
         config = {
             "no_repeat_ngram_size": PassConfigParam(
                 type_=int,
@@ -47,6 +48,11 @@ class InsertBeamSearch(Pass):
                 type_=bool,
                 default_value=False,
                 description="Is the model in fp16 precision.",
+            ),
+            "use_gpu": PassConfigParam(
+                type_=bool,
+                default_value=use_gpu,
+                description="Use GPU for beam search op.",
             ),
         }
         config.update(get_external_data_config())
@@ -153,7 +159,7 @@ class InsertBeamSearch(Pass):
         )
         graph_outputs = [sequences]
 
-        if options["fp16"] and version_1_16:
+        if options["use_gpu"] and version_1_16:
             from onnxruntime.transformers.convert_generation import (
                 update_decoder_subgraph_share_buffer_and_use_decoder_masked_mha as update_decoder_with_ort,
             )
