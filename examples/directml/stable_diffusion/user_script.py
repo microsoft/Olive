@@ -167,7 +167,6 @@ def unet_inputs(batchsize, torch_dtype, is_conversion_inputs=False):
 
     # use as kwargs since they wont be in the correct position if passed along with the tuple of inputs
     kwargs = {
-        "timestep_cond": torch.rand((batchsize, 256), dtype=torch_dtype),
         "return_dict": False,
     }
     if is_conversion_inputs:
