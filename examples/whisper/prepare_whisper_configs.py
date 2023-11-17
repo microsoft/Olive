@@ -110,6 +110,8 @@ def main(raw_args=None):
         config["passes"] = {}
         for pass_name in workflow:
             pass_config = deepcopy(template_json["passes"][pass_name])
+            if pass_name == "insert_beam_search":
+                pass_config["config"]["fp16"] = precision == "fp16"
             if pass_name == "transformers_optimization":
                 pass_config["config"]["use_gpu"] = device == "gpu"
             if pass_name == "prepost":
