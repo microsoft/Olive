@@ -723,7 +723,10 @@
         <span class="n">pytorch_model</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">torch_dtype</span> <span class="o">=</span> <span class="n">model_dtype</span>
 
         <span class="c1"># tokenizer</span>
-        <span class="n">tokenizer</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_name</span><span class="p">)</span>
+        <span class="n">tokenizer</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span>
+            <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
+            <span class="n">trust_remote_code</span><span class="o">=</span><span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_loading_args</span><span class="o">.</span><span class="n">trust_remote_code</span><span class="p">,</span>
+        <span class="p">)</span>
 
         <span class="c1"># add lora modules</span>
         <span class="n">pytorch_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">enable_lora</span><span class="p">(</span>
@@ -847,7 +850,10 @@
         <span class="n">pytorch_model</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">torch_dtype</span> <span class="o">=</span> <span class="n">model_dtype</span>
 
         <span class="c1"># tokenizer</span>
-        <span class="n">tokenizer</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_name</span><span class="p">)</span>
+        <span class="n">tokenizer</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span>
+            <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
+            <span class="n">trust_remote_code</span><span class="o">=</span><span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_loading_args</span><span class="o">.</span><span class="n">trust_remote_code</span><span class="p">,</span>
+        <span class="p">)</span>
 
         <span class="c1"># TODO(jambayk): need to see if we still need this line</span>
         <span class="c1"># https://github.com/artidoro/qlora/blob/main/qlora.py#L362</span>
