@@ -189,6 +189,42 @@ class TestDataConfigValidation:
         assert run_config.data_configs["dummy_data_config2"].params_config["model_name"] == expected_model_name
         assert run_config.data_configs["dummy_data_config2"].params_config["task"] == expected_task
 
+    # works similarly for trust_remote_args
+    @pytest.mark.parametrize(
+        "has_loading_args,trust_remote_code,data_config_trust_remote_code,expected_trust_remote_code",
+        [
+            (False, None, None, None),
+            (False, None, True, True),
+            (True, True, None, True),
+            (True, None, None, None),
+            (True, None, True, True),
+            (True, None, False, False),
+            (True, True, False, False),
+            (True, False, True, True),
+        ],
+    )
+    def test_auto_insert_trust_remote_code(
+        self, has_loading_args, trust_remote_code, data_config_trust_remote_code, expected_trust_remote_code
+    ):
+        config_dict = self.template.copy()
+        if has_loading_args:
+            config_dict["input_model"]["config"]["hf_config"]["model_loading_args"] = {
+                "trust_remote_code": trust_remote_code
+            }
+        if data_config_trust_remote_code is not None:
+            config_dict["data_configs"]["dummy_data_config2"]["params_config"][
+                "trust_remote_code"
+            ] = data_config_trust_remote_code
+
+        run_config = RunConfig.parse_obj(config_dict)
+        if expected_trust_remote_code is None:
+            assert "trust_remote_code" not in run_config.data_configs["dummy_data_config2"].params_config
+        else:
+            assert (
+                run_config.data_configs["dummy_data_config2"].params_config["trust_remote_code"]
+                == expected_trust_remote_code
+            )
+
     @pytest.mark.parametrize(
         "data_config_str",
         [None, INPUT_MODEL_DATA_CONFIG, "dummy_data_config2"],

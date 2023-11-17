@@ -595,7 +595,10 @@ class LoRA(LoRABase):
         pytorch_model.config.torch_dtype = model_dtype
 
         # tokenizer
-        tokenizer = AutoTokenizer.from_pretrained(new_model.hf_config.model_name)
+        tokenizer = AutoTokenizer.from_pretrained(
+            new_model.hf_config.model_name,
+            trust_remote_code=new_model.hf_config.model_loading_args.trust_remote_code,
+        )
 
         # add lora modules
         pytorch_model = self.enable_lora(
@@ -719,7 +722,10 @@ class QLoRA(LoRABase):
         pytorch_model.config.torch_dtype = model_dtype
 
         # tokenizer
-        tokenizer = AutoTokenizer.from_pretrained(new_model.hf_config.model_name)
+        tokenizer = AutoTokenizer.from_pretrained(
+            new_model.hf_config.model_name,
+            trust_remote_code=new_model.hf_config.model_loading_args.trust_remote_code,
+        )
 
         # TODO(jambayk): need to see if we still need this line
         # https://github.com/artidoro/qlora/blob/main/qlora.py#L362

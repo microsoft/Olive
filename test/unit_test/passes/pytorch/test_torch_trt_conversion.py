@@ -65,7 +65,6 @@ def test_torch_trt_conversion_success(
         "split": "train",
         "component_kwargs": {
             "pre_process_data": {
-                "dataset_type": "corpus",
                 "text_cols": ["sentence"],
                 "corpus_strategy": "join-random",
                 "source_max_len": 100,
