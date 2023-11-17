@@ -163,17 +163,23 @@ def unet_inputs(batchsize, torch_dtype, is_conversion_inputs=False):
         "sample": torch.rand((batchsize, 4, 64, 64), dtype=torch_dtype),
         "timestep": torch.rand((batchsize,), dtype=torch_dtype),
         "encoder_hidden_states": torch.rand((batchsize, 77, config.image_size + 256), dtype=torch_dtype),
-        "return_dict": False,
     }
 
+    # use as kwargs since they wont be in the correct position if passed along with the tuple of inputs
+    kwargs = {
+        "timestep_cond": torch.rand((batchsize, 256), dtype=torch_dtype),
+        "return_dict": False,
+    }
     if is_conversion_inputs:
         inputs["additional_inputs"] = {
+            **kwargs,
             "added_cond_kwargs": {
                 "text_embeds": torch.rand((1, 1280), dtype=torch_dtype),
                 "time_ids": torch.rand((1, 5), dtype=torch_dtype),
-            }
+            },
         }
     else:
+        inputs.update(kwargs)
         inputs["onnx::Concat_4"] = torch.rand((1, 1280), dtype=torch_dtype)
         inputs["onnx::Shape_5"] = torch.rand((1, 5), dtype=torch_dtype)
 
