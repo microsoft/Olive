@@ -165,7 +165,7 @@ def unet_inputs(batchsize, torch_dtype, is_conversion_inputs=False):
         "encoder_hidden_states": torch.rand((batchsize, 77, config.image_size + 256), dtype=torch_dtype),
     }
 
-    # use as kwargs since they wont be in the correct position if passed along with the tuple of inputs
+    # use as kwargs since they won't be in the correct position if passed along with the tuple of inputs
     kwargs = {
         "return_dict": False,
     }
