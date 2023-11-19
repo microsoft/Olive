@@ -477,6 +477,7 @@
             "disable_search": true,
             "config": {
                 "model_type": "gpt2",
+                "opt_level": 0,
                 "num_heads": 32,
                 "hidden_size": 4096,
                 "float16": true,
