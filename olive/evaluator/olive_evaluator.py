@@ -355,12 +355,17 @@ class OliveEvaluator(ABC):
 
     @staticmethod
     def compute_throughput(metric: Metric, latencies: Any) -> MetricResult:
-        """Compute latency metrics."""
+        """Compute throughput metrics."""
         latency_metrics = OliveEvaluator.latency_helper(latencies)
         metric_res = {}
         batch_size = metric.user_config.batch_size
         for sub_type in metric.sub_types:
-            latency_sub_type_name = LatencySubType.MAX if sub_type.name == ThroughputSubType.MIN else LatencySubType.MIN
+            if sub_type.name == ThroughputSubType.MIN:
+                latency_sub_type_name = LatencySubType.MAX
+            elif sub_type.name == ThroughputSubType.MAX:
+                latency_sub_type_name = LatencySubType.MIN
+            else:
+                latency_sub_type_name = LatencySubType(sub_type.name)
             metric_res[sub_type.name] = SubMetricResult(
                 # per second, so multiply by 1000
                 value=round(batch_size / latency_metrics[latency_sub_type_name] * 1000, 5),
