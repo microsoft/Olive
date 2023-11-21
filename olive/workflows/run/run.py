@@ -13,7 +13,7 @@ from typing import List, Union
 import onnxruntime as ort
 
 from olive.hardware import Device
-from olive.logging import set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
+from olive.logging import enable_filelog, set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
 from olive.passes import Pass
 from olive.systems.common import SystemType
 from olive.workflows.run.config import RunConfig
@@ -149,6 +149,8 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
     # ort_log_severity_level: C++ logging levels
     set_ort_logger_severity(config.engine.ort_py_log_severity_level)
     ort.set_default_logger_severity(config.engine.ort_log_severity_level)
+    if config.engine.log_to_file:
+        enable_filelog(config.engine.log_severity_level)
 
     # input model
     input_model = config.input_model

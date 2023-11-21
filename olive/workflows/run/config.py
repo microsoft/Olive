@@ -38,6 +38,7 @@ class RunEngineConfig(EngineConfig):
     log_severity_level: int = 1
     ort_log_severity_level: int = 3
     ort_py_log_severity_level: int = 3
+    log_to_file: bool = False
 
     def create_engine(self):
         config = self.dict()
