@@ -21,10 +21,29 @@ class OptimumConversion(Pass):
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+        device = "cuda" if accelerator_spec.accelerator_type == "gpu" else "cpu"
         config = {
             "target_opset": PassConfigParam(
                 type_=int, default_value=14, description="The version of the default (ai.onnx) opset to target."
-            )
+            ),
+            "fp16": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Whether to use fp16 precision to load torch model and then convert it to onnx.",
+            ),
+            "device": PassConfigParam(
+                type_=str, default_value=device, description="The device to use to do the export. Defaults to 'cpu'."
+            ),
+            "no_post_process": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                description="Whether to skip post-processing the exported model.",
+            ),
+            "extra_args": PassConfigParam(
+                type_=dict,
+                default_value=None,
+                description="Extra arguments to pass to the `optimum.exporters.onnx.main_export` function.",
+            ),
         }
         config.update(get_external_data_config())
         return config
@@ -41,22 +60,25 @@ class OptimumConversion(Pass):
         # TODO(jambayk): export into temp dir and then move to sub-dirs of output_model_path
         # so that we only keep the final model files in the output_model_path
         # and track external data if present
+        config["extra_args"] = config["extra_args"] or {}
+        config["extra_args"].update(
+            {
+                "opset": config["target_opset"],
+                "fp16": config["fp16"],
+                "no_post_process": config["no_post_process"],
+                "device": config["device"],
+            }
+        )
         hf_config = deepcopy(model.hf_config) or HFConfig()
-        if version.parse(optimum_version.__version__) < version.parse("1.14.0"):
-            export_optimum_model(
-                model.model_path or hf_config.model_name,
-                output_model_path,
-                opset=config["target_opset"],
-                no_post_process=True,
-            )
-        else:
-            export_optimum_model(
-                model.model_path or hf_config.model_name,
-                output_model_path,
-                opset=config["target_opset"],
-                legacy=True,
-                no_post_process=True,
-            )
+        if version.parse(optimum_version.__version__) >= version.parse("1.14.0"):
+            # Optimum 1.14.0 needs to be run in legacy mode to support older versions of transformers
+            config["extra_args"]["legacy"] = True
+
+        export_optimum_model(
+            model.model_path or hf_config.model_name,
+            output_model_path,
+            **config["extra_args"],
+        )
 
         onnx_model_components = [
             ONNXModel(str(Path(output_model_path) / model_component), model_attributes=model.model_attributes)
