@@ -545,6 +545,9 @@ This is a dictionary that contains the information of the engine. The informatio
 - `ort_py_log_severity_level: [int]`, `3` by default. The log severity level of ONNX Runtime Python logs. The options are `0` for `VERBOSE`, `1` for
     `INFO`, `2` for `WARNING`, `3` for `ERROR`, `4` for `FATAL`.
 
+- `log_to_file: [Boolean]`, `false` by default. This decides whether to log to file. If `true`, the log will be stored in a olive-<timestamp>.log file
+    under the current working directory.
+
 Please find the detailed config options from following table for each search algorithm:
 
 | Algorithm  | Description |
