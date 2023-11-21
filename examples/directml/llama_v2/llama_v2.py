@@ -180,6 +180,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--prompt", default="What is the lightest element?", type=str)
     parser.add_argument("--max_seq_len", default=2048, type=int, help="The size of the cache")
+    parser.add_argument("--device_id", default=0, type=int, help="GPU device to use during inference")
     parser.add_argument(
         "--max_gen_len", default=256, type=int, help="The maximum number of tokens that can be included in an answer"
     )
@@ -218,4 +219,4 @@ if __name__ == "__main__":
         else:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                run_llama_v2_io_binding(args.prompt, args.max_seq_len, args.max_gen_len)
+                run_llama_v2_io_binding(args.prompt, args.max_seq_len, args.max_gen_len, args.device_id)

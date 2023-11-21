@@ -27,7 +27,6 @@ def get_dataset():
         "split": "train",
         "component_kwargs": {
             "pre_process_data": {
-                "dataset_type": "corpus",
                 "text_cols": ["sentence"],
                 "corpus_strategy": "line-by-line",
                 "source_max_len": 512,

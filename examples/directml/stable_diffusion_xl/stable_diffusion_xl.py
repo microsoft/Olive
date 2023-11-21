@@ -189,6 +189,7 @@ def run_inference(
     image_size,
     num_inference_steps,
     static_dims,
+    device_id,
     interactive,
     base_images=None,
 ):
@@ -214,13 +215,17 @@ def run_inference(
         sess_options.add_free_dimension_override_by_name("unet_time_ids_batch", batch_size * 2)
         sess_options.add_free_dimension_override_by_name("unet_time_ids_size", 6)
 
+    provider_options = {
+        "device_id": device_id,
+    }
+
     if base_images is None:
         pipeline = ORTStableDiffusionXLPipeline.from_pretrained(
-            model_dir, provider="DmlExecutionProvider", session_options=sess_options
+            model_dir, provider="DmlExecutionProvider", provider_options=provider_options, session_options=sess_options
         )
     else:
         pipeline = ORTStableDiffusionXLImg2ImgPipeline.from_pretrained(
-            model_dir, provider="DmlExecutionProvider", session_options=sess_options
+            model_dir, provider="DmlExecutionProvider", provider_options=provider_options, session_options=sess_options
         )
 
     if interactive:
@@ -401,6 +406,8 @@ if __name__ == "__main__":
     parser.add_argument("--num_images", default=1, type=int, help="Number of images to generate")
     parser.add_argument("--batch_size", default=1, type=int, help="Number of images to generate per batch")
     parser.add_argument("--num_inference_steps", default=50, type=int, help="Number of steps in diffusion process")
+    parser.add_argument("--image_size", default=768, type=int, help="Image size to use during inference")
+    parser.add_argument("--device_id", default=0, type=int, help="GPU device to use during inference")
     parser.add_argument(
         "--static_dims",
         action="store_true",
@@ -484,9 +491,10 @@ if __name__ == "__main__":
                 args.prompt,
                 args.num_images,
                 args.batch_size,
-                config.image_size,
+                args.image_size,
                 args.num_inference_steps,
                 use_static_dims,
+                args.device_id,
                 args.interactive,
                 args.base_images,
             )

@@ -44,6 +44,7 @@
             "disable_search": true,
             "config": {
                 "model_type": "gpt2",
+                "opt_level": 0,
                 "float16": true,
                 "use_gpu": false,
                 "keep_io_types": true,

@@ -479,7 +479,7 @@ When `pass_flows` is not specified, the passes are executed in the order of the 
 
 This is a dictionary that contains the information of the engine. The information of the engine contains following items:
 
-- `search_strategy: [Dict | Boolean | None]` The search strategy of the engine. It contains the following items:
+- `search_strategy: [Dict | Boolean | None]`, `None` by default. The search strategy of the engine. It contains the following items:
 
     - `execution_order: [str]` The execution order of the optimizations of passes. The options are `pass-by-pass` and `joint`.
 
@@ -506,45 +506,47 @@ This is a dictionary that contains the information of the engine. The informatio
   If `search_strategy` is `true`, the search strategy will be the default search strategy. The default search strategy is `exhaustive` search
   algorithm with `joint` execution order.
 
-- `evaluate_input_model: [Boolean]` In this mode, the engine will evaluate the input model using the engine's evaluator and return the results. If the engine has no evaluator, it will raise an error. This is `true` by default.
+- `evaluate_input_model: [Boolean]` In this mode, the engine will evaluate the input model using the engine's evaluator and return the results. If the engine has no evaluator, it will skip the evaluation. This is `true` by default.
 
-- `host: [str | Dict]` The host of the engine. It can be a string or a dictionary. If it is a string, it is the name of a system in `systems`.
+- `host: [str | Dict | None]`, `None` be default. The host of the engine. It can be a string or a dictionary. If it is a string, it is the name of a system in `systems`.
     If it is a dictionary, it contains the system information. If not specified, it is the local system.
 
-- `target: [str | Dict]` The target to run model evaluations on. It can be a string or a dictionary. If it is a string, it is the name of
+- `target: [str | Dict | None]`, `None` be default. The target to run model evaluations on. It can be a string or a dictionary. If it is a string, it is the name of
     a system in `systems`. If it is a dictionary, it contains the system information. If not specified, it is the local system.
 
-- `evaluator: [str | Dict]` The evaluator of the engine. It can be a string or a dictionary. If it is a string, it is the name of an evaluator
+- `evaluator: [str | Dict | None]`, `None` by default. The evaluator of the engine. It can be a string or a dictionary. If it is a string, it is the name of an evaluator
     in `evaluators`. If it is a dictionary, it contains the evaluator information. This evaluator will be used to evaluate the input model if
-    needed. It is also used to evaluate the output models of passes that don't have their own evaluators.
+    needed. It is also used to evaluate the output models of passes that don't have their own evaluators. If it is None, skip the evaluation for input model and any output models.
 
-- `cache_dir: [str]` The directory to store the cache of the engine. If not specified, the cache will be stored in the `.olive-cache` directory
+- `cache_dir: [str]`, `.olive-cache` by default. The directory to store the cache of the engine. If not specified, the cache will be stored in the `.olive-cache` directory
     under the current working directory.
 
-- `clean_cache: [Boolean]` This decides whether to clean the cache of the engine before running the engine. This is `false` by default.
+- `clean_cache: [Boolean]`, `false` by default. This decides whether to clean the cache of the engine before running the engine.
 
-- `clean_evaluation_cache: [Boolean]` This decides whether to clean the evaluation cache of the engine before running the engine. This is
-`false` by default.
+- `clean_evaluation_cache: [Boolean]` , `false` by default. This decides whether to clean the evaluation cache of the engine before running the engine.
 
-- `plot_pareto_frontier` This decides whether to plot the pareto frontier of the search results. This is `false` by default.
+- `plot_pareto_frontier`, `false` by default. This decides whether to plot the pareto frontier of the search results.
 
-- `output_dir: [str]` The directory to store the output of the engine. If not specified, the output will be stored in the current working
+- `output_dir: [str]`, `None` by default. The directory to store the output of the engine. If not specified, the output will be stored in the current working
     directory. For a run with no search, the output is the output model of the final pass and its evaluation result. For a run with search, the
     output is a json file with the search results.
 
-- `output_name: [str]` The name of the output. This string will be used as the prefix of the output file name. If not specified, there is no
+- `output_name: [str]`, `None` by default. The name of the output. This string will be used as the prefix of the output file name. If not specified, there is no
     prefix.
 
-- `packaging_config: [PackagingConfig]` Olive artifacts packaging configurations. If not specified, Olive will not package artifacts.
+- `packaging_config: [PackagingConfig]`, `None` by default. Olive artifacts packaging configurations. If not specified, Olive will not package artifacts.
 
-- `log_severity_level: [int]` The log severity level of Olive. The options are `0` for `VERBOSE`, `1` for
-    `INFO`, `2` for `WARNING`, `3` for `ERROR`, `4` for `FATAL`. The default value is `1` for `INFO`.
+- `log_severity_level: [int]`, `1` by default. The log severity level of Olive. The options are `0` for `VERBOSE`, `1` for
+    `INFO`, `2` for `WARNING`, `3` for `ERROR`, `4` for `FATAL`.
 
-- `ort_log_severity_level: [int]` The log severity level of ONNX Runtime C++ logs. The options are `0` for `VERBOSE`, `1` for
-    `INFO`, `2` for `WARNING`, `3` for `ERROR`, `4` for `FATAL`. The default value is `3` for `ERROR`.
+- `ort_log_severity_level: [int]`, `3` by default. The log severity level of ONNX Runtime C++ logs. The options are `0` for `VERBOSE`, `1` for
+    `INFO`, `2` for `WARNING`, `3` for `ERROR`, `4` for `FATAL`.
 
-- `ort_py_log_severity_level: [int]` The log severity level of ONNX Runtime Python logs. The options are `0` for `VERBOSE`, `1` for
-    `INFO`, `2` for `WARNING`, `3` for `ERROR`, `4` for `FATAL`. The default value is `3` for `ERROR`.
+- `ort_py_log_severity_level: [int]`, `3` by default. The log severity level of ONNX Runtime Python logs. The options are `0` for `VERBOSE`, `1` for
+    `INFO`, `2` for `WARNING`, `3` for `ERROR`, `4` for `FATAL`.
+
+- `log_to_file: [Boolean]`, `false` by default. This decides whether to log to file. If `true`, the log will be stored in a olive-<timestamp>.log file
+    under the current working directory.
 
 Please find the detailed config options from following table for each search algorithm:
 

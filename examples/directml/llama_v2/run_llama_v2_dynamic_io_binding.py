@@ -1,5 +1,6 @@
 # This program will run the ONNX version of the LlamaV2 model.
 import argparse
+import os
 import time
 from pathlib import Path
 from typing import List
@@ -40,8 +41,10 @@ def run_llama_v2_io_binding(
     prompt: str,
     padding: int = 512,
     max_gen_len: int = 256,
+    device_id: int = 0,
     disable_metacommands: bool = False,
     ignore_eos: bool = False,
+    model_dir: str = "models/optimized/llama_v2",
 ) -> str:
     onnxruntime.set_default_logger_severity(3)
 
@@ -52,12 +55,13 @@ def run_llama_v2_io_binding(
             {
                 "disable_metacommands": disable_metacommands,
                 "enable_dynamic_graph_fusion": True,
+                "device_id": device_id,
             },
         )
     ]
 
     argmax_sampling_session = onnxruntime.InferenceSession(
-        "models/optimized/llama_v2/argmax_sampling/model.onnx",
+        os.path.join(model_dir, "argmax_sampling/model.onnx"),
         sess_options=onnxruntime.SessionOptions(),
         providers=providers,
     )
@@ -65,7 +69,7 @@ def run_llama_v2_io_binding(
     llm_session_options = onnxruntime.SessionOptions()
     llm_session_options.add_free_dimension_override_by_name("seq_len_increment", 1)
     llm_session = onnxruntime.InferenceSession(
-        "models/optimized/llama_v2/llama_v2/decoder_model_merged.onnx",
+        os.path.join(model_dir, "llama_v2/decoder_model_merged.onnx"),
         sess_options=llm_session_options,
         providers=providers,
     )
@@ -83,7 +87,7 @@ def run_llama_v2_io_binding(
     binding_device = "dml"
 
     # Initialize the tokenizer and produce the initial tokens.
-    tokenizer = Tokenizer(model_path="models/optimized/llama_v2/tokenizer.model")
+    tokenizer = Tokenizer(model_path=os.path.join(model_dir, "tokenizer.model"))
     tokens = tokenizer.encode(prompt, bos=True, eos=False)
     tokens = np.expand_dims(np.asarray(tokens, dtype=np.int64), 0)
     tokens = onnxruntime.OrtValue.ortvalue_from_numpy(tokens, binding_device)
@@ -200,11 +204,21 @@ if __name__ == "__main__":
     parser.add_argument("--max_gen_len", type=int, default=256)
     parser.add_argument("--disable_metacommands", action="store_true")
     parser.add_argument("--ignore_eos", action="store_true")
+    parser.add_argument("--device_id", type=int, default=0)
+    parser.add_argument(
+        "--model_dir",
+        type=str,
+        default="models/optimized/llama_v2",
+        help="Path to the folder containing the argmax_sampling folder, llama_v2 folder and the tokenizer.model file",
+    )
+
     args = parser.parse_args()
     run_llama_v2_io_binding(
         args.prompt,
         args.padding,
         args.max_gen_len,
+        args.device_id,
         args.disable_metacommands,
         args.ignore_eos,
+        args.model_dir,
     )
