@@ -56,8 +56,8 @@ class OptimumConversion(Pass):
         if with_fixed_value:
             search_point = self.config_at_search_point(search_point or {})
 
-        if search_point.get("device") == "cuda" and not search_point.get("fp16"):
-            logger.info("OptimumConversion: fp16 is not set to True, but device is set to cuda.")
+        if search_point.get("fp16") and search_point.get("device") != "cuda":
+            logger.info("OptimumConversion: fp16 is set to True, but device is not set to cuda.")
             return False
 
         return True

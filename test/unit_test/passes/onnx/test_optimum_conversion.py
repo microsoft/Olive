@@ -26,3 +26,31 @@ def test_optimum_conversion_pass(input_model, extra_args, tmp_path):
 
     # assert
     assert Path(onnx_model.model_path).exists()
+
+
+@pytest.mark.parametrize(
+    "config,is_valid",
+    [
+        ({"fp16": True}, False),
+        ({"fp16": True, "device": "cpu"}, False),
+        ({"fp16": True, "device": "cuda"}, True),
+        ({"fp16": False, "device": "cuda"}, True),
+    ],
+)
+def test_optimum_configs(config, is_valid, tmp_path):
+    input_model = get_optimum_model_by_hf_config()
+    # setup
+    p = create_pass_from_dict(OptimumConversion, config, disable_search=True)
+    output_folder = tmp_path
+
+    if not is_valid:
+        assert p.validate_search_point(config, None) is False
+        with pytest.raises(
+            ValueError,
+            match="FP16 export is supported only when exporting on GPU. Please pass the option `--device cuda`.",
+        ):
+            p.run(input_model, None, output_folder)
+    else:
+        assert p.validate_search_point(config, None)
+        onnx_model = p.run(input_model, None, output_folder)
+        assert Path(onnx_model.model_path).exists()
