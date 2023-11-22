@@ -121,6 +121,10 @@
 <li class="toctree-l4"><a class="reference internal" href="#olive.evaluator.metric.LatencySubType"><code class="docutils literal notranslate"><span class="pre">LatencySubType</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#throughputsubtype">ThroughputSubType</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#olive.evaluator.metric.ThroughputSubType"><code class="docutils literal notranslate"><span class="pre">ThroughputSubType</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="#metricgoal">MetricGoal</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#olive.evaluator.metric.MetricGoal"><code class="docutils literal notranslate"><span class="pre">MetricGoal</span></code></a></li>
 </ul>
@@ -223,6 +227,11 @@
 <span class="sig-name descname"><span class="pre">LATENCY</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'latency'</span></em><a class="headerlink" href="#olive.evaluator.metric.MetricType.LATENCY" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+<dl class="py attribute">
+<dt class="sig sig-object py" id="olive.evaluator.metric.MetricType.THROUGHPUT">
+<span class="sig-name descname"><span class="pre">THROUGHPUT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'throughput'</span></em><a class="headerlink" href="#olive.evaluator.metric.MetricType.THROUGHPUT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 </dd></dl>
 
 </section>
@@ -314,6 +323,60 @@
 <dl class="py attribute">
 <dt class="sig sig-object py" id="olive.evaluator.metric.LatencySubType.P999">
 <span class="sig-name descname"><span class="pre">P999</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'p999'</span></em><a class="headerlink" href="#olive.evaluator.metric.LatencySubType.P999" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="throughputsubtype">
+<span id="throughput-sub-type"></span><h3>ThroughputSubType<a class="headerlink" href="#throughputsubtype" title="Permalink to this heading">¶</a></h3>
+<dl class="py class">
+<dt class="sig sig-object py" id="olive.evaluator.metric.ThroughputSubType">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">olive.evaluator.metric.</span></span><span class="sig-name descname"><span class="pre">ThroughputSubType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/olive/evaluator/metric.html#ThroughputSubType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.evaluator.metric.ThroughputSubType" title="Permalink to this definition">¶</a></dt>
+<dd><p>An enumeration.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="olive.evaluator.metric.ThroughputSubType.AVG">
+<span class="sig-name descname"><span class="pre">AVG</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'avg'</span></em><a class="headerlink" href="#olive.evaluator.metric.ThroughputSubType.AVG" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="olive.evaluator.metric.ThroughputSubType.MAX">
+<span class="sig-name descname"><span class="pre">MAX</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'max'</span></em><a class="headerlink" href="#olive.evaluator.metric.ThroughputSubType.MAX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="olive.evaluator.metric.ThroughputSubType.MIN">
+<span class="sig-name descname"><span class="pre">MIN</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'min'</span></em><a class="headerlink" href="#olive.evaluator.metric.ThroughputSubType.MIN" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="olive.evaluator.metric.ThroughputSubType.P50">
+<span class="sig-name descname"><span class="pre">P50</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'p50'</span></em><a class="headerlink" href="#olive.evaluator.metric.ThroughputSubType.P50" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="olive.evaluator.metric.ThroughputSubType.P75">
+<span class="sig-name descname"><span class="pre">P75</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'p75'</span></em><a class="headerlink" href="#olive.evaluator.metric.ThroughputSubType.P75" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="olive.evaluator.metric.ThroughputSubType.P90">
+<span class="sig-name descname"><span class="pre">P90</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'p90'</span></em><a class="headerlink" href="#olive.evaluator.metric.ThroughputSubType.P90" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="olive.evaluator.metric.ThroughputSubType.P95">
+<span class="sig-name descname"><span class="pre">P95</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'p95'</span></em><a class="headerlink" href="#olive.evaluator.metric.ThroughputSubType.P95" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="olive.evaluator.metric.ThroughputSubType.P99">
+<span class="sig-name descname"><span class="pre">P99</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'p99'</span></em><a class="headerlink" href="#olive.evaluator.metric.ThroughputSubType.P99" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="olive.evaluator.metric.ThroughputSubType.P999">
+<span class="sig-name descname"><span class="pre">P999</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'p999'</span></em><a class="headerlink" href="#olive.evaluator.metric.ThroughputSubType.P999" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>

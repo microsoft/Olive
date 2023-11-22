@@ -162,6 +162,10 @@
 
 <span class="n">_type_to_user_config</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s2">&quot;latency&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="c1"># TODO(anyone): extract io_bind to a _common_user_config</span>
+        <span class="s2">&quot;io_bind&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;throughput&quot;</span><span class="p">:</span> <span class="p">{</span>
         <span class="s2">&quot;io_bind&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
     <span class="p">},</span>
     <span class="s2">&quot;accuracy&quot;</span><span class="p">:</span> <span class="p">{</span>
@@ -179,7 +183,7 @@
 
 <span class="k">def</span> <span class="nf">get_user_config_class</span><span class="p">(</span><span class="n">metric_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
     <span class="n">default_config</span> <span class="o">=</span> <span class="n">_common_user_config</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-    <span class="n">default_config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_type_to_user_config</span><span class="p">[</span><span class="n">metric_type</span><span class="p">])</span>
+    <span class="n">default_config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_type_to_user_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">metric_type</span><span class="p">,</span> <span class="p">{}))</span>
     <span class="n">validators</span> <span class="o">=</span> <span class="n">_common_user_config_validators</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
     <span class="n">validators</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_type_to_user_config_validators</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">metric_type</span><span class="p">,</span> <span class="p">{}))</span>
     <span class="k">return</span> <span class="n">create_config_class</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">metric_type</span><span class="o">.</span><span class="n">title</span><span class="p">()</span><span class="si">}</span><span class="s2">UserConfig&quot;</span><span class="p">,</span> <span class="n">default_config</span><span class="p">,</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">validators</span><span class="p">)</span>
@@ -193,6 +197,12 @@
 
 <span class="c1"># TODO(jambayk): automate latency metric config also we standardize accuracy metric config</span>
 <span class="k">class</span> <span class="nc">LatencyMetricConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
+    <span class="n">warmup_num</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">WARMUP_NUM</span>
+    <span class="n">repeat_test_num</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">REPEAT_TEST_NUM</span>
+    <span class="n">sleep_num</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">SLEEP_NUM</span>
+
+
+<span class="k">class</span> <span class="nc">ThroughputMetricConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
     <span class="n">warmup_num</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">WARMUP_NUM</span>
     <span class="n">repeat_test_num</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">REPEAT_TEST_NUM</span>
     <span class="n">sleep_num</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">SLEEP_NUM</span>
