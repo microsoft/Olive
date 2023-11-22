@@ -26,7 +26,7 @@ def test_onnx_conversion_pass(input_model, tmp_path):
     assert Path(onnx_model.model_path).exists()
 
 
-@pytest.mark.parametrize("target_opset", [9, 13, 16])
+@pytest.mark.parametrize("target_opset", [9, 10, 16])
 def test_onnx_op_version_conversion_pass(target_opset, tmp_path):
     input_model = get_onnx_model()
     # setup
