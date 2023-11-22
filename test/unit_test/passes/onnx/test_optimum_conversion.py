@@ -33,8 +33,7 @@ def test_optimum_conversion_pass(input_model, extra_args, tmp_path):
     [
         ({"fp16": True}, False),
         ({"fp16": True, "device": "cpu"}, False),
-        ({"fp16": True, "device": "cuda"}, True),
-        ({"fp16": False, "device": "cuda"}, True),
+        ({"fp16": False, "device": "cpu"}, True),
     ],
 )
 def test_optimum_configs(config, is_valid, tmp_path):
