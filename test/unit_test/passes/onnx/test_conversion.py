@@ -36,4 +36,4 @@ def test_onnx_op_version_conversion_pass(target_opset, tmp_path):
     onnx_model = p.run(input_model, None, output_folder)
 
     # assert
-    assert Path(onnx_model.model_path).exists()
+    assert onnx_model.load_model().opset_import[0].version == target_opset

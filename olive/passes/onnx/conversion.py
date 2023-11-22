@@ -17,14 +17,7 @@ from packaging import version
 from olive.common.config_utils import validate_config
 from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device
 from olive.hardware import AcceleratorSpec
-from olive.model import (
-    CompositeOnnxModel,
-    DistributedOnnxModel,
-    DistributedPyTorchModel,
-    ONNXModel,
-    ONNXModelBase,
-    PyTorchModel,
-)
+from olive.model import CompositeOnnxModel, DistributedOnnxModel, DistributedPyTorchModel, ONNXModel, PyTorchModel
 from olive.model.hf_utils import HFModelLoadingArgs, get_hf_model_io_config
 from olive.model.model_config import IOConfig
 from olive.passes import Pass
@@ -474,10 +467,9 @@ class OnnxOpVersionConversion(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModelBase, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> ONNXModelBase:
+        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> ONNXModel:
         # get current models's opset version
-        assert isinstance(model, ONNXModelBase), "This pass only supports ONNXModelBase."
         model_proto = model.load_model()
         model_opset_version = model_proto.opset_import[0].version
         if model_opset_version == config["target_opset"]:
@@ -485,5 +477,5 @@ class OnnxOpVersionConversion(Pass):
             # target output path
             logger.info(f"Model is already in target opset version {config['target_opset']}.")
         else:
-            onnx.version_converter.convert_version(model_proto, config["target_opset"])
+            model_proto = onnx.version_converter.convert_version(model_proto, config["target_opset"])
         return model_proto_to_olive_model(model_proto, output_model_path, config)
