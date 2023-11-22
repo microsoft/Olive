@@ -389,13 +389,13 @@ class AzureMLSystem(OliveSystem):
 
         for param, param_config in the_pass._config.items():
             if param.endswith("data_config") and param_config is not None:
-                param_config = validate_config(param_config, DataConfig)
-                if param_config.name not in data_name_set:
-                    data_name_set.add(param_config.name)
-                    if param_config.user_script:
-                        update_dicts(param_config.name, "user_script", param_config, AssetTypes.URI_FILE)
-                    if param_config.script_dir:
-                        update_dicts(param_config.name, "script_dir", param_config, AssetTypes.URI_FOLDER)
+                data_config = validate_config(param_config, DataConfig)
+                if data_config.name not in data_name_set:
+                    data_name_set.add(data_config.name)
+                    if data_config.user_script:
+                        update_dicts(data_config.name, "user_script", data_config, AssetTypes.URI_FILE)
+                    if data_config.script_dir:
+                        update_dicts(data_config.name, "script_dir", data_config, AssetTypes.URI_FOLDER)
         logger.debug(f"Data inputs for pass: {data_inputs}, data args for pass: {data_args}")
         return (data_inputs, data_args)
 
