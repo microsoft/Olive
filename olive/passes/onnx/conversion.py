@@ -449,3 +449,32 @@ class OnnxConversion(Pass):
             model_name_pattern=DistributedOnnxModel.DEFAULT_RANKED_MODEL_NAME_FORMAT,
             num_ranks=world_size,
         )
+
+
+class OnnxOpVersionConversion(Pass):
+    @staticmethod
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+        latest_opset_version = onnx.defs.onnx_opset_version()
+
+        config = {
+            "target_opset": PassConfigParam(
+                type_=int,
+                default_value=latest_opset_version,
+                description="The version of the default (ai.onnx) opset to target. Default: latest opset version.",
+            ),
+        }
+        config.update(get_external_data_config())
+        return config
+
+    def _run_for_config(
+        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> ONNXModel:
+        # get current models's opset version
+        model_proto = model.load_model()
+        model_opset_version = model_proto.opset_import[0].version
+        if model_opset_version == config["target_opset"]:
+            logger.info(f"Model is already in target opset version {config['target_opset']}.")
+            return model
+
+        model_proto = onnx.version_converter.convert_version(model_proto, config["target_opset"])
+        return model_proto_to_olive_model(model_proto, output_model_path, config)

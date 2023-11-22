@@ -392,6 +392,7 @@ Please also find the detailed options from following table for each pass:
 | Pass Name | Description |
 |:----------|:-------------|
 | [OnnxConversion](onnx_conversion) | Convert a PyTorch model to ONNX model |
+| [OnnxOpVersionConversion](onnx_op_version_conversion) | Convert a Onnx model to target op version |
 | [OnnxModelOptimizer](onnx_model_optimizer) | Optimize ONNX model by fusing nodes. |
 | [OnnxTransformersOptimization](onnx_transformers_optimization) | Optimize transformer based models in scenarios where ONNX Runtime does not apply the optimization at load time. It is based on onnxruntime.transformers.optimizer. |
 | [OrtPerfTuning](ort_perf_tuning) | Optimize ONNX Runtime inference settings. |
