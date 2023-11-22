@@ -3,8 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-import os
 from copy import deepcopy
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Union
 
 import onnx
@@ -217,10 +217,12 @@ class OrtTransformersOptimization(Pass):
                 "OrtTransformersOptimization.config"
             )
 
-        output_model_path = ONNXModel.resolve_path(os.path.join(output_model_path, os.path.basename(model.model_path)))
+        output_model_path = Path(output_model_path)
+        if output_model_path.suffix != ".onnx":
+            output_model_path = output_model_path / Path(model.model_path).name
+        output_model_path = ONNXModel.resolve_path(output_model_path)
 
         optimization_options = config["optimization_options"]
-
         if optimization_options:
             self._set_fusion_options(run_config)
 
