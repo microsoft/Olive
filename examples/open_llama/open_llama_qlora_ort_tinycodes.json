@@ -40,7 +40,6 @@
             "type": "QLoRA",
             "config": {
                 "use_ort_trainer": true,
-                "torch_dtype": "float32",
                 "lora_dropout": 0.1,
                 "train_data_config": "tiny_codes_train",
                 "eval_dataset_size": 1024,

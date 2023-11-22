@@ -9,6 +9,7 @@
 # --------------------------------------------------------------------------
 import dataclasses
 import logging
+import os
 import tempfile
 from copy import deepcopy
 from functools import partial
@@ -214,19 +215,61 @@ class LoRABase(Pass):
     ) -> bool:
         if with_fixed_value:
             search_point = self.config_at_search_point(search_point or {})
-        if search_point.get("use_ort_trainer"):
-            if search_point.get("torch_dtype") == "bfloat16":
-                logger.info(
-                    "bfloat16 is not supported by onnxruntime-training yet. Please use a different torch_dtype."
-                )
-                return False
-            if search_point.get("training_args", {}).get("gradient_checkpointing"):
-                logger.info(
-                    "gradient_checkpointing is not supported by onnxruntime-training. Please set gradient_checkpointing"
-                    " to False."
-                )
-                return False
+        if search_point.get("use_ort_trainer") and search_point.get("training_args", {}).get("gradient_checkpointing"):
+            logger.info(
+                "gradient_checkpointing is not supported by onnxruntime-training. Please set gradient_checkpointing"
+                " to False."
+            )
+            return False
         return True
+
+    @classmethod
+    def check_dependencies(cls, config: ConfigBase, is_qlora: bool = False):
+        """Check dependencies for the pass."""
+        if config.use_ort_trainer:
+            # check for ort trainer dependencies
+            try:
+                from optimum.onnxruntime import ORTTrainer  # noqa: F401
+                from optimum.onnxruntime.utils import is_onnxruntime_training_available
+                from torch_ort import ORTModule  # noqa: F401
+
+                assert is_onnxruntime_training_available(), "onnxruntime-training is not available."
+            except (ImportError, AssertionError):
+                raise RuntimeError(
+                    "Please install `olive-ai[optimum,ort-training]` or `onnxruntime-training optimum torch-ort` to use"
+                    f" {cls.__name__} pass with use_ort_trainer=True."
+                ) from None
+
+            # check if model uses bfloat16
+            uses_bf16 = cls.get_torch_dtype(config.torch_dtype) == torch.bfloat16
+            if is_qlora and config.compute_dtype:
+                # qlora compute dtype might be different from torch dtype
+                uses_bf16 |= cls.get_torch_dtype(config.compute_dtype) == torch.bfloat16
+
+            from onnxruntime import __version__ as OrtVersion
+
+            # onnxruntime-training doesn't support bfloat16 fully until 1.17.0
+            if uses_bf16 and version.parse(OrtVersion) < version.parse("1.17.0"):
+                raise RuntimeError(
+                    f"Please install onnxruntime >= 1.17.0 to use {cls.__name__} with bfloat16 and"
+                    " use_ort_trainer=True."
+                )
+
+            # set the opset version to 16 if using bfloat16
+            if uses_bf16:
+                original_opset_version = os.environ.get("ORTMODULE_ONNX_OPSET_VERSION", None)
+                # will try to convert to int, if not possible, will set to -1
+                try:
+                    original_opset_version = int(original_opset_version)
+                except (ValueError, TypeError):
+                    original_opset_version = -1
+                if original_opset_version < 16:
+                    logger.debug("Setting ORTMODULE_ONNX_OPSET_VERSION to 16")
+                    os.environ["ORTMODULE_ONNX_OPSET_VERSION"] = "16"
+
+        # bitsandbytes quantization only supported after transformers 4.30.0
+        if is_qlora and version.parse(transformers.__version__) < version.parse("4.30.0"):
+            raise RuntimeError(f"Please install transformers >= 4.30.0 to use {cls.__name__} pass.")
 
     @staticmethod
     def collate_batch(batch: List[Dict], tokenizer: transformers.PreTrainedTokenizer) -> Dict[str, torch.Tensor]:
@@ -569,6 +612,9 @@ class LoRA(LoRABase):
         # this will validate the config and convert to the correct types
         config = self._config_class(**config)
 
+        # check dependencies
+        self.check_dependencies(config)
+
         # use default training args if not provided
         config.training_args = config.training_args or HFTrainingArguments()
 
@@ -650,13 +696,12 @@ class QLoRA(LoRABase):
     def _run_for_config(
         self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModel:
-        transformers_version = transformers.__version__
-        if version.parse(transformers_version) < version.parse("4.30.0"):
-            raise RuntimeError(f"QLoRA pass only supports transformers >= 4.30.0, but {transformers_version} is used.")
-
         # convert config to pass config class
         # this will validate the config and convert to the correct types
         config = self._config_class(**config)
+
+        # check dependencies
+        self.check_dependencies(config, is_qlora=True)
 
         # MatMulBnb4 contrib op doesn't support double quantization so the trainer falls back to PythonOp
         # which uses more memory and is slower
