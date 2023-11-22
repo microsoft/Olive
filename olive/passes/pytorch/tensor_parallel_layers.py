@@ -16,15 +16,15 @@ from torch import nn
 
 class AllReduce(torch.autograd.Function):  # pylint: disable=abstract-method
     @staticmethod
-    def forward(ctx, x) -> torch.Tensor:  # pylint: disable=arguments-differ
+    def forward(ctx, x: torch.Value) -> torch.Value:  # pylint: disable=arguments-differ
         if torch.onnx.is_in_onnx_export():
             return x
         dist.all_reduce(x, op=dist.ReduceOp.SUM)
         return x
 
     @staticmethod
-    def symbolic(g: torch.Graph, x) -> torch.Value:
-        return g.op("com.microsoft::AllReduce", x)
+    def symbolic(g: torch.Graph, x: torch.Value) -> torch.Value:
+        return g.op("com.microsoft::AllReduce", x).setType(x.type())
 
 
 class TensorParallelColumnLinear(nn.Module):
@@ -35,16 +35,16 @@ class TensorParallelColumnLinear(nn.Module):
         bias=True,
         device=None,
         dtype=None,
+        world_size=1,
         process_group: torch.distributed.ProcessGroup = None,
     ):
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
         self.use_bias = bias
+        self.world_size = world_size
         self.in_features = in_features
-        self.out_features = out_features
-        self.rank_weights = []
-        self.rank_biases = []
-        # We change from traditional `nn.Linear` and remove unecessary `torch.Tensor.transpose` operation
+        self.out_features = out_features // self.world_size
+        # We change from traditional `nn.Linear` and remove unnecessary `torch.Tensor.transpose` operation
         self.weight = nn.Parameter(torch.empty((self.out_features, self.in_features), **factory_kwargs))
         if bias:
             self.bias = nn.Parameter(torch.empty(self.out_features, **factory_kwargs))
@@ -53,22 +53,12 @@ class TensorParallelColumnLinear(nn.Module):
 
         self.reset_parameters()
 
-    def parallel_split(self, world_size):
-        if world_size == 1:
-            return
-
-        assert self.out_features % world_size == 0
-        # Split weights in multiple chunks.
-        # This could be optimized
-        for r in range(world_size):
-            self.rank_weights.append(self.weight.chunk(world_size)[r])  # pylint: disable=unsubscriptable-object
-            if self.use_bias:
-                self.rank_biases.append(self.bias.chunk(world_size)[r])  # pylint: disable=unsubscriptable-object
-
     def load_rank_weights(self, rank, world_size):
-        self.weight = nn.Parameter(self.rank_weights[rank])
+        weight = self.weight.chunk(world_size)[rank]
+        self.weight = nn.Parameter(weight)
         if self.use_bias:
-            self.bias = nn.Parameter(self.rank_biases[rank])
+            bias = self.bias.chunk(world_size)[rank]
+            self.bias = nn.Parameter(bias)
 
     def reset_parameters(self) -> None:
         # From `torch.nn.Linear`
@@ -99,15 +89,16 @@ class TensorParallelRowLinear(nn.Module):
         bias=True,
         device=None,
         dtype=None,
+        world_size=1,
         process_group: torch.distributed.ProcessGroup = None,
     ):
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
         self.use_bias = bias
-        self.in_features = in_features
+        self.world_size = world_size
+        self.in_features = in_features // self.world_size
         self.out_features = out_features
-        self.rank_weights = []
-        # We change from traditional `nn.Linear` and remove unecessary `torch.Tensor.transpose` operation
+        # We change from traditional `nn.Linear` and remove unnecessary `torch.Tensor.transpose` operation
         self.weight = nn.Parameter(torch.empty((self.out_features, self.in_features), **factory_kwargs))
         if bias:
             self.bias = nn.Parameter(torch.empty(self.out_features, **factory_kwargs))
@@ -116,18 +107,9 @@ class TensorParallelRowLinear(nn.Module):
 
         self.reset_parameters()
 
-    def parallel_split(self, world_size):
-        if world_size == 1:
-            return
-
-        assert self.in_features % world_size == 0
-        # Split weights in multiple chunks.
-        # This could be optimized
-        for r in range(world_size):
-            self.rank_weights.append(self.weight.chunk(world_size, dim=1)[r])  # pylint: disable=unsubscriptable-object
-
     def load_rank_weights(self, rank, world_size):
-        self.weight = nn.Parameter(self.rank_weights[rank])
+        weight = self.weight.chunk(world_size, dim=1)[rank]
+        self.weight = nn.Parameter(weight)
 
     def reset_parameters(self) -> None:
         # From `torch.nn.Linear`
