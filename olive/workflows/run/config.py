@@ -105,9 +105,9 @@ class RunConfig(ConfigBase):
         # validate data config name is unique
         data_name_set = set()
         for data_config in v.values():
-            if data_config["name"] in data_name_set:
-                raise ValueError(f"Data config name {data_config['name']} is duplicated. Please use another name.")
-            data_name_set.add(data_config["name"])
+            if data_config.name in data_name_set:
+                raise ValueError(f"Data config name {data_config.name} is duplicated. Please use another name.")
+            data_name_set.add(data_config.name)
 
         # insert input model hf data config if present
         hf_config = values["input_model"].dict()["config"].get("hf_config", {})
