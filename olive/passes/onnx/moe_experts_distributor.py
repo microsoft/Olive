@@ -10,13 +10,12 @@ import os
 import pprint
 from abc import abstractmethod
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Dict, List, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, List, Tuple, Union
 
 import numpy as np
 import onnx
 from google.protobuf.json_format import MessageToDict
 from google.protobuf.message import Message
-from onnxruntime.transformers.onnx_model import OnnxModel
 from pydantic import validator
 
 from olive.hardware.accelerator import AcceleratorSpec
@@ -24,6 +23,10 @@ from olive.model import DistributedOnnxModel, ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config
 from olive.passes.pass_config import PassConfigParam
+
+if TYPE_CHECKING:
+    from onnxruntime.transformers.onnx_model import OnnxModel
+
 
 logger = logging.getLogger(__name__)
 
@@ -166,8 +169,10 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
 
     @staticmethod
     def _insert_collective_nodes(
-        model: OnnxModel, nodes: Dict[str, Message], world_size: int, experts: List[List[str]]
+        model: "OnnxModel", nodes: Dict[str, Message], world_size: int, experts: List[List[str]]
     ):
+        from onnxruntime.transformers.onnx_model import OnnxModel
+
         for expert in experts:
             for i, j in [(0, 1), (-2, -1)]:
                 prev_node = nodes[expert[i]]
@@ -193,7 +198,7 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
 
     @staticmethod
     def _fix_shapes(
-        model: OnnxModel,
+        model: "OnnxModel",
         nodes: Dict[str, Message],
         producers: Dict[str, Message],
         consumers: Dict[str, Message],
@@ -248,6 +253,7 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
             all_tensors_to_one_file,
             debug,
         ) = params
+        from onnxruntime.transformers.onnx_model import OnnxModel
 
         basename = DistributedOnnxModel.DEFAULT_RANKED_MODEL_NAME_FORMAT.format(rank)
         output_dirpath = Path(output_dirpath)
@@ -280,6 +286,8 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
         return output_filepath
 
     def identify_experts(self, output_dirpath: str):
+        from onnxruntime.transformers.onnx_model import OnnxModel
+
         model = OnnxModel(onnx.load_model(self.input_filepath))
         producers = model.output_name_to_node()
         consumers = model.input_name_to_nodes()

@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Union
 
-import onnxruntime
 from onnx import ModelProto
 
 from olive.hardware.accelerator import AcceleratorSpec
@@ -47,6 +46,8 @@ class OptimumMerging(Pass):
     def _run_for_config(
         self, model: CompositeOnnxModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> Union[ONNXModel, CompositeOnnxModel]:
+        import onnxruntime
+
         assert len(model.model_components) == 2
 
         # TODO(trajep): Remove this when the bug in Optimum is fixed. Optimum calls ByteSize() to see whether

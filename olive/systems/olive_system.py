@@ -4,13 +4,16 @@
 # --------------------------------------------------------------------------
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from olive.evaluator.metric import Metric, MetricResult
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ModelConfig
-from olive.passes.olive_pass import Pass
 from olive.systems.common import SystemType
+
+if TYPE_CHECKING:
+    from olive.passes.olive_pass import Pass
+
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +28,7 @@ class OliveSystem(ABC):
     @abstractmethod
     def run_pass(
         self,
-        the_pass: Pass,
+        the_pass: "Pass",
         model_config: ModelConfig,
         data_root: str,
         output_model_path: str,

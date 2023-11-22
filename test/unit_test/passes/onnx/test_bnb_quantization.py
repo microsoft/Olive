@@ -25,7 +25,7 @@ from olive.passes.onnx import OnnxBnb4Quantization
 def mock_ort_1_16_2():
     mock_matmul_bnb4_quantizer = MagicMock()
     sys.modules["onnxruntime.quantization.matmul_bnb4_quantizer"] = mock_matmul_bnb4_quantizer
-    with patch("olive.passes.onnx.bnb_quantization.OrtVersion", "1.16.2"):
+    with patch("onnxruntime.__version__", "1.16.2"):
         yield
     del sys.modules["onnxruntime.quantization.matmul_bnb4_quantizer"]
 
