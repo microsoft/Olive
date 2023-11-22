@@ -132,10 +132,10 @@ class RunConfig(ConfigBase):
         # validate data config name is unique
         data_name_set = set()
         for data_config in v.values():
-            data_config = validate_config(data_config, DataConfig)
-            if data_config.name in data_name_set:
-                raise ValueError(f"Data config name {data_config.name} is duplicated. Please use another name.")
-            data_name_set.add(data_config.name)
+            data_config_obj = validate_config(data_config, DataConfig)
+            if data_config_obj.name in data_name_set:
+                raise ValueError(f"Data config name {data_config_obj.name} is duplicated. Please use another name.")
+            data_name_set.add(data_config_obj.name)
         return v
 
     @validator("data_configs", pre=True, each_item=True)
