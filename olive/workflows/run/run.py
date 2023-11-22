@@ -100,11 +100,14 @@ def dependency_setup(config):
 
     # add dependencies for engine
     if config.engine.host and config.engine.host.type == SystemType.Local:
-        # TODO(myguo): need to add DirectML support
         if config.engine.host.config.accelerators and "GPU" in list(
             map(str.upper, config.engine.host.config.accelerators)
         ):
-            local_packages.extend(dependency_mapping["device"][SystemType.Local]["gpu"])
+            # add DirectML support
+            if config.engine.execution_providers and "DmlExecutionProvider" in config.engine.execution_providers:
+                local_packages.extend(extras.get("directml"))
+            else:
+                local_packages.extend(dependency_mapping["device"][SystemType.Local]["gpu"])
         else:
             local_packages.extend(dependency_mapping["device"][SystemType.Local]["cpu"])
     elif not config.engine.host:
