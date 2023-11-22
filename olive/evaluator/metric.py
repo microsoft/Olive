@@ -133,8 +133,10 @@ class Metric(ConfigBase):
         if values["backend"] == "huggingface_metrics":
             import evaluate
 
-            full_sub_type = evaluate.list_evaluation_modules()
-            assert v["name"] in full_sub_type, f"{v['name']} is not in https://huggingface.co/metrics"
+            try:
+                evaluate.load(v["name"])
+            except FileNotFoundError as e:
+                raise ValueError(f"could not load metric {v['name']} from huggingface/evaluate") from e
         elif values["backend"] == "torch_metrics":
             try:
                 sub_metric_type_cls = None
