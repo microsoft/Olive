@@ -102,13 +102,6 @@ class RunConfig(ConfigBase):
         if INPUT_MODEL_DATA_CONFIG in v:
             raise ValueError(f"Data config name {INPUT_MODEL_DATA_CONFIG} is reserved. Please use another name.")
 
-        # validate data config name is unique
-        data_name_set = set()
-        for data_config in v.values():
-            if data_config.name in data_name_set:
-                raise ValueError(f"Data config name {data_config.name} is duplicated. Please use another name.")
-            data_name_set.add(data_config.name)
-
         # insert input model hf data config if present
         hf_config = values["input_model"].dict()["config"].get("hf_config", {})
         hf_config_dataset = hf_config.get("dataset", None)
@@ -129,6 +122,20 @@ class RunConfig(ConfigBase):
                 "type": HuggingfaceContainer.__name__,
                 "params_config": params_config,
             }
+        return v
+
+    @validator("data_configs", pre=True)
+    def validate_data_config_names(cls, v):
+        if not v:
+            return v
+
+        # validate data config name is unique
+        data_name_set = set()
+        for data_config in v.values():
+            data_config = validate_config(data_config, DataConfig)
+            if data_config.name in data_name_set:
+                raise ValueError(f"Data config name {data_config.name} is duplicated. Please use another name.")
+            data_name_set.add(data_config.name)
         return v
 
     @validator("data_configs", pre=True, each_item=True)

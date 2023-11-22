@@ -20,6 +20,7 @@ from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.cache import normalize_data_path
 from olive.common.config_utils import ParamCategory, validate_config
 from olive.common.utils import retry_func
+from olive.data.config import DataConfig
 from olive.evaluator.metric import Metric, MetricResult
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ModelConfig
@@ -381,31 +382,20 @@ class AzureMLSystem(OliveSystem):
         data_inputs = {}
         data_args = {}
         data_name_set = set()
+
+        def update_dicts(name, key, script_attr, input_type):
+            data_inputs.update({f"{name}_{key}": Input(type=input_type, optional=True)})
+            data_args.update({f"{name}_{key}": Input(type=input_type, path=getattr(script_attr, key))})
+
         for param, param_config in the_pass._config.items():
-            if param.endswith("data_config") and param_config.name not in data_name_set:
-                data_name_set.add(param_config.name)
-                if param_config.user_script:
-                    data_inputs.update(
-                        {f"{param_config.name}_user_script": Input(type=AssetTypes.URI_FILE, optional=True)}
-                    )
-                    data_args.update(
-                        {
-                            f"{param_config.name}_user_script": Input(
-                                type=AssetTypes.URI_FILE, path=param_config.user_script
-                            )
-                        }
-                    )
-                if param_config.script_dir:
-                    data_inputs.update(
-                        {f"{param_config.name}_script_dir": Input(type=AssetTypes.URI_FOLDER, optional=True)}
-                    )
-                    data_args.update(
-                        {
-                            f"{param_config.name}_script_dir": Input(
-                                type=AssetTypes.URI_FOLDER, path=param_config.script_dir
-                            )
-                        }
-                    )
+            if param.endswith("data_config") and param_config is not None:
+                param_config = validate_config(param_config, DataConfig)
+                if param_config.name not in data_name_set:
+                    data_name_set.add(param_config.name)
+                    if param_config.user_script:
+                        update_dicts(param_config.name, "user_script", param_config, AssetTypes.URI_FILE)
+                    if param_config.script_dir:
+                        update_dicts(param_config.name, "script_dir", param_config, AssetTypes.URI_FOLDER)
         logger.debug(f"Data inputs for pass: {data_inputs}, data args for pass: {data_args}")
         return (data_inputs, data_args)
 
