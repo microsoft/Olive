@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import subprocess
+import sys
 from pathlib import Path
 from typing import List, Union
 
@@ -97,7 +98,7 @@ def dependency_setup(config):
         extra_results.extend(pass_to_extra.get(pass_type, []))
         extra_name = pass_to_extra_name.get(pass_type, None)
         if extra_name:
-            extra_results.append(extras.get(extra_name))
+            extra_results.extend(extras.get(extra_name))
         return extra_results
 
     ort_packages = ["onnxruntime", "onnxruntime-directml", "onnxruntime-gpu", "onnxruntime-openvino"]
@@ -133,9 +134,12 @@ def dependency_setup(config):
 
     # install missing packages to local or tell user to install packages in their environment
     logger.info(f"The following packages are required in the local environment: {local_packages}")
+    packages_install = []
     for package in set(local_packages):
         if package in ort_packages:
-            check_local_ort_installation(package)
+            package_to_install = check_local_ort_installation(package)
+            if package_to_install:
+                packages_install.append(package_to_install)
         else:
             try:
                 # use importlib.metadata to check if package is installed
@@ -143,9 +147,15 @@ def dependency_setup(config):
                 importlib.metadata.distribution(package)
                 logger.info(f"{package} is already installed.")
             except importlib.metadata.PackageNotFoundError:
-                logger.info(f"Installing {package}...")
-                subprocess.check_call(["python", "-m", "pip", "install", f"{package}"])
-                logger.info(f"Successfully installed {package}.")
+                packages_install.append(package)
+
+    if packages_install:
+        # Install all packages once time
+        cmd = [sys.executable, "-m", "pip", "install", *packages_install]
+        logger.info(f"Running: {' '.join(cmd)}")
+        subprocess.check_call(cmd)
+        logger.info(f"Successfully installed {packages_install}.")
+
     if remote_packages:
         logger.info(
             "Please make sure the following packages are installed in {} environment: {}".format(
@@ -231,16 +241,11 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
 
 
 def check_local_ort_installation(package_name: str):
+    """Check whether ORT is installed. If not, will return current package name to install."""
     local_ort_packages = get_local_ort_packages()
 
     if not local_ort_packages:
-        # this case should not happen right now, for future proofing
-        # onnxruntime is a dependency of olive so it must already be present
-        # olive import would not have succeeded otherwise
-        logger.info(f"Installing {package_name}...")
-        subprocess.check_call(["python", "-m", "pip", "install", package_name])
-        logger.info(f"Successfully installed {package_name}.")
-        return
+        return package_name
 
     if "-" in package_name:
         night_package_name = f"ort-nightly-{package_name.split('-')[-1]}"
@@ -253,21 +258,22 @@ def check_local_ort_installation(package_name: str):
         # TODO(jambayk): will probably be fine if we want cpu package but some other ort package is installed
         # but we can add a check for that if needed in the future
         logger.info(f"{local_ort_packages[0]} is already installed.")
-        return
+        return None
 
     # instruction to user
     messages = [
         "There are one or more onnxruntime packages installed in your environment!",
         "The setup process is stopped to avoid potential conflicts. Please run the following commands manually:",
     ]
-    uninstall_command = "python -m pip uninstall -y " + " ".join(local_ort_packages)
+    uninstall_command = f"{sys.sys.executable} -m pip uninstall -y " + " ".join(local_ort_packages)
     messages.append(f"Uninstall all existing onnxruntime packages: '{uninstall_command}'")
-    messages.append(f"Install {package_name}: 'python -m pip install {package_name}'")
+    messages.append(f"Install {package_name}: '{sys.executable} -m pip install {package_name}'")
     messages.append(
         "You can also instead install the corresponding nightly version following the instructions at"
         " https://onnxruntime.ai/docs/install/#inference-install-table-for-all-languages"
     )
     logger.warning("\n".join(messages))
+    return None
 
 
 def get_local_ort_packages() -> List[str]:
