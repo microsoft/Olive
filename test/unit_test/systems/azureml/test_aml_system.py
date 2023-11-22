@@ -286,7 +286,6 @@ class TestAzureMLSystem:
             "data_name_user_script": Input(type=AssetTypes.URI_FILE, path=str(user_script_path)),
             "data_name_script_dir": Input(type=AssetTypes.URI_FOLDER, path=str(script_dir_path)),
         }
-        data_input = {"data_name": data_config}
 
         # execute
         actual_data_inputs, actual_data_args = self.system._create_data_script_inputs_and_args(the_pass)
