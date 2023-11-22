@@ -119,12 +119,13 @@ class AzureMLSystem(OliveSystem):
         ml_client = self.azureml_client_config.create_client()
         point = point or {}
         config = the_pass.config_at_search_point(point)
+        data_params = self._create_data_script_inputs_and_args(the_pass)
         pass_config = the_pass.to_json(check_object=True)
         pass_config["config"].update(the_pass.serialize_config(config, check_object=True))
 
         with tempfile.TemporaryDirectory() as tempdir:
             pipeline_job = self._create_pipeline_for_pass(
-                data_root, tempdir, model_config, pass_config, the_pass.path_params
+                data_root, tempdir, model_config, pass_config, the_pass.path_params, data_params
             )
 
             # submit job
@@ -304,6 +305,7 @@ class AzureMLSystem(OliveSystem):
         model_config: ModelConfig,
         pass_config: dict,
         pass_path_params: List[Tuple[str, bool, ParamCategory]],
+        data_params: Tuple[Dict, Dict],
     ):
         tmp_dir = Path(tmp_dir)
 
@@ -331,6 +333,7 @@ class AzureMLSystem(OliveSystem):
         inputs = {
             **self._create_model_inputs(model_resource_paths),
             **self._create_pass_inputs(pass_path_params),
+            **data_params[0],
             **accelerator_info,
         }
         # prepare outputs
@@ -361,6 +364,7 @@ class AzureMLSystem(OliveSystem):
         args = {
             **self._create_model_args(model_json, model_resource_paths, tmp_dir),
             **self._create_pass_args(pass_config, pass_path_params, data_root, tmp_dir),
+            **data_params[1],
             **accelerator_info,
         }
 
@@ -372,6 +376,38 @@ class AzureMLSystem(OliveSystem):
             return outputs
 
         return pass_runner_pipeline()
+
+    def _create_data_script_inputs_and_args(self, the_pass: Pass):
+        data_inputs = {}
+        data_args = {}
+        data_name_set = set()
+        for param, param_config in the_pass._config.items():
+            if param.endswith("data_config") and param_config.name not in data_name_set:
+                data_name_set.add(param_config.name)
+                if param_config.user_script:
+                    data_inputs.update(
+                        {f"{param_config.name}_user_script": Input(type=AssetTypes.URI_FILE, optional=True)}
+                    )
+                    data_args.update(
+                        {
+                            f"{param_config.name}_user_script": Input(
+                                type=AssetTypes.URI_FILE, path=param_config.user_script
+                            )
+                        }
+                    )
+                if param_config.script_dir:
+                    data_inputs.update(
+                        {f"{param_config.name}_script_dir": Input(type=AssetTypes.URI_FOLDER, optional=True)}
+                    )
+                    data_args.update(
+                        {
+                            f"{param_config.name}_script_dir": Input(
+                                type=AssetTypes.URI_FOLDER, path=param_config.script_dir
+                            )
+                        }
+                    )
+        logger.debug(f"Data inputs for pass: {data_inputs}, data args for pass: {data_args}")
+        return (data_inputs, data_args)
 
     def _run_job(
         self,

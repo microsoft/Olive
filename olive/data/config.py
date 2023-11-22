@@ -3,9 +3,12 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import re
 from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Union
+
+from pydantic import validator
 
 from olive.common.config_utils import ConfigBase
 from olive.common.import_lib import import_user_module
@@ -63,6 +66,13 @@ class DataConfig(ConfigBase):
     # value: is corresponding component function name registered in Registry
     # for example, {DataComponentType.LOAD_DATASET.value: "huggingface_dataset"}
     default_components_type: Dict[str, str] = None
+
+    @validator("name", pre=True)
+    def validate_name(cls, v):
+        pattern = r"^[A-Za-z0-9_]+$"
+        if not re.match(pattern, v):
+            raise ValueError(f"DataConfig name {v} should only contain letters, numbers and underscore.")
+        return v
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

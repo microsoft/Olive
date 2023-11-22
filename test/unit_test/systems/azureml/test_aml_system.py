@@ -16,6 +16,7 @@ from azure.ai.ml import Input, Output
 from azure.ai.ml.constants import AssetTypes
 
 from olive.azureml.azureml_client import AzureMLClientConfig
+from olive.data.config import DataConfig
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricResult
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import ONNXModel
@@ -139,7 +140,9 @@ class TestAzureMLSystem:
             actual_res = self.system.run_pass(p, model_config, None, output_model_path)
 
         # assert
-        mock_create_pipeline.assert_called_once_with(None, output_folder, model_config, p.to_json(), p.path_params)
+        mock_create_pipeline.assert_called_once_with(
+            None, output_folder, model_config, p.to_json(), p.path_params, ({}, {})
+        )
         assert mock_retry_func.call_count == 2
         ml_client.jobs.stream.assert_called_once()
         output_model_file = actual_res.config["model_path"]
@@ -261,6 +264,36 @@ class TestAzureMLSystem:
             instance_count=1,
             compute=compute,
         )
+
+    def test__create_data_script_inputs_and_args(self):
+        # setup
+        script_dir_path = Path(__file__).absolute().parent / "script_dir"
+        user_script_path = script_dir_path / "user_script.py"
+        data_config = DataConfig(
+            type="HuggingfaceContainer",
+            name="data_name",
+            user_script=str(user_script_path),
+            script_dir=str(script_dir_path),
+        )
+        pass_config = {"data_config": data_config}
+        the_pass = MagicMock()
+        the_pass._config = pass_config
+        expected_data_inputs = {
+            "data_name_user_script": Input(type=AssetTypes.URI_FILE, optional=True),
+            "data_name_script_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
+        }
+        expected_data_args = {
+            "data_name_user_script": Input(type=AssetTypes.URI_FILE, path=str(user_script_path)),
+            "data_name_script_dir": Input(type=AssetTypes.URI_FOLDER, path=str(script_dir_path)),
+        }
+        data_input = {"data_name": data_config}
+
+        # execute
+        actual_data_inputs, actual_data_args = self.system._create_data_script_inputs_and_args(the_pass)
+
+        # assert
+        assert actual_data_inputs == expected_data_inputs
+        assert actual_data_args == expected_data_args
 
     def test__create_metric_args(self):
         # setup
