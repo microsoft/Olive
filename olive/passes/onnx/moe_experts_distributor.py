@@ -325,6 +325,7 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
         output_dirpath: str,
         use_external_data_format: bool = True,
         all_tensors_to_one_file: bool = True,
+        parallel_jobs: int = multiprocessing.cpu_count(),
     ) -> List[str]:
         params = [
             (
@@ -341,11 +342,11 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
             for rank in range(self.world_size)
         ]
 
-        max_jobs = min(self.world_size, multiprocessing.cpu_count())
-        if max_jobs <= 1:
+        max_parallel_jobs = min(self.world_size, parallel_jobs)
+        if max_parallel_jobs <= 1:
             output_filepaths = [MoEExpertDistributionPatternMatcherA._generate_one(_) for _ in params]
         else:
-            with multiprocessing.Pool(processes=max_jobs) as pool:
+            with multiprocessing.Pool(processes=max_parallel_jobs) as pool:
                 output_filepaths = pool.map(MoEExpertDistributionPatternMatcherA._generate_one, params)
 
         return output_filepaths
@@ -362,6 +363,12 @@ class MoEExpertsDistributor(Pass):
                 default=2,
                 required=True,
                 description=("Number of GPU nodes to distribute the model for. Must be greater than 1."),
+            ),
+            "parallel_jobs": PassConfigParam(
+                type_=int,
+                default=multiprocessing.cpu_count(),
+                required=False,
+                description="Number of parallel jobs. Defaulted to number of CPUs. Set it to 0 to disable.",
             ),
         }
         config.update(get_external_data_config())
@@ -400,6 +407,7 @@ class MoEExpertsDistributor(Pass):
             output_model_path,
             use_external_data_format=config["save_as_external_data"],
             all_tensors_to_one_file=config["all_tensors_to_one_file"],
+            parallel_jobs=config["parallel_jobs"] or multiprocessing.cpu_count(),
         )
         return DistributedOnnxModel(
             model_path=str(Path(output_model_path).with_suffix("")),
