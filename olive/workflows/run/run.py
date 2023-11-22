@@ -10,11 +10,7 @@ import subprocess
 from pathlib import Path
 from typing import List, Union
 
-import onnxruntime as ort
-
-from olive.hardware import Device
 from olive.logging import enable_filelog, set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
-from olive.passes import Pass
 from olive.systems.common import SystemType
 from olive.workflows.run.config import RunConfig
 
@@ -57,28 +53,53 @@ def dependency_setup(config):
     here = os.path.abspath(os.path.dirname(__file__))
     with open(os.path.join(here, "../../extra_dependencies.json")) as f:  # noqa: PTH123
         extras = json.load(f)
-    dependency_mapping = {
-        "device": {
-            SystemType.AzureML: extras.get("azureml"),
-            SystemType.Docker: extras.get("docker"),
-            SystemType.Local: {Device.CPU: extras.get("cpu"), Device.GPU: extras.get("gpu")},
-        },
-        "pass": {
+
+    def get_system_extras(host_type, accelerators, execution_providers):
+        extra_name = None
+        if host_type is None:
+            extra_name = "cpu"
+        elif host_type == SystemType.AzureML:
+            extra_name = "azureml"
+        elif host_type == SystemType.Docker:
+            extra_name = "docker"
+        elif host_type == SystemType.Local:
+            if accelerators and "GPU" in list(map(str.upper, accelerators)):
+                if execution_providers and "DmlExecutionProvider" in execution_providers:
+                    extra_name = "directml"
+                else:
+                    extra_name = "gpu"
+            else:
+                extra_name = "cpu"
+
+        return extra_name
+
+    def get_pass_extras(pass_type):
+        pass_to_extra = {
             "OnnxFloatToFloat16": ["onnxconverter-common"],
             "OrtPerfTuning": ["psutil"],
             "QuantizationAwareTraining": ["pytorch-lightning"],
-            "OpenVINOConversion": extras.get("openvino"),
-            "OpenVINOQuantization": extras.get("openvino"),
-            "IncQuantization": extras.get("inc"),
-            "IncDynamicQuantization": extras.get("inc"),
-            "IncStaticQuantization": extras.get("inc"),
-            "OptimumConversion": extras.get("optimum"),
-            "OptimumMerging": extras.get("optimum"),
-            "TorchTRTConversion": extras.get("torch-tensorrt"),
-            "LoRA": extras.get("lora"),
-            "QLoRA": extras.get("qlora"),
-        },
-    }
+        }
+
+        pass_to_extra_name = {
+            "OpenVINOConversion": "openvino",
+            "OpenVINOQuantization": "openvino",
+            "IncQuantization": "inc",
+            "IncDynamicQuantization": "inc",
+            "IncStaticQuantization": "inc",
+            "OptimumConversion": "optimum",
+            "OptimumMerging": "optimum",
+            "TorchTRTConversion": "torch-tensorrt",
+            "LoRA": "lora",
+            "QLoRA": "qlora",
+        }
+
+        extra_results = []
+        extra_results.extend(pass_to_extra.get(pass_type, []))
+        extra_name = pass_to_extra_name.get(pass_type, None)
+        if extra_name:
+            extra_results.append(extras.get(extra_name))
+        return extra_results
+
     ort_packages = ["onnxruntime", "onnxruntime-directml", "onnxruntime-gpu", "onnxruntime-openvino"]
 
     local_packages = []
@@ -89,9 +110,9 @@ def dependency_setup(config):
         for pass_config in config.passes.values():
             host = pass_config.host or config.engine.host
             if (host and host.type == SystemType.Local) or not host:
-                local_packages.extend(dependency_mapping["pass"].get(pass_config.type, []))
+                local_packages.extend(get_pass_extras(pass_config.type))
             else:
-                remote_packages.extend(dependency_mapping["pass"].get(pass_config.type, []))
+                remote_packages.extend(get_pass_extras(pass_config.type))
             if pass_config.type in ["SNPEConversion", "SNPEQuantization", "SNPEtoONNXConversion"]:
                 logger.info(
                     "Please refer to https://microsoft.github.io/Olive/tutorials/passes/snpe.html to install SNPE"
@@ -99,21 +120,16 @@ def dependency_setup(config):
                 )
 
     # add dependencies for engine
-    if config.engine.host and config.engine.host.type == SystemType.Local:
-        if config.engine.host.config.accelerators and "GPU" in list(
-            map(str.upper, config.engine.host.config.accelerators)
-        ):
-            # add DirectML support
-            if config.engine.execution_providers and "DmlExecutionProvider" in config.engine.execution_providers:
-                local_packages.extend(extras.get("directml"))
-            else:
-                local_packages.extend(dependency_mapping["device"][SystemType.Local]["gpu"])
-        else:
-            local_packages.extend(dependency_mapping["device"][SystemType.Local]["cpu"])
-    elif not config.engine.host:
-        local_packages.extend(dependency_mapping["device"][SystemType.Local]["cpu"])
-    else:
-        local_packages.extend(dependency_mapping["device"][config.engine.host.type])
+    host_type = None
+    accelerators = None
+    if config.engine.host:
+        host_type = config.engine.host.type
+        accelerators = config.engine.host.config.accelerators
+
+    execution_providers = config.engine.execution_providers if config.engine.execution_providers else None
+    system_extra_name = get_system_extras(host_type, accelerators, execution_providers)
+    if system_extra_name:
+        local_packages.extend(extras.get(system_extra_name))
 
     # install missing packages to local or tell user to install packages in their environment
     logger.info(f"The following packages are required in the local environment: {local_packages}")
@@ -139,6 +155,12 @@ def dependency_setup(config):
 
 
 def run_engine(config: RunConfig, data_root: str = None):
+    import onnxruntime as ort
+
+    from olive.passes import Pass
+
+    ort.set_default_logger_severity(config.engine.ort_log_severity_level)
+
     # input model
     input_model = config.input_model
 
@@ -196,7 +218,6 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
     # ort_py_log_severity_level: python logging levels
     # ort_log_severity_level: C++ logging levels
     set_ort_logger_severity(config.engine.ort_py_log_severity_level)
-    ort.set_default_logger_severity(config.engine.ort_log_severity_level)
     if config.engine.log_to_file:
         enable_filelog(config.engine.log_severity_level)
 

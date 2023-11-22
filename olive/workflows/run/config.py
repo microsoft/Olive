@@ -16,7 +16,7 @@ from olive.engine import Engine, EngineConfig
 from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
-from olive.passes import FullPassConfig, Pass
+from olive.passes import FullPassConfig
 from olive.resource_path import AZUREML_RESOURCE_TYPES
 from olive.systems.system_config import SystemConfig
 
@@ -184,6 +184,8 @@ class RunConfig(ConfigBase):
 
     @validator("passes", pre=True, each_item=True)
     def validate_pass_search(cls, v, values):
+        from olive.passes import Pass
+
         if "engine" not in values:
             raise ValueError("Invalid engine")
 

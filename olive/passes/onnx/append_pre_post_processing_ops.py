@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Union
 
 import onnx
-from onnxruntime import __version__ as OrtVersion
 from packaging import version
 from pydantic import Field, validator
 
@@ -83,6 +82,8 @@ class AppendPrePostProcessingOps(Pass):
     def _run_for_config(
         self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModel:
+        from onnxruntime import __version__ as OrtVersion
+
         output_model_path = ONNXModel.resolve_path(output_model_path)
 
         tool_command = config.get("tool_command")

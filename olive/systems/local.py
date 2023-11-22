@@ -2,15 +2,17 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from olive.evaluator.metric import Metric, MetricResult
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorFactory
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ModelConfig
-from olive.passes.olive_pass import Pass
 from olive.systems.common import SystemType
 from olive.systems.olive_system import OliveSystem
+
+if TYPE_CHECKING:
+    from olive.passes.olive_pass import Pass
 
 
 class LocalSystem(OliveSystem):
@@ -21,7 +23,7 @@ class LocalSystem(OliveSystem):
 
     def run_pass(
         self,
-        the_pass: Pass,
+        the_pass: "Pass",
         model_config: ModelConfig,
         data_root: str,
         output_model_path: str,
