@@ -230,7 +230,7 @@ information of the evaluator contains following items:
 
     - `name: [str]` The name of the metric. This must be a unique name among all metrics in the evaluator.
 
-    - `type: [str]` The type of the metric. The supported types are `accuracy`, `latency` and `custom`.
+    - `type: [str]` The type of the metric. The supported types are `accuracy`, `latency`, `throughput` and `custom`.
 
     - `backend: [str]` The type of metrics' backend. Olive implement `torch_metrics` and `huggingface_metrics` backends. The default value is `torch_metrics`.
         - `torch_metrics` backend uses `torchmetrics` library to compute metrics. It supports `accuracy_score`, `f1_score`, `precision`, `recall` and `auc` metrics.
@@ -238,7 +238,7 @@ information of the evaluator contains following items:
 
     - `subtypes: [List[Dict]]` The subtypes of the metric. Cannot be null or empty. Each subtype is a dictionary that contains following items:
 
-        - `name: str` The name of the subtype. Please refer to [AccuracySubtype](accuracy_sub_type) and [LatencySubtype](latency_sub_type)
+        - `name: str` The name of the subtype. Please refer to [AccuracySubtype](accuracy_sub_type), [LatencySubtype](latency_sub_type) and [ThroughputSubtype](throughput_sub_type)
         for the supported subtypes. For `custom` type, if the result of the evaluation is a dictionary, the name of the subtype should be the key of the dictionary. Otherwise, the name of the subtype could be any unique string user gives.
 
         - `metric_config` The parameter config used to measure detailed metrics. Please note that when the `backend` is `huggingface_metrics`, you should see the `metric_config` as dictionary of:
