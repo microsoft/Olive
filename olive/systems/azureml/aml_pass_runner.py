@@ -60,7 +60,7 @@ def create_pass(pass_config, pass_args):
 def update_data_config(p, extra_args):
     data_script_map = {}
     for param, param_config in p._config.items():
-        if param.endswith("data_config"):
+        if param.endswith("data_config") and param_config is not None:
             data_name = param_config["name"]
             if data_script_map.get(data_name):
                 user_script, script_dir = data_script_map[data_name]
