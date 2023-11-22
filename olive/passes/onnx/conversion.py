@@ -473,10 +473,8 @@ class OnnxOpVersionConversion(Pass):
         model_proto = model.load_model()
         model_opset_version = model_proto.opset_import[0].version
         if model_opset_version == config["target_opset"]:
-            # we have no good solution to skip the one pass once it is executed, just save the model again to
-            # target output path
             logger.info(f"Model is already in target opset version {config['target_opset']}.")
             return model
-        else:
-            model_proto = onnx.version_converter.convert_version(model_proto, config["target_opset"])
+
+        model_proto = onnx.version_converter.convert_version(model_proto, config["target_opset"])
         return model_proto_to_olive_model(model_proto, output_model_path, config)
