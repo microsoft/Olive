@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, Union
@@ -13,6 +14,8 @@ from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config
 from olive.passes.pass_config import PassConfigParam
 
+logger = logging.getLogger(__name__)
+
 
 class OptimumConversion(Pass):
     """Convert a Optimum model to ONNX model using the Optimum export function."""
@@ -21,7 +24,6 @@ class OptimumConversion(Pass):
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        device = "cuda" if accelerator_spec.accelerator_type == "gpu" else "cpu"
         config = {
             "target_opset": PassConfigParam(
                 type_=int, default_value=14, description="The version of the default (ai.onnx) opset to target."
@@ -32,7 +34,7 @@ class OptimumConversion(Pass):
                 description="Whether to use fp16 precision to load torch model and then convert it to onnx.",
             ),
             "device": PassConfigParam(
-                type_=str, default_value=device, description="The device to use to do the export. Defaults to 'cpu'."
+                type_=str, default_value="cpu", description="The device to use to do the export. Defaults to 'cpu'."
             ),
             "no_post_process": PassConfigParam(
                 type_=bool,
@@ -47,6 +49,18 @@ class OptimumConversion(Pass):
         }
         config.update(get_external_data_config())
         return config
+
+    def validate_search_point(
+        self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
+    ) -> bool:
+        if with_fixed_value:
+            search_point = self.config_at_search_point(search_point or {})
+
+        if search_point.get("device") == "cuda" and not search_point.get("fp16"):
+            logger.info("OptimumConversion: fp16 is not set to True, but device is set to cuda.")
+            return False
+
+        return True
 
     def _run_for_config(
         self, model: OptimumModel, data_root: str, config: Dict[str, Any], output_model_path: str
@@ -72,6 +86,7 @@ class OptimumConversion(Pass):
         hf_config = deepcopy(model.hf_config) or HFConfig()
         if version.parse(optimum_version.__version__) >= version.parse("1.14.0"):
             # Optimum 1.14.0 needs to be run in legacy mode to support older versions of transformers
+            # TODO(trajep): deprecated legacy after fully test with the model using optimum merging
             config["extra_args"]["legacy"] = True
 
         export_optimum_model(
