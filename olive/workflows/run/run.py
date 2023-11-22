@@ -100,11 +100,14 @@ def dependency_setup(config):
 
     # add dependencies for engine
     if config.engine.host and config.engine.host.type == SystemType.Local:
-        # TODO(myguo): need to add DirectML support
         if config.engine.host.config.accelerators and "GPU" in list(
             map(str.upper, config.engine.host.config.accelerators)
         ):
-            local_packages.extend(dependency_mapping["device"][SystemType.Local]["gpu"])
+            # add DirectML support
+            if config.engine.execution_providers and "DmlExecutionProvider" in config.engine.execution_providers:
+                local_packages.extend(extras.get("directml"))
+            else:
+                local_packages.extend(dependency_mapping["device"][SystemType.Local]["gpu"])
         else:
             local_packages.extend(dependency_mapping["device"][SystemType.Local]["cpu"])
     elif not config.engine.host:
@@ -135,6 +138,51 @@ def dependency_setup(config):
         )
 
 
+def run_engine(config: RunConfig, data_root: str = None):
+    # input model
+    input_model = config.input_model
+
+    # Azure ML Client
+    if config.azureml_client:
+        config.engine.azureml_client_config = config.azureml_client
+
+    # engine
+    engine = config.engine.create_engine()
+
+    if not config.passes and not config.engine.evaluate_input_model:
+        # TODO(trajep): enhance this logic for more passes templates
+        engine, config = automatically_insert_passes(config)
+
+    # passes
+    if config.passes:
+        for pass_name, pass_config in config.passes.items():
+            host = pass_config.host.create_system() if pass_config.host is not None else None
+            engine.register(
+                Pass.registry[pass_config.type.lower()],
+                config=pass_config.config,
+                disable_search=pass_config.disable_search,
+                name=pass_name,
+                host=host,
+                evaluator_config=pass_config.evaluator,
+                clean_run_cache=pass_config.clean_run_cache,
+                output_name=pass_config.output_name,
+            )
+        engine.set_pass_flows(config.pass_flows)
+
+    if data_root is None:
+        data_root = config.data_root
+
+    # run
+    return engine.run(
+        input_model,
+        data_root,
+        config.engine.packaging_config,
+        config.engine.output_dir,
+        config.engine.output_name,
+        config.engine.evaluate_input_model,
+    )
+
+
 def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = None):
     # we use parse_file and parse_obj to be safe. If implemented as expected, both should be equivalent.
     if isinstance(config, (str, Path)):
@@ -152,54 +200,13 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
     if config.engine.log_to_file:
         enable_filelog(config.engine.log_severity_level)
 
-    # input model
-    input_model = config.input_model
-
-    # Azure ML Client
-    if config.azureml_client:
-        config.engine.azureml_client_config = config.azureml_client
-
-    # engine
-    engine = config.engine.create_engine()
-
-    if not config.passes and not config.engine.evaluate_input_model:
-        # TODO(trajep): enhance this logic for more passes templates
-        engine, config = automatically_insert_passes(config)
-
     if setup:
         # set the log level to INFO for setup
         set_verbosity_info()
         dependency_setup(config)
         return None
     else:
-        # passes
-        if config.passes:
-            for pass_name, pass_config in config.passes.items():
-                host = pass_config.host.create_system() if pass_config.host is not None else None
-                engine.register(
-                    Pass.registry[pass_config.type.lower()],
-                    config=pass_config.config,
-                    disable_search=pass_config.disable_search,
-                    name=pass_name,
-                    host=host,
-                    evaluator_config=pass_config.evaluator,
-                    clean_run_cache=pass_config.clean_run_cache,
-                    output_name=pass_config.output_name,
-                )
-            engine.set_pass_flows(config.pass_flows)
-
-        if data_root is None:
-            data_root = config.data_root
-
-        # run
-        return engine.run(
-            input_model,
-            data_root,
-            config.engine.packaging_config,
-            config.engine.output_dir,
-            config.engine.output_name,
-            config.engine.evaluate_input_model,
-        )
+        return run_engine(config, data_root)
 
 
 def check_local_ort_installation(package_name: str):
@@ -230,7 +237,7 @@ def check_local_ort_installation(package_name: str):
     # instruction to user
     messages = [
         "There are one or more onnxruntime packages installed in your environment!",
-        "Please run the following commands:",
+        "The setup process is stopped to avoid potential conflicts. Please run the following commands manually:",
     ]
     uninstall_command = "python -m pip uninstall -y " + " ".join(local_ort_packages)
     messages.append(f"Uninstall all existing onnxruntime packages: '{uninstall_command}'")
