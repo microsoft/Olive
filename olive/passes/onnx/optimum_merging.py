@@ -70,7 +70,7 @@ class OptimumMerging(Pass):
             ModelProto.ByteSize = prev_byte_size_func
 
         # onnx.save will fail if the directory doesn't already exist
-        ONNXModel.resolve_path(output_model_path, "decoder_model_merged.onnx")
+        output_model_path = ONNXModel.resolve_path(output_model_path, "decoder_model_merged.onnx")
 
         olive_model = model_proto_to_olive_model(merged_model, output_model_path, config)
 
