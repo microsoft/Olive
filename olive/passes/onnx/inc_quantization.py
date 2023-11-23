@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-import os
 import tempfile
 from copy import deepcopy
 from pathlib import Path
@@ -495,7 +494,7 @@ class IncQuantization(Pass):
                 config["dataloader_func"] or config["data_config"]
             ), "dataloader_func or data_config is required for {} quantization.".format(run_config["approach"])
 
-        output_model_path = ONNXModel.resolve_path(os.path.join(output_model_path, os.path.basename(model.model_path)))
+        output_model_path = ONNXModel.resolve_path(output_model_path, Path(model.model_path).name)
 
         eval_func, accuracy_criterion, tuning_criterion = self._set_tuning_config(run_config, data_root)
         weight_only_config = self._set_woq_config(run_config)

@@ -320,7 +320,7 @@ class OnnxQuantization(Pass):
                 config["dataloader_func"] or config["data_config"]
             ), "dataloader_func or data_config is required for static quantization."
 
-        output_model_path = ONNXModel.resolve_path(output_model_path)
+        output_model_path = ONNXModel.resolve_path(output_model_path, Path(model.model_path).name)
 
         # extra config
         extra_options = deepcopy(config["extra_options"]) if config["extra_options"] else {}
@@ -547,7 +547,7 @@ class OnnxMatMul4Quantizer(Pass):
 
         from onnxruntime.quantization.matmul_4bits_quantizer import MatMul4BitsQuantizer
 
-        output_model_path = ONNXModel.resolve_path(output_model_path)
+        output_model_path = ONNXModel.resolve_path(output_model_path, Path(model.model_path).name)
 
         quant = MatMul4BitsQuantizer(
             model.load_model(), config["block_size"], config["is_symmetric"], config["nodes_to_exclude"]

@@ -2,8 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import os
-from pathlib import Path
 from typing import Any, Dict, Union
 
 from onnx import ModelProto
@@ -72,8 +70,7 @@ class OptimumMerging(Pass):
             ModelProto.ByteSize = prev_byte_size_func
 
         # onnx.save will fail if the directory doesn't already exist
-        Path(output_model_path).mkdir(parents=True, exist_ok=True)
-        output_model_path = os.path.join(output_model_path, "decoder_model_merged.onnx")
+        output_model_path = ONNXModel.resolve_path(output_model_path, "decoder_model_merged.onnx")
 
         olive_model = model_proto_to_olive_model(merged_model, output_model_path, config)
 

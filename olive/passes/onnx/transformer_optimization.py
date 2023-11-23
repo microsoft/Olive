@@ -217,10 +217,7 @@ class OrtTransformersOptimization(Pass):
                 "OrtTransformersOptimization.config"
             )
 
-        output_model_path = Path(output_model_path)
-        if output_model_path.suffix != ".onnx":
-            output_model_path = output_model_path / Path(model.model_path).name
-        output_model_path = ONNXModel.resolve_path(output_model_path)
+        output_model_path = ONNXModel.resolve_path(output_model_path, Path(model.model_path).name)
 
         optimization_options = config["optimization_options"]
         if optimization_options:
