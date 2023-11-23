@@ -169,6 +169,11 @@ def run_engine(config: RunConfig, data_root: str = None):
 
     from olive.passes import Pass
 
+    # for onnxruntime
+    # ort_py_log_severity_level: python logging levels
+    set_ort_logger_severity(config.engine.ort_py_log_severity_level)
+
+    # ort_log_severity_level: C++ logging levels
     ort.set_default_logger_severity(config.engine.ort_log_severity_level)
 
     # input model
@@ -224,10 +229,6 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
 
     # set log level for olive
     set_default_logger_severity(config.engine.log_severity_level)
-    # for onnxruntime
-    # ort_py_log_severity_level: python logging levels
-    # ort_log_severity_level: C++ logging levels
-    set_ort_logger_severity(config.engine.ort_py_log_severity_level)
     if config.engine.log_to_file:
         enable_filelog(config.engine.log_severity_level)
 
