@@ -3,15 +3,18 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from abc import abstractmethod
-from typing import Any, Dict, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Tuple
 
 import optuna
 
 from olive.common.config_utils import ConfigParam
 from olive.common.utils import hash_dict
-from olive.evaluator.metric import MetricResult
 from olive.strategy.search_algorithm.search_algorithm import SearchAlgorithm
 from olive.strategy.search_parameter import Categorical, Conditional, SpecialParamValue
+
+if TYPE_CHECKING:
+    from olive.evaluator.metric import MetricResult
+
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
@@ -87,7 +90,7 @@ class OptunaSearchAlgorithm(SearchAlgorithm):
             invalid_trial = invalid_trial or (search_point[space_name][param_name] == SpecialParamValue.INVALID)
         return trial, search_point, invalid_trial
 
-    def report(self, search_point: Dict[str, Dict[str, Any]], result: MetricResult, should_prune: bool = False):
+    def report(self, search_point: Dict[str, Dict[str, Any]], result: "MetricResult", should_prune: bool = False):
         search_point_hash = hash_dict(search_point)
         trial_id = self._trial_ids[search_point_hash]
         if should_prune:
