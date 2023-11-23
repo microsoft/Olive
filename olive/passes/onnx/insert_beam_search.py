@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from pathlib import Path
 from typing import Any, Dict
 
 from onnx import ModelProto, TensorProto, helper
@@ -246,5 +245,5 @@ class InsertBeamSearch(Pass):
             model_proto_A, model_A_name, model_proto_B, model_B_name, model.model_attributes, config
         )
         # save the model to the output path and return the model
-        output_model_path = ONNXModel.resolve_path(output_model_path, Path(model.model_path).name)
+        output_model_path = ONNXModel.resolve_path(output_model_path, "model_with_beam_search.onnx")
         return model_proto_to_olive_model(combined_model, output_model_path, config, True)

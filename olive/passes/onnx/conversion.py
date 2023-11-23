@@ -106,7 +106,8 @@ class OnnxConversion(Pass):
             for component_name in model.components:
                 # convert each component
                 component_model = model.get_component(component_name)
-                component_output_path = str(Path(output_model_path).with_suffix("") / component_name)
+                # component_name is set with Path(component_model.onnx).stem
+                component_output_path = str(Path(output_model_path).with_suffix("") / f"{component_name}.onnx")
                 output_model_component = self._convert_model_on_device(
                     component_model, data_root, config, component_output_path, device, torch_dtype
                 )
@@ -345,7 +346,7 @@ class OnnxConversion(Pass):
         )
 
         # save the model to the output path and return the model
-        output_model_path = ONNXModel.resolve_path(output_model_path, Path(model.model_path).name)
+        output_model_path = ONNXModel.resolve_path(output_model_path)
         output_model = model_proto_to_olive_model(converted_onnx_model, output_model_path, config)
         output_model.model_attributes = model_attributes
         return output_model
