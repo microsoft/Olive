@@ -23,10 +23,20 @@ logger = logging.getLogger(__name__)
 
 class HFComponent(ConfigBase):
     name: str
-    # TODO(trajep): support callable io_config
-    io_config: Union[IOConfig, str, Dict[str, Any]]
+    io_config: Union[IOConfig, Dict[str, Any]] = None
+    io_config_func: Union[str, Callable] = None
     component_func: Union[str, Callable] = None
     dummy_inputs_func: Union[str, Callable]
+
+    @validator("io_config_func", pre=True, always=True)
+    def validate_io_config_source(cls, v, values):
+        if "io_config" not in values:
+            raise ValueError("Invalid io_config")
+
+        if not v and not values["io_config"]:
+            raise ValueError("Either io_config or io_config_func must be specified")
+
+        return v
 
 
 class HFModelLoadingArgs(ConfigWithExtraArgs):
@@ -219,15 +229,18 @@ class HFConfig(ConfigBase):
                 raise ValueError("Either task or model_class must be specified")
         return v
 
+    def _get_loading_args(self):
+        return self.model_loading_args.get_loading_args() if self.model_loading_args else {}
+
     def load_model(self, model_path: str = None):
         """Load model from model_path or model_name."""
         model_name_or_path = model_path or self.model_name
+        loading_args = self._get_loading_args()
         logger.info(f"Loading Huggingface model from {model_name_or_path}")
-        loading_args = self.model_loading_args.get_loading_args() if self.model_loading_args else {}
         if self.task:
-            model = load_huggingface_model_from_task(self.task, model_name_or_path, **loading_args)
+            model = load_huggingface_model_from_task(self.task, model_name_or_path, loading_args)
         elif self.model_class:
-            model = load_huggingface_model_from_model_class(self.model_class, model_name_or_path, **loading_args)
+            model = load_huggingface_model_from_model_class(self.model_class, model_name_or_path, loading_args)
         else:
             raise ValueError("Either task or model_class must be specified")
 
@@ -235,9 +248,19 @@ class HFConfig(ConfigBase):
 
     def load_model_config(self, model_path: str = None):
         """Load model config from model_path or model_name."""
-        model_name_or_path = model_path or self.model_name
-        loading_args = self.model_loading_args.get_loading_args() if self.model_loading_args else {}
-        return get_hf_model_config(model_name_or_path, **loading_args)
+        return get_hf_model_config(model_path or self.model_name, **self._get_loading_args())
+
+    def get_io_config(self, model_path: str = None):
+        """Get IO config for the model."""
+        return get_hf_model_io_config(
+            model_path or self.model_name, self.task, self.feature, **self._get_loading_args()
+        )
+
+    def get_dummy_inputs(self, model_path: str = None):
+        """Get dummy inputs for the model."""
+        return get_hf_model_dummy_input(
+            model_path or self.model_name, self.task, self.feature, **self._get_loading_args()
+        )
 
 
 def load_huggingface_model_from_task(task: str, name: str, **kwargs):
@@ -326,7 +349,7 @@ def patched_supported_features_mapping(*supported_features: str, onnx_config_cls
     return mapping
 
 
-def get_onnx_config(model_name: str, task: str, feature: Optional[str] = None):
+def get_onnx_config(model_name: str, task: str, feature: Optional[str] = None, **kwargs):
     # pylint: disable=protected-access
     from transformers.onnx import FeaturesManager
 
@@ -347,7 +370,7 @@ def get_onnx_config(model_name: str, task: str, feature: Optional[str] = None):
 
     # don't want to load the model here since all we need is the config
     # model loading is expensive computationally and memory-wise for large models
-    config = get_hf_model_config(model_name)
+    config = get_hf_model_config(model_name, **kwargs)
     # recreate the logic for FeaturesManager.check_supported_model_or_raise to get the model_onnx_config
     # https://github.com/huggingface/transformers/blob/main/src/transformers/onnx/features.py#L712
     model_type = config.model_type.replace("_", "-")
@@ -359,8 +382,8 @@ def get_onnx_config(model_name: str, task: str, feature: Optional[str] = None):
     return FeaturesManager.get_config(model_type, feature)(config)
 
 
-def get_hf_model_io_config(model_name: str, task: str, feature: Optional[str] = None):
-    model_config = get_onnx_config(model_name, task, feature)
+def get_hf_model_io_config(model_name: str, task: str, feature: Optional[str] = None, **kwargs):
+    model_config = get_onnx_config(model_name, task, feature, **kwargs)
     inputs = model_config.inputs
     outputs = model_config.outputs
     io_config = {}
@@ -370,14 +393,9 @@ def get_hf_model_io_config(model_name: str, task: str, feature: Optional[str] = 
     return io_config
 
 
-def get_hf_model_dummy_input(
-    model_name: str,
-    task: str,
-    feature: Optional[str] = None,
-    trust_remote_code: Optional[bool] = None,
-):
-    model_config = get_onnx_config(model_name, task, feature)
-    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=trust_remote_code)
+def get_hf_model_dummy_input(model_name: str, task: str, feature: Optional[str] = None, **kwargs):
+    model_config = get_onnx_config(model_name, task, feature, **kwargs)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, **kwargs)
     return model_config.generate_dummy_inputs(tokenizer, framework="pt")
 
 

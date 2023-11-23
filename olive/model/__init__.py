@@ -23,7 +23,7 @@ from olive.common.ort_inference import get_ort_inference_session
 from olive.common.user_module_loader import UserModuleLoader
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware import AcceleratorLookup, Device
-from olive.model.hf_utils import HFConfig, get_hf_model_dummy_input, huggingface_model_loader
+from olive.model.hf_utils import HFConfig, huggingface_model_loader
 from olive.model.model_config import IOConfig
 from olive.resource_path import (
     OLIVE_RESOURCE_ANNOTATIONS,
@@ -478,7 +478,8 @@ class PyTorchModel(OliveModel):
         model_loader: Union[str, Callable] = None,
         model_script: Union[str, Path] = None,
         script_dir: Union[str, Path] = None,
-        io_config: Union[Dict[str, Any], IOConfig, str] = None,
+        io_config: Union[Dict[str, Any], IOConfig] = None,
+        io_config_func: Union[str, Callable] = None,
         dummy_inputs_func: Union[str, Callable] = None,
         hf_config: Union[Dict[str, Any], HFConfig] = None,
         adapter_path: OLIVE_RESOURCE_ANNOTATIONS = None,
@@ -527,11 +528,11 @@ class PyTorchModel(OliveModel):
             ), "model_script must be a local file or a string name."
 
         # io config for conversion to onnx
-        # TODO(trajep): support callable io_config
-        if isinstance(io_config, str):
-            user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
-            io_config = user_module_loader.call_object(io_config, self.hf_config.model_name)
         self.io_config = validate_config(io_config, IOConfig).dict() if io_config else None
+        self.io_config_func = io_config_func
+        if self.io_config and self.io_config_func:
+            logger.warning("io_config_func is ignored since io_config is provided.")
+
         self.dummy_inputs_func = dummy_inputs_func
 
         self.dummy_inputs = None
@@ -637,6 +638,29 @@ class PyTorchModel(OliveModel):
     ):
         return self.load_model().eval()
 
+    def get_io_config(self) -> Dict[str, Any]:
+        """Return io config of the model.
+
+        Priority: io_config > io_config_func > hf_config (using onnx_config)
+        """
+        if self.io_config:
+            # io_config is provided
+            return self.io_config
+
+        if self.io_config_func:
+            # io_config_func is provided
+            logger.debug("Using io_config_func to get io_config")
+            user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
+            io_config = user_module_loader.call_object(self.io_config_func, self)
+            return validate_config(io_config, IOConfig).dict()
+
+        if self.hf_config and self.hf_config.task and not self.hf_config.components:
+            # hf_config is provided
+            logger.debug("Using hf onnx_config to get io_config")
+            return self.hf_config.get_io_config(self.model_path)
+
+        return None
+
     def get_dummy_inputs(self):
         """Return a dummy input for the model."""
         if self.dummy_inputs is not None:
@@ -644,17 +668,18 @@ class PyTorchModel(OliveModel):
 
         # Priority: dummy_inputs_func > io_config.input_shapes > hf_config.dataset > onnx_config
         dummy_inputs = None
+        io_config = self.get_io_config()
         if self.dummy_inputs_func is not None:
             logger.debug("Using dummy_inputs_func to get dummy inputs")
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             dummy_inputs = user_module_loader.call_object(self.dummy_inputs_func, self)
-        elif self.io_config and self.io_config["input_shapes"]:
+        elif io_config and io_config["input_shapes"]:
             logger.debug("Using io_config.input_shapes to get dummy inputs")
             dummy_inputs, _ = (
                 # input_types is optional
                 data_config_template.dummy_data_config_template(
-                    input_shapes=self.io_config["input_shapes"],
-                    input_types=self.io_config.get("input_types"),
+                    input_shapes=io_config["input_shapes"],
+                    input_types=io_config.get("input_types"),
                 )
                 .to_data_container()
                 .get_first_batch(data_root_path=None)
@@ -673,12 +698,7 @@ class PyTorchModel(OliveModel):
                 )
             elif not self.hf_config.components:
                 logger.debug("Using hf onnx_config to get dummy inputs")
-                kwargs = {}
-                if self.hf_config.model_loading_args:
-                    kwargs["trust_remote_code"] = self.hf_config.model_loading_args.trust_remote_code
-                dummy_inputs = get_hf_model_dummy_input(
-                    self.hf_config.model_name, self.hf_config.task, self.hf_config.feature, **kwargs
-                )
+                dummy_inputs = self.hf_config.get_dummy_inputs(self.model_path)
 
         if dummy_inputs is None:
             raise ValueError(
@@ -719,13 +739,7 @@ class PyTorchModel(OliveModel):
             model_component = self.hf_config.load_model(self.model_path)
         else:
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
-            model_component = user_module_loader.call_object(hf_component.component_func, self.hf_config.model_name)
-
-        io_config = hf_component.io_config
-        if isinstance(io_config, str):
-            user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
-            io_config = user_module_loader.call_object(hf_component.io_config, self.hf_config.model_name)
-        io_config = validate_config(io_config, IOConfig)
+            model_component = user_module_loader.call_object(hf_component.component_func, self)
 
         def model_loader(_):
             return model_component
@@ -735,7 +749,8 @@ class PyTorchModel(OliveModel):
 
         return PyTorchModel(
             model_loader=model_loader,
-            io_config=io_config,
+            io_config=hf_component.io_config,
+            io_config_func=hf_component.io_config_func,
             dummy_inputs_func=hf_component.dummy_inputs_func,
             model_script=self.model_script,
             script_dir=self.script_dir,
@@ -750,6 +765,7 @@ class PyTorchModel(OliveModel):
                 "model_file_format": self.model_file_format,
                 "model_loader": self.model_loader,
                 "io_config": self.io_config,
+                "io_config_func": self.io_config_func,
                 "dummy_inputs_func": self.dummy_inputs_func,
                 "hf_config": self.hf_config,
             }
@@ -1044,6 +1060,7 @@ class DistributedPyTorchModel(OliveModel):
         model_script: Union[str, Path] = None,
         script_dir: Union[str, Path] = None,
         io_config: Union[Dict[str, Any], IOConfig, str] = None,
+        io_config_func: Union[str, Callable] = None,
         dummy_inputs_func: Union[str, Callable] = None,
         hf_config: Union[Dict[str, Any], HFConfig] = None,
         adapter_path: OLIVE_RESOURCE_ANNOTATIONS = None,
@@ -1063,6 +1080,7 @@ class DistributedPyTorchModel(OliveModel):
         self.num_ranks = num_ranks
         self.model_loader = model_loader
         self.io_config = io_config
+        self.io_config_func = io_config_func
         self.dummy_inputs_func = dummy_inputs_func
         self.hf_config = hf_config
 
@@ -1091,6 +1109,7 @@ class DistributedPyTorchModel(OliveModel):
             model_script=self.model_script,
             script_dir=self.script_dir,
             io_config=self.io_config,
+            io_config_func=self.io_config_func,
             dummy_inputs_func=self.dummy_inputs_func,
             hf_config=self.hf_config,
             adapter_path=self.adapter_path,
@@ -1114,6 +1133,7 @@ class DistributedPyTorchModel(OliveModel):
                 "num_ranks": self.num_ranks,
                 "model_loader": self.model_loader,
                 "io_config": self.io_config,
+                "io_config_func": self.io_config_func,
                 "dummy_inputs_func": self.dummy_inputs_func,
                 "hf_config": self.hf_config,
             }

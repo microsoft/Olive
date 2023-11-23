@@ -18,24 +18,13 @@ from olive.common.config_utils import validate_config
 from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device
 from olive.hardware import AcceleratorSpec
 from olive.model import CompositeOnnxModel, DistributedOnnxModel, DistributedPyTorchModel, ONNXModel, PyTorchModel
-from olive.model.hf_utils import HFModelLoadingArgs, get_hf_model_io_config
+from olive.model.hf_utils import HFModelLoadingArgs
 from olive.model.model_config import IOConfig
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
 
 logger = logging.getLogger(__name__)
-
-
-# Note: This should move to OliveModel itself
-def get_io_config(model: PyTorchModel):
-    # priority: model.io_config > auto-generated io_config for HF models
-    io_config = model.io_config
-    if not io_config and (model.hf_config and not model.hf_config.components):
-        logger.debug("Using hf config to get io_config for the model.")
-        io_config = get_hf_model_io_config(model.hf_config.model_name, model.hf_config.task, model.hf_config.feature)
-    assert io_config, "Cannot get io_config for the model. Please specify io_config or hf_config for the model."
-    return io_config
 
 
 class TraceModelWrapper(torch.nn.Module):
@@ -177,6 +166,9 @@ class OnnxConversion(Pass):
             # Standard ONNX export
 
             # get input and output names, and dynamic axes
+            assert (
+                io_config is not None
+            ), "Cannot get io_config for the model. Please specify io_config, io_config_func or hf_config for the model"
             io_config = validate_config(io_config, IOConfig)
             input_names = io_config.input_names
             output_names = io_config.output_names
@@ -338,7 +330,7 @@ class OnnxConversion(Pass):
 
         # get dummy inputs
         dummy_inputs = model.get_dummy_inputs()
-        io_config = None if config["use_dynamo_exporter"] else get_io_config(model)
+        io_config = None if config["use_dynamo_exporter"] else model.get_io_config()
 
         converted_onnx_model = OnnxConversion._export_pytorch_model(
             pytorch_model, dummy_inputs, io_config, config, device, torch_dtype
@@ -398,7 +390,7 @@ class OnnxConversion(Pass):
         olive_pytorch_model = input_model.load_model(local_rank)
 
         dummy_inputs = olive_pytorch_model.get_dummy_inputs()
-        io_config = None if pass_config["use_dynamo_exporter"] else get_io_config(olive_pytorch_model)
+        io_config = None if pass_config["use_dynamo_exporter"] else olive_pytorch_model.get_io_config()
         pytorch_model = olive_pytorch_model.prepare_session(rank=local_rank)
 
         COMM_WORLD.Barrier()
