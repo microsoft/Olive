@@ -16,10 +16,8 @@ from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.utils import hash_dict
 from olive.engine.config import FAILED_CONFIG, INVALID_CONFIG, PRUNED_CONFIGS, EngineConfig
 from olive.engine.footprint import Footprint, FootprintNode, FootprintNodeMetric
-from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import Metric, MetricResult, joint_metric_key
-from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.exception import EXCEPTIONS_TO_RAISE, OlivePassError
 from olive.hardware import AcceleratorLookup, AcceleratorSpec, Device
 from olive.model import ModelConfig
@@ -30,6 +28,8 @@ from olive.systems.olive_system import OliveSystem
 from olive.systems.utils import create_new_system_with_cache
 
 if TYPE_CHECKING:
+    from olive.engine.packaging.packaging_config import PackagingConfig
+    from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
     from olive.passes.olive_pass import Pass
 
 logger = logging.getLogger(__name__)
@@ -47,7 +47,7 @@ class Engine:
         search_strategy: Optional[SearchStrategy] = None,
         host: Optional[OliveSystem] = None,
         target: Optional[OliveSystem] = None,
-        evaluator_config: Optional[OliveEvaluatorConfig] = None,
+        evaluator_config: Optional["OliveEvaluatorConfig"] = None,
         execution_providers: Optional[List[str]] = None,
     ):
         self._config = validate_config(config, EngineConfig)
@@ -231,7 +231,7 @@ class Engine:
         disable_search=False,
         name: str = None,
         host: OliveSystem = None,
-        evaluator_config: OliveEvaluatorConfig = None,
+        evaluator_config: "OliveEvaluatorConfig" = None,
         clean_run_cache: bool = False,
         output_name: str = None,
     ):
@@ -263,7 +263,7 @@ class Engine:
         p: "Pass",
         name: str = None,
         host: OliveSystem = None,
-        evaluator_config: OliveEvaluatorConfig = None,
+        evaluator_config: "OliveEvaluatorConfig" = None,
         output_name: str = None,
     ):
         """Register a pass instance."""
@@ -308,7 +308,7 @@ class Engine:
         self,
         input_model_config: ModelConfig,
         data_root: str = None,
-        packaging_config: Optional[PackagingConfig] = None,
+        packaging_config: Optional["PackagingConfig"] = None,
         output_dir: str = None,
         output_name: str = None,
         evaluate_input_model: bool = True,
@@ -1064,7 +1064,7 @@ class Engine:
         model_config: ModelConfig,
         model_id: str,
         data_root: str,
-        evaluator_config: OliveEvaluatorConfig,
+        evaluator_config: "OliveEvaluatorConfig",
         accelerator_spec: AcceleratorSpec,
     ):
         """Evaluate a model."""

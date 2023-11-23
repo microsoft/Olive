@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from olive.evaluator.metric import Metric, MetricResult
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorFactory
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ModelConfig
@@ -12,6 +11,7 @@ from olive.systems.common import SystemType
 from olive.systems.olive_system import OliveSystem
 
 if TYPE_CHECKING:
+    from olive.evaluator.metric import Metric, MetricResult
     from olive.passes.olive_pass import Pass
 
 
@@ -35,8 +35,8 @@ class LocalSystem(OliveSystem):
         return ModelConfig.from_json(output_model.to_json())
 
     def evaluate_model(
-        self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
-    ) -> MetricResult:
+        self, model_config: ModelConfig, data_root: str, metrics: List["Metric"], accelerator: AcceleratorSpec
+    ) -> "MetricResult":
         """Evaluate the model."""
         if model_config.type.lower() == "CompositeOnnxModel".lower():
             raise NotImplementedError
