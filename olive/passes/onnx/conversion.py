@@ -106,8 +106,7 @@ class OnnxConversion(Pass):
             for component_name in model.components:
                 # convert each component
                 component_model = model.get_component(component_name)
-                # component_name is set with Path(component_model.onnx).stem
-                component_output_path = str(Path(output_model_path).with_suffix("") / f"{component_name}.onnx")
+                component_output_path = str(Path(output_model_path).with_suffix("") / component_name)
                 output_model_component = self._convert_model_on_device(
                     component_model, data_root, config, component_output_path, device, torch_dtype
                 )

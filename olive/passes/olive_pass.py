@@ -359,7 +359,7 @@ class Pass(ABC):
             components = []
             component_names = []
             for cidx, child in enumerate(model.get_model_components()):
-                component_output_path = Path(output_model_path).with_suffix("") / Path(child.model_path).name
+                component_output_path = Path(output_model_path).with_suffix("") / model.get_model_component_name(cidx)
                 output_model_component = self._run_for_config(child, data_root, config, str(component_output_path))
                 output_model_component.model_attributes = (
                     output_model_component.model_attributes or child.model_attributes
