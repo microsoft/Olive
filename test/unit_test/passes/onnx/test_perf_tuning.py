@@ -99,7 +99,7 @@ def test_ort_perf_tuning_pass_with_import_error(mock_threads_num_binary_search, 
 
 def test_generate_test_name():
     test_params = {
-        "execution_provider": ("CPUExecutionProvider", {}),
+        "execution_provider": [("CPUExecutionProvider", {})],
         "session_options": {
             "execution_mode": 1,
             "extra_session_config": None,
@@ -117,7 +117,7 @@ def test_generate_test_name():
     )
 
     test_params = {
-        "execution_provider": ("TensorrtExecutionProvider", {"trt_fp16_enable": True}),
+        "execution_provider": [("TensorrtExecutionProvider", {"trt_fp16_enable": True})],
         "session_options": {
             "execution_mode": 1,
             "extra_session_config": {

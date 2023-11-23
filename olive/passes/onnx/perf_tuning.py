@@ -6,6 +6,7 @@
 import copy
 import itertools
 import logging
+import time
 from typing import Any, Callable, Dict, Union
 
 from olive.data.config import DataConfig
@@ -226,19 +227,24 @@ def threads_num_binary_search(model, data_root, latency_metric, config, test_par
 
 def generate_test_name(test_params):
     if not test_params:
-        return "pretuning"
+        return "pretuning-baseline"
 
     name_list = []
-    ep = test_params.get("execution_provider")
-    ep_name = ep[0]
-    ep_params = ep[1]
+    eps = test_params.get("execution_provider")
+    ep_names = []
+    for ep in eps:
+        ep_name = ep[0]
+        ep_params = ep[1]
 
-    ep_name = ep_name.replace("ExecutionProvider", "").lower()
-    if ep_params:
-        name_list.append((ep_name, ep_params))
-    else:
-        name_list.append(ep_name)
+        ep_name = ep_name.replace("ExecutionProvider", "").lower()
+        if ep_params:
+            ep_names.append((ep_name, ep_params))
+        else:
+            ep_names.append(ep_name)
+    if len(ep_names) == 1:
+        ep_names = ep_names[0]
 
+    name_list.append(ep_names)
     session_options = test_params.get("session_options")
     if session_options:
         name_list.append(session_options)
@@ -272,10 +278,12 @@ def get_benchmark(model, data_root, latency_metric, config, test_params=None):
     logger.info(f"Run benchmark for: {session_name}")
     evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
     joint_key = joint_metric_key(latency_metric.name, latency_metric.sub_types[0].name)
+    start_time = time.perf_counter()
     test_result["latency_ms"] = evaluator.evaluate(
         model, data_root, [latency_metric], config.device, config.providers_list
     )[joint_key].value
-    logger.info(f"benchmark done for: {session_name}")
+    end_time = time.perf_counter()
+    logger.info(f"It takes {end_time - start_time} seconds to benchmark for: {session_name}")
 
     return test_result
 
