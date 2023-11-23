@@ -9,6 +9,7 @@ import pytest
 
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx import OrtPerfTuning
+from olive.passes.onnx.perf_tuning import generate_test_name
 
 
 @pytest.mark.parametrize(
@@ -94,3 +95,44 @@ def test_ort_perf_tuning_pass_with_import_error(mock_threads_num_binary_search, 
         p.run(input_model, None, output_folder)
 
     assert "test" in str(e.value)
+
+
+def test_generate_test_name():
+    test_params = {
+        "execution_provider": ("CPUExecutionProvider", {}),
+        "session_options": {
+            "execution_mode": 1,
+            "extra_session_config": None,
+            "inter_op_num_threads": 1,
+            "intra_op_num_threads": 8,
+        },
+        "_io_bind": True,
+    }
+
+    name = generate_test_name(test_params)
+    assert name == (
+        "cpu-{'execution_mode': 1, "
+        "'extra_session_config': None, 'inter_op_num_threads': 1, 'intra_op_num_threads': 8}"
+        "-{'io_bind': True}"
+    )
+
+    test_params = {
+        "execution_provider": ("TensorrtExecutionProvider", {"trt_fp16_enable": True}),
+        "session_options": {
+            "execution_mode": 1,
+            "extra_session_config": {
+                "session.intra_op_thread_affinities": "0;1;2;3;4;5;6;7",
+            },
+            "inter_op_num_threads": 1,
+            "intra_op_num_threads": 8,
+            "graph_optimization_level": 99,
+        },
+        "_io_bind": False,
+    }
+    name = generate_test_name(test_params)
+    assert name == (
+        "('tensorrt', {'trt_fp16_enable': True})-"
+        "{'execution_mode': 1, "
+        "'extra_session_config': {'session.intra_op_thread_affinities': '0;1;2;3;4;5;6;7'}, "
+        "'inter_op_num_threads': 1, 'intra_op_num_threads': 8, 'graph_optimization_level': 99}"
+    )
