@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 import re
+from pathlib import Path
 from typing import Any, Dict, List
 
 import onnx
@@ -55,7 +56,7 @@ class OnnxBnb4Quantization(Pass):
 
         from onnxruntime.quantization.matmul_bnb4_quantizer import MatMulBnb4Quantizer
 
-        output_model_path = ONNXModel.resolve_path(output_model_path)
+        output_model_path = ONNXModel.resolve_path(output_model_path, Path(model.model_path).name)
 
         quant_type = config["quant_type"]
         quantized_modules = config["quantized_modules"]

@@ -84,7 +84,7 @@ class AppendPrePostProcessingOps(Pass):
     ) -> ONNXModel:
         from onnxruntime import __version__ as OrtVersion
 
-        output_model_path = ONNXModel.resolve_path(output_model_path)
+        output_model_path = ONNXModel.resolve_path(output_model_path, Path(model.model_path).name)
 
         tool_command = config.get("tool_command")
         if tool_command:
