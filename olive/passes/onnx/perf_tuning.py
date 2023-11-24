@@ -143,7 +143,7 @@ def threads_num_tuning(model, data_root, latency_metric, config, tuning_combo):
             )
         ]
         if config.enable_cuda_graph:
-            test_params["_io_bind"] = True
+            io_bind = True
     else:
         test_params["execution_provider"] = [(provider, {})]
     test_params["session_options"] = {
