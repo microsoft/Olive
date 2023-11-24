@@ -250,7 +250,7 @@ def threads_num_binary_search(model, data_root, latency_metric, config, test_par
                     upper_threads_num = mid_threads_num
                     next_thread_num = upper_threads_num
 
-                # Update the best_latency and best_threads_num for next comparision
+                # Update the best_latency and best_threads_num for next comparison
                 best_latency = test_result["latency_ms"]
                 best_threads_num = current_threads_num
                 current_threads_num = next_thread_num
