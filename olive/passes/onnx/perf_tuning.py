@@ -22,6 +22,9 @@ from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 logger = logging.getLogger(__name__)
 
 
+PERFTUNING_BASELINE = "pretuning-baseline"
+
+
 def generate_tuning_combos(config):
     import onnxruntime as ort
 
@@ -102,12 +105,14 @@ def tune_onnx_model(model, data_root, config):
 
     best_result = parse_tuning_result(*tuning_results, pretuning_inference_result)
     logger.info("Best result: %s", best_result)
-    if best_result.get("test_name") != "pretuning":
+    if best_result.get("test_name") != PERFTUNING_BASELINE:
         optimized_model = copy.copy(model)
         optimized_model.inference_settings = {
             "execution_provider": best_result.get("execution_provider"),
-            "session_options": best_result.get("session_options"),
         }
+        session_options = best_result.get("session_options")
+        if session_options is not None:
+            optimized_model.inference_settings["session_options":session_options]
 
         return optimized_model
     else:
@@ -122,9 +127,6 @@ def threads_num_tuning(model, data_root, latency_metric, config, tuning_combo):
     io_bind = tuning_combo[3]
 
     test_params = {}
-
-    # params starts with _ are not used in inference setting, we need add special handling for io_bind
-    test_params["_io_bind"] = io_bind
 
     if provider == "TensorrtExecutionProvider":
         test_params["execution_provider"] = [
@@ -155,7 +157,10 @@ def threads_num_tuning(model, data_root, latency_metric, config, tuning_combo):
             test_params["session_options"]["inter_op_num_threads"] = inter
             for intra in config.intra_thread_num_list:
                 test_params["session_options"]["intra_op_num_threads"] = intra
-                threads_num_binary_search(model, data_root, latency_metric, config, test_params, tuning_results)
+                tuning_result = threads_num_binary_search(
+                    model, data_root, latency_metric, config, test_params, io_bind
+                )
+                tuning_results.extend(tuning_result)
     except EXCEPTIONS_TO_RAISE:
         raise
     except Exception:
@@ -164,70 +169,100 @@ def threads_num_tuning(model, data_root, latency_metric, config, tuning_combo):
     return tuning_results
 
 
-def threads_num_binary_search(model, data_root, latency_metric, config, test_params, tuning_results):
+def threads_num_binary_search(model, data_root, latency_metric, config, test_params, io_bind):
+    """Binary search based benchmark for inter_op_num_threads and intra_op_num_threads."""
     import onnxruntime as ort
     import psutil
 
-    if test_params["session_options"].get("extra_session_config"):
-        extra_session_config = test_params["session_options"].get("extra_session_config")
-        if extra_session_config.get("session.intra_op_thread_affinities"):
-            affinity_str = extra_session_config.get("session.intra_op_thread_affinities")
+    # prepare the inter_op_num_threads/intra_op_num_threads to be tune.
+    extra_session_config = test_params["session_options"].get("extra_session_config")
+    if extra_session_config:
+        affinity_str = extra_session_config.get("session.intra_op_thread_affinities")
+        if affinity_str:
             test_params["session_options"]["intra_op_num_threads"] = get_thread_affinity_nums(affinity_str) + 1
             threads_names = ["inter_op_num_threads"]
     elif test_params["session_options"].get("execution_mode") == ort.ExecutionMode.ORT_SEQUENTIAL:
         threads_names = ["intra_op_num_threads"]
     else:
         threads_names = ["inter_op_num_threads", "intra_op_num_threads"]
-    best_latency = None
 
-    if test_params["session_options"].get("inter_op_num_threads") and test_params["session_options"].get(
-        "intra_op_num_threads"
+    tuning_results = []
+
+    if (
+        test_params["session_options"].get("inter_op_num_threads") is not None
+        and test_params["session_options"].get("intra_op_num_threads") is not None
     ):
-        test_result = get_benchmark(model, data_root, latency_metric, config, test_params)
+        # If user specify both inter_op_num_threads and intra_op_num_threads, we will not do tuning
+        test_result = get_benchmark(model, data_root, latency_metric, config, test_params, io_bind)
         tuning_results.append(test_result)
-        best_latency = test_result["latency_ms"]
-    else:
-        for threads_name in threads_names:
-            thread_num = test_params["session_options"].get(threads_name)
-            if thread_num:
-                upper_threads_num = thread_num
-                lower_threads_num = thread_num
-            else:
-                upper_threads_num = config.cpu_cores or psutil.cpu_count(logical=False)
-                lower_threads_num = 1
+        return tuning_results
 
-            best_threads_num = lower_threads_num
-            current_threads_num = lower_threads_num
+    for threads_name in threads_names:
+        # set the upper bound and lower bound for binary search
+        thread_num = test_params["session_options"].get(threads_name)
+        if thread_num is not None:
+            upper_threads_num = thread_num
+            lower_threads_num = thread_num
+        else:
+            upper_threads_num = config.cpu_cores or psutil.cpu_count(logical=False)
+            lower_threads_num = 1
+
+        current_threads_num = lower_threads_num
+
+        best_latency = None
+        while lower_threads_num < upper_threads_num:
             test_params["session_options"][threads_name] = current_threads_num
-
-            test_result = get_benchmark(model, data_root, latency_metric, config, test_params)
+            test_result = get_benchmark(model, data_root, latency_metric, config, test_params, io_bind)
             tuning_results.append(test_result)
 
-            best_latency = test_result["latency_ms"]
-
-            current_threads_num = upper_threads_num
-
-            while lower_threads_num < upper_threads_num:
-                test_params["session_options"][threads_name] = current_threads_num
-
-                test_result = get_benchmark(model, data_root, latency_metric, config, test_params)
-                tuning_results.append(test_result)
-
+            if best_latency is None:
+                # the first time run benchmark, then change next to the upper bound
+                best_latency = test_result["latency_ms"]
+                best_threads_num = current_threads_num
+                current_threads_num = upper_threads_num
+            elif best_latency < test_result["latency_ms"]:
                 mid_threads_num = lower_threads_num + (upper_threads_num - lower_threads_num) // 2
-                if best_latency and best_latency < test_result["latency_ms"]:
+                # the current benchmark is worse than last time.
+                # Just keep the best_latency and best_threads_num
+                if best_threads_num < current_threads_num:
+                    # update the upper bound to middle if last time is in lower side.
                     upper_threads_num = mid_threads_num
-                    current_threads_num = upper_threads_num
+                    next_thread_num = upper_threads_num
                 else:
+                    # update the lower bound to middle if last time is in upper side.
+                    # The benchmark result is worse than last time and
+                    # the thread num last time used is larger than current
                     lower_threads_num = mid_threads_num + 1
-                    best_threads_num = current_threads_num
-                    current_threads_num = lower_threads_num
+                    next_thread_num = lower_threads_num
 
-            test_params["session_options"][threads_name] = best_threads_num
+                current_threads_num = next_thread_num
+            else:
+                mid_threads_num = lower_threads_num + (upper_threads_num - lower_threads_num) // 2
+
+                # the current benchmark result is better than last time
+                if best_threads_num < current_threads_num:
+                    # If the thread number is in lower side, update the lower bound to middle
+                    lower_threads_num = mid_threads_num + 1
+                    next_thread_num = lower_threads_num
+                else:
+                    # If the thread number is in upper side, update the upper bound to middle
+                    upper_threads_num = mid_threads_num
+                    next_thread_num = upper_threads_num
+
+                # Update the best_latency and best_threads_num for next comparision
+                best_latency = test_result["latency_ms"]
+                best_threads_num = current_threads_num
+                current_threads_num = next_thread_num
+
+        # Pin the best threads num for inter_op_num_threads/intra_op_num_threads for next tuning config
+        test_params["session_options"][threads_name] = best_threads_num
+
+    return tuning_results
 
 
-def generate_test_name(test_params):
+def generate_test_name(test_params, io_bind):
     if not test_params:
-        return "pretuning-baseline"
+        return PERFTUNING_BASELINE
 
     name_list = []
     eps = test_params.get("execution_provider")
@@ -248,32 +283,27 @@ def generate_test_name(test_params):
     session_options = test_params.get("session_options")
     if session_options:
         name_list.append(session_options)
-    io_bind = test_params.get("_io_bind")
     if io_bind:
         name_list.append({"io_bind": io_bind})
 
     return "-".join(f"{str(i)}" for i in name_list)
 
 
-def get_benchmark(model, data_root, latency_metric, config, test_params=None):
+def get_benchmark(model, data_root, latency_metric, config, test_params=None, io_bind=False):
     from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
 
     test_result = {}
-    session_name = generate_test_name(test_params)
+    session_name = generate_test_name(test_params, io_bind)
     test_result["test_name"] = session_name
 
     if test_params:
         # params starts with _ are not used in inference setting, we need add special handling for io_bind
-        io_bind = test_params.pop("_io_bind", False)
         latency_metric.user_config.io_bind = io_bind
 
         latency_metric.user_config.inference_settings = {"onnx": test_params}
         test_result["execution_provider"] = test_params.get("execution_provider")
         test_result["session_options"] = test_params.get("session_options").copy()
         test_result["io_bind"] = io_bind
-
-        # add the io_bind back to test_params
-        test_params["_io_bind"] = io_bind
 
     logger.info(f"Run benchmark for: {session_name}")
     evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)

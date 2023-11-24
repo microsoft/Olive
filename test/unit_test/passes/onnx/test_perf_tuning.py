@@ -106,10 +106,9 @@ def test_generate_test_name():
             "inter_op_num_threads": 1,
             "intra_op_num_threads": 8,
         },
-        "_io_bind": True,
     }
 
-    name = generate_test_name(test_params)
+    name = generate_test_name(test_params, True)
     assert name == (
         "cpu-{'execution_mode': 1, "
         "'extra_session_config': None, 'inter_op_num_threads': 1, 'intra_op_num_threads': 8}"
@@ -127,9 +126,8 @@ def test_generate_test_name():
             "intra_op_num_threads": 8,
             "graph_optimization_level": 99,
         },
-        "_io_bind": False,
     }
-    name = generate_test_name(test_params)
+    name = generate_test_name(test_params, False)
     assert name == (
         "('tensorrt', {'trt_fp16_enable': True})-"
         "{'execution_mode': 1, "
