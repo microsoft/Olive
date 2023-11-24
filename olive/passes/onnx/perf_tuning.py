@@ -112,7 +112,7 @@ def tune_onnx_model(model, data_root, config):
         }
         session_options = best_result.get("session_options")
         if session_options is not None:
-            optimized_model.inference_settings["session_options":session_options]
+            optimized_model.inference_settings["session_options"] = session_options
 
         return optimized_model
     else:
@@ -208,8 +208,9 @@ def threads_num_binary_search(model, data_root, latency_metric, config, test_par
             lower_threads_num = 1
 
         current_threads_num = lower_threads_num
-
         best_latency = None
+        best_threads_num = None
+
         while lower_threads_num < upper_threads_num:
             test_params["session_options"][threads_name] = current_threads_num
             test_result = get_benchmark(model, data_root, latency_metric, config, test_params, io_bind)
