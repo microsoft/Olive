@@ -186,16 +186,21 @@ def threads_num_binary_search(model, data_root, latency_metric, config, test_par
     else:
         threads_names = ["inter_op_num_threads", "intra_op_num_threads"]
 
-    tuning_results = []
-
     if (
         test_params["session_options"].get("inter_op_num_threads") is not None
         and test_params["session_options"].get("intra_op_num_threads") is not None
     ):
         # If user specify both inter_op_num_threads and intra_op_num_threads, we will not do tuning
         test_result = get_benchmark(model, data_root, latency_metric, config, test_params, io_bind)
+        return [test_result]
+
+    tuning_results = []
+
+    def benchmark_with_threads_num(threads_name, threads_num):
+        test_params["session_options"][threads_name] = threads_num
+        test_result = get_benchmark(model, data_root, latency_metric, config, test_params, io_bind)
         tuning_results.append(test_result)
-        return tuning_results
+        return test_result["latency_ms"]
 
     for threads_name in threads_names:
         # set the upper bound and lower bound for binary search
@@ -212,26 +217,24 @@ def threads_num_binary_search(model, data_root, latency_metric, config, test_par
         best_threads_num = None
 
         while lower_threads_num < upper_threads_num:
-            test_params["session_options"][threads_name] = current_threads_num
-            test_result = get_benchmark(model, data_root, latency_metric, config, test_params, io_bind)
-            tuning_results.append(test_result)
+            benchmark_latency = benchmark_with_threads_num(threads_name, current_threads_num)
 
             if best_latency is None:
                 # the first time run benchmark, then change next to the upper bound
-                best_latency = test_result["latency_ms"]
+                best_latency = benchmark_latency
                 best_threads_num = current_threads_num
                 current_threads_num = upper_threads_num
-            elif best_latency < test_result["latency_ms"]:
+            elif best_latency < benchmark_latency:
                 mid_threads_num = lower_threads_num + (upper_threads_num - lower_threads_num) // 2
-                # the current benchmark is worse than last time.
+                # the current benchmark is worse than best benchmark result.
                 # Just keep the best_latency and best_threads_num
                 if best_threads_num < current_threads_num:
-                    # update the upper bound to middle if last time is in lower side.
+                    # update the upper bound to middle if best benchmark is in lower side.
                     upper_threads_num = mid_threads_num
                     next_thread_num = upper_threads_num
                 else:
-                    # update the lower bound to middle if last time is in upper side.
-                    # The benchmark result is worse than last time and
+                    # update the lower bound to middle if best benchmark is in upper side.
+                    # The benchmark result is worse than best benchmark and
                     # the thread num last time used is larger than current
                     lower_threads_num = mid_threads_num + 1
                     next_thread_num = lower_threads_num
@@ -240,7 +243,7 @@ def threads_num_binary_search(model, data_root, latency_metric, config, test_par
             else:
                 mid_threads_num = lower_threads_num + (upper_threads_num - lower_threads_num) // 2
 
-                # the current benchmark result is better than last time
+                # the current benchmark result is better than best benchmark result
                 if best_threads_num < current_threads_num:
                     # If the thread number is in lower side, update the lower bound to middle
                     lower_threads_num = mid_threads_num + 1
@@ -251,7 +254,7 @@ def threads_num_binary_search(model, data_root, latency_metric, config, test_par
                     next_thread_num = upper_threads_num
 
                 # Update the best_latency and best_threads_num for next comparison
-                best_latency = test_result["latency_ms"]
+                best_latency = benchmark_latency
                 best_threads_num = current_threads_num
                 current_threads_num = next_thread_num
 
