@@ -671,7 +671,8 @@ class PyTorchModel(OliveModel):
             logger.debug("Using dummy_inputs_func to get dummy inputs")
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             dummy_inputs = user_module_loader.call_object(self.dummy_inputs_func, self)
-        elif io_config and io_config["input_shapes"]:
+        elif not self.io_config and io_config["input_shapes"]:
+            # check for self.io_config since get_io_config also returns io_config from hf_config
             logger.debug("Using io_config.input_shapes to get dummy inputs")
             dummy_inputs, _ = (
                 # input_types is optional
