@@ -227,9 +227,9 @@ class HFConfig(ConfigBase):
         loading_args = self._get_loading_args()
         logger.info(f"Loading Huggingface model from {model_name_or_path}")
         if self.task:
-            model = load_huggingface_model_from_task(self.task, model_name_or_path, loading_args)
+            model = load_huggingface_model_from_task(self.task, model_name_or_path, **loading_args)
         elif self.model_class:
-            model = load_huggingface_model_from_model_class(self.model_class, model_name_or_path, loading_args)
+            model = load_huggingface_model_from_model_class(self.model_class, model_name_or_path, **loading_args)
         else:
             raise ValueError("Either task or model_class must be specified")
 
