@@ -152,8 +152,8 @@ def get_merged_model_dynamic_axes(input_names: List[str], output_names: List[str
     return dynamic_axes
 
 
-def get_merged_decoder_with_past_io_config(model_name):
-    config = LlamaConfig.from_pretrained(model_name)
+def get_merged_decoder_with_past_io_config(model):
+    config = model.get_hf_model_config()
 
     input_names = [
         "input_ids",

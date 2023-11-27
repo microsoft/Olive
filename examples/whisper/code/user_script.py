@@ -24,8 +24,8 @@ def get_decoder(model_name):
     return WhisperDecoder(model, model.config)
 
 
-def get_encdec_io_config(model_name):
-    model = get_encoder_decoder_init(model_name)
+def get_encdec_io_config(model):
+    model = model.load_model()
     use_decoder_input_ids = True
 
     inputs = WhisperEncoderDecoderInitInputs.create_dummy(
@@ -96,13 +96,13 @@ def get_encdec_io_config(model_name):
     }
 
 
-def get_dec_io_config(model_name):
+def get_dec_io_config(model):
     # Fix past disappearing bug - duplicate first past entry
     # input_list.insert(2, input_list[2])
-    model = get_decoder(model_name)
-    past_names = PastKeyValuesHelper.get_past_names(model.config.decoder_layers, present=False)
-    present_names = PastKeyValuesHelper.get_past_names(model.config.decoder_layers, present=True)
-    present_self_names = present_names[: 2 * model.config.decoder_layers]
+    config = model.get_hf_model_config()
+    past_names = PastKeyValuesHelper.get_past_names(config.decoder_layers, present=False)
+    present_names = PastKeyValuesHelper.get_past_names(config.decoder_layers, present=True)
+    present_self_names = present_names[: 2 * config.decoder_layers]
 
     input_past_names = past_names
     output_present_names = present_self_names
@@ -139,9 +139,8 @@ def get_dec_io_config(model_name):
 
 
 def encoder_decoder_init_dummy_inputs(model):
-    model = model.load_model()
     inputs = WhisperEncoderDecoderInitInputs.create_dummy(
-        model.config,
+        model.get_hf_model_config(),
         batch_size=2,
         encode_sequence_length=3000,
         use_decoder_input_ids=True,
@@ -152,9 +151,8 @@ def encoder_decoder_init_dummy_inputs(model):
 
 
 def decoder_dummy_inputs(model):
-    model = model.load_model()
     inputs = WhisperDecoderInputs.create_dummy(
-        model.config,
+        model.get_hf_model_config(),
         batch_size=2,
         encode_sequence_length=3000,
         past_decode_sequence_length=5,
