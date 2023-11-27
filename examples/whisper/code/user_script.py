@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from past_helper import PastKeyValuesHelper
-from transformers import WhisperForConditionalGeneration
 from whisper_dataset import WhisperDataset
 from whisper_decoder import WhisperDecoder, WhisperDecoderInputs
 from whisper_encoder_decoder_init import WhisperEncoderDecoderInit, WhisperEncoderDecoderInitInputs
@@ -12,7 +11,8 @@ from olive.model import PyTorchModel
 
 
 def get_encoder_decoder_init(olive_model: PyTorchModel):
-    model = WhisperForConditionalGeneration.from_pretrained(olive_model.model_path or olive_model.hf_config.model_name)
+    # model is WhisperForConditionalGeneration
+    model = olive_model.load_model()
     return WhisperEncoderDecoderInit(
         model,
         model,
@@ -22,11 +22,13 @@ def get_encoder_decoder_init(olive_model: PyTorchModel):
 
 
 def get_decoder(olive_model: PyTorchModel):
-    model = WhisperForConditionalGeneration.from_pretrained(olive_model.model_path or olive_model.hf_config.model_name)
+    # model is WhisperForConditionalGeneration
+    model = olive_model.load_model()
     return WhisperDecoder(model, model.config)
 
 
 def get_encdec_io_config(olive_model: PyTorchModel):
+    # model is WhisperEncoderDecoderInit
     model = olive_model.load_model()
     use_decoder_input_ids = True
 
@@ -140,10 +142,9 @@ def get_dec_io_config(olive_model: PyTorchModel):
     }
 
 
-def encoder_decoder_init_dummy_inputs(model):
-    model = model.load_model()
+def encoder_decoder_init_dummy_inputs(olive_model: PyTorchModel):
     inputs = WhisperEncoderDecoderInitInputs.create_dummy(
-        model.config,
+        olive_model.get_hf_model_config(),
         batch_size=2,
         encode_sequence_length=3000,
         use_decoder_input_ids=True,
@@ -153,10 +154,9 @@ def encoder_decoder_init_dummy_inputs(model):
     return tuple(inputs.to_list())
 
 
-def decoder_dummy_inputs(model):
-    model = model.load_model()
+def decoder_dummy_inputs(olive_model: PyTorchModel):
     inputs = WhisperDecoderInputs.create_dummy(
-        model.config,
+        olive_model.get_hf_model_config(),
         batch_size=2,
         encode_sequence_length=3000,
         past_decode_sequence_length=5,

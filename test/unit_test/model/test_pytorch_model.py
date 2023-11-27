@@ -15,7 +15,7 @@ import torch
 import transformers
 from azureml.evaluate import mlflow as aml_mlflow
 
-from olive.model import PyTorchModel, IOConfig
+from olive.model import IOConfig, PyTorchModel
 
 # pylint: disable=attribute-defined-outside-init
 

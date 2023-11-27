@@ -78,15 +78,15 @@ You can use your own custom components functions for your model. You will need t
 #### Script example
 ```
 # my_script.py
-def get_dec_io_config(model_name: str):
+def get_dec_io_config(model: OliveModel):
     # return your io dict
     ...
 
-def get_decoder(model_name: str):
+def get_decoder(model: OliveModel):
     # your component implementation
     ...
 
-def dummy_inputs_func():
+def dummy_inputs_func(model: OliveModel):
     # return the dummy input for your component
     ...
 ```
