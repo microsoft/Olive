@@ -478,8 +478,7 @@ class PyTorchModel(OliveModel):
         model_loader: Union[str, Callable] = None,
         model_script: Union[str, Path] = None,
         script_dir: Union[str, Path] = None,
-        io_config: Union[Dict[str, Any], IOConfig] = None,
-        io_config_func: Union[str, Callable] = None,
+        io_config: Union[Dict[str, Any], IOConfig, str, Callable] = None,
         dummy_inputs_func: Union[str, Callable] = None,
         hf_config: Union[Dict[str, Any], HFConfig] = None,
         adapter_path: OLIVE_RESOURCE_ANNOTATIONS = None,
@@ -528,10 +527,9 @@ class PyTorchModel(OliveModel):
             ), "model_script must be a local file or a string name."
 
         # io config for conversion to onnx
-        self.io_config = validate_config(io_config, IOConfig).dict() if io_config else None
-        self.io_config_func = io_config_func
-        if self.io_config and self.io_config_func:
-            logger.warning("io_config_func is ignored since io_config is provided.")
+        self.io_config = (
+            validate_config(io_config, IOConfig).dict() if isinstance(io_config, (IOConfig, dict)) else io_config
+        )
 
         self.dummy_inputs_func = dummy_inputs_func
 
@@ -641,17 +639,17 @@ class PyTorchModel(OliveModel):
     def get_io_config(self) -> Dict[str, Any]:
         """Return io config of the model.
 
-        Priority: io_config > io_config_func > hf_config (using onnx_config)
+        Priority: io_config > hf_config (using onnx_config)
         """
-        if self.io_config:
+        if isinstance(self.io_config, dict):
             # io_config is provided
             return self.io_config
 
-        if self.io_config_func:
-            # io_config_func is provided
-            logger.debug("Using io_config_func to get io_config")
+        if isinstance(self.io_config, (str, Callable)):
+            # io_config is a string name or a callable
+            logger.debug(f"Calling {self.io_config} to get io_config")
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
-            io_config = user_module_loader.call_object(self.io_config_func, self)
+            io_config = user_module_loader.call_object(self.io_config, self)
             return validate_config(io_config, IOConfig).dict()
 
         if self.hf_config and self.hf_config.task and not self.hf_config.components:
@@ -750,7 +748,6 @@ class PyTorchModel(OliveModel):
         return PyTorchModel(
             model_loader=model_loader,
             io_config=hf_component.io_config,
-            io_config_func=hf_component.io_config_func,
             dummy_inputs_func=hf_component.dummy_inputs_func,
             model_script=self.model_script,
             script_dir=self.script_dir,
@@ -765,7 +762,6 @@ class PyTorchModel(OliveModel):
                 "model_file_format": self.model_file_format,
                 "model_loader": self.model_loader,
                 "io_config": self.io_config,
-                "io_config_func": self.io_config_func,
                 "dummy_inputs_func": self.dummy_inputs_func,
                 "hf_config": self.hf_config,
             }
@@ -1059,8 +1055,7 @@ class DistributedPyTorchModel(OliveModel):
         model_loader: Union[str, Callable] = None,
         model_script: Union[str, Path] = None,
         script_dir: Union[str, Path] = None,
-        io_config: Union[Dict[str, Any], IOConfig, str] = None,
-        io_config_func: Union[str, Callable] = None,
+        io_config: Union[Dict[str, Any], IOConfig, str, Callable] = None,
         dummy_inputs_func: Union[str, Callable] = None,
         hf_config: Union[Dict[str, Any], HFConfig] = None,
         adapter_path: OLIVE_RESOURCE_ANNOTATIONS = None,
@@ -1079,8 +1074,9 @@ class DistributedPyTorchModel(OliveModel):
         self.model_name_pattern = model_name_pattern
         self.num_ranks = num_ranks
         self.model_loader = model_loader
-        self.io_config = io_config
-        self.io_config_func = io_config_func
+        self.io_config = (
+            validate_config(io_config, IOConfig).dict() if isinstance(io_config, (IOConfig, dict)) else io_config
+        )
         self.dummy_inputs_func = dummy_inputs_func
         self.hf_config = hf_config
 
@@ -1109,7 +1105,6 @@ class DistributedPyTorchModel(OliveModel):
             model_script=self.model_script,
             script_dir=self.script_dir,
             io_config=self.io_config,
-            io_config_func=self.io_config_func,
             dummy_inputs_func=self.dummy_inputs_func,
             hf_config=self.hf_config,
             adapter_path=self.adapter_path,
@@ -1133,7 +1128,6 @@ class DistributedPyTorchModel(OliveModel):
                 "num_ranks": self.num_ranks,
                 "model_loader": self.model_loader,
                 "io_config": self.io_config,
-                "io_config_func": self.io_config_func,
                 "dummy_inputs_func": self.dummy_inputs_func,
                 "hf_config": self.hf_config,
             }

@@ -23,20 +23,9 @@ logger = logging.getLogger(__name__)
 
 class HFComponent(ConfigBase):
     name: str
-    io_config: Union[IOConfig, Dict[str, Any]] = None
-    io_config_func: Union[str, Callable] = None
+    io_config: Union[IOConfig, Dict[str, Any], str, Callable]
     component_func: Union[str, Callable] = None
     dummy_inputs_func: Union[str, Callable]
-
-    @validator("io_config_func", pre=True, always=True)
-    def validate_io_config_source(cls, v, values):
-        if "io_config" not in values:
-            raise ValueError("Invalid io_config")
-
-        if not v and not values["io_config"]:
-            raise ValueError("Either io_config or io_config_func must be specified")
-
-        return v
 
 
 class HFModelLoadingArgs(ConfigWithExtraArgs):

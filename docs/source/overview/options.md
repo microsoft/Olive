@@ -95,7 +95,7 @@ find more details in [Olive Models](https://microsoft.github.io/Olive/api/models
 
     - `script_dir: [str]` The directory that contains dependencies for the model script.
 
-    - `io_config: [Dict[str, Any], IOConfig, str]`: The inputs and outputs information of the model. It can be a dictionary, an IOConfig object or a function string under `model_script`. Basically, it contains following items:
+    - `io_config: [Dict[str, Any] | IOConfig | str | Callable]`: The inputs and outputs information of the model. It can be a dictionary, an IOConfig object or a function string under `model_script`. Basically, it contains following items:
         - `input_names: [List[str]]` The input names of the model.
         - `input_types: [List[str]]` The input types of the model.
         - `input_shapes: [List[List[int]]]` The input shapes of the model.
@@ -118,7 +118,7 @@ find more details in [Olive Models](https://microsoft.github.io/Olive/api/models
         - `components: [List[HFComponent]]`: HFComponent list:
             - `HFComponent`:
                 - `name: [str]`: Component name. Olive will generate a model class with this str as attribute name.
-                - `io_config: [str | Dict]`: The io_config of this component. If `str`, Olive will load `io_config` from `model_script`.
+                - `io_config: [Dict[str, Any] | IOConfig | str | Callable]`: The io_config of this component. If `str`, Olive will load `io_config` from `model_script`.
                 - `component_func: [str]`: The component function name will be loaded from `model_script`.
                 - `dummy_inputs_func: [str]`: The dummy input function name will be loaded from `model_script`.
 

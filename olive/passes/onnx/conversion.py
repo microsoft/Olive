@@ -168,7 +168,7 @@ class OnnxConversion(Pass):
             # get input and output names, and dynamic axes
             assert (
                 io_config is not None
-            ), "Cannot get io_config for the model. Please specify io_config, io_config_func or hf_config for the model"
+            ), "Cannot get io_config for the model. Please specify io_config or hf_config for the model"
             io_config = validate_config(io_config, IOConfig)
             input_names = io_config.input_names
             output_names = io_config.output_names
