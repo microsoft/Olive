@@ -267,7 +267,7 @@ class VitisAIQuantization(Pass):
         # start with a copy of the config
         run_config = deepcopy(config)
 
-        output_model_path = ONNXModel.resolve_path(output_model_path)
+        output_model_path = ONNXModel.resolve_path(output_model_path, Path(model.model_path).name)
 
         # extra config
         extra_options = deepcopy(config["extra_options"]) if config["extra_options"] else {}

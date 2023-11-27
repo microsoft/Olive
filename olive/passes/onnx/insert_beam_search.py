@@ -6,9 +6,6 @@ import logging
 from typing import Any, Dict
 
 from onnx import ModelProto, TensorProto, helper
-from onnxruntime import __version__ as OrtVersion
-from onnxruntime.transformers import onnx_model as ort_onnx_model
-from onnxruntime.transformers.convert_generation import get_shared_initializers
 from packaging import version
 
 from olive.hardware.accelerator import AcceleratorSpec, Device
@@ -61,6 +58,9 @@ class InsertBeamSearch(Pass):
     def chain_model(
         self, model_A: ModelProto, model_A_name: str, model_B: ModelProto, model_B_name: str, model_config, options
     ):
+        from onnxruntime import __version__ as OrtVersion
+        from onnxruntime.transformers.convert_generation import get_shared_initializers
+
         # version check
         version_1_16 = version.parse(OrtVersion) >= version.parse("1.16.0")
 
@@ -207,6 +207,9 @@ class InsertBeamSearch(Pass):
     def _run_for_config(
         self, model: OliveModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModel:
+        from onnxruntime import __version__ as OrtVersion
+        from onnxruntime.transformers import onnx_model as ort_onnx_model
+
         if isinstance(model, ONNXModel):
             return model
 
@@ -242,5 +245,5 @@ class InsertBeamSearch(Pass):
             model_proto_A, model_A_name, model_proto_B, model_B_name, model.model_attributes, config
         )
         # save the model to the output path and return the model
-        output_model_path = ONNXModel.resolve_path(output_model_path)
+        output_model_path = ONNXModel.resolve_path(output_model_path, "model_with_beam_search.onnx")
         return model_proto_to_olive_model(combined_model, output_model_path, config, True)

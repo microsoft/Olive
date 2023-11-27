@@ -308,6 +308,9 @@ class ONNXModel(ONNXModelBase):
 
         resolve_path("c:/foo/bar") -> c:/foo/bar/model.onnx
         """
+        if not model_filename.endswith(".onnx"):
+            raise ValueError(f"ONNXModel's model name must end with '.onnx', got {model_filename}")
+
         path = Path(file_or_dir_path)
         if path.suffix != ".onnx":
             path = path / model_filename

@@ -4,10 +4,10 @@
 # --------------------------------------------------------------------------
 import logging
 import re
+from pathlib import Path
 from typing import Any, Dict, List
 
 import onnx
-from onnxruntime import __version__ as OrtVersion
 from packaging import version
 
 from olive.hardware import AcceleratorSpec
@@ -48,13 +48,15 @@ class OnnxBnb4Quantization(Pass):
     def _run_for_config(
         self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModel:
+        from onnxruntime import __version__ as OrtVersion
+
         assert version.parse(OrtVersion) >= version.parse(
             "1.16.2"
         ), "MatMulBnb4Quantizer is only supported in onnxruntime >= 1.16.2"
 
         from onnxruntime.quantization.matmul_bnb4_quantizer import MatMulBnb4Quantizer
 
-        output_model_path = ONNXModel.resolve_path(output_model_path)
+        output_model_path = ONNXModel.resolve_path(output_model_path, Path(model.model_path).name)
 
         quant_type = config["quant_type"]
         quantized_modules = config["quantized_modules"]

@@ -8,7 +8,7 @@ import logging
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import docker
 from docker.errors import BuildError, ContainerError
@@ -17,11 +17,13 @@ import olive.systems.docker.utils as docker_utils
 from olive.common.config_utils import validate_config
 from olive.evaluator.metric import Metric, MetricResult
 from olive.hardware import Device
-from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import ModelConfig
-from olive.passes import Pass
 from olive.systems.common import LocalDockerConfig, SystemType
 from olive.systems.olive_system import OliveSystem
+
+if TYPE_CHECKING:
+    from olive.hardware.accelerator import AcceleratorSpec
+    from olive.model import ModelConfig
+    from olive.passes import Pass
 
 logger = logging.getLogger(__name__)
 
@@ -97,18 +99,18 @@ class DockerSystem(OliveSystem):
 
     def run_pass(
         self,
-        the_pass: Pass,
-        model_config: ModelConfig,
+        the_pass: "Pass",
+        model_config: "ModelConfig",
         data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
-    ) -> ModelConfig:
+    ) -> "ModelConfig":
         """Run the pass on the model at a specific point in the search space."""
         logger.warning("DockerSystem.run_pass is not implemented yet.")
         raise NotImplementedError
 
     def evaluate_model(
-        self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
+        self, model_config: "ModelConfig", data_root: str, metrics: List[Metric], accelerator: "AcceleratorSpec"
     ) -> Dict[str, Any]:
         container_root_path = Path("/olive-ws/")
         with tempfile.TemporaryDirectory() as tempdir:
@@ -124,10 +126,10 @@ class DockerSystem(OliveSystem):
     def _run_container(
         self,
         tempdir,
-        model_config: ModelConfig,
+        model_config: "ModelConfig",
         data_root: str,
         metrics: List[Metric],
-        accelerator: AcceleratorSpec,
+        accelerator: "AcceleratorSpec",
         container_root_path: Path,
     ):
         eval_output_path = "eval_output"

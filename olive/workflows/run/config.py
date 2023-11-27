@@ -50,6 +50,7 @@ class RunEngineConfig(EngineConfig):
             "log_severity_level",
             "ort_log_severity_level",
             "ort_py_log_severity_level",
+            "log_to_file",
         ]
         for key in to_del:
             del config[key]

@@ -8,7 +8,7 @@ import shutil
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Tuple, Union
 
 from azure.ai.ml import Input, Output, command
 from azure.ai.ml.constants import AssetTypes
@@ -22,9 +22,7 @@ from olive.common.config_utils import ParamCategory, validate_config
 from olive.common.utils import retry_func
 from olive.data.config import DataConfig
 from olive.evaluator.metric import Metric, MetricResult
-from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ModelConfig
-from olive.passes.olive_pass import Pass
 from olive.resource_path import (
     AZUREML_RESOURCE_TYPES,
     LOCAL_RESOURCE_TYPES,
@@ -36,6 +34,11 @@ from olive.resource_path import (
 )
 from olive.systems.common import AzureMLDockerConfig, SystemType
 from olive.systems.olive_system import OliveSystem
+
+if TYPE_CHECKING:
+    from olive.hardware.accelerator import AcceleratorSpec
+    from olive.passes.olive_pass import Pass
+
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +118,7 @@ class AzureMLSystem(OliveSystem):
 
     def run_pass(
         self,
-        the_pass: Pass,
+        the_pass: "Pass",
         model_config: ModelConfig,
         data_root: str,
         output_model_path: str,
@@ -530,7 +533,7 @@ class AzureMLSystem(OliveSystem):
         }
 
     def evaluate_model(
-        self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
+        self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: "AcceleratorSpec"
     ) -> MetricResult:
         if model_config.type.lower() == "SNPEModel".lower():
             raise NotImplementedError("SNPE model does not support azureml evaluation")
@@ -559,7 +562,7 @@ class AzureMLSystem(OliveSystem):
         tmp_dir: str,
         model_config: ModelConfig,
         metrics: List[Metric],
-        accelerator: AcceleratorSpec,
+        accelerator: "AcceleratorSpec",
     ):
         tmp_dir = Path(tmp_dir)
 

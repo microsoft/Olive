@@ -198,6 +198,17 @@ def get_latency_metric(*lat_subtype, user_config=None):
     )
 
 
+def get_throughput_metric(*lat_subtype, user_config=None):
+    metric_config = {"dataloader_func": create_dataloader}
+    sub_types = [{"name": sub} for sub in lat_subtype]
+    return Metric(
+        name="throughput",
+        type=MetricType.THROUGHPUT,
+        sub_types=sub_types,
+        user_config=user_config or metric_config,
+    )
+
+
 def get_onnxconversion_pass(ignore_pass_config=True, target_opset=13):
     onnx_conversion_config = {"target_opset": target_opset}
     p = create_pass_from_dict(OnnxConversion, onnx_conversion_config)

@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from pathlib import Path
 from typing import Any, Dict, List
 
 import onnx
@@ -50,7 +51,7 @@ class OnnxFloatToFloat16(Pass):
     ) -> ONNXModel:
         from onnxconverter_common import float16
 
-        output_model_path = ONNXModel.resolve_path(output_model_path)
+        output_model_path = ONNXModel.resolve_path(output_model_path, Path(model.model_path).name)
 
         config = self._config_class(**config)
 
