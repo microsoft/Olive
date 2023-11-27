@@ -386,7 +386,7 @@ class AzureMLSystem(OliveSystem):
 
         return pass_runner_pipeline()
 
-    def _create_data_script_inputs_and_args(self, the_pass: Pass):
+    def _create_data_script_inputs_and_args(self, the_pass: "Pass") -> DataParams:
         data_inputs = {}
         data_args = {}
         data_name_set = set()
