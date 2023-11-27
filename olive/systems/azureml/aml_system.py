@@ -8,7 +8,7 @@ import shutil
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
 
 from azure.ai.ml import Input, Output, command
 from azure.ai.ml.constants import AssetTypes
@@ -48,6 +48,11 @@ RESOURCE_TYPE_TO_ASSET_TYPE = {
     ResourceType.AzureMLDatastore: None,
     ResourceType.AzureMLJobOutput: AssetTypes.CUSTOM_MODEL,
 }
+
+
+class DataParams(NamedTuple):
+    data_inputs: dict
+    data_args: dict
 
 
 def get_asset_type_from_resource_path(resource_path: ResourcePath):
@@ -306,7 +311,7 @@ class AzureMLSystem(OliveSystem):
         model_config: ModelConfig,
         pass_config: dict,
         pass_path_params: List[Tuple[str, bool, ParamCategory]],
-        data_params: Tuple[Dict, Dict],
+        data_params: DataParams,
     ):
         tmp_dir = Path(tmp_dir)
 
@@ -334,7 +339,7 @@ class AzureMLSystem(OliveSystem):
         inputs = {
             **self._create_model_inputs(model_resource_paths),
             **self._create_pass_inputs(pass_path_params),
-            **data_params[0],
+            **data_params.data_inputs,
             **accelerator_info,
         }
         # prepare outputs
@@ -365,7 +370,7 @@ class AzureMLSystem(OliveSystem):
         args = {
             **self._create_model_args(model_json, model_resource_paths, tmp_dir),
             **self._create_pass_args(pass_config, pass_path_params, data_root, tmp_dir),
-            **data_params[1],
+            **data_params.data_args,
             **accelerator_info,
         }
 
@@ -397,7 +402,7 @@ class AzureMLSystem(OliveSystem):
                     if data_config.script_dir:
                         update_dicts(data_config.name, "script_dir", data_config, AssetTypes.URI_FOLDER)
         logger.debug(f"Data inputs for pass: {data_inputs}, data args for pass: {data_args}")
-        return (data_inputs, data_args)
+        return DataParams(data_inputs, data_args)
 
     def _run_job(
         self,

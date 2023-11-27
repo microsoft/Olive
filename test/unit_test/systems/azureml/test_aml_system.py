@@ -288,11 +288,11 @@ class TestAzureMLSystem:
         }
 
         # execute
-        actual_data_inputs, actual_data_args = self.system._create_data_script_inputs_and_args(the_pass)
+        actual_data_params = self.system._create_data_script_inputs_and_args(the_pass)
 
         # assert
-        assert actual_data_inputs == expected_data_inputs
-        assert actual_data_args == expected_data_args
+        assert actual_data_params.data_inputs == expected_data_inputs
+        assert actual_data_params.data_args == expected_data_args
 
     def test__create_metric_args(self):
         # setup
