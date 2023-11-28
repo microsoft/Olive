@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import importlib
 import logging
-import os
+import multiprocessing
 import tempfile
 from copy import deepcopy
 from pathlib import Path
@@ -66,6 +66,12 @@ class OnnxConversion(Pass):
                     " will use the model as is."
                 ),
             ),
+            "parallel_jobs": PassConfigParam(
+                type_=int,
+                default=multiprocessing.cpu_count(),
+                required=False,
+                description="Number of parallel jobs. Defaulted to number of CPUs. Set it to 0 to disable.",
+            ),
         }
         config.update(get_external_data_config())
         return config
@@ -115,8 +121,9 @@ class OnnxConversion(Pass):
         dummy_inputs,
         io_config,
         config: Dict[str, Any],
-        device: str,
+        device: Union[str, torch.device],
         torch_dtype: Optional[torch.dtype] = None,
+        tempdir: Optional[Union[Path, str]] = None,
     ) -> onnx.ModelProto:
         """Export a torch.nn.Module to ONNX and return the loaded ONNX model.
 
@@ -126,7 +133,13 @@ class OnnxConversion(Pass):
         :param config: the config for the pass
         :param device: the device to use for conversion
         :param torch_dtype: the dtype to cast the model to before conversion
+        :param tempdir: directory to use for temporary files
         """
+        device = torch.device(device)
+        use_gpu = device != torch.device("cpu")
+        if use_gpu and torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
         # if pytorch_model is PeftModel, we need to get the base model
         # otherwise, the model forward has signature (*args, **kwargs) and torch.onnx.export ignores the dummy_inputs
         if importlib.util.find_spec("peft"):
@@ -201,7 +214,7 @@ class OnnxConversion(Pass):
             # there might be multiple files created during export, so we need to track the dir
             # if there are other processes writing to the same dir, we might end up deleting files created by
             # other processes
-            with tempfile.TemporaryDirectory(prefix="olive_tmp") as tmp_dir:
+            with tempfile.TemporaryDirectory(dir=tempdir, prefix="olive_tmp") as tmp_dir:
                 tmp_dir_path = Path(tmp_dir)
                 tmp_model_path = ONNXModel.resolve_path(tmp_dir_path)
 
@@ -231,11 +244,11 @@ class OnnxConversion(Pass):
                             dim_proto.dim_value = dim_value
 
         # Reset to CPU so the resource consumed on GPU could be free.
-        if device != "cpu":
+        if use_gpu:
             pytorch_model.to("cpu")
 
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
         return onnx_model
 
@@ -333,7 +346,7 @@ class OnnxConversion(Pass):
         io_config = None if config["use_dynamo_exporter"] else model.get_io_config()
 
         converted_onnx_model = OnnxConversion._export_pytorch_model(
-            pytorch_model, dummy_inputs, io_config, config, device, torch_dtype
+            pytorch_model, dummy_inputs, io_config, config, device, torch_dtype, tempfile.tempdir
         )
 
         # save the model to the output path and return the model
@@ -349,58 +362,48 @@ class OnnxConversion(Pass):
         :param params: a tuple of (pass_config, model_config, world_size, device, local_rank, output_dirpath)
             pass_config: the config for the pass
             model_config: the config for the DistributedPytorchModel
-            world_size: the number of ranks
-            device: the device to use for conversion. Expected to be "cuda"
+            device: the device to use for conversion
             torch_dtype: the dtype to cast the model to before conversion
             local_rank: the rank of the current process as well as the rank of the model to be converted
             output_dirpath: the path to the directory to save the model. The .onnx model will be saved in this
                 directory with the name specified by DistributedOnnxModel.DEFAULT_RANKED_MODEL_NAME_FORMAT
         """
-        pass_config, model_config, world_size, device, torch_dtype, local_rank, output_dirpath = params
+        pass_config, model_config, device, torch_dtype, local_rank, output_dirpath, tempdir = params
 
-        os.environ["OMPI_COMM_WORLD_RANK"] = str(local_rank)
-        os.environ["OMPI_COMM_WORLD_SIZE"] = str(world_size)
-        os.environ["OMPI_COMM_WORLD_LOCAL_RANK"] = str(local_rank)
-        os.environ["MIOPEN_FIND_MODE"] = "1"
-        os.environ["OMPI_MCA_btl"] = "^openib"  # noqa: SIM112
-        os.environ["OMPI_MCA_btl_openib_warn_no_device_params_found"] = "0"  # noqa: SIM112
-        os.environ["OMPI_MCA_pml"] = "ob1"  # noqa: SIM112
-        os.environ["OMPI_MCA_btl_tcp_if_include"] = "eth0"  # noqa: SIM112
-        os.environ["OMPI_MCA_hwloc_base_binding_policy"] = "numa"  # noqa: SIM112
-        os.environ["OMPI_MCA_ess"] = "^singleton"  # noqa: SIM112
-        os.environ["OMPI_MCA_ess_base_vpid"] = "0"  # noqa: SIM112
-        os.environ["OMPI_MCA_orte_tag_output"] = "1"  # noqa: SIM112
-        os.environ["OMPI_MCA_pmix"] = "^s1,s2,cray,isolated"  # noqa: SIM112
-        os.environ["OMPI_MCA_rmaps_ppr_n_pernode"] = "1"  # noqa: SIM112
-        os.environ["NCCL_DEBUG"] = "WARN"
-
-        from mpi4py.MPI import COMM_WORLD
-
-        world_size = COMM_WORLD.Get_size()
-        local_rank = COMM_WORLD.Get_rank()
-
-        torch.distributed.init_process_group(
-            "nccl", init_method="tcp://127.0.0.1:9876", world_size=world_size, rank=local_rank
+        # TODO(shaahji): Parameterize the replace/restore hooks to configure for different models
+        from olive.passes.pytorch.tensor_parallel_llama2 import (
+            replace_llama2_tensor_parallel_layers,
+            restore_llama2_tensor_parallel_layers,
         )
 
         output_filename = DistributedOnnxModel.DEFAULT_RANKED_MODEL_NAME_FORMAT.format(local_rank)
-        output_filepath = str(Path(output_dirpath) / output_filename)
+        output_filepath = ONNXModel.resolve_path(output_dirpath, output_filename)
 
-        input_model = DistributedPyTorchModel(**model_config)
-        olive_pytorch_model = input_model.load_model(local_rank)
+        try:
+            restore_args = replace_llama2_tensor_parallel_layers()
 
-        dummy_inputs = olive_pytorch_model.get_dummy_inputs()
-        io_config = None if pass_config["use_dynamo_exporter"] else olive_pytorch_model.get_io_config()
-        pytorch_model = olive_pytorch_model.prepare_session(rank=local_rank)
+            input_model = DistributedPyTorchModel(**model_config)
+            olive_pytorch_model = input_model.load_model(local_rank)
+            dummy_inputs = olive_pytorch_model.get_dummy_inputs()
+            io_config = None if pass_config["use_dynamo_exporter"] else olive_pytorch_model.get_io_config()
+            pytorch_model = olive_pytorch_model.prepare_session(rank=local_rank)
 
-        COMM_WORLD.Barrier()
-        ranked_onnx_model = OnnxConversion._export_pytorch_model(
-            pytorch_model, dummy_inputs, io_config, pass_config, device, torch_dtype
-        )
-        COMM_WORLD.Barrier()
+            with torch.no_grad():
+                ranked_onnx_model = OnnxConversion._export_pytorch_model(
+                    pytorch_model,
+                    dummy_inputs,
+                    io_config,
+                    pass_config,
+                    device,
+                    torch_dtype,
+                    tempdir,
+                )
+        finally:
+            restore_llama2_tensor_parallel_layers(restore_args)
 
         # save the model to the output path and return the model
         model_proto_to_olive_model(ranked_onnx_model, output_filepath, pass_config)
+        return 1  # Return 1 for success.
 
     def _convert_distributed_model_on_device(
         self,
@@ -412,34 +415,41 @@ class OnnxConversion(Pass):
         torch_dtype: Optional[torch.dtype] = None,
     ) -> DistributedOnnxModel:
         """Convert a DistributedPyTorchModel to a DistributedOnnxModel."""
-        from mpi4py.futures import MPIPoolExecutor
-
         pass_config = config
         model_config = model.to_json()["config"]
         world_size = model.num_ranks
         output_model_path = str(Path(output_model_path).with_suffix(""))
+        use_gpu = torch.device(device) != torch.device("cpu")
 
         params = [
             (
                 pass_config,
                 model_config,
-                world_size,
-                device,
+                torch.device("cuda", rank) if use_gpu else torch.device("cpu"),
                 torch_dtype,
                 rank,
                 output_model_path,
+                tempfile.tempdir,
             )
             for rank in range(world_size)
         ]
 
-        with MPIPoolExecutor(max_workers=world_size) as executor:
-            executor.map(OnnxConversion._export_ranked_model, params)
-            executor.shutdown()
+        max_parallel_jobs = min(world_size, config["parallel_jobs"] or multiprocessing.cpu_count())
+        if max_parallel_jobs <= 1:
+            results = [OnnxConversion._export_ranked_model(_) for _ in params]
+        else:
+            context = multiprocessing.get_context("spawn")
+            with context.Pool(processes=max_parallel_jobs) as pool:
+                results = pool.map(OnnxConversion._export_ranked_model, params)
+
+        if world_size != sum(results):
+            raise RuntimeError("Failed to convert models")
 
         return DistributedOnnxModel(
             model_path=output_model_path,
             model_name_pattern=DistributedOnnxModel.DEFAULT_RANKED_MODEL_NAME_FORMAT,
             num_ranks=world_size,
+            model_attributes=model.model_attributes,
         )
 
 
