@@ -636,28 +636,43 @@ class PyTorchModel(OliveModel):
     ):
         return self.load_model().eval()
 
+    def _resolve_io_config(self, io_config: Union[Dict[str, Any], IOConfig, str, Callable]) -> Dict[str, Any]:
+        """Resolve io_config to a dictionary.
+
+        If io_config is a string name or a callable, it will be called to get io_config.
+        """
+        if isinstance(io_config, dict):
+            # io_config is provided
+            return io_config
+
+        if isinstance(io_config, IOConfig):
+            # io_config is an IOConfig
+            return io_config.dict()
+
+        if isinstance(io_config, (str, Callable)):
+            # io_config is a string name or a callable
+            logger.debug(f"Calling {io_config} to get io_config")
+            user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
+            io_config = user_module_loader.call_object(io_config, self)
+            return validate_config(io_config, IOConfig).dict()
+
+        return None
+
     def get_io_config(self) -> Dict[str, Any]:
         """Return io config of the model.
 
         Priority: io_config > hf_config (using onnx_config)
         """
-        if isinstance(self.io_config, dict):
+        io_config = None
+        if self.io_config:
             # io_config is provided
-            return self.io_config
-
-        if isinstance(self.io_config, (str, Callable)):
-            # io_config is a string name or a callable
-            logger.debug(f"Calling {self.io_config} to get io_config")
-            user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
-            io_config = user_module_loader.call_object(self.io_config, self)
-            return validate_config(io_config, IOConfig).dict()
-
-        if self.hf_config and self.hf_config.task and not self.hf_config.components:
+            io_config = self._resolve_io_config(self.io_config)
+        elif self.hf_config and self.hf_config.task and not self.hf_config.components:
             # hf_config is provided
             logger.debug("Using hf onnx_config to get io_config")
-            return self.hf_config.get_io_config(self.model_path)
+            io_config = self.hf_config.get_io_config(self.model_path)
 
-        return None
+        return io_config
 
     def get_dummy_inputs(self):
         """Return a dummy input for the model."""
@@ -666,24 +681,26 @@ class PyTorchModel(OliveModel):
 
         # Priority: dummy_inputs_func > io_config.input_shapes > hf_config.dataset > onnx_config
         dummy_inputs = None
-        io_config = self.get_io_config()
+        # resolved self.io_config
+        # won't use self.get_io_config() since we don't want hf_config to be used
+        resolved_io_config = self._resolve_io_config(self.io_config) or {}
         if self.dummy_inputs_func is not None:
             logger.debug("Using dummy_inputs_func to get dummy inputs")
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             dummy_inputs = user_module_loader.call_object(self.dummy_inputs_func, self)
-        elif self.io_config and io_config["input_shapes"]:
-            # check for self.io_config since get_io_config also returns io_config from hf_config
+        elif resolved_io_config.get("input_shapes"):
             logger.debug("Using io_config.input_shapes to get dummy inputs")
             dummy_inputs, _ = (
                 # input_types is optional
                 data_config_template.dummy_data_config_template(
-                    input_shapes=io_config["input_shapes"],
-                    input_types=io_config.get("input_types"),
+                    input_shapes=resolved_io_config["input_shapes"],
+                    input_types=resolved_io_config.get("input_types"),
                 )
                 .to_data_container()
                 .get_first_batch(data_root_path=None)
             )
         elif self.hf_config and self.hf_config.model_name and self.hf_config.task:
+            # need both model_name and task to get dummy inputs
             if self.hf_config.dataset:
                 logger.debug("Using hf_config.dataset to get dummy inputs")
                 dummy_inputs, _ = (
