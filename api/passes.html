@@ -228,6 +228,15 @@
 </dd></dl>
 
 <dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-parallel_jobs">
+<span class="sig-name descname"><span class="pre">parallel_jobs</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-parallel_jobs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of parallel jobs. Defaulted to number of CPUs. Set it to 0 to disable.</p>
+<p><strong>type:</strong> int</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-save_as_external_data">
 <span class="sig-name descname"><span class="pre">save_as_external_data</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-save_as_external_data" title="Permalink to this definition">¶</a></dt>
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
