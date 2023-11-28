@@ -136,3 +136,15 @@ This is likely due to:
 2. Whenever you install a new version of onnxruntime (such as ort-nightly), you may need to delete the `cache` folder and run the workflow again. This is because the cache doesn't
 distinguish between different versions of onnxruntime and will use the cached models from a previous run. There might be incompatibilities between the cached models and the new
 version of onnxruntime.
+
+3. `subgraph_whisper_encoder.cc:86 onnxruntime::contrib::transformers::WhisperEncoderSubgraph::Validate encoder subgraph outputs 1, 2, ... shall have same data type`, it happens for some fine-tuned models. The root cause:
+    - https://github.com/microsoft/Olive/issues/740, for `whisper_gpu_fp16.json`, it failed to pass the parity check with the value of `1e-6` which triggers the logics to convert logits
+    node back to float32. To resolve this, you can adjust the value of `atol` in `mixed_precision` to a larger value, such as `1e-5` or `1e-4`.
+    ```json
+    "mixed_precision": {
+        "type": "OrtMixedPrecision",
+        "config": {
+            "atol": 1e-4
+        }
+    }
+    ```
