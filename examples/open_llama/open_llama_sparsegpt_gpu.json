@@ -19,7 +19,6 @@
                 "data_files": {"train": "en/c4-train.00000-of-01024.json.gz"},
                 "component_kwargs": {
                     "pre_process_data": {
-                        "dataset_type": "corpus",
                         "text_cols": ["text"],
                         "corpus_strategy": "join-random",
                         "add_special_tokens": false,
@@ -39,7 +38,6 @@
                 "split": "test",
                 "component_kwargs": {
                     "pre_process_data": {
-                        "dataset_type": "corpus",
                         "text_cols": ["text"],
                         "corpus_strategy": "join",
                         "add_special_tokens": false,
@@ -90,6 +88,6 @@
         },
         "execution_providers": ["CPUExecutionProvider"],
         "cache_dir": "cache",
-        "output_dir" : "models/sparsegpt"
+        "output_dir" : "models/open_llama_sparsegpt"
     }
 }

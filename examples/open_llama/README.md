@@ -78,19 +78,42 @@ Requirements file: [requirements-sparsegpt.txt](requirements-sparsegpt.txt)
 This workflow fine-tunes LLaMA model using [QLoRA](https://arxiv.org/abs/2305.14314). The output model is still the input transformers model along with a quantization config and
 LoRA adapters that were fine-tuned on the training dataset.
 
-The relevant config file is [llama_qlora.json](llama_qlora.json). It corresponds to the [guqnaco 7b example in the original qlora implementation](https://github.com/artidoro/qlora/blob/main/scripts/finetune_guanaco_7b.sh).
+The relevant config file is [llama_qlora.json](llama_qlora.json). It corresponds to the [guanaco 7b example in the original qlora implementation](https://github.com/artidoro/qlora/blob/main/scripts/finetune_guanaco_7b.sh).
 
-Requirements file: [requirements-qlora.txt](requirements-qlora.txt)
+Requirements file: [requirements-lora.txt](requirements-lora.txt)
+
+### Fine-tune Open Llama Model on a code generation dataset using LoRA
+This workflow fine-tunes Open LLaMA model using [LoRA](https://arxiv.org/abs/2106.09685) to generate code given a prompt.
+
+The relevant config file is [open_llama_lora_tinycodes.json](open_llama_lora_tinycodes.json). The code language is set to `Python` but can be changed to other languages by changing the `language` field in the config file.
+Supported languages are Python, TypeScript, JavaScript, Ruby, Julia, Rust, C++, Bash, Java, C#, and Go. Refer to the [dataset card](https://huggingface.co/datasets/nampdn-ai/tiny-codes) for more details on the dataset.
+
+Note: You must be logged in to HuggingFace using `huggingface-cli login` to download the dataset or update `token` field in the config file with your HuggingFace token.
+
+Requirements file: [requirements-lora.txt](requirements-lora.txt)
 
 ### Fine-tune Open Llama Model on a code generation dataset using QLoRA
-This workflow fine-tunes Open LLaMA model using [QLoRA] to generate code given a prompt.
+This workflow fine-tunes Open LLaMA model using [QLoRA](https://arxiv.org/abs/2305.14314) to generate code given a prompt.
 
 The relevant config file is [open_llama_qlora_tinycodes.json](open_llama_qlora_tinycodes.json). The code language is set to `Python` but can be changed to other languages by changing the `language` field in the config file.
 Supported languages are Python, TypeScript, JavaScript, Ruby, Julia, Rust, C++, Bash, Java, C#, and Go. Refer to the [dataset card](https://huggingface.co/datasets/nampdn-ai/tiny-codes) for more details on the dataset.
 
 Note: You must be logged in to HuggingFace using `huggingface-cli login` to download the dataset or update `token` field in the config file with your HuggingFace token.
 
-Requirements file: [requirements-qlora.txt](requirements-qlora.txt)
+Requirements file: [requirements-lora.txt](requirements-lora.txt)
+
+**Train using ONNX Runtime Training**
+You can also train the model using [ONNX Runtime Training](https://techcommunity.microsoft.com/t5/ai-machine-learning-blog/onnx-runtime-training-technical-deep-dive/ba-p/1398310).
+
+The relevant config file is [open_llama_qlora_ort_tinycodes.json](open_llama_qlora_ort_tinycodes.json).
+
+Requirements file: [requirements-qlora-ort.txt](requirements-qlora-ort.txt)
+
+It also requires the latest version of onnxruntime-training:
+```bash
+python -m pip uninstall -y onnxruntime onnxruntime-gpu ort-nightly ort-nightly-gpu
+python -m pip install onnxruntime-training --pre --upgrade --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
+```
 
 ### Optimizing Open Llama Model with Azure Arc
 This workflow optimizes Open Llama model on Azure ML compute, and evaluate output models on your device. Please connect your device to Azure Arc by following instruction: [Self-hosted Kubernetes cluster](https://microsoft.github.io/Olive/tutorials/azure_arc.html)

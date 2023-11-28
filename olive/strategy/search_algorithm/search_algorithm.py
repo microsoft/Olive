@@ -3,12 +3,14 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from abc import abstractmethod
-from typing import Any, ClassVar, Dict, List, Optional, Type, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional, Type, Union
 
 from olive.common.auto_config import AutoConfigClass
 from olive.common.config_utils import ConfigBase
-from olive.strategy.search_parameter import SearchParameter
 from olive.strategy.search_space import SearchSpace
+
+if TYPE_CHECKING:
+    from olive.strategy.search_parameter import SearchParameter
 
 
 class SearchAlgorithm(AutoConfigClass):
@@ -24,7 +26,7 @@ class SearchAlgorithm(AutoConfigClass):
 
     def __init__(
         self,
-        search_space: Dict[str, Dict[str, SearchParameter]],
+        search_space: Dict[str, Dict[str, "SearchParameter"]],
         objectives: Optional[List[str]] = None,
         higher_is_betters: Optional[List[bool]] = None,
         config: Optional[Union[Dict[str, Any], ConfigBase]] = None,

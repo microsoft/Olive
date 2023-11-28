@@ -17,7 +17,6 @@
                 "split": "train",
                 "component_kwargs": {
                     "pre_process_data": {
-                        "dataset_type": "corpus",
                         "text_cols": ["text"],
                         "corpus_strategy": "line-by-line",
                         "source_max_len": 512,
@@ -71,6 +70,6 @@
         },
         "execution_providers": ["CPUExecutionProvider"],
         "cache_dir": "cache",
-        "output_dir" : "models/qlora"
+        "output_dir" : "models/huggyllama_qlora"
     }
 }

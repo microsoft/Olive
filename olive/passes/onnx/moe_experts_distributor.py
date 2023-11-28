@@ -10,13 +10,12 @@ import os
 import pprint
 from abc import abstractmethod
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Dict, List, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, List, Tuple, Union
 
 import numpy as np
 import onnx
 from google.protobuf.json_format import MessageToDict
 from google.protobuf.message import Message
-from onnxruntime.transformers.onnx_model import OnnxModel
 from pydantic import validator
 
 from olive.hardware.accelerator import AcceleratorSpec
@@ -24,6 +23,10 @@ from olive.model import DistributedOnnxModel, ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config
 from olive.passes.pass_config import PassConfigParam
+
+if TYPE_CHECKING:
+    from onnxruntime.transformers.onnx_model import OnnxModel
+
 
 logger = logging.getLogger(__name__)
 
@@ -166,8 +169,10 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
 
     @staticmethod
     def _insert_collective_nodes(
-        model: OnnxModel, nodes: Dict[str, Message], world_size: int, experts: List[List[str]]
+        model: "OnnxModel", nodes: Dict[str, Message], world_size: int, experts: List[List[str]]
     ):
+        from onnxruntime.transformers.onnx_model import OnnxModel
+
         for expert in experts:
             for i, j in [(0, 1), (-2, -1)]:
                 prev_node = nodes[expert[i]]
@@ -193,7 +198,7 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
 
     @staticmethod
     def _fix_shapes(
-        model: OnnxModel,
+        model: "OnnxModel",
         nodes: Dict[str, Message],
         producers: Dict[str, Message],
         consumers: Dict[str, Message],
@@ -248,8 +253,9 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
             all_tensors_to_one_file,
             debug,
         ) = params
+        from onnxruntime.transformers.onnx_model import OnnxModel
 
-        basename = Path(input_filepath).stem
+        basename = DistributedOnnxModel.DEFAULT_RANKED_MODEL_NAME_FORMAT.format(rank)
         output_dirpath = Path(output_dirpath)
 
         model = OnnxModel(onnx.load_model(input_filepath))
@@ -266,7 +272,7 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
         )
 
         model.prune_graph()
-        output_filepath = str(output_dirpath / f"{basename}_{rank:02d}.onnx")
+        output_filepath = str(output_dirpath / basename)
         model.save_model_to_file(
             output_filepath,
             use_external_data_format=use_external_data_format,
@@ -275,13 +281,13 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
         onnx.checker.check_model(model.model)
 
         if debug:
-            MoEExpertDistributionPatternMatcher._dump_graph(
-                model.model, str(output_dirpath / f"{basename}_{rank:02d}.graph")
-            )
+            MoEExpertDistributionPatternMatcher._dump_graph(model.model, str(output_dirpath / (basename + ".graph")))
 
         return output_filepath
 
     def identify_experts(self, output_dirpath: str):
+        from onnxruntime.transformers.onnx_model import OnnxModel
+
         model = OnnxModel(onnx.load_model(self.input_filepath))
         producers = model.output_name_to_node()
         consumers = model.input_name_to_nodes()
@@ -327,6 +333,7 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
         output_dirpath: str,
         use_external_data_format: bool = True,
         all_tensors_to_one_file: bool = True,
+        parallel_jobs: int = multiprocessing.cpu_count(),
     ) -> List[str]:
         params = [
             (
@@ -343,11 +350,11 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
             for rank in range(self.world_size)
         ]
 
-        max_jobs = min(self.world_size, multiprocessing.cpu_count())
-        if max_jobs <= 1:
+        max_parallel_jobs = min(self.world_size, parallel_jobs)
+        if max_parallel_jobs <= 1:
             output_filepaths = [MoEExpertDistributionPatternMatcherA._generate_one(_) for _ in params]
         else:
-            with multiprocessing.Pool(processes=max_jobs) as pool:
+            with multiprocessing.Pool(processes=max_parallel_jobs) as pool:
                 output_filepaths = pool.map(MoEExpertDistributionPatternMatcherA._generate_one, params)
 
         return output_filepaths
@@ -364,6 +371,12 @@ class MoEExpertsDistributor(Pass):
                 default=2,
                 required=True,
                 description=("Number of GPU nodes to distribute the model for. Must be greater than 1."),
+            ),
+            "parallel_jobs": PassConfigParam(
+                type_=int,
+                default=multiprocessing.cpu_count(),
+                required=False,
+                description="Number of parallel jobs. Defaulted to number of CPUs. Set it to 0 to disable.",
             ),
         }
         config.update(get_external_data_config())
@@ -396,11 +409,16 @@ class MoEExpertsDistributor(Pass):
 
         matcher = MoEExpertDistributionPatternMatcherA(config["world_size"], model.model_path)
         experts, num_experts = matcher.identify_experts(output_model_path)
-        output_filepaths = matcher.distribute(
+        matcher.distribute(
             experts,
             num_experts,
             output_model_path,
             use_external_data_format=config["save_as_external_data"],
             all_tensors_to_one_file=config["all_tensors_to_one_file"],
+            parallel_jobs=config["parallel_jobs"] or multiprocessing.cpu_count(),
         )
-        return DistributedOnnxModel(sorted(output_filepaths))
+        return DistributedOnnxModel(
+            model_path=str(Path(output_model_path).with_suffix("")),
+            model_name_pattern=DistributedOnnxModel.DEFAULT_RANKED_MODEL_NAME_FORMAT,
+            num_ranks=config["world_size"],
+        )

@@ -56,7 +56,7 @@ class AcceleratorLookup:
         "gpu": [
             "DmlExecutionProvider",
             "CUDAExecutionProvider",
-            "ROCmExecutionProvider",
+            "ROCMExecutionProvider",
             "TensorrtExecutionProvider",
             "CPUExecutionProvider",
             "OpenVINOExecutionProvider",

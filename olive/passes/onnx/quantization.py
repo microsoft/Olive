@@ -162,6 +162,10 @@ _static_dataloader_config = {
             required if quant_mode is 'static' and data_config is None.
         """,
     ),
+    "dataloader_func_kwargs": PassConfigParam(
+        type_=Dict[str, Any],
+        description="Keyword arguments for dataloader_func.",
+    ),
     "data_config": PassConfigParam(
         type_=Union[DataConfig, Dict],
         description="""
@@ -316,7 +320,7 @@ class OnnxQuantization(Pass):
                 config["dataloader_func"] or config["data_config"]
             ), "dataloader_func or data_config is required for static quantization."
 
-        output_model_path = ONNXModel.resolve_path(output_model_path)
+        output_model_path = ONNXModel.resolve_path(output_model_path, Path(model.model_path).name)
 
         # extra config
         extra_options = deepcopy(config["extra_options"]) if config["extra_options"] else {}
@@ -401,6 +405,7 @@ class OnnxQuantization(Pass):
                     config["dataloader_func"],
                     data_dir,
                     config["batch_size"],
+                    **(config["dataloader_func_kwargs"] or {}),
                 )
             elif config["data_config"]:
                 data_config = validate_config(config["data_config"], DataConfig)
@@ -445,6 +450,7 @@ class OnnxQuantization(Pass):
                 output_model_path=str(output_model_path),
                 auto_merge=True,
                 save_as_external_data=True,
+                verbose=3,  # set verbose to 3 to get more information about the preprocessing
             )
         except Exception as e:
             # TODO(jambayk): try with `skip_optimization = True`
@@ -506,3 +512,50 @@ class OnnxStaticQuantization(OnnxQuantization):
         # external data config
         config.update(get_external_data_config())
         return config
+
+
+class OnnxMatMul4Quantizer(Pass):
+    @staticmethod
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+        config = {
+            "block_size": PassConfigParam(
+                type_=int,
+                default_value=32,
+                description="Block size for quantization. Default value is 32.",
+            ),
+            "is_symmetric": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                description="Symmetric quantization. Default value is True.",
+            ),
+            "nodes_to_exclude": PassConfigParam(
+                type_=list,
+                default_value=None,
+                description="List of node names to exclude from quantization.",
+            ),
+        }
+        config.update(get_external_data_config())
+        return config
+
+    def _run_for_config(
+        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> ONNXModel:
+        from onnxruntime import __version__ as OrtVersion
+
+        if version.parse(OrtVersion) < version.parse("1.16.2"):
+            raise OlivePassError("MatMul4BitsQuantizer is only supported in onnxruntime >= 1.16.2")
+
+        from onnxruntime.quantization.matmul_4bits_quantizer import MatMul4BitsQuantizer
+
+        output_model_path = ONNXModel.resolve_path(output_model_path, Path(model.model_path).name)
+
+        quant = MatMul4BitsQuantizer(
+            model.load_model(), config["block_size"], config["is_symmetric"], config["nodes_to_exclude"]
+        )
+        quant.process()
+        # topologically sort the graph at the end since previous optimizations may have broken it
+        quant.model.topological_sort()
+        # quant.model._check_init is not needed since it's only meant for float8 quantization
+
+        # save the model to the output path and return the model
+        return model_proto_to_olive_model(quant.model.model, output_model_path, config)

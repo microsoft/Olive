@@ -11,16 +11,18 @@ import urllib.request
 from collections import OrderedDict
 from pathlib import Path
 from string import Template
-from typing import Dict, List
+from typing import TYPE_CHECKING, Dict, List
 
 import pkg_resources
 
 from olive.common.utils import get_package_name_from_ep, run_subprocess
-from olive.engine.footprint import Footprint
 from olive.engine.packaging.packaging_config import PackagingConfig, PackagingType
-from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.resource_path import ResourceType, create_resource_path
+
+if TYPE_CHECKING:
+    from olive.engine.footprint import Footprint
+    from olive.hardware import AcceleratorSpec
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +31,8 @@ logger = logging.getLogger(__name__)
 
 def generate_output_artifacts(
     packaging_config: PackagingConfig,
-    footprints: Dict[AcceleratorSpec, Footprint],
-    pf_footprints: Dict[AcceleratorSpec, Footprint],
+    footprints: Dict["AcceleratorSpec", "Footprint"],
+    pf_footprints: Dict["AcceleratorSpec", "Footprint"],
     output_dir: Path,
 ):
     if sum(len(f.nodes) if f.nodes else 0 for f in pf_footprints.values()) == 0:
@@ -42,8 +44,8 @@ def generate_output_artifacts(
 
 def _generate_zipfile_output(
     packaging_config: PackagingConfig,
-    footprints: Dict[AcceleratorSpec, Footprint],
-    pf_footprints: Dict[AcceleratorSpec, Footprint],
+    footprints: Dict["AcceleratorSpec", "Footprint"],
+    pf_footprints: Dict["AcceleratorSpec", "Footprint"],
     output_dir: Path,
 ) -> None:
     logger.info("Packaging Zipfile output artifacts")
@@ -71,9 +73,9 @@ def _package_sample_code(cur_path, tempdir):
 
 def _package_candidate_models(
     tempdir,
-    footprint: Footprint,
-    pf_footprint: Footprint,
-    accelerator_spec: AcceleratorSpec,
+    footprint: "Footprint",
+    pf_footprint: "Footprint",
+    accelerator_spec: "AcceleratorSpec",
     export_in_mlflow_format=False,
 ) -> None:
     candidate_models_dir = tempdir / "CandidateModels"
@@ -186,7 +188,7 @@ def _generate_onnx_mlflow_model(model_dir, inference_config):
     )
 
 
-def _package_onnxruntime_packages(tempdir, pf_footprint: Footprint):
+def _package_onnxruntime_packages(tempdir, pf_footprint: "Footprint"):
     # pylint: disable=not-an-iterable
     installed_packages = pkg_resources.working_set
     onnxruntime_pkg = [i for i in installed_packages if i.key.startswith("onnxruntime")]

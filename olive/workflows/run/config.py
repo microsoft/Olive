@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 from pathlib import Path
 from typing import Dict, List, Union
 
@@ -19,6 +20,8 @@ from olive.passes import FullPassConfig, Pass
 from olive.resource_path import AZUREML_RESOURCE_TYPES
 from olive.systems.system_config import SystemConfig
 
+logger = logging.getLogger(__name__)
+
 
 class RunPassConfig(FullPassConfig):
     host: SystemConfig = None
@@ -34,6 +37,8 @@ class RunEngineConfig(EngineConfig):
     packaging_config: PackagingConfig = None
     log_severity_level: int = 1
     ort_log_severity_level: int = 3
+    ort_py_log_severity_level: int = 3
+    log_to_file: bool = False
 
     def create_engine(self):
         config = self.dict()
@@ -44,6 +49,8 @@ class RunEngineConfig(EngineConfig):
             "packaging_config",
             "log_severity_level",
             "ort_log_severity_level",
+            "ort_py_log_severity_level",
+            "log_to_file",
         ]
         for key in to_del:
             del config[key]
@@ -60,8 +67,8 @@ class RunConfig(ConfigBase):
     data_root: str = None
     data_configs: Dict[str, DataConfig] = None
     evaluators: Dict[str, OliveEvaluatorConfig] = None
+    engine: RunEngineConfig = None
     pass_flows: List[List[str]] = None
-    engine: RunEngineConfig
     passes: Dict[str, RunPassConfig] = None
 
     @validator("input_model", pre=True)
@@ -76,6 +83,12 @@ class RunConfig(ConfigBase):
 
         if _have_aml_client(input_model_path, values):
             v["config"]["model_path"]["config"]["azureml_client"] = values["azureml_client"]
+        return v
+
+    @validator("engine", pre=True, always=True)
+    def default_engine_config(cls, v):
+        if v is None:
+            v = {}
         return v
 
     @validator("data_configs", pre=True, always=True)
@@ -94,14 +107,21 @@ class RunConfig(ConfigBase):
         hf_config = values["input_model"].dict()["config"].get("hf_config", {})
         hf_config_dataset = hf_config.get("dataset", None)
         if hf_config_dataset:
+            params_config = {
+                "model_name": hf_config.get("model_name", None),
+                "task": hf_config.get("task", None),
+                **hf_config_dataset,
+            }
+            # insert trust_remote_code from model_loading_args if present
+            # won't override if value was set to False explicitly
+            # will keep as list of keys for future extension
+            for key in ["trust_remote_code"]:
+                if hf_config.get("model_loading_args", {}).get(key, None) and params_config.get(key, None) is None:
+                    params_config[key] = hf_config["model_loading_args"][key]
             v[INPUT_MODEL_DATA_CONFIG] = {
                 "name": INPUT_MODEL_DATA_CONFIG,
                 "type": HuggingfaceContainer.__name__,
-                "params_config": {
-                    "model_name": hf_config.get("model_name", None),
-                    "task": hf_config.get("task", None),
-                    **hf_config_dataset,
-                },
+                "params_config": params_config,
             }
         return v
 
@@ -121,9 +141,15 @@ class RunConfig(ConfigBase):
 
         if v["type"] == HuggingfaceContainer.__name__:
             # auto insert model_name and task from input model hf config if not present
+            # both are required for huggingface container
             for key in ["model_name", "task"]:
                 if not v["params_config"].get(key, None):
                     v["params_config"][key] = hf_config.get(key, None)
+            # auto insert trust_remote_code from input model hf config
+            # won't override if value was set to False explicitly
+            for key in ["trust_remote_code"]:
+                if hf_config.get("model_loading_args", {}).get(key, None) and v["params_config"].get(key, None) is None:
+                    v["params_config"][key] = hf_config["model_loading_args"][key]
 
         return validate_config(v, DataConfig)
 
@@ -148,7 +174,8 @@ class RunConfig(ConfigBase):
     @validator("engine")
     def validate_evaluate_input_model(cls, v):
         if v.evaluate_input_model and v.evaluator is None:
-            raise ValueError("Evaluation only requires evaluator")
+            logger.info("No evaluator is specified, skip to evaluate model")
+            v.evaluate_input_model = False
         return v
 
     @validator("passes", pre=True, each_item=True)

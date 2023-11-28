@@ -79,10 +79,10 @@ The default value is 3. User can increase if there are network issues and the op
 
 User should specify input model type and configuration using `input model` dictionary. It contains following items:
 
-- `type: [str]` Type of the input model. The supported types are `PyTorchModel`, `ONNXModel`, `OpenVINOModel`, and `SNPEModel`. It is
-case insensitive.
+- `type: [str]` Type of the input model which is case insensitive.. The supported types contain `PyTorchModel`, `ONNXModel`, `OpenVINOModel`,`SNPEModel` and etc. You can
+find more details in [Olive Models](https://microsoft.github.io/Olive/api/models.html).
 
-- `config: [Dict]` The input model config dictionary specifies following items:
+- `config: [Dict]` For example, for `PytorchModel`, the input model config dictionary specifies following items:
 
     - `model_path: [str | Dict]` The model path can be a string or a dictionary. If it is a string, it is either a string name
     used by the model loader or the path to the model file/directory. If it is a dictionary, it contains information about the model path.
@@ -92,6 +92,15 @@ case insensitive.
     input and return the loaded model.
 
     - `model_script: [str]` The name of the script provided by the user to assist with model loading.
+
+    - `script_dir: [str]` The directory that contains dependencies for the model script.
+
+    - `io_config: [Dict[str, Any] | IOConfig | str | Callable]`: The inputs and outputs information of the model. It can be a dictionary, an IOConfig object or a function string under `model_script`. Basically, it contains following items:
+        - `input_names: [List[str]]` The input names of the model.
+        - `input_types: [List[str]]` The input types of the model.
+        - `input_shapes: [List[List[int]]]` The input shapes of the model.
+        - `output_names: [List[str]]` The output names of the model.
+        - `dynamic_axes: [Dict[str, Dict[str, str]]]` The dynamic axes of the model. The key is the name of the input or output and the value is a dictionary that contains the dynamic axes of the input or output. The key of the value dictionary is the index of the dynamic axis and the value is the name of the dynamic axis. For example, `{"input": {"0": "batch_size"}, "output": {"0": "batch_size"}}` means the first dimension of the input and output is dynamic and the name of the dynamic axis is `batch_size`.
 
     - <a name="hf_config"></a> `hf_config: [Dict]` Instead of `model_path` or `model_loader`, the model can be specified using a dictionary describing a huggingface
     model. This dictionary specifies the following items:
@@ -109,7 +118,7 @@ case insensitive.
         - `components: [List[HFComponent]]`: HFComponent list:
             - `HFComponent`:
                 - `name: [str]`: Component name. Olive will generate a model class with this str as attribute name.
-                - `io_config: [str | Dict]`: The io_config of this component. If `str`, Olive will load `io_config` from `model_script`.
+                - `io_config: [Dict[str, Any] | IOConfig | str | Callable]`: The io_config of this component. If `str`, Olive will load `io_config` from `model_script`.
                 - `component_func: [str]`: The component function name will be loaded from `model_script`.
                 - `dummy_inputs_func: [str]`: The dummy input function name will be loaded from `model_script`.
 
@@ -152,6 +161,7 @@ Please find the detailed config options from following table for each model type
         "model_script": "user_script.py",
         "io_config": {
             "input_names": ["input"],
+            "input_types": ["int32"],
             "input_shapes": [[1, 3, 32, 32]],
             "output_names": ["output"],
             "dynamic_axes": {
@@ -220,7 +230,7 @@ information of the evaluator contains following items:
 
     - `name: [str]` The name of the metric. This must be a unique name among all metrics in the evaluator.
 
-    - `type: [str]` The type of the metric. The supported types are `accuracy`, `latency` and `custom`.
+    - `type: [str]` The type of the metric. The supported types are `accuracy`, `latency`, `throughput` and `custom`.
 
     - `backend: [str]` The type of metrics' backend. Olive implement `torch_metrics` and `huggingface_metrics` backends. The default value is `torch_metrics`.
         - `torch_metrics` backend uses `torchmetrics` library to compute metrics. It supports `accuracy_score`, `f1_score`, `precision`, `recall` and `auc` metrics.
@@ -228,7 +238,7 @@ information of the evaluator contains following items:
 
     - `subtypes: [List[Dict]]` The subtypes of the metric. Cannot be null or empty. Each subtype is a dictionary that contains following items:
 
-        - `name: str` The name of the subtype. Please refer to [AccuracySubtype](accuracy_sub_type) and [LatencySubtype](latency_sub_type)
+        - `name: str` The name of the subtype. Please refer to [AccuracySubtype](accuracy_sub_type), [LatencySubtype](latency_sub_type) and [ThroughputSubtype](throughput_sub_type)
         for the supported subtypes. For `custom` type, if the result of the evaluation is a dictionary, the name of the subtype should be the key of the dictionary. Otherwise, the name of the subtype could be any unique string user gives.
 
         - `metric_config` The parameter config used to measure detailed metrics. Please note that when the `backend` is `huggingface_metrics`, you should see the `metric_config` as dictionary of:
@@ -260,17 +270,22 @@ information of the evaluator contains following items:
 
         - `batch_size: [int]` The batch size for the metric evaluation.
 
-        - `dataloader_func: [str]` The name of the function provided by the user to load the data for the metric evaluation. The
-        function should take the `data_dir`, `batch_size`, `*args`, `**kwargs` as input and return the data loader. Only valid for `accuracy` and `latency`
-         type.
+        - `inference_settings: [Dict]` Inference settings for the different runtime.
 
-        - `inference_settings: [Dict]` Inference settings for the different runtime. Only valid for `accuracy` and `latency` type.
+        - `dataloader_func: [str]` The name of the function provided by the user to load the data for the metric evaluation. The function should take the `data_dir`, `batch_size`, `model_framework` (provided as a keyword argument)
+        as input and return the data loader. Not valid for `custom` type when `evaluate_func` is provided.
 
-        - `post_processing_func: [str]` The name of the function provided by the user to post process the model output. The function
-        should take the model output and return the post processed output. Only valid for `accuracy` type.
+        - `post_processing_func: [str]` The name of the function provided by the user to post process the model output. The function should take the model output as input and return the post processed
+        output. Only valid for `accuracy` type or `custom` type when `evaluate_func` is not provided.
 
-        - `evaluate_func: [str]` The name of the function provided by the user to evaluate the model. The function should take the
-        model, `data_dir` and `batch_size` as input and return the evaluation result. Only valid for `custom` type.
+        - `evaluate_func: [str]` The name of the function provided by the user to evaluate the model. The function should take the model, `data_dir`, `batch_size`, `device`, `execution_providers` as input
+        and return the evaluation result. Only valid for `custom` type.
+
+        - `metric_func: [str]` The name of the function provided by the user to compute metric from the model output. The function should take the post processed output and target as input and return the
+        metric result. Only valid for `custom` type when `evaluate_func` is not provided.
+
+        - `func_kwargs: [Dict[str, Dict[str, Any]]]` Keyword arguments for the functions provided by the user. The key is the name of the function and the value is the keyword arguments for the function. The
+        functions must be able to take the keyword arguments either through the function signature as keyword/positional parameters after the required positional parameters or through `**kwargs`.
 
     Note that for above `data_dir` config which is related to resource path, Olive supports local file, local folder or AML Datastore. Take AML Datastore as an example, Olive can parse the resource type automatically from `config dict`, or `url`. Please refer to our [Resnet](https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-ptq-on-cpu) example for more details.
     ```json
@@ -377,6 +392,7 @@ Please also find the detailed options from following table for each pass:
 | Pass Name | Description |
 |:----------|:-------------|
 | [OnnxConversion](onnx_conversion) | Convert a PyTorch model to ONNX model |
+| [OnnxOpVersionConversion](onnx_op_version_conversion) | Convert a Onnx model to target op version |
 | [OnnxModelOptimizer](onnx_model_optimizer) | Optimize ONNX model by fusing nodes. |
 | [OnnxTransformersOptimization](onnx_transformers_optimization) | Optimize transformer based models in scenarios where ONNX Runtime does not apply the optimization at load time. It is based on onnxruntime.transformers.optimizer. |
 | [OrtPerfTuning](ort_perf_tuning) | Optimize ONNX Runtime inference settings. |
@@ -464,7 +480,7 @@ When `pass_flows` is not specified, the passes are executed in the order of the 
 
 This is a dictionary that contains the information of the engine. The information of the engine contains following items:
 
-- `search_strategy: [Dict | Boolean | None]` The search strategy of the engine. It contains the following items:
+- `search_strategy: [Dict | Boolean | None]`, `None` by default. The search strategy of the engine. It contains the following items:
 
     - `execution_order: [str]` The execution order of the optimizations of passes. The options are `pass-by-pass` and `joint`.
 
@@ -491,42 +507,47 @@ This is a dictionary that contains the information of the engine. The informatio
   If `search_strategy` is `true`, the search strategy will be the default search strategy. The default search strategy is `exhaustive` search
   algorithm with `joint` execution order.
 
-- `evaluate_input_model: [Boolean]` In this mode, the engine will evaluate the input model using the engine's evaluator and return the results. If the engine has no evaluator, it will raise an error. This is `true` by default.
+- `evaluate_input_model: [Boolean]` In this mode, the engine will evaluate the input model using the engine's evaluator and return the results. If the engine has no evaluator, it will skip the evaluation. This is `true` by default.
 
-- `host: [str | Dict]` The host of the engine. It can be a string or a dictionary. If it is a string, it is the name of a system in `systems`.
+- `host: [str | Dict | None]`, `None` be default. The host of the engine. It can be a string or a dictionary. If it is a string, it is the name of a system in `systems`.
     If it is a dictionary, it contains the system information. If not specified, it is the local system.
 
-- `target: [str | Dict]` The target to run model evaluations on. It can be a string or a dictionary. If it is a string, it is the name of
+- `target: [str | Dict | None]`, `None` be default. The target to run model evaluations on. It can be a string or a dictionary. If it is a string, it is the name of
     a system in `systems`. If it is a dictionary, it contains the system information. If not specified, it is the local system.
 
-- `evaluator: [str | Dict]` The evaluator of the engine. It can be a string or a dictionary. If it is a string, it is the name of an evaluator
+- `evaluator: [str | Dict | None]`, `None` by default. The evaluator of the engine. It can be a string or a dictionary. If it is a string, it is the name of an evaluator
     in `evaluators`. If it is a dictionary, it contains the evaluator information. This evaluator will be used to evaluate the input model if
-    needed. It is also used to evaluate the output models of passes that don't have their own evaluators.
+    needed. It is also used to evaluate the output models of passes that don't have their own evaluators. If it is None, skip the evaluation for input model and any output models.
 
-- `cache_dir: [str]` The directory to store the cache of the engine. If not specified, the cache will be stored in the `.olive-cache` directory
+- `cache_dir: [str]`, `.olive-cache` by default. The directory to store the cache of the engine. If not specified, the cache will be stored in the `.olive-cache` directory
     under the current working directory.
 
-- `clean_cache: [Boolean]` This decides whether to clean the cache of the engine before running the engine. This is `false` by default.
+- `clean_cache: [Boolean]`, `false` by default. This decides whether to clean the cache of the engine before running the engine.
 
-- `clean_evaluation_cache: [Boolean]` This decides whether to clean the evaluation cache of the engine before running the engine. This is
-`false` by default.
+- `clean_evaluation_cache: [Boolean]` , `false` by default. This decides whether to clean the evaluation cache of the engine before running the engine.
 
-- `plot_pareto_frontier` This decides whether to plot the pareto frontier of the search results. This is `false` by default.
+- `plot_pareto_frontier`, `false` by default. This decides whether to plot the pareto frontier of the search results.
 
-- `output_dir: [str]` The directory to store the output of the engine. If not specified, the output will be stored in the current working
+- `output_dir: [str]`, `None` by default. The directory to store the output of the engine. If not specified, the output will be stored in the current working
     directory. For a run with no search, the output is the output model of the final pass and its evaluation result. For a run with search, the
     output is a json file with the search results.
 
-- `output_name: [str]` The name of the output. This string will be used as the prefix of the output file name. If not specified, there is no
+- `output_name: [str]`, `None` by default. The name of the output. This string will be used as the prefix of the output file name. If not specified, there is no
     prefix.
 
-- `packaging_config: [PackagingConfig]` Olive artifacts packaging configurations. If not specified, Olive will not package artifacts.
+- `packaging_config: [PackagingConfig]`, `None` by default. Olive artifacts packaging configurations. If not specified, Olive will not package artifacts.
 
-- `log_severity_level: [int]` The log severity level of Olive. The options are `0` for `VERBOSE`, `1` for
-    `INFO`, `2` for `WARNING`, `3` for `ERROR`, `4` for `FATAL`. The default value is `1` for `INFO`.
+- `log_severity_level: [int]`, `1` by default. The log severity level of Olive. The options are `0` for `VERBOSE`, `1` for
+    `INFO`, `2` for `WARNING`, `3` for `ERROR`, `4` for `FATAL`.
 
-- `ort_log_severity_level: [int]` The log severity level of ONNX Runtime. The options are `0` for `VERBOSE`, `1` for
-    `INFO`, `2` for `WARNING`, `3` for `ERROR`, `4` for `FATAL`. The default value is `3` for `ERROR`.
+- `ort_log_severity_level: [int]`, `3` by default. The log severity level of ONNX Runtime C++ logs. The options are `0` for `VERBOSE`, `1` for
+    `INFO`, `2` for `WARNING`, `3` for `ERROR`, `4` for `FATAL`.
+
+- `ort_py_log_severity_level: [int]`, `3` by default. The log severity level of ONNX Runtime Python logs. The options are `0` for `VERBOSE`, `1` for
+    `INFO`, `2` for `WARNING`, `3` for `ERROR`, `4` for `FATAL`.
+
+- `log_to_file: [Boolean]`, `false` by default. This decides whether to log to file. If `true`, the log will be stored in a olive-<timestamp>.log file
+    under the current working directory.
 
 Please find the detailed config options from following table for each search algorithm:
 

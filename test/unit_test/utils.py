@@ -171,24 +171,18 @@ def get_accuracy_metric(*acc_subtype, random_dataloader=True, user_config=None, 
     )
 
 
-def get_custom_eval():
+def get_custom_metric(user_config=None):
     user_script_path = str(Path(__file__).absolute().parent / "assets" / "user_script.py")
     return Metric(
         name="custom",
         type=MetricType.CUSTOM,
         sub_types=[{"name": "custom"}],
-        user_config={"evaluate_func": "eval_func", "user_script": user_script_path, "need_inference": False},
+        user_config=user_config or {"evaluate_func": "eval_func", "user_script": user_script_path},
     )
 
 
-def get_custom_metric():
-    custom_metric = get_custom_eval()
-    custom_metric.user_config.metric_func = "metric_func"
-    return custom_metric
-
-
 def get_custom_metric_no_eval():
-    custom_metric = get_custom_eval()
+    custom_metric = get_custom_metric()
     custom_metric.user_config.evaluate_func = None
     return custom_metric
 
@@ -201,6 +195,17 @@ def get_latency_metric(*lat_subtype, user_config=None):
         type=MetricType.LATENCY,
         sub_types=sub_types,
         user_config=user_config or latency_metric_config,
+    )
+
+
+def get_throughput_metric(*lat_subtype, user_config=None):
+    metric_config = {"dataloader_func": create_dataloader}
+    sub_types = [{"name": sub} for sub in lat_subtype]
+    return Metric(
+        name="throughput",
+        type=MetricType.THROUGHPUT,
+        sub_types=sub_types,
+        user_config=user_config or metric_config,
     )
 
 

@@ -37,6 +37,9 @@ good-names = [
   "z"
 ]
 
+[tool.pylint.main]
+ignore-paths = ["examples/directml/llama_v2/chat_app/**"]
+
 [tool.pylint.messages_control]
 disable = [
   # TODO:(myguo): consider remove them in the blacklist
@@ -179,3 +182,4 @@ classmethod-decorators = ["classmethod", "pydantic.validator", "pydantic.root_va
 "examples/**" = ["INP001"]
 "olive/engine/packaging/sample_code/ONNXModel/python/**" = ["INP001"]
 "scripts/**" = ["INP001", "PTH123"]
+"examples/directml/llama_v2/chat_app/**" = ["TID252"]

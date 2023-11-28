@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-import os
 import tempfile
 from copy import deepcopy
 from pathlib import Path
@@ -127,6 +126,13 @@ _inc_quantization_config = {
             INC weight only quantization config.
         """,
     ),
+    "op_type_dict": PassConfigParam(
+        type_=dict,
+        default_value={},
+        description="""
+            INC weight only quantization config.
+        """,
+    ),
 }
 
 _inc_static_dataloader_config = {
@@ -153,6 +159,10 @@ _inc_static_dataloader_config = {
             Function/function name to generate dataloader for calibration,
             required if approach is 'static' and data_config is None.
         """,
+    ),
+    "dataloader_func_kwargs": PassConfigParam(
+        type_=Dict[str, Any],
+        description="Keyword arguments for dataloader_func.",
     ),
     "data_config": PassConfigParam(
         type_=Union[DataConfig, Dict],
@@ -484,7 +494,7 @@ class IncQuantization(Pass):
                 config["dataloader_func"] or config["data_config"]
             ), "dataloader_func or data_config is required for {} quantization.".format(run_config["approach"])
 
-        output_model_path = ONNXModel.resolve_path(os.path.join(output_model_path, os.path.basename(model.model_path)))
+        output_model_path = ONNXModel.resolve_path(output_model_path, Path(model.model_path).name)
 
         eval_func, accuracy_criterion, tuning_criterion = self._set_tuning_config(run_config, data_root)
         weight_only_config = self._set_woq_config(run_config)
@@ -496,6 +506,7 @@ class IncQuantization(Pass):
             "data_dir",
             "batch_size",
             "dataloader_func",
+            "dataloader_func_kwargs",
             "tuning_criterion",
             "data_config",
             "metric",
@@ -506,11 +517,16 @@ class IncQuantization(Pass):
             if key in run_config:
                 del run_config[key]
 
+        run_config["op_type_dict"] = (
+            run_config["op_type_dict"] or {".*": {"weight": weight_only_config}}
+            if run_config["approach"] == "weight_only"
+            else None
+        )
+
         ptq_config = PostTrainingQuantConfig(
             **run_config,
             accuracy_criterion=accuracy_criterion,
             tuning_criterion=tuning_criterion,
-            op_type_dict={".*": {"weight": weight_only_config}} if run_config["approach"] == "weight_only" else None,
         )
 
         inc_calib_dataloader = None
@@ -518,7 +534,11 @@ class IncQuantization(Pass):
             if self._user_module_loader:
                 data_dir = get_local_path_from_root(data_root, config["data_dir"])
                 inc_calib_dataloader = self._user_module_loader.call_object(
-                    config["dataloader_func"], data_dir, config["batch_size"], model_path=model.model_path
+                    config["dataloader_func"],
+                    data_dir,
+                    config["batch_size"],
+                    model_path=model.model_path,
+                    **(config["dataloader_func_kwargs"] or {}),
                 )
             elif config["data_config"]:
                 data_config = validate_config(config["data_config"], DataConfig)

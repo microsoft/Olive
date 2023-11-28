@@ -40,8 +40,18 @@ PyTorch Model
 --------------
 .. autoclass:: olive.model.PyTorchModel
 
+DistributedPyTorchModel Model
+-----------------------------
+.. autoclass:: olive.model.DistributedPyTorchModel
+
 .. _snpe_model:
 
 SNPE Model
 ----------
 .. autoclass:: olive.model.SNPEModel
+
+CompositePyTorchModel Model
+---------------------------
+.. autoclass:: olive.model.CompositePyTorchModel
+
+.. _distributed_pytorch_model:
