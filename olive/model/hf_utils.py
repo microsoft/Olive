@@ -224,7 +224,7 @@ class HFConfig(ConfigBase):
     def _get_loading_args(self):
         return self.model_loading_args.get_loading_args() if self.model_loading_args else {}
 
-    @validator("token", always=True, pre=True)
+    @validator("token")
     def get_token(cls, v):
         if v:
             return get_huggingface_token()
