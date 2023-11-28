@@ -14,6 +14,8 @@ The configuration of Olive data config is positioned under Olive run config with
         "dataset_2": {...},
     }
 
+Note: `name` for each dataset should be unique, and must be composed letters, numbers, and underscores.
+
 Then if there is any requirement to leverage the data config in Olive passes/evaluator, we can simply refer to the data config **key name**. For above `open_llama_sparsegpt_gpu` case, the passes/evaluator data config is:
 `open_llama_sparsegpt_gpu data_config reference <https://github.com/microsoft/Olive/blob/main/examples/open_llama/open_llama_sparsegpt_gpu.json#L59>`_ .
 
