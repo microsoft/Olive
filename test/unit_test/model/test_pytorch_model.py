@@ -158,6 +158,15 @@ class TestPytorchDummyInput:
         io_config_func.assert_called_once_with(olive_model)
         assert io_config == IOConfig(**self.io_config).dict()
 
+    @patch("olive.model.hf_utils.get_hf_model_io_config")
+    def test_hf_config_io_config(self, get_hf_model_io_config):
+        get_hf_model_io_config.return_value = self.io_config
+        olive_model = PyTorchModel(hf_config={"task": self.task, "model_name": self.model_name})
+        # get io config
+        io_config = olive_model.get_io_config()
+        assert io_config == self.io_config
+        get_hf_model_io_config.assert_called_once_with(self.model_name, self.task, None)
+
     def common_data_config_test(self, olive_model, data_config_template):
         # mock data config
         data_config = MagicMock()
