@@ -183,6 +183,12 @@ class ModelConfig(ConfigBase):
     def create_model(self):
         return REGISTRY[self.type.lower()](**self.config)
 
+    def get_hf_token(self):
+        if self.config.get("hf_config"):
+            hf_config = validate_config(self.config["hf_config"], HFConfig)
+            return hf_config.token
+        return None
+
 
 class ONNXModelBase(OliveModel):
     """Abstract class to manage ONNX models."""

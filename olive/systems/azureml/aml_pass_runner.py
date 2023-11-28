@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import argparse
 import json
+import os
 import shutil
 import tempfile
 from pathlib import Path
@@ -83,6 +84,12 @@ def update_data_config(p, extra_args):
 
 
 def main(raw_args=None):
+    hf_token = os.environ.get("HF_TOKEN")
+    if hf_token:
+        from huggingface_hub import login
+
+        login(token=hf_token)
+
     input_model_config, pipeline_output, extra_args = get_common_args(raw_args)
     pass_config_arg, extra_args = parse_pass_config_arg(extra_args)
 

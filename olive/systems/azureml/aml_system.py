@@ -279,6 +279,7 @@ class AzureMLSystem(OliveSystem):
         inputs,
         outputs,
         script_name,
+        environment_variables=None,
     ):
         # create arguments for inputs and outputs
         parameters = []
@@ -300,6 +301,7 @@ class AzureMLSystem(OliveSystem):
             command=cmd_line,
             resources=resources,
             environment=aml_environment,
+            environment_variables=environment_variables,
             code=str(code),
             inputs=inputs,
             outputs=outputs,
@@ -351,6 +353,10 @@ class AzureMLSystem(OliveSystem):
         # pass type
         pass_type = pass_config["type"]
 
+        # prepare env variables
+        hf_token = model_config.get_hf_token()
+        environment_variables = {"HF_TOKEN": hf_token} if hf_token else None
+
         # aml command object
         cmd = self._create_step(
             name=pass_type,
@@ -364,6 +370,7 @@ class AzureMLSystem(OliveSystem):
             inputs=inputs,
             outputs=outputs,
             script_name=script_name,
+            environment_variables=environment_variables,
         )
 
         # model json
