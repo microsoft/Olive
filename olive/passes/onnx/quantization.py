@@ -304,7 +304,6 @@ class OnnxQuantization(Pass):
                 logger.warning(
                     "S8S8 with QOperator will be slow on x86-64 CPUs and should be avoided in general, try QDQ instead."
                 )
-                return True
             if config["EnableSubgraph"] is True:
                 logger.info("EnableSubgraph is not supported for static quantization.")
                 return False
