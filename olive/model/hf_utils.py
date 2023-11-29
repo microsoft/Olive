@@ -210,7 +210,7 @@ class HFConfig(ConfigBase):
     model_class: str = None
     # if token is str, use it as token
     # if token is True, get token from environment variable or token file
-    token: Union[str, bool] = None
+    token: Union[bool, str] = None
     components: List[HFComponent] = None
     dataset: Dict[str, Any] = None
     model_loading_args: HFModelLoadingArgs = None
@@ -227,11 +227,11 @@ class HFConfig(ConfigBase):
 
     @validator("token")
     def get_token(cls, v):
-        if isinstance(v, str):
-            return v
-        if v:
-            return get_huggingface_token()
-        return None
+        if isinstance(v, bool):
+            if v:
+                return get_huggingface_token()
+            return None
+        return v
 
     def load_model(self, model_path: str = None):
         """Load model from model_path or model_name."""

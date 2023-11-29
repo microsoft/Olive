@@ -387,7 +387,7 @@ class TestAzureMLSystem:
         else:
             model_resource_path = create_resource_path(ONNX_MODEL_PATH)
         actual_res = self.system._create_metric_component(
-            None, tem_dir, metric, model_args, {"model_path": model_resource_path}, accelerator_config_path
+            None, tem_dir, metric, model_args, {"model_path": model_resource_path}, accelerator_config_path, None
         )
 
         # assert

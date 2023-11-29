@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import argparse
 import json
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -47,6 +48,12 @@ def create_metric(metric_config, metric_args):
 
 
 def main(raw_args=None):
+    hf_token = os.environ.get("HF_TOKEN")
+    if hf_token:
+        from huggingface_hub import login
+
+        login(token=hf_token)
+
     model_config, pipeline_output, extra_args = get_common_args(raw_args)
     metric_args, extra_args = parse_metric_args(extra_args)
     accelerator_args = parse_accelerator_args(extra_args)
