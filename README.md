@@ -20,6 +20,7 @@ efficiently compose and tune integrated techniques for offering a ready-to-use E
 ## News
 - [ Nov 2023 ] [Elevating the developer experience on Windows with new AI tools and productivity tools](https://blogs.windows.com/windowsdeveloper/2023/11/15/elevating-the-developer-experience-on-windows-with-new-ai-tools-and-productivity-tools/)
 - [ Nov 2023 ] [Accelerating LLaMA-2 Inference with ONNX Runtime using Olive](https://onnxruntime.ai/blogs/accelerating-llama-2)
+- [ Nov 2023 ] [Olive 0.4.0 released with support for LoRA fine-tuning and Llama2 optimizations](https://github.com/microsoft/Olive/releases/tag/v0.4.0)
 - [ Nov 2023 ] [Intel and Microsoft Collaborate to Optimize DirectML for Intel® Arc™ Graphics Solutions using Olive](https://community.intel.com/t5/Blogs/Tech-Innovation/Artificial-Intelligence-AI/Intel-and-Microsoft-Collaborate-to-Optimize-DirectML-for-Intel/post/1542055)
 - [ Nov 2023 ] [Running Olive Optimized Llama2 with Microsoft DirectML on AMD Radeon Graphics](https://community.amd.com/t5/ai/how-to-running-optimized-llama2-with-microsoft-directml-on-amd/ba-p/645190)
 - [ Oct 2023 ] [AMD Microsoft Olive Optimizations for Stable Diffusion Performance Analysis](https://www.pugetsystems.com/labs/articles/amd-microsoft-olive-optimizations-for-stable-diffusion-performance-analysis/)
