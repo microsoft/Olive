@@ -298,8 +298,13 @@ class OnnxQuantization(Pass):
                 and config["activation_type"] == "QInt8"
                 and config["quant_format"] == "QOperator"
             ):
-                logger.info("S8S8 with QOperator will be slow on x86-64 CPUs and should be avoided in general")
-                return False
+                # S8S8 with QOperator will be slow on x86-64 CPUs and should be avoided in general.
+                # https://onnxruntime.ai/docs/performance/model-optimizations/quantization.html#data-type-selection
+                # But we still allow it for users to try at their own risk. Olive just warns this to users.
+                logger.warning(
+                    "S8S8 with QOperator will be slow on x86-64 CPUs and should be avoided in general, try QDQ instead."
+                )
+                return True
             if config["EnableSubgraph"] is True:
                 logger.info("EnableSubgraph is not supported for static quantization.")
                 return False
