@@ -208,8 +208,9 @@ class HFConfig(ConfigBase):
     feature: str = None
     # TODO(xiaoyu): remove model_class and only use task
     model_class: str = None
+    # if token is str, use it as token
     # if token is True, get token from environment variable or token file
-    token: bool = None
+    token: Union[str, bool] = None
     components: List[HFComponent] = None
     dataset: Dict[str, Any] = None
     model_loading_args: HFModelLoadingArgs = None
@@ -226,6 +227,8 @@ class HFConfig(ConfigBase):
 
     @validator("token")
     def get_token(cls, v):
+        if isinstance(v, str):
+            return v
         if v:
             return get_huggingface_token()
         return None
