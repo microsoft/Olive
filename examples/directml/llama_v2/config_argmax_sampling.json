@@ -6,7 +6,10 @@
             "model_script": "user_script.py",
             "io_config": {
                 "input_names": [ "logits" ],
-                "output_names": [ "next_token" ]
+                "output_names": [ "next_token" ],
+                "dynamic_axes": {
+                    "logits": { "0": "batch_size" }
+                }
             },
             "dummy_inputs_func": "argmax_sampling_inputs"
         }
