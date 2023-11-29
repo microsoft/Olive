@@ -263,7 +263,7 @@ class TestAzureMLSystem:
             outputs=outputs,
             instance_count=1,
             compute=compute,
-            environment_variables=None
+            environment_variables=None,
         )
 
     def test__create_data_script_inputs_and_args(self):
@@ -404,7 +404,7 @@ class TestAzureMLSystem:
             outputs={"pipeline_output": Output(type=AssetTypes.URI_FOLDER)},
             instance_count=1,
             compute=self.system.compute,
-            environment_variables=None
+            environment_variables=None,
         )
 
         # cleanup
