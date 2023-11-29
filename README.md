@@ -17,6 +17,15 @@ Build up a unified optimization framework: Given that no single optimization tec
 Olive enables an extensible framework that allows industry to easily plugin their optimization innovations.  Olive can
 efficiently compose and tune integrated techniques for offering a ready-to-use E2E optimization solution.
 
+## News
+- [ Nov 2023 ] Elevating the developer experience on Windows with new AI tools and productivity tools https://blogs.windows.com/windowsdeveloper/2023/11/15/elevating-the-developer-experience-on-windows-with-new-ai-tools-and-productivity-tools/
+- [ Nov 2023 ] Intel and Microsoft Collaborate to Optimize DirectML for Intel® Arc™ Graphics Solutions using Olive : https://community.intel.com/t5/Blogs/Tech-Innovation/Artificial-Intelligence-AI/Intel-and-Microsoft-Collaborate-to-Optimize-DirectML-for-Intel/post/1542055
+- [ Nov 2023 ] Running Olive Optimized Llama2 with Microsoft DirectML on AMD Radeon Graphics : https://community.amd.com/t5/ai/how-to-running-optimized-llama2-with-microsoft-directml-on-amd/ba-p/645190
+- [ Oct 2023 ] AMD Microsoft Olive Optimizations for Stable Diffusion Performance Analysis : https://www.pugetsystems.com/labs/articles/amd-microsoft-olive-optimizations-for-stable-diffusion-performance-analysis/
+- [ Sep 2023 ] Running Optimized Automatic1111 Stable Diffusion WebUI on AMD GPUs : https://community.amd.com/t5/ai/updated-how-to-running-optimized-automatic1111-stable-diffusion/ba-p/630252
+- [ Jun 2023 ] Olive: A user-friendly toolchain for hardware-aware model optimization : https://cloudblogs.microsoft.com/opensource/2023/06/26/olive-a-user-friendly-toolchain-for-hardware-aware-model-optimization/
+- [ May 2023 ] Optimize DirectML performance with Olive : https://devblogs.microsoft.com/directx/optimize-directml-performance-with-olive/
+- [ May 2023 ] Optimize Stable Diffusion Using Olive https://devblogs.microsoft.com/directx/dml-stable-diffusion/
 ## Get Started and Resources
 - Documentation: [https://microsoft.github.io/Olive](https://microsoft.github.io/Olive)
 - Examples: [examples](./examples)
