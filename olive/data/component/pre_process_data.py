@@ -223,10 +223,15 @@ def audio_classification_pre_process(
         feature_extractor_args (dict, optional): Additional arguments for feature extractor.
         **kwargs: Additional arguments.
             The common arguments are the fields in olive.data.component.audio_classification.AudioClassificationParams.
+            Extra arguments:
+                - max_duration (int, optional): Max duration of audio in seconds. Defaults to 30.
+                - remap_labels_use_filename (bool, optional): Whether or not to remap labels based on filename.
+                    Defaults to False.
+                - file_column_name (str, optional): Name of the column containing the filename. Defaults to "file".
             Note: the AudioClassificationParams subclass already includes the common arguments.
     """
     from datasets import Audio
-    from transformers import AutoFeatureExtractor
+    from transformers import AutoConfig, AutoFeatureExtractor
 
     assert len(input_cols) == 1, "Only one input column is supported for audio classification task."
 
@@ -245,7 +250,16 @@ def audio_classification_pre_process(
             truncation=True,
             return_attention_mask=True,
         )
-        tokenized_inputs["label"] = examples[label_cols[0]]
+        if kwargs.get("remap_labels_use_filename", False):
+            # remap labels based on filename
+            model_config = AutoConfig.from_pretrained(model_name, trust_remote_code=trust_remote_code)
+            label2id = model_config.label2id
+            noisy_label = len(label2id)
+            new_labels = []
+            for files in tokenized_inputs[kwargs.get("file_column_name", "file")]:
+                new_labels.append(label2id.get(files.split("/")[0], noisy_label))
+        else:
+            tokenized_inputs["label"] = examples[label_cols[0]]
 
         return tokenized_inputs
 

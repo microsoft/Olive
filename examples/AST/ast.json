@@ -13,7 +13,12 @@
                     "input_cols": ["audio"],
                     "label_cols": ["label"],
                     "max_samples": 100,
-                    "batch_size": 1
+                    "batch_size": 1,
+                    "component_kwargs": {
+                        "pre_process_data": {
+                            "remap_labels_use_filename": true
+                        }
+                    }
                 }
             },
             "io_config": {
