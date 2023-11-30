@@ -671,7 +671,7 @@ class PyTorchModel(OliveModel):
             # hf_config is provided
             logger.debug("Using hf onnx_config to get io_config")
             # For MLFlow model, get io config from model_name instead of model_path
-            # TODO: more investigation on the integration between MLFlow and HF
+            # TODO(xiaoyu): more investigation on the integration between MLFlow and HF
             io_config = (
                 self.hf_config.get_io_config()
                 if self.model_file_format == ModelFileFormat.PYTORCH_MLFLOW_MODEL
