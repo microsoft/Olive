@@ -208,9 +208,6 @@ class HFConfig(ConfigBase):
     feature: str = None
     # TODO(xiaoyu): remove model_class and only use task
     model_class: str = None
-    # if token is str, use it as token
-    # if token is True, get token from environment variable or token file
-    token: Union[bool, str] = None
     components: List[HFComponent] = None
     dataset: Dict[str, Any] = None
     model_loading_args: HFModelLoadingArgs = None
@@ -224,14 +221,6 @@ class HFConfig(ConfigBase):
 
     def _get_loading_args(self):
         return self.model_loading_args.get_loading_args() if self.model_loading_args else {}
-
-    @validator("token")
-    def get_token(cls, v):
-        if isinstance(v, bool):
-            if v:
-                return get_huggingface_token()
-            return None
-        return v
 
     def load_model(self, model_path: str = None):
         """Load model from model_path or model_name."""
@@ -437,24 +426,3 @@ def get_model_max_length(model_name: str, fail_on_not_found=False) -> int:
             else:
                 logger.warning(not_found_msg)
                 return None
-
-
-def get_huggingface_token():
-    """Get huggingface token from environment variable or token file."""
-    import os
-
-    if os.getenv("HF_TOKEN"):
-        return os.getenv("HF_TOKEN")
-
-    token_path = Path.home() / ".huggingface" / "token"
-    if not token_path.exists():
-        logger.error(
-            "Huggingface token is required at this step."
-            f"Could not find huggingface token at {token_path}. "
-            "Please login to huggingface first using `huggingface-cli login`. "
-            "If you already logged in, Olive will get token from '~/.huggingface/token' file'. "
-            f"Please make sure the token file exists."
-        )
-        return None
-    with Path(token_path).open() as f:
-        return f.read().strip()

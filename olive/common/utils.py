@@ -232,3 +232,9 @@ def find_submodules(module, submodule_types, full_name=False):
             else:
                 submodules.add(name.split(".")[-1])
     return list(submodules) if submodules else None
+
+
+def huggingface_login(token: str):
+    from huggingface_hub import login
+
+    login(token=token)

@@ -40,8 +40,9 @@ class DockerSystem(OliveSystem):
         is_dev: bool = False,
         olive_managed_env: bool = False,
         requirements_file: Union[Path, str] = None,
+        hf_token: str = None,
     ):
-        super().__init__(accelerators=accelerators, olive_managed_env=olive_managed_env)
+        super().__init__(accelerators=accelerators, olive_managed_env=olive_managed_env, hf_token=hf_token)
         logger.info("Initializing Docker System...")
         self.is_dev = is_dev
         self.requirements_file = requirements_file
@@ -191,6 +192,8 @@ class DockerSystem(OliveSystem):
                 environment = {env.split("=")[0]: env.split("=")[1] for env in environment}
             elif isinstance(environment, dict) and not environment.get(k):
                 environment[k] = v
+        if self.hf_token:
+            environment.update({"HF_TOKEN": self.hf_token})
 
         logger.debug(f"Running container with eval command: {eval_command}")
         if accelerator.accelerator_type == Device.GPU:

@@ -108,3 +108,11 @@ class TestLocalSystem:
         joint_keys = [joint_metric_key(metric.name, sub_metric.name) for sub_metric in metric.sub_types]
         for joint_key in joint_keys:
             assert actual_res[joint_key].value == 0.38271531
+
+    @patch("olive.systems.local.huggingface_login")
+    def test_init_systel_with_hf_token(self, mock_huggingface_login):
+        # execute
+        LocalSystem(hf_token="hf_token")
+
+        # assert
+        mock_huggingface_login.assert_called_once_with("hf_token")

@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 import numpy as np
 import torch
 
-from olive.common.utils import get_package_name_from_ep, run_subprocess
+from olive.common.utils import get_package_name_from_ep, huggingface_login, run_subprocess
 from olive.evaluator.metric import (
     Metric,
     MetricResult,
@@ -49,8 +49,12 @@ class PythonEnvironmentSystem(OliveSystem):
         accelerators: List[str] = None,
         olive_managed_env: bool = False,
         requirements_file: Union[Path, str] = None,
+        hf_token: str = None,
     ):
-        super().__init__(accelerators=accelerators, olive_managed_env=olive_managed_env)
+        super().__init__(accelerators=accelerators, olive_managed_env=olive_managed_env, hf_token=hf_token)
+        if self.hf_token:
+            huggingface_login(self.hf_token)
+
         self.config = PythonEnvironmentTargetUserConfig(
             python_environment_path=python_environment_path,
             environment_variables=environment_variables,

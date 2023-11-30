@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+from olive.common.utils import huggingface_login
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorFactory
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ModelConfig
@@ -18,8 +19,10 @@ if TYPE_CHECKING:
 class LocalSystem(OliveSystem):
     system_type = SystemType.Local
 
-    def __init__(self, accelerators: List[str] = None):
-        super().__init__(accelerators=accelerators, olive_managed_env=False)
+    def __init__(self, accelerators: List[str] = None, hf_token: str = None):
+        super().__init__(accelerators=accelerators, olive_managed_env=False, hf_token=hf_token)
+        if self.hf_token:
+            huggingface_login(self.hf_token)
 
     def run_pass(
         self,

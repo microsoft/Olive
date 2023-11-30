@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import importlib
+import logging
 import shutil
 from pathlib import Path
 from typing import Dict, List, Union
@@ -14,9 +15,22 @@ from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.systems.common import AzureMLDockerConfig, LocalDockerConfig, SystemType
 
+logger = logging.getLogger(__name__)
+
 
 class TargetUserConfig(ConfigBase):
     accelerators: List[str] = None
+    # if hf_token is str, use it as token
+    # if hf_token is True, get token from environment variable or token file
+    hf_token: Union[bool, str] = None
+
+    @validator("hf_token")
+    def get_token(cls, v):
+        if isinstance(v, bool):
+            if v:
+                return get_huggingface_token()
+            return None
+        return v
 
 
 class LocalTargetUserConfig(TargetUserConfig):
@@ -118,3 +132,24 @@ class SystemConfig(ConfigBase):
         if system_class.system_type == SystemType.AzureML and not self.config.azureml_client_config:
             raise ValueError("azureml_client is required for AzureML system")
         return system_class(**self.config.dict())
+
+
+def get_huggingface_token():
+    """Get huggingface token from environment variable or token file."""
+    import os
+
+    if os.getenv("HF_TOKEN"):
+        return os.getenv("HF_TOKEN")
+
+    token_path = Path.home() / ".huggingface" / "token"
+    if not token_path.exists():
+        logger.error(
+            "Huggingface token is required at this step."
+            f"Could not find huggingface token at {token_path}. "
+            "Please login to huggingface first using `huggingface-cli login`. "
+            "If you already logged in, Olive will get token from '~/.huggingface/token' file'. "
+            f"Please make sure the token file exists."
+        )
+        return None
+    with Path(token_path).open() as f:
+        return f.read().strip()

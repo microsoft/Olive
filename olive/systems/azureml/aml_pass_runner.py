@@ -13,6 +13,7 @@ from onnxruntime import __version__ as ort_version
 from packaging import version
 
 from olive.common.config_utils import ParamCategory, validate_config
+from olive.common.utils import huggingface_login
 from olive.data.config import DataConfig
 from olive.hardware import AcceleratorSpec
 from olive.model import ModelConfig
@@ -86,9 +87,7 @@ def update_data_config(p, extra_args):
 def main(raw_args=None):
     hf_token = os.environ.get("HF_TOKEN")
     if hf_token:
-        from huggingface_hub import login
-
-        login(token=hf_token)
+        huggingface_login(hf_token)
 
     input_model_config, pipeline_output, extra_args = get_common_args(raw_args)
     pass_config_arg, extra_args = parse_pass_config_arg(extra_args)

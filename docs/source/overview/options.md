@@ -199,8 +199,11 @@ information of the system contains following items:
   There are some built-in system alias which could also be used as type. For example, `AzureNDV2System`. Please refer to [Olive System Alias](olive_system_alias) for the complete list of system alias.
 
 - `config: [Dict]` The system config dictionary that contains the system specific information.
+ - `accelerators: [List[str]]` The accelerators that will be used for this workflow.
+ - `hf_token: [Union[bool, str]]` Whether to use a Huggingface token to access Huggingface resources. If `hf_token` is of type str, it will be used directly as the token. If it is a bool and set to `True`, Olive will retrieve the token from the `HF_TOKEN` environment variable or from the token file located at `~/.huggingface/token`. If set to `False`, no token will be utilized during this workflow run. The default value is `False`.
 
-Please refer to [Configuring OliveSystem](configuring_olivesystem) for the more information of the system config dictionary.
+
+Please refer to [How To Configure System](../tutorials/configure_systems.rst) for the more information of the system config dictionary.
 
 ### Example
 ```json

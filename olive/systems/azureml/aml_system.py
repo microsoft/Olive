@@ -88,8 +88,9 @@ class AzureMLSystem(OliveSystem):
         accelerators: List[str] = None,
         olive_managed_env: bool = False,
         requirements_file: Union[Path, str] = None,
+        hf_token: str = None,
     ):
-        super().__init__(accelerators, olive_managed_env=olive_managed_env)
+        super().__init__(accelerators, olive_managed_env=olive_managed_env, hf_token=hf_token)
         self.instance_count = instance_count
         self.resources = resources
         self.is_dev = is_dev
@@ -102,6 +103,7 @@ class AzureMLSystem(OliveSystem):
         if aml_docker_config:
             aml_docker_config = validate_config(aml_docker_config, AzureMLDockerConfig)
             self.environment = self._create_environment(aml_docker_config)
+        self.environment_variables = {"HF_TOKEN": self.hf_token} if self.hf_token else None
 
     def _create_environment(self, docker_config: AzureMLDockerConfig):
         if docker_config.build_context_path:
@@ -279,7 +281,6 @@ class AzureMLSystem(OliveSystem):
         inputs,
         outputs,
         script_name,
-        environment_variables=None,
     ):
         # create arguments for inputs and outputs
         parameters = []
@@ -301,7 +302,7 @@ class AzureMLSystem(OliveSystem):
             command=cmd_line,
             resources=resources,
             environment=aml_environment,
-            environment_variables=environment_variables,
+            environment_variables=self.environment_variables,
             code=str(code),
             inputs=inputs,
             outputs=outputs,
@@ -353,10 +354,6 @@ class AzureMLSystem(OliveSystem):
         # pass type
         pass_type = pass_config["type"]
 
-        # prepare env variables
-        hf_token = model_config.get_hf_token()
-        environment_variables = {"HF_TOKEN": hf_token} if hf_token else None
-
         # aml command object
         cmd = self._create_step(
             name=pass_type,
@@ -370,7 +367,6 @@ class AzureMLSystem(OliveSystem):
             inputs=inputs,
             outputs=outputs,
             script_name=script_name,
-            environment_variables=environment_variables,
         )
 
         # model json
@@ -580,10 +576,6 @@ class AzureMLSystem(OliveSystem):
         # model args
         model_args = self._create_model_args(model_json, resource_paths, tmp_dir)
 
-        # prepare env variables
-        hf_token = model_config.get_hf_token()
-        environment_variables = {"HF_TOKEN": hf_token} if hf_token else None
-
         accelerator_config_path: Path = tmp_dir / "accelerator.json"
         with accelerator_config_path.open("w") as f:
             json.dump(accelerator.to_json(), f, sort_keys=True)
@@ -594,13 +586,7 @@ class AzureMLSystem(OliveSystem):
             for metric in metrics:
                 metric_tmp_dir = tmp_dir / metric.name
                 metric_component = self._create_metric_component(
-                    data_root,
-                    metric_tmp_dir,
-                    metric,
-                    model_args,
-                    resource_paths,
-                    accelerator_config_path,
-                    environment_variables,
+                    data_root, metric_tmp_dir, metric, model_args, resource_paths, accelerator_config_path
                 )
                 outputs[metric.name] = metric_component.outputs.pipeline_output
             return outputs
@@ -618,7 +604,6 @@ class AzureMLSystem(OliveSystem):
         model_args: Dict[str, Input],
         model_resource_paths: Dict[str, ResourcePath],
         accelerator_config_path: str,
-        environment_variables: Dict[str, str] = None,
     ):
         metric_json = metric.to_json(check_object=True)
 
@@ -665,7 +650,6 @@ class AzureMLSystem(OliveSystem):
             inputs=inputs,
             outputs=outputs,
             script_name=script_name,
-            environment_variables=environment_variables,
         )
 
         # input argument values

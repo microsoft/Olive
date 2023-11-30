@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from olive.common.utils import huggingface_login
 from olive.evaluator.metric import Metric
 from olive.hardware import AcceleratorSpec
 from olive.model import ModelConfig
@@ -50,9 +51,7 @@ def create_metric(metric_config, metric_args):
 def main(raw_args=None):
     hf_token = os.environ.get("HF_TOKEN")
     if hf_token:
-        from huggingface_hub import login
-
-        login(token=hf_token)
+        huggingface_login(hf_token)
 
     model_config, pipeline_output, extra_args = get_common_args(raw_args)
     metric_args, extra_args = parse_metric_args(extra_args)
