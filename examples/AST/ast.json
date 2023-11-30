@@ -16,7 +16,7 @@
                     "batch_size": 1,
                     "component_kwargs": {
                         "pre_process_data": {
-                            "remap_labels_use_filename": true
+                            "labels_to_filter": ["_silence_"]
                         }
                     }
                 }

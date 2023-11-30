@@ -225,15 +225,21 @@ def audio_classification_pre_process(
             The common arguments are the fields in olive.data.component.audio_classification.AudioClassificationParams.
             Extra arguments:
                 - max_duration (int, optional): Max duration of audio in seconds. Defaults to 30.
-                - remap_labels_use_filename (bool, optional): Whether or not to remap labels based on filename.
-                    Defaults to False.
-                - file_column_name (str, optional): Name of the column containing the filename. Defaults to "file".
+                - labels_to_filter (list, optional): List of labels to filter. Defaults to None.
             Note: the AudioClassificationParams subclass already includes the common arguments.
     """
     from datasets import Audio
     from transformers import AutoConfig, AutoFeatureExtractor
 
     assert len(input_cols) == 1, "Only one input column is supported for audio classification task."
+
+    # align labels with model configs
+    model_config = AutoConfig.from_pretrained(model_name, trust_remote_code=trust_remote_code)
+    labels_to_filter = kwargs.get("labels_to_filter", None) or []
+    dataset = dataset.filter(
+        lambda x: x not in dataset.features["label"].str2int(labels_to_filter), input_columns=label_cols[0]
+    )
+    dataset = dataset.align_labels_with_mapping(model_config.label2id, label_cols[0])
 
     fe_args = feature_extractor_args or {}
     fea_extractor = AutoFeatureExtractor.from_pretrained(model_name, trust_remote_code=trust_remote_code, **fe_args)
@@ -250,16 +256,8 @@ def audio_classification_pre_process(
             truncation=True,
             return_attention_mask=True,
         )
-        if kwargs.get("remap_labels_use_filename", False):
-            # remap labels based on filename
-            model_config = AutoConfig.from_pretrained(model_name, trust_remote_code=trust_remote_code)
-            label2id = model_config.label2id
-            noisy_label = len(label2id)
-            new_labels = []
-            for files in tokenized_inputs[kwargs.get("file_column_name", "file")]:
-                new_labels.append(label2id.get(files.split("/")[0], noisy_label))
-        else:
-            tokenized_inputs["label"] = examples[label_cols[0]]
+
+        tokenized_inputs["label"] = examples[label_cols[0]]
 
         return tokenized_inputs
 
