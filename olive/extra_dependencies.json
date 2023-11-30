@@ -1,6 +1,6 @@
 {
     "azureml": [
-        "azure-ai-ml>=0.1.0b6",
+        "azure-ai-ml>=1.11.1",
         "azure-identity",
         "azureml-fsspec"
     ],

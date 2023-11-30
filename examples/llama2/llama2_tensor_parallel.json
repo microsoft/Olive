@@ -22,9 +22,11 @@
     },
     "passes": {
         "tensor_parallel": {
-            "type": "LlamaPyTorchTensorParallel",
+            "type": "PyTorchTensorParallel",
             "config": {
-                "world_size": 2
+                "user_script": "llama2_tensor_parallel.py",
+                "class_name": "LlamaPyTorchTensorParallel",
+                "world_size": 4
             }
         },
         "conversion": {
@@ -33,6 +35,19 @@
                 "target_opset": 17,
                 "save_as_external_data": true,
                 "all_tensors_to_one_file": true
+            }
+        },
+        "transformers_optimization_fp16": {
+            "type": "OrtTransformersOptimization",
+            "config": {
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true,
+                "model_type": "gpt2",
+                "opt_level": 0,
+                "only_onnxruntime": false,
+                "keep_io_types": false,
+                "float16": true,
+                "use_gqa": true
             }
         }
     },

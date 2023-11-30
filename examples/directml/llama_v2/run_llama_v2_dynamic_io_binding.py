@@ -60,14 +60,16 @@ def run_llama_v2_io_binding(
         )
     ]
 
+    sampling_session_options = onnxruntime.SessionOptions()
+    sampling_session_options.add_free_dimension_override_by_name("batch_size", 1)
     argmax_sampling_session = onnxruntime.InferenceSession(
         os.path.join(model_dir, "argmax_sampling/model.onnx"),
-        sess_options=onnxruntime.SessionOptions(),
+        sess_options=sampling_session_options,
         providers=providers,
     )
 
     llm_session_options = onnxruntime.SessionOptions()
-    llm_session_options.add_free_dimension_override_by_name("seq_len_increment", 1)
+    llm_session_options.add_free_dimension_override_by_name("batch_size", 1)
     llm_session = onnxruntime.InferenceSession(
         os.path.join(model_dir, "llama_v2/decoder_model_merged.onnx"),
         sess_options=llm_session_options,

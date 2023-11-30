@@ -61,6 +61,7 @@ class LlamaOnnxDmlInterface(BaseLLMInterface):
         ]
 
         llm_session_options = onnxruntime.SessionOptions()
+        llm_session_options.add_free_dimension_override_by_name("batch_size", 1)
         llm_session_options.add_free_dimension_override_by_name("seq_len_increment", 1)
 
         self.llm_session = onnxruntime.InferenceSession(
@@ -69,9 +70,11 @@ class LlamaOnnxDmlInterface(BaseLLMInterface):
             providers=providers,
         )
 
+        sampling_session_options = onnxruntime.SessionOptions()
+        sampling_session_options.add_free_dimension_override_by_name("batch_size", 1)
         self.sampling_session = onnxruntime.InferenceSession(
             self.sampling_onnx_file,
-            sess_options=onnxruntime.SessionOptions(),
+            sess_options=sampling_session_options,
             providers=providers,
         )
 
