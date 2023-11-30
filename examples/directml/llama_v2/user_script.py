@@ -34,7 +34,7 @@ def load_argmax_sampling_model(model_path):
 
 
 def argmax_sampling_inputs(model):
-    batch_size = 1
+    batch_size = 2
     vocab_size = 32000
     return torch.zeros((batch_size, vocab_size), dtype=torch.float16)
 
@@ -105,10 +105,10 @@ def load_decoder_model(model_path):
 
 
 def decoder_inputs(model):
-    batch_size = 1
+    batch_size = 2
     seq_len = 10
     hidden_size = 4096
-    max_seq_len = 2048
+    max_seq_len = 256
     num_heads = 32
     head_size = hidden_size // num_heads
 
@@ -138,9 +138,9 @@ def load_decoder_with_past_model(model_path):
 
 
 def decoder_with_past_inputs(model):
-    batch_size = 1
+    batch_size = 2
     hidden_size = 4096
-    max_seq_len = 2048
+    max_seq_len = 256
     num_heads = 32
     head_size = hidden_size // num_heads
     return {
@@ -163,9 +163,9 @@ def decoder_with_past_inputs(model):
 
 
 def merged_decoders_inputs(model):
-    batch_size = 1
+    batch_size = 2
     hidden_size = 4096
-    max_seq_len = 2048
+    max_seq_len = 256
     num_heads = 32
     head_size = hidden_size // num_heads
     seq_len = 10
