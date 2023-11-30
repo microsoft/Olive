@@ -6,7 +6,6 @@ import logging
 from copy import deepcopy
 from functools import partial
 from itertools import chain
-from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import torch
