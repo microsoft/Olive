@@ -6,3 +6,4 @@ bitsandbytes==0.41.1
 optimum
 peft
 scikit-learn
+torch-ort
