@@ -800,7 +800,13 @@
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">task</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">components</span><span class="p">:</span>
             <span class="c1"># hf_config is provided</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using hf onnx_config to get io_config&quot;</span><span class="p">)</span>
-            <span class="n">io_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">get_io_config</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span>
+            <span class="c1"># For MLFlow model, get io config from model_name instead of model_path</span>
+            <span class="c1"># TODO(xiaoyu): more investigation on the integration between MLFlow and HF</span>
+            <span class="n">io_config</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">get_io_config</span><span class="p">()</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_file_format</span> <span class="o">==</span> <span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">PYTORCH_MLFLOW_MODEL</span>
+                <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">get_io_config</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span>
+            <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">io_config</span>
 
