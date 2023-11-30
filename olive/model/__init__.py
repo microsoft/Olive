@@ -670,7 +670,13 @@ class PyTorchModel(OliveModel):
         elif self.hf_config and self.hf_config.task and not self.hf_config.components:
             # hf_config is provided
             logger.debug("Using hf onnx_config to get io_config")
-            io_config = self.hf_config.get_io_config(self.model_path)
+            # For MLFlow model, get io config from model_name instead of model_path
+            # TODO(xiaoyu): more investigation on the integration between MLFlow and HF
+            io_config = (
+                self.hf_config.get_io_config()
+                if self.model_file_format == ModelFileFormat.PYTORCH_MLFLOW_MODEL
+                else self.hf_config.get_io_config(self.model_path)
+            )
 
         return io_config
 
