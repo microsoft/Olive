@@ -1,7 +1,7 @@
 accelerate
 diffusers
 onnx
-onnxruntime-directml>=1.16.0
+onnxruntime-directml>=1.16.2
 pillow
 protobuf==3.20.3 # protobuf 4.x aborts with OOM when optimizing unet
 torch

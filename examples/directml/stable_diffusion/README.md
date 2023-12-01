@@ -2,7 +2,7 @@
 
 This sample shows how to optimize [Stable Diffusion v1-4](https://huggingface.co/CompVis/stable-diffusion-v1-4), [Stable Diffusion v1-5](https://huggingface.co/runwayml/stable-diffusion-v1-5) or [Stable Diffusion v2](https://huggingface.co/stabilityai/stable-diffusion-2) to run with ONNX Runtime and DirectML.
 
-Stable Diffusion comprises multiple PyTorch models tied together into a *pipeline*. This Olive sample will convert each PyTorch model to ONNX, and then run the converted ONNX models through the `OrtTransformersOptimization` pass. The transformer optimization pass performs several time-consuming graph transformations that make the models more efficient for inference at runtime. Output models are only guaranteed to be compatible with onnxruntime-directml 1.15.0 or newer.
+Stable Diffusion comprises multiple PyTorch models tied together into a *pipeline*. This Olive sample will convert each PyTorch model to ONNX, and then run the converted ONNX models through the `OrtTransformersOptimization` pass. The transformer optimization pass performs several time-consuming graph transformations that make the models more efficient for inference at runtime. Output models are only guaranteed to be compatible with onnxruntime-directml 1.16.2 or newer.
 
 **Contents**:
 - [Setup](#setup)
@@ -20,10 +20,10 @@ Olive is currently under pre-release, with constant updates and improvements to 
 
 ```
 # Install stable release of the Olive tool
-pip install olive-ai[directml]==0.2.1
+pip install olive-ai[directml]==0.4.0
 
 # Clone Olive repo to access sample code
-git clone https://github.com/microsoft/olive --branch v0.2.1
+git clone https://github.com/microsoft/olive --branch v0.4.0
 ```
 
 Once you've installed Olive, install the requirements for this sample matching the version of the library you are using:
