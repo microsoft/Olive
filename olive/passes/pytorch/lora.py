@@ -142,6 +142,14 @@ class LoRABase(Pass):
             "use_ort_trainer": PassConfigParam(
                 type_=bool, default_value=False, description="Whether or not to use ORTTrainer."
             ),
+            "ortmodule_onnx_opset_version": PassConfigParam(
+                type_=int,
+                default_value=16,
+                description=(
+                    "The opset version to use for ONNX export when using ORTTrainer. Only used if use_ort_trainer is"
+                    " True. 16+ is required when using bfloat16 and model has operators such as Where."
+                ),
+            ),
             "lora_r": PassConfigParam(type_=int, default_value=64, description="Lora attention dimension."),
             "lora_alpha": PassConfigParam(
                 type_=float, default_value=16, description="The alpha parameter for Lora scaling."
@@ -255,19 +263,14 @@ class LoRABase(Pass):
                     " use_ort_trainer=True."
                 )
 
-            # set the opset version to 16 if using bfloat16
-            if uses_bf16:
-                original_opset_version = os.environ.get("ORTMODULE_ONNX_OPSET_VERSION", None)
-                # will try to convert to int, if not possible, will set to -1
-                try:
-                    original_opset_version = int(original_opset_version)
-                except (ValueError, TypeError):
-                    # ValueError: original_opset_version is not a string representation of an integer. E.g. "dummy"
-                    # TypeError: original_opset_version is None
-                    original_opset_version = -1
-                if original_opset_version < 16:
-                    logger.debug("Setting ORTMODULE_ONNX_OPSET_VERSION to 16")
-                    os.environ["ORTMODULE_ONNX_OPSET_VERSION"] = "16"
+            assert config.ortmodule_onnx_opset_version > 0, "ortmodule_onnx_opset_version must be a positive integer."
+            # ops such as Where only support bfloat16 from opset 16
+            if uses_bf16 and config.ortmodule_onnx_opset_version < 16:
+                logger.warning(
+                    f"ortmodule_onnx_opset_version is {config.ortmodule_onnx_opset_version} but training with bfloat16"
+                    " might not work properly with opset versions < 16"
+                )
+            os.environ["ORTMODULE_ONNX_OPSET_VERSION"] = str(config.ortmodule_onnx_opset_version)
 
         # bitsandbytes quantization only supported after transformers 4.30.0
         if is_qlora and version.parse(transformers.__version__) < version.parse("4.30.0"):

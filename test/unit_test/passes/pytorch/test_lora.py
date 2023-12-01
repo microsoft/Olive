@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 import os
 import sys
 from pathlib import Path
@@ -112,18 +113,28 @@ def clean_env_fixture():
 
 
 @pytest.mark.usefixtures("clean_env", "mock_torch_ort")
-@pytest.mark.parametrize(
-    "env_value,expected_value", [(None, "16"), ("8", "16"), ("dummy", "16"), ("16", "16"), ("17", "17")]
-)
+@pytest.mark.parametrize("value,expected_value", [(None, "16"), (-1, None), (16, "16"), (15, "15"), (17, "17")])
 @patch("olive.passes.pytorch.lora.LoRA.train_and_save_new_model")
 @patch("optimum.onnxruntime.utils.is_onnxruntime_training_available", return_value=True)
 @patch("onnxruntime.__version__", "1.17.0")
-def test_ortmodule_onnx_opset_version(_, tmp_path, env_value, expected_value):
-    if env_value is not None:
-        os.environ["ORTMODULE_ONNX_OPSET_VERSION"] = env_value
-
+def test_ortmodule_onnx_opset_version(_, tmp_path, caplog, value, expected_value):
     # execute
-    run_finetuning(LoRA, tmp_path, use_ort_trainer=True)
+    pass_config_kwargs = {"use_ort_trainer": True}
+    if value is not None:
+        pass_config_kwargs["ortmodule_onnx_opset_version"] = value
 
-    # assert
-    assert os.environ["ORTMODULE_ONNX_OPSET_VERSION"] == expected_value
+    if expected_value is None:
+        # invalid value
+        with pytest.raises(AssertionError):
+            run_finetuning(LoRA, tmp_path, **pass_config_kwargs)
+    else:
+        # capture logging to check for opset < 16 warning
+        logger = logging.getLogger("olive")
+        logger.propagate = True
+
+        run_finetuning(LoRA, tmp_path, **pass_config_kwargs)
+
+        # assert
+        assert os.environ["ORTMODULE_ONNX_OPSET_VERSION"] == expected_value
+        if int(expected_value) < 16:
+            assert "training with bfloat16 might not work properly" in caplog.text
