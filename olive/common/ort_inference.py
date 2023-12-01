@@ -26,9 +26,12 @@ def get_ort_inference_session(
     session_options = inference_settings.get("session_options", {})
     inter_op_num_threads = session_options.get("inter_op_num_threads")
     intra_op_num_threads = session_options.get("intra_op_num_threads")
+    enable_profiling = session_options.get("enable_profiling", False)
     execution_mode = session_options.get("execution_mode")
     graph_optimization_level = session_options.get("graph_optimization_level")
     extra_session_config = session_options.get("extra_session_config")
+    if enable_profiling:
+        sess_options.enable_profiling = True
     if inter_op_num_threads:
         sess_options.inter_op_num_threads = inter_op_num_threads
     if intra_op_num_threads:

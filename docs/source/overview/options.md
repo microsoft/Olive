@@ -347,7 +347,14 @@ information of the evaluator contains following items:
                 "user_config":{
                     "user_script": "user_script.py",
                     "dataloader_func": "create_dataloader",
-                    "batch_size": 1
+                    "batch_size": 1,
+                    "inference_settings" : {
+                        "onnx": {
+                            "session_options": {
+                                "enable_profiling": true
+                            }
+                        }
+                    }
                 }
             }
         ]
