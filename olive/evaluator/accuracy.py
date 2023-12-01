@@ -130,7 +130,7 @@ class AUROC(AccuracyBase):
 
     def measure(self, model_output, target):
         logits_tensor, target_tensor = self.prepare_tensors(model_output.logits, target, [torch.float, torch.int32])
-        if self.config_dict.get("task") == "binary":
+        if self.config_dict.get("task") == "binary" and len(logits_tensor.shape) > 1 and logits_tensor.shape[-1] == 2:
             logits_tensor = torch.softmax(logits_tensor, dim=-1)[:, 1]
         auroc = torchmetrics.AUROC(**self.config_dict)
         target_tensor = target_tensor.flatten()
