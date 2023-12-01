@@ -235,7 +235,7 @@ class LoRABase(Pass):
 
                 assert is_onnxruntime_training_available(), "onnxruntime-training is not available."
             except (ImportError, AssertionError):
-                raise RuntimeError(
+                raise ImportError(
                     "Please install `olive-ai[optimum,ort-training]` or `onnxruntime-training optimum torch-ort` to use"
                     f" {cls.__name__} pass with use_ort_trainer=True."
                 ) from None
@@ -250,7 +250,7 @@ class LoRABase(Pass):
 
             # onnxruntime-training doesn't support bfloat16 fully until 1.17.0
             if uses_bf16 and version.parse(OrtVersion) < version.parse("1.17.0"):
-                raise RuntimeError(
+                raise ImportError(
                     f"Please install onnxruntime >= 1.17.0 to use {cls.__name__} with bfloat16 and"
                     " use_ort_trainer=True."
                 )
@@ -262,6 +262,8 @@ class LoRABase(Pass):
                 try:
                     original_opset_version = int(original_opset_version)
                 except (ValueError, TypeError):
+                    # ValueError: original_opset_version is not a string representation of an integer. E.g. "dummy"
+                    # TypeError: original_opset_version is None
                     original_opset_version = -1
                 if original_opset_version < 16:
                     logger.debug("Setting ORTMODULE_ONNX_OPSET_VERSION to 16")
@@ -269,7 +271,7 @@ class LoRABase(Pass):
 
         # bitsandbytes quantization only supported after transformers 4.30.0
         if is_qlora and version.parse(transformers.__version__) < version.parse("4.30.0"):
-            raise RuntimeError(f"Please install transformers >= 4.30.0 to use {cls.__name__} pass.")
+            raise ImportError(f"Please install transformers >= 4.30.0 to use {cls.__name__} pass.")
 
     @staticmethod
     def collate_batch(batch: List[Dict], tokenizer: transformers.PreTrainedTokenizer) -> Dict[str, torch.Tensor]:

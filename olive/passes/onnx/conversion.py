@@ -163,7 +163,7 @@ class OnnxConversion(Pass):
             # available since torch==2.1.0
             torch_version = torch.__version__
             if version.parse(torch_version) < version.parse("2.1.0"):
-                raise RuntimeError(
+                raise ImportError(
                     f"torch.onnx.dynamo_export is not available for torch version {torch_version}. "
                     "Please upgrade your torch version to 2.1.0 or above."
                 )
