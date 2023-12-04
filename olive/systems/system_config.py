@@ -17,6 +17,7 @@ from olive.systems.common import AzureMLDockerConfig, LocalDockerConfig, SystemT
 
 class TargetUserConfig(ConfigBase):
     accelerators: List[str] = None
+    hf_token: bool = None
 
 
 class LocalTargetUserConfig(TargetUserConfig):

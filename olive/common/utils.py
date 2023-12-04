@@ -231,4 +231,25 @@ def find_submodules(module, submodule_types, full_name=False):
                 submodules.add(name)
             else:
                 submodules.add(name.split(".")[-1])
-    return list(submodules)
+    return list(submodules) if submodules else None
+
+
+def huggingface_login(token: str):
+    from huggingface_hub import login
+
+    login(token=token)
+
+
+def aml_runner_hf_login():
+    import os
+
+    from azure.identity import DefaultAzureCredential
+    from azure.keyvault.secrets import SecretClient
+
+    hf_token = os.environ.get("HF_TOKEN")
+    if hf_token:
+        keyvault_name = os.environ.get("KEYVAULT_NAME")
+        credential = DefaultAzureCredential()
+        secret_client = SecretClient(vault_url=f"https://{keyvault_name}.vault.azure.net/", credential=credential)
+        token = secret_client.get_secret("hf-token").value
+        huggingface_login(token)

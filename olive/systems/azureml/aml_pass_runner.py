@@ -12,6 +12,7 @@ from onnxruntime import __version__ as ort_version
 from packaging import version
 
 from olive.common.config_utils import ParamCategory, validate_config
+from olive.common.utils import aml_runner_hf_login
 from olive.data.config import DataConfig
 from olive.hardware import AcceleratorSpec
 from olive.model import ModelConfig
@@ -83,6 +84,9 @@ def update_data_config(p, extra_args):
 
 
 def main(raw_args=None):
+    # login to hf if HF_TOKEN is set to True
+    aml_runner_hf_login()
+
     input_model_config, pipeline_output, extra_args = get_common_args(raw_args)
     pass_config_arg, extra_args = parse_pass_config_arg(extra_args)
 
