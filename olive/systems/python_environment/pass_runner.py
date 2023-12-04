@@ -16,7 +16,7 @@ def get_args(raw_args):
 
     parser.add_argument("--model_config", type=str, required=True, help="Path to input model json file")
     parser.add_argument("--pass_config", type=str, required=True, help="Path to pass json file")
-    parser.add_argument("--point_config", type=str, default=None, help="Path to point json file")
+    parser.add_argument("--point_config", type=str, required=True, help="Path to point json file")
     parser.add_argument("--data_root", type=str, required=False, help="Path to data root")
     parser.add_argument("--tempdir", type=str, required=False, help="Root directory for tempfile directories and files")
     parser.add_argument("--output_model_path", type=str, required=True, help="Path to output model file")

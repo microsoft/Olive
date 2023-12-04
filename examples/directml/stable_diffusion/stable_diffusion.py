@@ -6,7 +6,6 @@ import argparse
 import json
 import shutil
 import sys
-import tempfile
 import threading
 import tkinter as tk
 import tkinter.ttk as ttk
@@ -22,6 +21,7 @@ from packaging import version
 from PIL import Image, ImageTk
 from user_script import get_base_model_name
 
+from olive.common.utils import set_tempdir
 from olive.model import ONNXModel
 from olive.workflows import run as olive_run
 
@@ -385,11 +385,7 @@ if __name__ == "__main__":
     config.image_size = model_to_image_size.get(args.model_id, 512)
 
     if args.optimize or not optimized_model_dir.exists():
-        if args.tempdir is not None:
-            # set tempdir if specified
-            tempdir = Path(args.tempdir).resolve()
-            tempdir.mkdir(parents=True, exist_ok=True)
-            tempfile.tempdir = str(tempdir)
+        set_tempdir(args.tempdir)
 
         # TODO(jstoecker): clean up warning filter (mostly during conversion from torch to ONNX)
         with warnings.catch_warnings():

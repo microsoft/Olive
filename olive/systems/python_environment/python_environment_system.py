@@ -74,10 +74,10 @@ class PythonEnvironmentSystem(OliveSystem):
         self.pass_runner_path = Path(__file__).parent.resolve() / "pass_runner.py"
         self.evaluation_runner_path = Path(__file__).parent.resolve() / "evaluation_runner.py"
 
-    def _run_command(self, script_path: Path, config_jsons: Dict[str, Any], **extra_args) -> Dict[str, Any]:
+    def _run_command(self, script_path: Path, config_jsons: Dict[str, Any], **kwargs) -> Dict[str, Any]:
         """Run a script with the given config jsons and return the output json."""
         with tempfile.TemporaryDirectory() as tmp_dir:
-            tmp_dir_path = Path(tmp_dir)
+            tmp_dir_path = Path(tmp_dir).resolve()
 
             # write config jsons to files
             args = []
@@ -90,7 +90,7 @@ class PythonEnvironmentSystem(OliveSystem):
             # command to run
             command = f"python {script_path} {' '.join(args)}"
             # add extra args
-            for key, value in extra_args.items():
+            for key, value in kwargs.items():
                 if value is None:
                     continue
                 command += f" --{key} {value}"
@@ -115,8 +115,8 @@ class PythonEnvironmentSystem(OliveSystem):
     ) -> ModelConfig:
         """Run the pass on the model at a specific point in the search space."""
         config_jsons = {
-            "model_config": model_config.to_json(),
-            "pass_config": the_pass.to_json(),
+            "model_config": model_config.to_json(check_object=True),
+            "pass_config": the_pass.to_json(check_object=True),
             "point_config": point or {},
         }
         output_model_json = self._run_command(
@@ -133,8 +133,8 @@ class PythonEnvironmentSystem(OliveSystem):
     ) -> MetricResult:
         """Evaluate the model."""
         config_jsons = {
-            "model_config": model_config.to_json(),
-            "metrics_config": [metric.to_json() for metric in metrics],
+            "model_config": model_config.to_json(check_object=True),
+            "metrics_config": [metric.to_json(check_object=True) for metric in metrics],
             "accelerator_config": accelerator.to_json(),
         }
         metric_results = self._run_command(

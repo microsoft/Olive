@@ -3,12 +3,11 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import platform
-from test.unit_test.utils import create_onnx_model_file, get_latency_metric, get_onnx_model_config
+from test.unit_test.utils import create_onnx_model_file, get_custom_metric, get_onnx_model_config
 
 import pytest
 
 from olive.engine import Engine
-from olive.evaluator.metric import LatencySubType
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import Device
 from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
@@ -34,7 +33,7 @@ class TestOliveManagedPythonEnvironmentSystem:
         self.execution_providers = ["DmlExecutionProvider", "OpenVINOExecutionProvider"]
         output_dir = tmpdir
 
-        metric = get_latency_metric(LatencySubType.AVG)
+        metric = get_custom_metric()
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {"execution_providers": self.execution_providers}
         engine = Engine(options, target=self.system, host=self.system, evaluator_config=evaluator_config)
@@ -57,7 +56,7 @@ class TestOliveManagedPythonEnvironmentSystem:
         self.execution_providers = ["CPUExecutionProvider", "OpenVINOExecutionProvider"]
         output_dir = tmpdir
 
-        metric = get_latency_metric(LatencySubType.AVG)
+        metric = get_custom_metric()
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {"execution_providers": self.execution_providers}
         engine = Engine(options, target=self.system, host=self.system, evaluator_config=evaluator_config)

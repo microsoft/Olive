@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader, Dataset
 from olive.constants import Framework
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
-from olive.evaluator.metric import Metric, MetricType
+from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
 from olive.evaluator.metric_config import MetricGoal
 from olive.model import ModelConfig, ONNXModel, OptimumModel, PyTorchModel
 from olive.passes.olive_pass import create_pass_from_dict
@@ -168,6 +168,24 @@ def get_accuracy_metric(*acc_subtype, random_dataloader=True, user_config=None, 
         sub_types=sub_types,
         user_config=user_config or accuracy_metric_config,
         backend=backend,
+    )
+
+
+def get_glue_accuracy_metric():
+    return Metric(
+        name="accuracy",
+        type=MetricType.ACCURACY,
+        sub_types=[{"name": AccuracySubType.ACCURACY_SCORE}],
+        data_config=get_glue_huggingface_data_config(),
+    )
+
+
+def get_glue_latency_metric():
+    return Metric(
+        name="latency",
+        type=MetricType.LATENCY,
+        sub_types=[{"name": LatencySubType.AVG}],
+        data_config=get_glue_huggingface_data_config(),
     )
 
 
