@@ -683,8 +683,10 @@ def test_aml_system_with_hf_token(mock_env):
         base_image="base_image",
         conda_file_path="conda_file_path",
     )
+    expected_env_vars = {"HF_LOGIN": True, "KEYVAULT_NAME": "keyvault_name"}
+
+    # execute
     system = AzureMLSystem(mock_azureml_client_config, "dummy", docker_config, hf_token=True)
-    expected_env_vars = {"HF_TOKEN": True, "KEYVAULT_NAME": "keyvault_name"}
 
     # assert
     assert system.env_vars == expected_env_vars
