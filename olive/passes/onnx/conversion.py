@@ -478,5 +478,6 @@ class OnnxOpVersionConversion(Pass):
             logger.info(f"Model is already in target opset version {config['target_opset']}.")
             return model
 
+        output_model_path = ONNXModel.resolve_path(output_model_path)
         model_proto = onnx.version_converter.convert_version(model_proto, config["target_opset"])
         return model_proto_to_olive_model(model_proto, output_model_path, config)
