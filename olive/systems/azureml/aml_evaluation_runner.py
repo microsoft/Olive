@@ -48,7 +48,7 @@ def create_metric(metric_config, metric_args):
 
 
 def main(raw_args=None):
-    # login to hf if HF_TOKEN is set to True
+    # login to hf if HF_LOGIN is set to True
     aml_runner_hf_login()
 
     model_config, pipeline_output, extra_args = get_common_args(raw_args)

@@ -111,7 +111,7 @@ class AzureMLSystem(OliveSystem):
                 "hf_token is set to True but keyvault name is not provided. "
                 "Please provide a keyvault name to use HF_TOKEN."
             )
-        env_vars = {"HF_TOKEN": True}
+        env_vars = {"HF_LOGIN": True}
         env_vars.update({"KEYVAULT_NAME": keyvault_name})
         return env_vars
 
