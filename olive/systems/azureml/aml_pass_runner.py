@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import argparse
 import json
-import logging
 import shutil
 import tempfile
 from pathlib import Path
@@ -16,16 +15,11 @@ from olive.common.config_utils import ParamCategory, validate_config
 from olive.common.utils import aml_runner_hf_login
 from olive.data.config import DataConfig
 from olive.hardware import AcceleratorSpec
-from olive.logging import set_verbosity_debug
 from olive.model import ModelConfig
 from olive.passes import REGISTRY as PASS_REGISTRY
 from olive.passes import FullPassConfig
 from olive.resource_path import create_resource_path
 from olive.systems.utils import get_common_args
-
-logging.basicConfig(level=logging.DEBUG)
-
-set_verbosity_debug()
 
 
 def parse_pass_config_arg(raw_args):
