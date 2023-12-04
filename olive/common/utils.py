@@ -243,12 +243,14 @@ def huggingface_login(token: str):
 def aml_runner_hf_login():
     import os
 
-    from azure.identity import DefaultAzureCredential
-    from azure.keyvault.secrets import SecretClient
-
     hf_token = os.environ.get("HF_TOKEN")
     if hf_token:
+        from azure.identity import DefaultAzureCredential
+        from azure.keyvault.secrets import SecretClient
+
         keyvault_name = os.environ.get("KEYVAULT_NAME")
+        logger.debug(f"Getting token from keyvault {keyvault_name}")
+
         credential = DefaultAzureCredential()
         secret_client = SecretClient(vault_url=f"https://{keyvault_name}.vault.azure.net/", credential=credential)
         token = secret_client.get_secret("hf-token").value
