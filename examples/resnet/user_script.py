@@ -158,7 +158,7 @@ def eval_accuracy(model: OliveModel, data_dir, batch_size, device, execution_pro
 
     preds_tensor = torch.tensor(preds, dtype=torch.int)
     target_tensor = torch.tensor(target, dtype=torch.int)
-    accuracy = torchmetrics.Accuracy(task="binary", num_classes=1000)
+    accuracy = torchmetrics.Accuracy(task="multiclass", num_classes=1000)
     result = accuracy(preds_tensor, target_tensor)
     return result.item()
 
