@@ -28,6 +28,9 @@ class OrtMixedPrecision(Pass):
                 default_value=["SimplifiedLayerNormalization", "SkipSimplifiedLayerNormalization", "Relu", "Add"],
                 description="List of op types to leave as float32",
             ),
+            "atol": PassConfigParam(
+                type_=float, default_value=1e-6, description="Absolute tolerance for checking float16 conversion"
+            ),
         }
         config.update(get_external_data_config())
         return config
@@ -71,7 +74,7 @@ class OrtMixedPrecision(Pass):
             # we can deduce that the weights are stored in float16 precision.
             max_diff = float_to_float16_max_diff(initializer)
             logger.debug(f"max diff of converting weights in last MatMul node {node.name}: {max_diff}")
-            is_weight_fp16_precision = max_diff < 1e-6
+            is_weight_fp16_precision = max_diff < config["atol"]
         else:
             logger.warning(f"Failed to find MatMul node for logits. Found {node.op_type} of node {node.name}")
 

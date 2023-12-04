@@ -634,7 +634,7 @@ class PyTorchModel(OliveModel):
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ):
-        return self.load_model().eval()
+        return self.load_model(rank).eval()
 
     def _resolve_io_config(self, io_config: Union[Dict[str, Any], IOConfig, str, Callable]) -> Dict[str, Any]:
         """Resolve io_config to a dictionary.
@@ -670,7 +670,13 @@ class PyTorchModel(OliveModel):
         elif self.hf_config and self.hf_config.task and not self.hf_config.components:
             # hf_config is provided
             logger.debug("Using hf onnx_config to get io_config")
-            io_config = self.hf_config.get_io_config(self.model_path)
+            # For MLFlow model, get io config from model_name instead of model_path
+            # TODO(xiaoyu): more investigation on the integration between MLFlow and HF
+            io_config = (
+                self.hf_config.get_io_config()
+                if self.model_file_format == ModelFileFormat.PYTORCH_MLFLOW_MODEL
+                else self.hf_config.get_io_config(self.model_path)
+            )
 
         return io_config
 
@@ -793,7 +799,7 @@ class PyTorchModel(OliveModel):
             for key, value in self.get_hf_model_config().to_dict().items():
                 if key in model_attributes and model_attributes[key] == value:
                     del model_attributes[key]
-        config["config"]["model_attributes"] = model_attributes or None
+        config["config"]["model_attributes"] = model_attributes or {}
         return serialize_to_json(config, check_object)
 
 
@@ -1016,7 +1022,12 @@ class DistributedOnnxModel(ONNXModelBase):
         return Path(self.model_path) / self.ranked_model_name(rank)
 
     def load_model(self, rank: int = None) -> ONNXModel:
-        return ONNXModel(self.ranked_model_path(rank), inference_settings=self.inference_settings)
+        return ONNXModel(
+            self.ranked_model_path(rank),
+            inference_settings=self.inference_settings,
+            use_ort_extensions=self.use_ort_extensions,
+            model_attributes=self.model_attributes,
+        )
 
     def prepare_session(
         self,
@@ -1119,6 +1130,7 @@ class DistributedPyTorchModel(OliveModel):
     def load_model(self, rank: int = None) -> PyTorchModel:
         return PyTorchModel(
             model_path=self.ranked_model_path(rank),
+            model_file_format=ModelFileFormat.PYTORCH_ENTIRE_MODEL,
             model_loader=self.model_loader,
             model_script=self.model_script,
             script_dir=self.script_dir,
@@ -1136,7 +1148,7 @@ class DistributedPyTorchModel(OliveModel):
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = 0,
     ) -> torch.nn.Module:
-        return self.load_model(rank).load_model().eval()
+        return self.load_model(rank).load_model(rank).eval()
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)

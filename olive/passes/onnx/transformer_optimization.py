@@ -192,8 +192,8 @@ class OrtTransformersOptimization(Pass):
             del run_config[key]
 
         if model.model_attributes:
-            model_config = model.model_attributes
-            input_model_type = model_config.get("model_type")
+            model_attributes = model.model_attributes
+            input_model_type = model_attributes.get("model_type")
             if input_model_type:
                 model_type = MODEL_TYPE_MAPPING.get(input_model_type, input_model_type)
             else:
@@ -201,13 +201,13 @@ class OrtTransformersOptimization(Pass):
             run_config["model_type"] = run_config["model_type"] or model_type
             if run_config["num_heads"] == 0:
                 for num_heads_name in NUM_HEADS_NAMES:
-                    if num_heads_name in model_config:
-                        run_config["num_heads"] = model_config[num_heads_name]
+                    if num_heads_name in model_attributes:
+                        run_config["num_heads"] = model_attributes[num_heads_name]
                         break
             if run_config["hidden_size"] == 0:
                 for hidden_size_name in HIDDEN_SIZE_NAMES:
-                    if hidden_size_name in model_config:
-                        run_config["hidden_size"] = model_config[hidden_size_name]
+                    if hidden_size_name in model_attributes:
+                        run_config["hidden_size"] = model_attributes[hidden_size_name]
                         break
 
         if run_config["model_type"] is None or run_config["model_type"] not in transformers_optimizer.MODEL_TYPES:
@@ -243,9 +243,8 @@ class OrtTransformersOptimization(Pass):
                         "num_key_value_heads is not specified in the model attributes. "
                         "Please specify it in the model attributes."
                     )
-                # TODO(anyone): Access `world_size` from the pass config or the model attributes
-                # this is needed for tensor parallel models
-                optimizer = self._replace_mha_with_gqa(optimizer, kv_num_heads=num_kv_heads)
+                world_size = model.model_attributes.get("world_size") or 1
+                optimizer = self._replace_mha_with_gqa(optimizer, kv_num_heads=num_kv_heads, world_size=world_size)
                 optimizer.prune_graph()
                 # add allow_remove_graph_inputs to pass config
                 optimizer.update_graph(allow_remove_graph_inputs=True)

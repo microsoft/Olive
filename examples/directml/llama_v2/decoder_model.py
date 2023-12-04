@@ -198,8 +198,8 @@ class ApplyMask(torch.nn.Module):
 
         if not use_cache:
             batch_size, max_seq_len = attn_mask.size()
-            causal_mask = torch.tril(torch.ones((batch_size, max_seq_len, max_seq_len)))
-            causal_mask = causal_mask[:, -seq_len:, :]
+            causal_mask = torch.tril(torch.ones((batch_size, 1, max_seq_len, max_seq_len)))
+            causal_mask = causal_mask[:, :, -seq_len:, :]
             inverted_causal_mask = 1.0 - causal_mask
             mask_score += inverted_causal_mask.masked_fill(inverted_causal_mask.to(torch.bool), -10000.0)
 

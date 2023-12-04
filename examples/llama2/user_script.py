@@ -56,15 +56,12 @@ def get_merged_sample_with_past_kv_inputs(
     # By using a single function with no default values, we can avoid confusion and are deliberate about the sizes
     # can instead write dummy input functions like 'get_merged_decoder_with_past_dummy_inputs' if needed
 
-    if model_id:
-        config = LlamaConfig.from_pretrained(model_id)
-    else:
-        config = LlamaConfig.from_pretrained(model.hf_config.model_name)
-
+    config = model.get_hf_model_config() if model else LlamaConfig.from_pretrained(model_id)
+    world_size = config.world_size if hasattr(config, "world_size") else 1
     input_ids = torch.randint(low=0, high=config.vocab_size, size=(batch_size, seq_len), dtype=torch.int64)
     attention_mask = torch.ones(batch_size, past_seq_len + seq_len, dtype=torch.int64)
     position_ids = get_position_ids(attention_mask, past_seq_len=past_seq_len)
-    past_kv = get_past_kv_inputs(config, batch_size, past_seq_len, use_fp16=use_fp16)
+    past_kv = get_past_kv_inputs(config, batch_size, past_seq_len, use_fp16=use_fp16, world_size=world_size)
 
     return (input_ids, attention_mask, position_ids, past_kv)
 
@@ -80,12 +77,13 @@ def get_position_ids(attention_mask: torch.Tensor, past_seq_len: int):
     return position_ids[:, past_seq_len:]
 
 
-def get_past_kv_inputs(config: LlamaConfig, batch_size: int, past_seq_len: int, use_fp16: bool):
+def get_past_kv_inputs(config: LlamaConfig, batch_size: int, past_seq_len: int, use_fp16: bool, world_size: int = 1):
     """Get past_key_values for all layers.
 
     Shape of past_key_values is (batch_size, num_heads, past_seq_len, head_size).
     """
-    num_heads, head_size = config.num_key_value_heads, config.hidden_size // config.num_key_value_heads
+    num_heads = config.num_key_value_heads // world_size
+    head_size = config.hidden_size // config.num_attention_heads
     torch_dtype = torch.float16 if use_fp16 else torch.float32
     return [
         (

@@ -115,6 +115,11 @@ python -m pip uninstall -y onnxruntime onnxruntime-gpu ort-nightly ort-nightly-g
 python -m pip install onnxruntime-training --pre --upgrade --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
 ```
 
+Configure `torch-ort`:
+```bash
+python -m torch_ort.configure
+```
+
 ### Optimizing Open Llama Model with Azure Arc
 This workflow optimizes Open Llama model on Azure ML compute, and evaluate output models on your device. Please connect your device to Azure Arc by following instruction: [Self-hosted Kubernetes cluster](https://microsoft.github.io/Olive/tutorials/azure_arc.html)
 

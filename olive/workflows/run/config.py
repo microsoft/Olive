@@ -125,6 +125,20 @@ class RunConfig(ConfigBase):
             }
         return v
 
+    @validator("data_configs", pre=True)
+    def validate_data_config_names(cls, v):
+        if not v:
+            return v
+
+        # validate data config name is unique
+        data_name_set = set()
+        for data_config in v.values():
+            data_config_obj = validate_config(data_config, DataConfig)
+            if data_config_obj.name in data_name_set:
+                raise ValueError(f"Data config name {data_config_obj.name} is duplicated. Please use another name.")
+            data_name_set.add(data_config_obj.name)
+        return v
+
     @validator("data_configs", pre=True, each_item=True)
     def validate_data_configs(cls, v, values):
         if "input_model" not in values:

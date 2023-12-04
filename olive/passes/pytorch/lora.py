@@ -9,6 +9,7 @@
 # --------------------------------------------------------------------------
 import dataclasses
 import logging
+import os
 import tempfile
 from copy import deepcopy
 from functools import partial
@@ -141,6 +142,14 @@ class LoRABase(Pass):
             "use_ort_trainer": PassConfigParam(
                 type_=bool, default_value=False, description="Whether or not to use ORTTrainer."
             ),
+            "ortmodule_onnx_opset_version": PassConfigParam(
+                type_=int,
+                default_value=16,
+                description=(
+                    "The opset version to use for ONNX export when using ORTTrainer. Only used if use_ort_trainer is"
+                    " True. 16+ is required when using bfloat16 and model has operators such as Where."
+                ),
+            ),
             "lora_r": PassConfigParam(type_=int, default_value=64, description="Lora attention dimension."),
             "lora_alpha": PassConfigParam(
                 type_=float, default_value=16, description="The alpha parameter for Lora scaling."
@@ -214,19 +223,58 @@ class LoRABase(Pass):
     ) -> bool:
         if with_fixed_value:
             search_point = self.config_at_search_point(search_point or {})
-        if search_point.get("use_ort_trainer"):
-            if search_point.get("torch_dtype") == "bfloat16":
-                logger.info(
-                    "bfloat16 is not supported by onnxruntime-training yet. Please use a different torch_dtype."
-                )
-                return False
-            if search_point.get("training_args", {}).get("gradient_checkpointing"):
-                logger.info(
-                    "gradient_checkpointing is not supported by onnxruntime-training. Please set gradient_checkpointing"
-                    " to False."
-                )
-                return False
+        if search_point.get("use_ort_trainer") and search_point.get("training_args", {}).get("gradient_checkpointing"):
+            logger.info(
+                "gradient_checkpointing is not supported by onnxruntime-training. Please set gradient_checkpointing"
+                " to False."
+            )
+            return False
         return True
+
+    @classmethod
+    def check_dependencies(cls, config: ConfigBase, is_qlora: bool = False):
+        """Check dependencies for the pass."""
+        if config.use_ort_trainer:
+            # check for ort trainer dependencies
+            try:
+                from optimum.onnxruntime import ORTTrainer  # noqa: F401
+                from optimum.onnxruntime.utils import is_onnxruntime_training_available
+                from torch_ort import ORTModule  # noqa: F401
+
+                assert is_onnxruntime_training_available(), "onnxruntime-training is not available."
+            except (ImportError, AssertionError):
+                raise ImportError(
+                    "Please install `olive-ai[optimum,ort-training]` or `onnxruntime-training optimum torch-ort` to use"
+                    f" {cls.__name__} pass with use_ort_trainer=True."
+                ) from None
+
+            # check if model uses bfloat16
+            uses_bf16 = cls.get_torch_dtype(config.torch_dtype) == torch.bfloat16
+            if is_qlora and config.compute_dtype:
+                # qlora compute dtype might be different from torch dtype
+                uses_bf16 |= cls.get_torch_dtype(config.compute_dtype) == torch.bfloat16
+
+            from onnxruntime import __version__ as OrtVersion
+
+            # onnxruntime-training doesn't support bfloat16 fully until 1.17.0
+            if uses_bf16 and version.parse(OrtVersion) < version.parse("1.17.0"):
+                raise ImportError(
+                    f"Please install onnxruntime >= 1.17.0 to use {cls.__name__} with bfloat16 and"
+                    " use_ort_trainer=True."
+                )
+
+            assert config.ortmodule_onnx_opset_version > 0, "ortmodule_onnx_opset_version must be a positive integer."
+            # ops such as Where only support bfloat16 from opset 16
+            if uses_bf16 and config.ortmodule_onnx_opset_version < 16:
+                logger.warning(
+                    f"ortmodule_onnx_opset_version is {config.ortmodule_onnx_opset_version} but training with bfloat16"
+                    " might not work properly with opset versions < 16"
+                )
+            os.environ["ORTMODULE_ONNX_OPSET_VERSION"] = str(config.ortmodule_onnx_opset_version)
+
+        # bitsandbytes quantization only supported after transformers 4.30.0
+        if is_qlora and version.parse(transformers.__version__) < version.parse("4.30.0"):
+            raise ImportError(f"Please install transformers >= 4.30.0 to use {cls.__name__} pass.")
 
     @staticmethod
     def collate_batch(batch: List[Dict], tokenizer: transformers.PreTrainedTokenizer) -> Dict[str, torch.Tensor]:
@@ -569,6 +617,9 @@ class LoRA(LoRABase):
         # this will validate the config and convert to the correct types
         config = self._config_class(**config)
 
+        # check dependencies
+        self.check_dependencies(config)
+
         # use default training args if not provided
         config.training_args = config.training_args or HFTrainingArguments()
 
@@ -650,13 +701,12 @@ class QLoRA(LoRABase):
     def _run_for_config(
         self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModel:
-        transformers_version = transformers.__version__
-        if version.parse(transformers_version) < version.parse("4.30.0"):
-            raise RuntimeError(f"QLoRA pass only supports transformers >= 4.30.0, but {transformers_version} is used.")
-
         # convert config to pass config class
         # this will validate the config and convert to the correct types
         config = self._config_class(**config)
+
+        # check dependencies
+        self.check_dependencies(config, is_qlora=True)
 
         # MatMulBnb4 contrib op doesn't support double quantization so the trainer falls back to PythonOp
         # which uses more memory and is slower

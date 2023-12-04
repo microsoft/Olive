@@ -81,23 +81,22 @@ def dependency_setup(config):
             "QuantizationAwareTraining": ["pytorch-lightning"],
         }
 
-        pass_to_extra_name = {
-            "OpenVINOConversion": "openvino",
-            "OpenVINOQuantization": "openvino",
-            "IncQuantization": "inc",
-            "IncDynamicQuantization": "inc",
-            "IncStaticQuantization": "inc",
-            "OptimumConversion": "optimum",
-            "OptimumMerging": "optimum",
-            "TorchTRTConversion": "torch-tensorrt",
-            "LoRA": "lora",
-            "QLoRA": "qlora",
+        pass_to_extra_names = {
+            "OpenVINOConversion": ["openvino"],
+            "OpenVINOQuantization": ["openvino"],
+            "IncQuantization": ["inc"],
+            "IncDynamicQuantization": ["inc"],
+            "IncStaticQuantization": ["inc"],
+            "OptimumConversion": ["optimum"],
+            "OptimumMerging": ["optimum"],
+            "TorchTRTConversion": ["torch-tensorrt"],
+            "LoRA": ["lora"],
+            "QLoRA": ["bnb", "lora"],
         }
 
         extra_results = []
         extra_results.extend(pass_to_extra.get(pass_type, []))
-        extra_name = pass_to_extra_name.get(pass_type, None)
-        if extra_name:
+        for extra_name in pass_to_extra_names.get(pass_type, []):
             extra_results.extend(extras.get(extra_name))
         return extra_results
 
