@@ -42,6 +42,7 @@ The default value is 3. User can increase if there are network issues and the op
         }
     }
     ```
+- `keyvault_name: [str]` The keyvault name to retrieve secrets.
 
 ### Example
 #### `azureml_client` with `aml_config_path`:
@@ -199,8 +200,11 @@ information of the system contains following items:
   There are some built-in system alias which could also be used as type. For example, `AzureNDV2System`. Please refer to [Olive System Alias](olive_system_alias) for the complete list of system alias.
 
 - `config: [Dict]` The system config dictionary that contains the system specific information.
+ - `accelerators: [List[str]]` The accelerators that will be used for this workflow.
+ - `hf_token: [bool]` Whether to use a Huggingface token to access Huggingface resources. If it is set to `True`, For local system, Docker system, and PythonEnvironment system, Olive will retrieve the token from the `HF_TOKEN` environment variable or from the token file located at `~/.huggingface/token`. For AzureML system, Olive will retrieve the token from user keyvault secret. If set to `False`, no token will be utilized during this workflow run. The default value is `False`.
 
-Please refer to [Configuring OliveSystem](configuring_olivesystem) for the more information of the system config dictionary.
+
+Please refer to [How To Configure System](../tutorials/configure_systems.rst) for the more information of the system config dictionary.
 
 ### Example
 ```json
