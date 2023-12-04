@@ -12,7 +12,7 @@ Stable Diffusion comprises multiple PyTorch models tied together into a *pipelin
 - [Issues](#issues)
 - [Stable Diffusion Pipeline](#stable-diffusion-pipeline)
 
-# Setup
+## Setup
 
 Olive is currently under pre-release, with constant updates and improvements to the functions and usage. This sample code will be frequently updated as Olive evolves, so it is important to install Olive from source when checking out this code from the main branch. See the [README for examples](https://github.com/microsoft/Olive/blob/main/examples/README.md#important) for detailed instructions on how to do this.
 
@@ -32,7 +32,7 @@ cd olive/examples/directml/stable_diffusion
 pip install -r requirements.txt
 ```
 
-# Conversion to ONNX and Latency Optimization
+## Conversion to ONNX and Latency Optimization
 
 The easiest way to optimize the pipeline is with the `stable_diffusion.py` helper script:
 
@@ -50,7 +50,7 @@ Once the script successfully completes:
 
 Re-running the script with `--optimize` will delete the output models, but it will *not* delete the Olive cache. Subsequent runs will complete much faster since it will simply be copying previously optimized models; you may use the `--clean_cache` option to start from scratch (not typically used unless you are modifying the scripts, for example).
 
-# Test Inference
+## Test Inference
 
 This sample code is primarily intended to illustrate model optimization with Olive, but it also provides a simple interface for testing inference with the ONNX models. Inference is done by creating an `OnnxStableDiffusionPipeline` from the saved models, which leans on ONNX runtime for inference of the core models (text encoder, u-net, decoder, and safety checker).
 
@@ -88,7 +88,7 @@ If you omit `--interactive`, the script will generate the requested number of im
 
 The minimum number of inferences will be `ceil(num_images / batch_size)`; additional inferences may be required of some outputs are flagged by the safety checker to ensure the desired number of outputs are produced.
 
-# LoRA Models (Experimental)
+## LoRA Models (Experimental)
 
 This script has limited support for optimizing [LoRA variants of a base Stable Diffusion model](https://huggingface.co/docs/diffusers/main/en/training/lora). When optimizing or running inference, specify the LoRA model ID instead of the base model ID:
 
@@ -109,6 +109,23 @@ This script does not yet support loading [LoRA weights from a .safetensors file]
 LoRA adds additional linear layers (attention processors) to the base PyTorch model. The added layers have their own small set of weights ("LoRA weights"), which allows users to replace only a portion of the the full model weights when switching between LoRA variants. Without preprocessing, the additional LoRA layers reduce inference speed since there are more layers in the network architecture. In practice, the added LoRA layers can be folded into existing layers of the base model to completely remove the inference overhead; however, once the LoRA weights are merged with the base weights it is no longer possible to swap out new LoRA weights (the model is "baked").
 
 Olive merges the LoRA weights into the base model before conversion to ONNX (see `user_script.py:merge_lora_weights`), which means the output models are fully baked. This approach simplifies downstream ONNX-based graph optimizations and enables performance-critical fusions (e.g. multi-head attention) that will not occur if the injected LoRA layers remain in the graph. As a consequence, if you want to switch LoRA weights you must reoptimize the affected models (generally U-Net). Retaining the flexibility of pluggable LoRA weights in the output ONNX models would require the LoRA weights be saved as external data along with fusion of the attention processors at runtime.
+
+# Stable Diffusion Optimization with CUDA <!-- omit in toc -->
+This example can also be used to optimize Stable Diffusion models for CUDA. You can use the same `stable_diffusion.py` script with `--provider cuda` to optimize the models for CUDA and test inference. The optimized models will be stored under `models/optimized-cuda/[model_id]` (for example `models/optimized-cuda/runwayml/stable-diffusion-v1-5`).
+
+Install the common requirements:
+```
+pip install -r requirements-common.txt
+```
+
+The CUDA example required the latest onnxruntime-gpu code which can either be built from source or installed from the nightly builds. The following command can be used to install the latest nightly build of onnxruntime-gpu:
+```
+# uninstall any pre-existing onnxruntime packages
+pip uninstall -y onnxruntime onnxruntime-gpu onnxruntime-directml ort-nightly ort-nightly-gpu ort-nightly-directml
+
+# install onnxruntime-gpu nightly build
+pip install ort-nightly-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
+```
 
 # Issues
 
