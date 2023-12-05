@@ -159,7 +159,7 @@ Example: [Llama-2-7b](https://ml.azure.com/models/Llama-2-7b/version/13/catalog/
 
 Please note the model for `Llama-2-7b` in Azure ML model catalog is a mlflow model. So `"model_file_format": "PyTorch.MLflow"` is required here.
 
-## datasets
+## Huggingface datasets
 Olive supports automatically downloading and applying [Huggingface datasets](https://huggingface.co/datasets) to Passes and Evaluators.
 
 Datasets can be added to `hf_config`, or `data_configs` section in the configuration file with `"type": "HuggingfaceContainer"`. More details about `data_configs` can be found [here](../tutorials/configure_data.rst).
@@ -224,8 +224,8 @@ Pass config:
 }
 ```
 
-## Huggingface Metrics
-Huggingface Metrics in Olive are supported by [Huggingface evaluate](https://huggingface.co/docs/evaluate/index). You can refer to [Huggingface Metrics page](https://huggingface.co/metrics) for a complete list of available metrics.
+## Huggingface metrics
+Huggingface metrics in Olive are supported by [Huggingface evaluate](https://huggingface.co/docs/evaluate/index). You can refer to [Huggingface metrics page](https://huggingface.co/metrics) for a complete list of available metrics.
 
 Example metric config
 ```json
