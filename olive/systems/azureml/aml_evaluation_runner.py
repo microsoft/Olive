@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from olive.common.utils import aml_runner_hf_login
 from olive.evaluator.metric import Metric
 from olive.hardware import AcceleratorSpec
 from olive.model import ModelConfig
@@ -47,6 +48,9 @@ def create_metric(metric_config, metric_args):
 
 
 def main(raw_args=None):
+    # login to hf if HF_LOGIN is set to True
+    aml_runner_hf_login()
+
     model_config, pipeline_output, extra_args = get_common_args(raw_args)
     metric_args, extra_args = parse_metric_args(extra_args)
     accelerator_args = parse_accelerator_args(extra_args)

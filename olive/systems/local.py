@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 class LocalSystem(OliveSystem):
     system_type = SystemType.Local
 
-    def __init__(self, accelerators: List[str] = None):
+    def __init__(self, accelerators: List[str] = None, hf_token: bool = None):
         super().__init__(accelerators=accelerators, olive_managed_env=False)
 
     def run_pass(

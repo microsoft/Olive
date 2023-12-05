@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Tuple, 
 from azure.ai.ml import Input, Output, command
 from azure.ai.ml.constants import AssetTypes
 from azure.ai.ml.dsl import pipeline
-from azure.ai.ml.entities import BuildContext, Environment, Model
+from azure.ai.ml.entities import BuildContext, Environment, Model, UserIdentityConfiguration
 from azure.core.exceptions import HttpResponseError, ServiceResponseError
 
 from olive.azureml.azureml_client import AzureMLClientConfig
@@ -88,8 +88,9 @@ class AzureMLSystem(OliveSystem):
         accelerators: List[str] = None,
         olive_managed_env: bool = False,
         requirements_file: Union[Path, str] = None,
+        hf_token: bool = None,
     ):
-        super().__init__(accelerators, olive_managed_env=olive_managed_env)
+        super().__init__(accelerators, olive_managed_env=olive_managed_env, hf_token=hf_token)
         self.instance_count = instance_count
         self.resources = resources
         self.is_dev = is_dev
@@ -102,6 +103,17 @@ class AzureMLSystem(OliveSystem):
         if aml_docker_config:
             aml_docker_config = validate_config(aml_docker_config, AzureMLDockerConfig)
             self.environment = self._create_environment(aml_docker_config)
+        self.env_vars = self._get_hf_token_env(azureml_client_config.keyvault_name) if self.hf_token else None
+
+    def _get_hf_token_env(self, keyvault_name: str):
+        if keyvault_name is None:
+            raise ValueError(
+                "hf_token is set to True but keyvault name is not provided. "
+                "Please provide a keyvault name to use HF_TOKEN."
+            )
+        env_vars = {"HF_LOGIN": True}
+        env_vars.update({"KEYVAULT_NAME": keyvault_name})
+        return env_vars
 
     def _create_environment(self, docker_config: AzureMLDockerConfig):
         if docker_config.build_context_path:
@@ -300,11 +312,13 @@ class AzureMLSystem(OliveSystem):
             command=cmd_line,
             resources=resources,
             environment=aml_environment,
+            environment_variables=self.env_vars,
             code=str(code),
             inputs=inputs,
             outputs=outputs,
             instance_count=instance_count,
             compute=compute,
+            identity=UserIdentityConfiguration(),
         )
 
     def _create_pipeline_for_pass(

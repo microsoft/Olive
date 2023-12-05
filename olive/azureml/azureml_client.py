@@ -49,6 +49,10 @@ class AzureMLClientConfig(ConfigBase):
             " for more details."
         ),
     )
+    keyvault_name: Optional[str] = Field(
+        None,
+        description=("Name of the keyvault to use. If provided, the keyvault will be used to retrieve secrets."),
+    )
 
     @validator("aml_config_path", always=True)
     def validate_aml_config_path(cls, v, values):

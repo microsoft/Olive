@@ -40,8 +40,13 @@ class DockerSystem(OliveSystem):
         is_dev: bool = False,
         olive_managed_env: bool = False,
         requirements_file: Union[Path, str] = None,
+        hf_token: bool = None,
     ):
-        super().__init__(accelerators=accelerators, olive_managed_env=olive_managed_env)
+        super().__init__(
+            accelerators=accelerators,
+            olive_managed_env=olive_managed_env,
+            hf_token=hf_token,
+        )
         logger.info("Initializing Docker System...")
         self.is_dev = is_dev
         self.requirements_file = requirements_file
@@ -191,6 +196,9 @@ class DockerSystem(OliveSystem):
                 environment = {env.split("=")[0]: env.split("=")[1] for env in environment}
             elif isinstance(environment, dict) and not environment.get(k):
                 environment[k] = v
+        if self.hf_token:
+            token = get_huggingface_token()
+            environment.update({"HF_TOKEN": token})
 
         logger.debug(f"Running container with eval command: {eval_command}")
         if accelerator.accelerator_type == Device.GPU:
@@ -246,3 +254,24 @@ def _print_docker_logs(logs, level=logging.DEBUG):
 
     message = "\n".join(msgs)
     logger.log(level, message)
+
+
+def get_huggingface_token():
+    """Get huggingface token from environment variable or token file."""
+    import os
+
+    if os.getenv("HF_TOKEN"):
+        return os.getenv("HF_TOKEN")
+
+    token_path = Path.home() / ".huggingface" / "token"
+    if not token_path.exists():
+        logger.error(
+            "Huggingface token is required at this step."
+            f"Could not find huggingface token at {token_path}. "
+            "Please login to huggingface first using `huggingface-cli login`. "
+            "If you already logged in, Olive will get token from '~/.huggingface/token' file'. "
+            f"Please make sure the token file exists."
+        )
+        return None
+    with Path(token_path).open() as f:
+        return f.read().strip()
