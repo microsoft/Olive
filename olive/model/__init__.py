@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import logging
 import os
-import shutil
 import tempfile
 from abc import ABC, abstractmethod
 from copy import deepcopy
@@ -21,6 +20,7 @@ import olive.data.template as data_config_template
 from olive.common.config_utils import ConfigBase, serialize_to_json, validate_config
 from olive.common.ort_inference import get_ort_inference_session
 from olive.common.user_module_loader import UserModuleLoader
+from olive.common.utils import copy_dir
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware import AcceleratorLookup, Device
 from olive.model.hf_utils import HFConfig, huggingface_model_loader
@@ -594,9 +594,9 @@ class PyTorchModel(OliveModel):
     def load_mlflow_model(self):
         logger.info(f"Loading MLFlow model from {self.model_path}")
         with tempfile.TemporaryDirectory(prefix="mlflow_tmp") as tmp_dir:
-            shutil.copytree(os.path.join(self.model_path, "data/model"), tmp_dir, dirs_exist_ok=True)
-            shutil.copytree(os.path.join(self.model_path, "data/config"), tmp_dir, dirs_exist_ok=True)
-            shutil.copytree(os.path.join(self.model_path, "data/tokenizer"), tmp_dir, dirs_exist_ok=True)
+            copy_dir(os.path.join(self.model_path, "data/model"), tmp_dir, dirs_exist_ok=True)
+            copy_dir(os.path.join(self.model_path, "data/config"), tmp_dir, dirs_exist_ok=True)
+            copy_dir(os.path.join(self.model_path, "data/tokenizer"), tmp_dir, dirs_exist_ok=True)
 
             with open(os.path.join(self.model_path, "MLmodel")) as fp:  # noqa: PTH123
                 mlflow_data = yaml.safe_load(fp)
