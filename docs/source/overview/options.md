@@ -233,7 +233,7 @@ information of the evaluator contains following items:
     - `type: [str]` The type of the metric. The supported types are `accuracy`, `latency`, `throughput` and `custom`.
 
     - `backend: [str]` The type of metrics' backend. Olive implement `torch_metrics` and `huggingface_metrics` backends. The default value is `torch_metrics`.
-        - `torch_metrics` backend uses `torchmetrics` library to compute metrics. It supports `accuracy_score`, `f1_score`, `precision`, `recall` and `auc` metrics.
+        - `torch_metrics` backend uses `torchmetrics`(>=0.1.0) library to compute metrics. It supports `accuracy_score`, `f1_score`, `precision`, `recall` and `auroc` metrics which are used for `binary` task (equal to `metric_config:{"task": "binary"}`) by default. You need alter the `task` if needed. Please refer to [torchmetrics](https://lightning.ai/docs/torchmetrics/stable/) for more details.
         - `huggingface_metrics` backend uses huggingface `evaluate` library to compute metrics. The supported metrics can be found at [huggingface metrics](https://huggingface.co/metrics).
 
     - `subtypes: [List[Dict]]` The subtypes of the metric. Cannot be null or empty. Each subtype is a dictionary that contains following items:
@@ -311,8 +311,8 @@ information of the evaluator contains following items:
                 "type": "accuracy",
                 "sub_types": [
                     {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
-                    {"name": "f1_score", "metric_config": {"multiclass": false}},
-                    {"name": "auroc", "metric_config": {"num_classes": 2}}
+                    {"name": "f1_score"},
+                    {"name": "auroc"}
                 ],
                 "user_config":{
                     "post_processing_func": "post_process",

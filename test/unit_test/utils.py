@@ -152,7 +152,7 @@ def create_fixed_dataloader(datadir, batchsize, *args, **kwargs):
 
 def get_accuracy_metric(*acc_subtype, random_dataloader=True, user_config=None, backend="torch_metrics"):
     accuracy_metric_config = {"dataloader_func": create_dataloader if random_dataloader else create_fixed_dataloader}
-    accuracy_score_metric_config = {"mdmc_average": "global"}
+    accuracy_score_metric_config = {"task": "multiclass", "num_classes": 10}
     sub_types = [
         {
             "name": sub,

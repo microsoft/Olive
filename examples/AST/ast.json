@@ -45,7 +45,7 @@
                     "backend": "huggingface_metrics",
                     "sub_types": [
                         {"name": "accuracy", "priority": 1, "goal": {"type": "max-degradation", "value": 0.05}},
-                        {"name": "f1", "metric_config": {"compute_params": {"average": "macro"}}}
+                        {"name": "f1", "metric_config": {"compute_params": {"average": "micro"}}}
                     ]
                 },
                 {
