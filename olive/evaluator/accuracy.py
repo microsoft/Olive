@@ -63,6 +63,9 @@ class AccuracyBase(AutoConfigClass):
             if info.kind in (info.VAR_KEYWORD, info.VAR_POSITIONAL):
                 required = False
             metric_config[param] = ConfigParam(type_=annotation, required=required, default_value=default_value)
+        if "task" in metric_config:
+            metric_config["task"].default_value = "binary"
+            metric_config["task"].required = False
         return metric_config
 
     @classmethod
@@ -127,6 +130,8 @@ class AUROC(AccuracyBase):
 
     def measure(self, model_output, target):
         logits_tensor, target_tensor = self.prepare_tensors(model_output.logits, target, [torch.float, torch.int32])
+        if self.config_dict.get("task") == "binary" and len(logits_tensor.shape) > 1 and logits_tensor.shape[-1] == 2:
+            logits_tensor = torch.softmax(logits_tensor, dim=-1)[:, 1]
         auroc = torchmetrics.AUROC(**self.config_dict)
         target_tensor = target_tensor.flatten()
         result = auroc(logits_tensor, target_tensor)

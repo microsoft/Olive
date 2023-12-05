@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 
 import olive.cache as cache_utils
 from olive.auto_optimizer import AutoOptimizer, AutoOptimizerConfig
@@ -19,10 +19,8 @@ from olive.common.utils import hash_dict
 from olive.data.config import DataConfig
 from olive.engine.config import FAILED_CONFIG, INVALID_CONFIG, PRUNED_CONFIGS, EngineConfig
 from olive.engine.footprint import Footprint, FootprintNode, FootprintNodeMetric
-from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import Metric, MetricResult, joint_metric_key
-from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.exception import EXCEPTIONS_TO_RAISE, OlivePassError
 from olive.hardware import AcceleratorLookup, AcceleratorSpec, Device
 from olive.model import ModelConfig
@@ -32,6 +30,10 @@ from olive.systems.common import SystemType
 from olive.systems.local import LocalSystem
 from olive.systems.olive_system import OliveSystem
 from olive.systems.utils import create_new_system_with_cache
+
+if TYPE_CHECKING:
+    from olive.engine.packaging.packaging_config import PackagingConfig
+    from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +50,7 @@ class Engine:
         search_strategy: Optional[SearchStrategy] = None,
         host: Optional[OliveSystem] = None,
         target: Optional[OliveSystem] = None,
-        evaluator_config: Optional[OliveEvaluatorConfig] = None,
+        evaluator_config: Optional["OliveEvaluatorConfig"] = None,
         execution_providers: Optional[List[str]] = None,
         auto_optimizer_config: Optional[AutoOptimizerConfig] = None,
     ):
@@ -199,7 +201,7 @@ class Engine:
     def prepare_passes_from_auto_optimizer(
         self,
         input_model_config: ModelConfig,
-        evaluator_config: OliveEvaluatorConfig,
+        evaluator_config: "OliveEvaluatorConfig",
         accelerator_spec: AcceleratorSpec,
         auto_optimizer_config: Optional[AutoOptimizerConfig] = None,
         data_configs: Optional[Dict[str, DataConfig]] = None,
@@ -281,12 +283,12 @@ class Engine:
 
     def register(
         self,
-        pass_type: Type[Pass],
+        pass_type: Type["Pass"],
         config: Dict[str, Any] = None,
         disable_search=False,
         name: str = None,
         host: OliveSystem = None,
-        evaluator_config: OliveEvaluatorConfig = None,
+        evaluator_config: "OliveEvaluatorConfig" = None,
         clean_run_cache: bool = False,
         output_name: str = None,
     ):
@@ -315,10 +317,10 @@ class Engine:
 
     def register_pass(
         self,
-        p: Pass,
+        p: "Pass",
         name: str = None,
         host: OliveSystem = None,
-        evaluator_config: OliveEvaluatorConfig = None,
+        evaluator_config: "OliveEvaluatorConfig" = None,
         output_name: str = None,
     ):
         """Register a pass instance."""
@@ -363,7 +365,7 @@ class Engine:
         self,
         input_model_config: ModelConfig,
         data_root: str = None,
-        packaging_config: Optional[PackagingConfig] = None,
+        packaging_config: Optional["PackagingConfig"] = None,
         output_dir: str = None,
         output_name: str = None,
         evaluate_input_model: bool = True,
@@ -463,7 +465,7 @@ class Engine:
         self.footprints[accelerator_spec].record(model_id=input_model_id)
 
         try:
-            if evaluate_input_model and self.no_search and not self.evaluator_config:
+            if evaluate_input_model and not self.evaluator_config:
                 logger.debug(
                     "evaluate_input_model is True but no evaluator provided in no-search mode. Skipping input model"
                     " evaluation."
@@ -472,7 +474,6 @@ class Engine:
                 prefix_output_name = (
                     f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}"
                 )
-                assert self.evaluator_config is not None, "evaluate_input_model is True but no evaluator provided"
                 results = self._evaluate_model(
                     input_model_config, input_model_id, data_root, self.evaluator_config, accelerator_spec
                 )
@@ -516,7 +517,7 @@ class Engine:
         # clean the passes
         self.passes.clear()
         for name, config in self.pass_config.items():
-            pass_cls: Type[Pass] = config["type"]
+            pass_cls: Type["Pass"] = config["type"]
             pass_cfg = config["config"]
             pass_cfg = pass_cls.generate_search_space(accelerator_spec, pass_cfg, config["disable_search"])
             p = pass_cls(accelerator_spec, pass_cfg, config["disable_search"])
@@ -534,7 +535,7 @@ class Engine:
         for pass_flow in self.pass_flows:
             pass_search_spaces = []
             for pass_name in pass_flow:
-                p: Pass = self.passes[pass_name]["pass"]
+                p: "Pass" = self.passes[pass_name]["pass"]
                 pass_search_spaces.append((pass_name, p.search_space()))
             self.pass_flows_search_spaces.append(pass_search_spaces)
 
@@ -1006,7 +1007,7 @@ class Engine:
     ):
         """Run a pass on the input model."""
         # pass
-        p: Pass = self.passes[pass_id]["pass"]
+        p: "Pass" = self.passes[pass_id]["pass"]
         pass_name = p.__class__.__name__
         logger.info(f"Running pass {pass_id}:{pass_name}")
         pass_config = p.config_at_search_point(pass_search_point)
@@ -1144,7 +1145,7 @@ class Engine:
         model_config: ModelConfig,
         model_id: str,
         data_root: str,
-        evaluator_config: OliveEvaluatorConfig,
+        evaluator_config: "OliveEvaluatorConfig",
         accelerator_spec: AcceleratorSpec,
     ):
         """Evaluate a model."""

@@ -9,10 +9,10 @@
         }
     },
     "data_configs": {
-        "tiny-codes-train": {
-            "name": "tiny-codes-train",
+        "tiny_codes_train": {
+            "name": "tiny_codes_train",
             "type": "HuggingfaceContainer",
-            "user_script": "qlora_user_script.py",
+            "user_script": "lora_user_script.py",
             "components": {
                 "load_dataset": {
                     "type": "load_tiny_code_dataset"
@@ -27,7 +27,6 @@
                         "token": true
                     },
                     "pre_process_data": {
-                        "dataset_type": "corpus",
                         "corpus_strategy": "join",
                         "text_template": "### Question: {prompt} \n### Answer: {response}",
                         "source_max_len": 1024
@@ -40,28 +39,17 @@
         "qlora": {
             "type": "QLoRA",
             "config": {
-                "compute_dtype": "bfloat16",
-                "quant_type": "nf4",
-                "double_quant": true,
-                "lora_r": 64,
-                "lora_alpha": 16,
                 "lora_dropout": 0.1,
-                "train_data_config": "tiny-codes-train",
+                "train_data_config": "tiny_codes_train",
                 "eval_dataset_size": 1024,
                 "training_args": {
-                    "seed": 0,
-                    "data_seed": 42,
                     "per_device_train_batch_size": 16,
                     "per_device_eval_batch_size": 16,
                     "gradient_accumulation_steps": 1,
-                    "gradient_checkpointing": true,
-                    "learning_rate": 0.0002,
                     "max_steps": 1500,
-                    "logging_steps": 10,
+                    "logging_steps": 100,
+                    "save_steps": 100,
                     "evaluation_strategy": "steps",
-                    "eval_steps": 100,
-                    "save_steps": 500,
-                    "group_by_length": true,
                     "adam_beta2": 0.999,
                     "max_grad_norm": 0.3,
                     "load_best_model_at_end": true
@@ -81,6 +69,6 @@
         },
         "execution_providers": ["CPUExecutionProvider"],
         "cache_dir": "cache",
-        "output_dir" : "models/qlora-tiny-codes"
+        "output_dir" : "models/open_llama_qlora_tinycodes"
     }
 }

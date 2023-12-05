@@ -15,7 +15,7 @@ import torch
 import transformers
 from azureml.evaluate import mlflow as aml_mlflow
 
-from olive.model import PyTorchModel
+from olive.model import IOConfig, PyTorchModel
 
 # pylint: disable=attribute-defined-outside-init
 
@@ -139,6 +139,34 @@ class TestPytorchDummyInput:
             "batch_size": 1,
         }
 
+    def test_dict_io_config(self):
+        olive_model = PyTorchModel(
+            hf_config={"task": self.task, "model_name": self.model_name}, io_config=self.io_config
+        )
+        # get io config
+        io_config = olive_model.get_io_config()
+        assert io_config == IOConfig(**self.io_config).dict()
+
+    def test_func_io_config(self):
+        io_config_func = MagicMock(spec=FunctionType)
+        io_config_func.return_value = self.io_config
+        olive_model = PyTorchModel(
+            hf_config={"task": self.task, "model_name": self.model_name}, io_config=io_config_func
+        )
+        # get io config
+        io_config = olive_model.get_io_config()
+        io_config_func.assert_called_once_with(olive_model)
+        assert io_config == IOConfig(**self.io_config).dict()
+
+    @patch("olive.model.hf_utils.get_hf_model_io_config")
+    def test_hf_config_io_config(self, get_hf_model_io_config):
+        get_hf_model_io_config.return_value = self.io_config
+        olive_model = PyTorchModel(hf_config={"task": self.task, "model_name": self.model_name})
+        # get io config
+        io_config = olive_model.get_io_config()
+        assert io_config == self.io_config
+        get_hf_model_io_config.assert_called_once_with(self.model_name, self.task, None)
+
     def common_data_config_test(self, olive_model, data_config_template):
         # mock data config
         data_config = MagicMock()
@@ -183,7 +211,7 @@ class TestPytorchDummyInput:
         )
         self.common_data_config_test(olive_model, hf_data_config_template)
 
-    @patch("olive.model.get_hf_model_dummy_input")
+    @patch("olive.model.hf_utils.get_hf_model_dummy_input")
     def test_hf_onnx_config_dummy_inputs(self, get_hf_model_dummy_input):
         get_hf_model_dummy_input.return_value = 1
         olive_model = PyTorchModel(hf_config={"task": self.task, "model_name": self.model_name})

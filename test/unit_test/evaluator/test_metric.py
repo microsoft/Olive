@@ -17,7 +17,6 @@ class TestEvaluation:
                     {
                         "name": "auroc",
                         "priority": -1,
-                        "metric_config": {"num_classes": 2},
                         "goal": {"type": "max-degradation", "value": 0.01},
                     },
                 ],

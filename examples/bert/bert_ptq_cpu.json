@@ -36,6 +36,15 @@
                         {"name": "max"},
                         {"name": "min"}
                     ]
+                },
+                {
+                    "name": "throughput",
+                    "type": "throughput",
+                    "sub_types": [
+                        {"name": "avg"},
+                        {"name": "max"},
+                        {"name": "min"}
+                    ]
                 }
             ]
         }

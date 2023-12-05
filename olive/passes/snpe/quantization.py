@@ -45,6 +45,10 @@ class SNPEQuantization(Pass):
                     " object. Required if data_config is None."
                 ),
             ),
+            "dataloader_func_kwargs": PassConfigParam(
+                type_=Dict[str, Any],
+                description="Keyword arguments for dataloader_func.",
+            ),
             "data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
                 required=True,
@@ -90,7 +94,9 @@ class SNPEQuantization(Pass):
 
         if config["dataloader_func"]:
             data_dir = get_local_path_from_root(data_root, config["data_dir"])
-            dataloader = self._user_module_loader.call_object(config["dataloader_func"], data_dir)
+            dataloader = self._user_module_loader.call_object(
+                config["dataloader_func"], data_dir, **(config["dataloader_func_kwargs"] or {})
+            )
         elif config["data_config"]:
             data_config = validate_config(config["data_config"], DataConfig)
             dataloader = data_config.to_data_container().create_dataloader(data_root)

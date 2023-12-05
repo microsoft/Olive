@@ -3,9 +3,11 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-import os
 from copy import deepcopy
-from typing import Any, Dict, List, Union
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Dict, List, Union
+
+import onnx
 
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModel
@@ -14,6 +16,9 @@ from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional
+
+if TYPE_CHECKING:
+    from onnxruntime.transformers.onnx_model import OnnxModel
 
 logger = logging.getLogger(__name__)
 
@@ -79,16 +84,40 @@ class OrtTransformersOptimization(Pass):
             "float16": PassConfigParam(
                 type_=bool, default_value=False, description="Whether half-precision float will be used."
             ),
-            "input_int32": PassConfigParam(
-                type_=bool, default_value=False, description="Whether int32 tensors will be used as input."
-            ),
             "keep_io_types": PassConfigParam(
                 type_=bool,
                 default_value=True,
-                description="Keep input and output tensors in their original data type",
+                description=(
+                    "Keep input and output tensors in their original data type. Only used when float16 is True."
+                ),
             ),
             "force_fp32_ops": PassConfigParam(
-                type_=List[str], default_value=None, description="Operators that are forced to run in float32"
+                type_=List[str],
+                default_value=None,
+                description="Operators that are forced to run in float32. Only used when float16 is True.",
+            ),
+            "force_fp32_nodes": PassConfigParam(
+                type_=List[str],
+                default_value=None,
+                description="Nodes that are forced to run in float32. Only used when float16 is True.",
+            ),
+            "force_fp16_inputs": PassConfigParam(
+                type_=Dict[str, List[int]],
+                default_value=None,
+                description=(
+                    "Force the conversion of the inputs of some operators to float16, even if"
+                    " 'convert_float_to_float16` tool prefers it to keep them in float32."
+                ),
+            ),
+            "use_gqa": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Replace MultiHeadAttention with GroupQueryAttention. True is only supported when float16 is True."
+                ),
+            ),
+            "input_int32": PassConfigParam(
+                type_=bool, default_value=False, description="Whether int32 tensors will be used as input."
             ),
         }
         config.update(get_external_data_config())
@@ -109,6 +138,9 @@ class OrtTransformersOptimization(Pass):
             if accelerator_spec.execution_provider == "CPUExecutionProvider":
                 logger.info("CPUExecutionProvider does not support float16 very well, please avoid to use float16.")
                 return False
+        if not search_point.get("float16") and search_point.get("use_gqa"):
+            logger.info("use_gqa is only supported when float16 is True.")
+            return False
         if search_point.get("use_gpu") and accelerator_spec.execution_provider == "CPUExecutionProvider":
             logger.info("CPUExecutionProvider does not support GPU inference, please avoid to use use_gpu.")
             return False
@@ -146,18 +178,22 @@ class OrtTransformersOptimization(Pass):
 
         # start with a copy of the config
         run_config = deepcopy(config)
-        del (
-            run_config["float16"],
-            run_config["input_int32"],
-            run_config["keep_io_types"],
-            run_config["force_fp32_ops"],
-        )
-        for key in get_external_data_config():
+        keys_to_remove = [
+            "float16",
+            "keep_io_types",
+            "force_fp32_ops",
+            "force_fp32_nodes",
+            "force_fp16_inputs",
+            "use_gqa",
+            "input_int32",
+        ]
+        keys_to_remove += get_external_data_config()
+        for key in keys_to_remove:
             del run_config[key]
 
         if model.model_attributes:
-            model_config = model.model_attributes
-            input_model_type = model_config.get("model_type")
+            model_attributes = model.model_attributes
+            input_model_type = model_attributes.get("model_type")
             if input_model_type:
                 model_type = MODEL_TYPE_MAPPING.get(input_model_type, input_model_type)
             else:
@@ -165,13 +201,13 @@ class OrtTransformersOptimization(Pass):
             run_config["model_type"] = run_config["model_type"] or model_type
             if run_config["num_heads"] == 0:
                 for num_heads_name in NUM_HEADS_NAMES:
-                    if num_heads_name in model_config:
-                        run_config["num_heads"] = model_config[num_heads_name]
+                    if num_heads_name in model_attributes:
+                        run_config["num_heads"] = model_attributes[num_heads_name]
                         break
             if run_config["hidden_size"] == 0:
                 for hidden_size_name in HIDDEN_SIZE_NAMES:
-                    if hidden_size_name in model_config:
-                        run_config["hidden_size"] = model_config[hidden_size_name]
+                    if hidden_size_name in model_attributes:
+                        run_config["hidden_size"] = model_attributes[hidden_size_name]
                         break
 
         if run_config["model_type"] is None or run_config["model_type"] not in transformers_optimizer.MODEL_TYPES:
@@ -181,24 +217,37 @@ class OrtTransformersOptimization(Pass):
                 "OrtTransformersOptimization.config"
             )
 
-        output_model_path = ONNXModel.resolve_path(os.path.join(output_model_path, os.path.basename(model.model_path)))
+        output_model_path = ONNXModel.resolve_path(output_model_path, Path(model.model_path).name)
 
         optimization_options = config["optimization_options"]
-
         if optimization_options:
             self._set_fusion_options(run_config)
 
         optimizer = transformers_optimizer.optimize_model(input=model.model_path, **run_config)
 
         if config["float16"]:
-            force_fp16_inputs = {}
-            if optimization_options:
-                force_fp16_inputs = optimization_options.get("force_fp16_inputs", {})
-
-            op_block_list = config["force_fp32_ops"]
             optimizer.convert_float_to_float16(
-                keep_io_types=config["keep_io_types"], op_block_list=op_block_list, force_fp16_inputs=force_fp16_inputs
+                keep_io_types=config["keep_io_types"],
+                op_block_list=config["force_fp32_ops"],
+                node_block_list=config["force_fp32_nodes"],
+                force_fp16_inputs=config["force_fp16_inputs"],
             )
+
+            if config["use_gqa"]:
+                # Replace MultiHeadAttention with GroupQueryAttention
+                # TODO(anyone): treat `num_key_value_heads` like `num_heads` and `hidden_size`.
+                # Should be provided either in the model attributes or in the config.
+                num_kv_heads = model.model_attributes.get("num_key_value_heads", None)
+                if num_kv_heads is None:
+                    raise ValueError(
+                        "num_key_value_heads is not specified in the model attributes. "
+                        "Please specify it in the model attributes."
+                    )
+                world_size = model.model_attributes.get("world_size") or 1
+                optimizer = self._replace_mha_with_gqa(optimizer, kv_num_heads=num_kv_heads, world_size=world_size)
+                optimizer.prune_graph()
+                # add allow_remove_graph_inputs to pass config
+                optimizer.update_graph(allow_remove_graph_inputs=True)
 
         if config["input_int32"]:
             optimizer.change_graph_inputs_to_int32()
@@ -208,3 +257,98 @@ class OrtTransformersOptimization(Pass):
 
         # save the model to the output path and return the model
         return model_proto_to_olive_model(optimizer.model, output_model_path, config)
+
+    @staticmethod
+    def _replace_mha_with_gqa(
+        model: "OnnxModel", attn_mask: str = "attention_mask", kv_num_heads: int = 0, world_size: int = 1
+    ):
+        # Insert attention_mask subgraph to calculate shared inputs for all GroupQueryAttention nodes
+        #
+        #                attention_mask
+        #               /              \
+        #          ReduceSum          Shape
+        #              |                |
+        #             Sub             Gather
+        #              |                |
+        #          seqlens_k   total_sequence_length
+        #              |                |
+        #        Cast to int32    Cast to int32
+
+        model.add_initializer(
+            onnx.helper.make_tensor(
+                name="one",
+                data_type=onnx.TensorProto.INT64,
+                dims=[1],
+                vals=[1],
+            )
+        )
+        reduce_sum_node = onnx.helper.make_node(
+            "ReduceSum",
+            inputs=[attn_mask, "one"],
+            outputs=[attn_mask + "_row_sums"],
+            name=model.create_node_name("ReduceSum"),
+        )
+        sub_node = onnx.helper.make_node(
+            "Sub",
+            inputs=[attn_mask + "_row_sums", "one"],
+            outputs=["seqlens_k_int64"],
+            name=model.create_node_name("Sub"),
+        )
+        seqlen_k_cast_node = onnx.helper.make_node(
+            "Cast",
+            inputs=["seqlens_k_int64"],
+            outputs=["seqlens_k"],
+            name=model.create_node_name("Cast"),
+            to=onnx.TensorProto.INT32,
+        )
+        shape_node = onnx.helper.make_node(
+            "Shape",
+            inputs=[attn_mask],
+            outputs=[attn_mask + "_shape"],
+            name=model.create_node_name("Shape"),
+        )
+        gather_node = onnx.helper.make_node(
+            "Gather",
+            inputs=[attn_mask + "_shape", "one"],
+            outputs=["total_seq_len_int64"],
+            name=model.create_node_name("Gather"),
+            axis=0,
+        )
+        total_seqlen_cast_node = onnx.helper.make_node(
+            "Cast",
+            inputs=["total_seq_len_int64"],
+            outputs=["total_seq_len"],
+            name=model.create_node_name("Cast"),
+            to=onnx.TensorProto.INT32,
+        )
+        model.model.graph.node.extend(
+            [reduce_sum_node, sub_node, seqlen_k_cast_node, shape_node, gather_node, total_seqlen_cast_node]
+        )
+
+        # Replace MultiHeadAttention with GroupQueryAttention
+        mha_nodes = list(filter(lambda node: node.op_type == "MultiHeadAttention", model.model.graph.node))
+        for node in mha_nodes:
+            num_heads_mha = 0
+            for att in node.attribute:
+                if att.name == "num_heads":
+                    num_heads_mha = att.i
+            gqa_node = onnx.helper.make_node(
+                "GroupQueryAttention",
+                inputs=[
+                    node.input[0],  # query
+                    node.input[1],  # key
+                    node.input[2],  # value
+                    node.input[6],  # past_key
+                    node.input[7],  # past_value
+                    "seqlens_k",  # seqlens_k (for attention_mask)
+                    "total_seq_len",  # total_seq_len (for attention_mask)
+                ],
+                outputs=node.output,
+                name=node.name.replace("MultiHeadAttention", "GroupQueryAttention"),
+                domain="com.microsoft",
+                num_heads=num_heads_mha // world_size,
+                kv_num_heads=num_heads_mha // world_size if kv_num_heads == 0 else kv_num_heads // world_size,
+            )
+            model.model.graph.node.remove(node)
+            model.model.graph.node.extend([gqa_node])
+        return model

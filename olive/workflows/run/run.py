@@ -7,14 +7,11 @@ import json
 import logging
 import os
 import subprocess
+import sys
 from pathlib import Path
 from typing import List, Union
 
-import onnxruntime as ort
-
-from olive.hardware import Device
-from olive.logging import set_default_logger_severity, set_verbosity_info
-from olive.passes import Pass
+from olive.logging import enable_filelog, set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
 from olive.systems.common import SystemType
 from olive.workflows.run.config import RunConfig
 
@@ -25,26 +22,52 @@ def dependency_setup(config):
     here = os.path.abspath(os.path.dirname(__file__))
     with open(os.path.join(here, "../../extra_dependencies.json")) as f:  # noqa: PTH123
         extras = json.load(f)
-    dependency_mapping = {
-        "device": {
-            SystemType.AzureML: extras.get("azureml"),
-            SystemType.Docker: extras.get("docker"),
-            SystemType.Local: {Device.CPU: extras.get("cpu"), Device.GPU: extras.get("gpu")},
-        },
-        "pass": {
+
+    def get_system_extras(host_type, accelerators, execution_providers):
+        extra_name = None
+        if host_type is None:
+            extra_name = "cpu"
+        elif host_type == SystemType.AzureML:
+            extra_name = "azureml"
+        elif host_type == SystemType.Docker:
+            extra_name = "docker"
+        elif host_type == SystemType.Local:
+            if accelerators and "GPU" in list(map(str.upper, accelerators)):
+                if execution_providers and "DmlExecutionProvider" in execution_providers:
+                    extra_name = "directml"
+                else:
+                    extra_name = "gpu"
+            else:
+                extra_name = "cpu"
+
+        return extra_name
+
+    def get_pass_extras(pass_type):
+        pass_to_extra = {
             "OnnxFloatToFloat16": ["onnxconverter-common"],
             "OrtPerfTuning": ["psutil"],
             "QuantizationAwareTraining": ["pytorch-lightning"],
-            "OpenVINOConversion": extras.get("openvino"),
-            "OpenVINOQuantization": extras.get("openvino"),
-            "IncQuantization": extras.get("inc"),
-            "IncDynamicQuantization": extras.get("inc"),
-            "IncStaticQuantization": extras.get("inc"),
-            "OptimumConversion": extras.get("optimum"),
-            "OptimumMerging": extras.get("optimum"),
-            "TorchTRTConversion": extras.get("torch-tensorrt"),
-        },
-    }
+        }
+
+        pass_to_extra_names = {
+            "OpenVINOConversion": ["openvino"],
+            "OpenVINOQuantization": ["openvino"],
+            "IncQuantization": ["inc"],
+            "IncDynamicQuantization": ["inc"],
+            "IncStaticQuantization": ["inc"],
+            "OptimumConversion": ["optimum"],
+            "OptimumMerging": ["optimum"],
+            "TorchTRTConversion": ["torch-tensorrt"],
+            "LoRA": ["lora"],
+            "QLoRA": ["bnb", "lora"],
+        }
+
+        extra_results = []
+        extra_results.extend(pass_to_extra.get(pass_type, []))
+        for extra_name in pass_to_extra_names.get(pass_type, []):
+            extra_results.extend(extras.get(extra_name))
+        return extra_results
+
     ort_packages = ["onnxruntime", "onnxruntime-directml", "onnxruntime-gpu", "onnxruntime-openvino"]
 
     local_packages = []
@@ -55,9 +78,9 @@ def dependency_setup(config):
         for pass_config in config.passes.values():
             host = pass_config.host or config.engine.host
             if (host and host.type == SystemType.Local) or not host:
-                local_packages.extend(dependency_mapping["pass"].get(pass_config.type, []))
+                local_packages.extend(get_pass_extras(pass_config.type))
             else:
-                remote_packages.extend(dependency_mapping["pass"].get(pass_config.type, []))
+                remote_packages.extend(get_pass_extras(pass_config.type))
             if pass_config.type in ["SNPEConversion", "SNPEQuantization", "SNPEtoONNXConversion"]:
                 logger.info(
                     "Please refer to https://microsoft.github.io/Olive/tutorials/passes/snpe.html to install SNPE"
@@ -65,24 +88,25 @@ def dependency_setup(config):
                 )
 
     # add dependencies for engine
-    if config.engine.host and config.engine.host.type == SystemType.Local:
-        # TODO(myguo): need to add DirectML support
-        if config.engine.host.config.accelerators and "GPU" in list(
-            map(str.upper, config.engine.host.config.accelerators)
-        ):
-            local_packages.extend(dependency_mapping["device"][SystemType.Local]["gpu"])
-        else:
-            local_packages.extend(dependency_mapping["device"][SystemType.Local]["cpu"])
-    elif not config.engine.host:
-        local_packages.extend(dependency_mapping["device"][SystemType.Local]["cpu"])
-    else:
-        local_packages.extend(dependency_mapping["device"][config.engine.host.type])
+    host_type = None
+    accelerators = None
+    if config.engine.host:
+        host_type = config.engine.host.type
+        accelerators = config.engine.host.config.accelerators
+
+    execution_providers = config.engine.execution_providers if config.engine.execution_providers else None
+    system_extra_name = get_system_extras(host_type, accelerators, execution_providers)
+    if system_extra_name:
+        local_packages.extend(extras.get(system_extra_name))
 
     # install missing packages to local or tell user to install packages in their environment
     logger.info(f"The following packages are required in the local environment: {local_packages}")
+    packages_install = []
     for package in set(local_packages):
         if package in ort_packages:
-            check_local_ort_installation(package)
+            package_to_install = check_local_ort_installation(package)
+            if package_to_install:
+                packages_install.append(package_to_install)
         else:
             try:
                 # use importlib.metadata to check if package is installed
@@ -90,9 +114,15 @@ def dependency_setup(config):
                 importlib.metadata.distribution(package)
                 logger.info(f"{package} is already installed.")
             except importlib.metadata.PackageNotFoundError:
-                logger.info(f"Installing {package}...")
-                subprocess.check_call(["python", "-m", "pip", "install", f"{package}"])
-                logger.info(f"Successfully installed {package}.")
+                packages_install.append(package)
+
+    if packages_install:
+        # Install all packages once time
+        cmd = [sys.executable, "-m", "pip", "install", *packages_install]
+        logger.info(f"Running: {' '.join(cmd)}")
+        subprocess.check_call(cmd)
+        logger.info(f"Successfully installed {packages_install}.")
+
     if remote_packages:
         logger.info(
             "Please make sure the following packages are installed in {} environment: {}".format(
@@ -101,15 +131,16 @@ def dependency_setup(config):
         )
 
 
-def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = None):
-    # we use parse_file and parse_obj to be safe. If implemented as expected, both should be equivalent.
-    if isinstance(config, (str, Path)):
-        config = RunConfig.parse_file(config)
-    else:
-        config = RunConfig.parse_obj(config)
+def run_engine(config: RunConfig, data_root: str = None):
+    import onnxruntime as ort
 
-    # set ort log level
-    set_default_logger_severity(config.engine.log_severity_level)
+    from olive.passes import Pass
+
+    # for onnxruntime
+    # ort_py_log_severity_level: python logging levels
+    set_ort_logger_severity(config.engine.ort_py_log_severity_level)
+
+    # ort_log_severity_level: C++ logging levels
     ort.set_default_logger_severity(config.engine.ort_log_severity_level)
 
     # input model
@@ -122,54 +153,64 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
     # engine
     engine = config.engine.create_engine()
 
+    # passes
+    if config.passes:
+        for pass_name, pass_config in config.passes.items():
+            host = pass_config.host.create_system() if pass_config.host is not None else None
+            engine.register(
+                Pass.registry[pass_config.type.lower()],
+                config=pass_config.config,
+                disable_search=pass_config.disable_search,
+                name=pass_name,
+                host=host,
+                evaluator_config=pass_config.evaluator,
+                clean_run_cache=pass_config.clean_run_cache,
+                output_name=pass_config.output_name,
+            )
+        engine.set_pass_flows(config.pass_flows)
+
+    if data_root is None:
+        data_root = config.data_root
+
+    # run
+    return engine.run(
+        input_model,
+        data_root,
+        config.engine.packaging_config,
+        config.engine.output_dir,
+        config.engine.output_name,
+        config.engine.evaluate_input_model,
+        config.data_configs,
+    )
+
+
+def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = None):
+    # we use parse_file and parse_obj to be safe. If implemented as expected, both should be equivalent.
+    if isinstance(config, (str, Path)):
+        config = RunConfig.parse_file(config)
+    else:
+        config = RunConfig.parse_obj(config)
+
+    # set log level for olive
+    set_default_logger_severity(config.engine.log_severity_level)
+    if config.engine.log_to_file:
+        enable_filelog(config.engine.log_severity_level)
+
     if setup:
         # set the log level to INFO for setup
         set_verbosity_info()
         dependency_setup(config)
         return None
     else:
-        # passes
-        if config.passes:
-            for pass_name, pass_config in config.passes.items():
-                host = pass_config.host.create_system() if pass_config.host is not None else None
-                engine.register(
-                    Pass.registry[pass_config.type.lower()],
-                    config=pass_config.config,
-                    disable_search=pass_config.disable_search,
-                    name=pass_name,
-                    host=host,
-                    evaluator_config=pass_config.evaluator,
-                    clean_run_cache=pass_config.clean_run_cache,
-                    output_name=pass_config.output_name,
-                )
-            engine.set_pass_flows(config.pass_flows)
-
-        if data_root is None:
-            data_root = config.data_root
-
-        # run
-        return engine.run(
-            input_model,
-            data_root,
-            config.engine.packaging_config,
-            config.engine.output_dir,
-            config.engine.output_name,
-            config.engine.evaluate_input_model,
-            config.data_configs,
-        )
+        return run_engine(config, data_root)
 
 
 def check_local_ort_installation(package_name: str):
+    """Check whether ORT is installed. If not, will return current package name to install."""
     local_ort_packages = get_local_ort_packages()
 
     if not local_ort_packages:
-        # this case should not happen right now, for future proofing
-        # onnxruntime is a dependency of olive so it must already be present
-        # olive import would not have succeeded otherwise
-        logger.info(f"Installing {package_name}...")
-        subprocess.check_call(["python", "-m", "pip", "install", package_name])
-        logger.info(f"Successfully installed {package_name}.")
-        return
+        return package_name
 
     if "-" in package_name:
         night_package_name = f"ort-nightly-{package_name.split('-')[-1]}"
@@ -182,21 +223,22 @@ def check_local_ort_installation(package_name: str):
         # TODO(jambayk): will probably be fine if we want cpu package but some other ort package is installed
         # but we can add a check for that if needed in the future
         logger.info(f"{local_ort_packages[0]} is already installed.")
-        return
+        return None
 
     # instruction to user
     messages = [
         "There are one or more onnxruntime packages installed in your environment!",
-        "Please run the following commands:",
+        "The setup process is stopped to avoid potential conflicts. Please run the following commands manually:",
     ]
-    uninstall_command = "python -m pip uninstall -y " + " ".join(local_ort_packages)
+    uninstall_command = f"{sys.sys.executable} -m pip uninstall -y " + " ".join(local_ort_packages)
     messages.append(f"Uninstall all existing onnxruntime packages: '{uninstall_command}'")
-    messages.append(f"Install {package_name}: 'python -m pip install {package_name}'")
+    messages.append(f"Install {package_name}: '{sys.executable} -m pip install {package_name}'")
     messages.append(
         "You can also instead install the corresponding nightly version following the instructions at"
         " https://onnxruntime.ai/docs/install/#inference-install-table-for-all-languages"
     )
     logger.warning("\n".join(messages))
+    return None
 
 
 def get_local_ort_packages() -> List[str]:

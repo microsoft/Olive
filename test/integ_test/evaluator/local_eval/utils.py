@@ -94,7 +94,7 @@ def get_accuracy_metric(post_process, dataloader=create_dataloader):
         "data_dir": data_dir,
         "dataloader_func": dataloader,
     }
-    sub_types = [{"name": AccuracySubType.ACCURACY_SCORE}]
+    sub_types = [{"name": AccuracySubType.ACCURACY_SCORE, "metric_config": {"task": "multiclass", "num_classes": 10}}]
     return Metric(
         name="accuracy",
         type=MetricType.ACCURACY,

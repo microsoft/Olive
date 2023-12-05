@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+from pathlib import Path
 from typing import Any, Dict
 
 import numpy as np
@@ -227,7 +228,7 @@ class OnnxModelOptimizer(Pass):
     def _run_for_config(
         self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModel:
-        output_model_path = ONNXModel.resolve_path(output_model_path)
+        output_model_path = ONNXModel.resolve_path(output_model_path, Path(model.model_path).name)
 
         # optimize model
         model_optimizer = ModelOptimizer(model.model_path)

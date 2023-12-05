@@ -8,7 +8,7 @@ import shutil
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Tuple, Union
 
 from azure.ai.ml import Input, Output, command
 from azure.ai.ml.constants import AssetTypes
@@ -20,10 +20,9 @@ from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.cache import normalize_data_path
 from olive.common.config_utils import ParamCategory, validate_config
 from olive.common.utils import retry_func
+from olive.data.config import DataConfig
 from olive.evaluator.metric import Metric, MetricResult
-from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ModelConfig
-from olive.passes.olive_pass import Pass
 from olive.resource_path import (
     AZUREML_RESOURCE_TYPES,
     LOCAL_RESOURCE_TYPES,
@@ -36,6 +35,11 @@ from olive.resource_path import (
 from olive.systems.common import AzureMLDockerConfig, SystemType
 from olive.systems.olive_system import OliveSystem
 
+if TYPE_CHECKING:
+    from olive.hardware.accelerator import AcceleratorSpec
+    from olive.passes.olive_pass import Pass
+
+
 logger = logging.getLogger(__name__)
 
 RESOURCE_TYPE_TO_ASSET_TYPE = {
@@ -47,6 +51,11 @@ RESOURCE_TYPE_TO_ASSET_TYPE = {
     ResourceType.AzureMLDatastore: None,
     ResourceType.AzureMLJobOutput: AssetTypes.CUSTOM_MODEL,
 }
+
+
+class DataParams(NamedTuple):
+    data_inputs: dict
+    data_args: dict
 
 
 def get_asset_type_from_resource_path(resource_path: ResourcePath):
@@ -109,7 +118,7 @@ class AzureMLSystem(OliveSystem):
 
     def run_pass(
         self,
-        the_pass: Pass,
+        the_pass: "Pass",
         model_config: ModelConfig,
         data_root: str,
         output_model_path: str,
@@ -119,12 +128,13 @@ class AzureMLSystem(OliveSystem):
         ml_client = self.azureml_client_config.create_client()
         point = point or {}
         config = the_pass.config_at_search_point(point)
+        data_params = self._create_data_script_inputs_and_args(the_pass)
         pass_config = the_pass.to_json(check_object=True)
         pass_config["config"].update(the_pass.serialize_config(config, check_object=True))
 
         with tempfile.TemporaryDirectory() as tempdir:
             pipeline_job = self._create_pipeline_for_pass(
-                data_root, tempdir, model_config, pass_config, the_pass.path_params
+                data_root, tempdir, model_config, pass_config, the_pass.path_params, data_params
             )
 
             # submit job
@@ -304,6 +314,7 @@ class AzureMLSystem(OliveSystem):
         model_config: ModelConfig,
         pass_config: dict,
         pass_path_params: List[Tuple[str, bool, ParamCategory]],
+        data_params: DataParams,
     ):
         tmp_dir = Path(tmp_dir)
 
@@ -331,6 +342,7 @@ class AzureMLSystem(OliveSystem):
         inputs = {
             **self._create_model_inputs(model_resource_paths),
             **self._create_pass_inputs(pass_path_params),
+            **data_params.data_inputs,
             **accelerator_info,
         }
         # prepare outputs
@@ -361,6 +373,7 @@ class AzureMLSystem(OliveSystem):
         args = {
             **self._create_model_args(model_json, model_resource_paths, tmp_dir),
             **self._create_pass_args(pass_config, pass_path_params, data_root, tmp_dir),
+            **data_params.data_args,
             **accelerator_info,
         }
 
@@ -372,6 +385,27 @@ class AzureMLSystem(OliveSystem):
             return outputs
 
         return pass_runner_pipeline()
+
+    def _create_data_script_inputs_and_args(self, the_pass: "Pass") -> DataParams:
+        data_inputs = {}
+        data_args = {}
+        data_name_set = set()
+
+        def update_dicts(name, key, script_attr, input_type):
+            data_inputs.update({f"{name}_{key}": Input(type=input_type, optional=True)})
+            data_args.update({f"{name}_{key}": Input(type=input_type, path=getattr(script_attr, key))})
+
+        for param, param_config in the_pass._config.items():
+            if param.endswith("data_config") and param_config is not None:
+                data_config = validate_config(param_config, DataConfig)
+                if data_config.name not in data_name_set:
+                    data_name_set.add(data_config.name)
+                    if data_config.user_script:
+                        update_dicts(data_config.name, "user_script", data_config, AssetTypes.URI_FILE)
+                    if data_config.script_dir:
+                        update_dicts(data_config.name, "script_dir", data_config, AssetTypes.URI_FOLDER)
+        logger.debug(f"Data inputs for pass: {data_inputs}, data args for pass: {data_args}")
+        return DataParams(data_inputs, data_args)
 
     def _run_job(
         self,
@@ -499,7 +533,7 @@ class AzureMLSystem(OliveSystem):
         }
 
     def evaluate_model(
-        self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
+        self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: "AcceleratorSpec"
     ) -> MetricResult:
         if model_config.type.lower() == "SNPEModel".lower():
             raise NotImplementedError("SNPE model does not support azureml evaluation")
@@ -528,7 +562,7 @@ class AzureMLSystem(OliveSystem):
         tmp_dir: str,
         model_config: ModelConfig,
         metrics: List[Metric],
-        accelerator: AcceleratorSpec,
+        accelerator: "AcceleratorSpec",
     ):
         tmp_dir = Path(tmp_dir)
 

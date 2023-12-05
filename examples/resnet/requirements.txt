@@ -1,6 +1,7 @@
 azure-ai-ml
 azure-identity
 azureml-fsspec
+psutil
 pytorch-lightning
 scipy
 tabulate

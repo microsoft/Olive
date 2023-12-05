@@ -1,0 +1,60 @@
+{
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "hf_config": {
+                "model_name": "tiiuae/falcon-7b",
+                "task": "text-generation",
+                "dataset": {
+                    "data_name":"timdettmers/openassistant-guanaco",
+                    "split": "train",
+                    "component_kwargs": {
+                        "pre_process_data": {
+                            "text_cols": ["text"],
+                            "corpus_strategy": "join",
+                            "source_max_len": 512,
+                            "max_samples": 1
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics":[
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_types": [
+                        {"name": "avg", "priority": 1, "goal": {"type": "percent-min-improvement", "value": 5}},
+                        {"name": "max"},
+                        {"name": "min"}
+                    ]
+                }
+            ]
+        }
+    },
+    "passes": {
+        "conversion": {
+            "type": "OnnxConversion",
+            "config": {
+                "target_opset": 13
+            }
+        },
+        "transformers_optimization": {
+            "type": "OrtTransformersOptimization",
+            "disable_search": true,
+            "config": {
+                "float16": true
+            }
+        }
+    },
+    "engine": {
+        "search_strategy": false,
+        "evaluator": "common_evaluator",
+        "execution_providers": ["CUDAExecutionProvider"],
+        "cache_dir": "cache",
+        "output_dir" : "models/falcon"
+    }
+}

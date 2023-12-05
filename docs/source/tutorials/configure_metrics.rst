@@ -19,8 +19,8 @@ Accuracy Metric
                 "type": "accuracy",
                 "sub_types": [
                     {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
-                    {"name": "f1_score", "metric_config": {"multiclass": false}},
-                    {"name": "auroc", "metric_config": {"num_classes": 2}}
+                    {"name": "f1_score"},
+                    {"name": "auroc"}
                 ],
                 "user_config": {
                     "post_processing_func": "post_process",
@@ -101,8 +101,49 @@ Latency Metric
                 }
             )
 
-Please refer to this `example <https://github.com/microsoft/Olive/blob/main/examples/bert/user_script.py>`_
-for :code:`"user_script.py"`.
+Throughput Metric
+~~~~~~~~~~~~~~~~~
+
+.. tabs::
+    .. tab:: Config JSON
+
+        .. code-block:: json
+
+            {
+                "name": "throughput",
+                "type": "throughput",
+                "sub_types": [
+                    {"name": "avg", "priority": 1, "goal": {"type": "percent-min-improvement", "value": 20}}
+                ],
+                "user_config": {
+                    "user_script": "user_script.py",
+                    "dataloader_func": "create_dataloader",
+                    "batch_size": 1
+                }
+            }
+
+    .. tab:: Python Class
+
+        .. code-block:: python
+
+            from olive.evaluator.metric_config import MetricGoal
+            from olive.evaluator.metric import ThroughputSubType, Metric, MetricType
+
+            sub_types = [{
+                "name": ThroughputSubType.AVG,
+                "goal": MetricGoal(type="percent-min-improvement", value=20),
+            }]
+            throughput_metric = Metric(
+                name="throughput",
+                type=MetricType.THROUGHPUT,
+                sub_types=sub_types,
+                user_config={
+                    "user_script": user_script,
+                    "dataloader_func": "create_dataloader",
+                    "batch_size": 1,
+                }
+            )
+
 
 Custom Metric
 ~~~~~~~~~~~~~
@@ -186,8 +227,8 @@ If you have multiple metrics to evaluate, you can configure them in the followin
                     "type": "accuracy",
                     "sub_types": [
                         {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
-                        {"name": "f1_score", "metric_config": {"multiclass": false}},
-                        {"name": "auroc", "metric_config": {"num_classes": 2}}
+                        {"name": "f1_score"},
+                        {"name": "auroc"}
                     ]
                 },
                 {

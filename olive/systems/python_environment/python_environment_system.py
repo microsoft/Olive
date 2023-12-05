@@ -11,7 +11,7 @@ import platform
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import numpy as np
 import torch
@@ -27,10 +27,13 @@ from olive.evaluator.metric import (
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveModelOutput, OnnxEvaluator
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec, Device
 from olive.model import ModelConfig, ONNXModel
-from olive.passes.olive_pass import Pass
 from olive.systems.common import SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import PythonEnvironmentTargetUserConfig
+
+if TYPE_CHECKING:
+    from olive.passes.olive_pass import Pass
+
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +86,7 @@ class PythonEnvironmentSystem(OliveSystem):
 
     def run_pass(
         self,
-        the_pass: Pass,
+        the_pass: "Pass",
         model_config: ModelConfig,
         data_root: str,
         output_model_path: str,

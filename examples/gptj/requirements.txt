@@ -1,4 +1,3 @@
 datasets
 neural-compressor
 onnxruntime
-transformers

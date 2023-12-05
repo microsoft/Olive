@@ -7,7 +7,8 @@ dependencies:
   - pip:
       - onnxruntime
       - pytorch-lightning
+      - psutil
       - scipy
       - tabulate
       - torchvision
-      - git+https://github.com/microsoft/Olive.git
+      - git+https://github.com/microsoft/Olive#egg=olive-ai[cpu]

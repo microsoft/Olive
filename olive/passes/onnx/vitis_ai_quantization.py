@@ -50,6 +50,10 @@ vai_q_onnx_quantization_config = {
             required'
         """,
     ),
+    "dataloader_func_kwargs": PassConfigParam(
+        type_=Dict[str, Any],
+        description="Keyword arguments for dataloader_func.",
+    ),
     "weight_type": PassConfigParam(
         type_=str,
         default_value="QInt8",
@@ -263,7 +267,7 @@ class VitisAIQuantization(Pass):
         # start with a copy of the config
         run_config = deepcopy(config)
 
-        output_model_path = ONNXModel.resolve_path(output_model_path)
+        output_model_path = ONNXModel.resolve_path(output_model_path, Path(model.model_path).name)
 
         # extra config
         extra_options = deepcopy(config["extra_options"]) if config["extra_options"] else {}
@@ -304,6 +308,7 @@ class VitisAIQuantization(Pass):
             "data_dir",
             "batch_size",
             "dataloader_func",
+            "dataloader_func_kwargs",
         ]
         to_delete += list(get_external_data_config().keys())
 
@@ -340,6 +345,7 @@ class VitisAIQuantization(Pass):
                 config["dataloader_func"],
                 data_dir,
                 config["batch_size"],
+                **(config["dataloader_func_kwargs"] or {}),
             )
         elif self._data_config:
             dataloader = self._data_config.to_data_container().create_calibration_dataloader(data_root)

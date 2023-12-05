@@ -3,7 +3,10 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+from pathlib import Path
 from typing import Any, Dict, List
+
+from onnx import ValueInfoProto
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel
@@ -24,6 +27,9 @@ class OrtMixedPrecision(Pass):
                 type_=List[str],
                 default_value=["SimplifiedLayerNormalization", "SkipSimplifiedLayerNormalization", "Relu", "Add"],
                 description="List of op types to leave as float32",
+            ),
+            "atol": PassConfigParam(
+                type_=float, default_value=1e-6, description="Absolute tolerance for checking float16 conversion"
             ),
         }
         config.update(get_external_data_config())
@@ -68,7 +74,7 @@ class OrtMixedPrecision(Pass):
             # we can deduce that the weights are stored in float16 precision.
             max_diff = float_to_float16_max_diff(initializer)
             logger.debug(f"max diff of converting weights in last MatMul node {node.name}: {max_diff}")
-            is_weight_fp16_precision = max_diff < 1e-6
+            is_weight_fp16_precision = max_diff < config["atol"]
         else:
             logger.warning(f"Failed to find MatMul node for logits. Found {node.op_type} of node {node.name}")
 
@@ -91,7 +97,7 @@ class OrtMixedPrecision(Pass):
         fp16_model = self._convert_float_to_float16(
             model=model.load_model(), use_symbolic_shape_infer=True, **parameters
         )
-        output_model_path = ONNXModel.resolve_path(output_model_path)
+        output_model_path = ONNXModel.resolve_path(output_model_path, Path(model.model_path).name)
         config = self._config_class(**config)
         return model_proto_to_olive_model(fp16_model, output_model_path, config.dict())
 
@@ -133,7 +139,31 @@ class OrtMixedPrecision(Pass):
             # Use symbolic shape inference since custom operators (like Gelu, SkipLayerNormalization etc)
             # are not recognized by onnx shape inference.
             shape_infer_helper = SymbolicShapeInferenceHelper(model, verbose=0)
-            model = shape_infer_helper.infer_shapes(model, auto_merge=True, guess_output_rank=False)
+            try:
+                model_with_shape = shape_infer_helper.infer_shapes(model, auto_merge=True, guess_output_rank=False)
+
+                # auto_merge might cause issue (see https://github.com/microsoft/onnxruntime/issues/15521)
+                # we only merge tensor data type but not shape information back to the original onnx model.
+                # Note that float16 conversion need data type but not shape information.
+                if model_with_shape is not None:
+                    name_vi = {}
+                    for vi in model_with_shape.graph.value_info:
+                        vi_copy = ValueInfoProto()
+                        vi_copy.CopyFrom(vi)
+                        if hasattr(vi_copy.type, "tensor_type") and hasattr(vi_copy.type.tensor_type, "shape"):
+                            vi_copy.type.tensor_type.ClearField("shape")
+                        name_vi[vi.name] = vi_copy
+
+                    for vi in model.graph.value_info:
+                        if vi.name in name_vi:
+                            del name_vi[vi.name]
+                    for vi in name_vi.values():
+                        model.graph.value_info.append(vi)
+            except Exception:
+                logger.warning(
+                    "Failed to run symbolic shape inference. Please file an issue"
+                    " in https://github.com/microsoft/onnxruntime."
+                )
 
         parameters = {"disable_shape_infer": use_symbolic_shape_infer}
         parameters.update(

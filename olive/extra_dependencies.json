@@ -1,6 +1,6 @@
 {
     "azureml": [
-        "azure-ai-ml>=0.1.0b6",
+        "azure-ai-ml>=1.11.1",
         "azure-identity",
         "azureml-fsspec"
     ],
@@ -31,5 +31,17 @@
     ],
     "torch-tensorrt": [
         "torch-tensorrt"
+    ],
+    "lora": [
+        "accelerate",
+        "peft",
+        "scipy"
+    ],
+    "bnb": [
+        "bitsandbytes"
+    ],
+    "ort-training": [
+        "onnxruntime-training",
+        "torch-ort"
     ]
 }

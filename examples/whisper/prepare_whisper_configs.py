@@ -57,6 +57,15 @@ def get_args(raw_args):
             "Package the final model as a zipfile along with the required onnxruntime packages and sample code."
             " Default: False"
         ),
+    ),
+    parser.add_argument(
+        "--atol",
+        type=float,
+        default=1e-6,
+        help=(
+            "Absolute tolerance for checking float16 conversion. Only for fp16 workflow. For some cases, you can"
+            " increase this value to 1e-5 or 1e-4. Default: 1e-6"
+        ),
     )
     return parser.parse_args(raw_args)
 
@@ -110,6 +119,10 @@ def main(raw_args=None):
         config["passes"] = {}
         for pass_name in workflow:
             pass_config = deepcopy(template_json["passes"][pass_name])
+            if pass_name == "insert_beam_search":
+                pass_config["config"]["fp16"] = precision == "fp16"
+            if pass_name == "mixed_precision":
+                pass_config["config"]["atol"] = args.atol
             if pass_name == "transformers_optimization":
                 pass_config["config"]["use_gpu"] = device == "gpu"
             if pass_name == "prepost":
