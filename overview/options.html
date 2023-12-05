@@ -213,6 +213,7 @@ The default value is 3. User can increase if there are network issues and the op
 </pre></div>
 </div>
 </li>
+<li><p><code class="docutils literal notranslate"><span class="pre">keyvault_name:</span> <span class="pre">[str]</span></code> The keyvault name to retrieve secrets.</p></li>
 </ul>
 <section id="example">
 <h3>Example<a class="headerlink" href="#example" title="Permalink to this heading">¶</a></h3>
@@ -398,8 +399,10 @@ information of the system contains following items:</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">[str]</span></code> The type of the system. The supported types are <code class="docutils literal notranslate"><span class="pre">LocalSystem</span></code>, <code class="docutils literal notranslate"><span class="pre">AzureML</span></code> and <code class="docutils literal notranslate"><span class="pre">Docker</span></code>.
 There are some built-in system alias which could also be used as type. For example, <code class="docutils literal notranslate"><span class="pre">AzureNDV2System</span></code>. Please refer to <a class="reference internal" href="../api/systems.html#olive-system-alias"><span class="std std-ref">Olive System Alias</span></a> for the complete list of system alias.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">config:</span> <span class="pre">[Dict]</span></code> The system config dictionary that contains the system specific information.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">accelerators:</span> <span class="pre">[List[str]]</span></code> The accelerators that will be used for this workflow.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hf_token:</span> <span class="pre">[bool]</span></code> Whether to use a Huggingface token to access Huggingface resources. If it is set to <code class="docutils literal notranslate"><span class="pre">True</span></code>, For local system, Docker system, and PythonEnvironment system, Olive will retrieve the token from the <code class="docutils literal notranslate"><span class="pre">HF_TOKEN</span></code> environment variable or from the token file located at <code class="docutils literal notranslate"><span class="pre">~/.huggingface/token</span></code>. For AzureML system, Olive will retrieve the token from user keyvault secret. If set to <code class="docutils literal notranslate"><span class="pre">False</span></code>, no token will be utilized during this workflow run. The default value is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
 </ul>
-<p>Please refer to <a class="reference internal" href="#configuring_olivesystem"><span class="xref myst">Configuring OliveSystem</span></a> for the more information of the system config dictionary.</p>
+<p>Please refer to <a class="reference internal" href="../tutorials/configure_systems.html"><span class="std std-doc">How To Configure System</span></a> for the more information of the system config dictionary.</p>
 <section id="id2">
 <h3>Example<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;systems&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>

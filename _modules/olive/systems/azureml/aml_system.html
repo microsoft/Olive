@@ -143,7 +143,7 @@
 <span class="kn">from</span> <span class="nn">azure.ai.ml</span> <span class="kn">import</span> <span class="n">Input</span><span class="p">,</span> <span class="n">Output</span><span class="p">,</span> <span class="n">command</span>
 <span class="kn">from</span> <span class="nn">azure.ai.ml.constants</span> <span class="kn">import</span> <span class="n">AssetTypes</span>
 <span class="kn">from</span> <span class="nn">azure.ai.ml.dsl</span> <span class="kn">import</span> <span class="n">pipeline</span>
-<span class="kn">from</span> <span class="nn">azure.ai.ml.entities</span> <span class="kn">import</span> <span class="n">BuildContext</span><span class="p">,</span> <span class="n">Environment</span><span class="p">,</span> <span class="n">Model</span>
+<span class="kn">from</span> <span class="nn">azure.ai.ml.entities</span> <span class="kn">import</span> <span class="n">BuildContext</span><span class="p">,</span> <span class="n">Environment</span><span class="p">,</span> <span class="n">Model</span><span class="p">,</span> <span class="n">UserIdentityConfiguration</span>
 <span class="kn">from</span> <span class="nn">azure.core.exceptions</span> <span class="kn">import</span> <span class="n">HttpResponseError</span><span class="p">,</span> <span class="n">ServiceResponseError</span>
 
 <span class="kn">from</span> <span class="nn">olive.azureml.azureml_client</span> <span class="kn">import</span> <span class="n">AzureMLClientConfig</span>
@@ -218,8 +218,9 @@
         <span class="n">accelerators</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">olive_managed_env</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">requirements_file</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">hf_token</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">accelerators</span><span class="p">,</span> <span class="n">olive_managed_env</span><span class="o">=</span><span class="n">olive_managed_env</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">accelerators</span><span class="p">,</span> <span class="n">olive_managed_env</span><span class="o">=</span><span class="n">olive_managed_env</span><span class="p">,</span> <span class="n">hf_token</span><span class="o">=</span><span class="n">hf_token</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">instance_count</span> <span class="o">=</span> <span class="n">instance_count</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">resources</span> <span class="o">=</span> <span class="n">resources</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">is_dev</span> <span class="o">=</span> <span class="n">is_dev</span>
@@ -232,6 +233,17 @@
         <span class="k">if</span> <span class="n">aml_docker_config</span><span class="p">:</span>
             <span class="n">aml_docker_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">aml_docker_config</span><span class="p">,</span> <span class="n">AzureMLDockerConfig</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">environment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_environment</span><span class="p">(</span><span class="n">aml_docker_config</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">env_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_hf_token_env</span><span class="p">(</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">keyvault_name</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_token</span> <span class="k">else</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">_get_hf_token_env</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyvault_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">keyvault_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;hf_token is set to True but keyvault name is not provided. &quot;</span>
+                <span class="s2">&quot;Please provide a keyvault name to use HF_TOKEN.&quot;</span>
+            <span class="p">)</span>
+        <span class="n">env_vars</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;HF_LOGIN&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
+        <span class="n">env_vars</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;KEYVAULT_NAME&quot;</span><span class="p">:</span> <span class="n">keyvault_name</span><span class="p">})</span>
+        <span class="k">return</span> <span class="n">env_vars</span>
 
     <span class="k">def</span> <span class="nf">_create_environment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">docker_config</span><span class="p">:</span> <span class="n">AzureMLDockerConfig</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">docker_config</span><span class="o">.</span><span class="n">build_context_path</span><span class="p">:</span>
@@ -430,11 +442,13 @@
             <span class="n">command</span><span class="o">=</span><span class="n">cmd_line</span><span class="p">,</span>
             <span class="n">resources</span><span class="o">=</span><span class="n">resources</span><span class="p">,</span>
             <span class="n">environment</span><span class="o">=</span><span class="n">aml_environment</span><span class="p">,</span>
+            <span class="n">environment_variables</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">env_vars</span><span class="p">,</span>
             <span class="n">code</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">code</span><span class="p">),</span>
             <span class="n">inputs</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span>
             <span class="n">outputs</span><span class="o">=</span><span class="n">outputs</span><span class="p">,</span>
             <span class="n">instance_count</span><span class="o">=</span><span class="n">instance_count</span><span class="p">,</span>
             <span class="n">compute</span><span class="o">=</span><span class="n">compute</span><span class="p">,</span>
+            <span class="n">identity</span><span class="o">=</span><span class="n">UserIdentityConfiguration</span><span class="p">(),</span>
         <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_create_pipeline_for_pass</span><span class="p">(</span>
