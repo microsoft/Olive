@@ -309,7 +309,7 @@ def get_benchmark(model, data_root, latency_metric, config, test_params=None, io
         test_result["session_options"] = test_params.get("session_options").copy()
         test_result["io_bind"] = io_bind
 
-    logger.info(f"Run benchmark for: {session_name}")
+    logger.debug(f"Run benchmark for: {session_name}")
     evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
     joint_key = joint_metric_key(latency_metric.name, latency_metric.sub_types[0].name)
     start_time = time.perf_counter()
@@ -317,7 +317,7 @@ def get_benchmark(model, data_root, latency_metric, config, test_params=None, io
         model, data_root, [latency_metric], config.device, config.providers_list
     )[joint_key].value
     end_time = time.perf_counter()
-    logger.info(f"It takes {end_time - start_time} seconds to benchmark for: {session_name}")
+    logger.debug(f"It takes {(end_time - start_time):.5f} seconds to benchmark for: {session_name}")
 
     return test_result
 
