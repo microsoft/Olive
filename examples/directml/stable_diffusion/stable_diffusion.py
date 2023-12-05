@@ -6,11 +6,13 @@ import argparse
 import json
 import shutil
 import sys
+import tempfile
 import threading
 import tkinter as tk
 import tkinter.ttk as ttk
 import warnings
 from pathlib import Path
+from typing import Dict
 
 import config
 import onnxruntime as ort
@@ -134,7 +136,15 @@ def run_inference_gui(pipeline, prompt, num_images, batch_size, image_size, num_
 
 
 def run_inference(
-    optimized_model_dir, prompt, num_images, batch_size, image_size, num_inference_steps, static_dims, interactive
+    optimized_model_dir,
+    provider,
+    prompt,
+    num_images,
+    batch_size,
+    image_size,
+    num_inference_steps,
+    static_dims,
+    interactive,
 ):
     ort.set_default_logger_severity(3)
 
@@ -154,8 +164,13 @@ def run_inference(
         sess_options.add_free_dimension_override_by_name("unet_hidden_batch", batch_size * 2)
         sess_options.add_free_dimension_override_by_name("unet_hidden_sequence", 77)
 
+    provider_map = {
+        "dml": "DmlExecutionProvider",
+        "cuda": "CUDAExecutionProvider",
+    }
+    assert provider in provider_map, f"Unsupported provider: {provider}"
     pipeline = OnnxStableDiffusionPipeline.from_pretrained(
-        optimized_model_dir, provider="DmlExecutionProvider", sess_options=sess_options
+        optimized_model_dir, provider=provider_map[provider], sess_options=sess_options
     )
 
     if interactive:
@@ -164,8 +179,21 @@ def run_inference(
         run_inference_loop(pipeline, prompt, num_images, batch_size, image_size, num_inference_steps)
 
 
+def update_config_with_provider(config: Dict, provider: str):
+    if provider == "dml":
+        # DirectML EP is the default, so no need to update config.
+        return config
+    elif provider == "cuda":
+        config["pass_flows"] = [["convert", "optimize_cuda"]]
+        config["engine"]["execution_providers"] = ["CUDAExecutionProvider"]
+        return config
+    else:
+        raise ValueError(f"Unsupported provider: {provider}")
+
+
 def optimize(
     model_id: str,
+    provider: str,
     unoptimized_model_dir: Path,
     optimized_model_dir: Path,
 ):
@@ -209,6 +237,7 @@ def optimize(
         olive_config = None
         with (script_dir / f"config_{submodel_name}.json").open() as fin:
             olive_config = json.load(fin)
+        olive_config = update_config_with_provider(olive_config, provider)
 
         if submodel_name in ("unet", "text_encoder"):
             olive_config["input_model"]["config"]["model_path"] = model_id
@@ -221,7 +250,7 @@ def optimize(
         olive_run(olive_config)
 
         footprints_file_path = (
-            Path(__file__).resolve().parent / "footprints" / f"{submodel_name}_gpu-dml_footprints.json"
+            Path(__file__).resolve().parent / "footprints" / f"{submodel_name}_gpu-{provider}_footprints.json"
         )
         with footprints_file_path.open("r") as footprint_file:
             footprints = json.load(footprint_file)
@@ -289,6 +318,9 @@ def optimize(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_id", default="runwayml/stable-diffusion-v1-5", type=str)
+    parser.add_argument(
+        "--provider", default="dml", type=str, choices=["dml", "cuda"], help="Execution provider to use"
+    )
     parser.add_argument("--interactive", action="store_true", help="Run with a GUI")
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
     parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")
@@ -310,6 +342,7 @@ if __name__ == "__main__":
         help="DEPRECATED (now enabled by default). Use --dynamic_dims to disable static_dims.",
     )
     parser.add_argument("--dynamic_dims", action="store_true", help="Disable static shape optimization")
+    parser.add_argument("--tempdir", default=None, type=str, help="Root directory for tempfile directories and files")
     args = parser.parse_args()
 
     if args.static_dims:
@@ -334,13 +367,17 @@ if __name__ == "__main__":
             "as expected."
         )
 
-    if version.parse(ort.__version__) < version.parse("1.15.0"):
-        print("This script requires onnxruntime-directml 1.15.0 or newer")
+    if args.provider == "dml" and version.parse(ort.__version__) < version.parse("1.16.0"):
+        print("This script requires onnxruntime-directml 1.16.0 or newer")
+        sys.exit(1)
+    elif args.provider == "cuda" and version.parse(ort.__version__) < version.parse("1.17.0"):
+        print("This script requires onnxruntime-gpu 1.17.0 or newer")
         sys.exit(1)
 
     script_dir = Path(__file__).resolve().parent
     unoptimized_model_dir = script_dir / "models" / "unoptimized" / args.model_id
-    optimized_model_dir = script_dir / "models" / "optimized" / args.model_id
+    optimized_dir_name = "optimized" if args.provider == "directml" else "optimized-cuda"
+    optimized_model_dir = script_dir / "models" / optimized_dir_name / args.model_id
 
     if args.clean_cache:
         shutil.rmtree(script_dir / "cache", ignore_errors=True)
@@ -348,10 +385,16 @@ if __name__ == "__main__":
     config.image_size = model_to_image_size.get(args.model_id, 512)
 
     if args.optimize or not optimized_model_dir.exists():
+        if args.tempdir is not None:
+            # set tempdir if specified
+            tempdir = Path(args.tempdir).resolve()
+            tempdir.mkdir(parents=True, exist_ok=True)
+            tempfile.tempdir = str(tempdir)
+
         # TODO(jstoecker): clean up warning filter (mostly during conversion from torch to ONNX)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            optimize(args.model_id, unoptimized_model_dir, optimized_model_dir)
+            optimize(args.model_id, args.provider, unoptimized_model_dir, optimized_model_dir)
 
     if not args.optimize:
         model_dir = unoptimized_model_dir if args.test_unoptimized else optimized_model_dir
@@ -361,6 +404,7 @@ if __name__ == "__main__":
             warnings.simplefilter("ignore")
             run_inference(
                 model_dir,
+                args.provider,
                 args.prompt,
                 args.num_images,
                 args.batch_size,
