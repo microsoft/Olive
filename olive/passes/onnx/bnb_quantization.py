@@ -27,6 +27,7 @@ class OnnxBnb4Quantization(Pass):
         config = {
             "quant_type": PassConfigParam(
                 type_=str,
+                default_value=None,
                 description="The quantization type. Only 'fp4' and 'nf4' are supported.",
             ),
             "quantized_modules": PassConfigParam(
