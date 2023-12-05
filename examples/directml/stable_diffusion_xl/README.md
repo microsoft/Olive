@@ -76,7 +76,7 @@ If you omit `--interactive`, the script will generate the requested number of im
 The minimum number of inferences will be `ceil(num_images / batch_size)`; additional inferences may be required of some outputs are flagged by the safety checker to ensure the desired number of outputs are produced.
 
 ## Stable Diffusion Optimization with CUDA
-This example can also be used to optimize Stable Diffusion models for CUDA. You can use the same `stable_diffusion.py` script with `--provider cuda` option to optimize the models for CUDA and test inference. The optimized models will be stored under `models/optimized-cuda/[model_id]` (for example `models/optimized-cuda/runwayml/stable-diffusion-v1-5`).
+This example can also be used to optimize Stable Diffusion models for CUDA. You can use the same `stable_diffusion.py` script with `--provider cuda` option to optimize the models for CUDA and test inference. The optimized models will be stored under `models/optimized-cuda/[model_id]` (for example `models/optimized-cuda/stabilityai/stable-diffusion-xl-base-1.0`).
 
 Install the common requirements:
 ```

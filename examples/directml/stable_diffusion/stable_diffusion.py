@@ -368,7 +368,7 @@ if __name__ == "__main__":
         )
 
     if args.provider == "dml" and version.parse(ort.__version__) < version.parse("1.16.0"):
-        print("This script requires onnxruntime-directml 1.16.2 or newer")
+        print("This script requires onnxruntime-directml 1.16.0 or newer")
         sys.exit(1)
     elif args.provider == "cuda" and version.parse(ort.__version__) < version.parse("1.17.0"):
         print("This script requires onnxruntime-gpu 1.17.0 or newer")
