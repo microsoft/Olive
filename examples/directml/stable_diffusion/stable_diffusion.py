@@ -319,7 +319,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_id", default="runwayml/stable-diffusion-v1-5", type=str)
     parser.add_argument(
-        "--provider", default="directml", type=str, choices=["dml", "cuda"], help="Execution provider to use"
+        "--provider", default="dml", type=str, choices=["dml", "cuda"], help="Execution provider to use"
     )
     parser.add_argument("--interactive", action="store_true", help="Run with a GUI")
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
@@ -342,7 +342,7 @@ if __name__ == "__main__":
         help="DEPRECATED (now enabled by default). Use --dynamic_dims to disable static_dims.",
     )
     parser.add_argument("--dynamic_dims", action="store_true", help="Disable static shape optimization")
-    parser.add_argument("--tempdir", type=str, help="Root directory for tempfile directories and files", required=False)
+    parser.add_argument("--tempdir", default=None, type=str, help="Root directory for tempfile directories and files")
     args = parser.parse_args()
 
     if args.static_dims:
@@ -367,7 +367,7 @@ if __name__ == "__main__":
             "as expected."
         )
 
-    if args.provider == "dml" and version.parse(ort.__version__) < version.parse("1.16.2"):
+    if args.provider == "dml" and version.parse(ort.__version__) < version.parse("1.16.0"):
         print("This script requires onnxruntime-directml 1.16.2 or newer")
         sys.exit(1)
     elif args.provider == "cuda" and version.parse(ort.__version__) < version.parse("1.17.0"):

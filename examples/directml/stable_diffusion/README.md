@@ -2,13 +2,14 @@
 
 This sample shows how to optimize [Stable Diffusion v1-4](https://huggingface.co/CompVis/stable-diffusion-v1-4), [Stable Diffusion v1-5](https://huggingface.co/runwayml/stable-diffusion-v1-5) or [Stable Diffusion v2](https://huggingface.co/stabilityai/stable-diffusion-2) to run with ONNX Runtime and DirectML.
 
-Stable Diffusion comprises multiple PyTorch models tied together into a *pipeline*. This Olive sample will convert each PyTorch model to ONNX, and then run the converted ONNX models through the `OrtTransformersOptimization` pass. The transformer optimization pass performs several time-consuming graph transformations that make the models more efficient for inference at runtime. Output models are only guaranteed to be compatible with onnxruntime-directml 1.16.2 or newer.
+Stable Diffusion comprises multiple PyTorch models tied together into a *pipeline*. This Olive sample will convert each PyTorch model to ONNX, and then run the converted ONNX models through the `OrtTransformersOptimization` pass. The transformer optimization pass performs several time-consuming graph transformations that make the models more efficient for inference at runtime. Output models are only guaranteed to be compatible with onnxruntime-directml 1.16.0 or newer.
 
 **Contents**:
 - [Setup](#setup)
 - [Conversion to ONNX and Latency Optimization](#conversion-to-onnx-and-latency-optimization)
 - [Test Inference](#test-inference)
 - [LoRA Models (Experimental)](#lora-models-experimental)
+- [Optimization for CUDA EP](#stable-diffusion-optimization-with-cuda)
 - [Issues](#issues)
 - [Stable Diffusion Pipeline](#stable-diffusion-pipeline)
 
@@ -110,15 +111,15 @@ LoRA adds additional linear layers (attention processors) to the base PyTorch mo
 
 Olive merges the LoRA weights into the base model before conversion to ONNX (see `user_script.py:merge_lora_weights`), which means the output models are fully baked. This approach simplifies downstream ONNX-based graph optimizations and enables performance-critical fusions (e.g. multi-head attention) that will not occur if the injected LoRA layers remain in the graph. As a consequence, if you want to switch LoRA weights you must reoptimize the affected models (generally U-Net). Retaining the flexibility of pluggable LoRA weights in the output ONNX models would require the LoRA weights be saved as external data along with fusion of the attention processors at runtime.
 
-# Stable Diffusion Optimization with CUDA <!-- omit in toc -->
-This example can also be used to optimize Stable Diffusion models for CUDA. You can use the same `stable_diffusion.py` script with `--provider cuda` to optimize the models for CUDA and test inference. The optimized models will be stored under `models/optimized-cuda/[model_id]` (for example `models/optimized-cuda/runwayml/stable-diffusion-v1-5`).
+## Stable Diffusion Optimization with CUDA
+This example can also be used to optimize Stable Diffusion models for CUDA. You can use the same `stable_diffusion.py` script with `--provider cuda` option to optimize the models for CUDA and test inference. The optimized models will be stored under `models/optimized-cuda/[model_id]` (for example `models/optimized-cuda/runwayml/stable-diffusion-v1-5`).
 
 Install the common requirements:
 ```
 pip install -r requirements-common.txt
 ```
 
-The CUDA example required the latest onnxruntime-gpu code which can either be built from source or installed from the nightly builds. The following command can be used to install the latest nightly build of onnxruntime-gpu:
+The CUDA example requires the latest onnxruntime-gpu code which can either be built from source or installed from the nightly builds. The following command can be used to install the latest nightly build of onnxruntime-gpu:
 ```
 # uninstall any pre-existing onnxruntime packages
 pip uninstall -y onnxruntime onnxruntime-gpu onnxruntime-directml ort-nightly ort-nightly-gpu ort-nightly-directml
@@ -127,7 +128,7 @@ pip uninstall -y onnxruntime onnxruntime-gpu onnxruntime-directml ort-nightly or
 pip install ort-nightly-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
 ```
 
-# Issues
+## Issues
 
 If you run into the following error while optimizing models, it is likely that your local HuggingFace cache has an incomplete copy of the stable diffusion model pipeline. Deleting `C:\users\<username>\.cache\huggingface` should resolve the issue by ensuring a fresh copy is downloaded.
 
@@ -135,7 +136,7 @@ If you run into the following error while optimizing models, it is likely that y
 OSError: Can't load tokenizer for 'C:\Users\<username>\.cache\huggingface\hub\models--runwayml--stable-diffusion-v1-5\snapshots\<sha>'. If you were trying to load it from 'https://huggingface.co/models', make sure you don't have a local directory with the same name. Otherwise, make sure 'C:\Users\<username>\.cache\huggingface\hub\models--runwayml--stable-diffusion-v1-5\snapshots\<sha>' is the correct path to a directory containing all relevant files for a CLIPTokenizer tokenizer.
 ```
 
-# Stable Diffusion Pipeline
+## Stable Diffusion Pipeline
 
 The figure belows a high-level overview of the Stable Diffusion pipeline, and is based on a figure from [Hugging Face Blog](https://huggingface.co/blog/stable_diffusion) that covers Stable Diffusion with Diffusers library. The blue boxes are the converted & optimized ONNX models. The gray boxes remain implemented by diffusers library when using this example for inference; a custom pipeline may implement the full pipeline without leveraging Python or the diffusers library.
 
