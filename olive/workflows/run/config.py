@@ -112,12 +112,12 @@ class RunConfig(ConfigBase):
                 "task": hf_config.get("task", None),
                 **hf_config_dataset,
             }
-            # insert trust_remote_code from hf_from_pretrained_args if present
+            # insert trust_remote_code from from_pretrained_args if present
             # won't override if value was set to False explicitly
             # will keep as list of keys for future extension
             for key in ["trust_remote_code"]:
-                if hf_config.get("hf_from_pretrained_args", {}).get(key, None) and params_config.get(key, None) is None:
-                    params_config[key] = hf_config["hf_from_pretrained_args"][key]
+                if hf_config.get("from_pretrained_args", {}).get(key, None) and params_config.get(key, None) is None:
+                    params_config[key] = hf_config["from_pretrained_args"][key]
             v[INPUT_MODEL_DATA_CONFIG] = {
                 "name": INPUT_MODEL_DATA_CONFIG,
                 "type": HuggingfaceContainer.__name__,
@@ -163,10 +163,10 @@ class RunConfig(ConfigBase):
             # won't override if value was set to False explicitly
             for key in ["trust_remote_code"]:
                 if (
-                    hf_config.get("hf_from_pretrained_args", {}).get(key, None)
+                    hf_config.get("from_pretrained_args", {}).get(key, None)
                     and v["params_config"].get(key, None) is None
                 ):
-                    v["params_config"][key] = hf_config["hf_from_pretrained_args"][key]
+                    v["params_config"][key] = hf_config["from_pretrained_args"][key]
 
         return validate_config(v, DataConfig)
 

@@ -209,7 +209,7 @@ class HFConfig(ConfigBase):
     model_class: str = None
     components: List[HFComponent] = None
     dataset: Dict[str, Any] = None
-    hf_from_pretrained_args: HFFromPretrainedArgs = None
+    from_pretrained_args: HFFromPretrainedArgs = None
 
     @validator("model_class", always=True)
     def task_or_model_class_required(cls, v, values):
@@ -219,7 +219,7 @@ class HFConfig(ConfigBase):
         return v
 
     def _get_loading_args(self):
-        return self.hf_from_pretrained_args.get_loading_args() if self.hf_from_pretrained_args else {}
+        return self.from_pretrained_args.get_loading_args() if self.from_pretrained_args else {}
 
     def load_model(self, model_path: str = None):
         """Load model from model_path or model_name."""

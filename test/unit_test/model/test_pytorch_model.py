@@ -105,7 +105,7 @@ class TestPyTorchHFModel(unittest.TestCase):
             hf_config={
                 "task": self.task,
                 "model_name": self.model_name,
-                "hf_from_pretrained_args": {"torch_dtype": self.torch_dtype},
+                "from_pretrained_args": {"torch_dtype": self.torch_dtype},
             }
         )
         pytorch_model = olive_model.load_model()
