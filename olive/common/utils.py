@@ -13,6 +13,7 @@ import shlex
 import shutil
 import subprocess
 import time
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -255,3 +256,52 @@ def aml_runner_hf_login():
         secret_client = SecretClient(vault_url=f"https://{keyvault_name}.vault.azure.net/", credential=credential)
         token = secret_client.get_secret("hf-token").value
         huggingface_login(token)
+
+
+def all_files(path, ignore=None):
+    """Find all files in a directory recursively, optionally ignoring some paths.
+
+    :param path: The path to the directory to search. Can be a string or a `Path` object.
+    :param ignore: A callable similar to `ignore` parameter of `shutil.copytree`.
+        E.g. `shutil.ignore_patterns('__pycache__')`.
+    :return: A generator of `Path` objects.
+    """
+    for member in Path(path).iterdir():
+        ignored = ignore(path, [member.name]) if ignore else set()
+        if member.name in ignored:
+            continue
+        if member.is_dir():
+            yield from all_files(member, ignore)
+        else:
+            yield member
+
+
+def copy_dir(src_dir, dst_dir, ignore=None, **kwargs):
+    """Copy a directory recursively using `shutil.copytree`.
+
+    Handles shutil.Error exceptions that happen even though all files were copied successfully.
+
+    :param src_dir: The source directory. Can be a string or a `Path` object.
+    :param dst_dir: The destination directory. Can be a string or a `Path` object.
+    :param ignore: A callable that is used as `ignore` parameter to `shutil.copytree`.
+    :param kwargs: Additional kwargs to pass to `shutil.copytree`.
+    """
+    try:
+        shutil.copytree(src_dir, dst_dir, ignore=ignore, **kwargs)
+    except shutil.Error as e:
+        src_dir = Path(src_dir).resolve()
+        dst_dir = Path(dst_dir).resolve()
+        # Check if all files were copied successfully
+        # only check files names so it is not foolproof
+        not_copied = [
+            member.relative_to(src_dir)
+            for member in all_files(src_dir, ignore)
+            if not (dst_dir / member.relative_to(src_dir)).exists()
+        ]
+        if not_copied:
+            raise RuntimeError(f"Failed to copy {not_copied}") from e
+        else:
+            logger.warning(
+                f"Received shutil.Error '{e}' but all required file names exist in destination directory. "
+                "Assuming all files were copied successfully and continuing."
+            )

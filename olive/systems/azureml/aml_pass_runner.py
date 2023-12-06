@@ -12,7 +12,7 @@ from onnxruntime import __version__ as ort_version
 from packaging import version
 
 from olive.common.config_utils import ParamCategory, validate_config
-from olive.common.utils import aml_runner_hf_login
+from olive.common.utils import aml_runner_hf_login, copy_dir
 from olive.data.config import DataConfig
 from olive.hardware import AcceleratorSpec
 from olive.model import ModelConfig
@@ -113,7 +113,7 @@ def main(raw_args=None):
                 shutil.copy(old_path, new_path)
             else:
                 new_path.mkdir(parents=True, exist_ok=True)
-                shutil.copytree(old_path, new_path, dirs_exist_ok=True)
+                copy_dir(old_path, new_path, dirs_exist_ok=True)
             input_model_config["config"]["model_path"] = str(new_path)
 
     # pass specific args

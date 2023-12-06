@@ -19,7 +19,7 @@ from azure.core.exceptions import HttpResponseError, ServiceResponseError
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.cache import normalize_data_path
 from olive.common.config_utils import ParamCategory, validate_config
-from olive.common.utils import retry_func
+from olive.common.utils import copy_dir, retry_func
 from olive.data.config import DataConfig
 from olive.evaluator.metric import Metric, MetricResult
 from olive.model import ModelConfig
@@ -345,7 +345,7 @@ class AzureMLSystem(OliveSystem):
                 "It will overwrite the Olive package in AML computer with latest code."
             )
             project_folder = cur_dir.parent.parent
-            shutil.copytree(project_folder, code_root / "olive", ignore=shutil.ignore_patterns("__pycache__"))
+            copy_dir(project_folder, code_root / "olive", ignore=shutil.ignore_patterns("__pycache__"))
 
         accelerator_info = {
             "pass_accelerator_type": pass_config["accelerator"]["accelerator_type"],
@@ -636,7 +636,7 @@ class AzureMLSystem(OliveSystem):
                 "It will overwrite the Olive package in AML computer with latest code."
             )
             project_folder = cur_dir.parent.parent
-            shutil.copytree(project_folder, code_root / "olive", ignore=shutil.ignore_patterns("__pycache__"))
+            copy_dir(project_folder, code_root / "olive", ignore=shutil.ignore_patterns("__pycache__"))
 
         # prepare inputs
         inputs = {

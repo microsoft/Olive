@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Dict, List
 
 import pkg_resources
 
-from olive.common.utils import get_package_name_from_ep, run_subprocess
+from olive.common.utils import copy_dir, get_package_name_from_ep, run_subprocess
 from olive.engine.packaging.packaging_config import PackagingConfig, PackagingType
 from olive.model import ONNXModel
 from olive.resource_path import ResourceType, create_resource_path
@@ -68,7 +68,7 @@ def _generate_zipfile_output(
 
 
 def _package_sample_code(cur_path, tempdir):
-    shutil.copytree(cur_path / "sample_code", tempdir / "SampleCode")
+    copy_dir(cur_path / "sample_code", tempdir / "SampleCode")
 
 
 def _package_candidate_models(

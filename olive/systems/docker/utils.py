@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, List
 
 from olive.cache import get_local_path_from_root
+from olive.common.utils import copy_dir
 
 if TYPE_CHECKING:
     from olive.evaluator.metric import Metric
@@ -121,7 +122,7 @@ def create_dev_mount(tempdir: Path, container_root_path: Path):
 
     # copy the whole project folder to tempdir
     project_folder = Path(__file__).resolve().parent.parent.parent
-    shutil.copytree(project_folder, tempdir / "olive", ignore=shutil.ignore_patterns("__pycache__"))
+    copy_dir(project_folder, tempdir / "olive", ignore=shutil.ignore_patterns("__pycache__"))
 
     project_folder_mount_path = str(container_root_path / "olive")
     project_folder_mount_str = f"{tempdir / 'olive'}:{project_folder_mount_path}"
