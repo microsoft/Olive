@@ -571,7 +571,7 @@ class LoRABase(Pass):
                 if from_pretrained_args.get(k) is not None:
                     logger.warning(
                         f"Input model has from_pretrained_args.{k}. Ignoring. "
-                        f"{cls.__name__} will overwrite it based onthe pass config."
+                        f"{cls.__name__} will overwrite it based on the pass config."
                     )
 
         if model.get_resource("adapter_path"):
