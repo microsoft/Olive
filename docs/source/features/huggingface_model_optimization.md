@@ -51,7 +51,7 @@ Take `Intel/bert-base-uncased-mrpc` as an example, you can specify task name as 
 ```
 
 #### Optimum model
-Optimum model is a special case of PyTorhc model. By specifying `OptimumModel` as `type`, the model path would be the model name. And add model components name. Olive will get the components from Huggingface hub:
+Optimum model is a special case of PyTorch model. By specifying `OptimumModel` as `type`, the model path would be the model name. And add model components name. Olive will get the components from Huggingface hub:
 
 ```json
 "input_model":{
