@@ -98,14 +98,14 @@ class TestPyTorchHFModel(unittest.TestCase):
         pytorch_model = olive_model.load_model()
         assert isinstance(pytorch_model, transformers.BertForSequenceClassification)
 
-    def test_hf_model_loading_args(self):
+    def test_hf_from_pretrained_args(self):
         self.setup()
 
         olive_model = PyTorchModel(
             hf_config={
                 "task": self.task,
                 "model_name": self.model_name,
-                "model_loading_args": {"torch_dtype": self.torch_dtype},
+                "hf_from_pretrained_args": {"torch_dtype": self.torch_dtype},
             }
         )
         pytorch_model = olive_model.load_model()

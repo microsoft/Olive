@@ -18,7 +18,7 @@ from olive.common.config_utils import validate_config
 from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device
 from olive.hardware import AcceleratorSpec
 from olive.model import CompositeOnnxModel, DistributedOnnxModel, DistributedPyTorchModel, ONNXModel, PyTorchModel
-from olive.model.hf_utils import HFModelLoadingArgs
+from olive.model.hf_utils import HFFromPretrainedArgs
 from olive.model.model_config import IOConfig
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
@@ -262,7 +262,7 @@ class OnnxConversion(Pass):
         1. model is not loaded from hf config, or the model loading args is not specified
             - load the model directly
         2. model is loaded from hf config, and the model loading args is specified
-            - update model_loading_args.torch_dtype if torch_dtype is specified
+            - update hf_from_pretrained_args.torch_dtype if torch_dtype is specified
             - if torch_dtype not specified, make sure the model loading args specify a dtype that is supported for
                 conversion on the specified device
             - if quantization_method == "bitsandbytes" and load_in_4bit is True
@@ -271,22 +271,22 @@ class OnnxConversion(Pass):
                 - the onnx model must be quantized using OnnxBnb4Quantization pass after conversion
         Model attributes is None if the output model should inherit the model attributes from the input model.
         """
-        if not model.is_model_loaded_from_hf_config() or not model.hf_config.model_loading_args:
+        if not model.is_model_loaded_from_hf_config() or not model.hf_config.hf_from_pretrained_args:
             # if the model is not loaded from hf config, or the model loading args is not specified,
             # we can load the model directly
             return model.load_model(), None
 
-        model_loading_args = model.hf_config.model_loading_args
-        model_dtype = model_loading_args.get_torch_dtype()
-        new_model_loading_args = deepcopy(model_loading_args.dict())
+        hf_from_pretrained_args = model.hf_config.hf_from_pretrained_args
+        model_dtype = hf_from_pretrained_args.get_torch_dtype()
+        new_hf_from_pretrained_args = deepcopy(hf_from_pretrained_args.dict())
         new_model_attributes = model.model_attributes or {}
         if torch_dtype and torch_dtype != model_dtype:
             # if the model loading args specify a different dtype, update the model loading args
             logger.debug(
-                f"Changing torch_dtype in model loading args from {model_loading_args.get_torch_dtype()} to"
+                f"Changing torch_dtype in model loading args from {hf_from_pretrained_args.get_torch_dtype()} to"
                 f" {torch_dtype}."
             )
-            new_model_loading_args["torch_dtype"] = torch_dtype
+            new_hf_from_pretrained_args["torch_dtype"] = torch_dtype
             new_model_attributes["torch_dtype"] = str(torch_dtype).replace("torch.", "")
         elif model_dtype == torch.float16 and device == "cpu":
             logger.warning(
@@ -295,20 +295,20 @@ class OnnxConversion(Pass):
                 " use_device as 'cuda' or use OrtTransformerOptimization/OnnxFloatToFloat16 pass after conversion to"
                 " convert the model to float16."
             )
-            new_model_loading_args["torch_dtype"] = torch.float32
+            new_hf_from_pretrained_args["torch_dtype"] = torch.float32
             new_model_attributes["torch_dtype"] = "float32"
 
         if (
-            model_loading_args.quantization_method == "bitsandbytes"
-            and model_loading_args.quantization_config["load_in_4bit"]
+            hf_from_pretrained_args.quantization_method == "bitsandbytes"
+            and hf_from_pretrained_args.quantization_config["load_in_4bit"]
         ):
             logger.warning(
                 "Bitsandbytes 4bit quantization is not supported for conversion. The quantization config is removed"
                 " from the model loading args. Use OnnxBnb4Quantization pass after conversion to quantize the model."
             )
-            new_model_loading_args["quantization_method"] = None
-            new_model_loading_args["quantization_config"] = None
-            new_model_attributes["quantization_config"] = model_loading_args.quantization_config
+            new_hf_from_pretrained_args["quantization_method"] = None
+            new_hf_from_pretrained_args["quantization_config"] = None
+            new_model_attributes["quantization_config"] = hf_from_pretrained_args.quantization_config
             if "quantized_modules" not in new_model_attributes:
                 # find and add quantized modules to the model attributes
                 # the QLoRA pass already adds quantized_modules to the model attributes, so this will not be executed
@@ -324,7 +324,7 @@ class OnnxConversion(Pass):
 
         # load the model with the updated model loading args
         new_hf_config = deepcopy(model.hf_config)
-        new_hf_config.model_loading_args = HFModelLoadingArgs(**new_model_loading_args)
+        new_hf_config.hf_from_pretrained_args = HFFromPretrainedArgs(**new_hf_from_pretrained_args)
         return new_hf_config.load_model(model.model_path), new_model_attributes
 
     def _convert_model_on_device(

@@ -5,7 +5,7 @@
             "hf_config": {
                 "model_name": "microsoft/phi-1_5",
                 "task": "text-generation",
-                "model_loading_args": {
+                "hf_from_pretrained_args": {
                     "trust_remote_code": true
                 }
             }
