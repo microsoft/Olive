@@ -144,7 +144,6 @@ find more details in [Olive Models](https://microsoft.github.io/Olive/api/models
             ```
             For cases where you do not want to use the huggingface model but want to use the huggingface dataset, you can provide `dataset` config only like above.
 
-
 Please find the detailed config options from following table for each model type:
 
 | Model Type | Description |
