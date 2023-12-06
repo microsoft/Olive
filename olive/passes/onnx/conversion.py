@@ -21,7 +21,7 @@ from olive.model import (
     CompositeModelHandler,
     DistributedOnnxModelHandler,
     DistributedPyTorchModelHandler,
-    HfModelLoadingArgs,
+    HfFromPretrainedArgs,
     ONNXModelHandler,
     PyTorchModelHandler,
     resolve_path,
@@ -351,7 +351,7 @@ class OnnxConversion(Pass):
 
         # load the model with the updated model loading args
         new_hf_config = deepcopy(model.hf_config)
-        new_hf_config.model_loading_args = HfModelLoadingArgs(**new_model_loading_args)
+        new_hf_config.from_pretrained_args = HfFromPretrainedArgs(**new_from_pretrained_args)
         return new_hf_config.load_model(model.model_path), new_model_attributes
 
     def _convert_model_on_device(

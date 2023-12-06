@@ -24,10 +24,10 @@ class HfComponent(ConfigBase):
     dummy_inputs_func: Union[str, Callable]
 
 
-class HfModelLoadingArgs(ConfigWithExtraArgs):
+class HfFromPretrainedArgs(ConfigWithExtraArgs):
     """Arguments to pass to the `from_pretrained` method of the model class.
 
-    Refer to https://github.com/huggingface/transformers/blob/main/src/transformers/modeling_utils.py#L2074
+    Refer to https://huggingface.co/docs/transformers/main_classes/model#transformers.PreTrainedModel.from_pretrained
     """
 
     torch_dtype: str = Field(
@@ -205,7 +205,7 @@ class HfConfig(ConfigBase):
     model_class: str = None
     components: List[HfComponent] = None
     dataset: Dict[str, Any] = None
-    model_loading_args: HfModelLoadingArgs = None
+    from_pretrained_args: HfFromPretrainedArgs = None
 
     @validator("model_class", always=True)
     def task_or_model_class_required(cls, v, values):

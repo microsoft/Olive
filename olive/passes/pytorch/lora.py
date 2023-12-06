@@ -28,7 +28,7 @@ from olive.data.config import DataConfig
 from olive.data.constants import IGNORE_INDEX
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import PyTorchModelHandler
-from olive.model.config.hf_config import HfModelLoadingArgs
+from olive.model.config.hf_config import HfFromPretrainedArgs
 from olive.model.hf_utils import get_peft_task_type_from_task
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
@@ -639,7 +639,7 @@ class LoRA(LoRABase):
         from_pretrained_args.update(
             {"torch_dtype": model_dtype, "device_map": "auto" if not config.use_ort_trainer else None}
         )
-        new_model.hf_config.model_loading_args = HfModelLoadingArgs(**model_loading_args)
+        new_model.hf_config.from_pretrained_args = HfFromPretrainedArgs(**from_pretrained_args)
         pytorch_model = new_model.load_model()
         if torch.cuda.is_available() and config.use_ort_trainer:
             # put the model on GPU since device_map is None and the model will be on CPU
@@ -768,7 +768,7 @@ class QLoRA(LoRABase):
                 },
             }
         )
-        new_model.hf_config.model_loading_args = HfModelLoadingArgs(**model_loading_args)
+        new_model.hf_config.from_pretrained_args = HfFromPretrainedArgs(**from_pretrained_args)
         pytorch_model = new_model.load_model()
         pytorch_model.config.torch_dtype = model_dtype
 

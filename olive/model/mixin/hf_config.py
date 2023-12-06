@@ -67,7 +67,7 @@ class HfConfigMixin:
             return None
 
     def _get_loading_args(self):
-        return self.hf_config.model_loading_args.get_loading_args() if self.hf_config.model_loading_args else {}
+        return self.hf_config.from_pretrained_args.get_loading_args() if self.hf_config.from_pretrained_args else {}
 
     def _load_model_config(self, model_path: str = None):
         """Load model config from model_path or model_name."""
