@@ -121,7 +121,7 @@ class OnnxConversion(Pass):
             return CompositeModelHandler(onnx_models, component_names)
 
         # check if the model has components
-        hf_components = model.get_hf_components()
+        hf_components = model.get_hf_component_names()
         if hf_components:
             onnx_models = []
             component_names = []

@@ -186,8 +186,9 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
 
     def get_hf_component(self, component_name: str) -> "PyTorchModelHandler":
         """Get a component of the model as a PyTorchModelHandler."""
+        component_names = self.get_hf_component_names()
         assert self.hf_config.components, "hf_config.components must be provided to get component"
-        assert component_name in self.hf_config.components, f"component {component_name} not found in hf_config"
+        assert component_name in component_names, f"component {component_name} not found in hf_config"
 
         # get the component from hf_config
         components_dict = {component.name: component for component in self.hf_config.components}

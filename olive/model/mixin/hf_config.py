@@ -73,7 +73,7 @@ class HfConfigMixin:
         """Load model config from model_path or model_name."""
         return get_hf_model_config(model_path or self.hf_config.model_name, **self._get_loading_args())
 
-    def get_hf_components(self):
+    def get_hf_component_names(self):
         """Names of the components of the model."""
         if not self.hf_config or not self.hf_config.components:
             return None
