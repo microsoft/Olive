@@ -48,7 +48,8 @@ class CompositeModelHandler(OliveModelHandler):
 
     def to_json(self, check_object: bool = False):
         json_dict = {
-            "type": self.__class__.__name__,
+            # TODO(myguo): add unittest for this
+            "type": self.model_type,
             "config": {"model_attributes": self.model_attributes, "model_component_names": self.model_component_names},
         }
         json_dict["config"]["model_components"] = []
