@@ -158,7 +158,7 @@
 <span class="kn">from</span> <span class="nn">olive.data.constants</span> <span class="kn">import</span> <span class="n">IGNORE_INDEX</span>
 <span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">AcceleratorSpec</span>
 <span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">PyTorchModel</span>
-<span class="kn">from</span> <span class="nn">olive.model.hf_utils</span> <span class="kn">import</span> <span class="n">HFModelLoadingArgs</span><span class="p">,</span> <span class="n">get_peft_task_type_from_task</span>
+<span class="kn">from</span> <span class="nn">olive.model.hf_utils</span> <span class="kn">import</span> <span class="n">HFFromPretrainedArgs</span><span class="p">,</span> <span class="n">get_peft_task_type_from_task</span>
 <span class="kn">from</span> <span class="nn">olive.passes</span> <span class="kn">import</span> <span class="n">Pass</span>
 <span class="kn">from</span> <span class="nn">olive.passes.olive_pass</span> <span class="kn">import</span> <span class="n">PassConfigParam</span>
 
@@ -643,7 +643,7 @@
         <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
             <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">empty_cache</span><span class="p">()</span>
         <span class="c1"># remove the device map since we don&#39;t want &quot;auto&quot; device map</span>
-        <span class="n">output_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_loading_args</span><span class="o">.</span><span class="n">device_map</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">output_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">from_pretrained_args</span><span class="o">.</span><span class="n">device_map</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="c1"># remove model_overwrites from model_attributes</span>
         <span class="k">if</span> <span class="n">output_model</span><span class="o">.</span><span class="n">model_attributes</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_overwrites</span><span class="p">:</span>
@@ -689,19 +689,19 @@
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">input_model_check</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">model</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the input model and reset model_loading_args and adapter_path.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the input model and reset from_pretrained_args and adapter_path.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">model</span><span class="o">.</span><span class="n">hf_config</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> pass only supports PyTorchModel with hf_config.&quot;</span><span class="p">)</span>
 
-        <span class="c1"># load model, reset model_loading_args and adapter_path</span>
-        <span class="n">model_loading_args</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_loading_args</span><span class="p">:</span>
-            <span class="n">model_loading_args</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_loading_args</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span>
+        <span class="c1"># load model, reset from_pretrained_args and adapter_path</span>
+        <span class="n">from_pretrained_args</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">from_pretrained_args</span><span class="p">:</span>
+            <span class="n">from_pretrained_args</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">from_pretrained_args</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span>
             <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">model_overwrites</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">model_loading_args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">from_pretrained_args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;Input model has model_loading_args.</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">. Ignoring. </span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> will overwrite it based on&quot;</span>
-                        <span class="s2">&quot; the pass config.&quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;Input model has from_pretrained_args.</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">. Ignoring. &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> will overwrite it based on the pass config.&quot;</span>
                     <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">get_resource</span><span class="p">(</span><span class="s2">&quot;adapter_path&quot;</span><span class="p">):</span>
@@ -761,14 +761,14 @@
         <span class="c1"># will use mixed precision since full fp16 is unstable</span>
         <span class="n">model_dtype</span> <span class="o">=</span> <span class="n">torch_dtype</span> <span class="k">if</span> <span class="n">torch_dtype</span> <span class="o">!=</span> <span class="n">torch</span><span class="o">.</span><span class="n">float16</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
 
-        <span class="c1"># load model, reset model_loading_args and adapter_path</span>
-        <span class="n">model_loading_args</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_loading_args</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span> <span class="k">if</span> <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_loading_args</span> <span class="k">else</span> <span class="p">{}</span>
+        <span class="c1"># load model, reset from_pretrained_args and adapter_path</span>
+        <span class="n">from_pretrained_args</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">from_pretrained_args</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span> <span class="k">if</span> <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">from_pretrained_args</span> <span class="k">else</span> <span class="p">{}</span>
         <span class="p">)</span>
-        <span class="n">model_loading_args</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+        <span class="n">from_pretrained_args</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
             <span class="p">{</span><span class="s2">&quot;torch_dtype&quot;</span><span class="p">:</span> <span class="n">model_dtype</span><span class="p">,</span> <span class="s2">&quot;device_map&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">config</span><span class="o">.</span><span class="n">use_ort_trainer</span> <span class="k">else</span> <span class="kc">None</span><span class="p">}</span>
         <span class="p">)</span>
-        <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_loading_args</span> <span class="o">=</span> <span class="n">HFModelLoadingArgs</span><span class="p">(</span><span class="o">**</span><span class="n">model_loading_args</span><span class="p">)</span>
+        <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">from_pretrained_args</span> <span class="o">=</span> <span class="n">HFFromPretrainedArgs</span><span class="p">(</span><span class="o">**</span><span class="n">from_pretrained_args</span><span class="p">)</span>
         <span class="n">pytorch_model</span> <span class="o">=</span> <span class="n">new_model</span><span class="o">.</span><span class="n">load_model</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="ow">and</span> <span class="n">config</span><span class="o">.</span><span class="n">use_ort_trainer</span><span class="p">:</span>
             <span class="c1"># put the model on GPU since device_map is None and the model will be on CPU</span>
@@ -778,7 +778,7 @@
         <span class="c1"># tokenizer</span>
         <span class="n">tokenizer</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span>
             <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
-            <span class="n">trust_remote_code</span><span class="o">=</span><span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_loading_args</span><span class="o">.</span><span class="n">trust_remote_code</span><span class="p">,</span>
+            <span class="n">trust_remote_code</span><span class="o">=</span><span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">from_pretrained_args</span><span class="o">.</span><span class="n">trust_remote_code</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="c1"># add lora modules</span>
@@ -876,11 +876,11 @@
         <span class="c1"># will use mixed precision since full fp16 is unstable</span>
         <span class="n">model_dtype</span> <span class="o">=</span> <span class="n">torch_dtype</span> <span class="k">if</span> <span class="n">torch_dtype</span> <span class="o">!=</span> <span class="n">torch</span><span class="o">.</span><span class="n">float16</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
 
-        <span class="c1"># load model, reset model_loading_args and adapter_path</span>
-        <span class="n">model_loading_args</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_loading_args</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span> <span class="k">if</span> <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_loading_args</span> <span class="k">else</span> <span class="p">{}</span>
+        <span class="c1"># load model, reset from_pretrained_args and adapter_path</span>
+        <span class="n">from_pretrained_args</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">from_pretrained_args</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span> <span class="k">if</span> <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">from_pretrained_args</span> <span class="k">else</span> <span class="p">{}</span>
         <span class="p">)</span>
-        <span class="n">model_loading_args</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+        <span class="n">from_pretrained_args</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
             <span class="p">{</span>
                 <span class="s2">&quot;torch_dtype&quot;</span><span class="p">:</span> <span class="n">model_dtype</span><span class="p">,</span>
                 <span class="c1"># TODO(jambayk): Worry about `use_multi_gpu` and distributed training later</span>
@@ -897,14 +897,14 @@
                 <span class="p">},</span>
             <span class="p">}</span>
         <span class="p">)</span>
-        <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_loading_args</span> <span class="o">=</span> <span class="n">HFModelLoadingArgs</span><span class="p">(</span><span class="o">**</span><span class="n">model_loading_args</span><span class="p">)</span>
+        <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">from_pretrained_args</span> <span class="o">=</span> <span class="n">HFFromPretrainedArgs</span><span class="p">(</span><span class="o">**</span><span class="n">from_pretrained_args</span><span class="p">)</span>
         <span class="n">pytorch_model</span> <span class="o">=</span> <span class="n">new_model</span><span class="o">.</span><span class="n">load_model</span><span class="p">()</span>
         <span class="n">pytorch_model</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">torch_dtype</span> <span class="o">=</span> <span class="n">model_dtype</span>
 
         <span class="c1"># tokenizer</span>
         <span class="n">tokenizer</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span>
             <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
-            <span class="n">trust_remote_code</span><span class="o">=</span><span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_loading_args</span><span class="o">.</span><span class="n">trust_remote_code</span><span class="p">,</span>
+            <span class="n">trust_remote_code</span><span class="o">=</span><span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">from_pretrained_args</span><span class="o">.</span><span class="n">trust_remote_code</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="c1"># TODO(jambayk): need to see if we still need this line</span>
