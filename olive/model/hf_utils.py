@@ -31,7 +31,7 @@ class HFComponent(ConfigBase):
 class HFModelLoadingArgs(ConfigWithExtraArgs):
     """Arguments to pass to the `from_pretrained` method of the model class.
 
-    Refer to https://huggingface.co/docs/transformers/main_classes/model#transformers.PreTrainedModel.from_pretrained
+    Refer to https://github.com/huggingface/transformers/blob/main/src/transformers/modeling_utils.py#L2074
     """
 
     torch_dtype: str = Field(
