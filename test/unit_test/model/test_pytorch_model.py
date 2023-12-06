@@ -15,7 +15,8 @@ import torch
 import transformers
 from azureml.evaluate import mlflow as aml_mlflow
 
-from olive.model import IOConfig, PyTorchModel
+from olive.model.config.io_config import IoConfig
+from olive.model.handler.pytorch import PyTorchModelHandler
 
 # pylint: disable=attribute-defined-outside-init
 
@@ -46,12 +47,12 @@ class TestPyTorchMLflowModel(unittest.TestCase):
         )
 
     def test_hf_model_attributes(self):
-        olive_model = PyTorchModel(hf_config={"task": self.task, "model_name": self.architecture})
+        olive_model = PyTorchModelHandler(hf_config={"task": self.task, "model_name": self.architecture})
         # model_attributes will be delayed loaded until pass run
         assert olive_model.model_attributes == transformers.AutoConfig.from_pretrained(self.architecture).to_dict()
 
     def test_load_model(self):
-        olive_model = PyTorchModel(model_path=self.model_path, model_file_format="PyTorch.MLflow").load_model()
+        olive_model = PyTorchModelHandler(model_path=self.model_path, model_file_format="PyTorch.MLflow").load_model()
         mlflow_model = mlflow.pyfunc.load_model(self.model_path)
 
         sample_input = {"inputs": {"input_string": self.input_text}}
@@ -85,7 +86,7 @@ class TestPyTorchHFModel(unittest.TestCase):
     def test_hf_config_task(self):
         self.setup()
 
-        olive_model = PyTorchModel(hf_config={"task": self.task, "model_name": self.model_name})
+        olive_model = PyTorchModelHandler(hf_config={"task": self.task, "model_name": self.model_name})
 
         pytorch_model = olive_model.load_model()
         assert isinstance(pytorch_model, transformers.BertForSequenceClassification)
@@ -93,7 +94,7 @@ class TestPyTorchHFModel(unittest.TestCase):
     def test_hf_config_model_class(self):
         self.setup()
 
-        olive_model = PyTorchModel(hf_config={"model_class": self.model_class, "model_name": self.model_name})
+        olive_model = PyTorchModelHandler(hf_config={"model_class": self.model_class, "model_name": self.model_name})
 
         pytorch_model = olive_model.load_model()
         assert isinstance(pytorch_model, transformers.BertForSequenceClassification)
@@ -101,7 +102,7 @@ class TestPyTorchHFModel(unittest.TestCase):
     def test_hf_from_pretrained_args(self):
         self.setup()
 
-        olive_model = PyTorchModel(
+        olive_model = PyTorchModelHandler(
             hf_config={
                 "task": self.task,
                 "model_name": self.model_name,
@@ -140,28 +141,28 @@ class TestPytorchDummyInput:
         }
 
     def test_dict_io_config(self):
-        olive_model = PyTorchModel(
+        olive_model = PyTorchModelHandler(
             hf_config={"task": self.task, "model_name": self.model_name}, io_config=self.io_config
         )
         # get io config
         io_config = olive_model.get_io_config()
-        assert io_config == IOConfig(**self.io_config).dict()
+        assert io_config == IoConfig(**self.io_config).dict()
 
     def test_func_io_config(self):
         io_config_func = MagicMock(spec=FunctionType)
         io_config_func.return_value = self.io_config
-        olive_model = PyTorchModel(
+        olive_model = PyTorchModelHandler(
             hf_config={"task": self.task, "model_name": self.model_name}, io_config=io_config_func
         )
         # get io config
         io_config = olive_model.get_io_config()
         io_config_func.assert_called_once_with(olive_model)
-        assert io_config == IOConfig(**self.io_config).dict()
+        assert io_config == IoConfig(**self.io_config).dict()
 
-    @patch("olive.model.hf_utils.get_hf_model_io_config")
+    @patch("olive.model.mixin.hf_config.get_hf_model_io_config")
     def test_hf_config_io_config(self, get_hf_model_io_config):
         get_hf_model_io_config.return_value = self.io_config
-        olive_model = PyTorchModel(hf_config={"task": self.task, "model_name": self.model_name})
+        olive_model = PyTorchModelHandler(hf_config={"task": self.task, "model_name": self.model_name})
         # get io config
         io_config = olive_model.get_io_config()
         assert io_config == self.io_config
@@ -188,7 +189,7 @@ class TestPytorchDummyInput:
     def test_custom_dummy_inputs(self):
         dummy_inputs_func = MagicMock(spec=FunctionType)
         dummy_inputs_func.return_value = 1
-        olive_model = PyTorchModel(
+        olive_model = PyTorchModelHandler(
             hf_config={"task": self.task, "model_name": self.model_name}, dummy_inputs_func=dummy_inputs_func
         )
         # get dummy inputs
@@ -199,22 +200,22 @@ class TestPytorchDummyInput:
 
     @patch("olive.data.template.dummy_data_config_template")
     def test_input_shapes_dummy_inputs(self, dummy_data_config_template):
-        olive_model = PyTorchModel(
+        olive_model = PyTorchModelHandler(
             hf_config={"task": self.task, "model_name": self.model_name}, io_config=self.io_config
         )
         self.common_data_config_test(olive_model, dummy_data_config_template)
 
     @patch("olive.data.template.huggingface_data_config_template")
     def test_hf_config_dataset_dummy_inputs(self, hf_data_config_template):
-        olive_model = PyTorchModel(
+        olive_model = PyTorchModelHandler(
             hf_config={"task": self.task, "model_name": self.model_name, "dataset": self.dataset}
         )
         self.common_data_config_test(olive_model, hf_data_config_template)
 
-    @patch("olive.model.hf_utils.get_hf_model_dummy_input")
+    @patch("olive.model.mixin.dummy_inputs.get_hf_model_dummy_input")
     def test_hf_onnx_config_dummy_inputs(self, get_hf_model_dummy_input):
         get_hf_model_dummy_input.return_value = 1
-        olive_model = PyTorchModel(hf_config={"task": self.task, "model_name": self.model_name})
+        olive_model = PyTorchModelHandler(hf_config={"task": self.task, "model_name": self.model_name})
         # get dummy inputs
         dummy_inputs = olive_model.get_dummy_inputs()
 
@@ -226,7 +227,7 @@ class TestPyTorchModel:
     def test_model_to_json(self, tmp_path):
         script_dir = tmp_path / "model"
         script_dir.mkdir(exist_ok=True)
-        model = PyTorchModel(model_path="test_path", script_dir=script_dir)
+        model = PyTorchModelHandler(model_path="test_path", script_dir=script_dir)
         model.set_resource("model_script", "model_script")
         model_json = model.to_json()
         assert model_json["config"]["model_path"] == "test_path"

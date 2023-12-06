@@ -8,7 +8,7 @@ from olive.common.config_utils import ConfigBase
 from olive.common.pydantic_v1 import validator
 
 
-class IOConfig(ConfigBase):
+class IoConfig(ConfigBase):
     # TODO(trajep): remove input names, shapes and types, turn to use olive dataset config.
     input_names: List[str]
     input_shapes: List[List[int]] = None
@@ -68,8 +68,8 @@ class IOConfig(ConfigBase):
         return v
 
 
-def is_io_config_static(config: Union[IOConfig, Dict]):
-    if isinstance(config, IOConfig):
+def is_io_config_static(config: Union[IoConfig, Dict]):
+    if isinstance(config, IoConfig):
         config = config.dict()
     if not config.get("input_shapes"):
         return False

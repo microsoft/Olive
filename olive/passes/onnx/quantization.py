@@ -17,7 +17,7 @@ from olive.common.utils import hash_string
 from olive.data.config import DataConfig
 from olive.exception import OlivePassError
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import ONNXModel
+from olive.model import ONNXModelHandler, resolve_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_file, model_proto_to_olive_model
 from olive.passes.pass_config import ParamCategory, PassConfigParam
@@ -310,8 +310,8 @@ class OnnxQuantization(Pass):
         return True
 
     def _run_for_config(
-        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> ONNXModel:
+        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> ONNXModelHandler:
         from onnxruntime import __version__ as OrtVersion
         from onnxruntime.quantization import QuantFormat, QuantType, quantize_dynamic, quantize_static
         from onnxruntime.quantization.calibrate import CalibrationMethod
@@ -324,7 +324,7 @@ class OnnxQuantization(Pass):
                 config["dataloader_func"] or config["data_config"]
             ), "dataloader_func or data_config is required for static quantization."
 
-        output_model_path = ONNXModel.resolve_path(output_model_path, Path(model.model_path).name)
+        output_model_path = resolve_path(output_model_path, Path(model.model_path).name)
 
         # extra config
         extra_options = deepcopy(config["extra_options"]) if config["extra_options"] else {}
@@ -354,7 +354,7 @@ class OnnxQuantization(Pass):
                 model = self._quant_preprocess(model, preprocessed_temp_model_path)
             else:
                 logger.info("Already processed model for quantization, skipping preprocessing")
-                model = ONNXModel(LocalFile({"path": preprocessed_temp_model_path}))
+                model = ONNXModelHandler(LocalFile({"path": preprocessed_temp_model_path}))
 
         # keys not needed for quantization
         to_delete = ["quant_mode", "script_dir", "user_script", "quant_preprocess", "data_config"]
@@ -445,7 +445,7 @@ class OnnxQuantization(Pass):
         # save the model to the output path and return the model
         return model_proto_to_olive_model(onnx_model, output_model_path, config)
 
-    def _quant_preprocess(self, model: ONNXModel, output_model_path: Union[str, Path]) -> ONNXModel:
+    def _quant_preprocess(self, model: ONNXModelHandler, output_model_path: Union[str, Path]) -> ONNXModelHandler:
         from onnxruntime.quantization.preprocess import quant_pre_process
 
         try:
@@ -474,7 +474,7 @@ class OnnxQuantization(Pass):
             )
 
         # since this is only used internally, we will just treat it as a model file
-        return ONNXModel(LocalFile({"path": output_model_path}))
+        return ONNXModelHandler(LocalFile({"path": output_model_path}))
 
 
 class OnnxDynamicQuantization(OnnxQuantization):
@@ -542,8 +542,8 @@ class OnnxMatMul4Quantizer(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> ONNXModel:
+        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> ONNXModelHandler:
         from onnxruntime import __version__ as OrtVersion
 
         if version.parse(OrtVersion) < version.parse("1.16.2"):
@@ -551,7 +551,7 @@ class OnnxMatMul4Quantizer(Pass):
 
         from onnxruntime.quantization.matmul_4bits_quantizer import MatMul4BitsQuantizer
 
-        output_model_path = ONNXModel.resolve_path(output_model_path, Path(model.model_path).name)
+        output_model_path = resolve_path(output_model_path, Path(model.model_path).name)
 
         quant = MatMul4BitsQuantizer(
             model.load_model(), config["block_size"], config["is_symmetric"], config["nodes_to_exclude"]

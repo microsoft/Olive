@@ -10,7 +10,7 @@ import torch
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
-from olive.model import PyTorchModel
+from olive.model import PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.inc_quantization import IncDynamicQuantization, IncQuantization, IncStaticQuantization
@@ -96,7 +96,7 @@ def get_onnx_model(tmp_path):
     torch_hub_model_path = "chenyaofo/pytorch-cifar-models"
     pytorch_hub_model_name = "cifar10_mobilenetv2_x1_0"
     torch.hub.set_dir(tmp_path)
-    pytorch_model = PyTorchModel(
+    pytorch_model = PyTorchModelHandler(
         model_loader=lambda torch_hub_model_path: torch.hub.load(torch_hub_model_path, pytorch_hub_model_name),
         model_path=torch_hub_model_path,
         io_config={"input_names": ["input"], "input_shapes": [[1, 3, 32, 32]], "output_names": ["output"]},

@@ -12,7 +12,7 @@ from torchvision.datasets import CIFAR10
 from olive.data.config import DataConfig
 from olive.data.registry import Registry
 from olive.hardware import AcceleratorSpec
-from olive.model import PyTorchModel
+from olive.model import PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.openvino.conversion import OpenVINOConversion
 from olive.passes.openvino.quantization import OpenVINOQuantization
@@ -76,7 +76,7 @@ def get_openvino_model(tmp_path):
     torch_hub_model_path = "chenyaofo/pytorch-cifar-models"
     pytorch_hub_model_name = "cifar10_mobilenetv2_x1_0"
     torch.hub.set_dir(tmp_path)
-    pytorch_model = PyTorchModel(
+    pytorch_model = PyTorchModelHandler(
         model_loader=lambda torch_hub_model_path: torch.hub.load(torch_hub_model_path, pytorch_hub_model_name),
         model_path=torch_hub_model_path,
     )

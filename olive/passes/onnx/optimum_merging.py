@@ -7,7 +7,7 @@ from typing import Any, Dict, Union
 from onnx import ModelProto
 
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import CompositeOnnxModel, ONNXModel
+from olive.model import CompositeModelHandler, ONNXModelHandler, resolve_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
@@ -42,8 +42,8 @@ class OptimumMerging(Pass):
         return config
 
     def _run_for_config(
-        self, model: CompositeOnnxModel, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> Union[ONNXModel, CompositeOnnxModel]:
+        self, model: CompositeModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> Union[ONNXModelHandler, CompositeModelHandler]:
         import onnxruntime
 
         assert len(model.model_components) == 2
@@ -70,7 +70,7 @@ class OptimumMerging(Pass):
             ModelProto.ByteSize = prev_byte_size_func
 
         # onnx.save will fail if the directory doesn't already exist
-        output_model_path = ONNXModel.resolve_path(output_model_path, "decoder_model_merged.onnx")
+        output_model_path = resolve_path(output_model_path, "decoder_model_merged.onnx")
 
         olive_model = model_proto_to_olive_model(merged_model, output_model_path, config)
 

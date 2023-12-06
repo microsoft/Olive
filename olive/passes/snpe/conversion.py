@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, List, Union
 
 from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import ONNXModel, SNPEModel, TensorFlowModel
+from olive.model import ONNXModelHandler, SNPEModelHandler, TensorFlowModelHandler
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import PassConfigParam
 from olive.resource_path import LocalFile
@@ -92,8 +92,12 @@ class SNPEConversion(Pass):
         }
 
     def _run_for_config(
-        self, model: Union[ONNXModel, TensorFlowModel], data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> SNPEModel:
+        self,
+        model: Union[ONNXModelHandler, TensorFlowModelHandler],
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+    ) -> SNPEModelHandler:
         config = self._config_class(**config)
 
         if Path(output_model_path).suffix != ".dlc":
@@ -101,4 +105,4 @@ class SNPEConversion(Pass):
 
         to_dlc(model.model_path, model.framework, config.dict(), output_model_path)
         io_config = get_dlc_io_config(output_model_path, config.input_names, config.output_names)
-        return SNPEModel(model_path=LocalFile({"path": output_model_path}), **io_config)
+        return SNPEModelHandler(model_path=LocalFile({"path": output_model_path}), **io_config)

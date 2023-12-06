@@ -27,8 +27,9 @@ from olive.common.utils import find_submodules
 from olive.data.config import DataConfig
 from olive.data.constants import IGNORE_INDEX
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import PyTorchModel
-from olive.model.hf_utils import HFFromPretrainedArgs, get_peft_task_type_from_task
+from olive.model import PyTorchModelHandler
+from olive.model.config.hf_config import HfModelLoadingArgs
+from olive.model.hf_utils import get_peft_task_type_from_task
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 
@@ -433,10 +434,10 @@ class LoRABase(Pass):
         tokenizer: PreTrainedTokenizer,
         config: ConfigBase,
         data_root: str,
-        output_model: PyTorchModel,
+        output_model: PyTorchModelHandler,
         output_model_path: str,
         torch_dtype: torch.dtype,
-    ) -> PyTorchModel:
+    ) -> PyTorchModelHandler:
         if torch.cuda.is_available():
             allow_tf32 = torch.backends.cuda.matmul.allow_tf32
             torch.backends.cuda.matmul.allow_tf32 = config.allow_tf32
@@ -561,7 +562,7 @@ class LoRABase(Pass):
     def input_model_check(cls, model):
         """Validate the input model and reset from_pretrained_args and adapter_path."""
         if not model.hf_config:
-            raise ValueError(f"{cls.__name__} pass only supports PyTorchModel with hf_config.")
+            raise ValueError(f"{cls.__name__} pass only supports PyTorchModelHandler with hf_config.")
 
         # load model, reset from_pretrained_args and adapter_path
         from_pretrained_args = {}
@@ -599,7 +600,7 @@ class LoRABase(Pass):
 class LoRA(LoRABase):
     """Run LoRA fine-tuning on a Hugging Face PyTorch model.
 
-    This pass only supports PyTorchModel with hf_config.
+    This pass only supports PyTorchModelHandler with hf_config.
     """
 
     @staticmethod
@@ -611,8 +612,8 @@ class LoRA(LoRABase):
         return config
 
     def _run_for_config(
-        self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> PyTorchModel:
+        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> PyTorchModelHandler:
         # convert config to pass config class
         # this will validate the config and convert to the correct types
         config = self._config_class(**config)
@@ -638,7 +639,7 @@ class LoRA(LoRABase):
         from_pretrained_args.update(
             {"torch_dtype": model_dtype, "device_map": "auto" if not config.use_ort_trainer else None}
         )
-        new_model.hf_config.from_pretrained_args = HFFromPretrainedArgs(**from_pretrained_args)
+        new_model.hf_config.model_loading_args = HfModelLoadingArgs(**model_loading_args)
         pytorch_model = new_model.load_model()
         if torch.cuda.is_available() and config.use_ort_trainer:
             # put the model on GPU since device_map is None and the model will be on CPU
@@ -665,7 +666,7 @@ class LoRA(LoRABase):
 class QLoRA(LoRABase):
     """Run QLoRA fine-tuning on a Hugging Face PyTorch model.
 
-    This pass only supports PyTorchModel with hf_config.
+    This pass only supports PyTorchModelHandler with hf_config.
     """
 
     model_overwrites: ClassVar[tuple] = ("torch_dtype", "device_map", "quantization_method", "quantization_config")
@@ -699,8 +700,8 @@ class QLoRA(LoRABase):
         return config
 
     def _run_for_config(
-        self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> PyTorchModel:
+        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> PyTorchModelHandler:
         # convert config to pass config class
         # this will validate the config and convert to the correct types
         config = self._config_class(**config)
@@ -731,8 +732,8 @@ class QLoRA(LoRABase):
         return output_model
 
     def get_model_tokenizer(
-        self, model: PyTorchModel, config: ConfigBase
-    ) -> Tuple[PyTorchModel, PreTrainedModel, PreTrainedTokenizer, List[str], torch.dtype]:
+        self, model: PyTorchModelHandler, config: ConfigBase
+    ) -> Tuple[PyTorchModelHandler, PreTrainedModel, PreTrainedTokenizer, List[str], torch.dtype]:
         """Get the Olive model, PyTorch model and tokenizer for QLoRA fine-tuning."""
         import bitsandbytes as bnb
 
@@ -767,7 +768,7 @@ class QLoRA(LoRABase):
                 },
             }
         )
-        new_model.hf_config.from_pretrained_args = HFFromPretrainedArgs(**from_pretrained_args)
+        new_model.hf_config.model_loading_args = HfModelLoadingArgs(**model_loading_args)
         pytorch_model = new_model.load_model()
         pytorch_model.config.torch_dtype = model_dtype
 

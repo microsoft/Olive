@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Union
 import onnx
 
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.model import ONNXModel
+from olive.model import ONNXModelHandler, resolve_path
 from olive.model.hf_mappings import HIDDEN_SIZE_NAMES, MODEL_TYPE_MAPPING, NUM_HEADS_NAMES
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
@@ -172,8 +172,8 @@ class OrtTransformersOptimization(Pass):
         run_config["optimization_options"] = fusion_options
 
     def _run_for_config(
-        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> ONNXModel:
+        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> ONNXModelHandler:
         from onnxruntime.transformers import optimizer as transformers_optimizer
 
         # start with a copy of the config
@@ -217,7 +217,7 @@ class OrtTransformersOptimization(Pass):
                 "OrtTransformersOptimization.config"
             )
 
-        output_model_path = ONNXModel.resolve_path(output_model_path, Path(model.model_path).name)
+        output_model_path = resolve_path(output_model_path, Path(model.model_path).name)
 
         optimization_options = config["optimization_options"]
         if optimization_options:

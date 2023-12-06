@@ -8,7 +8,7 @@ from typing import Optional, Union
 
 import onnx
 
-from olive.model import ONNXModel
+from olive.model import ONNXModelHandler
 from olive.passes.pass_config import PassConfigParam
 from olive.resource_path import LocalFile, LocalFolder
 
@@ -144,8 +144,8 @@ def model_proto_to_olive_model(
     output_model_path: Union[str, Path],
     external_data_config: dict,
     check_model: bool = False,
-) -> ONNXModel:
-    """Save the ONNX model to the specified path and return the ONNXModel.
+) -> ONNXModelHandler:
+    """Save the ONNX model to the specified path and return the ONNXModelHandler.
 
     :param model_proto: The ONNX model to save.
     :param output_model_path: The path to save the ONNX model to.
@@ -154,7 +154,7 @@ def model_proto_to_olive_model(
     :param name: The name of the model.
     :check_model: If True, run onnx.checker.check_model on the model before returning.
 
-    :return: The ONNXModel.
+    :return: The ONNXModelHandler.
     """
     config_keys = [
         "save_as_external_data",
@@ -174,7 +174,7 @@ def model_proto_to_olive_model(
         model_path = LocalFile({"path": output_model_path})
         onnx_file_name = None
 
-    olive_model = ONNXModel(model_path=model_path, onnx_file_name=onnx_file_name)
+    olive_model = ONNXModelHandler(model_path=model_path, onnx_file_name=onnx_file_name)
 
     if check_model:
         onnx.checker.check_model(olive_model.model_path)

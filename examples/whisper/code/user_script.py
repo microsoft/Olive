@@ -7,10 +7,10 @@ from whisper_dataset import WhisperDataset
 from whisper_decoder import WhisperDecoder, WhisperDecoderInputs
 from whisper_encoder_decoder_init import WhisperEncoderDecoderInit, WhisperEncoderDecoderInitInputs
 
-from olive.model import PyTorchModel
+from olive.model import PyTorchModelHandler
 
 
-def get_encoder_decoder_init(olive_model: PyTorchModel):
+def get_encoder_decoder_init(olive_model: PyTorchModelHandler):
     # model is WhisperForConditionalGeneration
     model = olive_model.load_model()
     return WhisperEncoderDecoderInit(
@@ -21,13 +21,13 @@ def get_encoder_decoder_init(olive_model: PyTorchModel):
     )
 
 
-def get_decoder(olive_model: PyTorchModel):
+def get_decoder(olive_model: PyTorchModelHandler):
     # model is WhisperForConditionalGeneration
     model = olive_model.load_model()
     return WhisperDecoder(model, model.config)
 
 
-def get_encdec_io_config(olive_model: PyTorchModel):
+def get_encdec_io_config(olive_model: PyTorchModelHandler):
     # model is WhisperEncoderDecoderInit
     model = olive_model.load_model()
     use_decoder_input_ids = True
@@ -100,7 +100,7 @@ def get_encdec_io_config(olive_model: PyTorchModel):
     }
 
 
-def get_dec_io_config(olive_model: PyTorchModel):
+def get_dec_io_config(olive_model: PyTorchModelHandler):
     # Fix past disappearing bug - duplicate first past entry
     # input_list.insert(2, input_list[2])
     config = olive_model.get_hf_model_config()
@@ -142,7 +142,7 @@ def get_dec_io_config(olive_model: PyTorchModel):
     }
 
 
-def encoder_decoder_init_dummy_inputs(olive_model: PyTorchModel):
+def encoder_decoder_init_dummy_inputs(olive_model: PyTorchModelHandler):
     inputs = WhisperEncoderDecoderInitInputs.create_dummy(
         olive_model.get_hf_model_config(),
         batch_size=2,
@@ -154,7 +154,7 @@ def encoder_decoder_init_dummy_inputs(olive_model: PyTorchModel):
     return tuple(inputs.to_list())
 
 
-def decoder_dummy_inputs(olive_model: PyTorchModel):
+def decoder_dummy_inputs(olive_model: PyTorchModelHandler):
     inputs = WhisperDecoderInputs.create_dummy(
         olive_model.get_hf_model_config(),
         batch_size=2,

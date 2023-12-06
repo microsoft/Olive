@@ -8,7 +8,7 @@ from typing import Any, Dict, List
 import onnx
 
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import ONNXModel
+from olive.model import ONNXModelHandler, resolve_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
@@ -47,11 +47,11 @@ class OnnxFloatToFloat16(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> ONNXModel:
+        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> ONNXModelHandler:
         from onnxconverter_common import float16
 
-        output_model_path = ONNXModel.resolve_path(output_model_path, Path(model.model_path).name)
+        output_model_path = resolve_path(output_model_path, Path(model.model_path).name)
 
         config = self._config_class(**config)
 

@@ -11,7 +11,7 @@ from olive.cache import get_local_path_from_root
 from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import OpenVINOModel
+from olive.model import OpenVINOModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import ParamCategory, PassConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
@@ -87,8 +87,8 @@ class OpenVINOQuantization(Pass):
         }
 
     def _run_for_config(
-        self, model: OpenVINOModel, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> OpenVINOModel:
+        self, model: OpenVINOModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> OpenVINOModelHandler:
         try:
             from openvino.tools.pot import IEEngine, compress_model_weights, create_pipeline, save_model
         except ImportError:
@@ -121,7 +121,7 @@ class OpenVINOQuantization(Pass):
             model_name=model_name,
         )
         model_path = Path(compressed_model_paths[0]["model"]).parent
-        return OpenVINOModel(model_path)
+        return OpenVINOModelHandler(model_path)
 
     def _create_dataloader(self, common_dataloader):
         """Create an openvino.tools.pot.api.DataLoader instance from a common dataloader."""

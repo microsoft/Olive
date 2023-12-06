@@ -9,7 +9,7 @@ from typing import Any, Dict, List
 from onnx import ValueInfoProto
 
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import ONNXModel
+from olive.model import ONNXModelHandler, resolve_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
@@ -36,8 +36,8 @@ class OrtMixedPrecision(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> ONNXModel:
+        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> ONNXModelHandler:
         """Convert model to mixed precision.
 
         It detects whether original model has fp16 precision weights,
@@ -97,7 +97,7 @@ class OrtMixedPrecision(Pass):
         fp16_model = self._convert_float_to_float16(
             model=model.load_model(), use_symbolic_shape_infer=True, **parameters
         )
-        output_model_path = ONNXModel.resolve_path(output_model_path, Path(model.model_path).name)
+        output_model_path = resolve_path(output_model_path, Path(model.model_path).name)
         config = self._config_class(**config)
         return model_proto_to_olive_model(fp16_model, output_model_path, config.dict())
 

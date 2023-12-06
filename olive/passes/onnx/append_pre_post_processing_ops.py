@@ -12,7 +12,7 @@ from packaging import version
 from olive.common.config_utils import ConfigBase
 from olive.common.pydantic_v1 import Field, validator
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import ONNXModel
+from olive.model import ONNXModelHandler, resolve_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.onnx.pipeline import TENSOR_TYPE_MAP
@@ -80,11 +80,11 @@ class AppendPrePostProcessingOps(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> ONNXModel:
+        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> ONNXModelHandler:
         from onnxruntime import __version__ as OrtVersion
 
-        output_model_path = ONNXModel.resolve_path(output_model_path, Path(model.model_path).name)
+        output_model_path = resolve_path(output_model_path, Path(model.model_path).name)
 
         tool_command = config.get("tool_command")
         if tool_command:
@@ -142,7 +142,7 @@ class AppendPrePostProcessingOps(Pass):
         olive_model.use_ort_extensions = True
         return olive_model
 
-    def _run_prepost_pipeline(self, model: ONNXModel, config: Dict[str, Any]):
+    def _run_prepost_pipeline(self, model: ONNXModelHandler, config: Dict[str, Any]):
         from onnxruntime_extensions.tools.pre_post_processing import PrePostProcessor
 
         from olive.passes.onnx.pipeline.step_utils import create_named_value, parse_steps
