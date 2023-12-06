@@ -33,7 +33,7 @@ class AutoConfigClass(ABC):
     Additional validators
     Sub-class developer can also add additional validators by implementing the static method _validators
     E.g.,
-        from pydantic import validator
+        from olive.common.pydantic_v1 import validator
 
         def validate_func_param(v, values):
             ...

@@ -11,8 +11,7 @@ from pathlib import Path
 from types import FunctionType, MethodType
 from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
 
-from pydantic import BaseModel, Field, create_model, root_validator, validator
-
+from olive.common.pydantic_v1 import BaseModel, Field, create_model, root_validator, validator
 from olive.common.utils import hash_function, hash_object
 
 logger = logging.getLogger(__name__)

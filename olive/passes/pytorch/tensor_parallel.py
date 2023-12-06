@@ -13,9 +13,9 @@ from pathlib import Path
 from typing import Any, Callable, Dict
 
 import torch
-from pydantic import validator
 
 from olive.common.config_utils import ParamCategory
+from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import DistributedPyTorchModel, PyTorchModel
 from olive.passes import Pass

@@ -19,10 +19,10 @@ from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 import torch
 import transformers
 from packaging import version
-from pydantic import Field, validator
 from transformers import AutoTokenizer, PreTrainedModel, PreTrainedTokenizer
 
 from olive.common.config_utils import ConfigBase, ConfigWithExtraArgs
+from olive.common.pydantic_v1 import Field, validator
 from olive.common.utils import find_submodules
 from olive.data.config import DataConfig
 from olive.data.constants import IGNORE_INDEX

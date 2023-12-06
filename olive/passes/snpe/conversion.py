@@ -5,8 +5,7 @@
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Union
 
-from pydantic import validator
-
+from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel, SNPEModel, TensorFlowModel
 from olive.passes.olive_pass import Pass

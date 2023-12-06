@@ -14,11 +14,11 @@ import onnx
 import torch
 import yaml
 from onnx import AttributeProto, GraphProto
-from pydantic import validator
 
 import olive.data.template as data_config_template
 from olive.common.config_utils import ConfigBase, serialize_to_json, validate_config
 from olive.common.ort_inference import get_ort_inference_session
+from olive.common.pydantic_v1 import validator
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import copy_dir
 from olive.constants import Framework, ModelFileFormat

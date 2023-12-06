@@ -11,11 +11,10 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Dict, List, Optional, Type, Union
 
-from pydantic import Field, validator
-
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.auto_config import AutoConfigClass
 from olive.common.config_utils import ConfigBase, ConfigParam, serialize_to_json, validate_config
+from olive.common.pydantic_v1 import Field, validator
 from olive.common.utils import copy_dir, retry_func
 
 logger = logging.getLogger(__name__)

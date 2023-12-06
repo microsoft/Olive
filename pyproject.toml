@@ -175,7 +175,7 @@ ban-relative-imports = "all"
 
 [tool.ruff.pep8-naming]
 # Allow Pydantic's `@validator` decorator to trigger class method treatment.
-classmethod-decorators = ["classmethod", "pydantic.validator", "pydantic.root_validator"]
+classmethod-decorators = ["classmethod", "olive.common.pydantic_v1.validator", "olive.common.pydantic_v1.root_validator"]
 
 [tool.ruff.per-file-ignores]
 ".azure_pipelines/**" = ["INP001"]

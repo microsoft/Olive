@@ -6,10 +6,9 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Union
 
-from pydantic import validator
-
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
+from olive.common.pydantic_v1 import validator
 from olive.data.config import DataConfig
 from olive.data.container.huggingface_container import HuggingfaceContainer
 from olive.engine import Engine, EngineConfig

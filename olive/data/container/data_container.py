@@ -2,11 +2,10 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import ClassVar, Optional
-
-from pydantic import BaseModel
+from typing import ClassVar, Optional, Tuple
 
 from olive.cache import get_local_path_from_root
+from olive.common.pydantic_v1 import BaseModel
 from olive.data.component.dataloader import default_calibration_dataloader
 from olive.data.config import DataConfig, DefaultDataComponentCombos
 from olive.data.constants import DataContainerType, DefaultDataContainer
@@ -25,11 +24,7 @@ class DataContainer(BaseModel):
 
     # not be used, for read only. when you update the components function,
     # please update the _params_list. It should be key name of params_config
-    _params_list: list = [
-        "data_dir",
-        "label_cols",
-        "batch_size",
-    ]
+    _params_list: Tuple[str, ...] = ("data_dir", "label_cols", "batch_size")
 
     def load_dataset(self, data_root_path: Optional[str] = None):
         """Run load dataset."""

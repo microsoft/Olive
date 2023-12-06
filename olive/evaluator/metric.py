@@ -7,9 +7,8 @@ import logging
 from enum import Enum
 from typing import ClassVar, Dict, List, Optional, Union
 
-from pydantic import validator
-
 from olive.common.config_utils import ConfigBase, ConfigDictBase, validate_config
+from olive.common.pydantic_v1 import validator
 from olive.data.config import DataConfig
 from olive.evaluator.accuracy import AccuracyBase
 from olive.evaluator.metric_config import LatencyMetricConfig, MetricGoal, ThroughputMetricConfig, get_user_config_class

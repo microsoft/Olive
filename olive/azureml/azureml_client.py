@@ -7,9 +7,8 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from pydantic import Field, validator
-
 from olive.common.config_utils import ConfigBase
+from olive.common.pydantic_v1 import Field, validator
 
 logger = logging.getLogger(__name__)
 

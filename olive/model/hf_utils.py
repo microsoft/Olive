@@ -10,10 +10,10 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 import torch
 import transformers
-from pydantic import Field, validator
 from transformers import AutoConfig, AutoModel, AutoTokenizer
 
 from olive.common.config_utils import ConfigBase, ConfigWithExtraArgs
+from olive.common.pydantic_v1 import Field, validator
 from olive.common.utils import resolve_torch_dtype
 from olive.model.hf_mappings import FEATURE_TO_PEFT_TASK_TYPE, MODELS_TO_MAX_LENGTH_MAPPING, TASK_TO_FEATURE
 from olive.model.model_config import IOConfig

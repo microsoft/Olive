@@ -4,8 +4,7 @@
 # --------------------------------------------------------------------------
 from typing import Any, Callable, Dict
 
-from pydantic import validator
-
+from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel, SNPEModel
 from olive.passes.olive_pass import Pass

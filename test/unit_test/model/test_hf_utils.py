@@ -6,9 +6,9 @@ import pytest
 import torch
 import transformers
 from packaging import version
-from pydantic import ValidationError
 from transformers.onnx import OnnxConfig
 
+from olive.common.pydantic_v1 import ValidationError
 from olive.model.hf_utils import (
     HFFromPretrainedArgs,
     get_onnx_config,
