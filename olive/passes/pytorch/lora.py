@@ -28,7 +28,7 @@ from olive.data.config import DataConfig
 from olive.data.constants import IGNORE_INDEX
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import PyTorchModel
-from olive.model.hf_utils import HFModelLoadingArgs, get_peft_task_type_from_task
+from olive.model.hf_utils import HFFromPretrainedArgs, get_peft_task_type_from_task
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 
@@ -513,7 +513,7 @@ class LoRABase(Pass):
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         # remove the device map since we don't want "auto" device map
-        output_model.hf_config.model_loading_args.device_map = None
+        output_model.hf_config.from_pretrained_args.device_map = None
         # remove model_overwrites from model_attributes
         if output_model.model_attributes:
             for k in self.model_overwrites:
@@ -559,19 +559,19 @@ class LoRABase(Pass):
 
     @classmethod
     def input_model_check(cls, model):
-        """Validate the input model and reset model_loading_args and adapter_path."""
+        """Validate the input model and reset from_pretrained_args and adapter_path."""
         if not model.hf_config:
             raise ValueError(f"{cls.__name__} pass only supports PyTorchModel with hf_config.")
 
-        # load model, reset model_loading_args and adapter_path
-        model_loading_args = {}
-        if model.hf_config.model_loading_args:
-            model_loading_args = model.hf_config.model_loading_args.dict()
+        # load model, reset from_pretrained_args and adapter_path
+        from_pretrained_args = {}
+        if model.hf_config.from_pretrained_args:
+            from_pretrained_args = model.hf_config.from_pretrained_args.dict()
             for k in cls.model_overwrites:
-                if model_loading_args.get(k) is not None:
+                if from_pretrained_args.get(k) is not None:
                     logger.warning(
-                        f"Input model has model_loading_args.{k}. Ignoring. {cls.__name__} will overwrite it based on"
-                        " the pass config."
+                        f"Input model has from_pretrained_args.{k}. Ignoring. "
+                        f"{cls.__name__} will overwrite it based on the pass config."
                     )
 
         if model.get_resource("adapter_path"):
@@ -631,14 +631,14 @@ class LoRA(LoRABase):
         # will use mixed precision since full fp16 is unstable
         model_dtype = torch_dtype if torch_dtype != torch.float16 else torch.float32
 
-        # load model, reset model_loading_args and adapter_path
-        model_loading_args = (
-            new_model.hf_config.model_loading_args.dict() if new_model.hf_config.model_loading_args else {}
+        # load model, reset from_pretrained_args and adapter_path
+        from_pretrained_args = (
+            new_model.hf_config.from_pretrained_args.dict() if new_model.hf_config.from_pretrained_args else {}
         )
-        model_loading_args.update(
+        from_pretrained_args.update(
             {"torch_dtype": model_dtype, "device_map": "auto" if not config.use_ort_trainer else None}
         )
-        new_model.hf_config.model_loading_args = HFModelLoadingArgs(**model_loading_args)
+        new_model.hf_config.from_pretrained_args = HFFromPretrainedArgs(**from_pretrained_args)
         pytorch_model = new_model.load_model()
         if torch.cuda.is_available() and config.use_ort_trainer:
             # put the model on GPU since device_map is None and the model will be on CPU
@@ -648,7 +648,7 @@ class LoRA(LoRABase):
         # tokenizer
         tokenizer = AutoTokenizer.from_pretrained(
             new_model.hf_config.model_name,
-            trust_remote_code=new_model.hf_config.model_loading_args.trust_remote_code,
+            trust_remote_code=new_model.hf_config.from_pretrained_args.trust_remote_code,
         )
 
         # add lora modules
@@ -746,11 +746,11 @@ class QLoRA(LoRABase):
         # will use mixed precision since full fp16 is unstable
         model_dtype = torch_dtype if torch_dtype != torch.float16 else torch.float32
 
-        # load model, reset model_loading_args and adapter_path
-        model_loading_args = (
-            new_model.hf_config.model_loading_args.dict() if new_model.hf_config.model_loading_args else {}
+        # load model, reset from_pretrained_args and adapter_path
+        from_pretrained_args = (
+            new_model.hf_config.from_pretrained_args.dict() if new_model.hf_config.from_pretrained_args else {}
         )
-        model_loading_args.update(
+        from_pretrained_args.update(
             {
                 "torch_dtype": model_dtype,
                 # TODO(jambayk): Worry about `use_multi_gpu` and distributed training later
@@ -767,14 +767,14 @@ class QLoRA(LoRABase):
                 },
             }
         )
-        new_model.hf_config.model_loading_args = HFModelLoadingArgs(**model_loading_args)
+        new_model.hf_config.from_pretrained_args = HFFromPretrainedArgs(**from_pretrained_args)
         pytorch_model = new_model.load_model()
         pytorch_model.config.torch_dtype = model_dtype
 
         # tokenizer
         tokenizer = AutoTokenizer.from_pretrained(
             new_model.hf_config.model_name,
-            trust_remote_code=new_model.hf_config.model_loading_args.trust_remote_code,
+            trust_remote_code=new_model.hf_config.from_pretrained_args.trust_remote_code,
         )
 
         # TODO(jambayk): need to see if we still need this line

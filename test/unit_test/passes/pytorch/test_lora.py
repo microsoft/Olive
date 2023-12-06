@@ -86,9 +86,9 @@ def mock_bitsandbytes_fixture():
 
 
 # quantization requires gpu so we will patch the model loading args with no quantization
-@patch("olive.passes.pytorch.lora.HFModelLoadingArgs")
+@patch("olive.passes.pytorch.lora.HFFromPretrainedArgs")
 @patch("olive.passes.pytorch.lora.find_submodules", side_effect=patched_find_submodules)
-def test_qlora(patched_model_loading_args, patched_find_submodules, tmp_path, mock_bitsandbytes):
+def test_qlora(patched_from_pretrained_args, patched_find_submodules, tmp_path, mock_bitsandbytes):
     # execute
     out = run_finetuning(QLoRA, tmp_path)
 

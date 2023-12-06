@@ -144,6 +144,8 @@ find more details in [Olive Models](https://microsoft.github.io/Olive/api/models
             ```
             For cases where you do not want to use the huggingface model but want to use the huggingface dataset, you can provide `dataset` config only like above.
 
+        - `from_pretrained_args: [dict]`: Arguments to pass to the `from_pretrained` method of the model class. Refer to [this documentation](https://huggingface.co/docs/transformers/main_classes/model#transformers.PreTrainedModel.from_pretrained).
+
 Please find the detailed config options from following table for each model type:
 
 | Model Type | Description |
