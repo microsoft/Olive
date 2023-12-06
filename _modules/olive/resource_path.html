@@ -146,7 +146,7 @@
 <span class="kn">from</span> <span class="nn">olive.azureml.azureml_client</span> <span class="kn">import</span> <span class="n">AzureMLClientConfig</span>
 <span class="kn">from</span> <span class="nn">olive.common.auto_config</span> <span class="kn">import</span> <span class="n">AutoConfigClass</span>
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">ConfigParam</span><span class="p">,</span> <span class="n">serialize_to_json</span><span class="p">,</span> <span class="n">validate_config</span>
-<span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">retry_func</span>
+<span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">copy_dir</span><span class="p">,</span> <span class="n">retry_func</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
@@ -350,7 +350,7 @@
         <span class="k">if</span> <span class="n">is_file</span><span class="p">:</span>
             <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">path</span><span class="p">,</span> <span class="n">new_path</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">shutil</span><span class="o">.</span><span class="n">copytree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">path</span><span class="p">,</span> <span class="n">new_path</span><span class="p">)</span>
+            <span class="n">copy_dir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">path</span><span class="p">,</span> <span class="n">new_path</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">new_path</span><span class="p">)</span>
 
