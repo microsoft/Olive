@@ -1,7 +1,7 @@
 # Huggingface Model Optimization
 
 ## Introduction
-This documents outlines the integrations between Olive and Huggingface. Discover how to use Huggingface resources within Olive.
+This document outlines the integrations between Olive and Huggingface. Discover how to use Huggingface resources within Olive.
 
 ## hf_config
 If you want to optimize a Huggingface model, or evaluate a Huggingface model, you will need `hf_config` defined in your `input_model` section. Please refer to [this section](../overview/options.md#input-model-information) for detailed parameters of `hf_config`.
@@ -51,7 +51,7 @@ Take `Intel/bert-base-uncased-mrpc` as an example, you can specify task name as 
 ```
 
 #### Optimum model
-Optimum model is a special case of PyTorch model. By specifying `OptimumModel` as `type`, the model path would be the model name. And add model components name. Olive will get the components from Huggingface hub:
+Optimum model is a special case of PyTorch model. By specifying `OptimumModel` as `type`, the `model_path` should be the model's name. Then add the names of the model components to `model_components`. Olive will retrieve the components from Huggingface hub:
 
 ```json
 "input_model":{
