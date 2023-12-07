@@ -97,12 +97,7 @@ class LlamaOnnxDmlInterface(BaseLLMInterface):
         self.sampling_io_binding = self.sampling_session.io_binding()
         self.llm_io_binding = self.llm_session.io_binding()
 
-        logits_shape = (1, self.tokenizer.n_words)
-
         # Initialize the buffers
-        self.logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
-            logits_shape, self.data_type, self.binding_device
-        )
         self.tokens_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, 1), np.int64, self.binding_device)
 
         cache_shape = (1, self.n_heads, self.max_seq_len, self.head_dim)
@@ -157,8 +152,12 @@ short answers are usually best"
         seq_len = tokens.shape()[1]
         past_seq_len = 0
 
+        logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
+            (1, seq_len, self.tokenizer.n_words), self.data_type, self.binding_device
+        )
+
         # Bind the main model's inputs/outputs
-        self.llm_io_binding.bind_ortvalue_output("logits", self.logits)
+        self.llm_io_binding.bind_ortvalue_output("logits", logits)
 
         # Bind the sampling model's inputs/outputs
         self.sampling_io_binding.bind_ortvalue_output("next_token", self.tokens_increment)
@@ -169,9 +168,11 @@ short answers are usually best"
             if i == 0:
                 position_ids = np.arange(seq_len, dtype=np.int64).reshape((1, seq_len))
                 self.llm_io_binding.bind_cpu_input("position_ids", position_ids)
+                self.sampling_io_binding.bind_cpu_input("seq_lens", np.array(seq_len, dtype=np.int64, ndmin=1))
             else:
                 position_ids_increment = np.array(seq_len, dtype=np.int64).reshape((1, 1))
                 self.llm_io_binding.bind_cpu_input("position_ids_increment", position_ids_increment)
+                self.sampling_io_binding.bind_cpu_input("seq_lens", np.ones((1,), dtype=np.int64))
 
             seqlens_k = np.array(past_seq_len, dtype=np.int32, ndmin=1)
             self.llm_io_binding.bind_cpu_input("seqlens_k", seqlens_k)
@@ -191,7 +192,7 @@ short answers are usually best"
             self.llm_io_binding.synchronize_outputs()
 
             # Decide the next token using your preferred sampling strategy.
-            self.sampling_io_binding.bind_ortvalue_input("logits", self.logits)
+            self.sampling_io_binding.bind_ortvalue_input("logits", logits)
             self.sampling_session.run_with_iobinding(self.sampling_io_binding)
             self.sampling_io_binding.synchronize_outputs()
             generated_tokens.append(self.tokens_increment.numpy().item())
@@ -206,7 +207,11 @@ short answers are usually best"
             self.llm_io_binding.bind_ortvalue_input("tokens_increment", self.tokens_increment)
 
             if i == 0:
+                logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
+                    (1, 1, self.tokenizer.n_words), self.data_type, self.binding_device
+                )
                 self.llm_io_binding.bind_cpu_input("use_cache_branch", np.ones([1], dtype=np.bool_))
+                self.llm_io_binding.bind_ortvalue_output("logits", logits)
 
             past_seq_len = seq_len
             seq_len += 1
