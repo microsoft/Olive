@@ -184,39 +184,6 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
             loaded_model.eval()
             return loaded_model
 
-    def get_hf_component(self, component_name: str) -> "PyTorchModelHandler":
-        """Get a component of the model as a PyTorchModelHandler."""
-        component_names = self.get_hf_component_names()
-        assert self.hf_config.components, "hf_config.components must be provided to get component"
-        assert component_name in component_names, f"component {component_name} not found in hf_config"
-
-        # get the component from hf_config
-        components_dict = {component.name: component for component in self.hf_config.components}
-        hf_component = components_dict[component_name]
-
-        if hf_component.component_func is None:
-            logger.debug("component_func is not provided, using hf_config to get component")
-            model_component = self.load_hf_model(self.model_path)
-        else:
-            user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
-            model_component = user_module_loader.call_object(hf_component.component_func, self)
-
-        def model_loader(_):
-            return model_component
-
-        component_hf_config = deepcopy(self.hf_config).dict()
-        component_hf_config.pop("components", None)
-
-        return PyTorchModelHandler(
-            model_loader=model_loader,
-            io_config=hf_component.io_config,
-            dummy_inputs_func=hf_component.dummy_inputs_func,
-            model_script=self.model_script,
-            script_dir=self.script_dir,
-            hf_config=HfConfig.parse_obj(component_hf_config),
-            model_attributes=self.model_attributes,
-        )
-
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
         config["config"].update(
