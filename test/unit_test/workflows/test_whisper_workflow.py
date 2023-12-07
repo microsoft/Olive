@@ -1,4 +1,3 @@
-from pathlib import Path
 from test.unit_test.workflows.whisper_utils import (
     decoder_dummy_inputs,
     encoder_decoder_init_dummy_inputs,
@@ -8,16 +7,31 @@ from test.unit_test.workflows.whisper_utils import (
     get_encoder_decoder_init,
     whisper_audio_decoder_dataloader,
 )
+from urllib import request
 
 import pytest
 
 from olive.workflows import run as olive_run
 
 
+@pytest.fixture(name="audio_data")
+def download_audio_test_data(tmp_path):
+    data_dir = tmp_path / "data"
+    data_dir.mkdir(exist_ok=True, parents=True)
+
+    test_audio_name = "1272-141231-0002.mp3"
+    test_audio_url = (
+        "https://raw.githubusercontent.com/microsoft/onnxruntime-extensions/main/test/data/" + test_audio_name
+    )
+    test_audio_path = data_dir / test_audio_name
+    if not test_audio_path.exists():
+        request.urlretrieve(test_audio_url, test_audio_path)
+
+    return str(data_dir)
+
+
 @pytest.fixture(name="whisper_config")
-def prepare_whisper_config():
-    data_dir = Path(__file__).parents[3] / "examples" / "whisper" / "data"
-    data_dir = str(data_dir)
+def prepare_whisper_config(audio_data):
     return {
         "input_model": {
             "type": "PyTorchModel",
@@ -50,7 +64,7 @@ def prepare_whisper_config():
                         "name": "latency",
                         "type": "latency",
                         "sub_types": [{"name": "avg", "priority": 1}],
-                        "user_config": {"data_dir": data_dir, "dataloader_func": whisper_audio_decoder_dataloader},
+                        "user_config": {"data_dir": audio_data, "dataloader_func": whisper_audio_decoder_dataloader},
                     }
                 ]
             }
