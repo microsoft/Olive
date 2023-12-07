@@ -376,7 +376,7 @@ if __name__ == "__main__":
 
     script_dir = Path(__file__).resolve().parent
     unoptimized_model_dir = script_dir / "models" / "unoptimized" / args.model_id
-    optimized_dir_name = "optimized" if args.provider == "directml" else "optimized-cuda"
+    optimized_dir_name = "optimized" if args.provider == "dml" else "optimized-cuda"
     optimized_model_dir = script_dir / "models" / optimized_dir_name / args.model_id
 
     if args.clean_cache:
