@@ -8,10 +8,9 @@ from copy import deepcopy
 from enum import Enum
 from typing import Dict, List, Optional
 
-from pydantic import validator
-
 import olive.cache as cache_utils
 from olive.common.config_utils import ConfigBase
+from olive.common.pydantic_v1 import validator
 from olive.data.config import DataConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device

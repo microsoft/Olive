@@ -58,7 +58,7 @@ class TestAutoOptimizer:
         )
 
         pass_config, _ = auto_optimizer.suggest()
-        trans_opt_name = "OrtTransformerOptimization_cuda_fp16" if expected_cuda_fp16 else "OrtTransformerOptimization"
+        trans_opt_name = "OrtTransformerOptimization_cuda_fp16" if expected_cuda_fp16 else "OrtTransformersOptimization"
         perf_opt_name = "OrtPerfTuning_trt_fp16" if expected_trt_fp16 else "OrtPerfTuning"
         assert pass_config[trans_opt_name]["config"]["float16"] == expected_cuda_fp16
         assert pass_config[perf_opt_name]["config"]["enable_cuda_graph"] == expected_cuda_fp16
