@@ -14,4 +14,4 @@ def test_composite_model_to_json():
     )
     composite_json = composite_model.to_json()
     model_config = ModelConfig.from_json(composite_json)
-    assert model_config.model_type == CompositeModelHandler.model_type
+    assert model_config.type == CompositeModelHandler.model_type
