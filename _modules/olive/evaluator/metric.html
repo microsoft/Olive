@@ -137,9 +137,8 @@
 <span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">validator</span>
-
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">ConfigDictBase</span><span class="p">,</span> <span class="n">validate_config</span>
+<span class="kn">from</span> <span class="nn">olive.common.pydantic_v1</span> <span class="kn">import</span> <span class="n">validator</span>
 <span class="kn">from</span> <span class="nn">olive.data.config</span> <span class="kn">import</span> <span class="n">DataConfig</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.accuracy</span> <span class="kn">import</span> <span class="n">AccuracyBase</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.metric_config</span> <span class="kn">import</span> <span class="n">LatencyMetricConfig</span><span class="p">,</span> <span class="n">MetricGoal</span><span class="p">,</span> <span class="n">ThroughputMetricConfig</span><span class="p">,</span> <span class="n">get_user_config_class</span>

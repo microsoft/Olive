@@ -143,12 +143,12 @@
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">torch</span>
-<span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">validator</span>
 <span class="kn">from</span> <span class="nn">torch.utils.data</span> <span class="kn">import</span> <span class="n">Dataset</span>
 
 <span class="kn">import</span> <span class="nn">olive.data.template</span> <span class="k">as</span> <span class="nn">data_config_template</span>
 <span class="kn">from</span> <span class="nn">olive.cache</span> <span class="kn">import</span> <span class="n">get_local_path_from_root</span>
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span>
+<span class="kn">from</span> <span class="nn">olive.common.pydantic_v1</span> <span class="kn">import</span> <span class="n">validator</span>
 <span class="kn">from</span> <span class="nn">olive.common.user_module_loader</span> <span class="kn">import</span> <span class="n">UserModuleLoader</span>
 <span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">tensor_data_to_device</span>
 <span class="kn">from</span> <span class="nn">olive.constants</span> <span class="kn">import</span> <span class="n">Framework</span>

@@ -144,11 +144,11 @@
 <span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">import</span> <span class="nn">yaml</span>
 <span class="kn">from</span> <span class="nn">onnx</span> <span class="kn">import</span> <span class="n">AttributeProto</span><span class="p">,</span> <span class="n">GraphProto</span>
-<span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">validator</span>
 
 <span class="kn">import</span> <span class="nn">olive.data.template</span> <span class="k">as</span> <span class="nn">data_config_template</span>
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">serialize_to_json</span><span class="p">,</span> <span class="n">validate_config</span>
 <span class="kn">from</span> <span class="nn">olive.common.ort_inference</span> <span class="kn">import</span> <span class="n">get_ort_inference_session</span>
+<span class="kn">from</span> <span class="nn">olive.common.pydantic_v1</span> <span class="kn">import</span> <span class="n">validator</span>
 <span class="kn">from</span> <span class="nn">olive.common.user_module_loader</span> <span class="kn">import</span> <span class="n">UserModuleLoader</span>
 <span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">copy_dir</span>
 <span class="kn">from</span> <span class="nn">olive.constants</span> <span class="kn">import</span> <span class="n">Framework</span><span class="p">,</span> <span class="n">ModelFileFormat</span>
