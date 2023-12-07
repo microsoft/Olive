@@ -357,14 +357,16 @@ class Pass(ABC):
         elif isinstance(model, CompositeModelHandler) and not self._accepts_composite_model:
             components = []
             component_names = []
-            for cidx, child in enumerate(model.get_model_components()):
-                component_output_path = Path(output_model_path).with_suffix("") / model.get_model_component_name(cidx)
-                output_model_component = self._run_for_config(child, data_root, config, str(component_output_path))
+            for component_name, component_model in model.get_model_components():
+                component_output_path = Path(output_model_path).with_suffix("") / component_name
+                output_model_component = self._run_for_config(
+                    component_model, data_root, config, str(component_output_path)
+                )
                 output_model_component.model_attributes = (
-                    output_model_component.model_attributes or child.model_attributes
+                    output_model_component.model_attributes or component_model.model_attributes
                 )
                 components.append(output_model_component)
-                component_names.append(model.get_model_component_name(cidx))
+                component_names.append(component_model)
             output_model = CompositeModelHandler(components, component_names)
         else:
             output_model = self._run_for_config(model, data_root, config, output_model_path)

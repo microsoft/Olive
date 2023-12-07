@@ -16,6 +16,7 @@ class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin, CompositeM
     Each technique accepts Model as input, return Model as output.
     """
 
+    model_type: Optional[str] = None
     resource_keys: ClassVar[list] = ["model_path"]
 
     def __init__(

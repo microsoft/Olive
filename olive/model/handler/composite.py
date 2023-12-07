@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from olive.common.config_utils import serialize_to_json, validate_config
 from olive.constants import Framework, ModelFileFormat
@@ -48,7 +48,6 @@ class CompositeModelHandler(OliveModelHandler):
 
     def to_json(self, check_object: bool = False):
         json_dict = {
-            # TODO(myguo): add unittest for this
             "type": self.model_type,
             "config": {"model_attributes": self.model_attributes, "model_component_names": self.model_component_names},
         }
@@ -58,7 +57,7 @@ class CompositeModelHandler(OliveModelHandler):
 
         return serialize_to_json(json_dict, check_object)
 
-    def get_model_components(self):
+    def get_model_components(self) -> List[Tuple[str, OliveModelHandler]]:
         return zip(self.model_component_names, self.model_components)
 
     def load_model(self, rank: int = None):
