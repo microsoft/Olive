@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class MetricType(str, Enum):
+    # TODO(trajep): support throughput
     ACCURACY = "accuracy"
     LATENCY = "latency"
     THROUGHPUT = "throughput"

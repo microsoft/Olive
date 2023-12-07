@@ -350,6 +350,7 @@ class TestEngine:
             "clean_cache": True,
             "search_strategy": None,
             "clean_evaluation_cache": True,
+            "auto_optimizer_config": {"disable_auto_optimizer": True},
         }
         metric_result_dict = {
             joint_metric_key(metric.name, sub_metric.name): {

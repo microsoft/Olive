@@ -132,6 +132,7 @@ ignore = [
   "D406", # Ignore new line after section name
   "D407", # Ignore dashed-underline-after-section
   "N803", # Argument casing
+  "N805", # Checks for instance methods that use a name other than self for their first argument.
   "N812", # Allow import torch.nn.functional as F
   "N999", # Module names
   "NPY002", # np.random.Generator may not always fit our use cases
