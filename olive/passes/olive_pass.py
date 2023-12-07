@@ -355,6 +355,7 @@ class Pass(ABC):
                 inference_settings=model.inference_settings,
             )
         elif isinstance(model, CompositeModelHandler) and not self._accepts_composite_model:
+            # CompositePyTorchModel is also handled here.
             components = []
             component_names = []
             for component_name, component_model in model.get_model_components():

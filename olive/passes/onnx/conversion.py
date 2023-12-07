@@ -27,7 +27,6 @@ from olive.model import (
     resolve_path,
 )
 from olive.model.config import IoConfig
-from olive.model.handler.composite import CompositePyTorchModelHandler
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
@@ -102,46 +101,22 @@ class OnnxConversion(Pass):
                 model, data_root, config, output_model_path, device, torch_dtype
             )
 
-        if isinstance(model, CompositePyTorchModelHandler):
-            pytorch_composite_model = self._convert_composite_model(
-                model.get_model_components(),
-                model.model_attributes,
-                output_model_path,
-                data_root,
-                config,
-                device,
-                torch_dtype,
-            )
-            assert pytorch_composite_model, "the composite model should not be None"
-            return pytorch_composite_model
-
-        # check if the model has components
-        composite_model = self._convert_composite_model(
-            model.get_hf_components(), model.model_attributes, output_model_path, data_root, config, device, torch_dtype
-        )
-        if composite_model:
-            return composite_model
-        else:
-            return self._convert_model_on_device(model, data_root, config, output_model_path, device, torch_dtype)
-
-    def _convert_composite_model(
-        self, model_compoents, model_attributes, output_model_path, data_root, config, device, torch_dtype
-    ):
         onnx_models = []
         component_names = []
-        for component_name, component_model in model_compoents:
+        for component_name, component_model in model.get_hf_components():
             component_output_path = str(Path(output_model_path).with_suffix("") / component_name)
             output_model_component = self._convert_model_on_device(
                 component_model, data_root, config, component_output_path, device, torch_dtype
             )
             # inherit model attributes from the input model if the output model does not have model attributes
-            output_model_component.model_attributes = output_model_component.model_attributes or model_attributes
+            output_model_component.model_attributes = output_model_component.model_attributes or model.model_attributes
             onnx_models.append(output_model_component)
             component_names.append(component_name)
+
         if onnx_models:
             return CompositeModelHandler(onnx_models, component_names)
         else:
-            return None
+            return self._convert_model_on_device(model, data_root, config, output_model_path, device, torch_dtype)
 
     @staticmethod
     def _export_pytorch_model(
