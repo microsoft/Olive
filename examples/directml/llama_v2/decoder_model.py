@@ -56,7 +56,7 @@ class DecoderModel(torch.nn.Module):
             v_caches.append(v_cache)
 
         x = self.norm(x)
-        logits = self.output(x[:, -1, :])
+        logits = self.output(x)
 
         return_values = [logits]
 

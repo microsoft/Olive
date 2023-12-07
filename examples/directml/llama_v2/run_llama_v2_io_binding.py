@@ -107,8 +107,9 @@ def run_llama_v2_io_binding(
     argmax_sampling_io_binding.bind_ortvalue_output("next_token", tokens_increment)
 
     # Create the LLM model's I/O binding
-    logits_shape = (1, tokenizer.n_words)
-    logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type(logits_shape, data_type, binding_device)
+    logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
+        (1, seq_len, tokenizer.n_words), data_type, binding_device
+    )
     llm_io_binding = llm_session.io_binding()
     llm_io_binding.bind_ortvalue_output("logits", logits)
 
@@ -131,9 +132,11 @@ def run_llama_v2_io_binding(
         if idx == 0:
             position_ids = np.arange(seq_len, dtype=np.int64).reshape((1, seq_len))
             llm_io_binding.bind_cpu_input("position_ids", position_ids)
+            argmax_sampling_io_binding.bind_cpu_input("seq_lens", np.array(seq_len, dtype=np.int64, ndmin=1))
         else:
             position_ids_increment = np.array(seq_len, dtype=np.int64, ndmin=2)
             llm_io_binding.bind_cpu_input("position_ids_increment", position_ids_increment)
+            argmax_sampling_io_binding.bind_cpu_input("seq_lens", np.ones((1,), dtype=np.int64))
 
         seqlens_k = np.array(past_seq_len, dtype=np.int32, ndmin=1)
         llm_io_binding.bind_cpu_input("seqlens_k", seqlens_k)
@@ -162,7 +165,11 @@ def run_llama_v2_io_binding(
             break
 
         if idx == 0:
+            logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
+                (1, 1, tokenizer.n_words), data_type, binding_device
+            )
             llm_io_binding.bind_cpu_input("use_cache_branch", np.ones([1], dtype=np.bool_))
+            llm_io_binding.bind_ortvalue_output("logits", logits)
 
         past_seq_len = seq_len
         seq_len += 1

@@ -95,9 +95,8 @@ def run_llama_v2_io_binding(
     batch_size = len(prompts)
 
     batched_tokens = []
-    batched_masks = []
     seq_lens = []
-    past_seq_lens = [0] * len(prompts)
+    past_seq_lens = [0] * batch_size
     max_tokens_len = 0
     for prompt in prompts:
         # Generate the tokens
@@ -108,14 +107,12 @@ def run_llama_v2_io_binding(
         # Generate the mask
         token_count = prompt_tokens.shape[1]
         seq_lens.append(token_count)
-        prompt_mask = np.pad(np.ones((1, token_count)), ((0, 0), (max_seq_len - token_count, 0))).astype(np.int32)
-        batched_masks.append(prompt_mask)
 
     max_tokens_len = max(seq_lens)
 
     # Pad the leading missing tokens with 0
     for idx in range(len(batched_tokens)):
-        batched_tokens[idx] = np.pad(batched_tokens[idx], ((0, 0), (max_tokens_len - batched_tokens[idx].shape[1], 0)))
+        batched_tokens[idx] = np.pad(batched_tokens[idx], ((0, 0), (0, max_tokens_len - batched_tokens[idx].shape[1])))
 
     tokens = np.concatenate(batched_tokens, axis=0)
 
@@ -138,8 +135,9 @@ def run_llama_v2_io_binding(
     argmax_sampling_io_binding.bind_ortvalue_output("next_token", tokens_increment)
 
     # Create the LLM model's I/O binding
-    logits_shape = (batch_size, tokenizer.n_words)
-    logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type(logits_shape, data_type, binding_device)
+    logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
+        (batch_size, max_tokens_len, tokenizer.n_words), data_type, binding_device
+    )
     llm_io_binding = llm_session.io_binding()
     llm_io_binding.bind_ortvalue_output("logits", logits)
 
@@ -176,9 +174,11 @@ def run_llama_v2_io_binding(
             position_ids = np.arange(max_tokens_len, dtype=np.int64).reshape((1, max_tokens_len))
             position_ids = np.broadcast_to(position_ids, (batch_size, max_tokens_len))
             llm_io_binding.bind_cpu_input("position_ids", position_ids)
+            argmax_sampling_io_binding.bind_cpu_input("seq_lens", np.array(seq_lens, dtype=np.int64))
         else:
             position_ids_increment = np.array(seq_lens, dtype=np.int64).reshape((batch_size, 1))
             llm_io_binding.bind_cpu_input("position_ids_increment", position_ids_increment)
+            argmax_sampling_io_binding.bind_cpu_input("seq_lens", np.ones((batch_size,), dtype=np.int64))
 
         seqlens_k = np.array(past_seq_lens, dtype=np.int32, ndmin=1)
         llm_io_binding.bind_cpu_input("seqlens_k", seqlens_k)
@@ -218,6 +218,10 @@ def run_llama_v2_io_binding(
             break
 
         if idx == 0:
+            logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
+                (batch_size, 1, tokenizer.n_words), data_type, binding_device
+            )
+            llm_io_binding.bind_ortvalue_output("logits", logits)
             llm_io_binding.bind_cpu_input("use_cache_branch", np.ones([1], dtype=np.bool_))
 
         for seq_len_idx in range(len(seq_lens)):

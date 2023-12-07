@@ -7,5 +7,7 @@ import torch
 
 
 class ArgmaxSampling(torch.nn.Module):
-    def forward(self, logits):
-        return torch.argmax(logits, dim=-1, keepdim=True)
+    def forward(self, logits, seq_lens):
+        next_tokens = torch.argmax(logits, dim=-1, keepdim=False)
+        indices = seq_lens - 1
+        return next_tokens.gather(1, indices.view(-1, 1))
