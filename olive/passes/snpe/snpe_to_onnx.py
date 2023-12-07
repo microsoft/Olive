@@ -6,7 +6,8 @@ from typing import Any, Callable, Dict
 
 from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import ONNXModelHandler, SNPEModelHandler, resolve_path
+from olive.model import ONNXModelHandler, SNPEModelHandler
+from olive.model.utils import resolve_path
 from olive.passes.olive_pass import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam

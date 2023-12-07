@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, List, Tuple
 from olive.common.user_module_loader import UserModuleLoader
 from olive.constants import ModelFileFormat
 from olive.model.config.hf_config import HfConfig
-from olive.model.hf_utils import (
+from olive.model.utils.hf_utils import (
     get_hf_model_config,
     get_hf_model_io_config,
     load_huggingface_model_from_model_class,
@@ -23,6 +23,17 @@ logger = logging.getLogger(__name__)
 
 
 class HfConfigMixin:
+    """The mixin requires the following attributes to be set.
+
+    * model_path
+    * model_file_format
+    * model_loader
+    * model_script
+    * script_dir
+    * model_attributes
+    * hf_config
+    """
+
     def get_hf_model_config(self):
         if self.hf_config is None:
             raise ValueError("HF model_config is not available")

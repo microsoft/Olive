@@ -13,7 +13,7 @@ from olive.common.utils import get_attr, tensor_data_to_device
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import PyTorchModelHandler
-from olive.model.hf_utils import get_model_max_length
+from olive.model.utils.hf_utils import get_model_max_length
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 from olive.passes.pytorch.sparsegpt_utils import (

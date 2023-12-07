@@ -10,7 +10,7 @@ from transformers.onnx import OnnxConfig
 
 from olive.common.pydantic_v1 import ValidationError
 from olive.model.config.hf_config import HfFromPretrainedArgs
-from olive.model.hf_utils import (
+from olive.model.utils.hf_utils import (
     get_onnx_config,
     load_huggingface_model_from_model_class,
     load_huggingface_model_from_task,

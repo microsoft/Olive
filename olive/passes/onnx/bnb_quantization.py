@@ -11,7 +11,8 @@ import onnx
 from packaging import version
 
 from olive.hardware import AcceleratorSpec
-from olive.model import ONNXModelHandler, resolve_path
+from olive.model import ONNXModelHandler
+from olive.model.utils import resolve_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam

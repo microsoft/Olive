@@ -6,7 +6,7 @@ import logging
 
 import olive.data.template as data_config_template
 from olive.common.user_module_loader import UserModuleLoader
-from olive.model.hf_utils import get_hf_model_dummy_input
+from olive.model.utils.hf_utils import get_hf_model_dummy_input
 
 logger = logging.getLogger(__name__)
 

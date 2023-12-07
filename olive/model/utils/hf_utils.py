@@ -10,7 +10,7 @@ from typing import Callable, Dict, Optional
 import transformers
 from transformers import AutoConfig, AutoModel, AutoTokenizer
 
-from olive.model.hf_mappings import FEATURE_TO_PEFT_TASK_TYPE, MODELS_TO_MAX_LENGTH_MAPPING, TASK_TO_FEATURE
+from olive.model.utils.hf_mappings import FEATURE_TO_PEFT_TASK_TYPE, MODELS_TO_MAX_LENGTH_MAPPING, TASK_TO_FEATURE
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +105,7 @@ def get_onnx_config(model_name: str, task: str, feature: Optional[str] = None, *
     # pylint: disable=protected-access
     from transformers.onnx import FeaturesManager
 
-    from olive.model.hf_onnx_config import ADDITIONAL_MODEL_TYPES
+    from olive.model.utils.hf_onnx_config import ADDITIONAL_MODEL_TYPES
 
     # patch FeaturesManager._SUPPORTED_MODEL_TYPE to support additional models in olive
     for model_type, feature_list in ADDITIONAL_MODEL_TYPES.items():

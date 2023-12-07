@@ -5,6 +5,5 @@
 from olive.model.config import ModelConfig
 from olive.model.config.hf_config import HfFromPretrainedArgs
 from olive.model.handler import *  # noqa: F403
-from olive.model.handler.onnx import resolve_path
 
-__all__ = ["ModelConfig", "HfFromPretrainedArgs", "resolve_path"]
+__all__ = ["ModelConfig", "HfFromPretrainedArgs"]

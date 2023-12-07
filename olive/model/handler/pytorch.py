@@ -20,8 +20,8 @@ from olive.hardware.accelerator import Device
 from olive.model.config import HfConfig, IoConfig
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
-from olive.model.hf_utils import huggingface_model_loader
 from olive.model.mixin import DummyInputsMixin, HfConfigMixin
+from olive.model.utils.hf_utils import huggingface_model_loader
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, ResourceType, create_resource_path
 
 logger = logging.getLogger(__name__)

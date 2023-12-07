@@ -17,7 +17,8 @@ from olive.common.utils import hash_string
 from olive.data.config import DataConfig
 from olive.exception import OlivePassError
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import ONNXModelHandler, resolve_path
+from olive.model import ONNXModelHandler
+from olive.model.utils import resolve_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_file, model_proto_to_olive_model
 from olive.passes.pass_config import ParamCategory, PassConfigParam

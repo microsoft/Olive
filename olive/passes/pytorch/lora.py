@@ -29,7 +29,7 @@ from olive.data.constants import IGNORE_INDEX
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import PyTorchModelHandler
 from olive.model.config.hf_config import HfFromPretrainedArgs
-from olive.model.hf_utils import get_peft_task_type_from_task
+from olive.model.utils.hf_utils import get_peft_task_type_from_task
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 
