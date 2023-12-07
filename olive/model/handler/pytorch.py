@@ -243,7 +243,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
             logger.debug("Using hf onnx_config to get io_config")
             # For MLFlow model, get io config from model_name instead of model_path
             # TODO(xiaoyu): more investigation on the integration between MLFlow and HF
-            io_config = self.get_hf_io_config(self.model_path)
+            io_config = self.get_hf_io_config()
 
         return io_config
 
