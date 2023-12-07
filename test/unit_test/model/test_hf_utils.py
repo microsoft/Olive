@@ -8,6 +8,7 @@ import transformers
 from packaging import version
 from transformers.onnx import OnnxConfig
 
+from olive.common.pydantic_v1 import ValidationError
 from olive.model.config.hf_config import HfFromPretrainedArgs
 from olive.model.hf_utils import (
     get_onnx_config,
