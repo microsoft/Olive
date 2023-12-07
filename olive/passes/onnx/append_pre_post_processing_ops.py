@@ -8,9 +8,9 @@ from typing import Any, Callable, Dict, List, Union
 
 import onnx
 from packaging import version
-from pydantic import Field, validator
 
 from olive.common.config_utils import ConfigBase
+from olive.common.pydantic_v1 import Field, validator
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass

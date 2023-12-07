@@ -6,9 +6,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional, Union
 
-from pydantic import validator
-
 from olive.common.config_utils import ConfigBase
+from olive.common.pydantic_v1 import validator
 
 
 class SystemType(str, Enum):

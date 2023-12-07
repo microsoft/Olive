@@ -13,12 +13,12 @@ from typing import Any, ClassVar, Dict, List, NamedTuple, Tuple, Type, Union
 
 import numpy as np
 import torch
-from pydantic import validator
 from torch.utils.data import Dataset
 
 import olive.data.template as data_config_template
 from olive.cache import get_local_path_from_root
 from olive.common.config_utils import ConfigBase
+from olive.common.pydantic_v1 import validator
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import tensor_data_to_device
 from olive.constants import Framework

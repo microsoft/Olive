@@ -16,8 +16,8 @@ import numpy as np
 import onnx
 from google.protobuf.json_format import MessageToDict
 from google.protobuf.message import Message
-from pydantic import validator
 
+from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import DistributedOnnxModel, ONNXModel
 from olive.passes import Pass
@@ -370,7 +370,7 @@ class MoEExpertsDistributor(Pass):
                 type_=int,
                 default=2,
                 required=True,
-                description=("Number of GPU nodes to distribute the model for. Must be greater than 1."),
+                description="Number of GPU nodes to distribute the model for. Must be greater than 1.",
             ),
             "parallel_jobs": PassConfigParam(
                 type_=int,

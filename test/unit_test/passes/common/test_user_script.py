@@ -5,8 +5,8 @@
 import tempfile
 
 import pytest
-from pydantic import ValidationError
 
+from olive.common.pydantic_v1 import ValidationError
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.passes.onnx import OrtPerfTuning
 

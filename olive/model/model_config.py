@@ -4,9 +4,8 @@
 # --------------------------------------------------------------------------
 from typing import Dict, List, Union
 
-from pydantic import validator
-
 from olive.common.config_utils import ConfigBase
+from olive.common.pydantic_v1 import validator
 
 
 class IOConfig(ConfigBase):
