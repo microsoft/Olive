@@ -366,7 +366,7 @@ class Pass(ABC):
                     output_model_component.model_attributes or component_model.model_attributes
                 )
                 components.append(output_model_component)
-                component_names.append(component_model)
+                component_names.append(component_name)
             output_model = CompositeModelHandler(components, component_names)
         else:
             output_model = self._run_for_config(model, data_root, config, output_model_path)
