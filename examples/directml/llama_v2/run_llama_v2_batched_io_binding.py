@@ -97,6 +97,7 @@ def run_llama_v2_io_binding(
     batched_tokens = []
     batched_masks = []
     seq_lens = []
+    past_seq_lens = [0] * len(prompts)
     max_tokens_len = 0
     for prompt in prompts:
         # Generate the tokens
@@ -128,14 +129,6 @@ def run_llama_v2_io_binding(
     # Where 0 represents padding that was added for prompts that were shorter, which will be masked out in the model
     tokens = onnxruntime.OrtValue.ortvalue_from_numpy(tokens, binding_device)
     tokens_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type((batch_size, 1), np.int64, binding_device)
-
-    # Create the attention mask, which contains 1's for values that should stay intact, and 0's for values that should
-    # get added to -10000
-    attn_mask = np.concatenate(batched_masks, axis=0)
-    attn_mask = onnxruntime.OrtValue.ortvalue_from_numpy(attn_mask, binding_device)
-    attn_mask_out = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
-        (batch_size, max_seq_len), np.int32, binding_device
-    )
 
     # Create the K and V caches.
     head_dim = int(hidden_size / n_heads)
@@ -187,17 +180,18 @@ def run_llama_v2_io_binding(
             position_ids_increment = np.array(seq_lens, dtype=np.int64).reshape((batch_size, 1))
             llm_io_binding.bind_cpu_input("position_ids_increment", position_ids_increment)
 
+        seqlens_k = np.array(past_seq_lens, dtype=np.int32, ndmin=1)
+        llm_io_binding.bind_cpu_input("seqlens_k", seqlens_k)
+
         # Run the LLM model
         llm_io_binding.bind_ortvalue_input("tokens", tokens)
         llm_io_binding.bind_ortvalue_input("tokens_increment", tokens_increment)
-        llm_io_binding.bind_ortvalue_input("attn_mask", attn_mask)
-        llm_io_binding.bind_ortvalue_output("attn_mask_out", attn_mask_out)
 
         for layer_idx in range(n_layers):
             llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.key", k_caches[layer_idx])
             llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.value", v_caches[layer_idx])
-            llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.key", k_caches_out[layer_idx])
-            llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.value", v_caches_out[layer_idx])
+            llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.key", k_caches[layer_idx])
+            llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.value", v_caches[layer_idx])
 
         llm_session.run_with_iobinding(llm_io_binding)
         llm_io_binding.synchronize_outputs()
@@ -226,11 +220,8 @@ def run_llama_v2_io_binding(
         if idx == 0:
             llm_io_binding.bind_cpu_input("use_cache_branch", np.ones([1], dtype=np.bool_))
 
-        attn_mask_out, attn_mask = attn_mask, attn_mask_out
-        k_caches, k_caches_out = k_caches_out, k_caches
-        v_caches, v_caches_out = v_caches_out, v_caches
-
         for seq_len_idx in range(len(seq_lens)):
+            past_seq_lens[seq_len_idx] = seq_lens[seq_len_idx]
             seq_lens[seq_len_idx] += 1
 
     after_time = time.perf_counter()

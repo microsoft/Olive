@@ -58,11 +58,7 @@ class DecoderModel(torch.nn.Module):
         x = self.norm(x)
         logits = self.output(x[:, -1, :])
 
-        # For the increment iterations, we only ever use the last row of the mask. This row should look something like
-        # this: [0, 0, 0, 0, 1, 1, 1, 1]. By rolling it to the left, it becomes [0, 0, 0, 1, 1, 1, 1, 0] and then all
-        # we have to do is set the last element to 1 so it becomes [0, 0, 0, 1, 1, 1, 1, 1].
-        attn_mask = torch.nn.functional.pad(attn_mask[:, 1:], (0, 1, 0, 0), value=1)
-        return_values = [logits, attn_mask]
+        return_values = [logits]
 
         for k_cache, v_cache in zip(k_caches, v_caches):
             return_values.append(k_cache)
@@ -295,8 +291,6 @@ class SelfAttention(torch.nn.Module):
         key = self.rotary_embedding(key, cos, sin, position_ids)
 
         # Append new entries to the end of k, v cache
-        k_cache = k_cache[:, :, seq_len:, :]
-        v_cache = v_cache[:, :, seq_len:, :]
         k_cache = torch.cat((k_cache, key), dim=2)
         v_cache = torch.cat((v_cache, value), dim=2)
 

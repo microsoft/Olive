@@ -81,7 +81,6 @@
                             ],
                             "output_names": [
                                 "logits",
-                                "attn_mask_out",
                                 "cache_out.0.key",
                                 "cache_out.0.value",
                                 "cache_out.1.key",
@@ -298,7 +297,6 @@
                             ],
                             "output_names": [
                                 "logits",
-                                "attn_mask_out",
                                 "cache_out.0.key",
                                 "cache_out.0.value",
                                 "cache_out.1.key",
@@ -483,6 +481,9 @@
                 "float16": true,
                 "use_gpu": true,
                 "keep_io_types": false,
+                "use_gqa": true,
+                "num_key_value_heads": 32,
+                "replace_attn_mask_input_with_seq_len": true,
                 "optimization_options": {
                     "enable_gelu": false,
                     "enable_layer_norm": false,

@@ -11,7 +11,7 @@ import onnx
 
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModel
-from olive.model.hf_mappings import HIDDEN_SIZE_NAMES, MODEL_TYPE_MAPPING, NUM_HEADS_NAMES
+from olive.model.hf_mappings import HIDDEN_SIZE_NAMES, MODEL_TYPE_MAPPING, NUM_HEADS_NAMES, NUM_KEY_VALUE_HEADS_NAMES
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
@@ -47,6 +47,9 @@ class OrtTransformersOptimization(Pass):
                 ),
             ),
             "num_heads": PassConfigParam(type_=int, default_value=0, description="Number of attention heads."),
+            "num_key_value_heads": PassConfigParam(
+                type_=int, default_value=0, description="Number of key/value attention heads."
+            ),
             "hidden_size": PassConfigParam(type_=int, default_value=0, description="Number of hidden nodes."),
             # TODO(jambayk): Figure out what the expected type is
             "optimization_options": PassConfigParam(
@@ -119,6 +122,14 @@ class OrtTransformersOptimization(Pass):
             "input_int32": PassConfigParam(
                 type_=bool, default_value=False, description="Whether int32 tensors will be used as input."
             ),
+            "replace_attn_mask_input_with_seq_len": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Whether to remove the attention_mask input and replace it with the seq_lens_k and total_seq_len "
+                    "inputs."
+                ),
+            ),
         }
         config.update(get_external_data_config())
         return config
@@ -176,6 +187,9 @@ class OrtTransformersOptimization(Pass):
     ) -> ONNXModel:
         from onnxruntime.transformers import optimizer as transformers_optimizer
 
+        num_kv_heads = config["num_key_value_heads"]
+        replace_attn_mask_input_with_seq_len = config["replace_attn_mask_input_with_seq_len"]
+
         # start with a copy of the config
         run_config = deepcopy(config)
         keys_to_remove = [
@@ -186,6 +200,8 @@ class OrtTransformersOptimization(Pass):
             "force_fp16_inputs",
             "use_gqa",
             "input_int32",
+            "num_key_value_heads",
+            "replace_attn_mask_input_with_seq_len",
         ]
         keys_to_remove += get_external_data_config()
         for key in keys_to_remove:
@@ -208,6 +224,11 @@ class OrtTransformersOptimization(Pass):
                 for hidden_size_name in HIDDEN_SIZE_NAMES:
                     if hidden_size_name in model_attributes:
                         run_config["hidden_size"] = model_attributes[hidden_size_name]
+                        break
+            if num_kv_heads == 0:
+                for num_key_value_heads_name in NUM_KEY_VALUE_HEADS_NAMES:
+                    if num_key_value_heads_name in model_attributes:
+                        num_kv_heads = model_attributes[num_key_value_heads_name]
                         break
 
         if run_config["model_type"] is None or run_config["model_type"] not in transformers_optimizer.MODEL_TYPES:
@@ -235,16 +256,13 @@ class OrtTransformersOptimization(Pass):
 
             if config["use_gqa"]:
                 # Replace MultiHeadAttention with GroupQueryAttention
-                # TODO(anyone): treat `num_key_value_heads` like `num_heads` and `hidden_size`.
-                # Should be provided either in the model attributes or in the config.
-                num_kv_heads = model.model_attributes.get("num_key_value_heads", None)
-                if num_kv_heads is None:
-                    raise ValueError(
-                        "num_key_value_heads is not specified in the model attributes. "
-                        "Please specify it in the model attributes."
-                    )
-                world_size = model.model_attributes.get("world_size") or 1
-                optimizer = self._replace_mha_with_gqa(optimizer, kv_num_heads=num_kv_heads, world_size=world_size)
+                world_size = model.model_attributes.get("world_size", 1) if model.model_attributes is not None else 1
+                optimizer = self._replace_mha_with_gqa(
+                    optimizer,
+                    kv_num_heads=num_kv_heads,
+                    world_size=world_size,
+                    replace_attn_mask_input_with_seq_len=replace_attn_mask_input_with_seq_len,
+                )
                 optimizer.prune_graph()
                 # add allow_remove_graph_inputs to pass config
                 optimizer.update_graph(allow_remove_graph_inputs=True)
@@ -260,70 +278,108 @@ class OrtTransformersOptimization(Pass):
 
     @staticmethod
     def _replace_mha_with_gqa(
-        model: "OnnxModel", attn_mask: str = "attention_mask", kv_num_heads: int = 0, world_size: int = 1
+        model: "OnnxModel",
+        attn_mask: str = "attention_mask",
+        kv_num_heads: int = 0,
+        world_size: int = 1,
+        replace_attn_mask_input_with_seq_len: bool = False,
     ):
-        # Insert attention_mask subgraph to calculate shared inputs for all GroupQueryAttention nodes
-        #
-        #                attention_mask
-        #               /              \
-        #          ReduceSum          Shape
-        #              |                |
-        #             Sub             Gather
-        #              |                |
-        #          seqlens_k   total_sequence_length
-        #              |                |
-        #        Cast to int32    Cast to int32
+        if replace_attn_mask_input_with_seq_len:
+            seqlens_k_input = onnx.helper.make_tensor_value_info("seqlens_k", onnx.TensorProto.INT32, ["batch_size"])
+            model.add_input(seqlens_k_input)
 
-        model.add_initializer(
-            onnx.helper.make_tensor(
-                name="one",
-                data_type=onnx.TensorProto.INT64,
-                dims=[1],
-                vals=[1],
+            model.add_initializer(
+                onnx.helper.make_tensor(
+                    name="two",
+                    data_type=onnx.TensorProto.INT64,
+                    dims=[1],
+                    vals=[2],
+                )
             )
-        )
-        reduce_sum_node = onnx.helper.make_node(
-            "ReduceSum",
-            inputs=[attn_mask, "one"],
-            outputs=[attn_mask + "_row_sums"],
-            name=model.create_node_name("ReduceSum"),
-        )
-        sub_node = onnx.helper.make_node(
-            "Sub",
-            inputs=[attn_mask + "_row_sums", "one"],
-            outputs=["seqlens_k_int64"],
-            name=model.create_node_name("Sub"),
-        )
-        seqlen_k_cast_node = onnx.helper.make_node(
-            "Cast",
-            inputs=["seqlens_k_int64"],
-            outputs=["seqlens_k"],
-            name=model.create_node_name("Cast"),
-            to=onnx.TensorProto.INT32,
-        )
-        shape_node = onnx.helper.make_node(
-            "Shape",
-            inputs=[attn_mask],
-            outputs=[attn_mask + "_shape"],
-            name=model.create_node_name("Shape"),
-        )
-        gather_node = onnx.helper.make_node(
-            "Gather",
-            inputs=[attn_mask + "_shape", "one"],
-            outputs=["total_seq_len_int64"],
-            name=model.create_node_name("Gather"),
-            axis=0,
-        )
-        total_seqlen_cast_node = onnx.helper.make_node(
-            "Cast",
-            inputs=["total_seq_len_int64"],
-            outputs=["total_seq_len"],
-            name=model.create_node_name("Cast"),
-            to=onnx.TensorProto.INT32,
-        )
-        model.model.graph.node.extend(
-            [reduce_sum_node, sub_node, seqlen_k_cast_node, shape_node, gather_node, total_seqlen_cast_node]
-        )
+            shape_node = onnx.helper.make_node(
+                "Shape",
+                inputs=["cache.0.key"],
+                outputs=["cache.0.key_shape"],
+                name=model.create_node_name("Shape"),
+            )
+            gather_node = onnx.helper.make_node(
+                "Gather",
+                inputs=["cache.0.key_shape", "two"],
+                outputs=["total_seq_len_int64"],
+                name=model.create_node_name("Gather"),
+                axis=0,
+            )
+            total_seqlen_cast_node = onnx.helper.make_node(
+                "Cast",
+                inputs=["total_seq_len_int64"],
+                outputs=["total_seq_len"],
+                name=model.create_node_name("Cast"),
+                to=onnx.TensorProto.INT32,
+            )
+            model.model.graph.node.extend([shape_node, gather_node, total_seqlen_cast_node])
+        else:
+            # Insert attention_mask subgraph to calculate shared inputs for all GroupQueryAttention nodes
+            #
+            #                attention_mask
+            #               /              \
+            #          ReduceSum          Shape
+            #              |                |
+            #             Sub             Gather
+            #              |                |
+            #          seqlens_k   total_sequence_length
+            #              |                |
+            #        Cast to int32    Cast to int32
+
+            model.add_initializer(
+                onnx.helper.make_tensor(
+                    name="one",
+                    data_type=onnx.TensorProto.INT64,
+                    dims=[1],
+                    vals=[1],
+                )
+            )
+            reduce_sum_node = onnx.helper.make_node(
+                "ReduceSum",
+                inputs=[attn_mask, "one"],
+                outputs=[attn_mask + "_row_sums"],
+                name=model.create_node_name("ReduceSum"),
+            )
+            sub_node = onnx.helper.make_node(
+                "Sub",
+                inputs=[attn_mask + "_row_sums", "one"],
+                outputs=["seqlens_k_int64"],
+                name=model.create_node_name("Sub"),
+            )
+            seqlen_k_cast_node = onnx.helper.make_node(
+                "Cast",
+                inputs=["seqlens_k_int64"],
+                outputs=["seqlens_k"],
+                name=model.create_node_name("Cast"),
+                to=onnx.TensorProto.INT32,
+            )
+            shape_node = onnx.helper.make_node(
+                "Shape",
+                inputs=[attn_mask],
+                outputs=[attn_mask + "_shape"],
+                name=model.create_node_name("Shape"),
+            )
+            gather_node = onnx.helper.make_node(
+                "Gather",
+                inputs=[attn_mask + "_shape", "one"],
+                outputs=["total_seq_len_int64"],
+                name=model.create_node_name("Gather"),
+                axis=0,
+            )
+            total_seqlen_cast_node = onnx.helper.make_node(
+                "Cast",
+                inputs=["total_seq_len_int64"],
+                outputs=["total_seq_len"],
+                name=model.create_node_name("Cast"),
+                to=onnx.TensorProto.INT32,
+            )
+            model.model.graph.node.extend(
+                [reduce_sum_node, sub_node, seqlen_k_cast_node, shape_node, gather_node, total_seqlen_cast_node]
+            )
 
         # Replace MultiHeadAttention with GroupQueryAttention
         mha_nodes = list(filter(lambda node: node.op_type == "MultiHeadAttention", model.model.graph.node))

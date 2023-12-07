@@ -83,6 +83,7 @@ class LlamaOnnxDmlInterface(BaseLLMInterface):
         self.hidden_size = 4096
         self.n_heads = 32
         self.n_layers = 32
+        self.max_seq_len = 2048
 
         # Initialize the tokenizer and produce the initial tokens.
         self.tokenizer = Tokenizer(model_path=self.tokenizer_path)
@@ -104,10 +105,14 @@ class LlamaOnnxDmlInterface(BaseLLMInterface):
         )
         self.tokens_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, 1), np.int64, self.binding_device)
 
-        self.k_caches = [None] * self.n_layers
-        self.v_caches = [None] * self.n_layers
-        self.k_caches_out = [None] * self.n_layers
-        self.v_caches_out = [None] * self.n_layers
+        cache_shape = (1, self.n_heads, self.max_seq_len, self.head_dim)
+        initial_cache = np.zeros(cache_shape, dtype=self.data_type)
+        self.k_caches = []
+        self.v_caches = []
+
+        for _ in range(self.n_layers):
+            self.k_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, self.binding_device))
+            self.v_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, self.binding_device))
 
     def shutdown(self):
         pass
@@ -150,6 +155,7 @@ short answers are usually best"
         tokens = onnxruntime.OrtValue.ortvalue_from_numpy(tokens, self.binding_device)
 
         seq_len = tokens.shape()[1]
+        past_seq_len = 0
 
         # Bind the main model's inputs/outputs
         self.llm_io_binding.bind_ortvalue_output("logits", self.logits)
@@ -159,50 +165,7 @@ short answers are usually best"
 
         self.llm_io_binding.bind_cpu_input("use_cache_branch", np.zeros([1], dtype=np.bool_))
 
-        padding = 512
-
         for i in range(max_length):
-            # Setup the caches, mask and rotary embeddings
-            if i == 0 or seq_len % padding == 0:
-                padded_seq_len = padding * (seq_len // padding + 1)
-
-                # Create the attention mask, which contains 1's for values that should stay intact, and 0's for values
-                # that should get added to -10000
-                attn_mask = np.pad(np.ones((1, seq_len)), ((0, 0), (padded_seq_len - seq_len, 0))).astype(np.int32)
-                attn_mask = onnxruntime.OrtValue.ortvalue_from_numpy(attn_mask, self.binding_device)
-                attn_mask_out = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
-                    (1, padded_seq_len), np.int32, self.binding_device
-                )
-
-                for layer_idx in range(self.n_layers):
-                    if i == 0:
-                        self.k_caches[layer_idx] = np.zeros(
-                            (1, self.n_heads, padded_seq_len, self.head_dim), dtype=self.data_type
-                        )
-                        self.v_caches[layer_idx] = np.zeros(
-                            (1, self.n_heads, padded_seq_len, self.head_dim), dtype=self.data_type
-                        )
-                    else:
-                        self.k_caches[layer_idx] = np.pad(
-                            self.k_caches[layer_idx].numpy(), ((0, 0), (0, 0), (padding, 0), (0, 0))
-                        )
-                        self.v_caches[layer_idx] = np.pad(
-                            self.v_caches[layer_idx].numpy(), ((0, 0), (0, 0), (padding, 0), (0, 0))
-                        )
-
-                    self.k_caches[layer_idx] = onnxruntime.OrtValue.ortvalue_from_numpy(
-                        self.k_caches[layer_idx], self.binding_device
-                    )
-                    self.v_caches[layer_idx] = onnxruntime.OrtValue.ortvalue_from_numpy(
-                        self.v_caches[layer_idx], self.binding_device
-                    )
-                    self.k_caches_out[layer_idx] = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
-                        self.k_caches[layer_idx].shape(), self.data_type, self.binding_device
-                    )
-                    self.v_caches_out[layer_idx] = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
-                        self.v_caches[layer_idx].shape(), self.data_type, self.binding_device
-                    )
-
             if i == 0:
                 position_ids = np.arange(seq_len, dtype=np.int64).reshape((1, seq_len))
                 self.llm_io_binding.bind_cpu_input("position_ids", position_ids)
@@ -210,17 +173,18 @@ short answers are usually best"
                 position_ids_increment = np.array(seq_len, dtype=np.int64).reshape((1, 1))
                 self.llm_io_binding.bind_cpu_input("position_ids_increment", position_ids_increment)
 
+            seqlens_k = np.array(past_seq_len, dtype=np.int32, ndmin=1)
+            self.llm_io_binding.bind_cpu_input("seqlens_k", seqlens_k)
+
             # Bind the inputs/outputs of the LLaMA model
             self.llm_io_binding.bind_ortvalue_input("tokens", tokens)
             self.llm_io_binding.bind_ortvalue_input("tokens_increment", self.tokens_increment)
-            self.llm_io_binding.bind_ortvalue_input("attn_mask", attn_mask)
-            self.llm_io_binding.bind_ortvalue_output("attn_mask_out", attn_mask_out)
 
             for layer_idx in range(self.n_layers):
                 self.llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.key", self.k_caches[layer_idx])
                 self.llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.value", self.v_caches[layer_idx])
-                self.llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.key", self.k_caches_out[layer_idx])
-                self.llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.value", self.v_caches_out[layer_idx])
+                self.llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.key", self.k_caches[layer_idx])
+                self.llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.value", self.v_caches[layer_idx])
 
             # Run the LLaMA model
             self.llm_session.run_with_iobinding(self.llm_io_binding)
@@ -244,9 +208,7 @@ short answers are usually best"
             if i == 0:
                 self.llm_io_binding.bind_cpu_input("use_cache_branch", np.ones([1], dtype=np.bool_))
 
-            attn_mask_out, attn_mask = attn_mask, attn_mask_out
-            self.k_caches, self.k_caches_out = self.k_caches_out, self.k_caches
-            self.v_caches, self.v_caches_out = self.v_caches_out, self.v_caches
+            past_seq_len = seq_len
             seq_len += 1
 
     def predict(

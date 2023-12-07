@@ -106,9 +106,10 @@ def load_decoder_model(model_path):
 
 def decoder_inputs(model):
     batch_size = 2
+    past_seq_len = 246
     seq_len = 10
     hidden_size = 4096
-    max_seq_len = 256
+    max_seq_len = past_seq_len + seq_len
     num_heads = 32
     head_size = hidden_size // num_heads
 
@@ -118,8 +119,8 @@ def decoder_inputs(model):
         "attn_mask": torch.zeros((batch_size, max_seq_len), dtype=torch.int32),
         "cache": [
             {
-                "key": torch.rand((batch_size, num_heads, max_seq_len, head_size), dtype=torch.float32),
-                "value": torch.rand((batch_size, num_heads, max_seq_len, head_size), dtype=torch.float32),
+                "key": torch.rand((batch_size, num_heads, past_seq_len, head_size), dtype=torch.float32),
+                "value": torch.rand((batch_size, num_heads, past_seq_len, head_size), dtype=torch.float32),
             }
             for _ in range(config.num_layers)
         ],
@@ -139,18 +140,20 @@ def load_decoder_with_past_model(model_path):
 
 def decoder_with_past_inputs(model):
     batch_size = 2
+    past_seq_len = 255
+    seq_len = 1
     hidden_size = 4096
-    max_seq_len = 256
+    max_seq_len = past_seq_len + seq_len
     num_heads = 32
     head_size = hidden_size // num_heads
     return {
-        "tokens_increment": torch.zeros((batch_size, 1), dtype=torch.int64),
-        "position_ids_increment": torch.zeros((batch_size, 1), dtype=torch.int64),
+        "tokens_increment": torch.zeros((batch_size, seq_len), dtype=torch.int64),
+        "position_ids_increment": torch.zeros((batch_size, seq_len), dtype=torch.int64),
         "attn_mask": torch.zeros((batch_size, max_seq_len), dtype=torch.int32),
         "cache": [
             {
-                "key": torch.rand((batch_size, num_heads, max_seq_len, head_size), dtype=torch.float32),
-                "value": torch.rand((batch_size, num_heads, max_seq_len, head_size), dtype=torch.float32),
+                "key": torch.rand((batch_size, num_heads, past_seq_len, head_size), dtype=torch.float32),
+                "value": torch.rand((batch_size, num_heads, past_seq_len, head_size), dtype=torch.float32),
             }
             for _ in range(config.num_layers)
         ],
@@ -169,11 +172,13 @@ def merged_decoders_inputs(model):
     num_heads = 32
     head_size = hidden_size // num_heads
     seq_len = 10
+    past_seq_len = 246
 
     inputs = {
         "tokens": torch.zeros((batch_size, seq_len), dtype=torch.int64),
         "position_ids": torch.zeros((batch_size, seq_len), dtype=torch.int64),
-        "attn_mask": torch.zeros((batch_size, max_seq_len), dtype=torch.int32),
+        "seqlens_k": torch.ones((batch_size,), dtype=torch.int32) * past_seq_len,
+        "total_seq_len": torch.ones((1,), dtype=torch.int32) * max_seq_len,
     }
 
     for layer_idx in range(config.num_layers):
