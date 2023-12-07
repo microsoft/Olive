@@ -2,9 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from pydantic import validator
-
 from olive.common.config_utils import ConfigBase
+from olive.common.pydantic_v1 import validator
 from olive.model.config.registry import get_model_handler, is_valid_model_type
 from olive.resource_path import create_resource_path
 

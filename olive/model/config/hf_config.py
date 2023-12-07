@@ -8,9 +8,9 @@ from typing import Any, Callable, Dict, List, Union
 
 import torch
 import transformers
-from pydantic import Field, validator
 
 from olive.common.config_utils import ConfigBase, ConfigWithExtraArgs
+from olive.common.pydantic_v1 import Field, validator
 from olive.common.utils import resolve_torch_dtype
 from olive.model.config.io_config import IoConfig
 
