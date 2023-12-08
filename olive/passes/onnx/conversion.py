@@ -26,7 +26,6 @@ from olive.model import (
     PyTorchModelHandler,
 )
 from olive.model.config import IoConfig
-from olive.model.handler.mixin import HfConfigMixin
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
@@ -329,7 +328,12 @@ class OnnxConversion(Pass):
         # load the model with the updated model loading args
         new_hf_config = deepcopy(model.hf_config)
         new_hf_config.from_pretrained_args = HfFromPretrainedArgs(**new_from_pretrained_args)
-        return HfConfigMixin.load_hf_model(new_hf_config, model.model_path), new_model_attributes
+        return (
+            PyTorchModelHandler(
+                model_path=model.model_path, adapter_path=model.adapter_path, hf_config=new_hf_config
+            ).load_model(),
+            new_model_attributes,
+        )
 
     def _convert_model_on_device(
         self,

@@ -45,7 +45,7 @@ class HfConfigMixin:
         if self.hf_config is None:
             raise ValueError("HF model_config is not available")
 
-        return get_hf_model_config(self._get_model_path_or_name(), **HfConfigMixin._get_loading_args(self.hf_config))
+        return get_hf_model_config(self._get_model_path_or_name(), **self._get_loading_args())
 
     def get_hf_io_config(self):
         """Get Io config for the model."""
@@ -54,7 +54,7 @@ class HfConfigMixin:
                 self._get_model_path_or_name(),
                 self.hf_config.task,
                 self.hf_config.feature,
-                **HfConfigMixin._get_loading_args(self.hf_config),
+                **self._get_loading_args(),
             )
         else:
             return None
@@ -91,16 +91,17 @@ class HfConfigMixin:
                 model_attributes=self.model_attributes,
             )
 
-    @staticmethod
-    def load_hf_model(hf_config, model_path: str = None):
+    def load_hf_model(self, model_path: str = None):
         """Load model from model_path or model_name."""
-        model_name_or_path = model_path or hf_config.model_name
-        loading_args = HfConfigMixin._get_loading_args(hf_config)
+        model_name_or_path = model_path or self.hf_config.model_name
+        loading_args = self._get_loading_args()
         logger.info(f"Loading Huggingface model from {model_name_or_path}")
-        if hf_config.task:
-            model = load_huggingface_model_from_task(hf_config.task, model_name_or_path, **loading_args)
-        elif hf_config.model_class:
-            model = load_huggingface_model_from_model_class(hf_config.model_class, model_name_or_path, **loading_args)
+        if self.hf_config.task:
+            model = load_huggingface_model_from_task(self.hf_config.task, model_name_or_path, **loading_args)
+        elif self.hf_config.model_class:
+            model = load_huggingface_model_from_model_class(
+                self.hf_config.model_class, model_name_or_path, **loading_args
+            )
         else:
             raise ValueError("Either task or model_class must be specified")
 
@@ -112,7 +113,7 @@ class HfConfigMixin:
             self.model_path or self.hf_config.model_name,
             self.hf_config.task,
             self.hf_config.feature,
-            **HfConfigMixin._get_loading_args(self.hf_config),
+            **self._get_loading_args(),
         )
 
     def is_model_loaded_from_hf_config(self) -> bool:
@@ -127,9 +128,8 @@ class HfConfigMixin:
             and (self.hf_config.model_class or self.hf_config.task)
         )
 
-    @staticmethod
-    def _get_loading_args(hf_config):
-        return hf_config.from_pretrained_args.get_loading_args() if hf_config.from_pretrained_args else {}
+    def _get_loading_args(self):
+        return self.hf_config.from_pretrained_args.get_loading_args() if self.hf_config.from_pretrained_args else {}
 
     def _get_model_path_or_name(self):
         if self.model_file_format == ModelFileFormat.PYTORCH_MLFLOW_MODEL:
