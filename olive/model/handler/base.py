@@ -14,6 +14,17 @@ class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin, CompositeM
     """Abstraction for logical "Model", it contains model path and related metadata.
 
     Each technique accepts Model as input, return Model as output.
+    The major responsibility of this base class is to provide a unified interface model loading
+        * load_model: load model from disk, return in-memory model object.
+            For PyTorch model, the in-memory model object is torch.nn.Module.
+            For ONNX model, the in-memory model object is onnx.ModelProto.
+        * prepare_session: prepare inference session for Olive model, return in-memory inference session.
+            If the model is PyTorch model, it will return a torch.nn.Module object.
+            If the model is ONNX model, it will return a onnxruntime.InferenceSession object.
+            If the model is from Huggingface Optimum, it will return ORTModel object.
+
+    If you add new Mixin into model handler, please make sure the member variable
+    is initialized properly in model handler.
     """
 
     model_type: Optional[str] = None

@@ -10,6 +10,11 @@ logger = logging.getLogger(__name__)
 
 
 class JsonMixin:
+    """Provide the to_json functionality for the model handler.
+
+    Different model handler need to override the behavior to add its own attributes.
+    """
+
     def to_json(self, check_object: bool = False):
         config = {
             "type": self.model_type,

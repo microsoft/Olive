@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 
 
 class ResourceMixin:
+    """Provide the resource functionalities for the model handler."""
+
     def add_resources(self, resources: Dict[str, OLIVE_RESOURCE_ANNOTATIONS]):
         for resource_name, resource_path in resources.items():
             if resource_path is not None:

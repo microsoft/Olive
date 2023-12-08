@@ -14,6 +14,11 @@ from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, create_resource_path
 
 @model_handler_registry("OpenVINOModel")
 class OpenVINOModelHandler(OliveModelHandler):
+    """OpenVINO model handler.
+
+    The main responsibility of OpenVINOModelHandler is to provide the model loading for OpenVINO model.
+    """
+
     def __init__(self, model_path: OLIVE_RESOURCE_ANNOTATIONS, model_attributes: Optional[Dict[str, Any]] = None):
         super().__init__(
             model_path=model_path,

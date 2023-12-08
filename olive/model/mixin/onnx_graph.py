@@ -7,6 +7,14 @@ from onnx import AttributeProto, GraphProto
 
 
 class OnnxGraphMixin:
+    """Provide the following model graph functionalites.
+
+    * get graph nodes
+    * get graph io config
+    * get graph initializer
+    * get graph output name to node mapping
+    """
+
     def nodes(self):
         for graph in self.get_all_graphs():
             yield from graph.node

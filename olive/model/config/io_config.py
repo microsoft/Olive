@@ -9,6 +9,19 @@ from olive.common.pydantic_v1 import validator
 
 
 class IoConfig(ConfigBase):
+    """IO config for model handler.
+
+    For example, in stable diffusion, the config looks like:
+    "io_config": {
+        "input_names": [ "clip_input", "images" ],
+        "output_names": [ "out_images", "has_nsfw_concepts" ],
+        "dynamic_axes": {
+            "clip_input": { "0": "batch", "1": "channels", "2": "height", "3": "width" },
+            "images": { "0": "batch", "1": "height", "2": "width", "3": "channels" }
+        }
+    }
+    """
+
     # TODO(trajep): remove input names, shapes and types, turn to use olive dataset config.
     input_names: List[str]
     input_shapes: List[List[int]] = None

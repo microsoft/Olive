@@ -12,6 +12,8 @@ from olive.model.handler.pytorch import PyTorchModelHandler
 
 @model_handler_registry("OptimumModel")
 class OptimumModelHandler(PyTorchModelHandler):
+    """TODO(myguo): need refactor this class to support Optimum model."""
+
     def __init__(self, model_components: List[str], **kwargs):
         kwargs = kwargs or {}
         kwargs["model_file_format"] = ModelFileFormat.COMPOSITE_MODEL

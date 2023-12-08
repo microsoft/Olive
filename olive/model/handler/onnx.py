@@ -25,6 +25,14 @@ logger = logging.getLogger(__name__)
 
 @model_handler_registry("ONNXModel")
 class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):
+    """ONNX model handler.
+
+    Besides the model loading functionalities, the model handler also provider the onnx graph functionality by mixin
+
+    the mixin class OnnxEpValidateMixin is used to validate the execution providers.
+    the mixin class OnnxGraphMixin is used to support onnx graph operations.
+    """
+
     def __init__(
         self,
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,

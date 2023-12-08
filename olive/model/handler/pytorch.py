@@ -29,6 +29,15 @@ logger = logging.getLogger(__name__)
 
 @model_handler_registry("PyTorchModel")
 class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
+    """PyTorch model handler.
+
+    Besides the model loading for PyTorch model, the model handler also provides the following functionalities:
+      * Get the model io configuration either from user provider io_config or from hf_config. The priority is user
+        provided io_config is higher than hf_config.
+      * Get the dummy inputs for PyTorch model used to evaluate the latency.
+      * All kinds of Hf model functionalities by HfConfigMixin.
+    """
+
     resource_keys: ClassVar[list] = ["model_path", "script_dir", "model_script", "adapter_path"]
 
     def __init__(

@@ -23,15 +23,21 @@ logger = logging.getLogger(__name__)
 
 
 class HfConfigMixin:
-    """The mixin requires the following attributes to be set.
+    """Provide the following Hugging Face model functionalites.
 
-    * model_path
-    * model_file_format
-    * model_loader
-    * model_script
-    * script_dir
-    * model_attributes
-    * hf_config
+        * loading huggingface model
+        * getting huggingface model config
+        * getting huggingface model io config
+        * getting huggingface model components like Whisper scenario.
+
+    The mixin requires the following attributes to be set.
+        * model_path
+        * model_file_format
+        * model_loader
+        * model_script
+        * script_dir
+        * model_attributes
+        * hf_config
     """
 
     def get_hf_model_config(self):

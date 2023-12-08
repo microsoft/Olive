@@ -17,8 +17,11 @@ from olive.model.handler.base import OliveModelHandler
 class CompositeModelHandler(OliveModelHandler):
     """CompositeModel represents multiple component models.
 
+    The only responsibility of CompositeModelHandler is to provider a get_model_components which will iterate all the
+    child models.
+
     Whisper is an example composite model that has encoder and decoder components.
-    CompositeOnnxModel is a collection of OnnxModels.
+    CompositeModelHandler is a collection of Models. All the child model in the container should have same model type.
     """
 
     def __init__(
@@ -75,6 +78,11 @@ class CompositeModelHandler(OliveModelHandler):
 
 @model_handler_registry("CompositePyTorchModel")
 class CompositePyTorchModelHandler(CompositeModelHandler):
+    """The  CompositePyTorchModel handler.
+
+    Its main responsibility is to create a list of child PyTorch model and used to initialzie a composite model.
+    """
+
     def __init__(self, model_components: List[Dict[str, Any]], **kwargs):
         kwargs = kwargs or {}
         kwargs["model_file_format"] = ModelFileFormat.COMPOSITE_MODEL

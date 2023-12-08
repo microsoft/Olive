@@ -8,6 +8,8 @@ logger = logging.getLogger(__name__)
 
 
 class OnnxEpValidateMixin:
+    """Provide the ORT execution provider validation functionality for the model handler."""
+
     def is_valid_ep(self, filepath: str, ep: str = None):
         # TODO(shaahji): should be remove if future accelerators is implemented
         # It should be a bug for onnxruntime where the execution provider is not be fallback.

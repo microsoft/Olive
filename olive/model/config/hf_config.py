@@ -18,6 +18,17 @@ logger = logging.getLogger(__name__)
 
 
 class HfComponent(ConfigBase):
+    """Used for Hf models which has multiple components, such as whisper.
+
+    For example, in the Whisper model example, the component looks like:
+        {
+            "name": "encoder_decoder_init",
+            "io_config": "get_encdec_io_config",
+            "component_func": "get_encoder_decoder_init",
+            "dummy_inputs_func": "encoder_decoder_init_dummy_inputs"
+        }
+    """
+
     name: str
     io_config: Union[IoConfig, Dict[str, Any], str, Callable]
     component_func: Union[str, Callable] = None
@@ -196,6 +207,27 @@ class HfFromPretrainedArgs(ConfigWithExtraArgs):
 
 
 class HfConfig(ConfigBase):
+    """The config for HuggingFace models.
+
+    For example, the config for the Whisper model looks like:
+        "model_class": "WhisperForConditionalGeneration",
+        "model_name": "openai/whisper-tiny.en",
+        "components": [
+            {
+                "name": "encoder_decoder_init",
+                "io_config": "get_encdec_io_config",
+                "component_func": "get_encoder_decoder_init",
+                "dummy_inputs_func": "encoder_decoder_init_dummy_inputs"
+            },
+            {
+                "name": "decoder",
+                "io_config": "get_dec_io_config",
+                "component_func": "get_decoder",
+                "dummy_inputs_func": "decoder_dummy_inputs"
+            }
+        ]
+    """
+
     model_name: str = None
     task: str = None
     # feature is optional if task is specified and don't need past

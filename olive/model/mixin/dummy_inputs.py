@@ -12,6 +12,11 @@ logger = logging.getLogger(__name__)
 
 
 class DummyInputsMixin:
+    """Provide the dummy inputs functionality for the model handler.
+
+    the dummy data is used to evalaute the latency if user doesn't provide the data for evaluation.
+    """
+
     def get_dummy_inputs(self):
         """Return a dummy input for the model."""
         if self.dummy_inputs is not None:
