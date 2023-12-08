@@ -28,7 +28,7 @@ class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin, CompositeM
     """
 
     model_type: Optional[str] = None
-    resource_keys: Tuple[str] = ("model_path",)
+    resource_keys: Tuple[str, ...] = ("model_path",)
 
     def __init__(
         self,
@@ -45,7 +45,11 @@ class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin, CompositeM
 
         # store resource paths
         self.resource_paths: Dict[str, str] = {}
-        self.add_resources(locals())
+
+        # Only update the resource_paths when the resource_key is model_path.
+        # All othercase will be handled by subclass.
+        if len(self.resource_keys) == 1 and self.resource_keys[0] == "model_path":
+            self.add_resources(locals())
 
     @property
     def model_path(self) -> str:

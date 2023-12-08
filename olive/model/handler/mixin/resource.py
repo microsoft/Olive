@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class ResourceMixin:
     """Provide the resource functionalities for the model handler."""
 
-    resource_keys: Tuple[str] = None
+    resource_keys: Tuple[str, ...] = None
 
     def add_resources(self, local_args: Dict[str, str]):
         resources = {r: local_args[r] for r in self.resource_keys if r in local_args}

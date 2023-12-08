@@ -38,7 +38,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
       * All kinds of Hf model functionalities by HfConfigMixin.
     """
 
-    resource_keys: Tuple[str] = ("model_path", "script_dir", "model_script", "adapter_path")
+    resource_keys: Tuple[str, ...] = ("model_path", "script_dir", "model_script", "adapter_path")
 
     def __init__(
         self,
@@ -128,7 +128,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
         elif self.model_file_format == ModelFileFormat.PYTORCH_MLFLOW_MODEL:
             model = self._load_mlflow_model()
         elif self.hf_config and (self.hf_config.model_class or self.hf_config.task):
-            model = self.load_hf_model(self.model_path)
+            model = self.load_hf_model(self.hf_config, self.model_path)
         elif self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
             model = torch.load(self.model_path)
         elif self.model_file_format == ModelFileFormat.PYTORCH_STATE_DICT:
@@ -258,7 +258,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
 
 @model_handler_registry("DistributedPyTorchModel")
 class DistributedPyTorchModelHandler(OliveModelHandler):
-    resource_keys: Tuple[str] = ("model_path", "script_dir", "model_script", "adapter_path")
+    resource_keys: Tuple[str, ...] = ("model_path", "script_dir", "model_script", "adapter_path")
 
     DEFAULT_RANKED_MODEL_NAME_FORMAT: ClassVar[str] = "model_{:02d}"
 

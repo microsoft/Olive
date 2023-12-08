@@ -6,7 +6,6 @@ import logging
 
 import olive.data.template as data_config_template
 from olive.common.user_module_loader import UserModuleLoader
-from olive.model.utils.hf_utils import get_hf_model_dummy_input
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +56,7 @@ class DummyInputsMixin:
                 )
             elif not self.hf_config.components:
                 logger.debug("Using hf onnx_config to get dummy inputs")
-                dummy_inputs = self.get_hf_dummy_inputs(self.model_path)
+                dummy_inputs = self.get_hf_dummy_inputs()
 
         if dummy_inputs is None:
             raise ValueError(
@@ -66,12 +65,3 @@ class DummyInputsMixin:
             )
 
         return dummy_inputs
-
-    def get_hf_dummy_inputs(self, model_path: str = None):
-        """Get dummy inputs for the model."""
-        return get_hf_model_dummy_input(
-            model_path or self.hf_config.model_name,
-            self.hf_config.task,
-            self.hf_config.feature,
-            **self._get_loading_args(),
-        )
