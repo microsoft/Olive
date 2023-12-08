@@ -9,6 +9,7 @@ from enum import Enum
 from typing import Dict, List, Optional
 
 import olive.cache as cache_utils
+from olive.auto_optimizer.regulate_mixins import RegulatePassConfigMixin
 from olive.common.config_utils import ConfigBase
 from olive.common.pydantic_v1 import validator
 from olive.data.config import DataConfig
@@ -53,7 +54,7 @@ class AutoOptimizerConfig(ConfigBase):
         return v
 
 
-class AutoOptimizer:
+class AutoOptimizer(RegulatePassConfigMixin):
     def __init__(
         self,
         input_model_config: ModelConfig,
@@ -86,14 +87,14 @@ class AutoOptimizer:
         self.model_attr = model.model_attributes or {}
 
         # 2. evaluator config
-        self.is_accuracy_drop_tolerance = self.evaluator_config.is_accuracy_drop_tolerance
+        self.is_accuracy_drop_tolerance = self.evaluator_config and self.evaluator_config.is_accuracy_drop_tolerance
         # if user can tolerate accuracy drop, we can enable more optimization
         default_precisions = [Precision.FP32]
         if self.is_accuracy_drop_tolerance:
             # ignore int4 for now as it is not supported very well in onnxruntime
             # enable it only when user explicitly set it
-            # default_precisions = [Precision.FP16, Precision.INT8, Precision.INT4]
-            default_precisions = [Precision.FP16, Precision.INT8]
+            # default_precisions = [Precision.FP32, Precision.FP16, Precision.INT8, Precision.INT4]
+            default_precisions = [Precision.FP32, Precision.FP16, Precision.INT8]
         self.auto_optimizer_config.precisions = self.auto_optimizer_config.precisions or default_precisions
 
         # 3. accelerator spec
@@ -137,113 +138,3 @@ class AutoOptimizer:
 
         # step2: fill the data_config for the passes that need data_config
         return self.regulate_data_config(pass_config, pass_flows)
-
-    def regulate_pass_flows_dict(self, pass_flows_dict):
-        # special passes: OrtTransformerOptimization and OrtPerfTuning can be used for both fp16 and fp32
-        # we need assign different pass name for them
-        # for example: gpu_cuda_fp16, we need rename OrtTransformerOptimization to OrtTransformerOptimization_cuda_fp16
-        pass_flows_by_fp16 = pass_flows_dict.get(Precision.FP16, [])
-        pass_config, pass_flows_16 = self.regulate_fp16(None, pass_flows_by_fp16)
-
-        # flatten pass_flows_dict to pass_flows and generate the default pass_configs
-        pass_flows = []
-        unique_pass_flows = set()
-        if pass_flows_16:
-            pass_flows_dict[Precision.FP16] = pass_flows_16
-        for pfs in pass_flows_dict.values():
-            for pf in pfs:
-                if tuple(pf) not in unique_pass_flows:
-                    pass_flows.append(pf)
-                unique_pass_flows.add(tuple(pf))
-                for p in pf:
-                    if p not in pass_config:
-                        pass_config.update({p: {"type": p, "config": {}}})
-
-        return pass_config, pass_flows
-
-    def regulate_fp16(self, pass_config, pass_flows):
-        pass_config = pass_config or {}
-        if not self.is_gpu or not self.is_accuracy_drop_tolerance:
-            return {}, []
-
-        is_cuda_ep = self.accelerator_spec.execution_provider == "CUDAExecutionProvider"
-        is_trt_ep = self.accelerator_spec.execution_provider == "TensorrtExecutionProvider"
-        assert (
-            is_cuda_ep or is_trt_ep
-        ), "can not support CUDAExecutionProvider and TensorrtExecutionProvider at the same time"
-
-        customized_fp16 = self.allow_precision(Precision.FP16)
-        cuda_fp16 = customized_fp16 and is_cuda_ep
-        trt_fp16 = customized_fp16 and not cuda_fp16
-
-        trans_opt = "OrtTransformersOptimization"
-        perf_tuning = "OrtPerfTuning"
-        trans_opt_fp16 = "OrtTransformerOptimization_cuda_fp16"
-        perf_tuning_fp16 = "OrtPerfTuning_trt_fp16"
-
-        for i, pf in enumerate(pass_flows):
-            new_pf = deepcopy(pf)
-            if "OrtMixedPrecision" not in pf:
-                for j, p in enumerate(pf):
-                    if trans_opt == p:
-                        new_pf[j] = trans_opt_fp16 if cuda_fp16 else p
-                        pass_config.update(
-                            {
-                                new_pf[j]: {
-                                    "type": trans_opt,
-                                    "config": {
-                                        "float16": cuda_fp16,
-                                        "use_gpu": True,
-                                    },
-                                }
-                            }
-                        )
-                    if perf_tuning == p:
-                        new_pf[j] = perf_tuning_fp16 if trt_fp16 else p
-                        pass_config.update(
-                            {
-                                new_pf[j]: {
-                                    "type": perf_tuning,
-                                    "config": {
-                                        "trt_fp16_enable": trt_fp16,
-                                        "enable_cuda_graph": cuda_fp16,
-                                        "io_bind": True,
-                                    },
-                                }
-                            }
-                        )
-
-            pass_flows[i] = new_pf
-
-        return pass_config, pass_flows
-
-    def regulate_data_config(self, pass_config, pass_flows):
-        from olive.workflows.run.config import INPUT_MODEL_DATA_CONFIG
-
-        data_configs = self.data_configs.get(INPUT_MODEL_DATA_CONFIG)
-        if not data_configs:
-            return pass_config, pass_flows
-
-        # data_config
-        passes_require_data_config = ["OnnxQuantization", "OrtPerfTuning"]
-        for p in passes_require_data_config:
-            # TODO(anyone): support multi data_config for different passes, pass_flows
-            p_names = self.find_pass_name_in_pass_flow(p, pass_flows)
-            for pn in p_names:
-                pass_config[pn]["config"]["data_config"] = data_configs.to_json()
-        return pass_config, pass_flows
-
-    def allow_precision(self, precision: Precision):
-        if not self.auto_optimizer_config.precisions:
-            # empty precisions means no precision restriction
-            return True
-
-        return precision in self.auto_optimizer_config.precisions
-
-    def find_pass_name_in_pass_flow(self, pass_name, pass_flows):
-        passes = set()
-        for pf in pass_flows:
-            for p in pf:
-                if p.startswith(pass_name):
-                    passes.add(p)
-        return passes

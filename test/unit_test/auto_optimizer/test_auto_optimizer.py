@@ -72,6 +72,7 @@ class TestAutoOptimizer:
                 DEFAULT_CPU_ACCELERATOR,
                 None,
                 [
+                    ["OnnxConversion", "OrtTransformersOptimization", "OrtPerfTuning"],
                     ["OnnxConversion", "OrtTransformersOptimization", "OnnxQuantization", "OrtPerfTuning"],
                     ["OnnxConversion", "OrtTransformersOptimization", "IncQuantization", "OrtPerfTuning"],
                 ],
