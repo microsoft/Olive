@@ -7,7 +7,6 @@ from pathlib import Path
 
 import config
 import torch
-from argmax_sampling_model import ArgmaxSampling
 from decoder_model import DecoderModel
 
 
@@ -20,31 +19,6 @@ class RandomDataLoader:
     def __getitem__(self, idx):
         label = None
         return self.create_input_func(self.batch_size), label
-
-
-# -----------------------------------------------------------------------------
-# ARGMAX SAMPLING
-# -----------------------------------------------------------------------------
-
-
-def load_argmax_sampling_model(model_path):
-    model = ArgmaxSampling()
-    model.eval()
-    return model
-
-
-def argmax_sampling_inputs(model):
-    batch_size = 2
-    vocab_size = 32000
-    seq_len = 10
-    return {
-        "logits": torch.zeros((batch_size, seq_len, vocab_size), dtype=torch.float16),
-        "seq_lens": torch.ones((batch_size), dtype=torch.int64),
-    }
-
-
-def argmax_sampling_data_loader(data_dir, batch_size, *args, **kwargs):
-    return RandomDataLoader(argmax_sampling_inputs, batch_size)
 
 
 # -----------------------------------------------------------------------------

@@ -16,9 +16,6 @@ available_models = {
         "onnx_file": os.path.join(
             top_directory, "models", "optimized", "llama_v2", "llama_v2", "decoder_model_merged.onnx"
         ),
-        "sampling_onnx_file": os.path.join(
-            top_directory, "models", "optimized", "llama_v2", "argmax_sampling", "model.onnx"
-        ),
         "tokenizer_path": os.path.join(top_directory, "models", "optimized", "llama_v2", "tokenizer.model"),
     },
 }
@@ -38,7 +35,6 @@ def change_model_listener(new_model_name):
     d = available_models[new_model_name]
     interface = LlamaOnnxDmlInterface(
         onnx_file=d["onnx_file"],
-        sampling_onnx_file=d["sampling_onnx_file"],
         tokenizer_path=d["tokenizer_path"],
     )
     interface.initialize()

@@ -59,14 +59,6 @@ def run_llama_v2_io_binding(
         )
     ]
 
-    sampling_session_options = onnxruntime.SessionOptions()
-    sampling_session_options.add_free_dimension_override_by_name("batch_size", 1)
-    argmax_sampling_session = onnxruntime.InferenceSession(
-        os.path.join(model_dir, "argmax_sampling/model.onnx"),
-        sess_options=sampling_session_options,
-        providers=providers,
-    )
-
     llm_session_options = onnxruntime.SessionOptions()
     llm_session_options.add_free_dimension_override_by_name("batch_size", 1)
     llm_session_options.add_free_dimension_override_by_name("max_seq_len", max_seq_len)
@@ -102,16 +94,8 @@ def run_llama_v2_io_binding(
     # Create the K and V caches.
     head_dim = int(hidden_size / n_heads)
 
-    # Create the argmax sampling's I/O binding
-    argmax_sampling_io_binding = argmax_sampling_session.io_binding()
-    argmax_sampling_io_binding.bind_ortvalue_output("next_token", tokens_increment)
-
     # Create the LLM model's I/O binding
-    logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
-        (1, seq_len, tokenizer.n_words), data_type, binding_device
-    )
     llm_io_binding = llm_session.io_binding()
-    llm_io_binding.bind_ortvalue_output("logits", logits)
 
     cache_shape = (1, n_heads, max_seq_len, head_dim)
     initial_cache = np.zeros(cache_shape, dtype=data_type)
@@ -123,6 +107,7 @@ def run_llama_v2_io_binding(
         v_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, binding_device))
 
     llm_io_binding.bind_cpu_input("use_cache_branch", np.zeros([1], dtype=np.bool_))
+    llm_io_binding.bind_output("logits", "cpu")
 
     before_time = time.perf_counter()
 
@@ -132,11 +117,9 @@ def run_llama_v2_io_binding(
         if idx == 0:
             position_ids = np.arange(seq_len, dtype=np.int64).reshape((1, seq_len))
             llm_io_binding.bind_cpu_input("position_ids", position_ids)
-            argmax_sampling_io_binding.bind_cpu_input("seq_lens", np.array(seq_len, dtype=np.int64, ndmin=1))
         else:
             position_ids_increment = np.array(seq_len, dtype=np.int64, ndmin=2)
             llm_io_binding.bind_cpu_input("position_ids_increment", position_ids_increment)
-            argmax_sampling_io_binding.bind_cpu_input("seq_lens", np.ones((1,), dtype=np.int64))
 
         seqlens_k = np.array(past_seq_len, dtype=np.int32, ndmin=1)
         llm_io_binding.bind_cpu_input("seqlens_k", seqlens_k)
@@ -155,10 +138,12 @@ def run_llama_v2_io_binding(
         llm_io_binding.synchronize_outputs()
 
         # Decide the next token using your preferred sampling strategy.
-        argmax_sampling_io_binding.bind_ortvalue_input("logits", logits)
-        argmax_sampling_session.run_with_iobinding(argmax_sampling_io_binding)
-        argmax_sampling_io_binding.synchronize_outputs()
-        output_tokens.append(tokens_increment.numpy().item())
+        logits = llm_io_binding.get_outputs()[0].numpy()[:, -1, :]
+        next_token = np.argmax(logits, axis=-1, keepdims=True)
+        output_tokens.append(next_token.item())
+
+        # Set the token for the next iteration
+        tokens_increment = onnxruntime.OrtValue.ortvalue_from_numpy(next_token, binding_device)
 
         # Stop if/when we get an ENDOFTEXT token before reaching maximum sequence length
         if not ignore_eos and output_tokens[-1] == tokenizer.eos_id:
@@ -196,7 +181,7 @@ if __name__ == "__main__":
         "--model_dir",
         type=str,
         default="models/optimized/llama_v2",
-        help="Path to the folder containing the argmax_sampling folder, llama_v2 folder and the tokenizer.model file",
+        help="Path to the folder containing the llama_v2 folder and the tokenizer.model file",
     )
 
     args = parser.parse_args()

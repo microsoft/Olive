@@ -22,54 +22,50 @@ from olive.workflows import run as olive_run
 def optimize(optimized_model_dir: Path, model_type: str):
     script_dir = Path(__file__).resolve().parent
     model_info = {}
-    submodel_names = ["argmax_sampling", "llama_v2"]
+    model_name = "llama_v2"
 
-    for submodel_name in submodel_names:
-        print(f"\nOptimizing {submodel_name}")
+    print(f"\nOptimizing {model_name}")
 
-        olive_config = None
-        with Path.open(script_dir / f"config_{submodel_name}.json") as fin:
-            olive_config = json.load(fin)
+    olive_config = None
+    with Path.open(script_dir / f"config_{model_name}.json") as fin:
+        olive_config = json.load(fin)
 
-            # ORT-DML doesn't support SimplifiedLayerNorm or SkipSimplifiedLayerNorm yet, so only enable the fusions if
-            # LayerNorm is selected
-            if submodel_name == "llama_v2":
-                if config.normalization_type == "layer_norm":
-                    olive_config["passes"]["optimize"]["config"]["optimization_options"]["enable_layer_norm"] = True
-                    del olive_config["passes"]["optimize"]["config"]["force_fp32_nodes"]
+        # ORT-DML doesn't support SimplifiedLayerNorm or SkipSimplifiedLayerNorm yet, so only enable the fusions if
+        # LayerNorm is selected
+        if config.normalization_type == "layer_norm":
+            olive_config["passes"]["optimize"]["config"]["optimization_options"]["enable_layer_norm"] = True
+            del olive_config["passes"]["optimize"]["config"]["force_fp32_nodes"]
 
-                # Fewer than 32 layers can be provided for debugging purposes so we have to remove them from the config
-                if config.num_layers < 32:
-                    model_components = olive_config["input_model"]["config"]["model_components"]
-                    for model_component in model_components:
-                        layer_range = range(config.num_layers, 32)
+        # Fewer than 32 layers can be provided for debugging purposes so we have to remove them from the config
+        if config.num_layers < 32:
+            model_components = olive_config["input_model"]["config"]["model_components"]
+            for model_component in model_components:
+                layer_range = range(config.num_layers, 32)
 
-                        # Remove the extra inputs
-                        key_inputs_to_remove = {f"cache.{idx}.key" for idx in layer_range}
-                        value_inputs_to_remove = {f"cache.{idx}.value" for idx in layer_range}
-                        input_names = model_component["config"]["io_config"]["input_names"]
-                        input_names = [x for x in input_names if x not in key_inputs_to_remove]
-                        input_names = [x for x in input_names if x not in value_inputs_to_remove]
-                        model_component["config"]["io_config"]["input_names"] = input_names
+                # Remove the extra inputs
+                key_inputs_to_remove = {f"cache.{idx}.key" for idx in layer_range}
+                value_inputs_to_remove = {f"cache.{idx}.value" for idx in layer_range}
+                input_names = model_component["config"]["io_config"]["input_names"]
+                input_names = [x for x in input_names if x not in key_inputs_to_remove]
+                input_names = [x for x in input_names if x not in value_inputs_to_remove]
+                model_component["config"]["io_config"]["input_names"] = input_names
 
-                        # Remove the extra outputs
-                        key_output_to_remove = {f"cache_out.{idx}.key" for idx in layer_range}
-                        value_output_to_remove = {f"cache_out.{idx}.value" for idx in layer_range}
-                        output_names = model_component["config"]["io_config"]["output_names"]
-                        output_names = [x for x in output_names if x not in key_output_to_remove]
-                        output_names = [x for x in output_names if x not in value_output_to_remove]
-                        model_component["config"]["io_config"]["output_names"] = output_names
+                # Remove the extra outputs
+                key_output_to_remove = {f"cache_out.{idx}.key" for idx in layer_range}
+                value_output_to_remove = {f"cache_out.{idx}.value" for idx in layer_range}
+                output_names = model_component["config"]["io_config"]["output_names"]
+                output_names = [x for x in output_names if x not in key_output_to_remove]
+                output_names = [x for x in output_names if x not in value_output_to_remove]
+                model_component["config"]["io_config"]["output_names"] = output_names
 
-                        # Remove the dynamic axes
-                        for idx in layer_range:
-                            del model_component["config"]["io_config"]["dynamic_axes"][f"cache.{idx}.key"]
-                            del model_component["config"]["io_config"]["dynamic_axes"][f"cache.{idx}.value"]
+                # Remove the dynamic axes
+                for idx in layer_range:
+                    del model_component["config"]["io_config"]["dynamic_axes"][f"cache.{idx}.key"]
+                    del model_component["config"]["io_config"]["dynamic_axes"][f"cache.{idx}.value"]
 
         olive_run(olive_config)
 
-        footprints_file_path = (
-            Path(__file__).resolve().parent / "footprints" / f"{submodel_name}_gpu-dml_footprints.json"
-        )
+        footprints_file_path = Path(__file__).resolve().parent / "footprints" / f"{model_name}_gpu-dml_footprints.json"
         with footprints_file_path.open("r") as footprint_file:
             footprints = json.load(footprint_file)
 
@@ -85,33 +81,28 @@ def optimize(optimized_model_dir: Path, model_type: str):
                     merging_footprint = footprint
 
             assert conversion_footprint is not None
+            assert optimizer_footprint is not None
+            assert merging_footprint is not None
+            optimized_olive_model = ONNXModel(**merging_footprint["model_config"]["config"])
 
-            if submodel_name == "llama_v2":
-                assert optimizer_footprint is not None
-                assert merging_footprint is not None
-                optimized_olive_model = ONNXModel(**merging_footprint["model_config"]["config"])
-            else:
-                optimized_olive_model = ONNXModel(**conversion_footprint["model_config"]["config"])
-
-            model_info[submodel_name] = {
+            model_info[model_name] = {
                 "optimized": {
                     "path": Path(optimized_olive_model.model_path),
                 },
             }
 
-            print(f"Optimized Model   : {model_info[submodel_name]['optimized']['path']}")
+            print(f"Optimized Model   : {model_info[model_name]['optimized']['path']}")
 
-    print("Copying optimized models...")
-    for submodel_name in submodel_names:
-        src_path = model_info[submodel_name]["optimized"]["path"]
-        dst_path = optimized_model_dir / submodel_name / src_path.name
-        os.makedirs(os.path.dirname(dst_path), exist_ok=True)
-        shutil.copyfile(src_path, dst_path)
+    print("Copying optimized model...")
+    src_path = model_info[model_name]["optimized"]["path"]
+    dst_path = optimized_model_dir / model_name / src_path.name
+    os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+    shutil.copyfile(src_path, dst_path)
 
-        src_weights_path = src_path.with_suffix(".onnx.data")
-        if src_weights_path.is_file():
-            dst_weights_path = dst_path.with_suffix(".onnx.data")
-            shutil.copyfile(src_weights_path, dst_weights_path)
+    src_weights_path = src_path.with_suffix(".onnx.data")
+    if src_weights_path.is_file():
+        dst_weights_path = dst_path.with_suffix(".onnx.data")
+        shutil.copyfile(src_weights_path, dst_weights_path)
 
     raw_data_folder = Path(__file__).resolve().parent / "raw_model_data" / model_type
     raw_data_folder.mkdir(exist_ok=True, parents=True)

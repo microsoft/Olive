@@ -38,11 +38,10 @@ class Tokenizer:
 
 
 class LlamaOnnxDmlInterface(BaseLLMInterface):
-    def __init__(self, onnx_file="", sampling_onnx_file="", tokenizer_path=""):
+    def __init__(self, onnx_file="", tokenizer_path=""):
         super().__init__()
 
         self.onnx_file = onnx_file
-        self.sampling_onnx_file = sampling_onnx_file
         self.tokenizer_path = tokenizer_path
 
         self.total_count = 0
@@ -70,20 +69,12 @@ class LlamaOnnxDmlInterface(BaseLLMInterface):
             providers=providers,
         )
 
-        sampling_session_options = onnxruntime.SessionOptions()
-        sampling_session_options.add_free_dimension_override_by_name("batch_size", 1)
-        self.sampling_session = onnxruntime.InferenceSession(
-            self.sampling_onnx_file,
-            sess_options=sampling_session_options,
-            providers=providers,
-        )
-
         self.data_type = np.float16
 
         self.hidden_size = 4096
         self.n_heads = 32
         self.n_layers = 32
-        self.max_seq_len = 2048
+        self.max_seq_len = 512
 
         # Initialize the tokenizer and produce the initial tokens.
         self.tokenizer = Tokenizer(model_path=self.tokenizer_path)
@@ -94,7 +85,6 @@ class LlamaOnnxDmlInterface(BaseLLMInterface):
         self.head_dim = int(self.hidden_size / self.n_heads)
 
         # Create the I/O bindings
-        self.sampling_io_binding = self.sampling_session.io_binding()
         self.llm_io_binding = self.llm_session.io_binding()
 
         # Initialize the buffers
@@ -152,27 +142,17 @@ short answers are usually best"
         seq_len = tokens.shape()[1]
         past_seq_len = 0
 
-        logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
-            (1, seq_len, self.tokenizer.n_words), self.data_type, self.binding_device
-        )
-
         # Bind the main model's inputs/outputs
-        self.llm_io_binding.bind_ortvalue_output("logits", logits)
-
-        # Bind the sampling model's inputs/outputs
-        self.sampling_io_binding.bind_ortvalue_output("next_token", self.tokens_increment)
-
         self.llm_io_binding.bind_cpu_input("use_cache_branch", np.zeros([1], dtype=np.bool_))
+        self.llm_io_binding.bind_output("logits", "cpu")
 
         for i in range(max_length):
             if i == 0:
                 position_ids = np.arange(seq_len, dtype=np.int64).reshape((1, seq_len))
                 self.llm_io_binding.bind_cpu_input("position_ids", position_ids)
-                self.sampling_io_binding.bind_cpu_input("seq_lens", np.array(seq_len, dtype=np.int64, ndmin=1))
             else:
                 position_ids_increment = np.array(seq_len, dtype=np.int64).reshape((1, 1))
                 self.llm_io_binding.bind_cpu_input("position_ids_increment", position_ids_increment)
-                self.sampling_io_binding.bind_cpu_input("seq_lens", np.ones((1,), dtype=np.int64))
 
             seqlens_k = np.array(past_seq_len, dtype=np.int32, ndmin=1)
             self.llm_io_binding.bind_cpu_input("seqlens_k", seqlens_k)
@@ -192,10 +172,12 @@ short answers are usually best"
             self.llm_io_binding.synchronize_outputs()
 
             # Decide the next token using your preferred sampling strategy.
-            self.sampling_io_binding.bind_ortvalue_input("logits", logits)
-            self.sampling_session.run_with_iobinding(self.sampling_io_binding)
-            self.sampling_io_binding.synchronize_outputs()
-            generated_tokens.append(self.tokens_increment.numpy().item())
+            logits = self.llm_io_binding.get_outputs()[0].numpy()[:, -1, :]
+            next_token = np.argmax(logits, axis=-1, keepdims=True)
+            generated_tokens.append(next_token.item())
+
+            # Set the token for the next iteration
+            self.tokens_increment = onnxruntime.OrtValue.ortvalue_from_numpy(next_token, self.binding_device)
 
             if i % token_printing_step == 0:
                 yield tokenizer.decode(generated_tokens)
