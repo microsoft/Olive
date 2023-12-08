@@ -208,7 +208,7 @@ class TestDataConfigValidation:
     ):
         config_dict = self.template.copy()
         if has_loading_args:
-            config_dict["input_model"]["config"]["hf_config"]["model_loading_args"] = {
+            config_dict["input_model"]["config"]["hf_config"]["from_pretrained_args"] = {
                 "trust_remote_code": trust_remote_code
             }
         if data_config_trust_remote_code is not None:

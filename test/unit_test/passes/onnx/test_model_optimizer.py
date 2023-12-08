@@ -10,7 +10,7 @@ import pytest
 from onnx import TensorProto, helper
 
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR
-from olive.model import ONNXModel
+from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx import OnnxModelOptimizer
 from olive.passes.onnx.common import model_proto_to_olive_model
@@ -39,7 +39,7 @@ def test_onnx_model_optimizer_pass(tmp_path):
 
 def _make_model_for_patch_unsupported_argmax_operator(
     data_type: TensorProto.DataType, filepath: str, config: Dict[str, Any]
-) -> ONNXModel:
+) -> ONNXModelHandler:
     X = helper.make_tensor_value_info("X", data_type, [None, None])  # noqa: N806
     Y = helper.make_tensor_value_info("Y", data_type, [None])  # noqa: N806
     node_def = helper.make_node("ArgMax", ["X"], ["Y"], domain="com.microsoft")

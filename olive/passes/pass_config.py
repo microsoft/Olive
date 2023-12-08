@@ -6,9 +6,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Callable, Dict, Optional, Type, Union
 
-from pydantic import create_model, validator
-
 from olive.common.config_utils import ConfigBase, ConfigParam, ParamCategory, validate_object, validate_resource_path
+from olive.common.pydantic_v1 import create_model, validator
 from olive.strategy.search_parameter import SearchParameter, json_to_search_parameter
 
 

@@ -8,14 +8,15 @@ Stable Diffusion XL comprises multiple PyTorch models tied together into a *pipe
 - [Setup](#setup)
 - [Conversion to ONNX and Latency Optimization](#conversion-to-onnx-and-latency-optimization)
 - [Test Inference](#test-inference)
+- [Optimization for CUDA EP](#stable-diffusion-optimization-with-cuda)
 - [Issues](#issues)
 - [Stable Diffusion Pipeline](#stable-diffusion-pipeline)
 
-# Setup
+## Setup
 
 Olive is currently under pre-release, with constant updates and improvements to the functions and usage. This sample code will be frequently updated as Olive evolves, so it is important to install Olive from source when checking out this code from the main branch. See the [README for examples](https://github.com/microsoft/Olive/blob/main/examples/README.md#important) for detailed instructions on how to do this.
 
-# Conversion to ONNX and Latency Optimization
+## Conversion to ONNX and Latency Optimization
 
 The easiest way to optimize the pipeline is with the `stable_diffusion_xl.py` helper script. For SDXL Base, run the following:
 
@@ -39,7 +40,7 @@ Once the script successfully completes:
 
 Re-running the script with `--optimize` will delete the output models, but it will *not* delete the Olive cache. Subsequent runs will complete much faster since it will simply be copying previously optimized models; you may use the `--clean_cache` option to start from scratch (not typically used unless you are modifying the scripts, for example).
 
-# Test Inference
+## Test Inference
 
 This sample code is primarily intended to illustrate model optimization with Olive, but it also provides a simple interface for testing inference with the ONNX models. Inference is done by creating an `OnnxStableDiffusionPipeline` from the saved models, which leans on ONNX runtime for inference of the core models (text encoder, u-net and decoder).
 
@@ -74,7 +75,24 @@ If you omit `--interactive`, the script will generate the requested number of im
 
 The minimum number of inferences will be `ceil(num_images / batch_size)`; additional inferences may be required of some outputs are flagged by the safety checker to ensure the desired number of outputs are produced.
 
-# Issues
+## Stable Diffusion Optimization with CUDA
+This example can also be used to optimize Stable Diffusion models for CUDA. You can use the same `stable_diffusion.py` script with `--provider cuda` option to optimize the models for CUDA and test inference. The optimized models will be stored under `models/optimized-cuda/[model_id]` (for example `models/optimized-cuda/stabilityai/stable-diffusion-xl-base-1.0`).
+
+Install the common requirements:
+```
+pip install -r requirements-common.txt
+```
+
+The CUDA example requires the latest onnxruntime-gpu code which can either be built from source or installed from the nightly builds. The following command can be used to install the latest nightly build of onnxruntime-gpu:
+```
+# uninstall any pre-existing onnxruntime packages
+pip uninstall -y onnxruntime onnxruntime-gpu onnxruntime-directml ort-nightly ort-nightly-gpu ort-nightly-directml
+
+# install onnxruntime-gpu nightly build
+pip install ort-nightly-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
+```
+
+## Issues
 
 If you run into the following error while optimizing models, it is likely that your local HuggingFace cache has an incomplete copy of the stable diffusion model pipeline. Deleting `C:\users\<username>\.cache\huggingface` should resolve the issue by ensuring a fresh copy is downloaded.
 
@@ -82,7 +100,9 @@ If you run into the following error while optimizing models, it is likely that y
 OSError: Can't load tokenizer for 'C:\Users\<username>\.cache\huggingface\hub\models--stabilityai--stable-diffusion-xl-base-1.0\snapshots\<sha>'. If you were trying to load it from 'https://huggingface.co/models', make sure you don't have a local directory with the same name. Otherwise, make sure 'C:\Users\<username>\.cache\huggingface\hub\models--stabilityai--stable-diffusion-xl-base-1.0\snapshots\<sha>' is the correct path to a directory containing all relevant files for a CLIPTokenizer tokenizer.
 ```
 
-# Stable Diffusion Pipeline
+If you want to use `stabilityai/stable-diffusion-xl-base-1.0` for image-to-image pipeline, set `"float16": false` in `config_vae_encoder.json`. Otherwise, the output image will be black.
+
+## Stable Diffusion Pipeline
 
 The figure below is a high-level overview of the Stable Diffusion pipeline, and is based on a figure from [Hugging Face Blog](https://huggingface.co/blog/stable_diffusion) that covers Stable Diffusion with Diffusers library. The blue boxes are the converted & optimized ONNX models. The gray boxes remain implemented by diffusers library when using this example for inference; a custom pipeline may implement the full pipeline without leveraging Python or the diffusers library.
 

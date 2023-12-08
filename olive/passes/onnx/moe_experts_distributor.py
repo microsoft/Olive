@@ -16,10 +16,10 @@ import numpy as np
 import onnx
 from google.protobuf.json_format import MessageToDict
 from google.protobuf.message import Message
-from pydantic import validator
 
+from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import DistributedOnnxModel, ONNXModel
+from olive.model import DistributedOnnxModelHandler, ONNXModelHandler
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config
 from olive.passes.pass_config import PassConfigParam
@@ -255,7 +255,7 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
         ) = params
         from onnxruntime.transformers.onnx_model import OnnxModel
 
-        basename = DistributedOnnxModel.DEFAULT_RANKED_MODEL_NAME_FORMAT.format(rank)
+        basename = DistributedOnnxModelHandler.DEFAULT_RANKED_MODEL_NAME_FORMAT.format(rank)
         output_dirpath = Path(output_dirpath)
 
         model = OnnxModel(onnx.load_model(input_filepath))
@@ -370,7 +370,7 @@ class MoEExpertsDistributor(Pass):
                 type_=int,
                 default=2,
                 required=True,
-                description=("Number of GPU nodes to distribute the model for. Must be greater than 1."),
+                description="Number of GPU nodes to distribute the model for. Must be greater than 1.",
             ),
             "parallel_jobs": PassConfigParam(
                 type_=int,
@@ -398,8 +398,8 @@ class MoEExpertsDistributor(Pass):
         }
 
     def _run_for_config(
-        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> DistributedOnnxModel:
+        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> DistributedOnnxModelHandler:
         # huggingface/tokenizers: The current process just got forked, after parallelism has already been used.
         # Disabling parallelism to avoid deadlocks...
         # To disable this warning, you can either:
@@ -417,8 +417,8 @@ class MoEExpertsDistributor(Pass):
             all_tensors_to_one_file=config["all_tensors_to_one_file"],
             parallel_jobs=config["parallel_jobs"] or multiprocessing.cpu_count(),
         )
-        return DistributedOnnxModel(
+        return DistributedOnnxModelHandler(
             model_path=str(Path(output_model_path).with_suffix("")),
-            model_name_pattern=DistributedOnnxModel.DEFAULT_RANKED_MODEL_NAME_FORMAT,
+            model_name_pattern=DistributedOnnxModelHandler.DEFAULT_RANKED_MODEL_NAME_FORMAT,
             num_ranks=config["world_size"],
         )

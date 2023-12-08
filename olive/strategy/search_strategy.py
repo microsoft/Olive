@@ -6,9 +6,8 @@ import logging
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
-from pydantic import validator
-
 from olive.common.config_utils import ConfigBase, validate_config
+from olive.common.pydantic_v1 import validator
 from olive.strategy.search_algorithm import REGISTRY, SearchAlgorithm
 from olive.strategy.search_results import SearchResults
 

@@ -10,9 +10,9 @@ from typing import Callable, Dict, List, Union
 
 import torch
 import transformers
-from pydantic import validator
 
 from olive.common.config_utils import ConfigBase, validate_config, validate_object
+from olive.common.pydantic_v1 import validator
 from olive.common.user_module_loader import UserModuleLoader
 from olive.data.component.dataset import BaseDataset
 from olive.data.constants import IGNORE_INDEX

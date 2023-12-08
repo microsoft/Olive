@@ -1,3 +1,5 @@
+# we use v1 API so need autodoc_pydantic<2.0.0
+# will also install pydantic<2.0.0
 autodoc_pydantic<2.0.0
 azure-ai-ml>=0.1.0b6
 azure-identity

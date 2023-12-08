@@ -10,7 +10,7 @@ from typing import Dict, Optional, Union
 import numpy as np
 
 from olive.hardware import Device
-from olive.model import SNPEModel
+from olive.model import SNPEModelHandler
 from olive.snpe import SNPEProcessedDataLoader
 from olive.snpe.utils.local import get_snpe_target_arch
 
@@ -32,7 +32,7 @@ def evaluate(model: str, config: Union[str, Dict], data: str, input_list_file: O
             config = json.load(f)
 
     # SNPE Model
-    model = SNPEModel(model_path=model, **config["io_config"])
+    model = SNPEModelHandler(model_path=model, **config["io_config"])
 
     # Devices to evaluate on
     devices = [Device.CPU]

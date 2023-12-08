@@ -24,7 +24,7 @@ from transformers import (
 
 from olive.constants import Framework
 from olive.evaluator.accuracy import AccuracyScore
-from olive.model import OliveModel
+from olive.model import OliveModelHandler
 
 datasets_logging.disable_progress_bar()
 datasets_logging.set_verbosity_error()
@@ -190,7 +190,7 @@ def inc_glue_calibration_reader(data_dir, batch_size, *args, **kwargs):
 # -------------------------------------------------------------------------
 
 
-def eval_accuracy(model: OliveModel, data_dir, batch_size, device, execution_providers):
+def eval_accuracy(model: OliveModelHandler, data_dir, batch_size, device, execution_providers):
     dataloader = create_dataloader(data_dir, batch_size)
     preds = []
     target = []

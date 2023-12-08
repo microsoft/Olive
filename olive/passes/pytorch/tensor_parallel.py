@@ -13,11 +13,11 @@ from pathlib import Path
 from typing import Any, Callable, Dict
 
 import torch
-from pydantic import validator
 
 from olive.common.config_utils import ParamCategory
+from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.model import DistributedPyTorchModel, PyTorchModel
+from olive.model import DistributedPyTorchModelHandler, PyTorchModelHandler
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 
@@ -121,7 +121,7 @@ class PyTorchTensorParallel(Pass):
 
         try:
             # 2. Load the model
-            olive_model = PyTorchModel(**model_config)
+            olive_model = PyTorchModelHandler(**model_config)
             pytorch_model = olive_model.load_model()
             pytorch_model.eval()
             pytorch_model.requires_grad_(False)
@@ -145,8 +145,8 @@ class PyTorchTensorParallel(Pass):
         return 1  # Return 1 for success.
 
     def _run_for_config(
-        self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> DistributedPyTorchModel:
+        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> DistributedPyTorchModelHandler:
         script_dir = config["script_dir"]
         user_script = config["user_script"]
         class_name = config["class_name"]
@@ -163,7 +163,7 @@ class PyTorchTensorParallel(Pass):
                 model_config,
                 rank,
                 world_size,
-                output_model_path / DistributedPyTorchModel.DEFAULT_RANKED_MODEL_NAME_FORMAT.format(rank),
+                output_model_path / DistributedPyTorchModelHandler.DEFAULT_RANKED_MODEL_NAME_FORMAT.format(rank),
             )
             for rank in range(world_size)
         ]
@@ -185,8 +185,8 @@ class PyTorchTensorParallel(Pass):
         model_config = model.to_json()["config"]
         del model_config["model_loader"]
         model_config["model_path"] = output_model_path
-        model_config["model_name_pattern"] = DistributedPyTorchModel.DEFAULT_RANKED_MODEL_NAME_FORMAT
+        model_config["model_name_pattern"] = DistributedPyTorchModelHandler.DEFAULT_RANKED_MODEL_NAME_FORMAT
         model_config["num_ranks"] = world_size
         model_config["model_attributes"] = deepcopy(model.model_attributes)
         model_config["model_attributes"]["world_size"] = world_size
-        return DistributedPyTorchModel(**model_config)
+        return DistributedPyTorchModelHandler(**model_config)

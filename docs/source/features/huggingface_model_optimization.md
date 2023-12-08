@@ -118,16 +118,16 @@ Example:
 
 #### Script example
 ```
-# user_script.py
-def get_dec_io_config(model: OliveModel):
+# my_script.py
+def get_dec_io_config(model: OliveModelHandler):
     # return your io dict
     ...
 
-def get_decoder(model: OliveModel):
+def get_decoder(model: OliveModelHandler):
     # your component implementation
     ...
 
-def dummy_inputs_func(model: OliveModel):
+def dummy_inputs_func(model: OliveModelHandler):
     # return the dummy input for your component
     ...
 ```
