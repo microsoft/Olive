@@ -32,7 +32,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):
     the mixin class OnnxGraphMixin is used to support onnx graph operations.
     """
 
-    jsonify_config_keys: Tuple[str, ...] = ("onnx_file_name", "inference_settings", "use_ort_extensions")
+    json_config_keys: Tuple[str, ...] = ("onnx_file_name", "inference_settings", "use_ort_extensions")
 
     def __init__(
         self,
@@ -121,7 +121,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):
 
 @model_handler_registry("DistributedOnnxModel")
 class DistributedOnnxModelHandler(OliveModelHandler, OnnxEpValidateMixin):
-    jsonify_config_keys: Tuple[str, ...] = (
+    json_config_keys: Tuple[str, ...] = (
         "model_name_pattern",
         "num_ranks",
         "inference_settings",

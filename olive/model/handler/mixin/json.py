@@ -17,8 +17,8 @@ class JsonMixin:
     """
 
     # keys for config parameters that are not part of resource_keys or model_attributes
-    # self.{key} must be defined for each key in jsonify_config_keys and should be serializable
-    jsonify_config_keys: Tuple[str, ...] = ()
+    # self.{key} must be defined for each key in json_config_keys and should be serializable
+    json_config_keys: Tuple[str, ...] = ()
 
     def to_json(self, check_object: bool = False):
         config = {
@@ -30,7 +30,7 @@ class JsonMixin:
                     for resource_name, resource_path in self.resource_paths.items()
                 },
                 # serialize other config attributes
-                **{key: getattr(self, key) for key in self.jsonify_config_keys},
+                **{key: getattr(self, key) for key in self.json_config_keys},
                 # serialize model attributes
                 "model_attributes": self.model_attributes,
             },

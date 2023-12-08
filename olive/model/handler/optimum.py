@@ -13,7 +13,7 @@ from olive.model.handler.pytorch import PyTorchModelHandler
 class OptimumModelHandler(PyTorchModelHandler):
     """TODO(myguo): need refactor this class to support Optimum model."""
 
-    jsonify_config_keys: Tuple[str, ...] = ("model_components",)
+    json_config_keys: Tuple[str, ...] = ("model_components",)
 
     def __init__(self, model_components: List[str], **kwargs):
         kwargs = kwargs or {}

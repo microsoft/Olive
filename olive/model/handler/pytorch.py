@@ -38,7 +38,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
     """
 
     resource_keys: Tuple[str, ...] = ("model_path", "script_dir", "model_script", "adapter_path")
-    jsonify_config_keys: Tuple[str, ...] = (
+    json_config_keys: Tuple[str, ...] = (
         "model_file_format",
         "model_loader",
         "io_config",
@@ -252,7 +252,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
 @model_handler_registry("DistributedPyTorchModel")
 class DistributedPyTorchModelHandler(OliveModelHandler):
     resource_keys: Tuple[str, ...] = ("model_path", "script_dir", "model_script", "adapter_path")
-    jsonify_config_keys: Tuple[str, ...] = (
+    json_config_keys: Tuple[str, ...] = (
         "model_name_pattern",
         "num_ranks",
         "model_loader",
