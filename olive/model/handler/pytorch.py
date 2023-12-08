@@ -5,7 +5,6 @@
 import logging
 import os
 import tempfile
-from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Dict, List, Optional, Tuple, Union
 
@@ -200,16 +199,13 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
-        # clean up redundant information in model_attributes
-        config["config"].pop("model_attributes", None)
-        # using a copy of self.model_attributes since config["config"]["model_attributes"] is already
-        # serialized and might not match self.model_attributes
-        model_attributes = deepcopy(self.model_attributes)
-        if model_attributes and self.hf_config:
-            for key, value in self.get_hf_model_config().to_dict().items():
-                if key in model_attributes and model_attributes[key] == value:
-                    del model_attributes[key]
-        config["config"]["model_attributes"] = model_attributes or {}
+        # only keep model_attributes that are not in hf_config
+        model_attributes = {}
+        hf_config_dict = self.get_hf_model_config().to_dict()
+        for key, value in self.model_attributes.items():
+            if key not in hf_config_dict or hf_config_dict[key] != value:
+                model_attributes[key] = value
+        config["config"]["model_attributes"] = model_attributes
         return serialize_to_json(config, check_object)
 
     def get_user_io_config(self, io_config: Union[Dict[str, Any], IoConfig, str, Callable]) -> Dict[str, Any]:
