@@ -5,12 +5,11 @@
 import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Optional, Union
+from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 
 import onnx
 from onnx import GraphProto, ModelProto
 
-from olive.common.config_utils import serialize_to_json
 from olive.common.ort_inference import get_ort_inference_session
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import AcceleratorLookup, Device
@@ -32,6 +31,8 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):
     the mixin class OnnxEpValidateMixin is used to validate the execution providers.
     the mixin class OnnxGraphMixin is used to support onnx graph operations.
     """
+
+    jsonify_config_keys: Tuple[str, ...] = ("onnx_file_name", "inference_settings", "use_ort_extensions")
 
     def __init__(
         self,
@@ -105,17 +106,6 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):
                 return [ep]
         return ["CPUExecutionProvider"]
 
-    def to_json(self, check_object: bool = False):
-        config = super().to_json(check_object)
-        config["config"].update(
-            {
-                "onnx_file_name": self.onnx_file_name,
-                "inference_settings": self.inference_settings,
-                "use_ort_extensions": self.use_ort_extensions,
-            }
-        )
-        return serialize_to_json(config, check_object)
-
     def get_io_config(self):
         """Get input/output names, shapes, types of the onnx model without creating an ort session.
 
@@ -131,6 +121,13 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):
 
 @model_handler_registry("DistributedOnnxModel")
 class DistributedOnnxModelHandler(OliveModelHandler, OnnxEpValidateMixin):
+    jsonify_config_keys: Tuple[str, ...] = (
+        "model_name_pattern",
+        "num_ranks",
+        "inference_settings",
+        "use_ort_extensions",
+    )
+
     EXECUTION_PROVIDERS: ClassVar[dict] = {
         "cpu": ["CPUExecutionProvider"],
         "gpu": ["CUDAExecutionProvider", "CPUExecutionProvider"],
@@ -202,15 +199,3 @@ class DistributedOnnxModelHandler(OliveModelHandler, OnnxEpValidateMixin):
         eps_per_device = DistributedOnnxModelHandler.EXECUTION_PROVIDERS.get(device)
         available_providers = ort.get_available_providers()
         return AcceleratorLookup.get_execution_providers(eps_per_device, available_providers)
-
-    def to_json(self, check_object: bool = False):
-        config = super().to_json(check_object)
-        config["config"].update(
-            {
-                "model_name_pattern": self.model_name_pattern,
-                "num_ranks": self.num_ranks,
-                "inference_settings": self.inference_settings,
-                "use_ort_extensions": self.use_ort_extensions,
-            }
-        )
-        return serialize_to_json(config, check_object=check_object)

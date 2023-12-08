@@ -39,6 +39,13 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
     """
 
     resource_keys: Tuple[str, ...] = ("model_path", "script_dir", "model_script", "adapter_path")
+    jsonify_config_keys: Tuple[str, ...] = (
+        "model_file_format",
+        "model_loader",
+        "io_config",
+        "dummy_inputs_func",
+        "hf_config",
+    )
 
     def __init__(
         self,
@@ -137,11 +144,10 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
             raise ValueError(f"Unsupported model file format: {self.model_file_format}")
 
         # we only have peft adapters for now
-        adapter_path = self.get_resource("adapter_path")
-        if adapter_path:
+        if self.adapter_path:
             from peft import PeftModel
 
-            model = PeftModel.from_pretrained(model, adapter_path)
+            model = PeftModel.from_pretrained(model, self.adapter_path)
 
         self.model = model
 
@@ -194,15 +200,6 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
-        config["config"].update(
-            {
-                "model_file_format": self.model_file_format,
-                "model_loader": self.model_loader,
-                "io_config": self.io_config,
-                "dummy_inputs_func": self.dummy_inputs_func,
-                "hf_config": self.hf_config,
-            }
-        )
         # clean up redundant information in model_attributes
         config["config"].pop("model_attributes", None)
         # using a copy of self.model_attributes since config["config"]["model_attributes"] is already
@@ -259,6 +256,14 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
 @model_handler_registry("DistributedPyTorchModel")
 class DistributedPyTorchModelHandler(OliveModelHandler):
     resource_keys: Tuple[str, ...] = ("model_path", "script_dir", "model_script", "adapter_path")
+    jsonify_config_keys: Tuple[str, ...] = (
+        "model_name_pattern",
+        "num_ranks",
+        "model_loader",
+        "io_config",
+        "dummy_inputs_func",
+        "hf_config",
+    )
 
     DEFAULT_RANKED_MODEL_NAME_FORMAT: ClassVar[str] = "model_{:02d}"
 
@@ -335,17 +340,3 @@ class DistributedPyTorchModelHandler(OliveModelHandler):
         rank: Optional[int] = 0,
     ) -> torch.nn.Module:
         return self.load_model(rank).load_model(rank).eval()
-
-    def to_json(self, check_object: bool = False):
-        config = super().to_json(check_object)
-        config["config"].update(
-            {
-                "model_name_pattern": self.model_name_pattern,
-                "num_ranks": self.num_ranks,
-                "model_loader": self.model_loader,
-                "io_config": self.io_config,
-                "dummy_inputs_func": self.dummy_inputs_func,
-                "hf_config": self.hf_config,
-            }
-        )
-        return serialize_to_json(config, check_object)
