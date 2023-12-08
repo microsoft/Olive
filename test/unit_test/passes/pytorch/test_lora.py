@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from olive.data.template import huggingface_data_config_template
-from olive.model import PyTorchModel
+from olive.model import PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch import LoRA, QLoRA
 
@@ -57,7 +57,7 @@ def run_finetuning(pass_class, tmp_path, **pass_config_kwargs):
     # setup
     model_name = "hf-internal-testing/tiny-random-OPTForCausalLM"
     task = "text-generation"
-    input_model = PyTorchModel(hf_config={"model_name": model_name, "task": task})
+    input_model = PyTorchModelHandler(hf_config={"model_name": model_name, "task": task})
     # convert to json to ensure the pass can handle serialized data config
     config = get_pass_config(model_name, task, **pass_config_kwargs)
     p = create_pass_from_dict(pass_class, config, disable_search=True)
@@ -86,9 +86,9 @@ def mock_bitsandbytes_fixture():
 
 
 # quantization requires gpu so we will patch the model loading args with no quantization
-@patch("olive.passes.pytorch.lora.HFModelLoadingArgs")
+@patch("olive.passes.pytorch.lora.HfFromPretrainedArgs")
 @patch("olive.passes.pytorch.lora.find_submodules", side_effect=patched_find_submodules)
-def test_qlora(patched_model_loading_args, patched_find_submodules, tmp_path, mock_bitsandbytes):
+def test_qlora(patched_from_pretrained_args, patched_find_submodules, tmp_path, mock_bitsandbytes):
     # execute
     out = run_finetuning(QLoRA, tmp_path)
 

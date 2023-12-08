@@ -8,10 +8,9 @@ from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Union
 
-from pydantic import validator
-
 from olive.common.config_utils import ConfigBase
 from olive.common.import_lib import import_user_module
+from olive.common.pydantic_v1 import validator
 from olive.data.constants import DataComponentType, DefaultDataComponent, DefaultDataContainer
 from olive.data.registry import Registry
 

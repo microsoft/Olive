@@ -15,9 +15,9 @@ from typing import TYPE_CHECKING, Dict, List
 
 import pkg_resources
 
-from olive.common.utils import get_package_name_from_ep, run_subprocess
+from olive.common.utils import copy_dir, get_package_name_from_ep, run_subprocess
 from olive.engine.packaging.packaging_config import PackagingConfig, PackagingType
-from olive.model import ONNXModel
+from olive.model import ONNXModelHandler
 from olive.resource_path import ResourceType, create_resource_path
 
 if TYPE_CHECKING:
@@ -68,7 +68,7 @@ def _generate_zipfile_output(
 
 
 def _package_sample_code(cur_path, tempdir):
-    shutil.copytree(cur_path / "sample_code", tempdir / "SampleCode")
+    copy_dir(cur_path / "sample_code", tempdir / "SampleCode")
 
 
 def _package_candidate_models(
@@ -102,7 +102,7 @@ def _package_candidate_models(
         model_path = pf_footprint.get_model_path(model_id)
         model_resource_path = create_resource_path(model_path) if model_path else None
         model_type = pf_footprint.get_model_type(model_id)
-        if model_type == "ONNXModel":
+        if model_type.lower() == "onnxmodel":
             with tempfile.TemporaryDirectory(dir=model_dir, prefix="olive_tmp") as model_tempdir:
                 # save to model_tempdir first since model_path may be a folder
                 temp_resource_path = create_resource_path(model_resource_path.save_to_dir(model_tempdir, "model", True))
@@ -115,7 +115,7 @@ def _package_candidate_models(
                     # file_name for .onnx file is model.onnx, otherwise keep the original file name
                     model_config = pf_footprint.get_model_config(model_id)
                     onnx_file_name = model_config.get("onnx_file_name")
-                    onnx_model = ONNXModel(temp_resource_path, onnx_file_name)
+                    onnx_model = ONNXModelHandler(temp_resource_path, onnx_file_name)
                     model_name = Path(onnx_model.model_path).name
                     for file in Path(temp_resource_path.get_path()).iterdir():
                         if file.name == model_name:
@@ -138,7 +138,7 @@ def _package_candidate_models(
                     else:
                         _generate_onnx_mlflow_model(model_dir, inference_config)
 
-        elif model_type == "OpenVINOModel":
+        elif model_type.lower() == "openvinomodel":
             model_resource_path.save_to_dir(model_dir, "model", True)
         else:
             raise ValueError(f"Unsupported model type: {model_type} for packaging")

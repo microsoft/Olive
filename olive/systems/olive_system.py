@@ -21,9 +21,15 @@ logger = logging.getLogger(__name__)
 class OliveSystem(ABC):
     system_type: SystemType
 
-    def __init__(self, accelerators: List[str] = None, olive_managed_env: bool = False):
+    def __init__(
+        self,
+        accelerators: List[str] = None,
+        olive_managed_env: bool = False,
+        hf_token: bool = None,
+    ):
         self.accelerators = accelerators
         self.olive_managed_env = olive_managed_env
+        self.hf_token = hf_token
 
     @abstractmethod
     def run_pass(

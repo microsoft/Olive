@@ -14,7 +14,7 @@ from olive.evaluator.metric import LatencySubType, Metric, MetricType, joint_met
 from olive.evaluator.metric_config import get_user_config_properties_from_metric_type
 from olive.exception import EXCEPTIONS_TO_RAISE
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
-from olive.model import ONNXModel
+from olive.model import ONNXModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import ParamCategory, PassConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
@@ -309,7 +309,7 @@ def get_benchmark(model, data_root, latency_metric, config, test_params=None, io
         test_result["session_options"] = test_params.get("session_options").copy()
         test_result["io_bind"] = io_bind
 
-    logger.info(f"Run benchmark for: {session_name}")
+    logger.debug(f"Run benchmark for: {session_name}")
     evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
     joint_key = joint_metric_key(latency_metric.name, latency_metric.sub_types[0].name)
     start_time = time.perf_counter()
@@ -317,7 +317,7 @@ def get_benchmark(model, data_root, latency_metric, config, test_params=None, io
         model, data_root, [latency_metric], config.device, config.providers_list
     )[joint_key].value
     end_time = time.perf_counter()
-    logger.info(f"It takes {end_time - start_time} seconds to benchmark for: {session_name}")
+    logger.debug(f"It takes {(end_time - start_time):.5f} seconds to benchmark for: {session_name}")
 
     return test_result
 
@@ -419,8 +419,8 @@ class OrtPerfTuning(Pass):
         }
 
     def _run_for_config(
-        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> ONNXModel:
+        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> ONNXModelHandler:
         config = self._config_class(**config)
         # TODO(jambayk): decide on whether to ignore the output_model_path
         # if we want to ignore it, we can just return the model

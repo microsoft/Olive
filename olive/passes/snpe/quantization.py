@@ -9,7 +9,7 @@ from olive.cache import get_local_path_from_root
 from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import SNPEModel
+from olive.model import SNPEModelHandler
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import ParamCategory, PassConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, LocalFile
@@ -85,8 +85,8 @@ class SNPEQuantization(Pass):
         }
 
     def _run_for_config(
-        self, model: SNPEModel, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> SNPEModel:
+        self, model: SNPEModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> SNPEModelHandler:
         if Path(output_model_path).suffix != ".dlc":
             output_model_path += ".dlc"
 
@@ -106,4 +106,4 @@ class SNPEQuantization(Pass):
             dataloader = SNPECommonDataLoader(dataloader, model.io_config)
 
         quantize_dlc(model.model_path, dataloader.get_input_list(), config, output_model_path)
-        return SNPEModel(model_path=LocalFile({"path": output_model_path}), **model.io_config)
+        return SNPEModelHandler(model_path=LocalFile({"path": output_model_path}), **model.io_config)

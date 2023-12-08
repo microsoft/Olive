@@ -12,7 +12,7 @@ import pytest
 import torch
 from packaging import version
 
-from olive.model import ONNXModel
+from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx import OnnxBnb4Quantization
 
@@ -42,7 +42,7 @@ def get_onnx_matmul_model(model_path, model_attributes=None):
         output_names=["output"],
         opset_version=13,
     )
-    return ONNXModel(model_path, model_attributes=model_attributes)
+    return ONNXModelHandler(model_path, model_attributes=model_attributes)
 
 
 def get_onnx_gemm_model(model_path=None, model_attributes=None):

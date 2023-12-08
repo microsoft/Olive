@@ -8,8 +8,8 @@ from pathlib import Path
 from typing import Any, Dict, Union
 
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import CompositeOnnxModel, ONNXModel, OptimumModel
-from olive.model.hf_utils import HFConfig
+from olive.model import CompositeModelHandler, ONNXModelHandler, OptimumModelHandler
+from olive.model.config.hf_config import HfConfig
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config
 from olive.passes.pass_config import PassConfigParam
@@ -63,8 +63,8 @@ class OptimumConversion(Pass):
         return True
 
     def _run_for_config(
-        self, model: OptimumModel, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> Union[ONNXModel, CompositeOnnxModel]:
+        self, model: OptimumModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> Union[ONNXModelHandler, CompositeModelHandler]:
         assert len(model.model_components) > 0
 
         from optimum import version as optimum_version
@@ -83,7 +83,7 @@ class OptimumConversion(Pass):
                 "device": config["device"],
             }
         )
-        hf_config = deepcopy(model.hf_config) or HFConfig()
+        hf_config = deepcopy(model.hf_config) or HfConfig()
         if version.parse(optimum_version.__version__) >= version.parse("1.14.0"):
             # Optimum 1.14.0 needs to be run in legacy mode to support older versions of transformers
             # TODO(trajep): deprecated legacy after fully test with the model using optimum merging
@@ -96,12 +96,12 @@ class OptimumConversion(Pass):
         )
 
         onnx_model_components = [
-            ONNXModel(str(Path(output_model_path) / model_component), model_attributes=model.model_attributes)
+            ONNXModelHandler(str(Path(output_model_path) / model_component), model_attributes=model.model_attributes)
             for model_component in model.model_components
         ]
         onnx_model_component_names = [Path(model_component).stem for model_component in model.model_components]
 
         if len(onnx_model_components) == 1:
-            return ONNXModel(Path(output_model_path) / model.model_components[0])
+            return ONNXModelHandler(Path(output_model_path) / model.model_components[0])
 
-        return CompositeOnnxModel(onnx_model_components, onnx_model_component_names)
+        return CompositeModelHandler(onnx_model_components, onnx_model_component_names)

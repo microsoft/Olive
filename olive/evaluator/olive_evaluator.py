@@ -13,12 +13,12 @@ from typing import Any, ClassVar, Dict, List, NamedTuple, Tuple, Type, Union
 
 import numpy as np
 import torch
-from pydantic import validator
 from torch.utils.data import Dataset
 
 import olive.data.template as data_config_template
 from olive.cache import get_local_path_from_root
 from olive.common.config_utils import ConfigBase
+from olive.common.pydantic_v1 import validator
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import tensor_data_to_device
 from olive.constants import Framework
@@ -36,8 +36,15 @@ from olive.evaluator.metric import (
 from olive.evaluator.metric_backend import MetricBackend
 from olive.exception import OliveEvaluationError
 from olive.hardware import Device
-from olive.model import DistributedOnnxModel, OliveModel, ONNXModel, OpenVINOModel, PyTorchModel, SNPEModel
-from olive.model.model_config import is_io_config_static
+from olive.model import (
+    DistributedOnnxModelHandler,
+    OliveModelHandler,
+    ONNXModelHandler,
+    OpenVINOModelHandler,
+    PyTorchModelHandler,
+    SNPEModelHandler,
+)
+from olive.model.config.io_config import is_io_config_static
 from olive.snpe.data_loader import SNPECommonDataLoader, SNPEDataLoader
 
 logger = logging.getLogger(__name__)
@@ -76,7 +83,7 @@ class OliveEvaluator(ABC):
     @abstractmethod
     def _inference(
         self,
-        model: OliveModel,
+        model: OliveModelHandler,
         metric: Metric,
         dataloader: Dataset,
         post_func=None,
@@ -88,7 +95,7 @@ class OliveEvaluator(ABC):
     @abstractmethod
     def _evaluate_accuracy(
         self,
-        model: OliveModel,
+        model: OliveModelHandler,
         data_root: str,
         metric: Metric,
         dataloader: Dataset,
@@ -101,7 +108,7 @@ class OliveEvaluator(ABC):
     @abstractmethod
     def _evaluate_raw_latency(
         self,
-        model: OliveModel,
+        model: OliveModelHandler,
         data_root: str,
         metric: Metric,
         dataloader: Dataset,
@@ -114,7 +121,7 @@ class OliveEvaluator(ABC):
 
     def _evaluate_latency(
         self,
-        model: OliveModel,
+        model: OliveModelHandler,
         data_root: str,
         metric: Metric,
         dataloader: Dataset,
@@ -129,7 +136,7 @@ class OliveEvaluator(ABC):
 
     def _evaluate_throughput(
         self,
-        model: OliveModel,
+        model: OliveModelHandler,
         data_root: str,
         metric: Metric,
         dataloader: Dataset,
@@ -144,7 +151,7 @@ class OliveEvaluator(ABC):
 
     def _evaluate_custom(
         self,
-        model: OliveModel,
+        model: OliveModelHandler,
         data_root: str,
         metric: Metric,
         dataloader: Dataset,
@@ -186,7 +193,7 @@ class OliveEvaluator(ABC):
 
     def evaluate(
         self,
-        model: OliveModel,
+        model: OliveModelHandler,
         data_root: str,
         metrics: List[Metric],
         device: Device = Device.CPU,
@@ -221,7 +228,7 @@ class OliveEvaluator(ABC):
         return flatten_metric_result(metrics_res)
 
     @staticmethod
-    def generate_metric_user_config_with_model_io(metric: Metric, model: OliveModel):
+    def generate_metric_user_config_with_model_io(metric: Metric, model: OliveModelHandler):
         # if the io_config is not specified in the metrics, use the one in the model
         # should not change the original metric object which is created from config jsons
         # otherwise, if affects hashing + caching of the olive restoring.
@@ -449,7 +456,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
     def _inference(
         self,
-        model: ONNXModel,
+        model: ONNXModelHandler,
         metric: Metric,
         dataloader: Dataset,
         post_func=None,
@@ -499,7 +506,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
     def _evaluate_onnx_accuracy(
         self,
-        model: ONNXModel,
+        model: ONNXModelHandler,
         metric: Metric,
         dataloader: Dataset,
         post_func=None,
@@ -511,7 +518,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
     def _evaluate_onnx_latency(
         self,
-        model: OliveModel,
+        model: OliveModelHandler,
         metric: Metric,
         dataloader: Dataset,
         post_func=None,
@@ -593,7 +600,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             for provider in execution_providers
         ]
 
-        model = ONNXModel(model_path, inference_settings=inference_settings)
+        model = ONNXModelHandler(model_path, inference_settings=inference_settings)
         dataloader, _, post_func = OnnxEvaluator.get_user_config(model.framework, data_root, metric)
 
         session = model.prepare_session(inference_settings=inference_settings, device=Device.GPU, rank=int(local_rank))
@@ -618,7 +625,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
     def _evaluate_distributed_accuracy(
         self,
-        model: DistributedOnnxModel,
+        model: DistributedOnnxModelHandler,
         data_root: str,
         metric: Metric,
         device: Device,
@@ -679,7 +686,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             for provider in execution_providers
         ]
 
-        model = ONNXModel(model_path, inference_settings=inference_settings)
+        model = ONNXModelHandler(model_path, inference_settings=inference_settings)
         dataloader, _, _ = OnnxEvaluator.get_user_config(model.framework, data_root, metric)
         session = model.prepare_session(inference_settings=inference_settings, device=Device.GPU, rank=int(local_rank))
         io_config = model.get_io_config()
@@ -712,7 +719,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
     def _evaluate_distributed_latency(
         self,
-        model: DistributedOnnxModel,
+        model: DistributedOnnxModelHandler,
         data_root: str,
         metric: Metric,
         device,
@@ -746,7 +753,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
     def _evaluate_accuracy(
         self,
-        model: ONNXModel,
+        model: ONNXModelHandler,
         data_root: str,
         metric: Metric,
         dataloader: Dataset,
@@ -754,9 +761,9 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
-        if isinstance(model, ONNXModel):
+        if isinstance(model, ONNXModelHandler):
             return self._evaluate_onnx_accuracy(model, metric, dataloader, post_func, device, execution_providers)
-        elif isinstance(model, DistributedOnnxModel):
+        elif isinstance(model, DistributedOnnxModelHandler):
             if device != Device.GPU:
                 raise ValueError("Distributed inferencing is supported only on GPU")
             return self._evaluate_distributed_accuracy(model, data_root, metric, device, execution_providers)
@@ -765,7 +772,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
     def _evaluate_raw_latency(
         self,
-        model: OliveModel,
+        model: OliveModelHandler,
         data_root: str,
         metric: Metric,
         dataloader: Dataset,
@@ -773,9 +780,9 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
-        if isinstance(model, ONNXModel):
+        if isinstance(model, ONNXModelHandler):
             return self._evaluate_onnx_latency(model, metric, dataloader, post_func, device, execution_providers)
-        elif isinstance(model, DistributedOnnxModel):
+        elif isinstance(model, DistributedOnnxModelHandler):
             if device != Device.GPU:
                 raise ValueError("Distributed inferencing is supported only on GPU")
             return self._evaluate_distributed_latency(model, data_root, metric, device, execution_providers)
@@ -809,7 +816,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
     @torch.no_grad()
     def _inference(
         self,
-        model: PyTorchModel,
+        model: PyTorchModelHandler,
         metric: Metric,
         dataloader: Dataset,
         post_func=None,
@@ -851,7 +858,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
 
     def _evaluate_accuracy(
         self,
-        model: PyTorchModel,
+        model: PyTorchModelHandler,
         data_root: str,
         metric: Metric,
         dataloader: Dataset,
@@ -865,7 +872,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
     @torch.no_grad()
     def _evaluate_raw_latency(
         self,
-        model: PyTorchModel,
+        model: PyTorchModelHandler,
         data_root: str,
         metric: Metric,
         dataloader: Dataset,
@@ -929,7 +936,7 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
 
     def _inference(
         self,
-        model: SNPEModel,
+        model: SNPEModelHandler,
         metric: Metric,
         dataloader: Dataset,
         post_func=None,
@@ -956,7 +963,7 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
 
     def _evaluate_accuracy(
         self,
-        model: SNPEModel,
+        model: SNPEModelHandler,
         data_root: str,
         metric: Metric,
         dataloader: Dataset,
@@ -969,7 +976,7 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
 
     def _evaluate_raw_latency(
         self,
-        model: SNPEModel,
+        model: SNPEModelHandler,
         data_root: str,
         metric: Metric,
         dataloader: Dataset,
@@ -986,7 +993,7 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         results = session(input_data, data_dir, runs=total_runs, sleep=sleep_num)
         return results["latencies"]["total_inference_time"][warmup_num:]
 
-    def _prepare_dataloader(self, dataloader: Dataset, model: SNPEModel) -> SNPEDataLoader:
+    def _prepare_dataloader(self, dataloader: Dataset, model: SNPEModelHandler) -> SNPEDataLoader:
         if isinstance(dataloader, SNPEDataLoader):
             return dataloader
         return SNPECommonDataLoader(dataloader, model.io_config)
@@ -998,7 +1005,7 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
 
     def _inference(
         self,
-        model: OpenVINOModel,
+        model: OpenVINOModelHandler,
         metric: Metric,
         dataloader: Dataset,
         post_func=None,
@@ -1022,7 +1029,7 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
 
     def _evaluate_accuracy(
         self,
-        model: OpenVINOModel,
+        model: OpenVINOModelHandler,
         data_root: str,
         metric: Metric,
         dataloader: Dataset,
@@ -1035,7 +1042,7 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
 
     def _evaluate_raw_latency(
         self,
-        model: OpenVINOModel,
+        model: OpenVINOModelHandler,
         data_root: str,
         metric: Metric,
         dataloader: Dataset,
@@ -1055,7 +1062,7 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
 
 class OliveEvaluatorFactory:
     @staticmethod
-    def create_evaluator_for_model(model: OliveModel) -> OliveEvaluator:
+    def create_evaluator_for_model(model: OliveModelHandler) -> OliveEvaluator:
         evaluator_cls = OliveEvaluator.registry[str(model.framework).lower()]
         return evaluator_cls()
 

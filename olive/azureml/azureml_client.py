@@ -7,9 +7,8 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from pydantic import Field, validator
-
 from olive.common.config_utils import ConfigBase
+from olive.common.pydantic_v1 import Field, validator
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +47,10 @@ class AzureMLClientConfig(ConfigBase):
             "azure.identity.defaultazurecredential?view=azure-python#parameters"
             " for more details."
         ),
+    )
+    keyvault_name: Optional[str] = Field(
+        None,
+        description=("Name of the keyvault to use. If provided, the keyvault will be used to retrieve secrets."),
     )
 
     @validator("aml_config_path", always=True)

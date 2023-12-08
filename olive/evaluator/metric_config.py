@@ -6,9 +6,8 @@
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Union
 
-from pydantic import validator
-
 from olive.common.config_utils import ConfigBase, ConfigParam, ParamCategory, create_config_class
+from olive.common.pydantic_v1 import validator
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 WARMUP_NUM = 10

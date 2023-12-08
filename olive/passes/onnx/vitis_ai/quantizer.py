@@ -425,7 +425,7 @@ class VitisQOpQuantizer(ONNXQuantizer):
         return q_weight_name, zp_name, scale_name
 
     def calculate_quantization_params(self):
-        from olive.passes.onnx.vitis_ai.quant_utils import is_ort_version_below_1_16
+        from olive.passes.onnx.vitis_ai.quant_utils import is_ort_version_below_1_16, is_ort_version_below_1_17
 
         if self.tensors_range is None:
             return
@@ -461,7 +461,12 @@ class VitisQOpQuantizer(ONNXQuantizer):
                 qmin, qmax = get_qmin_qmax_for_qType(self.activation_qType, symmetric=self.is_activation_symmetric)
 
                 zero, scale = compute_scale_zp_pof2s(rmin, rmax, qmin, qmax, self.is_activation_symmetric)
-                quantization_params[tensor_name] = QuantizationParams(zero_point=zero, scale=scale)
+                if is_ort_version_below_1_17():
+                    quantization_params[tensor_name] = QuantizationParams(zero_point=zero, scale=scale)
+                else:
+                    quantization_params[tensor_name] = QuantizationParams(
+                        zero_point=zero, scale=scale, quant_type=self.activation_qType
+                    )
 
         return quantization_params
 

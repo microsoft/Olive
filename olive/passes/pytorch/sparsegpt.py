@@ -14,7 +14,7 @@ import torch
 from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import PyTorchModel
+from olive.model import PyTorchModelHandler
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 from olive.passes.pytorch.sparsegpt_utils import (
@@ -34,7 +34,7 @@ class SparseGPT(Pass):
 
     See https://arxiv.org/abs/2301.00774 for more details on the algorithm.
 
-    This pass only supports PyTorchModel with hf_config. The transformers model type
+    This pass only supports PyTorchModelHandler with hf_config. The transformers model type
     must be one of [bloom, gpt2, gpt_neox, llama, opt].
     """
 
@@ -92,8 +92,8 @@ class SparseGPT(Pass):
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> PyTorchModel:
+        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> PyTorchModelHandler:
         model_type = model.model_attributes["model_type"]
         if model_type not in supported_models:
             raise ValueError(f"Unsupported model type: {model_type}. Supported types: {supported_models}")
@@ -200,7 +200,7 @@ class SparseGPT(Pass):
         pytorch_model.config.use_cache = use_cache
         pytorch_model.save_pretrained(output_model_path)
 
-        # return PyTorchModel with updated model path
+        # return PyTorchModelHandler with updated model path
         model_config = model.to_json()["config"]
         model_config["model_path"] = output_model_path
-        return PyTorchModel(**model_config)
+        return PyTorchModelHandler(**model_config)

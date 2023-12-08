@@ -18,8 +18,8 @@ from typing import ClassVar
 from unittest.mock import MagicMock, patch
 
 import pytest
-from pydantic.error_wrappers import ValidationError
 
+from olive.common.pydantic_v1 import ValidationError
 from olive.evaluator.metric import AccuracySubType, LatencySubType, ThroughputSubType
 from olive.evaluator.olive_evaluator import (
     OliveEvaluator,

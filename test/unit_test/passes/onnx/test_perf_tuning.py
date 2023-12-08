@@ -61,7 +61,7 @@ def test_ort_perf_tuning_with_customized_configs(mock_run, config):
         assert mock_run.call_args.args[2][k] == v, f"{k} is not set correctly as {v}"
 
 
-@patch("olive.model.ONNXModel.get_io_config")
+@patch("olive.model.ONNXModelHandler.get_io_config")
 def test_ort_perf_tuning_pass_with_dynamic_shapes(mock_get_io_config, tmp_path):
     mock_get_io_config.return_value = {
         "input_names": ["input"],
