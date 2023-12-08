@@ -11,7 +11,7 @@ Here is how you can use `hf_config`:
 ### Model config loading
 Olive can automatically retrieve model configurations from Huggingface hub:
 
-- Olive retrieves model [configuration](https://huggingface.co/docs/transformers/main/en/model_doc/auto#transformers.AutoConfig) from transfromers for future usage.
+- Olive retrieves model [configuration](https://huggingface.co/docs/transformers/main/en/model_doc/auto#transformers.AutoConfig) from transformers for future usage.
 
 - Olive simplifies the process by automatically fetching configurations such as IO config and dummy input required for the `OnnxConversion` pass from [OnnxConfig](https://huggingface.co/docs/transformers/main_classes/onnx#onnx-configurations). This means there's no need for you to manually specify the IO config and dummy input when using the `OnnxConversion` pass.
 
