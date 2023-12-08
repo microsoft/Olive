@@ -159,7 +159,7 @@ class TestPytorchDummyInput:
         io_config_func.assert_called_once_with(olive_model)
         assert io_config == IoConfig(**self.io_config).dict()
 
-    @patch("olive.model.mixin.hf_config.get_hf_model_io_config")
+    @patch("olive.model.handler.mixin.hf_config.get_hf_model_io_config")
     def test_hf_config_io_config(self, get_hf_model_io_config):
         get_hf_model_io_config.return_value = self.io_config
         olive_model = PyTorchModelHandler(hf_config={"task": self.task, "model_name": self.model_name})
@@ -212,7 +212,7 @@ class TestPytorchDummyInput:
         )
         self.common_data_config_test(olive_model, hf_data_config_template)
 
-    @patch("olive.model.mixin.dummy_inputs.get_hf_model_dummy_input")
+    @patch("olive.model.handler.mixin.dummy_inputs.get_hf_model_dummy_input")
     def test_hf_onnx_config_dummy_inputs(self, get_hf_model_dummy_input):
         get_hf_model_dummy_input.return_value = 1
         olive_model = PyTorchModelHandler(hf_config={"task": self.task, "model_name": self.model_name})

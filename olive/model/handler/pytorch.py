@@ -7,7 +7,7 @@ import os
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Dict, List, Optional, Union
+from typing import Any, Callable, ClassVar, Dict, List, Optional, Tuple, Union
 
 import torch
 import yaml
@@ -20,7 +20,7 @@ from olive.hardware.accelerator import Device
 from olive.model.config import HfConfig, IoConfig
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
-from olive.model.mixin import DummyInputsMixin, HfConfigMixin
+from olive.model.handler.mixin import DummyInputsMixin, HfConfigMixin
 from olive.model.utils.hf_utils import huggingface_model_loader
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, ResourceType, create_resource_path
 
@@ -38,7 +38,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
       * All kinds of Hf model functionalities by HfConfigMixin.
     """
 
-    resource_keys: ClassVar[list] = ["model_path", "script_dir", "model_script", "adapter_path"]
+    resource_keys: Tuple[str] = ("model_path", "script_dir", "model_script", "adapter_path")
 
     def __init__(
         self,
@@ -71,8 +71,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
             model_path=model_path,
             model_attributes=model_attributes,
         )
-        resources = {"adapter_path": adapter_path, "script_dir": script_dir, "model_script": model_script}
-        self.add_resources(resources)
+        self.add_resources(locals())
 
         self.hf_config = None
         if hf_config:
@@ -259,7 +258,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
 
 @model_handler_registry("DistributedPyTorchModel")
 class DistributedPyTorchModelHandler(OliveModelHandler):
-    resource_keys: ClassVar[list] = ["model_path", "script_dir", "model_script", "adapter_path"]
+    resource_keys: Tuple[str] = ("model_path", "script_dir", "model_script", "adapter_path")
 
     DEFAULT_RANKED_MODEL_NAME_FORMAT: ClassVar[str] = "model_{:02d}"
 
@@ -285,8 +284,7 @@ class DistributedPyTorchModelHandler(OliveModelHandler):
             model_attributes=model_attributes,
         )
 
-        resources = {"adapter_path": adapter_path, "script_dir": script_dir, "model_script": model_script}
-        self.add_resources(resources)
+        self.add_resources(locals())
 
         self.model_name_pattern = model_name_pattern
         self.num_ranks = num_ranks

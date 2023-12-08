@@ -67,12 +67,9 @@ class ModelConfig(ConfigBase):
             raise ValueError(f"Unknown model type {v}")
         return v
 
-    def get_resource_keys(self):
-        cls = get_model_handler(self.type)
-        return cls.resource_keys
-
     def get_resource_paths(self):
-        resource_keys = self.get_resource_keys()
+        cls = get_model_handler(self.type)
+        resource_keys = cls.get_resource_keys()
         return {k: create_resource_path(v) for k, v in self.config.items() if k in resource_keys}
 
     def create_model(self):

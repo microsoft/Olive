@@ -16,7 +16,7 @@ from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import AcceleratorLookup, Device
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
-from olive.model.mixin import OnnxEpValidateMixin, OnnxGraphMixin
+from olive.model.handler.mixin import OnnxEpValidateMixin, OnnxGraphMixin
 from olive.model.utils.onnx_utils import get_onnx_file_path
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 

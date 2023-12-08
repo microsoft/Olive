@@ -1,10 +1,10 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
-from olive.model.mixin import CompositeMixin, IoConfigMixin, JsonMixin, ResourceMixin
+from olive.model.handler.mixin import CompositeMixin, IoConfigMixin, JsonMixin, ResourceMixin
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin, CompositeM
     """
 
     model_type: Optional[str] = None
-    resource_keys: ClassVar[list] = ["model_path"]
+    resource_keys: Tuple[str] = ("model_path",)
 
     def __init__(
         self,
@@ -45,9 +45,7 @@ class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin, CompositeM
 
         # store resource paths
         self.resource_paths: Dict[str, str] = {}
-        resources = {}
-        resources["model_path"] = model_path
-        self.add_resources(resources)
+        self.add_resources(locals())
 
     @property
     def model_path(self) -> str:
