@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from olive.model import ONNXModel, PyTorchModel
+from olive.model import ONNXModelHandler, PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.append_pre_post_processing_ops import AppendPrePostProcessingOps
 from olive.passes.onnx.conversion import OnnxConversion
@@ -116,7 +116,7 @@ def test_pre_post_pipeline(tmp_path):
     # execute
     model = p.run(input_model, None, output_folder)
     assert model is not None
-    assert isinstance(model, ONNXModel)
+    assert isinstance(model, ONNXModelHandler)
     graph = model.get_graph()
 
     # assert the first node is ConvertImageToBGR
@@ -171,7 +171,7 @@ def get_superresolution_model():
 
         return torch_model
 
-    return PyTorchModel(
+    return PyTorchModelHandler(
         model_loader=load_pytorch_model,
         io_config={
             "input_names": ["input"],

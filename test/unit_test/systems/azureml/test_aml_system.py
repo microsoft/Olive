@@ -20,7 +20,7 @@ from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.data.config import DataConfig
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricResult
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
-from olive.model import ONNXModel
+from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.resource_path import AzureMLModel, ResourcePath, ResourceType, create_resource_path
@@ -655,7 +655,7 @@ class TestAzureMLSystem:
         ouptut_dir = tmp_path / "pipeline_output"
         ouptut_dir.mkdir()
         shutil.copy(ONNX_MODEL_PATH, ouptut_dir)
-        mock_conversion_run.return_value = ONNXModel(ouptut_dir / ONNX_MODEL_PATH.name)
+        mock_conversion_run.return_value = ONNXModelHandler(ouptut_dir / ONNX_MODEL_PATH.name)
 
         args = [
             "--model_config",

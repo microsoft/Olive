@@ -101,8 +101,8 @@ takes an `AcceleratorSpec` as input and returns `Dict[str, PassConfigParam]`.
 The final step is to implement the `_run_for_config` method to optimize the input model. Olive Engine will invoke the
 method while auto tuning the model. This method will also receive a search point (one set of configuration option from
 the search space created based on the options defined in `_default_config(accelerator_spec: AcceleratorSpec)`) along
-with output path. The method should return a valid OliveModel which can be used as an input for the next Pass.
+with output path. The method should return a valid OliveModelHandler which can be used as an input for the next Pass.
 
 ```python
-    def _run_for_config(self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
+    def _run_for_config(self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str) -> ONNXModelHandler:
 ```

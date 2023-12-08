@@ -22,7 +22,7 @@ from packaging import version
 from PIL import Image, ImageTk
 from user_script import get_base_model_name
 
-from olive.model import ONNXModel
+from olive.model import ONNXModelHandler
 from olive.workflows import run as olive_run
 
 # pylint: disable=redefined-outer-name
@@ -265,8 +265,8 @@ def optimize(
 
             assert conversion_footprint and optimizer_footprint
 
-            unoptimized_olive_model = ONNXModel(**conversion_footprint["model_config"]["config"])
-            optimized_olive_model = ONNXModel(**optimizer_footprint["model_config"]["config"])
+            unoptimized_olive_model = ONNXModelHandler(**conversion_footprint["model_config"]["config"])
+            optimized_olive_model = ONNXModelHandler(**optimizer_footprint["model_config"]["config"])
 
             model_info[submodel_name] = {
                 "unoptimized": {

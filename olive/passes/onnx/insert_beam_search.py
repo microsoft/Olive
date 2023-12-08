@@ -9,7 +9,8 @@ from onnx import ModelProto, TensorProto, helper
 from packaging import version
 
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.model import CompositeOnnxModel, OliveModel, ONNXModel
+from olive.model import CompositeModelHandler, OliveModelHandler, ONNXModelHandler
+from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
@@ -205,15 +206,15 @@ class InsertBeamSearch(Pass):
         model.graph.input.insert(1, mask)
 
     def _run_for_config(
-        self, model: OliveModel, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> ONNXModel:
+        self, model: OliveModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> ONNXModelHandler:
         from onnxruntime import __version__ as OrtVersion
         from onnxruntime.transformers import onnx_model as ort_onnx_model
 
-        if isinstance(model, ONNXModel):
+        if isinstance(model, ONNXModelHandler):
             return model
 
-        if not isinstance(model, CompositeOnnxModel):
+        if not isinstance(model, CompositeModelHandler):
             raise ValueError
 
         # TODO(jambayk): Right now we are assuming that the composite model only has two components and beam search op
@@ -229,10 +230,13 @@ class InsertBeamSearch(Pass):
             )
 
         # Load encoder/decoder and insert necessary (but unused) graph inputs expected by BeamSearch op
-        model_A = model.get_model_component(0)
-        model_A_name = model.get_model_component_name(0)
-        model_B = model.get_model_component(1)
-        model_B_name = model.get_model_component_name(1)
+        components = model.get_model_components()
+        names, models = zip(*components)
+
+        model_A = models[0]
+        model_A_name = names[0]
+        model_B = models[1]
+        model_B_name = names[1]
         model_proto_A = model_A.load_model()
         model_proto_B = model_B.load_model()
         if not version_1_16:
@@ -245,5 +249,5 @@ class InsertBeamSearch(Pass):
             model_proto_A, model_A_name, model_proto_B, model_B_name, model.model_attributes, config
         )
         # save the model to the output path and return the model
-        output_model_path = ONNXModel.resolve_path(output_model_path, "model_with_beam_search.onnx")
+        output_model_path = resolve_onnx_path(output_model_path, "model_with_beam_search.onnx")
         return model_proto_to_olive_model(combined_model, output_model_path, config, True)

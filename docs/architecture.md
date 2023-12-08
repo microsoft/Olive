@@ -199,17 +199,17 @@ class OliveSystem(ABC):
     def run_pass(
         self,
         the_pass: Pass,
-        model: OliveModel,
+        model: OliveModelHandler,
         data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
-    ) -> OliveModel:
+    ) -> OliveModelHandler:
         """
         Run the pass on the model at a specific point in the search space.
         """
 
     @abstractmethod
-    def evaluate_model(self, model: OliveModel, data_root: str, metrics: List[Metric]) -> Dict[str, Any]:
+    def evaluate_model(self, model: OliveModelHandler, data_root: str, metrics: List[Metric]) -> Dict[str, Any]:
         """
         Evaluate the model
         """

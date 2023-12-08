@@ -12,8 +12,8 @@ from olive.common.config_utils import validate_config
 from olive.common.utils import get_attr, tensor_data_to_device
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.model import PyTorchModel
-from olive.model.hf_utils import get_model_max_length
+from olive.model import PyTorchModelHandler
+from olive.model.utils.hf_utils import get_model_max_length
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 from olive.passes.pytorch.sparsegpt_utils import (
@@ -33,7 +33,7 @@ class TorchTRTConversion(Pass):
     The entire model is saved using `torch.save` and can be loaded using `torch.load`. Loading the model requires
     `torch-tensorrt` and Olive to be installed.
 
-    This pass only supports PyTorchModel with hf_config. The transformers model type
+    This pass only supports PyTorchModelHandler with hf_config. The transformers model type
     must be one of [bloom, gpt2, gpt_neox, llama, opt].
     """
 
@@ -76,8 +76,8 @@ class TorchTRTConversion(Pass):
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> PyTorchModel:
+        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> PyTorchModelHandler:
         from olive.passes.pytorch.trt_utils import compile_trt_model
 
         model_type = model.model_attributes["model_type"]
@@ -181,4 +181,4 @@ class TorchTRTConversion(Pass):
         # save save entire model to output_model_path
         output_model_path = Path(output_model_path).with_suffix(".pt")
         torch.save(pytorch_model, output_model_path)
-        return PyTorchModel(model_path=output_model_path)
+        return PyTorchModelHandler(model_path=output_model_path)

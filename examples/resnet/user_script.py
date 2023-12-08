@@ -12,7 +12,7 @@ from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
 from olive.constants import Framework
-from olive.model import OliveModel
+from olive.model import OliveModelHandler
 
 # -------------------------------------------------------------------------
 # Common Dataset
@@ -122,7 +122,7 @@ def resnet_calibration_reader(data_dir, batch_size, *args, **kwargs):
 
 
 # keep this to demo/test custom evaluation function
-def eval_accuracy(model: OliveModel, data_dir, batch_size, device, execution_providers):
+def eval_accuracy(model: OliveModelHandler, data_dir, batch_size, device, execution_providers):
     sess = model.prepare_session(inference_settings=None, device=device, execution_providers=execution_providers)
     dataloader = create_dataloader(data_dir, batch_size)
 
