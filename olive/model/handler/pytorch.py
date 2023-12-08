@@ -5,7 +5,6 @@
 import logging
 import os
 import tempfile
-from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Dict, List, Optional, Tuple, Union
 
@@ -39,6 +38,13 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
     """
 
     resource_keys: Tuple[str, ...] = ("model_path", "script_dir", "model_script", "adapter_path")
+    json_config_keys: Tuple[str, ...] = (
+        "model_file_format",
+        "model_loader",
+        "io_config",
+        "dummy_inputs_func",
+        "hf_config",
+    )
 
     def __init__(
         self,
@@ -137,11 +143,10 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
             raise ValueError(f"Unsupported model file format: {self.model_file_format}")
 
         # we only have peft adapters for now
-        adapter_path = self.get_resource("adapter_path")
-        if adapter_path:
+        if self.adapter_path:
             from peft import PeftModel
 
-            model = PeftModel.from_pretrained(model, adapter_path)
+            model = PeftModel.from_pretrained(model, self.adapter_path)
 
         self.model = model
 
@@ -194,25 +199,14 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
-        config["config"].update(
-            {
-                "model_file_format": self.model_file_format,
-                "model_loader": self.model_loader,
-                "io_config": self.io_config,
-                "dummy_inputs_func": self.dummy_inputs_func,
-                "hf_config": self.hf_config,
-            }
-        )
-        # clean up redundant information in model_attributes
-        config["config"].pop("model_attributes", None)
-        # using a copy of self.model_attributes since config["config"]["model_attributes"] is already
-        # serialized and might not match self.model_attributes
-        model_attributes = deepcopy(self.model_attributes)
-        if model_attributes and self.hf_config:
-            for key, value in self.get_hf_model_config().to_dict().items():
-                if key in model_attributes and model_attributes[key] == value:
-                    del model_attributes[key]
-        config["config"]["model_attributes"] = model_attributes or {}
+        # only keep model_attributes that are not in hf_config
+        if self.model_attributes and self.hf_config:
+            model_attributes = {}
+            hf_config_dict = self.get_hf_model_config().to_dict()
+            for key, value in self.model_attributes.items():
+                if key not in hf_config_dict or hf_config_dict[key] != value:
+                    model_attributes[key] = value
+            config["config"]["model_attributes"] = model_attributes or None
         return serialize_to_json(config, check_object)
 
     def get_user_io_config(self, io_config: Union[Dict[str, Any], IoConfig, str, Callable]) -> Dict[str, Any]:
@@ -259,6 +253,14 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
 @model_handler_registry("DistributedPyTorchModel")
 class DistributedPyTorchModelHandler(OliveModelHandler):
     resource_keys: Tuple[str, ...] = ("model_path", "script_dir", "model_script", "adapter_path")
+    json_config_keys: Tuple[str, ...] = (
+        "model_name_pattern",
+        "num_ranks",
+        "model_loader",
+        "io_config",
+        "dummy_inputs_func",
+        "hf_config",
+    )
 
     DEFAULT_RANKED_MODEL_NAME_FORMAT: ClassVar[str] = "model_{:02d}"
 
@@ -335,17 +337,3 @@ class DistributedPyTorchModelHandler(OliveModelHandler):
         rank: Optional[int] = 0,
     ) -> torch.nn.Module:
         return self.load_model(rank).load_model(rank).eval()
-
-    def to_json(self, check_object: bool = False):
-        config = super().to_json(check_object)
-        config["config"].update(
-            {
-                "model_name_pattern": self.model_name_pattern,
-                "num_ranks": self.num_ranks,
-                "model_loader": self.model_loader,
-                "io_config": self.io_config,
-                "dummy_inputs_func": self.dummy_inputs_func,
-                "hf_config": self.hf_config,
-            }
-        )
-        return serialize_to_json(config, check_object)
