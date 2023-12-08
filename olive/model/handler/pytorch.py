@@ -200,12 +200,13 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
         # only keep model_attributes that are not in hf_config
-        model_attributes = {}
-        hf_config_dict = self.get_hf_model_config().to_dict()
-        for key, value in self.model_attributes.items():
-            if key not in hf_config_dict or hf_config_dict[key] != value:
-                model_attributes[key] = value
-        config["config"]["model_attributes"] = model_attributes
+        if self.model_attributes and self.hf_config:
+            model_attributes = {}
+            hf_config_dict = self.get_hf_model_config().to_dict()
+            for key, value in self.model_attributes.items():
+                if key not in hf_config_dict or hf_config_dict[key] != value:
+                    model_attributes[key] = value
+            config["config"]["model_attributes"] = model_attributes or None
         return serialize_to_json(config, check_object)
 
     def get_user_io_config(self, io_config: Union[Dict[str, Any], IoConfig, str, Callable]) -> Dict[str, Any]:
