@@ -157,8 +157,9 @@
 <span class="kn">from</span> <span class="nn">olive.data.config</span> <span class="kn">import</span> <span class="n">DataConfig</span>
 <span class="kn">from</span> <span class="nn">olive.data.constants</span> <span class="kn">import</span> <span class="n">IGNORE_INDEX</span>
 <span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">AcceleratorSpec</span>
-<span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">PyTorchModel</span>
-<span class="kn">from</span> <span class="nn">olive.model.hf_utils</span> <span class="kn">import</span> <span class="n">HFFromPretrainedArgs</span><span class="p">,</span> <span class="n">get_peft_task_type_from_task</span>
+<span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">PyTorchModelHandler</span>
+<span class="kn">from</span> <span class="nn">olive.model.config.hf_config</span> <span class="kn">import</span> <span class="n">HfFromPretrainedArgs</span>
+<span class="kn">from</span> <span class="nn">olive.model.utils.hf_utils</span> <span class="kn">import</span> <span class="n">get_peft_task_type_from_task</span>
 <span class="kn">from</span> <span class="nn">olive.passes</span> <span class="kn">import</span> <span class="n">Pass</span>
 <span class="kn">from</span> <span class="nn">olive.passes.olive_pass</span> <span class="kn">import</span> <span class="n">PassConfigParam</span>
 
@@ -563,10 +564,10 @@
         <span class="n">tokenizer</span><span class="p">:</span> <span class="n">PreTrainedTokenizer</span><span class="p">,</span>
         <span class="n">config</span><span class="p">:</span> <span class="n">ConfigBase</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="n">output_model</span><span class="p">:</span> <span class="n">PyTorchModel</span><span class="p">,</span>
+        <span class="n">output_model</span><span class="p">:</span> <span class="n">PyTorchModelHandler</span><span class="p">,</span>
         <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">torch_dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PyTorchModel</span><span class="p">:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PyTorchModelHandler</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
             <span class="n">allow_tf32</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">backends</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">matmul</span><span class="o">.</span><span class="n">allow_tf32</span>
             <span class="n">torch</span><span class="o">.</span><span class="n">backends</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">matmul</span><span class="o">.</span><span class="n">allow_tf32</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">allow_tf32</span>
@@ -691,7 +692,7 @@
     <span class="k">def</span> <span class="nf">input_model_check</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">model</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the input model and reset from_pretrained_args and adapter_path.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">model</span><span class="o">.</span><span class="n">hf_config</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> pass only supports PyTorchModel with hf_config.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> pass only supports PyTorchModelHandler with hf_config.&quot;</span><span class="p">)</span>
 
         <span class="c1"># load model, reset from_pretrained_args and adapter_path</span>
         <span class="n">from_pretrained_args</span> <span class="o">=</span> <span class="p">{}</span>
@@ -729,7 +730,7 @@
 <span class="k">class</span> <span class="nc">LoRA</span><span class="p">(</span><span class="n">LoRABase</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Run LoRA fine-tuning on a Hugging Face PyTorch model.</span>
 
-<span class="sd">    This pass only supports PyTorchModel with hf_config.</span>
+<span class="sd">    This pass only supports PyTorchModelHandler with hf_config.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="nd">@staticmethod</span>
@@ -741,8 +742,8 @@
         <span class="k">return</span> <span class="n">config</span>
 
     <span class="k">def</span> <span class="nf">_run_for_config</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">PyTorchModel</span><span class="p">,</span> <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PyTorchModel</span><span class="p">:</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">PyTorchModelHandler</span><span class="p">,</span> <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PyTorchModelHandler</span><span class="p">:</span>
         <span class="c1"># convert config to pass config class</span>
         <span class="c1"># this will validate the config and convert to the correct types</span>
         <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config_class</span><span class="p">(</span><span class="o">**</span><span class="n">config</span><span class="p">)</span>
@@ -768,7 +769,7 @@
         <span class="n">from_pretrained_args</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
             <span class="p">{</span><span class="s2">&quot;torch_dtype&quot;</span><span class="p">:</span> <span class="n">model_dtype</span><span class="p">,</span> <span class="s2">&quot;device_map&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">config</span><span class="o">.</span><span class="n">use_ort_trainer</span> <span class="k">else</span> <span class="kc">None</span><span class="p">}</span>
         <span class="p">)</span>
-        <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">from_pretrained_args</span> <span class="o">=</span> <span class="n">HFFromPretrainedArgs</span><span class="p">(</span><span class="o">**</span><span class="n">from_pretrained_args</span><span class="p">)</span>
+        <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">from_pretrained_args</span> <span class="o">=</span> <span class="n">HfFromPretrainedArgs</span><span class="p">(</span><span class="o">**</span><span class="n">from_pretrained_args</span><span class="p">)</span>
         <span class="n">pytorch_model</span> <span class="o">=</span> <span class="n">new_model</span><span class="o">.</span><span class="n">load_model</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="ow">and</span> <span class="n">config</span><span class="o">.</span><span class="n">use_ort_trainer</span><span class="p">:</span>
             <span class="c1"># put the model on GPU since device_map is None and the model will be on CPU</span>
@@ -795,7 +796,7 @@
 <span class="k">class</span> <span class="nc">QLoRA</span><span class="p">(</span><span class="n">LoRABase</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Run QLoRA fine-tuning on a Hugging Face PyTorch model.</span>
 
-<span class="sd">    This pass only supports PyTorchModel with hf_config.</span>
+<span class="sd">    This pass only supports PyTorchModelHandler with hf_config.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">model_overwrites</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">tuple</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;torch_dtype&quot;</span><span class="p">,</span> <span class="s2">&quot;device_map&quot;</span><span class="p">,</span> <span class="s2">&quot;quantization_method&quot;</span><span class="p">,</span> <span class="s2">&quot;quantization_config&quot;</span><span class="p">)</span>
@@ -829,8 +830,8 @@
         <span class="k">return</span> <span class="n">config</span>
 
     <span class="k">def</span> <span class="nf">_run_for_config</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">PyTorchModel</span><span class="p">,</span> <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PyTorchModel</span><span class="p">:</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">PyTorchModelHandler</span><span class="p">,</span> <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PyTorchModelHandler</span><span class="p">:</span>
         <span class="c1"># convert config to pass config class</span>
         <span class="c1"># this will validate the config and convert to the correct types</span>
         <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config_class</span><span class="p">(</span><span class="o">**</span><span class="n">config</span><span class="p">)</span>
@@ -861,8 +862,8 @@
         <span class="k">return</span> <span class="n">output_model</span>
 
     <span class="k">def</span> <span class="nf">get_model_tokenizer</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">PyTorchModel</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ConfigBase</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">PyTorchModel</span><span class="p">,</span> <span class="n">PreTrainedModel</span><span class="p">,</span> <span class="n">PreTrainedTokenizer</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]:</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">PyTorchModelHandler</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ConfigBase</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">PyTorchModelHandler</span><span class="p">,</span> <span class="n">PreTrainedModel</span><span class="p">,</span> <span class="n">PreTrainedTokenizer</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the Olive model, PyTorch model and tokenizer for QLoRA fine-tuning.&quot;&quot;&quot;</span>
         <span class="kn">import</span> <span class="nn">bitsandbytes</span> <span class="k">as</span> <span class="nn">bnb</span>
 
@@ -897,7 +898,7 @@
                 <span class="p">},</span>
             <span class="p">}</span>
         <span class="p">)</span>
-        <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">from_pretrained_args</span> <span class="o">=</span> <span class="n">HFFromPretrainedArgs</span><span class="p">(</span><span class="o">**</span><span class="n">from_pretrained_args</span><span class="p">)</span>
+        <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">from_pretrained_args</span> <span class="o">=</span> <span class="n">HfFromPretrainedArgs</span><span class="p">(</span><span class="o">**</span><span class="n">from_pretrained_args</span><span class="p">)</span>
         <span class="n">pytorch_model</span> <span class="o">=</span> <span class="n">new_model</span><span class="o">.</span><span class="n">load_model</span><span class="p">()</span>
         <span class="n">pytorch_model</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">torch_dtype</span> <span class="o">=</span> <span class="n">model_dtype</span>
 

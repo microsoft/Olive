@@ -171,8 +171,8 @@
 <section id="onnxconversion">
 <span id="onnx-conversion"></span><h2>OnnxConversion<a class="headerlink" href="#onnxconversion" title="Permalink to this heading">¶</a></h2>
 <p>Convert a PyTorch model to ONNX model using torch.onnx.export on CPU.</p>
-<p><strong>Input:</strong> PyTorchModel</p>
-<p><strong>Output:</strong> CompositeOnnxModel | DistributedOnnxModel | ONNXModel</p>
+<p><strong>Input:</strong> handler.pytorch.PyTorchModelHandler</p>
+<p><strong>Output:</strong> handler.composite.CompositeModelHandler | handler.onnx.DistributedOnnxModelHandler | handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-script_dir">
 <span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-script_dir" title="Permalink to this definition">¶</a></dt>
@@ -284,8 +284,8 @@
 </section>
 <section id="onnxopversionconversion">
 <span id="onnx-op-version-conversion"></span><h2>OnnxOpVersionConversion<a class="headerlink" href="#onnxopversionconversion" title="Permalink to this heading">¶</a></h2>
-<p><strong>Input:</strong> ONNXModel</p>
-<p><strong>Output:</strong> ONNXModel</p>
+<p><strong>Input:</strong> handler.onnx.ONNXModelHandler</p>
+<p><strong>Output:</strong> handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-0">
 <span class="sig-name descname"><span class="pre">target_opset</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-0" title="Permalink to this definition">¶</a></dt>
@@ -344,8 +344,8 @@
 <section id="onnxmodeloptimizer">
 <span id="onnx-model-optimizer"></span><h2>OnnxModelOptimizer<a class="headerlink" href="#onnxmodeloptimizer" title="Permalink to this heading">¶</a></h2>
 <p>Optimize ONNX model by fusing nodes.</p>
-<p><strong>Input:</strong> ONNXModel</p>
-<p><strong>Output:</strong> ONNXModel</p>
+<p><strong>Input:</strong> handler.onnx.ONNXModelHandler</p>
+<p><strong>Output:</strong> handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-6">
 <span class="sig-name descname"><span class="pre">save_as_external_data</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-6" title="Permalink to this definition">¶</a></dt>
@@ -398,8 +398,8 @@
 
     Optimize transformer based models in scenarios where ONNX Runtime does not apply the optimization at load time.
     It is based on onnxruntime.transformers.optimizer.</p>
-<p><strong>Input:</strong> ONNXModel</p>
-<p><strong>Output:</strong> ONNXModel</p>
+<p><strong>Input:</strong> handler.onnx.ONNXModelHandler</p>
+<p><strong>Output:</strong> handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-model_type">
 <span class="sig-name descname"><span class="pre">model_type</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-model_type" title="Permalink to this definition">¶</a></dt>
@@ -575,8 +575,8 @@
 <section id="ortperftuning">
 <span id="ort-perf-tuning"></span><h2>OrtPerfTuning<a class="headerlink" href="#ortperftuning" title="Permalink to this heading">¶</a></h2>
 <p>Optimize ONNX Runtime inference settings.</p>
-<p><strong>Input:</strong> ONNXModel</p>
-<p><strong>Output:</strong> ONNXModel</p>
+<p><strong>Input:</strong> handler.onnx.ONNXModelHandler</p>
+<p><strong>Output:</strong> handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-16">
 <span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-16" title="Permalink to this definition">¶</a></dt>
@@ -773,8 +773,8 @@
 
     It is based on onnxconverter-common.convert_float_to_float16.
     See <a class="reference external" href="https://onnxruntime.ai/docs/performance/model-optimizations/float16.html#float16-conversion">https://onnxruntime.ai/docs/performance/model-optimizations/float16.html#float16-conversion</a></p>
-<p><strong>Input:</strong> ONNXModel</p>
-<p><strong>Output:</strong> ONNXModel</p>
+<p><strong>Input:</strong> handler.onnx.ONNXModelHandler</p>
+<p><strong>Output:</strong> handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-min_positive_val">
 <span class="sig-name descname"><span class="pre">min_positive_val</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-min_positive_val" title="Permalink to this definition">¶</a></dt>
@@ -878,8 +878,8 @@
 <section id="ortmixedprecision">
 <span id="ort-mixed-precision"></span><h2>OrtMixedPrecision<a class="headerlink" href="#ortmixedprecision" title="Permalink to this heading">¶</a></h2>
 <p>Convert model to mixed precision.</p>
-<p><strong>Input:</strong> ONNXModel</p>
-<p><strong>Output:</strong> ONNXModel</p>
+<p><strong>Input:</strong> handler.onnx.ONNXModelHandler</p>
+<p><strong>Output:</strong> handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-24">
 <span class="sig-name descname"><span class="pre">op_block_list</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-24" title="Permalink to this definition">¶</a></dt>
@@ -947,8 +947,8 @@
 <section id="onnxdynamicquantization">
 <span id="onnx-dynamic-quantization"></span><h2>OnnxDynamicQuantization<a class="headerlink" href="#onnxdynamicquantization" title="Permalink to this heading">¶</a></h2>
 <p>ONNX Dynamic Quantization Pass.</p>
-<p><strong>Input:</strong> ONNXModel</p>
-<p><strong>Output:</strong> ONNXModel</p>
+<p><strong>Input:</strong> handler.onnx.ONNXModelHandler</p>
+<p><strong>Output:</strong> handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-quant_mode">
 <span class="sig-name descname"><span class="pre">quant_mode</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-quant_mode" title="Permalink to this definition">¶</a></dt>
@@ -1155,8 +1155,8 @@
 <section id="onnxstaticquantization">
 <span id="onnx-static-quantization"></span><h2>OnnxStaticQuantization<a class="headerlink" href="#onnxstaticquantization" title="Permalink to this heading">¶</a></h2>
 <p>ONNX Static Quantization Pass.</p>
-<p><strong>Input:</strong> ONNXModel</p>
-<p><strong>Output:</strong> ONNXModel</p>
+<p><strong>Input:</strong> handler.onnx.ONNXModelHandler</p>
+<p><strong>Output:</strong> handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-35">
 <span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-35" title="Permalink to this definition">¶</a></dt>
@@ -1467,8 +1467,8 @@
 <section id="onnxquantization">
 <span id="onnx-quantization"></span><h2>OnnxQuantization<a class="headerlink" href="#onnxquantization" title="Permalink to this heading">¶</a></h2>
 <p>Quantize ONNX model with static/dynamic quantization techniques.</p>
-<p><strong>Input:</strong> ONNXModel</p>
-<p><strong>Output:</strong> ONNXModel</p>
+<p><strong>Input:</strong> handler.onnx.ONNXModelHandler</p>
+<p><strong>Output:</strong> handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-62">
 <span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-62" title="Permalink to this definition">¶</a></dt>
@@ -1781,8 +1781,8 @@
 <section id="incdynamicquantization">
 <span id="inc-dynamic-quantization"></span><h2>IncDynamicQuantization<a class="headerlink" href="#incdynamicquantization" title="Permalink to this heading">¶</a></h2>
 <p>Intel® Neural Compressor Dynamic Quantization Pass.</p>
-<p><strong>Input:</strong> ONNXModel</p>
-<p><strong>Output:</strong> ONNXModel</p>
+<p><strong>Input:</strong> handler.onnx.ONNXModelHandler</p>
+<p><strong>Output:</strong> handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-approach">
 <span class="sig-name descname"><span class="pre">approach</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-approach" title="Permalink to this definition">¶</a></dt>
@@ -1979,8 +1979,8 @@
 <section id="incstaticquantization">
 <span id="inc-static-quantization"></span><h2>IncStaticQuantization<a class="headerlink" href="#incstaticquantization" title="Permalink to this heading">¶</a></h2>
 <p>Intel® Neural Compressor Static Quantization Pass.</p>
-<p><strong>Input:</strong> ONNXModel</p>
-<p><strong>Output:</strong> ONNXModel</p>
+<p><strong>Input:</strong> handler.onnx.ONNXModelHandler</p>
+<p><strong>Output:</strong> handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-99">
 <span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-99" title="Permalink to this definition">¶</a></dt>
@@ -2267,8 +2267,8 @@
 <section id="incquantization">
 <span id="inc-quantization"></span><h2>IncQuantization<a class="headerlink" href="#incquantization" title="Permalink to this heading">¶</a></h2>
 <p>Quantize ONNX model with Intel® Neural Compressor.</p>
-<p><strong>Input:</strong> ONNXModel</p>
-<p><strong>Output:</strong> ONNXModel</p>
+<p><strong>Input:</strong> handler.onnx.ONNXModelHandler</p>
+<p><strong>Output:</strong> handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-124">
 <span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-124" title="Permalink to this definition">¶</a></dt>
@@ -2557,8 +2557,8 @@
 <section id="appendprepostprocessingops">
 <span id="append-pre-post-processing"></span><h2>AppendPrePostProcessingOps<a class="headerlink" href="#appendprepostprocessingops" title="Permalink to this heading">¶</a></h2>
 <p>Add Pre/Post nodes to the input model.</p>
-<p><strong>Input:</strong> ONNXModel</p>
-<p><strong>Output:</strong> ONNXModel</p>
+<p><strong>Input:</strong> handler.onnx.ONNXModelHandler</p>
+<p><strong>Output:</strong> handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-pre">
 <span class="sig-name descname"><span class="pre">pre</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-pre" title="Permalink to this definition">¶</a></dt>
@@ -2658,8 +2658,8 @@
 <section id="insertbeamsearch">
 <span id="insert-beam-search"></span><h2>InsertBeamSearch<a class="headerlink" href="#insertbeamsearch" title="Permalink to this heading">¶</a></h2>
 <p>Insert Beam Search Op.</p>
-<p><strong>Input:</strong> OliveModel</p>
-<p><strong>Output:</strong> ONNXModel</p>
+<p><strong>Input:</strong> handler.base.OliveModelHandler</p>
+<p><strong>Output:</strong> handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-no_repeat_ngram_size">
 <span class="sig-name descname"><span class="pre">no_repeat_ngram_size</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-no_repeat_ngram_size" title="Permalink to this definition">¶</a></dt>
@@ -2748,9 +2748,9 @@
 <span id="id2"></span><h2>LoRA<a class="headerlink" href="#lora" title="Permalink to this heading">¶</a></h2>
 <p>Run LoRA fine-tuning on a Hugging Face PyTorch model.
 
-    This pass only supports PyTorchModel with hf_config.</p>
-<p><strong>Input:</strong> PyTorchModel</p>
-<p><strong>Output:</strong> PyTorchModel</p>
+    This pass only supports PyTorchModelHandler with hf_config.</p>
+<p><strong>Input:</strong> handler.pytorch.PyTorchModelHandler</p>
+<p><strong>Output:</strong> handler.pytorch.PyTorchModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-target_modules">
 <span class="sig-name descname"><span class="pre">target_modules</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-target_modules" title="Permalink to this definition">¶</a></dt>
@@ -2881,9 +2881,9 @@
 <span id="id3"></span><h2>QLoRA<a class="headerlink" href="#qlora" title="Permalink to this heading">¶</a></h2>
 <p>Run QLoRA fine-tuning on a Hugging Face PyTorch model.
 
-    This pass only supports PyTorchModel with hf_config.</p>
-<p><strong>Input:</strong> PyTorchModel</p>
-<p><strong>Output:</strong> PyTorchModel</p>
+    This pass only supports PyTorchModelHandler with hf_config.</p>
+<p><strong>Input:</strong> handler.pytorch.PyTorchModelHandler</p>
+<p><strong>Output:</strong> handler.pytorch.PyTorchModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-double_quant">
 <span class="sig-name descname"><span class="pre">double_quant</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-double_quant" title="Permalink to this definition">¶</a></dt>
@@ -3160,8 +3160,8 @@
 <section id="quantizationawaretraining">
 <span id="quantization-aware-training"></span><h2>QuantizationAwareTraining<a class="headerlink" href="#quantizationawaretraining" title="Permalink to this heading">¶</a></h2>
 <p>Run quantization aware training on PyTorch model.</p>
-<p><strong>Input:</strong> PyTorchModel</p>
-<p><strong>Output:</strong> PyTorchModel</p>
+<p><strong>Input:</strong> handler.pytorch.PyTorchModelHandler</p>
+<p><strong>Output:</strong> handler.pytorch.PyTorchModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-176">
 <span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-176" title="Permalink to this definition">¶</a></dt>
@@ -3328,8 +3328,8 @@
 <section id="openvinoconversion">
 <span id="openvino-conversion"></span><h2>OpenVINOConversion<a class="headerlink" href="#openvinoconversion" title="Permalink to this heading">¶</a></h2>
 <p>Converts PyTorch, ONNX or TensorFlow Model to OpenVino Model.</p>
-<p><strong>Input:</strong> PyTorchModel | ONNXModel</p>
-<p><strong>Output:</strong> OpenVINOModel</p>
+<p><strong>Input:</strong> handler.pytorch.PyTorchModelHandler | handler.onnx.ONNXModelHandler</p>
+<p><strong>Output:</strong> handler.openvino.OpenVINOModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-input">
 <span class="sig-name descname"><span class="pre">input</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-input" title="Permalink to this definition">¶</a></dt>
@@ -3363,8 +3363,8 @@
 <p>Post-training quantization for OpenVINO model.
 
     Please refer to <a class="reference external" href="https://docs.openvino.ai/latest/pot_introduction.html">https://docs.openvino.ai/latest/pot_introduction.html</a> for more details.</p>
-<p><strong>Input:</strong> OpenVINOModel</p>
-<p><strong>Output:</strong> OpenVINOModel</p>
+<p><strong>Input:</strong> handler.openvino.OpenVINOModelHandler</p>
+<p><strong>Output:</strong> handler.openvino.OpenVINOModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-178">
 <span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-178" title="Permalink to this definition">¶</a></dt>
@@ -3459,8 +3459,8 @@
 <p>Convert ONNX or TensorFlow model to SNPE DLC.
 
     Uses snpe-tensorflow-to-dlc or snpe-onnx-to-dlc tools from the SNPE SDK.</p>
-<p><strong>Input:</strong> ONNXModel | TensorFlowModel</p>
-<p><strong>Output:</strong> SNPEModel</p>
+<p><strong>Input:</strong> handler.onnx.ONNXModelHandler | handler.tensorflow.TensorFlowModelHandler</p>
+<p><strong>Output:</strong> handler.snpe.SNPEModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-185">
 <span class="sig-name descname"><span class="pre">input_names</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-185" title="Permalink to this definition">¶</a></dt>
@@ -3518,8 +3518,8 @@
 <p>Quantize SNPE model.
 
     Uses snpe-dlc-quantize tool from the SNPE SDK.</p>
-<p><strong>Input:</strong> SNPEModel</p>
-<p><strong>Output:</strong> SNPEModel</p>
+<p><strong>Input:</strong> handler.snpe.SNPEModelHandler</p>
+<p><strong>Output:</strong> handler.snpe.SNPEModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-188">
 <span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-188" title="Permalink to this definition">¶</a></dt>
@@ -3615,8 +3615,8 @@
 <p>Convert a SNPE DLC to ONNX to use with SNPE Execution Provider.
 
     Creates a ONNX graph with the SNPE DLC as a node.</p>
-<p><strong>Input:</strong> SNPEModel</p>
-<p><strong>Output:</strong> ONNXModel</p>
+<p><strong>Input:</strong> handler.snpe.SNPEModelHandler</p>
+<p><strong>Output:</strong> handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-target_device">
 <span class="sig-name descname"><span class="pre">target_device</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-target_device" title="Permalink to this definition">¶</a></dt>
@@ -3687,10 +3687,10 @@
 
     See <a class="reference external" href="https://arxiv.org/abs/2301.00774">https://arxiv.org/abs/2301.00774</a> for more details on the algorithm.
 
-    This pass only supports PyTorchModel with hf_config. The transformers model type
+    This pass only supports PyTorchModelHandler with hf_config. The transformers model type
     must be one of [bloom, gpt2, gpt_neox, llama, opt].</p>
-<p><strong>Input:</strong> PyTorchModel</p>
-<p><strong>Output:</strong> PyTorchModel</p>
+<p><strong>Input:</strong> handler.pytorch.PyTorchModelHandler</p>
+<p><strong>Output:</strong> handler.pytorch.PyTorchModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-sparsity">
 <span class="sig-name descname"><span class="pre">sparsity</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-sparsity" title="Permalink to this definition">¶</a></dt>
@@ -3771,10 +3771,10 @@
     The entire model is saved using <cite>torch.save</cite> and can be loaded using <cite>torch.load</cite>. Loading the model requires
     <cite>torch-tensorrt</cite> and Olive to be installed.
 
-    This pass only supports PyTorchModel with hf_config. The transformers model type
+    This pass only supports PyTorchModelHandler with hf_config. The transformers model type
     must be one of [bloom, gpt2, gpt_neox, llama, opt].</p>
-<p><strong>Input:</strong> PyTorchModel</p>
-<p><strong>Output:</strong> PyTorchModel</p>
+<p><strong>Input:</strong> handler.pytorch.PyTorchModelHandler</p>
+<p><strong>Output:</strong> handler.pytorch.PyTorchModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-202">
 <span class="sig-name descname"><span class="pre">min_layer</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-202" title="Permalink to this definition">¶</a></dt>
@@ -3825,8 +3825,8 @@
 <p>Quantize ONNX model with onnxruntime.
 
     We can search for best parameters for vai_q_onnx quantization at same time.</p>
-<p><strong>Input:</strong> ONNXModel</p>
-<p><strong>Output:</strong> ONNXModel</p>
+<p><strong>Input:</strong> handler.onnx.ONNXModelHandler</p>
+<p><strong>Output:</strong> handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-207">
 <span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-207" title="Permalink to this definition">¶</a></dt>
@@ -4137,8 +4137,8 @@
 <section id="optimumconversion">
 <span id="optimum-conversion"></span><h2>OptimumConversion<a class="headerlink" href="#optimumconversion" title="Permalink to this heading">¶</a></h2>
 <p>Convert a Optimum model to ONNX model using the Optimum export function.</p>
-<p><strong>Input:</strong> OptimumModel</p>
-<p><strong>Output:</strong> ONNXModel | CompositeOnnxModel</p>
+<p><strong>Input:</strong> handler.optimum.OptimumModelHandler</p>
+<p><strong>Output:</strong> handler.onnx.ONNXModelHandler | handler.composite.CompositeModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-231">
 <span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-231" title="Permalink to this definition">¶</a></dt>
@@ -4251,8 +4251,8 @@
 <section id="optimummerging">
 <span id="optimum-merging"></span><h2>OptimumMerging<a class="headerlink" href="#optimummerging" title="Permalink to this heading">¶</a></h2>
 <p>Merges a decoder_model with its decoder_with_past_model via the Optimum library.</p>
-<p><strong>Input:</strong> CompositeOnnxModel</p>
-<p><strong>Output:</strong> ONNXModel | CompositeOnnxModel</p>
+<p><strong>Input:</strong> handler.composite.CompositeModelHandler</p>
+<p><strong>Output:</strong> handler.onnx.ONNXModelHandler | handler.composite.CompositeModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-strict">
 <span class="sig-name descname"><span class="pre">strict</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-strict" title="Permalink to this definition">¶</a></dt>
