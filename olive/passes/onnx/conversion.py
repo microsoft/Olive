@@ -26,7 +26,7 @@ from olive.model import (
     PyTorchModelHandler,
 )
 from olive.model.config import IoConfig
-from olive.model.utils import resolve_path
+from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
@@ -219,7 +219,7 @@ class OnnxConversion(Pass):
             # other processes
             with tempfile.TemporaryDirectory(dir=tempdir, prefix="olive_tmp") as tmp_dir:
                 tmp_dir_path = Path(tmp_dir)
-                tmp_model_path = resolve_path(tmp_dir_path)
+                tmp_model_path = resolve_onnx_path(tmp_dir_path)
 
                 torch.onnx.export(
                     pytorch_model,
@@ -353,7 +353,7 @@ class OnnxConversion(Pass):
         )
 
         # save the model to the output path and return the model
-        output_model_path = resolve_path(output_model_path)
+        output_model_path = resolve_onnx_path(output_model_path)
         output_model = model_proto_to_olive_model(converted_onnx_model, output_model_path, config)
         output_model.model_attributes = model_attributes
         return output_model
@@ -380,7 +380,7 @@ class OnnxConversion(Pass):
         )
 
         output_filename = DistributedOnnxModelHandler.DEFAULT_RANKED_MODEL_NAME_FORMAT.format(local_rank)
-        output_filepath = resolve_path(output_dirpath, output_filename)
+        output_filepath = resolve_onnx_path(output_dirpath, output_filename)
 
         try:
             restore_args = replace_llama2_tensor_parallel_layers()
@@ -481,6 +481,6 @@ class OnnxOpVersionConversion(Pass):
             logger.info(f"Model is already in target opset version {config['target_opset']}.")
             return model
 
-        output_model_path = resolve_path(output_model_path)
+        output_model_path = resolve_onnx_path(output_model_path)
         model_proto = onnx.version_converter.convert_version(model_proto, config["target_opset"])
         return model_proto_to_olive_model(model_proto, output_model_path, config)

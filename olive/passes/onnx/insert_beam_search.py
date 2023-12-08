@@ -10,7 +10,7 @@ from packaging import version
 
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import CompositeModelHandler, OliveModelHandler, ONNXModelHandler
-from olive.model.utils import resolve_path
+from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
@@ -249,5 +249,5 @@ class InsertBeamSearch(Pass):
             model_proto_A, model_A_name, model_proto_B, model_B_name, model.model_attributes, config
         )
         # save the model to the output path and return the model
-        output_model_path = resolve_path(output_model_path, "model_with_beam_search.onnx")
+        output_model_path = resolve_onnx_path(output_model_path, "model_with_beam_search.onnx")
         return model_proto_to_olive_model(combined_model, output_model_path, config, True)

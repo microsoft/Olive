@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict
 from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler, SNPEModelHandler
-from olive.model.utils import resolve_path
+from olive.model.utils import resolve_onnx_path
 from olive.passes.olive_pass import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
@@ -52,7 +52,7 @@ class SNPEtoONNXConversion(Pass):
     ) -> ONNXModelHandler:
         config = self._config_class(**config)
 
-        output_model_path = resolve_path(output_model_path)
+        output_model_path = resolve_onnx_path(output_model_path)
 
         # create a onnx model that wraps the dlc binary in a node
         onnx_model = dlc_to_onnx(model.model_path, config.dict(), **model.io_config)

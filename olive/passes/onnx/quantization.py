@@ -18,7 +18,7 @@ from olive.data.config import DataConfig
 from olive.exception import OlivePassError
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
-from olive.model.utils import resolve_path
+from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_file, model_proto_to_olive_model
 from olive.passes.pass_config import ParamCategory, PassConfigParam
@@ -325,7 +325,7 @@ class OnnxQuantization(Pass):
                 config["dataloader_func"] or config["data_config"]
             ), "dataloader_func or data_config is required for static quantization."
 
-        output_model_path = resolve_path(output_model_path, Path(model.model_path).name)
+        output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
         # extra config
         extra_options = deepcopy(config["extra_options"]) if config["extra_options"] else {}
@@ -552,7 +552,7 @@ class OnnxMatMul4Quantizer(Pass):
 
         from onnxruntime.quantization.matmul_4bits_quantizer import MatMul4BitsQuantizer
 
-        output_model_path = resolve_path(output_model_path, Path(model.model_path).name)
+        output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
         quant = MatMul4BitsQuantizer(
             model.load_model(), config["block_size"], config["is_symmetric"], config["nodes_to_exclude"]

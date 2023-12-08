@@ -10,7 +10,7 @@ from onnx import ValueInfoProto
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
-from olive.model.utils import resolve_path
+from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
@@ -98,7 +98,7 @@ class OrtMixedPrecision(Pass):
         fp16_model = self._convert_float_to_float16(
             model=model.load_model(), use_symbolic_shape_infer=True, **parameters
         )
-        output_model_path = resolve_path(output_model_path, Path(model.model_path).name)
+        output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
         config = self._config_class(**config)
         return model_proto_to_olive_model(fp16_model, output_model_path, config.dict())
 

@@ -14,7 +14,7 @@ from olive.cache import get_local_path_from_root
 from olive.common.utils import hash_string
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler
-from olive.model.utils import resolve_path
+from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_file, model_proto_to_olive_model
 from olive.passes.pass_config import ParamCategory, PassConfigParam
@@ -268,7 +268,7 @@ class VitisAIQuantization(Pass):
         # start with a copy of the config
         run_config = deepcopy(config)
 
-        output_model_path = resolve_path(output_model_path, Path(model.model_path).name)
+        output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
         # extra config
         extra_options = deepcopy(config["extra_options"]) if config["extra_options"] else {}

@@ -9,7 +9,7 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
-def resolve_path(file_or_dir_path: str, model_filename: str = "model.onnx") -> str:
+def resolve_onnx_path(file_or_dir_path: str, model_filename: str = "model.onnx") -> str:
     """Get the model full path.
 
     The engine provides output paths to ONNX passes that do not contain .onnx extension
@@ -17,9 +17,9 @@ def resolve_path(file_or_dir_path: str, model_filename: str = "model.onnx") -> s
     paths to absolute file paths and also ensure the parent directories exist.
     If the input path is already an ONNX file it is simply returned. Examples:
 
-    resolve_path("c:/foo/bar.onnx") -> c:/foo/bar.onnx
+    resolve_onnx_path("c:/foo/bar.onnx") -> c:/foo/bar.onnx
 
-    resolve_path("c:/foo/bar") -> c:/foo/bar/model.onnx
+    resolve_onnx_path("c:/foo/bar") -> c:/foo/bar/model.onnx
     """
     if not model_filename.endswith(".onnx"):
         raise ValueError(f"ONNXModel's model name must end with '.onnx', got {model_filename}")
