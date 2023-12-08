@@ -76,6 +76,7 @@
 <li class="toctree-l1"><a class="reference internal" href="packaging_output_models.html">Packaging Olive artifacts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="custom_scripts.html">Custom Scripts</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Azure ML integration</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#azure-machine-learning-client">Azure Machine Learning client</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#olive-core">Olive Core</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#using-azureml-registered-model">Using AzureML registered model</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#using-azureml-curated-model">Using AzureML curated model</a></li>
@@ -145,6 +146,10 @@
   <section id="azure-ml-integration">
 <h1>Azure ML integration<a class="headerlink" href="#azure-ml-integration" title="Permalink to this heading">¶</a></h1>
 <p>This documents outlines the integrations between Olive and Azure Machine Learning. Discover how to use your Azure Machine Learning assets within Olive.</p>
+<section id="azure-machine-learning-client">
+<h2>Azure Machine Learning client<a class="headerlink" href="#azure-machine-learning-client" title="Permalink to this heading">¶</a></h2>
+<p>To use Azure Machine Learning assets in your workspace, please include your workspace information as the <code class="docutils literal notranslate"><span class="pre">azureml_client</span></code> in configuration JSON file. Please find more details <a class="reference internal" href="../overview/options.html#azure-ml-client"><span class="std std-ref">here</span></a></p>
+</section>
 <section id="olive-core">
 <h2>Olive Core<a class="headerlink" href="#olive-core" title="Permalink to this heading">¶</a></h2>
 <section id="using-azureml-registered-model">
@@ -175,6 +180,7 @@
 </pre></div>
 </div>
 <p>Olive will automatically download the model and run the workflow in the specified target or host with this model as input model.</p>
+<p>Note: you don’t need the <code class="docutils literal notranslate"><span class="pre">azureml_client</span></code> section for AzureML curated model.</p>
 </section>
 <section id="using-model-stored-in-azureml-datastore">
 <h3>Using model stored in AzureML datastore<a class="headerlink" href="#using-model-stored-in-azureml-datastore" title="Permalink to this heading">¶</a></h3>
