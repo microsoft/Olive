@@ -9,8 +9,8 @@ from packaging import version
 from transformers.onnx import OnnxConfig
 
 from olive.common.pydantic_v1 import ValidationError
-from olive.model.hf_utils import (
-    HFFromPretrainedArgs,
+from olive.model.config.hf_config import HfFromPretrainedArgs
+from olive.model.utils.hf_utils import (
     get_onnx_config,
     load_huggingface_model_from_model_class,
     load_huggingface_model_from_task,
@@ -57,7 +57,7 @@ class TestHFFromPretrainedArgs:
         ],
     )
     def test_torch_dtype(self, inputs, inner, output):
-        args = HFFromPretrainedArgs(torch_dtype=inputs)
+        args = HfFromPretrainedArgs(torch_dtype=inputs)
         assert args.torch_dtype == inner
         assert args.get_torch_dtype() == output
 
@@ -72,10 +72,10 @@ class TestHFFromPretrainedArgs:
         ],
     )
     def test_device_map(self, inputs, inner):
-        args = HFFromPretrainedArgs(device_map=inputs)
+        args = HfFromPretrainedArgs(device_map=inputs)
         assert args.device_map == inner
 
-        args = HFFromPretrainedArgs(device_map={"": inputs})
+        args = HfFromPretrainedArgs(device_map={"": inputs})
         assert args.device_map == {"": inner}
 
     @pytest.mark.parametrize(
@@ -91,12 +91,12 @@ class TestHFFromPretrainedArgs:
     def test_quant(self, quantization_method, quantization_config, valid):
         if not valid:
             with pytest.raises(ValidationError):
-                args = HFFromPretrainedArgs(
+                args = HfFromPretrainedArgs(
                     quantization_method=quantization_method, quantization_config=quantization_config
                 )
 
         else:
-            args = HFFromPretrainedArgs(
+            args = HfFromPretrainedArgs(
                 quantization_method=quantization_method, quantization_config=quantization_config
             )
             if quantization_method is None:
@@ -119,7 +119,7 @@ class TestHFFromPretrainedArgs:
 
         quanntization_method = "bitsandbytes"
         quantization_config = {"load_in_8bit": True}
-        args = HFFromPretrainedArgs(quantization_method=quanntization_method, quantization_config=quantization_config)
+        args = HfFromPretrainedArgs(quantization_method=quanntization_method, quantization_config=quantization_config)
         config = args.get_quantization_config()
 
         assert isinstance(config, BitsAndBytesConfig)

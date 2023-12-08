@@ -15,7 +15,7 @@ import config
 from chat_app.app import launch_chat_app
 from run_llama_v2_io_binding import run_llama_v2_io_binding
 
-from olive.model import ONNXModel
+from olive.model import ONNXModelHandler
 from olive.workflows import run as olive_run
 
 
@@ -89,9 +89,9 @@ def optimize(optimized_model_dir: Path, model_type: str):
             if submodel_name == "llama_v2":
                 assert optimizer_footprint is not None
                 assert merging_footprint is not None
-                optimized_olive_model = ONNXModel(**merging_footprint["model_config"]["config"])
+                optimized_olive_model = ONNXModelHandler(**merging_footprint["model_config"]["config"])
             else:
-                optimized_olive_model = ONNXModel(**conversion_footprint["model_config"]["config"])
+                optimized_olive_model = ONNXModelHandler(**conversion_footprint["model_config"]["config"])
 
             model_info[submodel_name] = {
                 "optimized": {

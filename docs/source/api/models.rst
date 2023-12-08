@@ -12,46 +12,46 @@ Model Configuration
 
 .. _onnx_model:
 
-ONNX Model
-----------
-.. autoclass:: olive.model.ONNXModel
+ONNX Model Handler
+------------------
+.. autoclass:: olive.model.ONNXModelHandler
 
 .. _composite_onnx_model:
 
-CompositeOnnxModel Model
---------------------------
-.. autoclass:: olive.model.CompositeOnnxModel
+CompositeModel Model Handler
+----------------------------
+.. autoclass:: olive.model.CompositeModelHandler
 
 .. _distributed_onnx_model:
 
-DistributedOnnxModel Model
----------------------------
-.. autoclass:: olive.model.DistributedOnnxModel
+DistributedOnnxModel Model Handler
+----------------------------------
+.. autoclass:: olive.model.DistributedOnnxModelHandler
 
 .. _openvino_model:
 
-OpenVINO Model
---------------
-.. autoclass:: olive.model.OpenVINOModel
+OpenVINO Model Handler
+----------------------
+.. autoclass:: olive.model.OpenVINOModelHandler
 
 .. _pytorch_model:
 
-PyTorch Model
---------------
-.. autoclass:: olive.model.PyTorchModel
+PyTorch Model Handler
+---------------------
+.. autoclass:: olive.model.PyTorchModelHandler
 
-DistributedPyTorchModel Model
------------------------------
-.. autoclass:: olive.model.DistributedPyTorchModel
+DistributedPyTorchModelHandler Model
+------------------------------------
+.. autoclass:: olive.model.DistributedPyTorchModelHandler
 
 .. _snpe_model:
 
-SNPE Model
-----------
-.. autoclass:: olive.model.SNPEModel
+SNPEHandler Model
+-----------------
+.. autoclass:: olive.model.SNPEModelHandler
 
-CompositePyTorchModel Model
----------------------------
-.. autoclass:: olive.model.CompositePyTorchModel
+CompositePyTorchModel Model Handler
+-----------------------------------
+.. autoclass:: olive.model.CompositePyTorchModelHandler
 
 .. _distributed_pytorch_model:

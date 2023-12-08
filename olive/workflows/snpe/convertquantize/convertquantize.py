@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 from typing import Dict, Optional, Union
 
-from olive.model import ONNXModel, TensorFlowModel
+from olive.model import ONNXModelHandler, TensorFlowModelHandler
 from olive.passes import SNPEConversion, SNPEQuantization, SNPEtoONNXConversion
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.snpe import SNPEDevice, SNPEProcessedDataLoader
@@ -44,10 +44,10 @@ def convertquantize(
     model_file = Path(model).resolve()
     if model_file.suffix == ".onnx":
         logger.info("Loading model...")
-        model = ONNXModel(model_file)
+        model = ONNXModelHandler(model_file)
     elif model_file.suffix == ".pb":
         logger.info("Loading model...")
-        model = TensorFlowModel(model_file)
+        model = TensorFlowModelHandler(model_file)
     else:
         raise ValueError(f"Unsupported model format: {model_file.suffix}")
 

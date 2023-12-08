@@ -13,7 +13,7 @@ from olive.common.pydantic_v1 import validator
 from olive.common.user_module_loader import UserModuleLoader
 from olive.data.config import DataConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
-from olive.model import CompositeOnnxModel, DistributedOnnxModel, OliveModel
+from olive.model import CompositeModelHandler, DistributedOnnxModelHandler, OliveModelHandler
 from olive.passes.pass_config import (
     PassConfigBase,
     PassConfigParam,
@@ -325,14 +325,14 @@ class Pass(ABC):
 
     @abstractmethod
     def _run_for_config(
-        self, model: OliveModel, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> OliveModel:
+        self, model: OliveModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> OliveModelHandler:
         """Run the pass on the model with the given configuration."""
         raise NotImplementedError
 
     def run(
-        self, model: OliveModel, data_root: str, output_model_path: str, point: Optional[Dict[str, Any]] = None
-    ) -> OliveModel:
+        self, model: OliveModelHandler, data_root: str, output_model_path: str, point: Optional[Dict[str, Any]] = None
+    ) -> OliveModelHandler:
         """Run the pass on the model at a specific point in the search space."""
         point = point or {}
         config = self.config_at_search_point(point)
@@ -342,30 +342,33 @@ class Pass(ABC):
             self._initialized = True
 
         # Optimization pass still works on individual graphs.
-        if isinstance(model, DistributedOnnxModel):
+        if isinstance(model, DistributedOnnxModelHandler):
             for rank in range(model.num_ranks):
                 input_ranked_model = model.load_model(rank)
                 ranked_output_path = Path(output_model_path).with_suffix("") / model.ranked_model_name(rank)
                 self._run_for_config(input_ranked_model, data_root, config, str(ranked_output_path))
 
-            output_model = DistributedOnnxModel(
+            output_model = DistributedOnnxModelHandler(
                 model_path=str(Path(output_model_path).with_suffix("")),
                 model_name_pattern=model.model_name_pattern,
                 num_ranks=model.num_ranks,
                 inference_settings=model.inference_settings,
             )
-        elif isinstance(model, CompositeOnnxModel) and not self._accepts_composite_model:
+        elif isinstance(model, CompositeModelHandler) and not self._accepts_composite_model:
+            # CompositePyTorchModel is also handled here.
             components = []
             component_names = []
-            for cidx, child in enumerate(model.get_model_components()):
-                component_output_path = Path(output_model_path).with_suffix("") / model.get_model_component_name(cidx)
-                output_model_component = self._run_for_config(child, data_root, config, str(component_output_path))
+            for component_name, component_model in model.get_model_components():
+                component_output_path = Path(output_model_path).with_suffix("") / component_name
+                output_model_component = self._run_for_config(
+                    component_model, data_root, config, str(component_output_path)
+                )
                 output_model_component.model_attributes = (
-                    output_model_component.model_attributes or child.model_attributes
+                    output_model_component.model_attributes or component_model.model_attributes
                 )
                 components.append(output_model_component)
-                component_names.append(model.get_model_component_name(cidx))
-            output_model = CompositeOnnxModel(components, component_names)
+                component_names.append(component_name)
+            output_model = CompositeModelHandler(components, component_names)
         else:
             output_model = self._run_for_config(model, data_root, config, output_model_path)
         # assumption: the model attributes from passes, if any, are more important than

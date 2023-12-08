@@ -23,7 +23,7 @@ from optimum.onnxruntime import ORTStableDiffusionXLImg2ImgPipeline, ORTStableDi
 from packaging import version
 from PIL import Image, ImageTk
 
-from olive.model import ONNXModel
+from olive.model import ONNXModelHandler
 from olive.workflows import run as olive_run
 
 # pylint: disable=redefined-outer-name
@@ -321,8 +321,8 @@ def optimize(
 
             assert conversion_footprint and optimizer_footprint
 
-            unoptimized_olive_model = ONNXModel(**conversion_footprint["model_config"]["config"])
-            optimized_olive_model = ONNXModel(**optimizer_footprint["model_config"]["config"])
+            unoptimized_olive_model = ONNXModelHandler(**conversion_footprint["model_config"]["config"])
+            optimized_olive_model = ONNXModelHandler(**optimizer_footprint["model_config"]["config"])
 
             model_info[submodel_name] = {
                 "unoptimized": {
@@ -484,7 +484,7 @@ if __name__ == "__main__":
 
     # Optimize the models
     unoptimized_model_dir = script_dir / "models" / "unoptimized" / args.model_id
-    optimized_dir_name = "optimized" if args.provider == "directml" else "optimized-cuda"
+    optimized_dir_name = "optimized" if args.provider == "dml" else "optimized-cuda"
     optimized_model_dir = script_dir / "models" / optimized_dir_name / args.model_id
 
     model_config = model_to_config.get(args.model_id, {})

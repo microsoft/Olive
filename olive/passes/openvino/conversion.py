@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Tuple, Union
 
 from olive.constants import Framework
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import ONNXModel, OpenVINOModel, PyTorchModel
+from olive.model import ONNXModelHandler, OpenVINOModelHandler, PyTorchModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
 
@@ -49,8 +49,12 @@ class OpenVINOConversion(Pass):
         }
 
     def _run_for_config(
-        self, model: Union[PyTorchModel, ONNXModel], data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> OpenVINOModel:
+        self,
+        model: Union[PyTorchModelHandler, ONNXModelHandler],
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+    ) -> OpenVINOModelHandler:
         import torch
 
         try:
@@ -85,4 +89,4 @@ class OpenVINOConversion(Pass):
 
         # Save as ov model
         serialize(ov_model, xml_path=str(output_dir.with_suffix(".xml")), bin_path=str(output_dir.with_suffix(".bin")))
-        return OpenVINOModel(model_path=output_model_path)
+        return OpenVINOModelHandler(model_path=output_model_path)

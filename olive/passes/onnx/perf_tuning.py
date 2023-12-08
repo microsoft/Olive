@@ -14,7 +14,7 @@ from olive.evaluator.metric import LatencySubType, Metric, MetricType, joint_met
 from olive.evaluator.metric_config import get_user_config_properties_from_metric_type
 from olive.exception import EXCEPTIONS_TO_RAISE
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
-from olive.model import ONNXModel
+from olive.model import ONNXModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import ParamCategory, PassConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
@@ -419,8 +419,8 @@ class OrtPerfTuning(Pass):
         }
 
     def _run_for_config(
-        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> ONNXModel:
+        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> ONNXModelHandler:
         config = self._config_class(**config)
         # TODO(jambayk): decide on whether to ignore the output_model_path
         # if we want to ignore it, we can just return the model

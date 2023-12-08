@@ -22,8 +22,8 @@ pip install openvino==2022.3.0 openvino-dev[tensorflow,onnx]==2022.3.0
 
 
 ## Model Conversion
-`OpenVINOConversion` pass will convert the model from original framework to OpenVino IR Model. `PyTorchModel`, `ONNXModel` and
-`TensorFlowModel` are supported for now.
+`OpenVINOConversion` pass will convert the model from original framework to OpenVino IR Model. `PyTorchModelHandler`, `ONNXModelHandler` and
+`TensorFlowModelHandler` are supported for now.
 
 Please refer to [OpenVINOConversion](openvino_conversion) for more details about the pass and its config parameters.
 
