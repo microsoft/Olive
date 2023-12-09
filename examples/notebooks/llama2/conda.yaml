@@ -1,0 +1,19 @@
+name: project_environment
+channels:
+  - defaults
+dependencies:
+  - python=3.8.13
+  - pip=22.3.1
+  - pip:
+      - accelerate
+      - azure-keyvault-secrets
+      - azure-identity
+      - bitsandbytes
+      - datasets
+      - huggingface_hub
+      - peft
+      - scipy
+      - sentencepiece
+      - torch==2.0.1
+      - transformers
+      - git+https://github.com/microsoft/Olive#egg=olive-ai[gpu]
