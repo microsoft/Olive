@@ -187,7 +187,7 @@ class DistributedOnnxModelHandler(OliveModelHandler, OnnxEpValidateMixin):
         # return firstly available ep as ort default ep
         available_providers = self.get_execution_providers(device)
         for ep in available_providers:
-            if self._is_valid_ep(filepath, ep):
+            if self.is_valid_ep(filepath, ep):
                 return [ep]
 
         return ["CUDAExecutionProvider", "CPUExecutionProvider"]
