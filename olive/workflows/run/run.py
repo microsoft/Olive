@@ -156,17 +156,23 @@ def run_engine(config: RunConfig, data_root: str = None):
     accelerator_specs = create_accelerators(engine.target, config.engine.execution_providers)
 
     auto_optimizer = None
-    if not config.passes and not config.auto_optimizer_config.disable_auto_optimizer:
-        auto_optimizer = AutoOptimizer(
-            input_model, engine.evaluator_config, accelerator_specs, config.auto_optimizer_config, config.data_configs
-        )
-        passes, pass_flows = auto_optimizer.suggest()
-        config.passes = {k: RunPassConfig(**v) for k, v in passes.items()}
-        config.pass_flows = pass_flows
+    run_rls = {}
+    for accelerator_spec in accelerator_specs:
+        passes = config.passes or {}
+        pass_flows = config.pass_flows or []
+        if not config.passes and not config.auto_optimizer_config.disable_auto_optimizer:
+            auto_optimizer = AutoOptimizer(
+                input_model,
+                engine.evaluator_config,
+                accelerator_spec,
+                config.auto_optimizer_config,
+                config.data_configs,
+            )
+            _passes, pass_flows = auto_optimizer.suggest()
+            passes = {k: RunPassConfig.parse_obj(v) for k, v in _passes.items()}
 
-    # passes
-    if config.passes:
-        for pass_name, pass_config in config.passes.items():
+        # passes
+        for pass_name, pass_config in passes.items():
             host = pass_config.host.create_system() if pass_config.host is not None else None
             engine.register(
                 Pass.registry[pass_config.type.lower()],
@@ -178,21 +184,24 @@ def run_engine(config: RunConfig, data_root: str = None):
                 clean_run_cache=pass_config.clean_run_cache,
                 output_name=pass_config.output_name,
             )
-        engine.set_pass_flows(config.pass_flows)
+        engine.set_pass_flows(pass_flows)
 
-    if data_root is None:
-        data_root = config.data_root
+        if data_root is None:
+            data_root = config.data_root
 
-    # run
-    return engine.run(
-        input_model,
-        accelerator_specs,
-        data_root,
-        config.engine.packaging_config,
-        config.engine.output_dir,
-        config.engine.output_name,
-        config.engine.evaluate_input_model,
-    )
+        # run
+        run_rls.update(
+            engine.run(
+                input_model,
+                accelerator_specs,
+                data_root,
+                config.engine.packaging_config,
+                config.engine.output_dir,
+                config.engine.output_name,
+                config.engine.evaluate_input_model,
+            )
+        )
+    return run_rls
 
 
 def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = None):

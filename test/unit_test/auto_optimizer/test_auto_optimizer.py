@@ -33,29 +33,29 @@ class TestAutoOptimizer:
         self.data_configs = {"__input_model_data_config__": get_glue_huggingface_data_config()}
 
     @pytest.mark.parametrize(
-        "accelerator_specs, auto_optimizer_config, expected_cuda_fp16, expected_trt_fp16",
+        "accelerator_spec, auto_optimizer_config, expected_cuda_fp16, expected_trt_fp16",
         [
             (
                 # running on gpu-cuda, enable cuda fp16, disable trt fp16
-                [DEFAULT_GPU_CUDA_ACCELERATOR],
+                DEFAULT_GPU_CUDA_ACCELERATOR,
                 None,
                 True,
                 False,
             ),
             (
                 # running on gpu-trt, disable cuda fp16, enable trt fp16
-                [DEFAULT_GPU_TRT_ACCELERATOR],
+                DEFAULT_GPU_TRT_ACCELERATOR,
                 None,
                 False,
                 True,
             ),
         ],
     )
-    def test_regulate_fp16(self, accelerator_specs, auto_optimizer_config, expected_cuda_fp16, expected_trt_fp16):
+    def test_regulate_fp16(self, accelerator_spec, auto_optimizer_config, expected_cuda_fp16, expected_trt_fp16):
         auto_optimizer = AutoOptimizer(
             input_model_config=self.input_model_config,
             evaluator_config=self.evaluator_config,
-            accelerator_specs=accelerator_specs,
+            accelerator_spec=accelerator_spec,
             auto_optimizer_config=auto_optimizer_config,
             data_configs=self.data_configs,
         )
@@ -68,11 +68,11 @@ class TestAutoOptimizer:
         assert pass_config[perf_opt_name]["config"]["trt_fp16_enable"] == expected_trt_fp16
 
     @pytest.mark.parametrize(
-        "metrics, accelerator_specs, auto_optimizer_config, expected_pass_flows",
+        "metrics, accelerator_spec, auto_optimizer_config, expected_pass_flows",
         [
             (
                 [get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, goal_type="max-degradation")],
-                [DEFAULT_CPU_ACCELERATOR],
+                DEFAULT_CPU_ACCELERATOR,
                 None,
                 [
                     ["OnnxConversion", "OrtTransformersOptimization", "OrtPerfTuning"],
@@ -83,14 +83,14 @@ class TestAutoOptimizer:
             (
                 # cannot tolerate accuracy drop, then skip quantization
                 [get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, goal_type="max-degradation", goal_value=0)],
-                [DEFAULT_CPU_ACCELERATOR],
+                DEFAULT_CPU_ACCELERATOR,
                 AutoOptimizerConfig(precisions=["fp32"]),
                 [["OnnxConversion", "OrtTransformersOptimization", "OrtPerfTuning"]],
             ),
             (
                 # running on gpu-cuda, skip quantization
                 [get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, goal_type="max-degradation")],
-                [DEFAULT_GPU_CUDA_ACCELERATOR],
+                DEFAULT_GPU_CUDA_ACCELERATOR,
                 AutoOptimizerConfig(precisions=["fp16"]),
                 [
                     ["OnnxConversion", "OrtTransformerOptimization_cuda_fp16", "OrtPerfTuning"],
@@ -99,12 +99,12 @@ class TestAutoOptimizer:
             ),
         ],
     )
-    def test_regulate_pass(self, metrics, accelerator_specs, auto_optimizer_config, expected_pass_flows):
+    def test_regulate_pass(self, metrics, accelerator_spec, auto_optimizer_config, expected_pass_flows):
         evaluator_config = OliveEvaluatorConfig(metrics=metrics)
         auto_optimizer = AutoOptimizer(
             input_model_config=self.input_model_config,
             evaluator_config=evaluator_config,
-            accelerator_specs=accelerator_specs,
+            accelerator_spec=accelerator_spec,
             auto_optimizer_config=auto_optimizer_config,
             data_configs=self.data_configs,
         )

@@ -59,14 +59,14 @@ class AutoOptimizer(RegulatePassConfigMixin):
         self,
         input_model_config: ModelConfig,
         evaluator_config: OliveEvaluatorConfig,
-        accelerator_specs: List[AcceleratorSpec],
+        accelerator_spec: AcceleratorSpec,
         auto_optimizer_config: Optional[AutoOptimizerConfig] = None,
         data_configs: Optional[Dict[str, DataConfig]] = None,
     ):
         # TODO(trajep): how to get model_attributes if the model is in AML workspace? Maybe we can ignore this for now?
         self.input_model_config = input_model_config
         self.evaluator_config = evaluator_config
-        self.accelerator_specs = accelerator_specs
+        self.accelerator_spec = accelerator_spec
         self.auto_optimizer_config = auto_optimizer_config or AutoOptimizerConfig()
         self.data_configs = data_configs or {}
         self.initialize()
@@ -104,23 +104,16 @@ class AutoOptimizer(RegulatePassConfigMixin):
         pass_config = {"pass_name1": {"param1": "value1", "param2": "value2"}}
         pass_flows = [["pass_name1", "pass_name2"], ["pass_name3", "pass_name4"]].
         """
-        pass_config = {}
-        pass_flows = []
-        for accelerator_spec in self.accelerator_specs:
-            pass_flows_by_precision = self.suggest_pass_flows(accelerator_spec)
-            _pass_config, _pass_flows = self.regulate(pass_flows_by_precision, accelerator_spec)
-            pass_config.update(_pass_config)
-            pass_flows.extend(_pass_flows)
-        return pass_config, pass_flows
+        return self.regulate(self.suggest_pass_flows())
 
-    def suggest_pass_flows(self, accelerator_spec):
+    def suggest_pass_flows(self):
         pass_flows_by_precision = []
         if self.auto_optimizer_config.opt_level == 0:
-            pass_flows_by_precision = self.suggest_pass_flows_from_template(accelerator_spec)
+            pass_flows_by_precision = self.suggest_pass_flows_from_template()
 
         return pass_flows_by_precision
 
-    def suggest_pass_flows_from_template(self, accelerator_spec):
+    def suggest_pass_flows_from_template(self):
         from olive.auto_optimizer.template_mapping import get_pass_flows_by_accelerator_ep_precision
 
         assert self.auto_optimizer_config.opt_level <= 1, "opt_level must be 0 for suggest_pass_flows_from_template"
@@ -129,17 +122,17 @@ class AutoOptimizer(RegulatePassConfigMixin):
         for precision in self.auto_optimizer_config.precisions or []:
             pass_flows_by_precision[precision] = get_pass_flows_by_accelerator_ep_precision(
                 self.auto_optimizer_config.opt_level,
-                accelerator_spec.accelerator_type.value,
-                accelerator_spec.execution_provider,
+                self.accelerator_spec.accelerator_type.value,
+                self.accelerator_spec.execution_provider,
                 precision,
             )
         return pass_flows_by_precision
 
-    def regulate(self, pass_flows_by_precision, accelerator_spec):
+    def regulate(self, pass_flows_by_precision):
         # step1: regulate the pass name which may be different in different passes
         # for example: OrtTransformersOptimization_cuda_fp16 and OrtTransformersOptimization
         # are for the case of fp16 and fp32 respectively
-        pass_config, pass_flows = self.regulate_pass_flows_dict(pass_flows_by_precision, accelerator_spec)
+        pass_config, pass_flows = self.regulate_pass_flows_dict(pass_flows_by_precision)
 
         # step2: fill the data_config for the passes that need data_config
         return self.regulate_data_config(pass_config, pass_flows)
