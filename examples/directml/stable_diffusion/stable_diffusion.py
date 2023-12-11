@@ -368,22 +368,6 @@ if __name__ == "__main__":
             "Use --dynamic_dims to disable static shape optimization."
         )
 
-    model_to_image_size = {
-        "CompVis/stable-diffusion-v1-4": 512,
-        "runwayml/stable-diffusion-v1-5": 512,
-        "stabilityai/stable-diffusion-2": 768,
-        "stabilityai/stable-diffusion-2-base": 768,
-        "stabilityai/stable-diffusion-2-1": 768,
-        "stabilityai/stable-diffusion-2-1-base": 768,
-        "stabilityai/sd-turbo": 512,
-    }
-
-    if args.model_id not in model_to_image_size:
-        print(
-            f"WARNING: {args.model_id} is not an officially supported model for this example and may not work "
-            "as expected."
-        )
-
     if args.provider == "dml" and version.parse(ort.__version__) < version.parse("1.16.0"):
         print("This script requires onnxruntime-directml 1.16.0 or newer")
         sys.exit(1)
