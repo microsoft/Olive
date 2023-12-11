@@ -1,0 +1,2 @@
+neural-compressor
+# Install the private ort wheel contains https://github.com/microsoft/onnxruntime/pull/17669

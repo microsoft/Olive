@@ -1,0 +1,141 @@
+{
+    "input_model": {
+        "type": "ONNXModel",
+        "config": {
+            "model_path": "C:/git/rwkv/rwkv_7b_outputs/exported_rwkv/rwkv.model.onnx"
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    "CPU"
+                ]
+            }
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics": [
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_types": [
+                        {
+                            "name": "avg",
+                            "priority": 1
+                        }
+                    ],
+                    "user_config": {
+                        "input_names": [
+                            "x",
+                            "state_in"
+                        ],
+                        "input_shapes": [
+                            [
+                                1,
+                                1
+                            ],
+                            [
+                                160,
+                                4096
+                            ]
+                        ],
+                        "input_types": [
+                            "int64",
+                            "float32"
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "passes": {
+        "blockwise_quant_int4": {
+            "type": "OnnxMatMul4Quantizer",
+            "disable_search": true,
+            "evaluator": "common_evaluator",
+            "config": {
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true,
+                "block_size": 32,
+                "is_symmetric": true
+            }
+        },
+        "quantization": {
+            "type": "IncStaticQuantization",
+            "disable_search": true,
+            "config": {
+                "approach": "weight_only",
+                "weight_only_config": {
+                    "bits": 4,
+                    "algorithm": "RTN"
+                },
+                "recipes":{
+                    "rtn_args": {
+                        "accuracy_level": 4
+                    }
+                },
+                "calibration_sampling_size": [
+                    8
+                ],
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true
+            }
+        },
+        "perf_tuning": {
+            "type": "OrtPerfTuning",
+            "config": {
+                "input_names": [
+                    "x",
+                    "state_in"
+                ],
+                "input_shapes": [
+                    [
+                        1,
+                        1
+                    ],
+                    [
+                        160,
+                        4096
+                    ]
+                ],
+                "input_types": [
+                    "int64",
+                    "float32"
+                ]
+            }
+        }
+    },
+    "pass_flows": [
+        [
+            "quantization",
+            "perf_tuning"
+        ]
+    ],
+    "engine": {
+        "log_severity_level": 0,
+        "ort_log_severity_level": 2,
+        "ort_py_log_severity_level": 0,
+        "search_strategy": {
+            "execution_order": "joint",
+            "search_algorithm": "tpe",
+            "search_algorithm_config": {
+                "num_samples": 3,
+                "seed": 0
+            }
+        },
+        "evaluator": "common_evaluator",
+        "host": "local_system",
+        "target": "local_system",
+        "execution_providers": [
+            "CPUExecutionProvider"
+        ],
+        "clean_cache": true,
+        "cache_dir": "cache",
+        "output_dir": "outputs_7b",
+        "evaluate_input_model": false,
+        "log_to_file": true
+    }
+}
