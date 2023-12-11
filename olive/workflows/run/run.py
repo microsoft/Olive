@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 from typing import List, Union
 
+from olive.hardware.accelerator import create_accelerators
 from olive.logging import enable_filelog, set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
 from olive.systems.common import SystemType
 from olive.workflows.run.config import RunConfig
@@ -182,12 +183,13 @@ def run_engine(config: RunConfig, data_root: str = None):
     if config.azureml_client:
         config.engine.azureml_client_config = config.azureml_client
 
-    # engine
-    engine = config.engine.create_engine()
-
     if not config.passes and not config.engine.evaluate_input_model:
         # TODO(trajep): enhance this logic for more passes templates
         engine, config = automatically_insert_passes(config)
+    else:
+        # engine
+        engine = config.engine.create_engine()
+    accelerator_specs = create_accelerators(engine.target, config.engine.execution_providers)
 
     # passes
     if config.passes:
@@ -211,6 +213,7 @@ def run_engine(config: RunConfig, data_root: str = None):
     # run
     return engine.run(
         input_model,
+        accelerator_specs,
         data_root,
         config.engine.packaging_config,
         config.engine.output_dir,
