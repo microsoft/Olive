@@ -58,15 +58,21 @@ Config Fields:
             "execution_providers": ["CUDAExecutionProvider", "TensorrtExecutionProvider"],
             "cache_dir": "cache",
             "output_dir" : "models/bert_gpu"
+        },
+        "auto_optimizer_config": {
+            "opt_level": 0,
+            "disable_auto_optimizer": false,
+            "precision": "fp16"
         }
+
     }
 
 .. note::
     In this example, Auto Optimizer will search for the best passes combination for different execution providers, e.g. CUDAExecutionProvider and TensorrtExecutionProvider.
 
-    - For CUDAExecutionProvider, it will try float16 in `OrtTransformersOptimization` and ignore `OnnxConversion`.
+    - For CUDAExecutionProvider, it will try float16 in `OrtTransformersOptimization`.
 
-    - For TensorrtExecutionProvider, it will try trt_fp16 in `OrtPerfTuning` and ignore `OnnxQuantization`.
+    - For TensorrtExecutionProvider, it will try trt_fp16 in `OrtPerfTuning`.
 
 Here the available pass flows for given accelerator, execution providers and precision:
 
