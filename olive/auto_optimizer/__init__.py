@@ -124,6 +124,7 @@ class AutoOptimizer(RegulatePassConfigMixin):
         pass_flows_by_precision = {}
         for precision in self.auto_optimizer_config.precisions or []:
             pass_flows_by_precision[precision] = get_pass_flows_by_accelerator_ep_precision(
+                self.auto_optimizer_config.opt_level,
                 self.accelerator_spec.accelerator_type.value,
                 self.accelerator_spec.execution_provider,
                 precision,

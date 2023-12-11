@@ -11,8 +11,14 @@ import yaml
 logger = logging.getLogger(__name__)
 
 TEMPLATE_CONFIG_PATH = Path(__file__).resolve().parent / "config_template"
-AVAILABLE_PASS_FLOWS = "available_pass_flows.yaml"
+# precision_aware_pass_flows: means the passes which can conduct different precision models
+# like: transformer optimization and perf tuning(trt fp16)
 PRECISION_AWARE_PASS_FLOWS = "precision_aware_pass_flows.yaml"
+PASS_CAPABILITY = "pass_capability.yaml"
+OPT_LEVEL_PASSES = "opt_level_passes.yaml"
+
+LEADING_PASSES = ["OnnxConversion", "OrtTransformersOptimization"]
+TRAILING_PASSES = ["OrtPerfTuning"]
 
 
 def get_precision_aware_passes():
@@ -20,24 +26,53 @@ def get_precision_aware_passes():
         return yaml.safe_load(f)
 
 
-def get_available_pass_flows():
-    """Get all the available pass flows from the yaml file.
-
-    return: a dict of pass flows, key is the combination of accelerator, ep and precision.
-        value is a list of pass flows.
-        e.g. for accelerator: "GPU", ep: "CUDAExecutionProvider", precision: "fp32", the key is "gpu_cuda_fp32"
-    """
-    with (TEMPLATE_CONFIG_PATH / AVAILABLE_PASS_FLOWS).open() as f:
-        available_pass_flows = yaml.safe_load(f)
-    return available_pass_flows["mapping"]
+def get_pass_capability():
+    with (TEMPLATE_CONFIG_PATH / PASS_CAPABILITY).open() as f:
+        return yaml.safe_load(f)
 
 
-def get_pass_flows_by_accelerator_ep_precision(accelerator, ep, precision):
+def get_available_passes_by_opt_level(opt_level):
+    with (TEMPLATE_CONFIG_PATH / OPT_LEVEL_PASSES).open() as f:
+        opt_level_passes = yaml.safe_load(f)
+    return opt_level_passes[str(opt_level)]
+
+
+def get_pass_flows_by_accelerator_ep_precision(opt_level, accelerator, ep, precision):
     ep_literal = "ExecutionProvider"
-    ep = ep[: -len(ep_literal)] if ep.endswith(ep_literal) else ep
-    pass_flows_key = f"{accelerator.lower()}_{ep.lower()}_{precision.lower()}"
-    available_pfs = get_available_pass_flows()
-    if pass_flows_key not in available_pfs:
-        logger.debug(f"pass flows for {pass_flows_key} is not in {available_pfs}, will ignore it")
-        return []
-    return available_pfs[pass_flows_key]
+    ep = ep[: -len(ep_literal)].lower() if ep.endswith(ep_literal) else ep.lower()
+    available_passes = get_available_passes_by_opt_level(opt_level)
+    passes_cap = get_pass_capability()
+    passes_candidates = []
+    passes_candidates_config = {}
+    for p in available_passes:
+        if p in LEADING_PASSES or p in TRAILING_PASSES:
+            continue
+        # None means all, means no constraints
+        if (lower_ep := passes_cap[p].get("EP")) is not None:
+            lower_ep = [e.lower() for e in lower_ep]
+        if (
+            (passes_cap[p].get("accelerator") is None or accelerator in passes_cap[p].get("accelerator"))
+            and (lower_ep is None or ep in lower_ep)
+            and (passes_cap[p].get("precision") is None or precision in passes_cap[p].get("precision"))
+        ):
+            passes_candidates.append(p)
+            passes_candidates_config[p] = {
+                "accelerator": None if passes_cap[p].get("accelerator") is None else accelerator,
+                "EP": None if passes_cap[p].get("EP") is None else ep,
+                "precision": None if passes_cap[p].get("precision") is None else precision,
+            }
+
+    # assumption: only one pass whose precision is not fp32 or None can appear in a pass flow
+    # for example:
+    # 1. OnnxQuantization and OnnxMatMul4Quantizer cannot appear in the same pass
+    # flow as we cannot quantize a quantized model
+    # 2. OnnxQuantization and OrtTransformersOptimization_fp16 can not appear in
+    # the same pass flow as we should avoid to quantize a fp16 model
+    # etc.
+
+    pass_flows = []
+    for p in passes_candidates:
+        pass_flows.append([*LEADING_PASSES, p, *TRAILING_PASSES])
+    if not pass_flows or precision == "fp16":
+        pass_flows.append([*LEADING_PASSES, *TRAILING_PASSES])
+    return pass_flows

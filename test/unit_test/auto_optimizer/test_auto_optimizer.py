@@ -2,11 +2,14 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from pathlib import Path
 from test.unit_test.utils import get_accuracy_metric, get_glue_huggingface_data_config
 
 import pytest
+import yaml
 
 from olive.auto_optimizer import AutoOptimizer, AutoOptimizerConfig
+from olive.auto_optimizer.template_mapping import get_pass_flows_by_accelerator_ep_precision
 from olive.evaluator.metric import AccuracySubType
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR, DEFAULT_GPU_TRT_ACCELERATOR
@@ -109,3 +112,15 @@ class TestAutoOptimizer:
         pass_config, pass_flows = auto_optimizer.suggest()
         assert pass_config, "Expect pass_config to be populated by auto optimizer"
         assert pass_flows == expected_pass_flows
+
+    def test_pass_flows_generation_opt_level_0(self):
+        pass_flows_map = Path(__file__).parent / "mock_data" / "available_pass_flows.yaml"
+        with pass_flows_map.open() as f:
+            pass_flows_map = yaml.safe_load(f)["mapping"]
+
+        for k, pf in pass_flows_map.items():
+            k_list = k.split("_")
+            accelerator, ep, precision = k_list[0], k_list[1], k_list[2]
+            rls_pf = get_pass_flows_by_accelerator_ep_precision(0, accelerator, ep, precision)
+            print(rls_pf, pf)
+            assert sorted(rls_pf) == sorted(pf)

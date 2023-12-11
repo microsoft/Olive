@@ -1,0 +1,38 @@
+OrtMixedPrecision:
+    EP:
+      - CUDA
+      - Dml
+    precision:
+      - fp16
+    accelerator:
+      - gpu
+OnnxQuantization:
+    EP:
+      - CPU
+    precision:
+      - int8
+    accelerator:
+      - cpu
+IncQuantization:
+    EP:
+      - CPU
+    precision:
+      - int8
+    accelerator:
+      - cpu
+VitisAIQuantization:
+    EP:
+      - VitisAI
+    precision:
+      - int8
+    accelerator:
+      - npu
+OnnxMatMul4Quantizer:
+    EP:
+      - CPU
+      - CUDA
+    precision:
+      - int4
+    accelerator:
+      - cpu
+      - gpu
