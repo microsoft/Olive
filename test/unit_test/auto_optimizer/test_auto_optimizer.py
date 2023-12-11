@@ -111,7 +111,7 @@ class TestAutoOptimizer:
 
         pass_config, pass_flows = auto_optimizer.suggest()
         assert pass_config, "Expect pass_config to be populated by auto optimizer"
-        assert pass_flows == expected_pass_flows
+        assert sorted(pass_flows) == sorted(expected_pass_flows)
 
     def test_pass_flows_generation_opt_level_0(self):
         pass_flows_map = Path(__file__).parent / "mock_data" / "available_pass_flows.yaml"
