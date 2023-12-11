@@ -26,6 +26,7 @@ from olive.model import (
     PyTorchModelHandler,
 )
 from olive.model.config import IoConfig
+from olive.model.config.hf_config import HfConfig, get_model_type_from_hf_config
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
@@ -391,17 +392,24 @@ class OnnxConversion(Pass):
         """
         pass_config, model_config, device, torch_dtype, local_rank, output_dirpath, tempdir = params
 
-        # TODO(shaahji): Parameterize the replace/restore hooks to configure for different models
-        from olive.passes.pytorch.tensor_parallel_llama2 import (
-            replace_llama2_tensor_parallel_layers,
-            restore_llama2_tensor_parallel_layers,
-        )
+        hf_config = HfConfig(**model_config["hf_config"])
+        model_type = get_model_type_from_hf_config(hf_config)
+
+        if model_type == "llama":
+            from olive.passes.pytorch.tensor_parallel_llama2 import (
+                replace_llama2_tensor_parallel_layers as replace_tensor_parallel_layers,
+            )
+            from olive.passes.pytorch.tensor_parallel_llama2 import (
+                restore_llama2_tensor_parallel_layers as restore_tensor_parallel_layers,
+            )
+        else:
+            raise ValueError("Unsupported model type '{model_type}' for conversion pass")
 
         output_filename = DistributedOnnxModelHandler.DEFAULT_RANKED_MODEL_NAME_FORMAT.format(local_rank)
         output_filepath = resolve_onnx_path(output_dirpath, output_filename)
 
         try:
-            restore_args = replace_llama2_tensor_parallel_layers()
+            restore_args = replace_tensor_parallel_layers()
 
             input_model = DistributedPyTorchModelHandler(**model_config)
             olive_pytorch_model = input_model.load_model(local_rank)
@@ -420,7 +428,7 @@ class OnnxConversion(Pass):
                     tempdir,
                 )
         finally:
-            restore_llama2_tensor_parallel_layers(restore_args)
+            restore_tensor_parallel_layers(restore_args)
 
         # save the model to the output path and return the model
         model_proto_to_olive_model(ranked_onnx_model, output_filepath, pass_config)
