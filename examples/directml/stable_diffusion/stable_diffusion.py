@@ -39,12 +39,18 @@ def run_inference_loop(
 
     while images_saved < num_images:
         print(f"\nInference Batch Start (batch size = {batch_size}).")
+
+        kwargs = {}
+        if not config.use_classifier_free_guidance:
+            kwargs["guidance_scale"] = 0.0
+
         result = pipeline(
             [prompt] * batch_size,
             num_inference_steps=num_inference_steps,
             callback=update_steps if step_callback else None,
             height=image_size,
             width=image_size,
+            **kwargs,
         )
         passed_safety_checker = 0
 
@@ -153,15 +159,16 @@ def run_inference(
     sess_options.enable_mem_pattern = False
 
     if static_dims:
+        hidden_batch_size = batch_size * 2 if config.use_classifier_free_guidance else batch_size
         # Not necessary, but helps DML EP further optimize runtime performance.
         # batch_size is doubled for sample & hidden state because of classifier free guidance:
         # https://github.com/huggingface/diffusers/blob/46c52f9b9607e6ecb29c782c052aea313e6487b7/src/diffusers/pipelines/stable_diffusion/pipeline_stable_diffusion.py#L672
-        sess_options.add_free_dimension_override_by_name("unet_sample_batch", batch_size * 2)
+        sess_options.add_free_dimension_override_by_name("unet_sample_batch", hidden_batch_size)
         sess_options.add_free_dimension_override_by_name("unet_sample_channels", 4)
         sess_options.add_free_dimension_override_by_name("unet_sample_height", image_size // 8)
         sess_options.add_free_dimension_override_by_name("unet_sample_width", image_size // 8)
         sess_options.add_free_dimension_override_by_name("unet_time_batch", 1)
-        sess_options.add_free_dimension_override_by_name("unet_hidden_batch", batch_size * 2)
+        sess_options.add_free_dimension_override_by_name("unet_hidden_batch", hidden_batch_size)
         sess_options.add_free_dimension_override_by_name("unet_hidden_sequence", 77)
 
     provider_map = {
@@ -221,6 +228,9 @@ def optimize(
     # automatically cached correctly if individual models are fetched one at a time.
     print("Download stable diffusion PyTorch pipeline...")
     pipeline = DiffusionPipeline.from_pretrained(base_model_id, torch_dtype=torch.float32)
+    config.vae_sample_size = pipeline.vae.config.sample_size
+    config.cross_attention_dim = pipeline.unet.config.cross_attention_dim
+    config.unet_sample_size = pipeline.unet.config.sample_size
 
     model_info = {}
 
@@ -335,6 +345,13 @@ if __name__ == "__main__":
     )
     parser.add_argument("--num_images", default=1, type=int, help="Number of images to generate")
     parser.add_argument("--batch_size", default=1, type=int, help="Number of images to generate per batch")
+    parser.add_argument("--image_size", default=768, type=int, help="Width and height of the images to generate")
+    parser.add_argument(
+        "--disable_classifier_free_guidance",
+        action="store_true",
+        help="Whether to disable classifier free guidance. Classifier free guidance should be disabled for turbo "
+        "models.",
+    )
     parser.add_argument("--num_inference_steps", default=50, type=int, help="Number of steps in diffusion process")
     parser.add_argument(
         "--static_dims",
@@ -354,11 +371,11 @@ if __name__ == "__main__":
     model_to_image_size = {
         "CompVis/stable-diffusion-v1-4": 512,
         "runwayml/stable-diffusion-v1-5": 512,
-        "sayakpaul/sd-model-finetuned-lora-t4": 512,
         "stabilityai/stable-diffusion-2": 768,
         "stabilityai/stable-diffusion-2-base": 768,
         "stabilityai/stable-diffusion-2-1": 768,
         "stabilityai/stable-diffusion-2-1-base": 768,
+        "stabilityai/sd-turbo": 512,
     }
 
     if args.model_id not in model_to_image_size:
@@ -382,7 +399,11 @@ if __name__ == "__main__":
     if args.clean_cache:
         shutil.rmtree(script_dir / "cache", ignore_errors=True)
 
-    config.image_size = model_to_image_size.get(args.model_id, 512)
+    config.use_classifier_free_guidance = not args.disable_classifier_free_guidance
+
+    if args.model_id == "stabilityai/sd-turbo":
+        config.use_classifier_free_guidance = False
+        print(f"WARNING: Classifier free guidance has been disabled since {args.model_id} doesn't support it.")
 
     if args.optimize or not optimized_model_dir.exists():
         if args.tempdir is not None:
@@ -408,7 +429,7 @@ if __name__ == "__main__":
                 args.prompt,
                 args.num_images,
                 args.batch_size,
-                config.image_size,
+                args.image_size,
                 args.num_inference_steps,
                 use_static_dims,
                 args.interactive,
