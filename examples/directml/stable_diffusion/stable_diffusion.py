@@ -29,7 +29,15 @@ from olive.workflows import run as olive_run
 
 
 def run_inference_loop(
-    pipeline, prompt, num_images, batch_size, image_size, num_inference_steps, image_callback=None, step_callback=None
+    pipeline,
+    prompt,
+    num_images,
+    batch_size,
+    image_size,
+    num_inference_steps,
+    disable_classifier_free_guidance,
+    image_callback=None,
+    step_callback=None,
 ):
     images_saved = 0
 
@@ -41,7 +49,7 @@ def run_inference_loop(
         print(f"\nInference Batch Start (batch size = {batch_size}).")
 
         kwargs = {}
-        if not config.use_classifier_free_guidance:
+        if disable_classifier_free_guidance:
             kwargs["guidance_scale"] = 0.0
 
         result = pipeline(
@@ -68,7 +76,9 @@ def run_inference_loop(
         print(f"Inference Batch End ({passed_safety_checker}/{batch_size} images passed the safety checker).")
 
 
-def run_inference_gui(pipeline, prompt, num_images, batch_size, image_size, num_inference_steps):
+def run_inference_gui(
+    pipeline, prompt, num_images, batch_size, image_size, num_inference_steps, disable_classifier_free_guidance
+):
     def update_progress_bar(total_steps_completed):
         progress_bar["value"] = total_steps_completed
 
@@ -92,6 +102,7 @@ def run_inference_gui(pipeline, prompt, num_images, batch_size, image_size, num_
                 batch_size,
                 image_size,
                 num_inference_steps,
+                disable_classifier_free_guidance,
                 image_completed,
                 update_progress_bar,
             ),
@@ -149,6 +160,7 @@ def run_inference(
     batch_size,
     image_size,
     num_inference_steps,
+    disable_classifier_free_guidance,
     static_dims,
     interactive,
 ):
@@ -159,7 +171,7 @@ def run_inference(
     sess_options.enable_mem_pattern = False
 
     if static_dims:
-        hidden_batch_size = batch_size * 2 if config.use_classifier_free_guidance else batch_size
+        hidden_batch_size = batch_size if disable_classifier_free_guidance else batch_size * 2
         # Not necessary, but helps DML EP further optimize runtime performance.
         # batch_size is doubled for sample & hidden state because of classifier free guidance:
         # https://github.com/huggingface/diffusers/blob/46c52f9b9607e6ecb29c782c052aea313e6487b7/src/diffusers/pipelines/stable_diffusion/pipeline_stable_diffusion.py#L672
@@ -181,9 +193,13 @@ def run_inference(
     )
 
     if interactive:
-        run_inference_gui(pipeline, prompt, num_images, batch_size, image_size, num_inference_steps)
+        run_inference_gui(
+            pipeline, prompt, num_images, batch_size, image_size, num_inference_steps, disable_classifier_free_guidance
+        )
     else:
-        run_inference_loop(pipeline, prompt, num_images, batch_size, image_size, num_inference_steps)
+        run_inference_loop(
+            pipeline, prompt, num_images, batch_size, image_size, num_inference_steps, disable_classifier_free_guidance
+        )
 
 
 def update_config_with_provider(config: Dict, provider: str):
@@ -383,11 +399,13 @@ if __name__ == "__main__":
     if args.clean_cache:
         shutil.rmtree(script_dir / "cache", ignore_errors=True)
 
-    config.use_classifier_free_guidance = not args.disable_classifier_free_guidance
+    disable_classifier_free_guidance = args.disable_classifier_free_guidance
 
-    if args.model_id == "stabilityai/sd-turbo":
-        config.use_classifier_free_guidance = False
-        print(f"WARNING: Classifier free guidance has been disabled since {args.model_id} doesn't support it.")
+    if args.model_id == "stabilityai/sd-turbo" and not disable_classifier_free_guidance:
+        disable_classifier_free_guidance = True
+        print(
+            f"WARNING: Classifier free guidance has been forcefully disabled since {args.model_id} doesn't support it."
+        )
 
     if args.optimize or not optimized_model_dir.exists():
         if args.tempdir is not None:
@@ -415,6 +433,7 @@ if __name__ == "__main__":
                 args.batch_size,
                 args.image_size,
                 args.num_inference_steps,
+                disable_classifier_free_guidance,
                 use_static_dims,
                 args.interactive,
             )
