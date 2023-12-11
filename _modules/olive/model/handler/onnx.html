@@ -317,7 +317,7 @@
         <span class="c1"># return firstly available ep as ort default ep</span>
         <span class="n">available_providers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_execution_providers</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">available_providers</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_valid_ep</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="n">ep</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_valid_ep</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="n">ep</span><span class="p">):</span>
                 <span class="k">return</span> <span class="p">[</span><span class="n">ep</span><span class="p">]</span>
 
         <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;CUDAExecutionProvider&quot;</span><span class="p">,</span> <span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">]</span>
