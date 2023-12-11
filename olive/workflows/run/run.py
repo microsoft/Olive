@@ -15,7 +15,7 @@ from olive.auto_optimizer import AutoOptimizer
 from olive.hardware.accelerator import create_accelerators
 from olive.logging import enable_filelog, set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
 from olive.systems.common import SystemType
-from olive.workflows.run.config import RunConfig
+from olive.workflows.run.config import RunConfig, RunPassConfig
 
 logger = logging.getLogger(__name__)
 
@@ -160,7 +160,9 @@ def run_engine(config: RunConfig, data_root: str = None):
         auto_optimizer = AutoOptimizer(
             input_model, engine.evaluator_config, accelerator_specs, config.auto_optimizer_config, config.data_configs
         )
-        config.passes, config.pass_flows = auto_optimizer.suggest()
+        passes, pass_flows = auto_optimizer.suggest()
+        config.passes = {k: RunPassConfig(**v) for k, v in passes.items()}
+        config.pass_flows = pass_flows
 
     # passes
     if config.passes:
@@ -190,7 +192,6 @@ def run_engine(config: RunConfig, data_root: str = None):
         config.engine.output_dir,
         config.engine.output_name,
         config.engine.evaluate_input_model,
-        config.data_configs,
     )
 
 
