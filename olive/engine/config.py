@@ -5,7 +5,6 @@
 from pathlib import Path
 from typing import List, Optional, Union
 
-from olive.auto_optimizer import AutoOptimizerConfig
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase
 from olive.engine.packaging.packaging_config import PackagingConfig
@@ -33,4 +32,3 @@ class EngineConfig(ConfigBase):
     clean_cache: bool = False
     clean_evaluation_cache: bool = False
     plot_pareto_frontier: bool = False
-    auto_optimizer_config: Optional[AutoOptimizerConfig] = None

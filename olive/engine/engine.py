@@ -12,18 +12,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 
 import olive.cache as cache_utils
-from olive.auto_optimizer import AutoOptimizer, AutoOptimizerConfig
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.utils import hash_dict
-from olive.data.config import DataConfig
 from olive.engine.config import FAILED_CONFIG, INVALID_CONFIG, PRUNED_CONFIGS, EngineConfig
 from olive.engine.footprint import Footprint, FootprintNode, FootprintNodeMetric
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import Metric, MetricResult, joint_metric_key
 from olive.exception import EXCEPTIONS_TO_RAISE, OlivePassError
-from olive.hardware import AcceleratorLookup, AcceleratorSpec, Device
 from olive.model import ModelConfig
-from olive.passes.olive_pass import Pass
 from olive.strategy.search_strategy import SearchStrategy
 from olive.systems.common import SystemType
 from olive.systems.local import LocalSystem
@@ -33,6 +29,8 @@ from olive.systems.utils import create_new_system_with_cache
 if TYPE_CHECKING:
     from olive.engine.packaging.packaging_config import PackagingConfig
     from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
+    from olive.hardware import AcceleratorSpec
+    from olive.passes.olive_pass import Pass
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +49,6 @@ class Engine:
         target: Optional[OliveSystem] = None,
         evaluator_config: Optional["OliveEvaluatorConfig"] = None,
         execution_providers: Optional[List[str]] = None,
-        auto_optimizer_config: Optional[AutoOptimizerConfig] = None,
     ):
         self._config = validate_config(config, EngineConfig)
 
@@ -85,8 +82,6 @@ class Engine:
         else:
             self.target = LocalSystem()
 
-        self.setup_accelerators(execution_providers)
-
         # default evaluator
         self.evaluator_config = None
         if evaluator_config is not None:
@@ -107,133 +102,7 @@ class Engine:
 
         self.azureml_client_config = self._config.azureml_client_config
 
-        self.auto_optimizer_config = AutoOptimizerConfig()
-        if auto_optimizer_config is not None:
-            self.auto_optimizer_config = auto_optimizer_config
-        elif self._config.auto_optimizer_config is not None:
-            self.auto_optimizer_config = self._config.auto_optimizer_config
-
         self._initialized = False
-
-    def setup_accelerators(self, execution_providers):
-        # TODO(trajep): move this out of engine
-        if execution_providers is None:
-            execution_providers = self._config.execution_providers
-
-        if not execution_providers:
-            if self.target.olive_managed_env:
-                raise ValueError("Managed environment requires execution providers to be specified.")
-            elif self.target.system_type == SystemType.AzureML:
-                # verify the AzureML system have specified the execution providers
-                # Please note we could not use isinstance(target, AzureMLSystem) since it would import AzureML packages.
-                raise ValueError("AzureMLSystem requires execution providers to be specified.")
-            elif self.target.system_type in (SystemType.Local, SystemType.PythonEnvironment):
-                execution_providers = self.target.get_supported_execution_providers()
-            elif self.target.system_type == SystemType.Docker:
-                # for docker system we default use CPUExecutionProvider
-                execution_providers = ["CPUExecutionProvider"]
-        logger.debug(f"Initial execution providers: {execution_providers}")
-
-        self.execution_providers = execution_providers
-
-        accelerators: List[str] = self.target.accelerators
-        if accelerators is None:
-            inferred_accelerators = AcceleratorLookup.infer_accelerators_from_execution_provider(
-                self.execution_providers
-            )
-            if not inferred_accelerators:
-                logger.warning("Cannot infer the accelerators from the target system. Use CPU as default.")
-                accelerators = ["CPU"]
-            else:
-                logger.debug(
-                    f"Use inferred accelerators {inferred_accelerators} "
-                    f"from given execution providers {self.execution_providers}."
-                )
-                accelerators = inferred_accelerators
-        logger.debug(f"Initial accelerators: {accelerators}")
-
-        ep_to_process = sorted(set(self.execution_providers))
-        # Flatten the accelerators to list of AcceleratorSpec
-        self.accelerator_specs: List[AcceleratorSpec] = []
-        is_cpu_available = "cpu" in [accelerator.lower() for accelerator in accelerators]
-        for accelerator in accelerators:
-            device = Device(accelerator.lower())
-            if self.target.olive_managed_env:
-                available_eps = AcceleratorLookup.get_managed_supported_execution_providers(device)
-            elif self.target.system_type in (SystemType.Local, SystemType.PythonEnvironment):
-                available_eps = self.target.get_supported_execution_providers()
-            elif self.target.system_type == SystemType.Docker:
-                # TODO(myguo): do we need allow docker system support other execution providers?
-                available_eps = ["CPUExecutionProvider"]
-            else:
-                available_eps = self.execution_providers
-
-            supported_eps = AcceleratorLookup.get_execution_providers_for_device_by_available_providers(
-                device, available_eps
-            )
-            logger.debug(f"Supported execution providers for device {device}: {supported_eps}")
-            for ep in ep_to_process.copy():
-                if ep == "CPUExecutionProvider" and device != "cpu" and is_cpu_available:
-                    logger.info(
-                        "Ignore the CPUExecutionProvider for non-cpu device since cpu accelerator is also present."
-                    )
-                elif ep in supported_eps:
-                    self.accelerator_specs.append(AcceleratorSpec(device, ep))
-                    ep_to_process.remove(ep)
-
-        assert self.accelerator_specs, (
-            "No valid accelerator specified for target system. "
-            "Please specify the accelerators in the target system or provide valid execution providers. "
-            f"Given execution providers: {self.execution_providers}. "
-            f"Current accelerators: {accelerators}."
-            f"Supported execution providers: {AcceleratorLookup.EXECUTION_PROVIDERS}."
-        )
-        logger.info(
-            f"Running workflow on accelerator specs: {','.join([str(spec) for spec in self.accelerator_specs])}"
-        )
-        if ep_to_process:
-            logger.warning(
-                f"The following execution provider is not supported: {','.join(ep_to_process)}. "
-                "Please consider installing an onnxruntime build that contains the relevant execution providers. "
-            )
-
-    def prepare_passes_from_auto_optimizer(
-        self,
-        input_model_config: ModelConfig,
-        evaluator_config: "OliveEvaluatorConfig",
-        accelerator_spec: AcceleratorSpec,
-        auto_optimizer_config: Optional[AutoOptimizerConfig] = None,
-        data_configs: Optional[Dict[str, DataConfig]] = None,
-        output_dir: str = None,
-    ):
-        if not self.enable_auto_optimizer:
-            return
-
-        logger.info("No passes registered, run auto optimizer.")
-        self.cleanup_passes()
-        auto_optimizer = AutoOptimizer(
-            input_model_config,
-            evaluator_config,
-            accelerator_spec,
-            auto_optimizer_config,
-            data_configs=data_configs,
-        )
-        pass_config, pass_flows = auto_optimizer.suggest()
-
-        if pass_config:
-            for pass_name, config in pass_config.items():
-                p = Pass.registry[config["type"].lower()]
-                self.register(p, config["config"], name=pass_name)
-            self.set_pass_flows(pass_flows)
-            # save suggested pass config/pass flows to output_dir/auto_optimizer/{accelerator_spec}.json
-            auto_optimizer_dir = Path(output_dir) / "auto_optimizer"
-            auto_optimizer_dir.mkdir(parents=True, exist_ok=True)
-            auto_optimizer_path = auto_optimizer_dir / f"{accelerator_spec}.json"
-
-            with auto_optimizer_path.open("w") as f:
-                json.dump({"passes": pass_config, "pass_flows": pass_flows}, f, indent=4)
-        else:
-            logger.info("No passes suggested by auto optimizer.")
 
     def initialize(self):
         """Initialize engine state. This should be done before running the registered passes."""
@@ -270,7 +139,6 @@ class Engine:
                 cache_utils.clean_pass_run_cache(pass_config["type"].__name__, cache_dir)
 
         self.set_pass_flows(self.pass_flows)
-        self.enable_auto_optimizer = not self.pass_config and not self.auto_optimizer_config.disable_auto_optimizer
         self._initialized = True
 
     def register(
@@ -356,17 +224,18 @@ class Engine:
     def run(
         self,
         input_model_config: ModelConfig,
+        accelerator_specs: List["AcceleratorSpec"],
         data_root: str = None,
         packaging_config: Optional["PackagingConfig"] = None,
         output_dir: str = None,
         output_name: str = None,
         evaluate_input_model: bool = True,
-        data_configs: Optional[Dict[str, DataConfig]] = None,
     ):
         """Run all the registered Olive passes on the input model and produce one or more candidate models.
 
         Args:
             input_model_config: input Olive model configuration
+            accelerator_specs: list of accelerator specs
             data_root: data root for the input data
             packaging_config: packaging configuration, if packaging_config is provided, the output
                 model will be packaged into a zip file.
@@ -374,7 +243,6 @@ class Engine:
             output_name: output name for the output model, if output_name is provided, the output
                 model will be saved to engine's output_dir with the prefix of output_name.
             evaluate_input_model: if evaluate_input_model is True, run the evaluation on the input model.
-            data_configs: data configs for the input data
 
         Return:
             if search strategy is None, all passes are run in the order they were registered.
@@ -387,6 +255,9 @@ class Engine:
             if search strategy is not None, run the search strategy to find candidate models.
             Return footprint/zip(packaging_config) of candidate models and evaluation results.
         """
+        if not accelerator_specs:
+            raise ValueError("No accelerator specified")
+
         if not self._initialized:
             self.initialize()
 
@@ -395,19 +266,8 @@ class Engine:
 
         outputs = {}
 
-        for accelerator_spec in self.accelerator_specs:
+        for accelerator_spec in accelerator_specs:
             with self.create_managed_environment(accelerator_spec):
-                # TODO(trajep): refactor this part with accelerator_spec setup
-                if self.enable_auto_optimizer:
-                    self.prepare_passes_from_auto_optimizer(
-                        input_model_config,
-                        self.evaluator_config,
-                        accelerator_spec,
-                        self.auto_optimizer_config,
-                        data_configs,
-                        output_dir,
-                    )
-
                 run_result = self.run_accelerator(
                     input_model_config,
                     data_root,
@@ -448,7 +308,7 @@ class Engine:
         output_dir: Path,
         output_name: str,
         evaluate_input_model: bool,
-        accelerator_spec: AcceleratorSpec,
+        accelerator_spec: "AcceleratorSpec",
     ):
         # generate search space and initialize the passes for each hardware accelerator
         self.setup_passes(accelerator_spec)
@@ -475,10 +335,8 @@ class Engine:
                 with results_path.open("w") as f:
                     json.dump(results.to_json(), f, indent=4)
                 logger.info(f"Saved evaluation results of input model to {results_path}")
-                if not self.passes and not self.enable_auto_optimizer:
-                    logger.debug(
-                        "No passes registered and disable auto optimizer, return input model evaluation results."
-                    )
+                if not self.passes:
+                    logger.debug("No passes registered, return input model evaluation results.")
                     return results
 
             if self.no_search:
@@ -505,7 +363,7 @@ class Engine:
             logger.warning(f"Failed to run Olive on {accelerator_spec}: {e}", exc_info=True)
             return None
 
-    def setup_passes(self, accelerator_spec: AcceleratorSpec):
+    def setup_passes(self, accelerator_spec: "AcceleratorSpec"):
         # clean the passes
         self.passes.clear()
         for name, config in self.pass_config.items():
@@ -542,7 +400,7 @@ class Engine:
         input_model_config: ModelConfig,
         input_model_id: str,
         data_root: str,
-        accelerator_spec: AcceleratorSpec,
+        accelerator_spec: "AcceleratorSpec",
         output_dir: str = None,
         output_name: str = None,
     ):
@@ -617,7 +475,7 @@ class Engine:
         input_model_config: ModelConfig,
         input_model_id: str,
         data_root: str,
-        accelerator_spec: AcceleratorSpec,
+        accelerator_spec: "AcceleratorSpec",
         output_dir: str = None,
         output_name: str = None,
     ):
@@ -719,7 +577,7 @@ class Engine:
         input_model_id: str,
         data_root: str,
         metrics: List[Metric],
-        accelerator_spec: AcceleratorSpec,
+        accelerator_spec: "AcceleratorSpec",
     ) -> Dict[str, Dict[str, Any]]:
         """Return a dictionary of objectives and their higher_is_better and goal values.
 
@@ -746,7 +604,7 @@ class Engine:
         input_model_id: str,
         data_root: str,
         metrics: List[Metric],
-        accelerator_spec: AcceleratorSpec,
+        accelerator_spec: "AcceleratorSpec",
     ) -> Dict[str, float]:
         """Resolve the goals of the given metrics into thresholds for the given model."""
         goals = {}
@@ -894,7 +752,7 @@ class Engine:
         pass_name: int,
         input_model_number: str,
         pass_config: dict,
-        accelerator_spec: AcceleratorSpec,
+        accelerator_spec: "AcceleratorSpec",
     ):
         """Get the path to the run json."""
         pass_config_hash = hash_dict(pass_config)
@@ -912,7 +770,7 @@ class Engine:
         pass_config: dict,
         input_model_id: str,
         output_model_id: str,
-        accelerator_spec: AcceleratorSpec,
+        accelerator_spec: "AcceleratorSpec",
         run_start_time: float = 0,
         run_end_time: float = 0,
     ):
@@ -933,7 +791,7 @@ class Engine:
         except Exception as e:
             logger.error(f"Failed to cache run: {e}", exc_info=True)
 
-    def _load_run(self, input_model_id: str, pass_name: int, pass_config: dict, accelerator_spec: AcceleratorSpec):
+    def _load_run(self, input_model_id: str, pass_name: int, pass_config: dict, accelerator_spec: "AcceleratorSpec"):
         """Load the run from the cache directory."""
         input_model_number = input_model_id.split("_")[0]
         run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config, accelerator_spec)
@@ -953,7 +811,7 @@ class Engine:
         model_config: ModelConfig,
         model_id: str,
         data_root: str,
-        accelerator_spec: AcceleratorSpec,
+        accelerator_spec: "AcceleratorSpec",
     ):
         """Run all the passes in the order they were registered.
 
@@ -995,7 +853,7 @@ class Engine:
         input_model_config: ModelConfig,
         input_model_id: str,
         data_root: str,
-        accelerator_spec: AcceleratorSpec,
+        accelerator_spec: "AcceleratorSpec",
     ):
         """Run a pass on the input model."""
         # pass
@@ -1138,7 +996,7 @@ class Engine:
         model_id: str,
         data_root: str,
         evaluator_config: "OliveEvaluatorConfig",
-        accelerator_spec: AcceleratorSpec,
+        accelerator_spec: "AcceleratorSpec",
     ):
         """Evaluate a model."""
         logger.debug("Evaluating model ...")

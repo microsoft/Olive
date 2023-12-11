@@ -14,7 +14,7 @@ from olive.common.config_utils import ConfigBase
 from olive.common.pydantic_v1 import validator
 from olive.data.config import DataConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
-from olive.hardware.accelerator import AcceleratorSpec, Device
+from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ModelConfig
 
 logger = logging.getLogger(__name__)
@@ -59,14 +59,14 @@ class AutoOptimizer(RegulatePassConfigMixin):
         self,
         input_model_config: ModelConfig,
         evaluator_config: OliveEvaluatorConfig,
-        accelerator_spec: AcceleratorSpec,
+        accelerator_specs: List[AcceleratorSpec],
         auto_optimizer_config: Optional[AutoOptimizerConfig] = None,
         data_configs: Optional[Dict[str, DataConfig]] = None,
     ):
         # TODO(trajep): how to get model_attributes if the model is in AML workspace? Maybe we can ignore this for now?
         self.input_model_config = input_model_config
         self.evaluator_config = evaluator_config
-        self.accelerator_spec = accelerator_spec
+        self.accelerator_specs = accelerator_specs
         self.auto_optimizer_config = auto_optimizer_config or AutoOptimizerConfig()
         self.data_configs = data_configs or {}
         self.initialize()
@@ -97,9 +97,6 @@ class AutoOptimizer(RegulatePassConfigMixin):
             default_precisions = [Precision.FP32, Precision.FP16, Precision.INT8]
         self.auto_optimizer_config.precisions = self.auto_optimizer_config.precisions or default_precisions
 
-        # 3. accelerator spec
-        self.is_gpu = self.accelerator_spec.accelerator_type == Device.GPU
-
     def suggest(self):
         """Return a tuple of (suggested pass config, suggested pass flows).
 
@@ -107,16 +104,23 @@ class AutoOptimizer(RegulatePassConfigMixin):
         pass_config = {"pass_name1": {"param1": "value1", "param2": "value2"}}
         pass_flows = [["pass_name1", "pass_name2"], ["pass_name3", "pass_name4"]].
         """
-        return self.regulate(self.suggest_pass_flows())
+        pass_config = {}
+        pass_flows = []
+        for accelerator_spec in self.accelerator_specs:
+            pass_flows_by_precision = self.suggest_pass_flows(accelerator_spec)
+            _pass_config, _pass_flows = self.regulate(pass_flows_by_precision, accelerator_spec)
+            pass_config.update(_pass_config)
+            pass_flows.extend(_pass_flows)
+        return pass_config, pass_flows
 
-    def suggest_pass_flows(self):
+    def suggest_pass_flows(self, accelerator_spec):
         pass_flows_by_precision = []
         if self.auto_optimizer_config.opt_level == 0:
-            pass_flows_by_precision = self.suggest_pass_flows_from_template()
+            pass_flows_by_precision = self.suggest_pass_flows_from_template(accelerator_spec)
 
         return pass_flows_by_precision
 
-    def suggest_pass_flows_from_template(self):
+    def suggest_pass_flows_from_template(self, accelerator_spec):
         from olive.auto_optimizer.template_mapping import get_pass_flows_by_accelerator_ep_precision
 
         assert self.auto_optimizer_config.opt_level <= 1, "opt_level must be 0 for suggest_pass_flows_from_template"
@@ -125,17 +129,17 @@ class AutoOptimizer(RegulatePassConfigMixin):
         for precision in self.auto_optimizer_config.precisions or []:
             pass_flows_by_precision[precision] = get_pass_flows_by_accelerator_ep_precision(
                 self.auto_optimizer_config.opt_level,
-                self.accelerator_spec.accelerator_type.value,
-                self.accelerator_spec.execution_provider,
+                accelerator_spec.accelerator_type.value,
+                accelerator_spec.execution_provider,
                 precision,
             )
         return pass_flows_by_precision
 
-    def regulate(self, pass_flows_by_precision):
+    def regulate(self, pass_flows_by_precision, accelerator_spec):
         # step1: regulate the pass name which may be different in different passes
         # for example: OrtTransformersOptimization_cuda_fp16 and OrtTransformersOptimization
         # are for the case of fp16 and fp32 respectively
-        pass_config, pass_flows = self.regulate_pass_flows_dict(pass_flows_by_precision)
+        pass_config, pass_flows = self.regulate_pass_flows_dict(pass_flows_by_precision, accelerator_spec)
 
         # step2: fill the data_config for the passes that need data_config
         return self.regulate_data_config(pass_config, pass_flows)

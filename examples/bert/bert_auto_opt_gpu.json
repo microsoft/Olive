@@ -52,9 +52,9 @@
         "evaluator": "common_evaluator",
         "execution_providers": ["CUDAExecutionProvider", "TensorrtExecutionProvider"],
         "cache_dir": "cache",
-        "output_dir": "models/bert_gpu",
-        "auto_optimizer_config": {
-            "precisions": ["fp16"]
-        }
+        "output_dir": "models/bert_gpu"
+    },
+    "auto_optimizer_config": {
+        "precisions": ["fp16"]
     }
 }

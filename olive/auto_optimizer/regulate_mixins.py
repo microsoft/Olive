@@ -1,13 +1,15 @@
 from copy import deepcopy
 
+from olive.hardware.accelerator import Device
+
 
 class RegulatePassConfigMixin:
-    def regulate_pass_flows_dict(self, pass_flows_dict):
+    def regulate_pass_flows_dict(self, pass_flows_dict, accelerator_spec):
         # special passes: OrtTransformerOptimization and OrtPerfTuning can be used for both fp16 and fp32
         # we need assign different pass name for them
         # for example: gpu_cuda_fp16, we need rename OrtTransformerOptimization to OrtTransformerOptimization_cuda_fp16
         pass_flows_by_fp16 = pass_flows_dict.get("fp16", [])
-        pass_config, pass_flows_16 = self.regulate_fp16(None, pass_flows_by_fp16)
+        pass_config, pass_flows_16 = self.regulate_fp16(None, pass_flows_by_fp16, accelerator_spec)
 
         # flatten pass_flows_dict to pass_flows and generate the default pass_configs
         pass_flows = []
@@ -25,13 +27,14 @@ class RegulatePassConfigMixin:
 
         return pass_config, pass_flows
 
-    def regulate_fp16(self, pass_config, pass_flows):
+    def regulate_fp16(self, pass_config, pass_flows, accelerator_spec):
         pass_config = pass_config or {}
-        if not self.is_gpu or not self.is_accuracy_drop_tolerance:
+        is_gpu = accelerator_spec.accelerator_type == Device.GPU
+        if not is_gpu or not self.is_accuracy_drop_tolerance:
             return {}, []
 
-        is_cuda_ep = self.accelerator_spec.execution_provider == "CUDAExecutionProvider"
-        is_trt_ep = self.accelerator_spec.execution_provider == "TensorrtExecutionProvider"
+        is_cuda_ep = accelerator_spec.execution_provider == "CUDAExecutionProvider"
+        is_trt_ep = accelerator_spec.execution_provider == "TensorrtExecutionProvider"
         assert (
             is_cuda_ep or is_trt_ep
         ), "can not support CUDAExecutionProvider and TensorrtExecutionProvider at the same time"

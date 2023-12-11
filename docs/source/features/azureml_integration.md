@@ -2,6 +2,9 @@
 
 This documents outlines the integrations between Olive and Azure Machine Learning. Discover how to use your Azure Machine Learning assets within Olive.
 
+## Azure Machine Learning client
+To use Azure Machine Learning assets in your workspace, please include your workspace information as the `azureml_client` in configuration JSON file. Please find more details [here](../overview/options.md#azure-ml-client)
+
 ## Olive Core
 ### Using AzureML registered model
 You can run Olive workflow with your AML workspace registered model. In the input model section, define the model config as:
@@ -31,6 +34,7 @@ You can run Olive workflow with AML registered model. In the input model section
 ```
 Olive will automatically download the model and run the workflow in the specified target or host with this model as input model.
 
+Note: you don't need the `azureml_client` section for AzureML curated model.
 
 ### Using model stored in AzureML datastore
 You can specify your model path from an AzureML datastore as:

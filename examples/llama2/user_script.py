@@ -12,14 +12,14 @@ from transformers import LlamaConfig
 
 from olive.constants import Framework
 from olive.data.registry import Registry
-from olive.model import PyTorchModel
+from olive.model import PyTorchModelHandler
 
 # -----------------------------------------------------------------------------
 # Dummy Inputs
 # -----------------------------------------------------------------------------
 
 
-def get_merged_decoder_with_past_dummy_inputs(model: PyTorchModel):
+def get_merged_decoder_with_past_dummy_inputs(model: PyTorchModelHandler):
     """Get dummy inputs for merged decoder model with past_key_values."""
     # Dummy values for export
     batch_size, seq_length, past_seq_length = 2, 8, 0
@@ -27,7 +27,7 @@ def get_merged_decoder_with_past_dummy_inputs(model: PyTorchModel):
 
 
 def get_merged_sample_with_past_kv_inputs(
-    model: PyTorchModel,
+    model: PyTorchModelHandler,
     batch_size: int,
     seq_len: int,
     past_seq_len: int,
@@ -150,7 +150,7 @@ def get_merged_model_dynamic_axes(input_names: List[str], output_names: List[str
     return dynamic_axes
 
 
-def get_merged_decoder_with_past_io_config(model: PyTorchModel):
+def get_merged_decoder_with_past_io_config(model: PyTorchModelHandler):
     config = model.get_hf_model_config()
 
     input_names = [
