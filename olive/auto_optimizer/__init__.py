@@ -8,7 +8,6 @@ from copy import deepcopy
 from enum import Enum
 from typing import Dict, List, Optional
 
-import olive.cache as cache_utils
 from olive.auto_optimizer.regulate_mixins import RegulatePassConfigMixin
 from olive.common.config_utils import ConfigBase
 from olive.common.pydantic_v1 import validator
@@ -69,22 +68,11 @@ class AutoOptimizer(RegulatePassConfigMixin):
         self.accelerator_spec = accelerator_spec
         self.auto_optimizer_config = auto_optimizer_config or AutoOptimizerConfig()
         self.data_configs = data_configs or {}
-        self.initialize()
+        self._initialize()
 
-    def initialize(self):
+    def _initialize(self):
         # 1. input model config
-        # TODO(trajep): move duplicate part of _prepare_non_local_model somewhere, maybe OliveSystem?
-        model_config = deepcopy(self.input_model_config)
-        resource_paths = model_config.get_resource_paths()
-        for resource_name, resource_path in resource_paths.items():
-            if not resource_path or resource_path.is_local_resource_or_string_name():
-                continue
-            downloaded_resource_path = cache_utils.download_resource(resource_path, self._config.cache_dir)
-            if downloaded_resource_path:
-                # set local resource path
-                model_config.config[resource_name] = downloaded_resource_path
-        model = model_config.create_model()
-        self.model_attr = model.model_attributes or {}
+        self.model_config = deepcopy(self.input_model_config)
 
         # 2. evaluator config
         self.is_accuracy_drop_tolerance = self.evaluator_config and self.evaluator_config.is_accuracy_drop_tolerance
@@ -104,16 +92,16 @@ class AutoOptimizer(RegulatePassConfigMixin):
         pass_config = {"pass_name1": {"param1": "value1", "param2": "value2"}}
         pass_flows = [["pass_name1", "pass_name2"], ["pass_name3", "pass_name4"]].
         """
-        return self.regulate(self.suggest_pass_flows())
+        return self._regulate(self._suggest_pass_flows())
 
-    def suggest_pass_flows(self):
+    def _suggest_pass_flows(self):
         pass_flows_by_precision = []
         if self.auto_optimizer_config.opt_level == 0:
-            pass_flows_by_precision = self.suggest_pass_flows_from_template()
+            pass_flows_by_precision = self._suggest_pass_flows_from_template()
 
         return pass_flows_by_precision
 
-    def suggest_pass_flows_from_template(self):
+    def _suggest_pass_flows_from_template(self):
         from olive.auto_optimizer.template_mapping import get_pass_flows_by_accelerator_ep_precision
 
         assert self.auto_optimizer_config.opt_level <= 1, "opt_level must be 0 for suggest_pass_flows_from_template"
@@ -128,7 +116,7 @@ class AutoOptimizer(RegulatePassConfigMixin):
             )
         return pass_flows_by_precision
 
-    def regulate(self, pass_flows_by_precision):
+    def _regulate(self, pass_flows_by_precision):
         # step1: regulate the pass name which may be different in different passes
         # for example: OrtTransformersOptimization_cuda_fp16 and OrtTransformersOptimization
         # are for the case of fp16 and fp32 respectively
