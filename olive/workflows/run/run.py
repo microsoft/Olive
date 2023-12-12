@@ -155,7 +155,7 @@ def run_engine(config: RunConfig, data_root: str = None):
     engine = config.engine.create_engine()
     accelerator_specs = create_accelerators(engine.target, config.engine.execution_providers)
 
-    pass_map = {}
+    pass_list = []
     if not config.passes and not config.auto_optimizer_config.disable_auto_optimizer:
         for acc_spec in accelerator_specs:
             _passes, pass_flows = AutoOptimizer(
@@ -165,12 +165,12 @@ def run_engine(config: RunConfig, data_root: str = None):
                 config.auto_optimizer_config,
                 config.data_configs,
             ).suggest()
-            pass_map[acc_spec] = ({k: RunPassConfig.parse_obj(v) for k, v in _passes.items()}, pass_flows)
+            pass_list.append(({k: RunPassConfig.parse_obj(v) for k, v in _passes.items()}, pass_flows))
     else:
-        pass_map[acc_spec] = (config.passes, config.pass_flows)
+        pass_list.append((config.passes, config.pass_flows))
 
     run_rls = {}
-    for accelerator_spec, (passes, pass_flows) in pass_map.items():
+    for accelerator_spec, (passes, pass_flows) in zip(accelerator_specs, pass_list):
         engine.cleanup_passes()
         if passes:
             for pass_name, pass_config in passes.items():

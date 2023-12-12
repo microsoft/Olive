@@ -34,14 +34,17 @@ class RegulatePassConfigMixin:
 
     def regulate_fp16(self, pass_config, pass_flows):
         pass_config = pass_config or {}
-        is_gpu = self.accelerator_spec.accelerator_type == Device.GPU
+        is_gpu = self.accelerator_spec.accelerator_type == Device.GPU and self.accelerator_spec.execution_provider in [
+            "CUDAExecutionProvider",
+            "TensorrtExecutionProvider",
+        ]
         if not is_gpu or not self.is_accuracy_drop_tolerance:
             return {}, []
 
         is_cuda_ep = self.accelerator_spec.execution_provider == "CUDAExecutionProvider"
         is_trt_ep = self.accelerator_spec.execution_provider == "TensorrtExecutionProvider"
         assert (
-            is_cuda_ep or is_trt_ep
+            not is_cuda_ep or not is_trt_ep
         ), "can not support CUDAExecutionProvider and TensorrtExecutionProvider at the same time"
 
         customized_fp16 = self.allow_precision("fp16")
