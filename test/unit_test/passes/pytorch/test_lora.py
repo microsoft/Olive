@@ -9,6 +9,8 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+import transformers
+from packaging import version
 
 from olive.data.template import huggingface_data_config_template
 from olive.model import PyTorchModelHandler
@@ -67,6 +69,10 @@ def run_finetuning(pass_class, tmp_path, **pass_config_kwargs):
     return p.run(input_model, None, output_folder)
 
 
+@pytest.mark.skipif(
+    version.parse(transformers.__version__) < version.parse("4.32.0"),
+    reason="Requires transformers >= 4.32.0. Otherwise, it gets an index error due to missing cuda devices.",
+)
 def test_lora(tmp_path):
     # execute
     out = run_finetuning(LoRA, tmp_path)
@@ -85,10 +91,15 @@ def mock_bitsandbytes_fixture():
     del sys.modules["bitsandbytes"]
 
 
+@pytest.mark.skipif(
+    version.parse(transformers.__version__) < version.parse("4.32.0"),
+    reason="Requires transformers >= 4.32.0. Otherwise, it gets an index error due to missing cuda devices.",
+)
+@pytest.mark.usefixtures("mock_bitsandbytes")
 # quantization requires gpu so we will patch the model loading args with no quantization
 @patch("olive.passes.pytorch.lora.HfFromPretrainedArgs")
 @patch("olive.passes.pytorch.lora.find_submodules", side_effect=patched_find_submodules)
-def test_qlora(patched_from_pretrained_args, patched_find_submodules, tmp_path, mock_bitsandbytes):
+def test_qlora(patched_from_pretrained_args, patched_find_submodules, tmp_path):
     # execute
     out = run_finetuning(QLoRA, tmp_path)
 

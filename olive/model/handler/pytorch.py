@@ -134,7 +134,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
         elif self.model_file_format == ModelFileFormat.PYTORCH_MLFLOW_MODEL:
             model = self._load_mlflow_model()
         elif self.hf_config and (self.hf_config.model_class or self.hf_config.task):
-            model = self.load_hf_model(self.hf_config, self.model_path)
+            model = self.load_hf_model(self.model_path)
         elif self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
             model = torch.load(self.model_path)
         elif self.model_file_format == ModelFileFormat.PYTORCH_STATE_DICT:

@@ -559,7 +559,7 @@ class LoRABase(Pass):
         return supported_dtypes[torch_dtype]
 
     @classmethod
-    def input_model_check(cls, model):
+    def input_model_check(cls, model: PyTorchModelHandler) -> PyTorchModelHandler:
         """Validate the input model and reset from_pretrained_args and adapter_path."""
         if not model.hf_config:
             raise ValueError(f"{cls.__name__} pass only supports PyTorchModelHandler with hf_config.")
