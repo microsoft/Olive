@@ -389,7 +389,7 @@ class Engine:
                 pass_search_spaces.append((pass_name, p.search_space()))
             self.pass_flows_search_spaces.append(pass_search_spaces)
 
-    def cleanup_passes(self):
+    def reset_passes(self):
         """Cleanup the passes."""
         self.passes.clear()
         self.pass_config.clear()

@@ -174,7 +174,7 @@ def run_engine(config: RunConfig, data_root: str = None):
 
     run_rls = {}
     for accelerator_spec, (passes, pass_flows) in zip(acc_list, pass_list):
-        engine.cleanup_passes()
+        engine.reset_passes()
         if passes:
             for pass_name, pass_config in passes.items():
                 host = pass_config.host.create_system() if pass_config.host is not None else None
