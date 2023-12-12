@@ -119,5 +119,10 @@ def check_output(footprints):
 
 
 def test_whisper_run(whisper_config):
+    from packaging import version
+    from transformers import __version__ as transformers_version
+
+    if version.parse(transformers_version) >= version.parse("4.36.0"):
+        whisper_config["input_model"]["config"]["hf_config"]["from_pretrained_args"] = {"attn_implementation": "eager"}
     result = olive_run(whisper_config)
     check_output(result)
