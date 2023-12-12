@@ -135,9 +135,9 @@ def text_encoder_data_loader(data_dir, batchsize, *args, **kwargs):
 def unet_inputs(batchsize, torch_dtype, is_conversion_inputs=False):
     # TODO(jstoecker): Rename onnx::Concat_4 to text_embeds and onnx::Shape_5 to time_ids
     inputs = {
-        "sample": torch.rand((batchsize, 4, 64, 64), dtype=torch_dtype),
+        "sample": torch.rand((batchsize, 4, config.unet_sample_size, config.unet_sample_size), dtype=torch_dtype),
         "timestep": torch.rand((batchsize,), dtype=torch_dtype),
-        "encoder_hidden_states": torch.rand((batchsize, 77, config.image_size + 256), dtype=torch_dtype),
+        "encoder_hidden_states": torch.rand((batchsize, 77, config.cross_attention_dim), dtype=torch_dtype),
     }
 
     # use as kwargs since they won't be in the correct position if passed along with the tuple of inputs
@@ -183,7 +183,7 @@ def unet_data_loader(data_dir, batchsize, *args, **kwargs):
 
 def vae_encoder_inputs(batchsize, torch_dtype):
     return {
-        "sample": torch.rand((batchsize, 3, config.image_size, config.image_size), dtype=torch_dtype),
+        "sample": torch.rand((batchsize, 3, config.vae_sample_size, config.vae_sample_size), dtype=torch_dtype),
         "return_dict": False,
     }
 
@@ -210,7 +210,9 @@ def vae_encoder_data_loader(data_dir, batchsize, *args, **kwargs):
 
 def vae_decoder_inputs(batchsize, torch_dtype):
     return {
-        "latent_sample": torch.rand((batchsize, 4, 64, 64), dtype=torch_dtype),
+        "latent_sample": torch.rand(
+            (batchsize, 4, config.unet_sample_size, config.unet_sample_size), dtype=torch_dtype
+        ),
         "return_dict": False,
     }
 
@@ -238,7 +240,7 @@ def vae_decoder_data_loader(data_dir, batchsize, *args, **kwargs):
 def safety_checker_inputs(batchsize, torch_dtype):
     return {
         "clip_input": torch.rand((batchsize, 3, 224, 224), dtype=torch_dtype),
-        "images": torch.rand((batchsize, config.image_size, config.image_size, 3), dtype=torch_dtype),
+        "images": torch.rand((batchsize, config.vae_sample_size, config.vae_sample_size, 3), dtype=torch_dtype),
     }
 
 
