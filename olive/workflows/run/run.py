@@ -155,36 +155,37 @@ def run_engine(config: RunConfig, data_root: str = None):
     engine = config.engine.create_engine()
     accelerator_specs = create_accelerators(engine.target, config.engine.execution_providers)
 
-    auto_optimizer = None
-    run_rls = {}
-    for accelerator_spec in accelerator_specs:
-        passes = config.passes or {}
-        pass_flows = config.pass_flows or []
-        if not config.passes and not config.auto_optimizer_config.disable_auto_optimizer:
-            auto_optimizer = AutoOptimizer(
+    pass_map = {}
+    if not config.passes and not config.auto_optimizer_config.disable_auto_optimizer:
+        for acc_spec in accelerator_specs:
+            _passes, pass_flows = AutoOptimizer(
                 input_model,
                 engine.evaluator_config,
-                accelerator_spec,
+                acc_spec,
                 config.auto_optimizer_config,
                 config.data_configs,
-            )
-            _passes, pass_flows = auto_optimizer.suggest()
-            passes = {k: RunPassConfig.parse_obj(v) for k, v in _passes.items()}
+            ).suggest()
+            pass_map[acc_spec] = ({k: RunPassConfig.parse_obj(v) for k, v in _passes.items()}, pass_flows)
+    else:
+        pass_map[acc_spec] = (config.passes, config.pass_flows)
 
-        # passes
-        for pass_name, pass_config in passes.items():
-            host = pass_config.host.create_system() if pass_config.host is not None else None
-            engine.register(
-                Pass.registry[pass_config.type.lower()],
-                config=pass_config.config,
-                disable_search=pass_config.disable_search,
-                name=pass_name,
-                host=host,
-                evaluator_config=pass_config.evaluator,
-                clean_run_cache=pass_config.clean_run_cache,
-                output_name=pass_config.output_name,
-            )
-        engine.set_pass_flows(pass_flows)
+    run_rls = {}
+    for accelerator_spec, (passes, pass_flows) in pass_map.items():
+        engine.cleanup_passes()
+        if passes:
+            for pass_name, pass_config in passes.items():
+                host = pass_config.host.create_system() if pass_config.host is not None else None
+                engine.register(
+                    Pass.registry[pass_config.type.lower()],
+                    config=pass_config.config,
+                    disable_search=pass_config.disable_search,
+                    name=pass_name,
+                    host=host,
+                    evaluator_config=pass_config.evaluator,
+                    clean_run_cache=pass_config.clean_run_cache,
+                    output_name=pass_config.output_name,
+                )
+            engine.set_pass_flows(pass_flows)
 
         if data_root is None:
             data_root = config.data_root
@@ -193,7 +194,7 @@ def run_engine(config: RunConfig, data_root: str = None):
         run_rls.update(
             engine.run(
                 input_model,
-                accelerator_specs,
+                [accelerator_spec],
                 data_root,
                 config.engine.packaging_config,
                 config.engine.output_dir,
