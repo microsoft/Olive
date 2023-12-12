@@ -19,6 +19,7 @@ trigger:
     - examples/directml/*
     - examples/llama2/*
     - examples/open_llama/*
+    - examples/stable_diffusion/*
 pr:
   branches:
     include:
@@ -40,6 +41,7 @@ pr:
     - examples/directml/*
     - examples/llama2/*
     - examples/open_llama/*
+    - examples/stable_diffusion/*
 
 variables:
     ComponentDetection.Timeout: 2400
