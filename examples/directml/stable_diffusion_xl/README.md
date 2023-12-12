@@ -75,7 +75,7 @@ If you omit `--interactive`, the script will generate the requested number of im
 
 The minimum number of inferences will be `ceil(num_images / batch_size)`; additional inferences may be required of some outputs are flagged by the safety checker to ensure the desired number of outputs are produced.
 
-## Stable Diffusion Optimization with CUDA
+## Stable Diffusion XL Optimization with CUDA
 This example can also be used to optimize Stable Diffusion models for CUDA. You can use the same `stable_diffusion.py` script with `--provider cuda` option to optimize the models for CUDA and test inference. The optimized models will be stored under `models/optimized-cuda/[model_id]` (for example `models/optimized-cuda/stabilityai/stable-diffusion-xl-base-1.0`).
 
 Install the common requirements:
@@ -94,13 +94,15 @@ pip install ort-nightly-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.
 
 ## Issues
 
-If you run into the following error while optimizing models, it is likely that your local HuggingFace cache has an incomplete copy of the stable diffusion model pipeline. Deleting `C:\users\<username>\.cache\huggingface` should resolve the issue by ensuring a fresh copy is downloaded.
+- If you run into the following error while optimizing models, it is likely that your local HuggingFace cache has an incomplete copy of the stable diffusion model pipeline. Deleting `C:\users\<username>\.cache\huggingface` should resolve the issue by ensuring a fresh copy is downloaded.
 
-```
-OSError: Can't load tokenizer for 'C:\Users\<username>\.cache\huggingface\hub\models--stabilityai--stable-diffusion-xl-base-1.0\snapshots\<sha>'. If you were trying to load it from 'https://huggingface.co/models', make sure you don't have a local directory with the same name. Otherwise, make sure 'C:\Users\<username>\.cache\huggingface\hub\models--stabilityai--stable-diffusion-xl-base-1.0\snapshots\<sha>' is the correct path to a directory containing all relevant files for a CLIPTokenizer tokenizer.
-```
+  ```
+  OSError: Can't load tokenizer for 'C:\Users\<username>\.cache\huggingface\hub\models--stabilityai--stable-diffusion-xl-base-1.0\snapshots\<sha>'. If you were trying to load it from 'https://huggingface.co/models', make sure you don't have a local directory with the same name. Otherwise, make sure 'C:\Users\<username>\.cache\huggingface\hub\models--stabilityai--stable-diffusion-xl-base-1.0\snapshots\<sha>' is the correct path to a directory containing all relevant files for a CLIPTokenizer tokenizer.
+  ```
 
-If you want to use `stabilityai/stable-diffusion-xl-base-1.0` for image-to-image pipeline, set `"float16": false` in `config_vae_encoder.json`. Otherwise, the output image will be black.
+- If you want to use `stabilityai/stable-diffusion-xl-base-1.0` for image-to-image pipeline, set `"float16": false` in `config_vae_encoder.json`. Otherwise, the output image will be black.
+
+- Onnx conversion for unet terminates silently without any error message. This could be because your system ran out of disk space in the temp directory. You can add `--tempdir .` to the command line to use the current directory as the temp directory root. `.` can be replaced with any other directory with sufficient disk space and write permission.
 
 ## Stable Diffusion Pipeline
 

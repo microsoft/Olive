@@ -10,6 +10,16 @@ trigger:
     - README.md
     - CONTRIBUTING.md
     - LICENSE
+    # unrelated pipelines
+    - .github/*
+    - .azure_pipelines/performance_check/*
+    - .azure_pipelines/performance.yaml
+    - .azure_pipelines/job_templates/olive-performance-template.yaml
+    # commonly updated examples with no test
+    - examples/directml/*
+    - examples/llama2/*
+    - examples/open_llama/*
+    - examples/stable_diffusion/*
 pr:
   branches:
     include:
@@ -22,6 +32,16 @@ pr:
     - README.md
     - CONTRIBUTING.md
     - LICENSE
+    # unrelated pipelines
+    - .github/*
+    - .azure_pipelines/performance_check/*
+    - .azure_pipelines/performance.yaml
+    - .azure_pipelines/job_templates/olive-performance-template.yaml
+    # commonly updated examples with no test
+    - examples/directml/*
+    - examples/llama2/*
+    - examples/open_llama/*
+    - examples/stable_diffusion/*
 
 variables:
     ComponentDetection.Timeout: 2400
