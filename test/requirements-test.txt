@@ -27,5 +27,3 @@ pytorch_lightning
 sentencepiece
 tabulate
 torchvision
-# lora test requires transformers>=4.32.1
-transformers>=4.32.1
