@@ -128,31 +128,6 @@ def text_encoder_data_loader(data_dir, batchsize, *args, **kwargs):
 
 
 # -----------------------------------------------------------------------------
-# TEXT ENCODER 2
-# -----------------------------------------------------------------------------
-
-
-def text_encoder_2_inputs(batchsize, torch_dtype):
-    return torch.zeros((batchsize, 77), dtype=torch_dtype)
-
-
-def text_encoder_2_load(model_name):
-    base_model_id = get_base_model_name(model_name)
-    model = CLIPTextModel.from_pretrained(base_model_id, subfolder="text_encoder_2")
-    if is_lora_model(model_name):
-        merge_lora_weights(model, model_name, "text_encoder_2")
-    return model
-
-
-def text_encoder_2_conversion_inputs(model):
-    return text_encoder_2_inputs(1, torch.int32)
-
-
-def text_encoder_2_data_loader(data_dir, batchsize, *args, **kwargs):
-    return RandomDataLoader(text_encoder_2_inputs, batchsize, torch.int32)
-
-
-# -----------------------------------------------------------------------------
 # UNET
 # -----------------------------------------------------------------------------
 
