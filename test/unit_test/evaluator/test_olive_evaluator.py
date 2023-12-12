@@ -338,15 +338,16 @@ class TestOliveEvaluatorConfig:
             OliveEvaluatorConfig(metrics=metric_config)
 
     @pytest.mark.parametrize(
-        "evaluator_config, is_accuracy_drop_tolerance",
+        "metric_args, is_accuracy_drop_tolerance",
         [
-            ([get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)], False),
-            ([get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, goal_type="min-improvement")], False),
-            ([get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, goal_type="percent-min-improvement")], False),
-            ([get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, goal_type="max-degradation")], True),
-            ([get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, goal_type="percent-max-degradation")], True),
+            ([{"args": [AccuracySubType.ACCURACY_SCORE], "kwargs": {}}], False),
+            ([{"args": [AccuracySubType.ACCURACY_SCORE], "kwargs": {"goal_type": "min-improvement"}}], False),
+            ([{"args": [AccuracySubType.ACCURACY_SCORE], "kwargs": {"goal_type": "percent-min-improvement"}}], False),
+            ([{"args": [AccuracySubType.ACCURACY_SCORE], "kwargs": {"goal_type": "max-degradation"}}], True),
+            ([{"args": [AccuracySubType.ACCURACY_SCORE], "kwargs": {"goal_type": "percent-max-degradation"}}], True),
         ],
     )
-    def test_is_accuracy_drop_tolerance(self, evaluator_config, is_accuracy_drop_tolerance):
+    def test_is_accuracy_drop_tolerance(self, metric_args, is_accuracy_drop_tolerance):
+        evaluator_config = [get_accuracy_metric(*m_arg["args"], **m_arg["kwargs"]) for m_arg in metric_args]
         evaluator_config_instance = OliveEvaluatorConfig(metrics=evaluator_config)
         assert evaluator_config_instance.is_accuracy_drop_tolerance == is_accuracy_drop_tolerance

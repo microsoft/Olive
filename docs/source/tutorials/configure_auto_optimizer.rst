@@ -7,7 +7,7 @@ Auto Optimizer is a tool that can be used to automatically search Olive passes c
 
 1. input model
 2. target device
-3. target precision: FP32, FP16, INT8, INT4 and etc.
+3. target precision: `fp32`, `fp16`, `int8`, `int4` and etc.
 4. target evaluation metric: accuracy, latency and etc.
 
 All above information(is called "optimization factors" in this doc) is provided by user through a configuration file now, then run by:
@@ -64,7 +64,6 @@ Config Fields:
             "disable_auto_optimizer": false,
             "precision": "fp16"
         }
-
     }
 
 .. note::
