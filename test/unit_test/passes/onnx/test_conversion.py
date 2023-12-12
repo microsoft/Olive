@@ -3,11 +3,12 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+import platform
 from pathlib import Path
 from test.unit_test.utils import get_hf_model_with_past, get_onnx_model, get_pytorch_model
-from unittest.mock import patch
 
 import pytest
+import torch
 
 from olive.model import PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
@@ -28,10 +29,12 @@ def test_onnx_conversion_pass(input_model, tmp_path):
     assert Path(onnx_model.model_path).exists()
 
 
-# TODO(jambayk): add case for when quantized_modules is not provided when gpu test is added
-# patch needed since bitsandbytes is not installed in the test environment
-@patch("olive.model.config.hf_config.HfFromPretrainedArgs.get_quantization_config")
-def test_onnx_conversion_pass_quant_model(_, tmp_path):
+@pytest.mark.skipif(
+    platform.system() == "Windows" or not torch.cuda.is_available(),
+    reason="bitsandbytes requires Linux GPU.",
+)
+@pytest.mark.parametrize("add_quantized_modules", [True, False])
+def test_onnx_conversion_pass_quant_model(add_quantized_modules, tmp_path):
     # setup
     quantized_modules = ["v_proj", "k_proj", "fc_in", "fc_out", "out_proj", "q_proj"]
     input_model = PyTorchModelHandler(
@@ -43,7 +46,7 @@ def test_onnx_conversion_pass_quant_model(_, tmp_path):
                 "quantization_config": {"load_in_4bit": True, "bnb_4bit_quant_type": "nf4"},
             },
         },
-        model_attributes={"quantized_modules": quantized_modules},
+        model_attributes={"quantized_modules": quantized_modules} if add_quantized_modules else None,
     )
     p = create_pass_from_dict(OnnxConversion, {}, disable_search=True)
     output_folder = str(tmp_path / "onnx")

@@ -4,13 +4,13 @@
 # --------------------------------------------------------------------------
 import logging
 import os
+import platform
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-import transformers
-from packaging import version
+import torch
 
 from olive.data.template import huggingface_data_config_template
 from olive.model import PyTorchModelHandler
@@ -18,10 +18,6 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch import LoRA, QLoRA
 
 # pylint: disable=redefined-outer-name
-
-
-def patched_find_submodules(*args, **kwargs):
-    return ["k_proj", "v_proj", "out_proj", "q_proj", "fc1", "fc2"]
 
 
 def get_pass_config(model_name, task, **kwargs):
@@ -70,38 +66,26 @@ def run_finetuning(pass_class, tmp_path, **pass_config_kwargs):
 
 
 @pytest.mark.skipif(
-    version.parse(transformers.__version__) < version.parse("4.32.0"),
-    reason="Requires transformers >= 4.32.0. Otherwise, it gets an index error due to missing cuda devices.",
+    not torch.cuda.is_available(),
+    reason="lora finetuning requires GPU.",
 )
 def test_lora(tmp_path):
     # execute
-    out = run_finetuning(LoRA, tmp_path)
+    # bfloat16 is not supported on all gpu
+    out = run_finetuning(LoRA, tmp_path, torch_dtype="float32")
 
     # assert
     assert Path(out.get_resource("adapter_path")).exists()
 
 
-@pytest.fixture(name="mock_bitsandbytes")
-def mock_bitsandbytes_fixture():
-    # mock bitesandbtes since we don't install it in the test environment
-    # it requires gpu and windows package is not published yet
-    mock_bitsandbytes = MagicMock()
-    sys.modules["bitsandbytes"] = mock_bitsandbytes
-    yield mock_bitsandbytes
-    del sys.modules["bitsandbytes"]
-
-
 @pytest.mark.skipif(
-    version.parse(transformers.__version__) < version.parse("4.32.0"),
-    reason="Requires transformers >= 4.32.0. Otherwise, it gets an index error due to missing cuda devices.",
+    platform.system() == "Windows" or not torch.cuda.is_available(),
+    reason="bitsandbytes requires Linux GPU.",
 )
-@pytest.mark.usefixtures("mock_bitsandbytes")
-# quantization requires gpu so we will patch the model loading args with no quantization
-@patch("olive.passes.pytorch.lora.HfFromPretrainedArgs")
-@patch("olive.passes.pytorch.lora.find_submodules", side_effect=patched_find_submodules)
-def test_qlora(patched_from_pretrained_args, patched_find_submodules, tmp_path):
+def test_qlora(tmp_path):
     # execute
-    out = run_finetuning(QLoRA, tmp_path)
+    # bfloat16 is not supported on all gpu
+    out = run_finetuning(QLoRA, tmp_path, torch_dtype="float32")
 
     # assert
     assert Path(out.get_resource("adapter_path")).exists()

@@ -3,6 +3,7 @@
 parameters:
   name: ''
   pool: ''
+  windows: False
   device: 'cpu'
   onnxruntime: 'onnxruntime'
 
