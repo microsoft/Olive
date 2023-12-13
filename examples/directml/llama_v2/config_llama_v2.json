@@ -2,7 +2,6 @@
     "input_model":{
         "type": "CompositePyTorchModel",
         "config": {
-            "model_path": "llama_v2",
             "model_components": [
                 {
                     "name": "decoder_model",

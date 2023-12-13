@@ -134,7 +134,8 @@ class HfFromPretrainedArgs(ConfigWithExtraArgs):
             )
             return v
 
-    def get_loading_args(self):
+    def get_loading_args(self) -> Dict[str, Any]:
+        """Return all args in a dict with types expected by `from_pretrained`."""
         loading_args = {}
         # copy args that can be directly copied
         direct_copy_args = ["device_map", "max_memory"]
@@ -156,24 +157,26 @@ class HfFromPretrainedArgs(ConfigWithExtraArgs):
         return loading_args
 
     def get_torch_dtype(self):
+        """Return the torch dtype to load the model under. It is either a torch.dtype or 'auto'."""
         v = self.torch_dtype
         if isinstance(v, str) and v != "auto":
             v = resolve_torch_dtype(v)
         return v
 
     def get_quantization_config(self):
+        """Return the quantization config to use. It is either None or a config class."""
         if not self.quantization_method or not self.quantization_config:
             return None
         return self.dict_to_quantization_config(self.quantization_method, self.quantization_config)
 
     @staticmethod
-    def device_to_str(device):
+    def device_to_str(device) -> str:
         if isinstance(device, torch.device):
             device = str(device)
         return device
 
     @staticmethod
-    def dict_to_quantization_config(quantization_method, config_dict):
+    def dict_to_quantization_config(quantization_method: str, config_dict: Dict[str, Any]):
         method_to_class_name = {"bitsandbytes": "BitsAndBytesConfig", "gptq": "GPTQConfig"}
         method_to_min_version = {
             # bitsandbytes exists from 4.27.0, but 4bit quantization is only supported from 4.30.0
@@ -245,3 +248,13 @@ class HfConfig(ConfigBase):
             if not v and not values.get("task", None):
                 raise ValueError("Either task or model_class must be specified")
         return v
+
+    def get_loading_args_from_pretrained(self) -> Dict[str, Any]:
+        """Return all args from from_pretrained_args in a dict with types expected by `from_pretrained`."""
+        return self.from_pretrained_args.get_loading_args() if self.from_pretrained_args else {}
+
+
+def get_model_type_from_hf_config(hf_config: HfConfig) -> str:
+    from olive.model.utils.hf_utils import get_hf_model_config
+
+    return get_hf_model_config(hf_config.model_name, hf_config.get_loading_args_from_pretrained()).model_type

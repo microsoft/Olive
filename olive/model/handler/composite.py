@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -11,6 +12,8 @@ from olive.hardware.accelerator import Device
 from olive.model.config.model_config import ModelConfig
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
+
+logger = logging.getLogger(__name__)
 
 
 @model_handler_registry("CompositeModel")
@@ -84,9 +87,6 @@ class CompositePyTorchModelHandler(CompositeModelHandler):
     """
 
     def __init__(self, model_components: List[Dict[str, Any]], **kwargs):
-        kwargs = kwargs or {}
-        kwargs["model_file_format"] = ModelFileFormat.COMPOSITE_MODEL
-
         model_names = []
         pytorch_models = []
         for model_config in model_components:
@@ -99,6 +99,13 @@ class CompositePyTorchModelHandler(CompositeModelHandler):
             model_names.append(model_name)
             pytorch_models.append(validate_config(config_copy, ModelConfig).create_model())
 
-        kwargs["model_components"] = pytorch_models
-        kwargs["model_component_names"] = model_names
-        super().__init__(**kwargs)
+        kwargs_inner = {}
+        kwargs_inner["model_components"] = pytorch_models
+        kwargs_inner["model_component_names"] = model_names
+
+        if "model_attributes" in kwargs:
+            kwargs_inner["model_attributes"] = kwargs["model_attributes"]
+        if "model_path" in kwargs:
+            logger.warning("model_path is not used in CompositePyTorchModelHandler")
+
+        super().__init__(**kwargs_inner)

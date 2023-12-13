@@ -15,7 +15,7 @@ from olive.model.utils.hf_mappings import FEATURE_TO_PEFT_TASK_TYPE, MODELS_TO_M
 logger = logging.getLogger(__name__)
 
 
-def load_huggingface_model_from_task(task: str, name: str, **kwargs):
+def load_hf_model_from_task(task: str, name: str, **kwargs):
     """Load huggingface model from task and name."""
     from transformers.pipelines import check_task
 
@@ -66,7 +66,7 @@ def get_hf_model_config(model_name: str, **kwargs):
     return AutoConfig.from_pretrained(model_name, **kwargs)
 
 
-def load_huggingface_model_from_model_class(model_class: str, name: str, **kwargs):
+def load_hf_model_from_model_class(model_class: str, name: str, **kwargs):
     """Load huggingface model from model_loader and name."""
     return huggingface_model_loader(model_class)(name, **kwargs)
 

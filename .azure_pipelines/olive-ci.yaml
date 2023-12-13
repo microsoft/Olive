@@ -10,6 +10,16 @@ trigger:
     - README.md
     - CONTRIBUTING.md
     - LICENSE
+    # unrelated pipelines
+    - .github/*
+    - .azure_pipelines/performance_check/*
+    - .azure_pipelines/performance.yaml
+    - .azure_pipelines/job_templates/olive-performance-template.yaml
+    # commonly updated examples with no test
+    - examples/directml/*
+    - examples/llama2/*
+    - examples/open_llama/*
+    - examples/stable_diffusion/*
 pr:
   branches:
     include:
@@ -22,6 +32,16 @@ pr:
     - README.md
     - CONTRIBUTING.md
     - LICENSE
+    # unrelated pipelines
+    - .github/*
+    - .azure_pipelines/performance_check/*
+    - .azure_pipelines/performance.yaml
+    - .azure_pipelines/job_templates/olive-performance-template.yaml
+    # commonly updated examples with no test
+    - examples/directml/*
+    - examples/llama2/*
+    - examples/open_llama/*
+    - examples/stable_diffusion/*
 
 variables:
     ComponentDetection.Timeout: 2400
@@ -34,6 +54,17 @@ jobs:
     pool: $(OLIVE_POOL_UBUNTU2004)
     windows: False
     onnxruntime: onnxruntime
+
+# Linux GPU unit test
+- template: job_templates/olive-test-template.yaml
+  parameters:
+    name: Linux_GPU_CI_Unit_Test_Olive
+    pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
+    test_type: 'unit_test'
+    windows: False
+    device: 'gpu'
+    onnxruntime: onnxruntime-gpu
+    requirements_file: 'requirements-test-gpu.txt'
 
 # Windows unit test and integration test
 - template: job_templates/olive-build-template.yaml

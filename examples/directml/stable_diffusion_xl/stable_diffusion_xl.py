@@ -36,6 +36,7 @@ def run_inference_loop(
     batch_size,
     image_size,
     num_inference_steps,
+    disable_classifier_free_guidance,
     base_images=None,
     image_callback=None,
     step_callback=None,
@@ -48,6 +49,10 @@ def run_inference_loop(
 
     print(f"\nInference Batch Start (batch size = {batch_size}).")
 
+    kwargs = {}
+    if disable_classifier_free_guidance:
+        kwargs["guidance_scale"] = 0.0
+
     if base_images is None:
         result = pipeline(
             [prompt] * batch_size,
@@ -55,6 +60,7 @@ def run_inference_loop(
             callback=update_steps if step_callback else None,
             height=image_size,
             width=image_size,
+            **kwargs,
         )
     else:
         base_images_rgb = [load_image(base_image).convert("RGB") for base_image in base_images]
@@ -65,6 +71,7 @@ def run_inference_loop(
             image=base_images_rgb,
             num_inference_steps=num_inference_steps,
             callback=update_steps if step_callback else None,
+            **kwargs,
         )
 
     for image_index in range(batch_size):
@@ -109,7 +116,16 @@ def run_refiner_inference_loop(
     print("Inference Batch End.")
 
 
-def run_inference_gui(pipeline, prompt, num_images, batch_size, image_size, num_inference_steps, base_images=None):
+def run_inference_gui(
+    pipeline,
+    prompt,
+    num_images,
+    batch_size,
+    image_size,
+    num_inference_steps,
+    disable_classifier_free_guidance,
+    base_images=None,
+):
     def update_progress_bar(total_steps_completed):
         progress_bar["value"] = total_steps_completed
 
@@ -133,6 +149,7 @@ def run_inference_gui(pipeline, prompt, num_images, batch_size, image_size, num_
                 batch_size,
                 image_size,
                 num_inference_steps,
+                disable_classifier_free_guidance,
                 base_images,
                 image_completed,
                 update_progress_bar,
@@ -191,6 +208,7 @@ def run_inference(
     batch_size,
     image_size,
     num_inference_steps,
+    disable_classifier_free_guidance,
     static_dims,
     device_id,
     interactive,
@@ -206,16 +224,17 @@ def run_inference(
         # Not necessary, but helps DML EP further optimize runtime performance.
         # batch_size is doubled for sample & hidden state because of classifier free guidance:
         # https://github.com/huggingface/diffusers/blob/46c52f9b9607e6ecb29c782c052aea313e6487b7/src/diffusers/pipelines/stable_diffusion/pipeline_stable_diffusion.py#L672
-        sess_options.add_free_dimension_override_by_name("unet_sample_batch", batch_size * 2)
+        hidden_batch_size = batch_size if disable_classifier_free_guidance else batch_size * 2
+        sess_options.add_free_dimension_override_by_name("unet_sample_batch", hidden_batch_size)
         sess_options.add_free_dimension_override_by_name("unet_sample_channels", 4)
         sess_options.add_free_dimension_override_by_name("unet_sample_height", image_size // 8)
         sess_options.add_free_dimension_override_by_name("unet_sample_width", image_size // 8)
         sess_options.add_free_dimension_override_by_name("unet_time_batch", 1)
-        sess_options.add_free_dimension_override_by_name("unet_hidden_batch", batch_size * 2)
+        sess_options.add_free_dimension_override_by_name("unet_hidden_batch", hidden_batch_size)
         sess_options.add_free_dimension_override_by_name("unet_hidden_sequence", 77)
-        sess_options.add_free_dimension_override_by_name("unet_text_embeds_batch", batch_size * 2)
+        sess_options.add_free_dimension_override_by_name("unet_text_embeds_batch", hidden_batch_size)
         sess_options.add_free_dimension_override_by_name("unet_text_embeds_size", 1280)
-        sess_options.add_free_dimension_override_by_name("unet_time_ids_batch", batch_size * 2)
+        sess_options.add_free_dimension_override_by_name("unet_time_ids_batch", hidden_batch_size)
         sess_options.add_free_dimension_override_by_name("unet_time_ids_size", 6)
 
     provider_map = {
@@ -238,9 +257,27 @@ def run_inference(
         )
 
     if interactive:
-        run_inference_gui(pipeline, prompt, num_images, batch_size, image_size, num_inference_steps, base_images)
+        run_inference_gui(
+            pipeline,
+            prompt,
+            num_images,
+            batch_size,
+            image_size,
+            num_inference_steps,
+            disable_classifier_free_guidance,
+            base_images,
+        )
     else:
-        run_inference_loop(pipeline, prompt, num_images, batch_size, image_size, num_inference_steps, base_images)
+        run_inference_loop(
+            pipeline,
+            prompt,
+            num_images,
+            batch_size,
+            image_size,
+            num_inference_steps,
+            disable_classifier_free_guidance,
+            base_images,
+        )
 
 
 def update_config_with_provider(config: Dict, provider: str):
@@ -282,6 +319,9 @@ def optimize(
     # automatically cached correctly if individual models are fetched one at a time.
     print("Download stable diffusion PyTorch pipeline...")
     pipeline = DiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float32)
+    config.vae_sample_size = pipeline.vae.config.sample_size
+    config.cross_attention_dim = pipeline.unet.config.cross_attention_dim
+    config.unet_sample_size = pipeline.unet.config.sample_size
 
     model_info = {}
 
@@ -431,6 +471,12 @@ if __name__ == "__main__":
     )
     parser.add_argument("--num_images", default=1, type=int, help="Number of images to generate")
     parser.add_argument("--batch_size", default=1, type=int, help="Number of images to generate per batch")
+    parser.add_argument(
+        "--disable_classifier_free_guidance",
+        action="store_true",
+        help="Whether to disable classifier free guidance. Classifier free guidance should be disabled for turbo "
+        "models.",
+    )
     parser.add_argument("--num_inference_steps", default=50, type=int, help="Number of steps in diffusion process")
     parser.add_argument("--image_size", default=768, type=int, help="Image size to use during inference")
     parser.add_argument("--device_id", default=0, type=int, help="GPU device to use during inference")
@@ -451,14 +497,10 @@ if __name__ == "__main__":
 
     model_to_config = {
         "stabilityai/stable-diffusion-xl-base-1.0": {
-            "image_size": 1024,
-            "hidden_state_size": 2048,
             "time_ids_size": 6,
             "is_refiner_model": False,
         },
         "stabilityai/stable-diffusion-xl-refiner-1.0": {
-            "image_size": 1024,
-            "hidden_state_size": 1280,
             "time_ids_size": 5,
             "is_refiner_model": True,
         },
@@ -488,8 +530,6 @@ if __name__ == "__main__":
     optimized_model_dir = script_dir / "models" / optimized_dir_name / args.model_id
 
     model_config = model_to_config.get(args.model_id, {})
-    config.image_size = model_config.get("image_size", 1024)
-    config.hidden_state_size = model_config.get("hidden_state_size", 2048)
     config.time_ids_size = model_config.get("time_ids_size", 6)
     is_refiner_model = model_config.get("is_refiner_model", False)
 
@@ -500,6 +540,14 @@ if __name__ == "__main__":
     if not is_refiner_model and args.base_images is not None:
         print("--base_images should only be provided for refiner models")
         sys.exit(1)
+
+    disable_classifier_free_guidance = args.disable_classifier_free_guidance
+
+    if args.model_id == "stabilityai/sdxl-turbo" and not disable_classifier_free_guidance:
+        disable_classifier_free_guidance = True
+        print(
+            f"WARNING: Classifier free guidance has been forcefully disabled since {args.model_id} doesn't support it."
+        )
 
     if args.optimize or not optimized_model_dir.exists():
         if args.tempdir is not None:
@@ -528,6 +576,7 @@ if __name__ == "__main__":
                 args.batch_size,
                 args.image_size,
                 args.num_inference_steps,
+                disable_classifier_free_guidance,
                 use_static_dims,
                 args.device_id,
                 args.interactive,

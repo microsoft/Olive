@@ -3,8 +3,9 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
+import pytest
 import torch
 
 import olive.passes.pytorch.sparsegpt_utils as sparsegpt_utils
@@ -21,25 +22,8 @@ class MockTRTLinearLayer(torch.nn.Module):
     pass
 
 
-def mocked_torch_zeros(*args, **kwargs):
-    if "device" in kwargs:
-        del kwargs["device"]
-    return torch.ones(*args, **kwargs) * 0
-
-
-# all the following patches are needed to run the test on CPU
-# make torch.cuda.is_available return True
-@patch("torch.cuda.is_available", return_value=True)
-# make tensor_data_to_device return the input tensor, ignore device
-@patch("olive.common.utils.tensor_data_to_device", side_effect=lambda x, y: x)
-# make torch.nn.Module.to do nothing
-@patch("torch.nn.Module.to", side_effect=lambda device: None)
-# replace device in kwargs with "cpu"
-@patch("torch.zeros", side_effect=mocked_torch_zeros)
-def test_torch_trt_conversion_success(
-    mock_torch_zeros, mock_torch_nn_module_to, mock_tensor_data_to_device, mock_torch_cuda_is_available, tmp_path
-):
-    # setup
+@pytest.fixture(name="mock_torch_ort")
+def mock_torch_ort_fixture():
     # mock trt utils since we don't have tensorrt and torch-tensorrt installed
     mock_trt_utils = MagicMock()
     mock_compile_trt_model = MagicMock()
@@ -48,6 +32,17 @@ def test_torch_trt_conversion_success(
     # we don't want to import trt_utils because of missing tensorrt and torch-tensorrt
     # add mocked trt_utils to sys.modules
     sys.modules["olive.passes.pytorch.trt_utils"] = mock_trt_utils
+    yield mock_trt_utils
+    del sys.modules["olive.passes.pytorch.trt_utils"]
+
+
+@pytest.mark.skipif(
+    not torch.cuda.is_available(),
+    reason="TorchTRTConversion requires GPU.",
+)
+@pytest.mark.usefixtures("mock_torch_ort")
+def test_torch_trt_conversion_success(tmp_path):
+    # setup
     model_name = "hf-internal-testing/tiny-random-OPTForCausalLM"
     task = "text-generation"
     model_type = "opt"
@@ -91,6 +86,3 @@ def test_torch_trt_conversion_success(
         for submodule_name in original_submodules:
             # check that the submodule is replaced with MockTRTLinearLayer
             assert isinstance(get_attr(layer, submodule_name), MockTRTLinearLayer)
-
-    # cleanup
-    del sys.modules["olive.passes.pytorch.trt_utils"]

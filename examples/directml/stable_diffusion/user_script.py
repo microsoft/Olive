@@ -128,31 +128,6 @@ def text_encoder_data_loader(data_dir, batchsize, *args, **kwargs):
 
 
 # -----------------------------------------------------------------------------
-# TEXT ENCODER 2
-# -----------------------------------------------------------------------------
-
-
-def text_encoder_2_inputs(batchsize, torch_dtype):
-    return torch.zeros((batchsize, 77), dtype=torch_dtype)
-
-
-def text_encoder_2_load(model_name):
-    base_model_id = get_base_model_name(model_name)
-    model = CLIPTextModel.from_pretrained(base_model_id, subfolder="text_encoder_2")
-    if is_lora_model(model_name):
-        merge_lora_weights(model, model_name, "text_encoder_2")
-    return model
-
-
-def text_encoder_2_conversion_inputs(model):
-    return text_encoder_2_inputs(1, torch.int32)
-
-
-def text_encoder_2_data_loader(data_dir, batchsize, *args, **kwargs):
-    return RandomDataLoader(text_encoder_2_inputs, batchsize, torch.int32)
-
-
-# -----------------------------------------------------------------------------
 # UNET
 # -----------------------------------------------------------------------------
 
@@ -160,9 +135,9 @@ def text_encoder_2_data_loader(data_dir, batchsize, *args, **kwargs):
 def unet_inputs(batchsize, torch_dtype, is_conversion_inputs=False):
     # TODO(jstoecker): Rename onnx::Concat_4 to text_embeds and onnx::Shape_5 to time_ids
     inputs = {
-        "sample": torch.rand((batchsize, 4, 64, 64), dtype=torch_dtype),
+        "sample": torch.rand((batchsize, 4, config.unet_sample_size, config.unet_sample_size), dtype=torch_dtype),
         "timestep": torch.rand((batchsize,), dtype=torch_dtype),
-        "encoder_hidden_states": torch.rand((batchsize, 77, config.image_size + 256), dtype=torch_dtype),
+        "encoder_hidden_states": torch.rand((batchsize, 77, config.cross_attention_dim), dtype=torch_dtype),
     }
 
     # use as kwargs since they won't be in the correct position if passed along with the tuple of inputs
@@ -208,7 +183,7 @@ def unet_data_loader(data_dir, batchsize, *args, **kwargs):
 
 def vae_encoder_inputs(batchsize, torch_dtype):
     return {
-        "sample": torch.rand((batchsize, 3, config.image_size, config.image_size), dtype=torch_dtype),
+        "sample": torch.rand((batchsize, 3, config.vae_sample_size, config.vae_sample_size), dtype=torch_dtype),
         "return_dict": False,
     }
 
@@ -235,7 +210,9 @@ def vae_encoder_data_loader(data_dir, batchsize, *args, **kwargs):
 
 def vae_decoder_inputs(batchsize, torch_dtype):
     return {
-        "latent_sample": torch.rand((batchsize, 4, 64, 64), dtype=torch_dtype),
+        "latent_sample": torch.rand(
+            (batchsize, 4, config.unet_sample_size, config.unet_sample_size), dtype=torch_dtype
+        ),
         "return_dict": False,
     }
 
@@ -263,7 +240,7 @@ def vae_decoder_data_loader(data_dir, batchsize, *args, **kwargs):
 def safety_checker_inputs(batchsize, torch_dtype):
     return {
         "clip_input": torch.rand((batchsize, 3, 224, 224), dtype=torch_dtype),
-        "images": torch.rand((batchsize, config.image_size, config.image_size, 3), dtype=torch_dtype),
+        "images": torch.rand((batchsize, config.vae_sample_size, config.vae_sample_size, 3), dtype=torch_dtype),
     }
 
 
