@@ -132,6 +132,7 @@
 <span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
 <span class="c1"># Licensed under the MIT License.</span>
 <span class="c1"># --------------------------------------------------------------------------</span>
+<span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 
@@ -141,6 +142,8 @@
 <span class="kn">from</span> <span class="nn">olive.model.config.model_config</span> <span class="kn">import</span> <span class="n">ModelConfig</span>
 <span class="kn">from</span> <span class="nn">olive.model.config.registry</span> <span class="kn">import</span> <span class="n">model_handler_registry</span>
 <span class="kn">from</span> <span class="nn">olive.model.handler.base</span> <span class="kn">import</span> <span class="n">OliveModelHandler</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="CompositeModelHandler"><a class="viewcode-back" href="../../../../api/models.html#olive.model.CompositeModelHandler">[docs]</a><span class="nd">@model_handler_registry</span><span class="p">(</span><span class="s2">&quot;CompositeModel&quot;</span><span class="p">)</span>
@@ -214,9 +217,6 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_components</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="n">kwargs</span> <span class="o">=</span> <span class="n">kwargs</span> <span class="ow">or</span> <span class="p">{}</span>
-        <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;model_file_format&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">COMPOSITE_MODEL</span>
-
         <span class="n">model_names</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">pytorch_models</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">model_config</span> <span class="ow">in</span> <span class="n">model_components</span><span class="p">:</span>
@@ -229,9 +229,16 @@
             <span class="n">model_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">model_name</span><span class="p">)</span>
             <span class="n">pytorch_models</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">validate_config</span><span class="p">(</span><span class="n">config_copy</span><span class="p">,</span> <span class="n">ModelConfig</span><span class="p">)</span><span class="o">.</span><span class="n">create_model</span><span class="p">())</span>
 
-        <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;model_components&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pytorch_models</span>
-        <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;model_component_names&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">model_names</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+        <span class="n">kwargs_inner</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">kwargs_inner</span><span class="p">[</span><span class="s2">&quot;model_components&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pytorch_models</span>
+        <span class="n">kwargs_inner</span><span class="p">[</span><span class="s2">&quot;model_component_names&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">model_names</span>
+
+        <span class="k">if</span> <span class="s2">&quot;model_attributes&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">kwargs_inner</span><span class="p">[</span><span class="s2">&quot;model_attributes&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;model_attributes&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s2">&quot;model_path&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;model_path is not used in CompositePyTorchModelHandler&quot;</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs_inner</span><span class="p">)</span></div>
 </pre></div>
 
            </div>
