@@ -43,12 +43,13 @@ class RegulatePassConfigMixin:
         pass_config = pass_config or {}
         is_gpu = self.accelerator_spec.accelerator_type == Device.GPU and self.accelerator_spec.execution_provider in [
             "CUDAExecutionProvider",
+            "DmlExecutionProvider",
             "TensorrtExecutionProvider",
         ]
         if not is_gpu or not self.is_accuracy_drop_tolerance:
             return {}, []
 
-        is_cuda_ep = self.accelerator_spec.execution_provider == "CUDAExecutionProvider"
+        is_cuda_ep = self.accelerator_spec.execution_provider != "TensorrtExecutionProvider"
         is_trt_ep = self.accelerator_spec.execution_provider == "TensorrtExecutionProvider"
         assert (
             not is_cuda_ep or not is_trt_ep

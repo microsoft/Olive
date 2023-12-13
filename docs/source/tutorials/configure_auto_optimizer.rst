@@ -17,13 +17,14 @@ All above information(is called "optimization factors" in this doc) is provided 
     python -m olive.workflows.run --config <config_file>.json
 
 
-With the help of Auto Optimizer, for most popular models like bert, SD, open_llama and etc., user:
+With the help of Auto Optimizer, for most popular models like bert, deberta and etc., user:
 
 1. DOES NOT need to provide the passes combination manually.
 2. DOES NOT need to write redundant passes configs.
 
 At the same time, user still has the flexibility to specify the accelerator, execution providers and expected precision of output models.
 
+Currently, **auto optimizer supports onnx optimization stack only**. For openvino and snpe, user still need to provide passes combination manually by now.
 Auto Optimizer is still under development actively, and we will keep improving it to make it more powerful and easy to use.
 
 Auto Optimizer Configuration
