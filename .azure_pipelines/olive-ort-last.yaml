@@ -23,6 +23,17 @@ jobs:
     test_type: 'unit_test'
     onnxruntime: 'onnxruntime==1.15.1'
 
+# Linux GPU unit test
+- template: job_templates/olive-test-template.yaml
+  parameters:
+    name: Linux_GPU_CI_Unit_Test_Olive
+    pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
+    device: 'gpu'
+    windows: False
+    test_type: 'unit_test'
+    onnxruntime: 'onnxruntime-gpu==1.15.1'
+    requirements_file: 'requirements-test-gpu.txt'
+
 # Windows unit test
 - template: job_templates/olive-test-template.yaml
   parameters:

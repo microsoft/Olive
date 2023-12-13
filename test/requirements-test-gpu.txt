@@ -1,0 +1,3 @@
+-r requirements-test.txt
+# only available on Linux currently
+bitsandbytes
