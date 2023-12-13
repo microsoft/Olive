@@ -87,9 +87,6 @@ class CompositePyTorchModelHandler(CompositeModelHandler):
     """
 
     def __init__(self, model_components: List[Dict[str, Any]], **kwargs):
-        kwargs_inner = {}
-        kwargs_inner["model_file_format"] = ModelFileFormat.COMPOSITE_MODEL
-
         model_names = []
         pytorch_models = []
         for model_config in model_components:
@@ -102,6 +99,7 @@ class CompositePyTorchModelHandler(CompositeModelHandler):
             model_names.append(model_name)
             pytorch_models.append(validate_config(config_copy, ModelConfig).create_model())
 
+        kwargs_inner = {}
         kwargs_inner["model_components"] = pytorch_models
         kwargs_inner["model_component_names"] = model_names
 
