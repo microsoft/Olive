@@ -77,12 +77,17 @@ setup(
     classifiers=CLASSIFIERS,
     url="https://microsoft.github.io/Olive/",
     download_url="https://github.com/microsoft/Olive/tags",
-    packages=find_packages(exclude=("test", "examples*")),
+    packages=find_packages(include=["olive*"]),
     python_requires=">=3.8.0",
     install_requires=requirements,
     extras_require=EXTRAS,
-    include_package_data=True,
-    package_data={},
+    include_package_data=False,
+    package_data={
+        "olive": ["extra_dependencies.json"],
+        "olive.snpe": ["create_python36_env.sh", "copy_libcdsprpc.ps1"],
+        "olive.systems.docker": ["Dockerfile*"],
+        "olive.engine.packaging": ["sample_code/*/*/*"],
+    },
     data_files=[],
     entry_points={
         "console_scripts": [
