@@ -13,8 +13,8 @@ from olive.model.utils.hf_utils import (
     get_hf_model_config,
     get_hf_model_dummy_input,
     get_hf_model_io_config,
-    load_huggingface_model_from_model_class,
-    load_huggingface_model_from_task,
+    load_hf_model_from_model_class,
+    load_hf_model_from_task,
 )
 
 if TYPE_CHECKING:
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class HfConfigMixin:
-    """Provide the following Hugging Face model functionalites.
+    """Provide the following Hugging Face model functionalities.
 
         * loading huggingface model
         * getting huggingface model config
@@ -45,7 +45,7 @@ class HfConfigMixin:
         if self.hf_config is None:
             raise ValueError("HF model_config is not available")
 
-        return get_hf_model_config(self._get_model_path_or_name(), **self._get_loading_args())
+        return get_hf_model_config(self._get_model_path_or_name(), **self.hf_config.get_loading_args_from_pretrained())
 
     def get_hf_io_config(self):
         """Get Io config for the model."""
@@ -54,7 +54,7 @@ class HfConfigMixin:
                 self._get_model_path_or_name(),
                 self.hf_config.task,
                 self.hf_config.feature,
-                **self._get_loading_args(),
+                **self.hf_config.get_loading_args_from_pretrained(),
             )
         else:
             return None
@@ -94,14 +94,12 @@ class HfConfigMixin:
     def load_hf_model(self, model_path: str = None):
         """Load model from model_path or model_name."""
         model_name_or_path = model_path or self.hf_config.model_name
-        loading_args = self._get_loading_args()
+        loading_args = self.hf_config.get_loading_args_from_pretrained()
         logger.info(f"Loading Huggingface model from {model_name_or_path}")
         if self.hf_config.task:
-            model = load_huggingface_model_from_task(self.hf_config.task, model_name_or_path, **loading_args)
+            model = load_hf_model_from_task(self.hf_config.task, model_name_or_path, **loading_args)
         elif self.hf_config.model_class:
-            model = load_huggingface_model_from_model_class(
-                self.hf_config.model_class, model_name_or_path, **loading_args
-            )
+            model = load_hf_model_from_model_class(self.hf_config.model_class, model_name_or_path, **loading_args)
         else:
             raise ValueError("Either task or model_class must be specified")
 
@@ -113,7 +111,7 @@ class HfConfigMixin:
             self.model_path or self.hf_config.model_name,
             self.hf_config.task,
             self.hf_config.feature,
-            **self._get_loading_args(),
+            **self.hf_config.get_loading_args_from_pretrained(),
         )
 
     def is_model_loaded_from_hf_config(self) -> bool:
@@ -127,9 +125,6 @@ class HfConfigMixin:
             and self.hf_config
             and (self.hf_config.model_class or self.hf_config.task)
         )
-
-    def _get_loading_args(self):
-        return self.hf_config.from_pretrained_args.get_loading_args() if self.hf_config.from_pretrained_args else {}
 
     def _get_model_path_or_name(self):
         if self.model_file_format == ModelFileFormat.PYTORCH_MLFLOW_MODEL:
