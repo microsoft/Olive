@@ -8,7 +8,6 @@ Stable Diffusion XL comprises multiple PyTorch models tied together into a *pipe
 - [Setup](#setup)
 - [Conversion to ONNX and Latency Optimization](#conversion-to-onnx-and-latency-optimization)
 - [Test Inference](#test-inference)
-- [Optimization for CUDA EP](#stable-diffusion-optimization-with-cuda)
 - [Issues](#issues)
 - [Stable Diffusion Pipeline](#stable-diffusion-pipeline)
 
@@ -61,7 +60,7 @@ Generated result_1.png
 Inference Batch End.
 ```
 
-Inference will loop until the generated image passes the safety checker (otherwise you would see black images). The result will be saved as `result_<i>.png` on disk, which is then loaded and displayed in the UI.
+The result will be saved as `result_<i>.png` on disk, which is then loaded and displayed in the UI.
 
 Run `python stable_diffusion_xl.py --help` for additional options. A few particularly relevant ones:
 - `--model_id <string>` : name of a stable diffusion model ID hosted by huggingface.co. This script has been tested with the following:
@@ -74,23 +73,6 @@ Run `python stable_diffusion_xl.py --help` for additional options. A few particu
 If you omit `--interactive`, the script will generate the requested number of images without displaying a UI and then terminate. Use the `--prompt` option to specify the prompt when using non-interactive mode.
 
 The minimum number of inferences will be `ceil(num_images / batch_size)`; additional inferences may be required of some outputs are flagged by the safety checker to ensure the desired number of outputs are produced.
-
-## Stable Diffusion XL Optimization with CUDA
-This example can also be used to optimize Stable Diffusion models for CUDA. You can use the same `stable_diffusion.py` script with `--provider cuda` option to optimize the models for CUDA and test inference. The optimized models will be stored under `models/optimized-cuda/[model_id]` (for example `models/optimized-cuda/stabilityai/stable-diffusion-xl-base-1.0`).
-
-Install the common requirements:
-```
-pip install -r requirements-common.txt
-```
-
-The CUDA example requires the latest onnxruntime-gpu code which can either be built from source or installed from the nightly builds. The following command can be used to install the latest nightly build of onnxruntime-gpu:
-```
-# uninstall any pre-existing onnxruntime packages
-pip uninstall -y onnxruntime onnxruntime-gpu onnxruntime-directml ort-nightly ort-nightly-gpu ort-nightly-directml
-
-# install onnxruntime-gpu nightly build
-pip install ort-nightly-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
-```
 
 ## Issues
 
