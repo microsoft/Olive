@@ -13,6 +13,7 @@ See the following for instructions on how to optimize Stable Diffusion models wi
 - [CUDA](#optimization-with-cuda)
 
 ## Optimization with CUDA
+
 This sample performs the following optimization workflow for each model in the Stable Diffusion pipeline:
 - *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model fp16*
 <br/><br/>
@@ -48,6 +49,7 @@ cd examples/directml/stable_diffusion_xl
 ```
 
 #### Install onnxruntime
+
 This example requires the latest onnxruntime-gpu code which can either be built from source or installed from the nightly builds. The following command can be used to install the latest nightly build of onnxruntime-gpu:
 
 ```bash
@@ -59,6 +61,7 @@ pip install ort-nightly-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.
 ```
 
 #### Install other dependencies
+
 Install the necessary python packages:
 
 ```bash
@@ -100,13 +103,11 @@ python stable_diffusion.py --provider cuda --num_images 2
 ```
 Inference will loop until the generated image passes the safety checker (otherwise you would see black images). The result will be saved as `result_<i>.png` on disk.
 
-
 **_Stable Diffusion XL_**
 ```bash
 python stable_diffusion_xl.py --provider cuda --num_images 2
 ```
 The result will be saved as `result_<i>.png` on disk.
-
 
 Refer to the corresponding section in the DirectML READMEs for more details on the test inference options:
 - [Stable Diffusion](../directml/stable_diffusion/README.md#test-inference)
