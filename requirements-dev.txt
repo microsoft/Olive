@@ -5,6 +5,5 @@ flake8
 isort
 lintrunner
 lintrunner-adapters
-pre-commit
 pylint
 ruff
