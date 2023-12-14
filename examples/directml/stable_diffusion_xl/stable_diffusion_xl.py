@@ -19,6 +19,7 @@ import onnxruntime as ort
 import torch
 from diffusers import DiffusionPipeline, OnnxRuntimeModel
 from diffusers.utils import load_image
+from onnxruntime import __version__ as OrtVersion
 from optimum.onnxruntime import ORTStableDiffusionXLImg2ImgPipeline, ORTStableDiffusionXLPipeline
 from packaging import version
 from PIL import Image, ImageTk
@@ -285,6 +286,9 @@ def update_config_with_provider(config: Dict, provider: str):
         # DirectML EP is the default, so no need to update config.
         return config
     elif provider == "cuda":
+        if version.parse(OrtVersion) < version.parse("1.17.0"):
+            # disable skip_group_norm fusion since there is a shape inference bug which leads to invalid models
+            config["passes"]["optimize_cuda"]["config"]["optimization_options"] = {"enable_skip_group_norm": False}
         config["pass_flows"] = [["convert", "optimize_cuda"]]
         config["engine"]["execution_providers"] = ["CUDAExecutionProvider"]
         return config
@@ -450,7 +454,7 @@ def optimize(
     print(f"The optimized pipeline is located here: {optimized_model_dir}")
 
 
-if __name__ == "__main__":
+def main(raw_args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_id", default="stabilityai/stable-diffusion-xl-base-1.0", type=str)
     parser.add_argument(
@@ -474,8 +478,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--disable_classifier_free_guidance",
         action="store_true",
-        help="Whether to disable classifier free guidance. Classifier free guidance should be disabled for turbo "
-        "models.",
+        help=(
+            "Whether to disable classifier free guidance. Classifier free guidance should be disabled for turbo models."
+        ),
     )
     parser.add_argument("--num_inference_steps", default=50, type=int, help="Number of steps in diffusion process")
     parser.add_argument("--image_size", default=768, type=int, help="Image size to use during inference")
@@ -487,7 +492,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--dynamic_dims", action="store_true", help="Disable static shape optimization")
     parser.add_argument("--tempdir", default=None, type=str, help="Root directory for tempfile directories and files")
-    args = parser.parse_args()
+    args = parser.parse_args(raw_args)
 
     if args.static_dims:
         print(
@@ -512,12 +517,17 @@ if __name__ == "__main__":
             "expected."
         )
 
-    if args.provider == "dml" and version.parse(ort.__version__) < version.parse("1.16.2"):
+    if args.provider == "dml" and version.parse(OrtVersion) < version.parse("1.16.2"):
         print("This script requires onnxruntime-directml 1.16.2 or newer")
         sys.exit(1)
-    elif args.provider == "cuda" and version.parse(ort.__version__) < version.parse("1.17.0"):
-        print("This script requires onnxruntime-gpu 1.17.0 or newer")
-        sys.exit(1)
+    elif args.provider == "cuda" and version.parse(OrtVersion) < version.parse("1.17.0"):
+        if version.parse(OrtVersion) < version.parse("1.16.2"):
+            print("This script requires onnxruntime-gpu 1.16.2 or newer")
+            sys.exit(1)
+        print(
+            f"WARNING: onnxruntime {OrtVersion} has known issues with shape inference for SkipGroupNorm. Will disable"
+            " skip_group_norm fusion. onnxruntime-gpu 1.17.0 or newer is strongly recommended!"
+        )
 
     script_dir = Path(__file__).resolve().parent
 
@@ -582,3 +592,7 @@ if __name__ == "__main__":
                 args.interactive,
                 args.base_images,
             )
+
+
+if __name__ == "__main__":
+    main()
