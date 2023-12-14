@@ -28,7 +28,7 @@ class Precision(str, Enum):
 
 class AutoOptimizerConfig(ConfigBase):
     # opt_level
-    # 0: look up template mapping
+    # 0: specific pass_flows graph for auto optimizer to search
     # TODO(anyone): support more opt_level
     opt_level: int = 0
 
@@ -48,8 +48,6 @@ class AutoOptimizerConfig(ConfigBase):
     def check_opt_level(cls, v):
         if v != 0:
             raise ValueError("opt_level 0 is the only supported value for now")
-        if v not in [0, 1]:
-            raise ValueError("opt_level must be in [0, 1]")
         return v
 
 
@@ -62,7 +60,6 @@ class AutoOptimizer(RegulatePassConfigMixin):
         auto_optimizer_config: Optional[AutoOptimizerConfig] = None,
         data_configs: Optional[Dict[str, DataConfig]] = None,
     ):
-        # TODO(trajep): how to get model_attributes if the model is in AML workspace? Maybe we can ignore this for now?
         self.input_model_config = input_model_config
         self.evaluator_config = evaluator_config
         self.accelerator_spec = accelerator_spec

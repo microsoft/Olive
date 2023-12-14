@@ -128,5 +128,4 @@ class TestAutoOptimizer:
             k_list = k.split("_")
             accelerator, ep, precision = k_list[0], k_list[1], k_list[2]
             rls_pf = get_pass_flows_by_accelerator_ep_precision(0, accelerator, ep, precision)
-            print(rls_pf, pf)
             assert sorted(rls_pf) == sorted(pf)

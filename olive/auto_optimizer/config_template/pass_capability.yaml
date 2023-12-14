@@ -3,41 +3,53 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+OnnxConversion:
+  EP: null
+  precision: null
+  accelerator: null
+OrtTransformersOptimization:
+  EP: null
+  precision: null
+  accelerator: null
 OrtMixedPrecision:
-    EP:
-      - CUDA
-      - Dml
-    precision:
-      - fp16
-    accelerator:
-      - gpu
+  EP:
+    - CUDA
+    - Dml
+  precision:
+    - fp16
+  accelerator:
+    - gpu
 OnnxQuantization:
-    EP:
-      - CPU
-    precision:
-      - int8
-    accelerator:
-      - cpu
+  EP:
+    - CPU
+  precision:
+    - int8
+  accelerator:
+    - cpu
 IncQuantization:
-    EP:
-      - CPU
-    precision:
-      - int8
-    accelerator:
-      - cpu
+  EP:
+    - CPU
+  precision:
+    - int8
+  accelerator:
+    - cpu
 VitisAIQuantization:
-    EP:
-      - VitisAI
-    precision:
-      - int8
-    accelerator:
-      - npu
+  EP:
+    - VitisAI
+  precision:
+    - int8
+  accelerator:
+    - npu
 OnnxMatMul4Quantizer:
-    EP:
-      - CPU
-      - CUDA
-    precision:
-      - int4
-    accelerator:
-      - cpu
-      - gpu
+  EP:
+    - CPU
+    - CUDA
+  precision:
+    - int4
+  accelerator:
+    - cpu
+    - gpu
+OrtPerfTuning:
+  EP: null
+  precision: null
+  accelerator: null

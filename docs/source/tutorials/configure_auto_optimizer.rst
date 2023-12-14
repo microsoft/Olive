@@ -37,8 +37,8 @@ Config Fields:
     2. disable_auto_optimizer[bool]: default False.
         - If set to True, Auto Optimizer will be disabled and user need to provide passes combination manually.
 
-    3. precision[str]: default "fp32".
-        - The precision of output model. It can be "placeholder", "fp32", "fp16" and "int8" for now. "placeholder" means the precision of output model is not specified and will be determined by above optimization factors.
+    3. precision[optional[str]]: default None.
+        - The precision of output model. If user does not set the precision of output model, it will be determined by above optimization factors. We supports "fp32", "fp16" and "int8" output precision for now.
 
     Here is a simple example of Auto Optimizer configuration, the item which is not provided will use the default value:
 
