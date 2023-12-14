@@ -104,7 +104,7 @@ class MetricGoal(ConfigBase):
             raise ValueError("Invalid type")
         if (
             values["type"]
-            in ["min-improvement", "max-degradation", "percent-min-improvement", "percent-max-degradation"]
+            in ("min-improvement", "max-degradation", "percent-min-improvement", "percent-max-degradation")
             and v < 0
         ):
             raise ValueError(f"Value must be nonnegative for type {values['type']}")

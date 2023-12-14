@@ -160,8 +160,7 @@ def create_accelerators(target: "OliveSystem", execution_providers):
             accelerators = ["CPU"]
         else:
             logger.debug(
-                f"Use inferred accelerators {inferred_accelerators} "
-                f"from given execution providers {execution_providers}."
+                "User inferred accelerators %s from given execution providers %s.", accelerators, execution_providers
             )
             accelerators = inferred_accelerators
     logger.debug(f"Initial accelerators: {accelerators}")
