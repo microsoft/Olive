@@ -7,9 +7,6 @@ import json
 import shutil
 import sys
 import tempfile
-import threading
-import tkinter as tk
-import tkinter.ttk as ttk
 import warnings
 from pathlib import Path
 from typing import Dict
@@ -20,7 +17,6 @@ import torch
 from diffusers import DiffusionPipeline, OnnxRuntimeModel, OnnxStableDiffusionPipeline
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
-from PIL import Image, ImageTk
 from user_script import get_base_model_name
 
 from olive.model import ONNXModelHandler
@@ -80,6 +76,12 @@ def run_inference_loop(
 def run_inference_gui(
     pipeline, prompt, num_images, batch_size, image_size, num_inference_steps, disable_classifier_free_guidance
 ):
+    import threading
+    import tkinter as tk
+    import tkinter.ttk as ttk
+
+    from PIL import Image, ImageTk
+
     def update_progress_bar(total_steps_completed):
         progress_bar["value"] = total_steps_completed
 
