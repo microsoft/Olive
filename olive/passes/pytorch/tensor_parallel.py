@@ -18,6 +18,7 @@ from olive.common.config_utils import ParamCategory
 from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import DistributedPyTorchModelHandler, PyTorchModelHandler
+from olive.model.config.hf_config import HfConfig, get_model_type_from_hf_config
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 
@@ -104,17 +105,19 @@ class PyTorchTensorParallel(Pass):
 
     @staticmethod
     def _generate_one(params):
-        script_dir, user_script, class_name, model_config, rank, world_size, output_filepath = params
-
-        from olive.passes.pytorch.tensor_parallel_llama2 import LlamaPyTorchTensorParallel
+        model_config, rank, world_size, output_filepath = params
 
         logger.debug(f"Exporting tensor parallel model for rank: {rank}, {output_filepath}")
 
-        # TODO(shaahji): Parameterize the specific class implementation to use
-        # cls = UserModuleLoader.load_global(class_name)
-        # impl = cls(rank, world_size)
+        hf_config = HfConfig(**model_config["hf_config"])
+        model_type = get_model_type_from_hf_config(hf_config)
 
-        impl = LlamaPyTorchTensorParallel(rank, world_size)
+        if model_type == "llama":
+            from olive.passes.pytorch.tensor_parallel_llama2 import LlamaPyTorchTensorParallel
+
+            impl = LlamaPyTorchTensorParallel(rank, world_size)
+        else:
+            raise ValueError("Unsupported model type '{model_type}' for tensor parallel pass")
 
         # 1. Replace the layers
         impl.replace_layers()
@@ -147,9 +150,6 @@ class PyTorchTensorParallel(Pass):
     def _run_for_config(
         self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> DistributedPyTorchModelHandler:
-        script_dir = config["script_dir"]
-        user_script = config["user_script"]
-        class_name = config["class_name"]
         world_size = int(config["world_size"])
         output_model_path = Path(output_model_path)
         output_model_path.mkdir(parents=True, exist_ok=True)
@@ -157,9 +157,6 @@ class PyTorchTensorParallel(Pass):
         model_config = model.to_json()["config"]
         params = [
             (
-                script_dir,
-                user_script,
-                class_name,
                 model_config,
                 rank,
                 world_size,
