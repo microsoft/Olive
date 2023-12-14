@@ -7,9 +7,6 @@ import json
 import shutil
 import sys
 import tempfile
-import threading
-import tkinter as tk
-import tkinter.ttk as ttk
 import warnings
 from pathlib import Path
 from typing import Dict
@@ -22,7 +19,6 @@ from diffusers.utils import load_image
 from onnxruntime import __version__ as OrtVersion
 from optimum.onnxruntime import ORTStableDiffusionXLImg2ImgPipeline, ORTStableDiffusionXLPipeline
 from packaging import version
-from PIL import Image, ImageTk
 
 from olive.model import ONNXModelHandler
 from olive.workflows import run as olive_run
@@ -127,6 +123,12 @@ def run_inference_gui(
     disable_classifier_free_guidance,
     base_images=None,
 ):
+    import threading
+    import tkinter as tk
+    import tkinter.ttk as ttk
+
+    from PIL import Image, ImageTk
+
     def update_progress_bar(total_steps_completed):
         progress_bar["value"] = total_steps_completed
 

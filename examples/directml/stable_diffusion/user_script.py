@@ -36,7 +36,11 @@ def merge_lora_weights(base_model, lora_model_id, submodel_name="unet", scale=1.
     from collections import defaultdict
     from functools import reduce
 
-    from diffusers.loaders import LORA_WEIGHT_NAME
+    try:
+        from diffusers.loaders import LORA_WEIGHT_NAME
+    except ImportError:
+        # moved in version 0.24.0
+        from diffusers.loaders.lora import LORA_WEIGHT_NAME
     from diffusers.models.attention_processor import LoRAAttnProcessor
     from diffusers.utils import DIFFUSERS_CACHE
     from diffusers.utils.hub_utils import _get_model_file

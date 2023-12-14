@@ -22,19 +22,25 @@ def setup():
     sys.path.remove(example_dir)
 
 
-def test_stable_diffusion():
+@pytest.mark.parametrize("model_id", [None, "stabilityai/sd-turbo", "sayakpaul/sd-model-finetuned-lora-t4"])
+def test_stable_diffusion(model_id):
     # clean previous artifacts
     for image_file in Path().glob("result_*.png"):
         image_file.unlink()
 
     from stable_diffusion import main as stable_diffusion_main
 
+    # common arguments
+    cmd_args = ["--provider", "cuda"]
+    if model_id is not None:
+        cmd_args.extend(["--model_id", model_id])
+
     # run the optimization
-    stable_diffusion_main(["--provider", "cuda", "--optimize"])
+    stable_diffusion_main([*cmd_args, "--optimize"])
 
     # test inference
     num_images = 2
-    stable_diffusion_main(["--provider", "cuda", "--num_images", str(num_images)])
+    stable_diffusion_main([*cmd_args, "--num_images", str(num_images)])
 
     # check the results
     for i in range(num_images):
