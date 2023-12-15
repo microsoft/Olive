@@ -116,7 +116,11 @@ def tune_onnx_model(model, data_root, config):
     else:
         # If the best result is baseline, we need add the execution_provider to the inference_settings of the model
         result_model = copy.deepcopy(model)
-        result_model.inference_settings = {"execution_provider": best_result.get("execution_provider")}
+        if result_model.inference_settings:
+            result_model.inference_settings["execution_provider"] = best_result.get("execution_provider")
+        else:
+            result_model.inference_settings = {"execution_provider": best_result.get("execution_provider")}
+
         return result_model
 
 
