@@ -35,6 +35,7 @@ _onnx_quantization_config = {
         type_=str,
         default_value="QInt8",
         searchable_values=Categorical(["QInt8", "QUInt8"]),
+        allowed_values={"QInt8", "QUInt8"},
         description="""
             Data type for quantizing weights which is used both in dynamic
             and static quantization. 'QInt8' for signed 8-bit integer,

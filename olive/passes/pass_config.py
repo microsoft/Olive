@@ -2,13 +2,16 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 from enum import Enum
 from pathlib import Path
-from typing import Callable, Dict, Optional, Type, Union
+from typing import Callable, Dict, Optional, Set, Type, Union
 
 from olive.common.config_utils import ConfigBase, ConfigParam, ParamCategory, validate_object, validate_resource_path
-from olive.common.pydantic_v1 import create_model, validator
+from olive.common.pydantic_v1 import Field, create_model, validator
 from olive.strategy.search_parameter import SearchParameter, json_to_search_parameter
+
+logger = logging.getLogger(__name__)
 
 
 class PassParamDefault(str, Enum):
@@ -38,6 +41,7 @@ class PassConfigParam(ConfigParam):
     """
 
     searchable_values: SearchParameter = None
+    allowed_values: Set = None
 
     def __repr__(self):
         repr_list = []
@@ -96,6 +100,21 @@ class PassConfigBase(ConfigBase):
         return v
 
 
+def validate_allowed_values(v, values, field):
+    if v == PassParamDefault.DEFAULT_VALUE or v == PassParamDefault.SEARCHABLE_VALUES or isinstance(v, SearchParameter):
+        # skip validation for PassParamDefault and SearchParameter
+        # will be validated later when the actual value is set
+        return v
+
+    allowed_values = field.field_info.extra.get("allowed_values")
+    if allowed_values is None:
+        logger.warning(f"validate allowed values is called for {field.name} but allowed values is not set")
+        return v
+    if v not in allowed_values:
+        raise ValueError(f"{v} is not in supported values {allowed_values}")
+    return v
+
+
 def create_config_class(
     pass_type: str,
     default_config: Dict[str, PassConfigParam],
@@ -107,19 +126,21 @@ def create_config_class(
     validators = validators.copy() if validators else {}
     for param, param_config in default_config.items():
         if param_config.category == ParamCategory.OBJECT:
-            validators[f"validate_{param}"] = validator(param, allow_reuse=True)(validate_object)
+            validators[f"validate_object_{param}"] = validator(param, allow_reuse=True)(validate_object)
         if param == "data_dir":
-            validators[f"validate_{param}"] = validator(param, allow_reuse=True)(validate_resource_path)
+            validators[f"validate_resource_path_{param}"] = validator(param, allow_reuse=True)(validate_resource_path)
+        if param_config.allowed_values is not None:
+            validators[f"validate_allowed_values_{param}"] = validator(param, allow_reuse=True)(validate_allowed_values)
 
         type_ = param_config.type_
         if param_config.required:
-            config[param] = (type_, ...)
+            config[param] = (type_, Field(..., allowed_values=param_config.allowed_values))
             continue
 
         type_ = Optional[Union[type_, SearchParameter, PassParamDefault]]
         if not disable_search and param_config.searchable_values is not None:
-            config[param] = (type_, param_config.searchable_values)
+            config[param] = (type_, Field(param_config.searchable_values, allowed_values=param_config.allowed_values))
         else:
-            config[param] = (type_, param_config.default_value)
+            config[param] = (type_, Field(param_config.default_value, allowed_values=param_config.allowed_values))
 
     return create_model(f"{pass_type}Config", **config, __base__=PassConfigBase, __validators__=validators)
