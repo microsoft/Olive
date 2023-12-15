@@ -4,7 +4,7 @@
         "config": {
             "model_path": "chenyaofo/pytorch-cifar-models",
             "model_loader": "load_pytorch_origin_model",
-            "model_script": "{USER_SCRIPT}"
+            "model_script": "user_script.py"
         }
     },
     "systems": {
@@ -22,11 +22,11 @@
                     "name": "accuracy",
                     "type": "accuracy",
                     "sub_types": [
-                        {"name": "accuracy_score", "priority": 1, "metric_config": {"task": "multiclass", "num_classes": 10}}
+                        {"name": "accuracy_score", "priority": 1}
                     ],
                     "user_config":{
                         "post_processing_func": "post_process",
-                        "user_script": "{USER_SCRIPT}",
+                        "user_script": "user_script.py",
                         "dataloader_func": "create_dataloader",
                         "data_dir": "data",
                         "batch_size": 1
@@ -39,7 +39,7 @@
                         {"name": "avg", "priority": 2}
                     ],
                     "user_config":{
-                        "user_script": "{USER_SCRIPT}",
+                        "user_script": "user_script.py",
                         "dataloader_func": "create_dataloader",
                         "data_dir": "data",
                         "batch_size": 1
@@ -52,22 +52,18 @@
         "conversion": {
             "type": "OpenVINOConversion",
             "config": {
-                "input_shape": [1, 3, 32, 32]
+                "input": [1, 3, 32, 32]
             }
         },
         "quantization": {
-            "type": "OpenVINOQuantization",
+            "type": "OpenVINOQuantizationWithAccuracy",
             "config": {
-                "engine_config": {"device": "CPU", "stat_requests_number": 2, "eval_requests_number": 2},
-                "algorithms": [
-                    {
-                        "name": "DefaultQuantization",
-                        "params": {"target_device": "CPU", "preset": "performance", "stat_subset_size": 300}
-                    }
-                ],
                 "data_dir": "data",
-                "user_script": "{USER_SCRIPT}",
-                "dataloader_func": "create_dataloader"
+                "user_script": "user_script.py",
+                "dataloader_func": "create_dataloader",
+                "validation_func": "validate",
+                "max_drop": 0.01,
+                "drop_type": "ABSOLUTE"
             }
         }
     },
@@ -80,7 +76,8 @@
         "evaluator": "common_evaluator",
         "host": "local_system",
         "target": "local_system",
-        "cache_dir": "cache",
+        "output_dir" : "models/openvino",
+        "cache_dir": "cache/openvino",
         "evaluate_input_model": false
     }
 }

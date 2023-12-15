@@ -16,5 +16,5 @@ python -m pip install -r requirements.txt
 ### Local evaluation
 Evaluate the models locally:
 ```
-python cifar10.py
+python -m olive.workflows.run --config config.json
 ```

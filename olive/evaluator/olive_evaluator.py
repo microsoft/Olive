@@ -1018,13 +1018,12 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
         targets = []
         logits = []
         for input_data, labels in dataloader:
-            result = session.infer_new_request({0: input_data})
+            session.infer({0: input_data})
+            result = session.get_output_tensor().data
             outputs = post_func(result) if post_func else result
-            if not isinstance(labels, list):
-                labels = [labels]  # noqa: PLW2901
-            preds.extend(outputs)
-            targets.extend(labels)
-            logits.extend(result)
+            preds.append(outputs)
+            targets.append(labels)
+            logits.append(result)
         return OliveModelOutput(preds=preds, logits=logits), targets
 
     def _evaluate_accuracy(
@@ -1055,7 +1054,7 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
         latencies = []
         for input_data, _ in dataloader:
             t = time.perf_counter()
-            session(input_data)
+            session.infer(input_data)
             latencies.append(time.perf_counter() - t)
         return latencies
 

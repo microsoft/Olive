@@ -1,4 +1,4 @@
-openvino
-openvino-dev[tensorflow,onnx]
+openvino==2023.2.0
+scikit-learn
 tabulate
 torchvision
