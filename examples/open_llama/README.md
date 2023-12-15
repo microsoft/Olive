@@ -218,15 +218,15 @@ The following table shows the accuracy and perplexity results of Open Llama mode
   <tr>
     <td rowspan="2">openlm-research/open_llama_7b</td>
     <td>FP32</td>
-    <td>0.7044</td>
-    <td>3.9716</td>
+    <td>0.7041</td>
+    <td>3.9686</td>
     <td>/</td>
   </tr>
   <tr>
-    <td>GPTQ<br>W4G32Sym</td>
-    <td>0.7017</td>
-    <td>4.1320</td>
-    <td>99.62%</td>
+    <td>RTN<br>W4G32Asym</td>
+    <td>0.6887</td>
+    <td>4.1749</td>
+    <td>97.81%</td>
   </tr>
   <tr>
     <td rowspan="2">openlm-research/open_llama_13b</td>
@@ -244,7 +244,7 @@ The following table shows the accuracy and perplexity results of Open Llama mode
 </tbody>
 </table>
 
-> Note: The above results are obtained using `onnxruntime==1.16.3`, which supports the `MatMulNBits` op.
+> Note: The above results are obtained using `onnxruntime==1.16.3`, which supports the `MatMulNBits` op. Tested by Intel(R) Xeon(R) Platinum 8375c CPU @2.9GHz
 
 
 ## How to run
