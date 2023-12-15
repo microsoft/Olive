@@ -12,9 +12,8 @@ Install the necessary python packages:
 python -m pip install -r requirements.txt
 ```
 
-## Run sample
-### Local evaluation
-Evaluate the models locally:
+### Run sample using config
+Optimize the model by running
 ```
 python -m olive.workflows.run --config config.json
 ```
