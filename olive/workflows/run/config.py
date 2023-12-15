@@ -92,12 +92,6 @@ class RunConfig(ConfigBase):
             v = {}
         return v
 
-    @validator("auto_optimizer_config", pre=True, always=True)
-    def default_auto_optimizer_config(cls, v):
-        if v is None:
-            v = AutoOptimizerConfig()
-        return v
-
     @validator("data_configs", pre=True, always=True)
     def insert_input_model_data_config(cls, v, values):
         if "input_model" not in values:

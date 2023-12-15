@@ -157,7 +157,11 @@ def run_engine(config: RunConfig, data_root: str = None):
 
     pass_list = []
     acc_list = []
-    if not config.passes and not config.auto_optimizer_config.disable_auto_optimizer:
+    if (
+        not config.passes
+        and config.auto_optimizer_config is not None
+        and not config.auto_optimizer_config.disable_auto_optimizer
+    ):
         for acc_spec in accelerator_specs:
             _passes, pass_flows = AutoOptimizer(
                 input_model,
