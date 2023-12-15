@@ -104,16 +104,16 @@ class MetricGoal(ConfigBase):
             raise ValueError("Invalid type")
         if (
             values["type"]
-            in ("min-improvement", "max-degradation", "percent-min-improvement", "percent-max-degradation")
+            in {"min-improvement", "max-degradation", "percent-min-improvement", "percent-max-degradation"}
             and v < 0
         ):
             raise ValueError(f"Value must be nonnegative for type {values['type']}")
         return v
 
     def has_regression_goal(self):
-        if self.type in ["min-improvement", "percent-min-improvement"]:
+        if self.type in {"min-improvement", "percent-min-improvement"}:
             return False
-        elif self.type in ["max-degradation", "percent-max-degradation"]:
+        elif self.type in {"max-degradation", "percent-max-degradation"}:
             return self.value > 0
 
         if self.type == "threshold":
