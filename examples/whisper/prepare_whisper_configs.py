@@ -93,9 +93,11 @@ def main(raw_args=None):
         template_json["input_model"]["config"]["hf_config"]["from_pretrained_args"] = {"attn_implementation": "eager"}
 
     # set dataloader
-    template_json["evaluators"]["common_evaluator"]["metrics"][0]["user_config"]["dataloader_func"] = (
-        "whisper_audio_decoder_dataloader" if not args.no_audio_decoder else "whisper_no_audio_decoder_dataloader"
-    )
+    metric_dataloader_kwargs = template_json["evaluators"]["common_evaluator"]["metrics"][0]["user_config"][
+        "func_kwargs"
+    ]["dataloader_func"]
+    metric_dataloader_kwargs["model_name"] = model_name
+    metric_dataloader_kwargs["use_audio_decoder"] = not args.no_audio_decoder
 
     # update multi-lingual support
     template_json["passes"]["insert_beam_search"]["config"]["use_forced_decoder_ids"] = args.multilingual
@@ -137,10 +139,6 @@ def main(raw_args=None):
         with open(f"whisper_{device}_{precision}.json", "w") as f:  # noqa: PTH123
             json.dump(config, f, indent=4)
 
-    # update user script
-    user_script_path = Path(__file__).parent / "code" / "user_script.py"
-    update_user_script(user_script_path, model_name)
-
     # download audio test data
     download_audio_test_data()
 
@@ -159,20 +157,6 @@ def download_audio_test_data():
         request.urlretrieve(test_audio_url, test_audio_path)
 
     return test_audio_path.relative_to(cur_dir)
-
-
-def update_user_script(file_path, model_name):
-    with open(file_path) as file:  # noqa: PTH123
-        lines = file.readlines()
-
-    new_lines = []
-    for line in lines:
-        if "<model_name>" in line:
-            line = line.replace("<model_name>", model_name)  # noqa: PLW2901
-        new_lines.append(line)
-
-    with open(file_path, "w") as file:  # noqa: PTH123
-        file.writelines(new_lines)
 
 
 if __name__ == "__main__":

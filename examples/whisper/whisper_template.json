@@ -43,7 +43,13 @@
                         "user_script": "code/user_script.py",
                         "script_dir": "code",
                         "data_dir": "data",
-                        "dataloader_func": "<place_holder>"
+                        "dataloader_func": "whisper_dataloader",
+                        "func_kwargs": {
+                            "dataloader_func": {
+                                "model_name" : "<place_holder>",
+                                "use_audio_decoder" : "<place_holder>"
+                            }
+                        }
                     }
                 }
             ]
