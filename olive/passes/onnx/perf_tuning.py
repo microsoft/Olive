@@ -107,16 +107,17 @@ def tune_onnx_model(model, data_root, config):
     logger.info("Best result: %s", best_result)
     if best_result.get("test_name") != PERFTUNING_BASELINE:
         optimized_model = copy.copy(model)
-        optimized_model.inference_settings = {
-            "execution_provider": best_result.get("execution_provider"),
-        }
+        optimized_model.inference_settings = {"execution_provider": best_result.get("execution_provider")}
         session_options = best_result.get("session_options")
         if session_options is not None:
             optimized_model.inference_settings["session_options"] = session_options
 
         return optimized_model
     else:
-        return model
+        # If the best result is baseline, we need add the execution_provider to the inference_settings of the model
+        result_model = copy.deepcopy(model)
+        result_model.inference_settings = {"execution_provider": best_result.get("execution_provider")}
+        return result_model
 
 
 def threads_num_tuning(model, data_root, latency_metric, config, tuning_combo):
@@ -305,16 +306,19 @@ def get_benchmark(model, data_root, latency_metric, config, test_params=None, io
         latency_metric.user_config.io_bind = io_bind
 
         latency_metric.user_config.inference_settings = {"onnx": test_params}
-        test_result["execution_provider"] = test_params.get("execution_provider")
+        execution_providers = test_params.get("execution_provider")
         test_result["session_options"] = test_params.get("session_options").copy()
         test_result["io_bind"] = io_bind
+    else:
+        execution_providers = config.providers_list
+    test_result["execution_provider"] = execution_providers
 
     logger.debug(f"Run benchmark for: {session_name}")
     evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
     joint_key = joint_metric_key(latency_metric.name, latency_metric.sub_types[0].name)
     start_time = time.perf_counter()
     test_result["latency_ms"] = evaluator.evaluate(
-        model, data_root, [latency_metric], config.device, config.providers_list
+        model, data_root, [latency_metric], config.device, execution_providers
     )[joint_key].value
     end_time = time.perf_counter()
     logger.debug(f"It takes {(end_time - start_time):.5f} seconds to benchmark for: {session_name}")
