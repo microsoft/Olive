@@ -25,7 +25,7 @@ Add logs here.
 **Other information**
  - OS: [e.g. Windows, Linux]
  - Olive version: [e.g. 0.4.0 or main]
- - ONNXRuntime version:
+ - ONNXRuntime package and version: [e.g. onnxruntime-gpu: 1.16.1]
 
 
 **Additional context**
