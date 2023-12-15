@@ -6,10 +6,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Callable, Dict, Optional, Set, Type, Union
 
-from pydantic import Field
-
 from olive.common.config_utils import ConfigBase, ConfigParam, ParamCategory, validate_object, validate_resource_path
-from olive.common.pydantic_v1 import create_model, validator
+from olive.common.pydantic_v1 import Field, create_model, validator
 from olive.strategy.search_parameter import SearchParameter, json_to_search_parameter
 
 
@@ -136,8 +134,8 @@ def create_config_class(
 
         type_ = Optional[Union[type_, SearchParameter, PassParamDefault]]
         if not disable_search and param_config.searchable_values is not None:
-            config[param] = (type_, Field(param_config.searchable_values, allowed_values=param_config.allowed_values))
+            config[param] = (type_, param_config.searchable_values)
         else:
-            config[param] = (type_, Field(param_config.default_value, allowed_values=param_config.allowed_values))
+            config[param] = (type_, param_config.default_value)
 
     return create_model(f"{pass_type}Config", **config, __base__=PassConfigBase, __validators__=validators)

@@ -206,7 +206,6 @@ class OliveEvaluator(ABC):
             # priority: dataloader_func > data_config > user_config.input_names/input_shapes > model io_config
             metric = OliveEvaluator.generate_metric_user_config_with_model_io(original_metric, model)
             dataloader, eval_func, post_func = OliveEvaluator.get_user_config(model.framework, data_root, metric)
-
             if metric.type == MetricType.ACCURACY:
                 metrics_res[metric.name] = self._evaluate_accuracy(
                     model, data_root, metric, dataloader, post_func, device, execution_providers
@@ -823,8 +822,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> Tuple[OliveModelOutput, Any]:
-        session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
-
+        session = model.prepare_session()
         preds = []
         targets = []
         logits = []
@@ -832,8 +830,12 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         if device:
             session.to(device)
         for input_data_i, labels in dataloader:
+            print(f"input data i is {input_data_i}")
+            print(f"labels is {labels}")
             input_data = tensor_data_to_device(input_data_i, device)
+            print(f"input data is {input_data}")
             result = session(**input_data) if isinstance(input_data, dict) else session(input_data)
+            print(f"result is {result}")
             outputs = post_func(result) if post_func else result
             # keep the outputs and results as torch tensor on cpu
             # it is expensive to convert to list and then convert back to torch tensor
@@ -1019,8 +1021,10 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
         logits = []
         for input_data, labels in dataloader:
             session.infer({0: input_data})
-            result = session.get_output_tensor().data
+            result = session.get_output_tensor(0).data[0]
+            print(f"result: {result}")
             outputs = post_func(result) if post_func else result
+            # print(f"outputs: {outputs}")
             preds.append(outputs)
             targets.append(labels)
             logits.append(result)

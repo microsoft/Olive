@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Any, Callable, Dict, List, Union
 
 from olive.constants import Framework
 from olive.hardware.accelerator import AcceleratorSpec
@@ -14,6 +14,8 @@ from olive.passes.pass_config import PassConfigParam
 
 class OpenVINOConversion(Pass):
     """Converts PyTorch, ONNX or TensorFlow Model to OpenVino Model."""
+
+    _requires_user_script = True
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -27,11 +29,11 @@ class OpenVINOConversion(Pass):
                     "depending on your inference requirements."
                 ),
             ),
-            "example_input": PassConfigParam(
-                type_=Any,
+            "example_input_func": PassConfigParam(
+                type_=Union[Callable, str],
                 required=False,
                 description=(
-                    "Sample of model input in original framework. "
+                    "Function/function name to generate sample of model input in original framework. "
                     "For PyTorch it can be torch.Tensor. "
                     "For Tensorflow it can be tf.Tensor or numpy.ndarray. "
                 ),
@@ -53,14 +55,11 @@ class OpenVINOConversion(Pass):
                     "https://docs.openvino.ai/2023.2/openvino_docs_OV_Converter_UG_Conversion_Options.html"
                 ),
             ),
-            "output_model ": PassConfigParam(
+            "output_model": PassConfigParam(
                 type_=str,
                 default_value="ov_model",
                 required=False,
-                description=(
-                    "Name of the output OpenVINO model. "
-                    "The output model will be saved to the same directory as the input model."
-                ),
+                description=("Name of the output OpenVINO model."),
             ),
         }
 
@@ -83,21 +82,27 @@ class OpenVINOConversion(Pass):
         if model.framework == Framework.PYTORCH:
             input_model = model.load_model()
 
+        example_input = None
+        if config.get("example_input_func"):
+            example_input_func = config["example_input_func"]
+            if isinstance(example_input_func, str):
+                example_input = self._user_module_loader.call_object()
+            elif isinstance(example_input_func, Callable):
+                example_input = example_input_func()
+
         extra_configs = config.get("extra_configs") or {}
         args = {
             "input_model": input_model,
             "input": config.get("input"),
-            "example_input": config.get("example_input"),
+            "example_input": example_input,
             **extra_configs,
         }
 
         ov_model = ov.convert_model(**args)
 
-        model_name = "ov_model"
+        model_name = "ov_model.xml"
         output_dir = Path(output_model_path) / config.get("output_model", model_name)
 
         # Save as ov model
-        ov.save_model(
-            ov_model, output_model=output_dir.with_suffix(".xml"), compress_to_fp16=config["compress_to_fp16"]
-        )
+        ov.save_model(ov_model, output_model=output_dir, compress_to_fp16=config["compress_to_fp16"])
         return OpenVINOModelHandler(model_path=output_model_path)

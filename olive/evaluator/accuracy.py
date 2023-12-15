@@ -76,6 +76,7 @@ class AccuracyBase(AutoConfigClass):
     def prepare_tensors(preds, target, dtypes=torch.int):
         dtypes = dtypes if isinstance(dtypes, (list, tuple)) else [dtypes, dtypes]
         assert len(dtypes) == 2, "dtypes should be a list or tuple with two elements."
+        print(f"dytpes: {dtypes}")
         preds = torch.tensor(preds, dtype=dtypes[0]) if not isinstance(preds, torch.Tensor) else preds.to(dtypes[0])
         target = torch.tensor(target, dtype=dtypes[1]) if not isinstance(target, torch.Tensor) else target.to(dtypes[1])
         return preds, target
@@ -89,7 +90,11 @@ class AccuracyScore(AccuracyBase):
     name: str = "accuracy_score"
 
     def measure(self, model_output, target):
+        # print(f"model_output: {model_output.preds}")
+        # print(f"target: {target}")
         preds_tensor, target_tensor = self.prepare_tensors(model_output.preds, target)
+        # print(f"preds_tensor: {preds_tensor}")
+        # print(f"target_tensor: {target_tensor}")
         accuracy = torchmetrics.Accuracy(**self.config_dict)
         result = accuracy(preds_tensor, target_tensor)
         return result.item()

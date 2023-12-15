@@ -22,10 +22,9 @@
                     "name": "accuracy",
                     "type": "accuracy",
                     "sub_types": [
-                        {"name": "accuracy_score", "priority": 1}
+                        {"name": "accuracy_score", "priority": 1, "metric_config": {"task": "multiclass", "num_classes": 10}}
                     ],
                     "user_config":{
-                        "post_processing_func": "post_process",
                         "user_script": "user_script.py",
                         "dataloader_func": "create_dataloader",
                         "data_dir": "data",
@@ -78,6 +77,6 @@
         "target": "local_system",
         "output_dir" : "models/openvino",
         "cache_dir": "cache/openvino",
-        "evaluate_input_model": false
+        "evaluate_input_model": true
     }
 }

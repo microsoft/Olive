@@ -11,10 +11,6 @@ from torchvision.datasets import CIFAR10
 from torchvision.transforms import ToTensor
 
 
-def post_process(result):
-    return np.argmax(result)
-
-
 def load_pytorch_origin_model(torch_hub_model_path):
     pytorch_hub_model_name = "cifar10_mobilenetv2_x1_0"
     return torch.hub.load(torch_hub_model_path, pytorch_hub_model_name, trust_repo=True)
