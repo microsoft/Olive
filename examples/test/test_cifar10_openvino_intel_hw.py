@@ -21,6 +21,6 @@ def setup():
 
 def test_cifar10():
     from olive.workflows import run as olive_run
-    
+
     footprint = olive_run("config.json")
     check_output(footprint)
