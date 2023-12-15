@@ -16,7 +16,8 @@ trigger:
     - .azure_pipelines/performance.yaml
     - .azure_pipelines/job_templates/olive-performance-template.yaml
     # commonly updated examples with no test
-    - examples/directml/*
+    - examples/directml/llama_v2/*
+    - examples/directml/stable_diffusion_xl/*
     - examples/llama2/*
     - examples/open_llama/*
     - examples/stable_diffusion/*
@@ -38,7 +39,8 @@ pr:
     - .azure_pipelines/performance.yaml
     - .azure_pipelines/job_templates/olive-performance-template.yaml
     # commonly updated examples with no test
-    - examples/directml/*
+    - examples/directml/llama_v2/*
+    - examples/directml/stable_diffusion_xl/*
     - examples/llama2/*
     - examples/open_llama/*
     - examples/stable_diffusion/*
@@ -136,12 +138,16 @@ jobs:
 - template: job_templates/olive-example-template.yaml
   parameters:
     name: Linux_GPU_CI
-    pool: $(OLIVE_POOL_UBUNTU2004)
+    pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
     onnxruntime: onnxruntime-gpu
     examples:
       bert_cuda_gpu:
         exampleFolder: bert
         exampleName: bert_cuda_gpu
+      stable_diffusion_cuda_gpu:
+        exampleFolder: directml/stable_diffusion
+        exampleName: stable_diffusion_cuda_gpu
+        exampleRequirements: requirements-common.txt
 
 # Multiple EP Linux testing
 - template: job_templates/olive-test-template.yaml
