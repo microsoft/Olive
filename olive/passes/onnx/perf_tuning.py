@@ -107,10 +107,7 @@ def tune_onnx_model(model, data_root, config):
     logger.info("Best result: %s", best_result)
     if best_result.get("test_name") != PERFTUNING_BASELINE:
         optimized_model = copy.copy(model)
-        if optimized_model.inference_settings:
-            optimized_model.inference_settings["execution_provider"] = best_result.get("execution_provider")
-        else:
-            optimized_model.inference_settings = {"execution_provider": best_result.get("execution_provider")}
+        optimized_model.inference_settings = {"execution_provider": best_result.get("execution_provider")}
         session_options = best_result.get("session_options")
         if session_options is not None:
             optimized_model.inference_settings["session_options"] = session_options
@@ -118,12 +115,8 @@ def tune_onnx_model(model, data_root, config):
         return optimized_model
     else:
         # If the best result is baseline, we need add the execution_provider to the inference_settings of the model
-        result_model = copy.deepcopy(model)
-        if result_model.inference_settings:
-            result_model.inference_settings["execution_provider"] = best_result.get("execution_provider")
-        else:
-            result_model.inference_settings = {"execution_provider": best_result.get("execution_provider")}
-
+        result_model = copy.copy(model)
+        result_model.inference_settings = {"execution_provider": best_result.get("execution_provider")}
         return result_model
 
 
