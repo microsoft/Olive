@@ -82,7 +82,7 @@ class PileDataloader:
             for item in Path(model_path).parent.parent.glob("**/decoder_model.onnx"):
                 decoder_model_path = item.resolve()
                 break
-            self.sess = ort.InferenceSession(decoder_model_path)
+            self.sess = ort.InferenceSession(decoder_model_path, providers=["CPUExecutionProvider"])
 
     def __iter__(self):
         try:

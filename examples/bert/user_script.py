@@ -6,6 +6,7 @@ import copy
 
 import numpy as np
 import torch
+import torchmetrics
 import transformers
 from datasets import load_dataset, load_metric
 from datasets.utils import logging as datasets_logging
@@ -23,7 +24,6 @@ from transformers import (
 )
 
 from olive.constants import Framework
-from olive.evaluator.accuracy import AccuracyScore
 from olive.model import OliveModelHandler
 
 datasets_logging.disable_progress_bar()
@@ -221,7 +221,12 @@ def eval_accuracy(model: OliveModelHandler, data_dir, batch_size, device, execut
             outputs = post_process(result)
             preds.extend(outputs.tolist())
             target.extend(labels.data.tolist())
-    return AccuracyScore().measure(preds, target)
+
+    preds_tensor = torch.tensor(preds, dtype=torch.int)
+    target_tensor = torch.tensor(target, dtype=torch.int)
+    accuracy = torchmetrics.Accuracy()
+    result = accuracy(preds_tensor, target_tensor)
+    return result.item()
 
 
 # -------------------------------------------------------------------------
