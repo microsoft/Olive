@@ -58,7 +58,7 @@ def get_args(raw_args):
             "Package the final model as a zipfile along with the required onnxruntime packages and sample code."
             " Default: False"
         ),
-    ),
+    )
     parser.add_argument(
         "--atol",
         type=float,
