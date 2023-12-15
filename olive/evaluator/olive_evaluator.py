@@ -830,12 +830,8 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         if device:
             session.to(device)
         for input_data_i, labels in dataloader:
-            print(f"input data i is {input_data_i}")
-            print(f"labels is {labels}")
             input_data = tensor_data_to_device(input_data_i, device)
-            print(f"input data is {input_data}")
             result = session(**input_data) if isinstance(input_data, dict) else session(input_data)
-            print(f"result is {result}")
             outputs = post_func(result) if post_func else result
             # keep the outputs and results as torch tensor on cpu
             # it is expensive to convert to list and then convert back to torch tensor
@@ -1019,14 +1015,12 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
         preds = []
         targets = []
         logits = []
-        for input_data, labels in dataloader:
+        for input_data, label in dataloader:
             session.infer({0: input_data})
             result = session.get_output_tensor(0).data[0]
-            print(f"result: {result}")
             outputs = post_func(result) if post_func else result
-            # print(f"outputs: {outputs}")
             preds.append(outputs)
-            targets.append(labels)
+            targets.append(label)
             logits.append(result)
         return OliveModelOutput(preds=preds, logits=logits), targets
 
