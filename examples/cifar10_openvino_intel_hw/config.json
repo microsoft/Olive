@@ -77,6 +77,6 @@
         "target": "local_system",
         "output_dir" : "models/openvino",
         "cache_dir": "cache/openvino",
-        "evaluate_input_model": true
+        "evaluate_input_model": false
     }
 }

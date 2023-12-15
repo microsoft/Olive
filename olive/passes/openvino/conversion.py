@@ -100,9 +100,11 @@ class OpenVINOConversion(Pass):
 
         ov_model = ov.convert_model(**args)
 
-        model_name = "ov_model.xml"
+        model_name = "ov_model"
         output_dir = Path(output_model_path) / config.get("output_model", model_name)
 
         # Save as ov model
-        ov.save_model(ov_model, output_model=output_dir, compress_to_fp16=config["compress_to_fp16"])
+        ov.save_model(
+            ov_model, output_model=output_dir.with_suffix(".xml"), compress_to_fp16=config["compress_to_fp16"]
+        )
         return OpenVINOModelHandler(model_path=output_model_path)

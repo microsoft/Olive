@@ -1017,7 +1017,7 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
         logits = []
         for input_data, label in dataloader:
             session.infer({0: input_data})
-            result = session.get_output_tensor(0).data[0]
+            result = session.get_output_tensor(0).data
             outputs = post_func(result) if post_func else result
             preds.append(outputs)
             targets.append(label)

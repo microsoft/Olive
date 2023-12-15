@@ -90,9 +90,6 @@ jobs:
       bert_ptq_cpu_docker:
         exampleFolder: bert
         exampleName: bert_ptq_cpu_docker
-      cifar10_openvino_intel_hw:
-        exampleFolder: cifar10_openvino_intel_hw
-        exampleName: cifar10_openvino_intel_hw
       resnet_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_ptq_cpu
@@ -119,9 +116,6 @@ jobs:
       bert_ptq_cpu_aml:
         exampleFolder: bert
         exampleName: bert_ptq_cpu_aml
-      cifar10_openvino_intel_hw:
-        exampleFolder: cifar10_openvino_intel_hw
-        exampleName: cifar10_openvino_intel_hw
       resnet_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_ptq_cpu

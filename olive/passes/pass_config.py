@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Callable, Dict, Optional, Set, Type, Union
 
 from olive.common.config_utils import ConfigBase, ConfigParam, ParamCategory, validate_object, validate_resource_path
-from olive.common.pydantic_v1 import Field, create_model, validator
+from olive.common.pydantic_v1 import create_model, validator
 from olive.strategy.search_parameter import SearchParameter, json_to_search_parameter
 
 
@@ -97,19 +97,6 @@ class PassConfigBase(ConfigBase):
         return v
 
 
-def validate_allowed_values(v, field):
-    if v is None:
-        return v
-    if v == PassParamDefault.DEFAULT_VALUE or v == PassParamDefault.SEARCHABLE_VALUES or isinstance(v, SearchParameter):
-        # skip validation for PassParamDefault and SearchParameter
-        return v
-    allowed_values = field.field_info.extra.get("allowed_values")
-    if allowed_values is not None:
-        if v not in allowed_values:
-            raise ValueError(f"Invalid value '{v}' for {field.name}. Supported values are {allowed_values}")
-    return v
-
-
 def create_config_class(
     pass_type: str,
     default_config: Dict[str, PassConfigParam],
@@ -124,12 +111,10 @@ def create_config_class(
             validators[f"validate_{param}"] = validator(param, allow_reuse=True)(validate_object)
         if param == "data_dir":
             validators[f"validate_{param}"] = validator(param, allow_reuse=True)(validate_resource_path)
-        if param_config.allowed_values is not None:
-            validators[f"validate_{param}_allowed_values"] = validator(param, allow_reuse=True)(validate_allowed_values)
 
         type_ = param_config.type_
         if param_config.required:
-            config[param] = (type_, Field(..., allowed_values=param_config.allowed_values))
+            config[param] = (type_, ...)
             continue
 
         type_ = Optional[Union[type_, SearchParameter, PassParamDefault]]

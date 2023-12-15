@@ -16,11 +16,6 @@ def create_dataloader(data_dir, batch_size, *args, **kwargs):
     return torch.utils.data.DataLoader(dataset, batch_size)
 
 
-def openvino_post_process(res):
-    res = next(iter(res.values()))
-    return res.argmax(1)
-
-
 def hf_post_process(res):
     import transformers
 

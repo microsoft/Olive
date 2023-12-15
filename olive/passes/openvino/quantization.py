@@ -3,13 +3,14 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Union
 
 from olive.cache import get_local_path_from_root
 from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
-from olive.hardware.accelerator import AcceleratorSpec
+from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import OliveModelHandler
 from olive.model.handler import OpenVINOModelHandler
 from olive.passes import Pass
@@ -40,6 +41,26 @@ def _default_validate_func(model: "CompiledModel", validation_loader) -> float:
     predictions = np.concatenate(predictions, axis=0)
     references = np.concatenate(references, axis=0)
     return accuracy_score(predictions, references)
+
+
+class ModelTypeEnum(str, Enum):
+    TRANSFORMER = "TRANSFORMER"
+
+
+class PresetEnum(str, Enum):
+    PERFORMANCE = "PERFORMANCE"
+    MIXED = "MIXED"
+
+
+class IgnoreScopeTypeEnum(str, Enum):
+    NAMES = "names"
+    TYPES = "types"
+    PATTERNS = "patterns"
+
+
+class DropTypeEnum(str, Enum):
+    ABSOLUTE = "ABSOLUTE"
+    RELATIVE = "RELATIVE"
 
 
 class OpenVINOQuantizationBase(Pass):
@@ -83,9 +104,8 @@ class OpenVINOQuantizationBase(Pass):
                 description="Data config for calibration, required if dataloader_func is None.",
             ),
             "model_type": PassConfigParam(
-                type_=str,
+                type_=ModelTypeEnum,
                 required=False,
-                allowed_values={"TRANSFORMER"},
                 default_value=None,
                 description=(
                     "Used to specify quantization scheme required for specific type of the model. "
@@ -94,10 +114,9 @@ class OpenVINOQuantizationBase(Pass):
                 ),
             ),
             "preset": PassConfigParam(
-                type_=str,
+                type_=PresetEnum,
                 required=False,
-                allowed_values={"PERFORMANCE", "MIXED"},
-                default_value="PERFORMANCE",
+                default_value=PresetEnum.PERFORMANCE,
                 description=("Defines quantization scheme for the model. Supported values: 'PERFORMANCE', 'MIXED'."),
             ),
             "ignored_scope": PassConfigParam(
@@ -111,20 +130,18 @@ class OpenVINOQuantizationBase(Pass):
                 ),
             ),
             "ignored_scope_type": PassConfigParam(
-                type_=str,
+                type_=IgnoreScopeTypeEnum,
                 required=False,
-                allowed_values={"names", "types", "patterns"},
                 default_value=None,
                 description=("Defines the type of the ignored scope. Supported values: 'names', 'types', 'patterns'."),
             ),
             "target_device": PassConfigParam(
-                type_=str,
+                type_=Device,
                 required=False,
-                allowed_values={"ANY", "CPU", "GPU", "CPU_SPR", "VPU"},
-                default_value=accelerator_spec.accelerator_type.upper(),
+                default_value=accelerator_spec.accelerator_type,
                 description=(
                     "Target device for the model. "
-                    "Supported values: 'ANY', 'CPU', 'GPU', 'CPU_SPR', 'VPU'. "
+                    "Supported values: 'any', 'cpu', 'gpu', 'cpu_spr', 'vpu'. "
                     "Default value is the same as the accelerator type of this workflow run."
                 ),
             ),
@@ -178,10 +195,11 @@ class OpenVINOQuantizationBase(Pass):
         import nncf
 
         device_map = {
-            "CPU": nncf.TargetDevice.CPU,
-            "GPU": nncf.TargetDevice.CPU,
-            "CPU_SPR": nncf.TargetDevice.CPU_SPR,
-            "NPU": nncf.TargetDevice.VPU,
+            "cpu": nncf.TargetDevice.CPU,
+            "gpu": nncf.TargetDevice.CPU,
+            "cpu_spr": nncf.TargetDevice.CPU_SPR,
+            "vpu": nncf.TargetDevice.VPU,
+            "npu": nncf.TargetDevice.VPU,
         }
 
         extra_params = {}
@@ -253,10 +271,9 @@ class OpenVINOQuantizationWithAccuracy(OpenVINOQuantizationBase):
                 ),
             ),
             "drop_type": PassConfigParam(
-                type_=str,
+                type_=DropTypeEnum,
                 required=False,
-                allowed_values={"ABSOLUTE", "RELATIVE"},
-                default_value="ABSOLUTE",
+                default_value=DropTypeEnum.ABSOLUTE,
                 description=(
                     "Defines the type of the max_drop. Supported values: 'ABSOLUTE', 'RELATIVE'. "
                     "The default value is 'ABSOLUTE'."

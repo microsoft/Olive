@@ -13,7 +13,6 @@ from test.integ_test.evaluator.local_eval.utils import (
     get_onnx_model,
     get_openvino_model,
     get_pytorch_model,
-    openvino_post_process,
     post_process,
 )
 from typing import ClassVar, List
@@ -42,7 +41,7 @@ class TestLocalEvaluation:
         ("PyTorchModel", get_huggingface_model(), get_hf_latency_metric(), 0.001),
         ("ONNXModel", get_onnx_model(), get_accuracy_metric(post_process), 0.99),
         ("ONNXModel", get_onnx_model(), get_latency_metric(), 0.001),
-        ("OpenVINOModel", get_openvino_model(), get_accuracy_metric(openvino_post_process), 0.99),
+        ("OpenVINOModel", get_openvino_model(), get_accuracy_metric(post_process), 0.99),
         ("OpenVINOModel", get_openvino_model(), get_latency_metric(), 0.001),
     ]
 

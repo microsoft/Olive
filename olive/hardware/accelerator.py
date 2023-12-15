@@ -12,8 +12,10 @@ logger = logging.getLogger(__name__)
 
 class Device(str, Enum):
     CPU = "cpu"
+    CPU_SPR = "cpu_spr"
     GPU = "gpu"
     NPU = "npu"
+    VPU = "vpu"
     INTEL_MYRIAD = "intel_myriad"
 
     def __str__(self) -> str:
