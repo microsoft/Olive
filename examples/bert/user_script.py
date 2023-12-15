@@ -24,7 +24,6 @@ from transformers import (
 )
 
 from olive.constants import Framework
-from olive.evaluator.accuracy import AccuracyScore
 from olive.model import OliveModelHandler
 
 datasets_logging.disable_progress_bar()
