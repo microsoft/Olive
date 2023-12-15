@@ -80,8 +80,20 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):
         inference_settings = deepcopy(inference_settings)
 
         # if user doesn't not provide ep list, use default value([ep]). Otherwise, use the user's ep list
-        # user provided ep list > eps given by arguments > default eps
-        execution_providers = inference_settings.get("execution_provider") or execution_providers
+        # eps given by arguments > user provided ep list > default eps
+        # Note by myguo: in DLIS scenarios, the inferenece_settings is something like:
+        #  {'execution_provider': [('MIGraphXExecutionProvider', {})]}
+        # and the provider_lists specified in perf_tuning is: ['ROCMExecutionProvider', 'MIGraphXExecutionProvider'].
+        # Originally, the inference_settings priority is higher than the execution_providers specified in arguments.
+        # as the result, when calling OnnxEvaluator.evaluate with the provider_list in baseline evaluation,
+        # the execution provider will be used as ["MIGraphXExecutionProvider"].
+        # later, the OnnxEvaluator.disable_ort_fallback(session, execution_providers) will check the
+        # whether the underlying session's providers(MIGraphXExecutionProvider, CPUExecutionProvider) contains the
+        # execution_providers(ROCMExecutionProvider, MIGraphXExecutionProvider). In this case, the
+        # ROCMExecutionProvider is excluded when creating inference session. and the OliveEvaluationError exception
+        # will be raised.
+        # To fix this issue, we need to make sure the execution_providers specified in arguments has higher priority
+        execution_providers = execution_providers or inference_settings.get("execution_provider")
         if not execution_providers:
             execution_providers = self.get_default_execution_providers(device)
         elif isinstance(execution_providers, str):
