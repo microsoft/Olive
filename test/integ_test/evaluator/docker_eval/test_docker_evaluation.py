@@ -41,7 +41,7 @@ class TestDockerEvaluation:
         ("PyTorchModel", get_huggingface_model(), get_latency_metric("create_hf_dataloader"), 0.001),
         ("ONNXModel", get_onnx_model(), get_accuracy_metric("post_process"), 0.99),
         ("ONNXModel", get_onnx_model(), get_latency_metric(), 0.001),
-        ("OpenVINOModel", get_openvino_model(), get_accuracy_metric("post_process"), 0.99),
+        ("OpenVINOModel", get_openvino_model(), get_accuracy_metric("openvino_post_process"), 0.99),
         ("OpenVINOModel", get_openvino_model(), get_latency_metric(), 0.001),
     ]
 
