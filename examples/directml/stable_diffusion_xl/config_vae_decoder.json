@@ -112,7 +112,9 @@
                 "model_type": "vae",
                 "opt_level": 0,
                 "float16": false,
-                "use_gpu": true
+                "use_gpu": true,
+                "input_fp16": true,
+                "output_fp16": true
             }
         }
     },

@@ -258,6 +258,9 @@ def run_inference(
         pipeline = ORTStableDiffusionXLImg2ImgPipeline.from_pretrained(
             model_dir, provider=provider_map[provider], provider_options=provider_options, session_options=sess_options
         )
+    if provider == "cuda":
+        # default watermark doesn't work with fp16
+        pipeline.watermark = None
 
     if interactive:
         run_inference_gui(

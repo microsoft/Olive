@@ -119,6 +119,16 @@ class OrtTransformersOptimization(Pass):
             "input_int32": PassConfigParam(
                 type_=bool, default_value=False, description="Whether int32 tensors will be used as input."
             ),
+            "input_fp16": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Whether float16 tensors will be used as input. Only used when float16 is False.",
+            ),
+            "output_fp16": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Whether float16 tensors will be used as output. Only used when float16 is False.",
+            ),
         }
         config.update(get_external_data_config())
         return config
@@ -138,6 +148,10 @@ class OrtTransformersOptimization(Pass):
             if accelerator_spec.execution_provider == "CPUExecutionProvider":
                 logger.info("CPUExecutionProvider does not support float16 very well, please avoid to use float16.")
                 return False
+            for key in ["input_fp16", "output_fp16"]:
+                if search_point.get(key):
+                    logger.info(f"{key} is only supported when float16 is False.")
+                    return False
         if not search_point.get("float16") and search_point.get("use_gqa"):
             logger.info("use_gqa is only supported when float16 is True.")
             return False
@@ -186,6 +200,8 @@ class OrtTransformersOptimization(Pass):
             "force_fp16_inputs",
             "use_gqa",
             "input_int32",
+            "input_fp16",
+            "output_fp16",
         ]
         keys_to_remove += get_external_data_config()
         for key in keys_to_remove:
@@ -223,7 +239,7 @@ class OrtTransformersOptimization(Pass):
         if optimization_options:
             self._set_fusion_options(run_config)
 
-        optimizer = transformers_optimizer.optimize_model(input=model.model_path, **run_config)
+        optimizer: "OnnxModel" = transformers_optimizer.optimize_model(input=model.model_path, **run_config)
 
         if config["float16"]:
             optimizer.convert_float_to_float16(
@@ -248,6 +264,8 @@ class OrtTransformersOptimization(Pass):
                 optimizer.prune_graph()
                 # add allow_remove_graph_inputs to pass config
                 optimizer.update_graph(allow_remove_graph_inputs=True)
+        elif config["input_fp16"] or config["output_fp16"]:
+            self._create_fp16_io(optimizer.model, config["input_fp16"], config["output_fp16"])
 
         if config["input_int32"]:
             optimizer.change_graph_inputs_to_int32()
@@ -352,3 +370,119 @@ class OrtTransformersOptimization(Pass):
             model.model.graph.node.remove(node)
             model.model.graph.node.extend([gqa_node])
         return model
+
+    @staticmethod
+    def _create_fp16_io(model: onnx.ModelProto, fp16_input: bool, fp16_output: bool):
+        if not fp16_input and not fp16_output:
+            return
+
+        from onnx import helper
+        from onnxruntime.transformers.shape_infer_helper import SymbolicShapeInferenceHelper
+
+        # use symbolic shape inference to infer shapes for the model
+        # only need type inference
+        shape_infer_helper = SymbolicShapeInferenceHelper(model)
+        try:
+            model_with_shape = shape_infer_helper.infer_shapes(model, auto_merge=True, guess_output_rank=False)
+            if model_with_shape is not None:
+                name_vi = {}
+                for vi in model_with_shape.graph.value_info:
+                    if (
+                        hasattr(vi.type, "tensor_type")
+                        and hasattr(vi.type.tensor_type, "elem_type")
+                        and vi.type.tensor_type.elem_type != onnx.TensorProto.UNDEFINED
+                        and vi.name
+                    ):
+                        vi_copy = onnx.ValueInfoProto()
+                        vi_copy.CopyFrom(vi)
+                        if hasattr(vi_copy.type.tensor_type, "shape"):
+                            vi_copy.type.tensor_type.ClearField("shape")
+                        name_vi[vi.name] = vi_copy
+                for vi in model.graph.value_info:
+                    if vi.name in name_vi:
+                        del name_vi[vi.name]
+                for vi in name_vi.values():
+                    model.graph.value_info.append(vi)
+                del model_with_shape
+        except Exception:
+            logger.warning(
+                "Failed to run symbolic shape inference. Please file an issue in"
+                " https://github.com/microsoft/onnxruntime."
+            )
+
+        # keep track of cast nodes
+        name_mapping = {}
+        io_casts = set()
+
+        # add cast nodes for fp16 input/output
+        for i, n in enumerate(model.graph.input if fp16_input else []):
+            if n.type.tensor_type.elem_type == onnx.TensorProto.FLOAT:
+                output_name = f"fp16_to_fp32_input_cast_{i}"
+                name_mapping[n.name] = output_name
+
+                new_value_info = model.graph.value_info.add()
+                new_value_info.CopyFrom(n)
+                new_value_info.name = output_name
+                # update original input type to fp16
+                n.type.tensor_type.elem_type = onnx.TensorProto.FLOAT16
+                # add cast node (fp16 -> fp32) after graph input
+                node_name = output_name
+                new_node = [
+                    helper.make_node("Cast", [n.name], [output_name], to=onnx.TensorProto.FLOAT, name=node_name)
+                ]
+                model.graph.node.extend(new_node)
+                io_casts.add(output_name)
+
+        for i, n in enumerate(model.graph.output if fp16_output else []):
+            if n.type.tensor_type.elem_type == onnx.TensorProto.FLOAT:
+                input_name = f"fp32_to_fp16_output_cast_{i}"
+                name_mapping[n.name] = input_name
+
+                new_value_info = model.graph.value_info.add()
+                new_value_info.CopyFrom(n)
+                new_value_info.name = input_name
+                # update original output type to fp16
+                n.type.tensor_type.elem_type = onnx.TensorProto.FLOAT16
+
+                # add cast node (fp32 -> fp16) before graph output
+                node_name = input_name
+                new_node = [
+                    helper.make_node("Cast", [input_name], [n.name], to=onnx.TensorProto.FLOAT16, name=node_name)
+                ]
+                model.graph.node.extend(new_node)
+                io_casts.add(input_name)
+
+        # queue for BFS
+        queue = [model]
+        while queue and name_mapping:
+            next_level = []
+            for q in queue:
+                # if q is model, push q.graph (onnx.GraphProto)
+                if isinstance(q, onnx.ModelProto):
+                    next_level.append(q.graph)
+                # if q is model.graph, push q.node.attribute (onnx.AttributeProto)
+                elif isinstance(q, onnx.GraphProto):
+                    for n in q.node:
+                        # if n is Cast node, skip
+                        if n.name in io_casts:
+                            continue
+
+                        # replace input/output name with cast node name
+                        for i in range(len(n.input)):
+                            if n.input[i] in name_mapping:
+                                n.input[i] = name_mapping[n.input[i]]
+                        for i in range(len(n.output)):
+                            if n.output[i] in name_mapping:
+                                n.output[i] = name_mapping[n.output[i]]
+
+                        # push n.attribute (onnx.AttributeProto)
+                        for attr in n.attribute:
+                            next_level.append(attr)  # noqa: PERF402
+                # if q is model.graph.node.attribute, push q.g and q.graphs (onnx.GraphProto)
+                elif isinstance(q, onnx.AttributeProto):
+                    next_level.append(q.g)
+                    for g in q.graphs:
+                        next_level.append(g)  # noqa: PERF402
+            queue = next_level
+
+        logger.debug(f"Create fp16 input/output: {name_mapping.keys()}")
