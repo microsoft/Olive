@@ -304,6 +304,7 @@ def update_config_with_provider(config: Dict, provider: str):
 def optimize(
     model_id: str,
     is_refiner_model: bool,
+    fp32_vae_encoder: bool,
     provider: str,
     unoptimized_model_dir: Path,
     optimized_model_dir: Path,
@@ -347,9 +348,16 @@ def optimize(
             olive_config = json.load(fin)
         olive_config = update_config_with_provider(olive_config, provider)
 
-        # TODO(PatriceVignola): Remove this once we figure out which nodes are causing the black screen
-        if is_refiner_model and submodel_name == "vae_encoder":
+        if submodel_name == "vae_encoder" and (is_refiner_model or fp32_vae_encoder):
+            # TODO(PatriceVignola): Remove this once we figure out which nodes are causing the black screen
             olive_config["passes"]["optimize"]["config"]["float16"] = False
+
+            # for cuda provider, the model is fp32 internally, but we can still use fp16 for input and output
+            olive_config["passes"]["optimize_cuda"]["config"].update(
+                {"float16": False, "input_fp16": True, "output_fp16": True}
+            )
+            # doesn't matter because we're not using fp16, remove for clarity
+            del olive_config["passes"]["optimize_cuda"]["config"]["keep_io_types"]
 
         olive_config["input_model"]["config"]["model_path"] = model_id
         olive_run(olive_config)
@@ -487,6 +495,14 @@ def main(raw_args=None):
             "Whether to disable classifier free guidance. Classifier free guidance should be disabled for turbo models."
         ),
     )
+    parser.add_argument(
+        "--fp32_vae_encoder",
+        action="store_true",
+        help=(
+            "Use fp32 for VAE encoder (for cuda models, input and outputs are fp16). Enable this if model is used for"
+            " img2img to avoid black images. Automatically true for refiner model."
+        ),
+    )
     parser.add_argument("--num_inference_steps", default=50, type=int, help="Number of steps in diffusion process")
     parser.add_argument("--image_size", default=768, type=int, help="Image size to use during inference")
     parser.add_argument("--device_id", default=0, type=int, help="GPU device to use during inference")
@@ -574,7 +590,14 @@ def main(raw_args=None):
         # TODO(PatriceVignola): clean up warning filter (mostly during conversion from torch to ONNX)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            optimize(args.model_id, is_refiner_model, args.provider, unoptimized_model_dir, optimized_model_dir)
+            optimize(
+                args.model_id,
+                is_refiner_model,
+                args.fp32_vae_encoder,
+                args.provider,
+                unoptimized_model_dir,
+                optimized_model_dir,
+            )
 
     # Run inference on the models
     if not args.optimize:
