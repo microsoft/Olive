@@ -2,49 +2,20 @@
 import argparse
 import os
 import time
-from pathlib import Path
-from typing import List
 
 import numpy as np
 import onnxruntime
-from sentencepiece import SentencePieceProcessor
-
-
-class Tokenizer:
-    def __init__(self, model_path: str):
-        # reload tokenizer
-        assert Path(model_path).is_file(), model_path
-        self.sp_model = SentencePieceProcessor(model_file=model_path)
-
-        # BOS / EOS token IDs
-        self.n_words: int = self.sp_model.vocab_size()
-        self.bos_id: int = self.sp_model.bos_id()
-        self.eos_id: int = self.sp_model.eos_id()
-        self.pad_id: int = self.sp_model.pad_id()
-
-        assert self.sp_model.vocab_size() == self.sp_model.get_piece_size()
-
-    def encode(self, s: str, bos: bool, eos: bool) -> List[int]:
-        assert isinstance(s, str)
-        t = self.sp_model.encode(s)
-        if bos:
-            t = [self.bos_id, *t]
-        if eos:
-            t = [*t, self.eos_id]
-        return t
-
-    def decode(self, t: List[int]) -> str:
-        return self.sp_model.decode(t)
+from transformers import AutoTokenizer
 
 
 def run_llama_v2_io_binding(
+    model_dir: str,
     prompt: str,
     max_seq_len: int = 2048,
     max_gen_len: int = 256,
     device_id: int = 0,
     disable_metacommands: bool = False,
     ignore_eos: bool = False,
-    model_dir: str = "models/optimized",
 ) -> str:
     onnxruntime.set_default_logger_severity(3)
 
@@ -70,20 +41,18 @@ def run_llama_v2_io_binding(
     )
 
     data_type = np.float16
-
-    hidden_size = 4096
-    n_heads = 32
-    n_layers = 0
-
+    num_layers = 0
     for inputs_meta in llm_session._inputs_meta:
         if inputs_meta.name.startswith("cache.") and inputs_meta.name.endswith(".key"):
-            n_layers += 1
+            num_layers += 1
+            num_key_value_heads = inputs_meta.shape[1]
+            head_dim = inputs_meta.shape[3]
 
     binding_device = "dml"
 
     # Initialize the tokenizer and produce the initial tokens.
-    tokenizer = Tokenizer(model_path=os.path.join(model_dir, "tokenizer.model"))
-    tokens = tokenizer.encode(prompt, bos=True, eos=False)
+    tokenizer = AutoTokenizer.from_pretrained(model_dir)
+    tokens = tokenizer.encode(prompt)
     tokens = np.expand_dims(np.asarray(tokens, dtype=np.int64), 0)
     tokens = onnxruntime.OrtValue.ortvalue_from_numpy(tokens, binding_device)
     tokens_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, 1), np.int64, binding_device)
@@ -91,18 +60,16 @@ def run_llama_v2_io_binding(
     past_seq_len = 0
     seq_len = tokens.shape()[1]
 
-    # Create the K and V caches.
-    head_dim = int(hidden_size / n_heads)
-
     # Create the LLM model's I/O binding
     llm_io_binding = llm_session.io_binding()
 
-    cache_shape = (1, n_heads, max_seq_len, head_dim)
+    # Create the K and V caches.
+    cache_shape = (1, num_key_value_heads, max_seq_len, head_dim)
     initial_cache = np.zeros(cache_shape, dtype=data_type)
     k_caches = []
     v_caches = []
 
-    for _ in range(n_layers):
+    for _ in range(num_layers):
         k_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, binding_device))
         v_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, binding_device))
 
@@ -128,7 +95,7 @@ def run_llama_v2_io_binding(
         llm_io_binding.bind_ortvalue_input("tokens", tokens)
         llm_io_binding.bind_ortvalue_input("tokens_increment", tokens_increment)
 
-        for layer_idx in range(n_layers):
+        for layer_idx in range(num_layers):
             llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.key", k_caches[layer_idx])
             llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.value", v_caches[layer_idx])
             llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.key", k_caches[layer_idx])
@@ -146,12 +113,12 @@ def run_llama_v2_io_binding(
         tokens_increment = onnxruntime.OrtValue.ortvalue_from_numpy(next_token, binding_device)
 
         # Stop if/when we get an ENDOFTEXT token before reaching maximum sequence length
-        if not ignore_eos and output_tokens[-1] == tokenizer.eos_id:
+        if not ignore_eos and output_tokens[-1] == tokenizer.eos_token_id:
             break
 
         if idx == 0:
             logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
-                (1, 1, tokenizer.n_words), data_type, binding_device
+                (1, 1, tokenizer.vocab_size), data_type, binding_device
             )
             llm_io_binding.bind_cpu_input("use_cache_branch", np.ones([1], dtype=np.bool_))
             llm_io_binding.bind_ortvalue_output("logits", logits)
@@ -162,9 +129,12 @@ def run_llama_v2_io_binding(
     after_time = time.perf_counter()
     duration = after_time - before_time
     tokens_per_second = idx / duration
-    print(f"Execution took {duration:0.4f} seconds (generated {tokens_per_second:0.2f} tokens per second)")
 
-    output_str = tokenizer.decode(output_tokens)
+    # Only print the tokens/s when ignore_eos is provided for benchmarking purposes
+    if ignore_eos:
+        print(f"Execution took {duration:0.4f} seconds (generated {tokens_per_second:0.2f} tokens per second)")
+
+    output_str = tokenizer.decode(output_tokens, skip_special_tokens=True)
 
     print(output_str)
 
@@ -186,11 +156,11 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     run_llama_v2_io_binding(
+        args.model_dir,
         args.prompt,
         args.max_seq_len,
         args.max_gen_len,
         args.device_id,
         args.disable_metacommands,
         args.ignore_eos,
-        args.model_dir,
     )

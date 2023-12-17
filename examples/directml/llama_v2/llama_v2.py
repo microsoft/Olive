@@ -125,10 +125,15 @@ def optimize(optimized_model_dir: Path, repo_id: str, model_name: str, num_layer
         dst_weights_path = dst_path.with_suffix(".onnx.data")
         shutil.copyfile(src_weights_path, dst_weights_path)
 
-    # Copy the tokenizer
-    src_tokenizer_path = hf_hub_download(repo_id=repo_id, filename="tokenizer.model")
-    dst_tokenizer_path = dst_path.parents[0] / "tokenizer.model"
+    # Copy the tokenizer file
+    src_tokenizer_path = hf_hub_download(repo_id=repo_id, filename="tokenizer.json")
+    dst_tokenizer_path = dst_path.parents[0] / "tokenizer.json"
     shutil.copyfile(src_tokenizer_path, dst_tokenizer_path)
+
+    # Copy the tokenizer config file
+    src_tokenizer_config_path = hf_hub_download(repo_id=repo_id, filename="tokenizer_config.json")
+    dst_tokenizer_config_path = dst_path.parents[0] / "tokenizer_config.json"
+    shutil.copyfile(src_tokenizer_config_path, dst_tokenizer_config_path)
 
     print(f"The optimized pipeline is located here: {optimized_model_dir}")
 
@@ -184,9 +189,9 @@ if __name__ == "__main__":
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 run_llama_v2_io_binding(
+                    optimized_model_dir / model_name,
                     args.prompt,
                     args.max_seq_len,
                     args.max_gen_len,
                     args.device_id,
-                    model_dir=optimized_model_dir / model_name,
                 )
