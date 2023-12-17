@@ -103,6 +103,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):
 
         if not execution_providers:
             execution_providers = self.get_default_execution_providers(device)
+            provider_options = None
         elif isinstance(execution_providers, str):
             execution_providers = [execution_providers]
         else:
