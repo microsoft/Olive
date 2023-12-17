@@ -16,7 +16,7 @@ from olive.hardware.accelerator import AcceleratorLookup, Device
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
 from olive.model.handler.mixin import OnnxEpValidateMixin, OnnxGraphMixin
-from olive.model.utils.onnx_utils import get_onnx_file_path
+from olive.model.utils.onnx_utils import check_and_normalize_provider_args, get_onnx_file_path
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 logger = logging.getLogger(__name__)
@@ -74,6 +74,8 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ):
+        import onnxruntime as ort
+
         # user provided inference_settings > model's inference_settings > default settings
         inference_settings = inference_settings or self.inference_settings or {}
         # deep copy to avoid modifying the original settings
@@ -93,21 +95,33 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):
         # ROCMExecutionProvider is excluded when creating inference session. and the OliveEvaluationError exception
         # will be raised.
         # To fix this issue, we need to make sure the execution_providers specified in arguments has higher priority
-        execution_providers = execution_providers or inference_settings.get("execution_provider")
+        if execution_providers:
+            provider_options = None
+        else:
+            execution_providers = inference_settings.get("execution_provider")
+            provider_options = inference_settings.get("provider_options")
+
         if not execution_providers:
             execution_providers = self.get_default_execution_providers(device)
         elif isinstance(execution_providers, str):
             execution_providers = [execution_providers]
         else:
             # the execution_providers is a list
-            pass
+            assert isinstance(
+                execution_providers, list
+            ), f"execution_providers should be a list, got {execution_providers}"
+
+        # split the execution_providers and provider_options
+        execution_providers, provider_options = check_and_normalize_provider_args(
+            execution_providers, provider_options, ort.get_available_providers()
+        )
+
+        if (device == Device.GPU) and (rank is not None):
+            for i, ep in enumerate(execution_providers):
+                if ep == "CUDAExecutionProvider" and not provider_options[i]:
+                    provider_options[i] = {"device_id": str(rank)}
         inference_settings["execution_provider"] = execution_providers
-
-        if (device == Device.GPU) and (rank is not None) and not inference_settings.get("provider_options"):
-            inference_settings["provider_options"] = [
-                {"device_id": str(rank)} if ep == "CUDAExecutionProvider" else {} for ep in execution_providers
-            ]
-
+        inference_settings["provider_options"] = provider_options
         return get_ort_inference_session(self.model_path, inference_settings, self.use_ort_extensions)
 
     def get_default_execution_providers(self, device: Device):

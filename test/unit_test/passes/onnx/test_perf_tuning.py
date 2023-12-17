@@ -2,14 +2,18 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 from test.unit_test.utils import create_dataloader, get_onnx_model
 from unittest.mock import patch
 
 import pytest
 
+from olive.evaluator.metric import flatten_metric_result
+from olive.evaluator.olive_evaluator import OliveEvaluator, OnnxEvaluator
+from olive.hardware.accelerator import DEFAULT_GPU_CUDA_ACCELERATOR
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx import OrtPerfTuning
-from olive.passes.onnx.perf_tuning import generate_test_name
+from olive.passes.onnx.perf_tuning import PERFTUNING_BASELINE, generate_test_name
 
 
 @pytest.mark.parametrize(
@@ -59,6 +63,62 @@ def test_ort_perf_tuning_with_customized_configs(mock_run, config):
         ), "device is not set correctly as cpu by default when user does not specify it"
     for k, v in config.items():
         assert mock_run.call_args.args[2][k] == v, f"{k} is not set correctly as {v}"
+
+
+@pytest.mark.parametrize("return_baseline", [True, False])
+@patch.object(OnnxEvaluator, "evaluate")
+def test_perf_tuning_with_provider_options(mock_evaluate, caplog, return_baseline):
+    logger = logging.getLogger("olive")
+    logger.propagate = True
+
+    def mock_evaluate_method(model, data_root, metrics, device, execution_providers):
+        metrics_res = {}
+        latency = 0.5
+        if len(execution_providers) == 1:
+            # for single perf tuning case
+            if return_baseline:
+                latency = 0.6
+            else:
+                latency = 0.4
+
+        latency_metric = OliveEvaluator.compute_latency(metrics[0], [latency])
+        metrics_res[metrics[0].name] = latency_metric
+        return flatten_metric_result(metrics_res)
+
+    mock_evaluate.side_effect = mock_evaluate_method
+    execution_providers = [
+        (
+            "CUDAExecutionProvider",
+            {
+                "device_id": 0,
+                "arena_extend_strategy": "kNextPowerOfTwo",
+                "gpu_mem_limit": 2 * 1024 * 1024 * 1024,
+                "cudnn_conv_algo_search": "EXHAUSTIVE",
+                "do_copy_in_default_stream": True,
+            },
+        ),
+        "CPUExecutionProvider",
+    ]
+    config = {
+        "providers_list": execution_providers,
+        "device": "gpu",
+    }
+    # setup
+    input_model = get_onnx_model()
+    p = create_pass_from_dict(OrtPerfTuning, config, disable_search=True, accelerator_spec=DEFAULT_GPU_CUDA_ACCELERATOR)
+    result = p.run(input_model, None, None)
+    assert "execution_provider" in result.inference_settings
+    acutal_eps = result.inference_settings["execution_provider"]
+    if return_baseline:
+        assert len(acutal_eps) == 2
+        assert "enable_cuda_graph" not in acutal_eps[0][1]
+
+        assert acutal_eps[1] == "CPUExecutionProvider"
+        assert f"Best result({PERFTUNING_BASELINE}):" in caplog.text
+    else:
+        assert len(acutal_eps) == 1
+        if acutal_eps[0][0] == "CUDAExecutionProvider":
+            assert "enable_cuda_graph" in acutal_eps[0][1]
 
 
 @patch("olive.model.ONNXModelHandler.get_io_config")

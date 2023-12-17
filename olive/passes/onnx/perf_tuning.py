@@ -68,7 +68,7 @@ def valid_config(tuning_combos, config):
     return True
 
 
-def tune_onnx_model(model, data_root, config):
+def tune_onnx_model(perf_tuning_pass_ep, model, data_root, config):
     latency_user_config = {}
     # which should be the same as the config in the metric
     config_dict = config.dict()
@@ -94,6 +94,16 @@ def tune_onnx_model(model, data_root, config):
 
     tuning_results = []
     for tuning_combo in generate_tuning_combos(config):
+        tuning_ep = tuning_combo[0]
+        if isinstance(tuning_ep, tuple):
+            tuning_ep = tuning_ep[0]
+        else:
+            assert isinstance(tuning_ep, str)
+
+        # TODO(myguo): we need disable the following check when we enable cache in perf tuning.
+        if tuning_ep != perf_tuning_pass_ep:
+            logger.warning("Ignore perf tuning for EP %s since current pass EP is %s", tuning_ep, perf_tuning_pass_ep)
+            continue
         tuning_item = ["provider", "execution_mode", "ort_opt_level", "io_bind"]
         logger.info("Run tuning for: %s", list(zip(tuning_item, tuning_combo)))
         if not valid_config(tuning_combo, config):
@@ -104,20 +114,35 @@ def tune_onnx_model(model, data_root, config):
         logger.debug("Tuning result: %s", tuning_result["latency_ms"])
 
     best_result = parse_tuning_result(*tuning_results, pretuning_inference_result)
-    logger.info("Best result: %s", best_result)
-    if best_result.get("test_name") != PERFTUNING_BASELINE:
-        optimized_model = copy.copy(model)
-        optimized_model.inference_settings = {"execution_provider": best_result.get("execution_provider")}
-        session_options = best_result.get("session_options")
-        if session_options is not None:
-            optimized_model.inference_settings["session_options"] = session_options
+    logger.info("Best result(%s): %s", best_result["test_name"], best_result)
+    # Both baseline and pertuning result should have the execution provider in the test_results.
+    assert "execution_provider" in best_result, "execution_provider should be in best_result"
+    optimized_model = copy.copy(model)
+    optimized_model.inference_settings = {"execution_provider": best_result["execution_provider"]}
+    session_options = best_result.get("session_options")
+    if session_options is not None:
+        optimized_model.inference_settings["session_options"] = session_options
 
-        return optimized_model
+    return optimized_model
+
+
+def populate_provider_options(execution_provider, config):
+    if isinstance(execution_provider, tuple):
+        assert len(execution_provider) == 2, "execution_provider should be a tuple with execution provider and options"
+        provider = execution_provider[0]
+        provider_options = copy.deepcopy(execution_provider[1]) or {}
+    elif isinstance(execution_provider, str):
+        provider = execution_provider
+        provider_options = {}
     else:
-        # If the best result is baseline, we need add the execution_provider to the inference_settings of the model
-        result_model = copy.copy(model)
-        result_model.inference_settings = {"execution_provider": best_result.get("execution_provider")}
-        return result_model
+        raise ValueError("execution_provider should be a tuple or string")
+
+    if provider == "TensorrtExecutionProvider":
+        provider_options["trt_fp16_enable"] = config.trt_fp16_enable
+    elif provider == "CUDAExecutionProvider":
+        provider_options["enable_cuda_graph"] = config.enable_cuda_graph
+
+    return provider, provider_options
 
 
 def threads_num_tuning(model, data_root, latency_metric, config, tuning_combo):
@@ -129,24 +154,11 @@ def threads_num_tuning(model, data_root, latency_metric, config, tuning_combo):
 
     test_params = {}
 
-    if provider == "TensorrtExecutionProvider":
-        test_params["execution_provider"] = [
-            (
-                "TensorrtExecutionProvider",
-                {"trt_fp16_enable": config.trt_fp16_enable},
-            )
-        ]
-    elif provider == "CUDAExecutionProvider":
-        test_params["execution_provider"] = [
-            (
-                "CUDAExecutionProvider",
-                {"enable_cuda_graph": config.enable_cuda_graph},
-            )
-        ]
-        if config.enable_cuda_graph:
-            io_bind = True
-    else:
-        test_params["execution_provider"] = [(provider, {})]
+    provider, options = populate_provider_options(provider, config)
+    if provider == "CPUExecutionProvider" and config.enable_cuda_graph:
+        io_bind = True
+
+    test_params["execution_provider"] = [(provider, options)]
     test_params["session_options"] = {
         "execution_mode": execution_mode,
         "graph_optimization_level": ort_opt_level,
@@ -301,22 +313,34 @@ def get_benchmark(model, data_root, latency_metric, config, test_params=None, io
     session_name = generate_test_name(test_params, io_bind)
     test_result["test_name"] = session_name
 
+    latency_metric.user_config.io_bind = io_bind
     if test_params:
-        # params starts with _ are not used in inference setting, we need add special handling for io_bind
-        latency_metric.user_config.io_bind = io_bind
-
+        assert "provider_options" not in test_params, "provider_options should not be in test_params"
         latency_metric.user_config.inference_settings = {"onnx": test_params}
         execution_providers = test_params.get("execution_provider")
         test_result["session_options"] = test_params.get("session_options").copy()
         test_result["io_bind"] = io_bind
     else:
         execution_providers = config.providers_list
+        inference_settings = copy.deepcopy(model.inference_settings) if model.inference_settings else {}
+        inference_settings.pop("execution_provider", None)
+        inference_settings.pop("provider_options", None)
+        session_options = inference_settings.get("session_options")
+        if session_options:
+            test_result["session_options"] = copy.deepcopy(session_options)
+            test_result["io_bind"] = io_bind
+        # set the session_options for metrics so that the evalute will use them by default
+        latency_metric.user_config.inference_settings = {"onnx": inference_settings}
+
     test_result["execution_provider"] = execution_providers
 
     logger.debug(f"Run benchmark for: {session_name}")
     evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
     joint_key = joint_metric_key(latency_metric.name, latency_metric.sub_types[0].name)
     start_time = time.perf_counter()
+    # the evaluator will directly use the excution_providers which might includes the provider options.
+    # The inference_settings["execution_provider"] in model itself will be ignored.
+    # Only the inference_settings["session_options"] will be used.
     test_result["latency_ms"] = evaluator.evaluate(
         model, data_root, [latency_metric], config.device, execution_providers
     )[joint_key].value
@@ -429,4 +453,4 @@ class OrtPerfTuning(Pass):
         # TODO(jambayk): decide on whether to ignore the output_model_path
         # if we want to ignore it, we can just return the model
         # otherwise save or symlink the original model to the output_model_path
-        return tune_onnx_model(model, data_root, config)
+        return tune_onnx_model(self.accelerator_spec.execution_provider, model, data_root, config)
