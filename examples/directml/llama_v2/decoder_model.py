@@ -18,7 +18,45 @@ class DecoderModel(torch.nn.Module):
         normalization_type: str,
     ) -> None:
         super().__init__()
-        self.tok_embeddings = torch.nn.Embedding(vocab_size, hidden_size)
+        self.model = Model(n_layers, vocab_size, hidden_size, n_heads, scale_type, normalization_type)
+        self.lm_head = torch.nn.Linear(hidden_size, vocab_size, bias=False)
+
+    def forward_common(self, use_cache, tokens, position_ids_increment, attn_mask, cache):
+        hidden_states, k_caches, v_caches = self.model(use_cache, tokens, position_ids_increment, attn_mask, cache)
+        logits = self.lm_head(hidden_states)
+
+        return_values = [logits]
+
+        for k_cache, v_cache in zip(k_caches, v_caches):
+            return_values.append(k_cache)
+            return_values.append(v_cache)
+
+        return return_values
+
+    def forward_no_cache(self, tokens, position_ids, attn_mask, cache):
+        use_cache = False
+        return self.forward_common(use_cache, tokens, position_ids, attn_mask, cache)
+
+    def forward_use_cache(self, tokens_increment, position_ids_increment, attn_mask, cache):
+        use_cache = True
+        return self.forward_common(use_cache, tokens_increment, position_ids_increment, attn_mask, cache)
+
+    def set_use_cache(self, use_cache):
+        self.forward = self.forward_use_cache if use_cache else self.forward_no_cache
+
+
+class Model(torch.nn.Module):
+    def __init__(
+        self,
+        n_layers: int,
+        vocab_size: int,
+        hidden_size: int,
+        n_heads: int,
+        scale_type: str,
+        normalization_type: str,
+    ) -> None:
+        super().__init__()
+        self.embed_tokens = torch.nn.Embedding(vocab_size, hidden_size)
 
         self.norm = {
             "layer_norm": LayerNorm(hidden_size, eps=1e-5),
@@ -35,16 +73,11 @@ class DecoderModel(torch.nn.Module):
             )
             self.layers.append(layer)
 
-        self.output = torch.nn.Linear(hidden_size, vocab_size, bias=False)
-
-        self.hidden_size = hidden_size
-        self.n_heads = n_heads
-
-    def forward_common(self, use_cache, tokens, position_ids, attn_mask, cache):
+    def forward(self, use_cache, tokens, position_ids, attn_mask, cache):
         k_caches = []
         v_caches = []
 
-        x = self.tok_embeddings(tokens)
+        x = self.embed_tokens(tokens)
 
         for layer_idx, layer in enumerate(self.layers):
             k_cache = cache[layer_idx]["key"].clone().detach()
@@ -55,27 +88,7 @@ class DecoderModel(torch.nn.Module):
             k_caches.append(k_cache)
             v_caches.append(v_cache)
 
-        x = self.norm(x)
-        logits = self.output(x)
-
-        return_values = [logits]
-
-        for k_cache, v_cache in zip(k_caches, v_caches):
-            return_values.append(k_cache)
-            return_values.append(v_cache)
-
-        return tuple(return_values)
-
-    def forward_no_cache(self, tokens, position_ids, attn_mask, cache):
-        use_cache = False
-        return self.forward_common(use_cache, tokens, position_ids, attn_mask, cache)
-
-    def forward_use_cache(self, tokens_increment, position_ids_increment, attn_mask, cache):
-        use_cache = True
-        return self.forward_common(use_cache, tokens_increment, position_ids_increment, attn_mask, cache)
-
-    def set_use_cache(self, use_cache):
-        self.forward = self.forward_use_cache if use_cache else self.forward_no_cache
+        return self.norm(x), k_caches, v_caches
 
 
 def rotary_mat(
@@ -139,19 +152,19 @@ class TransformerLayer(torch.nn.Module):
         normalization_type: str,
     ) -> None:
         super().__init__()
-        self.attention_norm = {
+        self.input_layernorm = {
             "layer_norm": LayerNorm(hidden_size, eps=1e-6),
             "rms": RMSNorm(hidden_size, eps=1e-6),
         }[normalization_type]
 
-        self.ffn_norm = {
+        self.post_attention_layernorm = {
             "layer_norm": LayerNorm(hidden_size, eps=1e-6),
             "rms": RMSNorm(hidden_size, eps=1e-6),
         }[normalization_type]
 
         self.cos, self.sin = rotary_mat(hidden_size, n_heads, 4096, head_scale=1.0)
 
-        self.attention = SelfAttention(
+        self.self_attn = SelfAttention(
             hidden_size,
             n_heads,
             scale_type,
@@ -159,7 +172,7 @@ class TransformerLayer(torch.nn.Module):
         proj_dim = hidden_size * 4
         proj_dim = int(2 * proj_dim / 3)
         proj_dim = 256 * ((proj_dim + 256 - 1) // 256)
-        self.feed_forward = ProjLayerSiluMatMul(hidden_size, proj_dim)
+        self.mlp = ProjLayerSiluMatMul(hidden_size, proj_dim)
 
     def forward(
         self,
@@ -172,12 +185,12 @@ class TransformerLayer(torch.nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Dimension of x is [batch_size, seq_len, hidden_size] Dimension of
         # k_cache and v_cache is [batch_size, n_layers, pos, n_heads, head_dim]
-        h, k_out, v_out = self.attention(
-            use_cache, self.attention_norm(x), position_ids, attn_mask, self.cos, self.sin, k_cache, v_cache
+        h, k_out, v_out = self.self_attn(
+            use_cache, self.input_layernorm(x), position_ids, attn_mask, self.cos, self.sin, k_cache, v_cache
         )
 
         h = x + h
-        return h + self.feed_forward(self.ffn_norm(h)), k_out, v_out
+        return h + self.mlp(self.post_attention_layernorm(h)), k_out, v_out
 
 
 class ApplyMask(torch.nn.Module):
@@ -245,10 +258,10 @@ class SelfAttention(torch.nn.Module):
         scale_type: str,
     ) -> None:
         super().__init__()
-        self.wq = torch.nn.Linear(hidden_size, hidden_size, bias=False)
-        self.wk = torch.nn.Linear(hidden_size, hidden_size, bias=False)
-        self.wv = torch.nn.Linear(hidden_size, hidden_size, bias=False)
-        self.wo = torch.nn.Linear(hidden_size, hidden_size, bias=False)
+        self.q_proj = torch.nn.Linear(hidden_size, hidden_size, bias=False)
+        self.k_proj = torch.nn.Linear(hidden_size, hidden_size, bias=False)
+        self.v_proj = torch.nn.Linear(hidden_size, hidden_size, bias=False)
+        self.o_proj = torch.nn.Linear(hidden_size, hidden_size, bias=False)
         self.apply_mask = ApplyMask()
         self.rotary_embedding = RotaryEmbedding()
 
@@ -274,9 +287,9 @@ class SelfAttention(torch.nn.Module):
         k_cache: torch.Tensor,
         v_cache: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        query = self.wq(x)
-        key = self.wk(x)
-        value = self.wv(x)
+        query = self.q_proj(x)
+        key = self.k_proj(x)
+        value = self.v_proj(x)
 
         batch_size = x.shape[0]
         seq_len = x.shape[1]
@@ -312,7 +325,7 @@ class SelfAttention(torch.nn.Module):
         # Merge attention heads
         attn = attn.permute([0, 2, 1, 3]).reshape([batch_size, seq_len, self.hidden_size])
 
-        return self.wo(attn), k_cache, v_cache
+        return self.o_proj(attn), k_cache, v_cache
 
 
 class ProjLayerSiluMatMul(torch.nn.Module):
@@ -325,11 +338,11 @@ class ProjLayerSiluMatMul(torch.nn.Module):
         self.hidden_feature_size = hidden_feature_size
         self.in_feature_size = in_feature_size
 
-        self.w1 = torch.nn.Linear(in_feature_size, hidden_feature_size, bias=False)
-        self.w2 = torch.nn.Linear(hidden_feature_size, in_feature_size, bias=False)
-        self.w3 = torch.nn.Linear(in_feature_size, hidden_feature_size, bias=False)
+        self.gate_proj = torch.nn.Linear(in_feature_size, hidden_feature_size, bias=False)
+        self.down_proj = torch.nn.Linear(hidden_feature_size, in_feature_size, bias=False)
+        self.up_proj = torch.nn.Linear(in_feature_size, hidden_feature_size, bias=False)
 
     def forward(self, x):
-        w1x = self.w1(x)
+        w1x = self.gate_proj(x)
 
-        return self.w2(w1x * torch.sigmoid(w1x) * self.w3(x))
+        return self.down_proj(w1x * torch.sigmoid(w1x) * self.up_proj(x))

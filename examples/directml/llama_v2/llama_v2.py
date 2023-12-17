@@ -7,34 +7,52 @@ import argparse
 import json
 import os
 import shutil
-import urllib.request
 import warnings
 from pathlib import Path
+from typing import Optional
 
 import config
+import torch
+import transformers
 from chat_app.app import launch_chat_app
+from huggingface_hub import hf_hub_download
 from run_llama_v2_io_binding import run_llama_v2_io_binding
 
 from olive.model import ONNXModelHandler
 from olive.workflows import run as olive_run
 
 
-def optimize(optimized_model_dir: Path, model_type: str):
+def set_config_parameters(repo_id: str, num_layers: Optional[int]):
+    tokenizer = transformers.AutoTokenizer.from_pretrained(repo_id)
+
+    pipeline = transformers.pipeline(
+        "text-generation", model=repo_id, tokenizer=tokenizer, torch_dtype=torch.float32, device="cpu"
+    )
+
+    config.hidden_size = pipeline.model.config.hidden_size
+    config.num_heads = pipeline.model.config.num_attention_heads
+    config.num_key_value_heads = pipeline.model.config.num_key_value_heads
+    config.num_layers = num_layers or pipeline.model.config.num_hidden_layers
+    config.vocab_size = pipeline.model.config.vocab_size
+    config.normalization_type = "rms" if hasattr(pipeline.model.config, "rms_norm_eps") else "layer_norm"
+    config.strict_weights_loading = config.num_layers == pipeline.model.config.num_hidden_layers
+    config.state_dict = pipeline.model.state_dict()
+
+
+def optimize(optimized_model_dir: Path, repo_id: str, model_name: str, num_layers: Optional[int]):
+    print(f"\nOptimizing {repo_id}")
+
+    set_config_parameters(repo_id, num_layers)
+
     script_dir = Path(__file__).resolve().parent
     model_info = {}
-    model_name = "llama_v2"
 
-    print(f"\nOptimizing {model_name}")
-
-    olive_config = None
-    with Path.open(script_dir / f"config_{model_name}.json") as fin:
+    with Path.open(script_dir / "config_llama_v2.json") as fin:
         olive_config = json.load(fin)
-
-        # ORT-DML doesn't support SimplifiedLayerNorm or SkipSimplifiedLayerNorm yet, so only enable the fusions if
-        # LayerNorm is selected
-        if config.normalization_type == "layer_norm":
-            olive_config["passes"]["optimize"]["config"]["optimization_options"]["enable_layer_norm"] = True
-            del olive_config["passes"]["optimize"]["config"]["force_fp32_nodes"]
+        olive_config["engine"]["output_name"] = model_name
+        olive_config["passes"]["optimize"]["config"]["hidden_size"] = config.hidden_size
+        olive_config["passes"]["optimize"]["config"]["num_heads"] = config.num_heads
+        olive_config["passes"]["optimize"]["config"]["num_key_value_heads"] = config.num_key_value_heads
 
         # Fewer than 32 layers can be provided for debugging purposes so we have to remove them from the config
         if config.num_layers < 32:
@@ -94,63 +112,25 @@ def optimize(optimized_model_dir: Path, model_type: str):
             print(f"Optimized Model   : {model_info[model_name]['optimized']['path']}")
 
     print("Copying optimized model...")
+
+    # Copy the ONNX models
     src_path = model_info[model_name]["optimized"]["path"]
     dst_path = optimized_model_dir / model_name / src_path.name
     os.makedirs(os.path.dirname(dst_path), exist_ok=True)
     shutil.copyfile(src_path, dst_path)
 
+    # Copy the weights
     src_weights_path = src_path.with_suffix(".onnx.data")
     if src_weights_path.is_file():
         dst_weights_path = dst_path.with_suffix(".onnx.data")
         shutil.copyfile(src_weights_path, dst_weights_path)
 
-    raw_data_folder = Path(__file__).resolve().parent / "raw_model_data" / model_type
-    raw_data_folder.mkdir(exist_ok=True, parents=True)
-    src_tokenizer_path = raw_data_folder / "tokenizer.model"
-    dst_tokenizer_path = optimized_model_dir / "tokenizer.model"
+    # Copy the tokenizer
+    src_tokenizer_path = hf_hub_download(repo_id=repo_id, filename="tokenizer.model")
+    dst_tokenizer_path = dst_path.parents[0] / "tokenizer.model"
     shutil.copyfile(src_tokenizer_path, dst_tokenizer_path)
 
     print(f"The optimized pipeline is located here: {optimized_model_dir}")
-
-
-def download_checkpoint(model_type: str):
-    model_name = f"llama-2-{model_type}"
-
-    raw_data_folder = Path(__file__).resolve().parent / "raw_model_data" / model_type
-    raw_data_folder.mkdir(exist_ok=True, parents=True)
-
-    license_path = raw_data_folder / "LICENSE"
-    use_policy_path = raw_data_folder / "USE_POLICY.md"
-    tokenizer_path = raw_data_folder / "tokenizer.model"
-    weights_path = raw_data_folder / f"{model_name}.pth"
-
-    opener = urllib.request.build_opener()
-    opener.addheaders = [("User-agent", "wget")]
-    urllib.request.install_opener(opener)
-
-    if not (
-        license_path.is_file() and use_policy_path.is_file() and tokenizer_path.is_file() and weights_path.is_file()
-    ):
-        email_url = input(
-            "URL from the e-mail that was received after requesting access from "
-            "https://ai.meta.com/resources/models-and-libraries/llama-downloads/ (only valid for 24h): "
-        )
-
-    if not license_path.is_file():
-        print("Downloading LICENSE")
-        urllib.request.urlretrieve(email_url.replace("*", "LICENSE"), license_path)
-
-    if not use_policy_path.is_file():
-        print("Downloading Acceptable Usage Policy")
-        urllib.request.urlretrieve(email_url.replace("*", "USE_POLICY.md"), use_policy_path)
-
-    if not tokenizer_path.is_file():
-        print("Downloading tokenizer")
-        urllib.request.urlretrieve(email_url.replace("*", "tokenizer.model"), tokenizer_path)
-
-    if not weights_path.is_file():
-        print(f"Downloading {model_name}")
-        urllib.request.urlretrieve(email_url.replace("*", f"{model_name}/consolidated.00.pth"), weights_path)
 
 
 if __name__ == "__main__":
@@ -162,13 +142,6 @@ if __name__ == "__main__":
         action="store_true",
         help="Expose the web UI on the local network (does nothing if --interactive is not supplied)",
     )
-    parser.add_argument(
-        "--normalization_type",
-        default="rms",
-        choices=["layer_norm", "rms"],
-        help="Whether to use LayerNorm for the normalization layers or RMS.",
-        type=str,
-    )
     parser.add_argument("--prompt", default="What is the lightest element?", type=str)
     parser.add_argument("--max_seq_len", default=2048, type=int, help="The size of the cache")
     parser.add_argument("--device_id", default=0, type=int, help="GPU device to use during inference")
@@ -177,32 +150,32 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--model_type",
-        default="7b-chat",
-        choices=["7b", "7b-chat"],
-        help="Which model to convert. The 7b model is the original one without any finetuning, and the 7b-chat "
-        "version is the finetuned model optimized for chat.",
+        default="llama-2-7b-chat",
+        choices=["llama-2-7b-chat", "llama-2-7b"],
+        help="Which model to convert.",
         type=str,
     )
     parser.add_argument(
         "--num_layers",
-        default=32,
         help="This is a debugging option to be able to quickly generate and optimize an ONNX model with fewer layers "
-        "than 32 that barely takes any memory and is easy to load in Netron. This value should ALWAYS be 32 for "
-        "production purposes.",
+        "that barely takes any memory and is easy to load in Netron. This value should NOT be provided for production "
+        "purposes.",
         type=int,
     )
     args = parser.parse_args()
 
-    config.model_type = args.model_type
-    config.normalization_type = args.normalization_type
-    config.num_layers = args.num_layers
-
     script_dir = Path(__file__).resolve().parent
-    optimized_model_dir = script_dir / "models" / "optimized" / "llama_v2"
+    optimized_model_dir = script_dir / "models" / "optimized"
+
+    repo_id = {
+        "llama-2-7b-chat": "meta-llama/Llama-2-7b-chat-hf",
+        "llama-2-7b": "meta-llama/Llama-2-7b-hf",
+    }[args.model_type]
+
+    model_name = repo_id.replace("/", "_")
 
     if args.optimize or not optimized_model_dir.exists():
-        download_checkpoint(args.model_type)
-        optimize(optimized_model_dir, args.model_type)
+        optimize(optimized_model_dir, repo_id, model_name, args.num_layers)
 
     if not args.optimize:
         if args.interactive:
@@ -210,4 +183,10 @@ if __name__ == "__main__":
         else:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                run_llama_v2_io_binding(args.prompt, args.max_seq_len, args.max_gen_len, args.device_id)
+                run_llama_v2_io_binding(
+                    args.prompt,
+                    args.max_seq_len,
+                    args.max_gen_len,
+                    args.device_id,
+                    model_dir=optimized_model_dir / model_name,
+                )

@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from pathlib import Path
+import gc
 
 import config
 import torch
@@ -27,9 +27,6 @@ class RandomDataLoader:
 
 
 def get_or_create_decoder_model():
-    num_heads = 32
-    vocab_size = 32000
-    hidden_size = 4096
     scale_type = "SquareRootHeadDim"
 
     # Lazily load the decoder model the first time it's requested. This is necessary because both the cache and
@@ -39,41 +36,27 @@ def get_or_create_decoder_model():
     if config.decoder_model is None:
         config.decoder_model = DecoderModel(
             config.num_layers,
-            vocab_size,
-            hidden_size,
-            num_heads,
+            config.vocab_size,
+            config.hidden_size,
+            config.num_heads,
             scale_type,
             config.normalization_type,
         )
         config.decoder_model.eval()
+        config.decoder_model.load_state_dict(config.state_dict, strict=config.strict_weights_loading)
+        decoder_model = config.decoder_model
 
-        script_dir = Path(__file__).resolve().parent
-        weights_path = script_dir / "raw_model_data" / config.model_type / f"llama-2-{config.model_type}.pth"
+        # Release the memory since we don't need it anymore
+        del config.state_dict
+    else:
+        decoder_model = config.decoder_model
 
-        # We don't use rope.freqs
-        state_dict = torch.load(weights_path)
+        # Release the memory since we don't need it anymore
+        del config.decoder_model
 
-        # Permutation for sliced rotary
-        def permute(weight):
-            return (
-                weight.view(num_heads, hidden_size // num_heads // 2, 2, hidden_size)
-                .transpose(1, 2)
-                .reshape(hidden_size, hidden_size)
-            )
+    gc.collect()
 
-        for layer_idx in range(config.num_layers):
-            state_dict[f"layers.{layer_idx}.attention.wq.weight"] = permute(
-                state_dict[f"layers.{layer_idx}.attention.wq.weight"]
-            )
-            state_dict[f"layers.{layer_idx}.attention.wk.weight"] = permute(
-                state_dict[f"layers.{layer_idx}.attention.wk.weight"]
-            )
-
-        del state_dict["rope.freqs"]
-        strict = config.num_layers == 32
-        config.decoder_model.load_state_dict(state_dict, strict=strict)
-
-    return config.decoder_model
+    return decoder_model
 
 
 def load_decoder_model(model_path):
@@ -86,10 +69,8 @@ def decoder_inputs(model):
     batch_size = 2
     past_seq_len = 246
     seq_len = 10
-    hidden_size = 4096
     max_seq_len = past_seq_len + seq_len
-    num_heads = 32
-    head_size = hidden_size // num_heads
+    head_size = config.hidden_size // config.num_heads
 
     return {
         "tokens": torch.zeros((batch_size, seq_len), dtype=torch.int64),
@@ -97,8 +78,12 @@ def decoder_inputs(model):
         "attn_mask": torch.zeros((batch_size, max_seq_len), dtype=torch.int32),
         "cache": [
             {
-                "key": torch.rand((batch_size, num_heads, past_seq_len, head_size), dtype=torch.float32),
-                "value": torch.rand((batch_size, num_heads, past_seq_len, head_size), dtype=torch.float32),
+                "key": torch.rand(
+                    (batch_size, config.num_key_value_heads, past_seq_len, head_size), dtype=torch.float32
+                ),
+                "value": torch.rand(
+                    (batch_size, config.num_key_value_heads, past_seq_len, head_size), dtype=torch.float32
+                ),
             }
             for _ in range(config.num_layers)
         ],
@@ -120,18 +105,20 @@ def decoder_with_past_inputs(model):
     batch_size = 2
     past_seq_len = 255
     seq_len = 1
-    hidden_size = 4096
     max_seq_len = past_seq_len + seq_len
-    num_heads = 32
-    head_size = hidden_size // num_heads
+    head_size = config.hidden_size // config.num_heads
     return {
         "tokens_increment": torch.zeros((batch_size, seq_len), dtype=torch.int64),
         "position_ids_increment": torch.zeros((batch_size, seq_len), dtype=torch.int64),
         "attn_mask": torch.zeros((batch_size, max_seq_len), dtype=torch.int32),
         "cache": [
             {
-                "key": torch.rand((batch_size, num_heads, past_seq_len, head_size), dtype=torch.float32),
-                "value": torch.rand((batch_size, num_heads, past_seq_len, head_size), dtype=torch.float32),
+                "key": torch.rand(
+                    (batch_size, config.num_key_value_heads, past_seq_len, head_size), dtype=torch.float32
+                ),
+                "value": torch.rand(
+                    (batch_size, config.num_key_value_heads, past_seq_len, head_size), dtype=torch.float32
+                ),
             }
             for _ in range(config.num_layers)
         ],
@@ -145,10 +132,8 @@ def decoder_with_past_inputs(model):
 
 def merged_decoders_inputs(model):
     batch_size = 2
-    hidden_size = 4096
     max_seq_len = 256
-    num_heads = 32
-    head_size = hidden_size // num_heads
+    head_size = config.hidden_size // config.num_heads
     seq_len = 10
     past_seq_len = 246
 
@@ -161,10 +146,10 @@ def merged_decoders_inputs(model):
 
     for layer_idx in range(config.num_layers):
         inputs[f"cache.{layer_idx}.key"] = torch.rand(
-            (batch_size, num_heads, max_seq_len, head_size), dtype=torch.float32
+            (batch_size, config.num_key_value_heads, max_seq_len, head_size), dtype=torch.float32
         )
         inputs[f"cache.{layer_idx}.value"] = torch.rand(
-            (batch_size, num_heads, max_seq_len, head_size), dtype=torch.float32
+            (batch_size, config.num_key_value_heads, max_seq_len, head_size), dtype=torch.float32
         )
 
     inputs["tokens_increment"] = torch.zeros((batch_size, 1), dtype=torch.int64)

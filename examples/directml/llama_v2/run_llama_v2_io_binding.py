@@ -44,7 +44,7 @@ def run_llama_v2_io_binding(
     device_id: int = 0,
     disable_metacommands: bool = False,
     ignore_eos: bool = False,
-    model_dir: str = "models/optimized/llama_v2",
+    model_dir: str = "models/optimized",
 ) -> str:
     onnxruntime.set_default_logger_severity(3)
 
@@ -64,7 +64,7 @@ def run_llama_v2_io_binding(
     llm_session_options.add_free_dimension_override_by_name("max_seq_len", max_seq_len)
     llm_session_options.add_free_dimension_override_by_name("seq_len_increment", 1)
     llm_session = onnxruntime.InferenceSession(
-        os.path.join(model_dir, "llama_v2/decoder_model_merged.onnx"),
+        os.path.join(model_dir, "decoder_model_merged.onnx"),
         sess_options=llm_session_options,
         providers=providers,
     )
@@ -180,8 +180,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_dir",
         type=str,
-        default="models/optimized/llama_v2",
-        help="Path to the folder containing the llama_v2 folder and the tokenizer.model file",
+        required=True,
+        help="Path to the folder containing the decoder_model_merged.onnx and tokenizer.model files",
     )
 
     args = parser.parse_args()
