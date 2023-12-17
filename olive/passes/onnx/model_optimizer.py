@@ -11,7 +11,8 @@ import onnx
 from google.protobuf.message import Message
 
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.model import ONNXModel
+from olive.model import ONNXModelHandler
+from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
@@ -226,9 +227,9 @@ class OnnxModelOptimizer(Pass):
         return get_external_data_config()
 
     def _run_for_config(
-        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> ONNXModel:
-        output_model_path = ONNXModel.resolve_path(output_model_path, Path(model.model_path).name)
+        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> ONNXModelHandler:
+        output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
         # optimize model
         model_optimizer = ModelOptimizer(model.model_path)

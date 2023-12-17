@@ -42,6 +42,7 @@ The default value is 3. User can increase if there are network issues and the op
         }
     }
     ```
+- `keyvault_name: [str]` The keyvault name to retrieve secrets.
 
 ### Example
 #### `azureml_client` with `aml_config_path`:
@@ -79,10 +80,10 @@ The default value is 3. User can increase if there are network issues and the op
 
 User should specify input model type and configuration using `input model` dictionary. It contains following items:
 
-- `type: [str]` Type of the input model which is case insensitive.. The supported types contain `PyTorchModel`, `ONNXModel`, `OpenVINOModel`,`SNPEModel` and etc. You can
+- `type: [str]` Type of the input model which is case insensitive.. The supported types contain `PyTorchModelHandler`, `ONNXModelHandler`, `OpenVINOModelHandler`,`SNPEModelHandler` and etc. You can
 find more details in [Olive Models](https://microsoft.github.io/Olive/api/models.html).
 
-- `config: [Dict]` For example, for `PytorchModel`, the input model config dictionary specifies following items:
+- `config: [Dict]` For example, for `PytorchModelHandler`, the input model config dictionary specifies following items:
 
     - `model_path: [str | Dict]` The model path can be a string or a dictionary. If it is a string, it is either a string name
     used by the model loader or the path to the model file/directory. If it is a dictionary, it contains information about the model path.
@@ -95,7 +96,7 @@ find more details in [Olive Models](https://microsoft.github.io/Olive/api/models
 
     - `script_dir: [str]` The directory that contains dependencies for the model script.
 
-    - `io_config: [Dict[str, Any] | IOConfig | str | Callable]`: The inputs and outputs information of the model. It can be a dictionary, an IOConfig object or a function string under `model_script`. Basically, it contains following items:
+    - `io_config: [Dict[str, Any] | IoConfig | str | Callable]`: The inputs and outputs information of the model. It can be a dictionary, an IoConfig object or a function string under `model_script`. Basically, it contains following items:
         - `input_names: [List[str]]` The input names of the model.
         - `input_types: [List[str]]` The input types of the model.
         - `input_shapes: [List[List[int]]]` The input shapes of the model.
@@ -118,7 +119,7 @@ find more details in [Olive Models](https://microsoft.github.io/Olive/api/models
         - `components: [List[HFComponent]]`: HFComponent list:
             - `HFComponent`:
                 - `name: [str]`: Component name. Olive will generate a model class with this str as attribute name.
-                - `io_config: [Dict[str, Any] | IOConfig | str | Callable]`: The io_config of this component. If `str`, Olive will load `io_config` from `model_script`.
+                - `io_config: [Dict[str, Any] | IoConfig | str | Callable]`: The io_config of this component. If `str`, Olive will load `io_config` from `model_script`.
                 - `component_func: [str]`: The component function name will be loaded from `model_script`.
                 - `dummy_inputs_func: [str]`: The dummy input function name will be loaded from `model_script`.
 
@@ -143,14 +144,16 @@ find more details in [Olive Models](https://microsoft.github.io/Olive/api/models
             ```
             For cases where you do not want to use the huggingface model but want to use the huggingface dataset, you can provide `dataset` config only like above.
 
+        - `from_pretrained_args: [dict]`: Arguments to pass to the `from_pretrained` method of the model class. Refer to [this documentation](https://huggingface.co/docs/transformers/main_classes/model#transformers.PreTrainedModel.from_pretrained).
+
 Please find the detailed config options from following table for each model type:
 
 | Model Type | Description |
 |:----------|:-------------|
-| [PytorchModel](pytorch_model) | Pytorch model |
-| [ONNXModel](onnx_model) | ONNX model |
-| [OpenVINOModel](openvino_model) | OpenVINO IR model |
-| [SNPEModel](snpe_model) | SNPE DLC model |
+| [PytorchModelHandler(pytorch_model) | Pytorch model |
+| [ONNXModelHandler](onnx_model) | ONNX model |
+| [OpenVINOModelHandler](openvino_model) | OpenVINO IR model |
+| [SNPEModelHandler](snpe_model) | SNPE DLC model |
 
 ### Example
 ```json
@@ -199,8 +202,11 @@ information of the system contains following items:
   There are some built-in system alias which could also be used as type. For example, `AzureNDV2System`. Please refer to [Olive System Alias](olive_system_alias) for the complete list of system alias.
 
 - `config: [Dict]` The system config dictionary that contains the system specific information.
+ - `accelerators: [List[str]]` The accelerators that will be used for this workflow.
+ - `hf_token: [bool]` Whether to use a Huggingface token to access Huggingface resources. If it is set to `True`, For local system, Docker system, and PythonEnvironment system, Olive will retrieve the token from the `HF_TOKEN` environment variable or from the token file located at `~/.huggingface/token`. For AzureML system, Olive will retrieve the token from user keyvault secret. If set to `False`, no token will be utilized during this workflow run. The default value is `False`.
 
-Please refer to [Configuring OliveSystem](configuring_olivesystem) for the more information of the system config dictionary.
+
+Please refer to [How To Configure System](../tutorials/configure_systems.rst) for the more information of the system config dictionary.
 
 ### Example
 ```json
@@ -233,7 +239,7 @@ information of the evaluator contains following items:
     - `type: [str]` The type of the metric. The supported types are `accuracy`, `latency`, `throughput` and `custom`.
 
     - `backend: [str]` The type of metrics' backend. Olive implement `torch_metrics` and `huggingface_metrics` backends. The default value is `torch_metrics`.
-        - `torch_metrics` backend uses `torchmetrics` library to compute metrics. It supports `accuracy_score`, `f1_score`, `precision`, `recall` and `auc` metrics.
+        - `torch_metrics` backend uses `torchmetrics`(>=0.1.0) library to compute metrics. It supports `accuracy_score`, `f1_score`, `precision`, `recall` and `auroc` metrics which are used for `binary` task (equal to `metric_config:{"task": "binary"}`) by default. You need alter the `task` if needed. Please refer to [torchmetrics](https://lightning.ai/docs/torchmetrics/stable/) for more details.
         - `huggingface_metrics` backend uses huggingface `evaluate` library to compute metrics. The supported metrics can be found at [huggingface metrics](https://huggingface.co/metrics).
 
     - `subtypes: [List[Dict]]` The subtypes of the metric. Cannot be null or empty. Each subtype is a dictionary that contains following items:
@@ -311,8 +317,8 @@ information of the evaluator contains following items:
                 "type": "accuracy",
                 "sub_types": [
                     {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
-                    {"name": "f1_score", "metric_config": {"multiclass": false}},
-                    {"name": "auroc", "metric_config": {"num_classes": 2}}
+                    {"name": "f1_score"},
+                    {"name": "auroc"}
                 ],
                 "user_config":{
                     "post_processing_func": "post_process",

@@ -2,9 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import sys
 from test.unit_test.utils import get_onnx_model, pytorch_model_loader
-from unittest.mock import MagicMock, patch
 
 import onnx
 import onnxruntime
@@ -12,22 +10,11 @@ import pytest
 import torch
 from packaging import version
 
-from olive.model import ONNXModel
+from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx import OnnxBnb4Quantization
 
 # pylint: disable=protected-access
-
-
-# TODO(jambayk): Remove this fixture after ORT 1.16.2 is released
-# replace with skipif
-@pytest.fixture
-def mock_ort_1_16_2():
-    mock_matmul_bnb4_quantizer = MagicMock()
-    sys.modules["onnxruntime.quantization.matmul_bnb4_quantizer"] = mock_matmul_bnb4_quantizer
-    with patch("onnxruntime.__version__", "1.16.2"):
-        yield
-    del sys.modules["onnxruntime.quantization.matmul_bnb4_quantizer"]
 
 
 def get_onnx_matmul_model(model_path, model_attributes=None):
@@ -42,7 +29,7 @@ def get_onnx_matmul_model(model_path, model_attributes=None):
         output_names=["output"],
         opset_version=13,
     )
-    return ONNXModel(model_path, model_attributes=model_attributes)
+    return ONNXModelHandler(model_path, model_attributes=model_attributes)
 
 
 def get_onnx_gemm_model(model_path=None, model_attributes=None):
@@ -51,7 +38,10 @@ def get_onnx_gemm_model(model_path=None, model_attributes=None):
     return model
 
 
-@pytest.mark.usefixtures("mock_ort_1_16_2")
+@pytest.mark.skipif(
+    version.parse(onnxruntime.__version__) < version.parse("1.16.2"),
+    reason="OnnxBnb4Quantization requires ORT >= 1.16.2",
+)
 @pytest.mark.parametrize(
     "pass_config,model_attributes,expected_error",
     [

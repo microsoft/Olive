@@ -11,12 +11,11 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Dict, List, Optional, Type, Union
 
-from pydantic import Field, validator
-
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.auto_config import AutoConfigClass
 from olive.common.config_utils import ConfigBase, ConfigParam, serialize_to_json, validate_config
-from olive.common.utils import retry_func
+from olive.common.pydantic_v1 import Field, validator
+from olive.common.utils import copy_dir, retry_func
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +219,7 @@ class LocalResourcePath(ResourcePath):
         if is_file:
             shutil.copy(self.config.path, new_path)
         else:
-            shutil.copytree(self.config.path, new_path)
+            copy_dir(self.config.path, new_path)
 
         return str(new_path)
 

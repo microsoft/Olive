@@ -16,7 +16,7 @@ from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
 from olive.evaluator.metric import Metric, MetricType
 from olive.evaluator.metric_config import MetricGoal
-from olive.model import ModelConfig, ONNXModel, OptimumModel, PyTorchModel
+from olive.model import ModelConfig, ONNXModelHandler, OptimumModelHandler, PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx import OnnxConversion, OnnxDynamicQuantization
 
@@ -73,7 +73,7 @@ def get_pytorch_model_config():
 
 
 def get_pytorch_model():
-    return PyTorchModel(
+    return PyTorchModelHandler(
         model_loader=pytorch_model_loader,
         model_path=None,
         io_config={"input_names": ["input"], "output_names": ["output"], "input_shapes": [(1, 1)]},
@@ -81,7 +81,7 @@ def get_pytorch_model():
 
 
 def get_optimum_model_by_model_path():
-    return OptimumModel(
+    return OptimumModelHandler(
         model_path="hf-internal-testing/tiny-random-gptj",
         model_components=["model.onnx"],
         hf_config={"model_class": "text-generation"},
@@ -89,14 +89,14 @@ def get_optimum_model_by_model_path():
 
 
 def get_optimum_model_by_hf_config():
-    return OptimumModel(
+    return OptimumModelHandler(
         model_components=["model.onnx"],
         hf_config={"model_name": "hf-internal-testing/tiny-random-gptj", "model_class": "text-generation"},
     )
 
 
 def get_hf_model_with_past():
-    return PyTorchModel(
+    return PyTorchModelHandler(
         hf_config={
             "model_name": "hf-internal-testing/tiny-random-gptj",
             "task": "text-generation",
@@ -122,7 +122,7 @@ def get_onnx_model_config():
 
 
 def get_onnx_model():
-    return ONNXModel(model_path=str(ONNX_MODEL_PATH))
+    return ONNXModelHandler(model_path=str(ONNX_MODEL_PATH))
 
 
 def delete_onnx_model_files():
@@ -152,7 +152,7 @@ def create_fixed_dataloader(datadir, batchsize, *args, **kwargs):
 
 def get_accuracy_metric(*acc_subtype, random_dataloader=True, user_config=None, backend="torch_metrics"):
     accuracy_metric_config = {"dataloader_func": create_dataloader if random_dataloader else create_fixed_dataloader}
-    accuracy_score_metric_config = {"mdmc_average": "global"}
+    accuracy_score_metric_config = {"task": "multiclass", "num_classes": 10}
     sub_types = [
         {
             "name": sub,

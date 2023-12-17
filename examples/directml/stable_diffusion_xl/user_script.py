@@ -75,9 +75,9 @@ def text_encoder_2_data_loader(data_dir, batchsize, *args, **kwargs):
 
 def unet_inputs(batchsize, torch_dtype, is_conversion_inputs=False):
     inputs = {
-        "sample": torch.rand((2 * batchsize, 4, config.image_size // 8, config.image_size // 8), dtype=torch_dtype),
+        "sample": torch.rand((2 * batchsize, 4, config.unet_sample_size, config.unet_sample_size), dtype=torch_dtype),
         "timestep": torch.rand((1,), dtype=torch_dtype),
-        "encoder_hidden_states": torch.rand((2 * batchsize, 77, config.hidden_state_size), dtype=torch_dtype),
+        "encoder_hidden_states": torch.rand((2 * batchsize, 77, config.cross_attention_dim), dtype=torch_dtype),
     }
 
     if is_conversion_inputs:
@@ -113,7 +113,7 @@ def unet_data_loader(data_dir, batchsize, *args, **kwargs):
 
 def vae_encoder_inputs(batchsize, torch_dtype):
     return {
-        "sample": torch.rand((batchsize, 3, config.image_size, config.image_size), dtype=torch_dtype),
+        "sample": torch.rand((batchsize, 3, config.vae_sample_size, config.vae_sample_size), dtype=torch_dtype),
         "return_dict": False,
     }
 
@@ -139,7 +139,9 @@ def vae_encoder_data_loader(data_dir, batchsize, *args, **kwargs):
 
 def vae_decoder_inputs(batchsize, torch_dtype):
     return {
-        "latent_sample": torch.rand((batchsize, 4, 64, 64), dtype=torch_dtype),
+        "latent_sample": torch.rand(
+            (batchsize, 4, config.unet_sample_size, config.unet_sample_size), dtype=torch_dtype
+        ),
         "return_dict": False,
     }
 

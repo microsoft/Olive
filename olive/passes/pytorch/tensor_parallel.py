@@ -13,11 +13,12 @@ from pathlib import Path
 from typing import Any, Callable, Dict
 
 import torch
-from pydantic import validator
 
 from olive.common.config_utils import ParamCategory
+from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.model import DistributedPyTorchModel, PyTorchModel
+from olive.model import DistributedPyTorchModelHandler, PyTorchModelHandler
+from olive.model.config.hf_config import HfConfig, get_model_type_from_hf_config
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 
@@ -104,24 +105,26 @@ class PyTorchTensorParallel(Pass):
 
     @staticmethod
     def _generate_one(params):
-        script_dir, user_script, class_name, model_config, rank, world_size, output_filepath = params
-
-        from olive.passes.pytorch.tensor_parallel_llama2 import LlamaPyTorchTensorParallel
+        model_config, rank, world_size, output_filepath = params
 
         logger.debug(f"Exporting tensor parallel model for rank: {rank}, {output_filepath}")
 
-        # TODO(shaahji): Parameterize the specific class implementation to use
-        # cls = UserModuleLoader.load_global(class_name)
-        # impl = cls(rank, world_size)
+        hf_config = HfConfig(**model_config["hf_config"])
+        model_type = get_model_type_from_hf_config(hf_config)
 
-        impl = LlamaPyTorchTensorParallel(rank, world_size)
+        if model_type == "llama":
+            from olive.passes.pytorch.tensor_parallel_llama2 import LlamaPyTorchTensorParallel
+
+            impl = LlamaPyTorchTensorParallel(rank, world_size)
+        else:
+            raise ValueError("Unsupported model type '{model_type}' for tensor parallel pass")
 
         # 1. Replace the layers
         impl.replace_layers()
 
         try:
             # 2. Load the model
-            olive_model = PyTorchModel(**model_config)
+            olive_model = PyTorchModelHandler(**model_config)
             pytorch_model = olive_model.load_model()
             pytorch_model.eval()
             pytorch_model.requires_grad_(False)
@@ -145,11 +148,8 @@ class PyTorchTensorParallel(Pass):
         return 1  # Return 1 for success.
 
     def _run_for_config(
-        self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> DistributedPyTorchModel:
-        script_dir = config["script_dir"]
-        user_script = config["user_script"]
-        class_name = config["class_name"]
+        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> DistributedPyTorchModelHandler:
         world_size = int(config["world_size"])
         output_model_path = Path(output_model_path)
         output_model_path.mkdir(parents=True, exist_ok=True)
@@ -157,13 +157,10 @@ class PyTorchTensorParallel(Pass):
         model_config = model.to_json()["config"]
         params = [
             (
-                script_dir,
-                user_script,
-                class_name,
                 model_config,
                 rank,
                 world_size,
-                output_model_path / DistributedPyTorchModel.DEFAULT_RANKED_MODEL_NAME_FORMAT.format(rank),
+                output_model_path / DistributedPyTorchModelHandler.DEFAULT_RANKED_MODEL_NAME_FORMAT.format(rank),
             )
             for rank in range(world_size)
         ]
@@ -185,8 +182,8 @@ class PyTorchTensorParallel(Pass):
         model_config = model.to_json()["config"]
         del model_config["model_loader"]
         model_config["model_path"] = output_model_path
-        model_config["model_name_pattern"] = DistributedPyTorchModel.DEFAULT_RANKED_MODEL_NAME_FORMAT
+        model_config["model_name_pattern"] = DistributedPyTorchModelHandler.DEFAULT_RANKED_MODEL_NAME_FORMAT
         model_config["num_ranks"] = world_size
         model_config["model_attributes"] = deepcopy(model.model_attributes)
         model_config["model_attributes"]["world_size"] = world_size
-        return DistributedPyTorchModel(**model_config)
+        return DistributedPyTorchModelHandler(**model_config)

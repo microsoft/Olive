@@ -2,7 +2,6 @@
     "input_model":{
         "type": "CompositePyTorchModel",
         "config": {
-            "model_path": "llama_v2",
             "model_components": [
                 {
                     "name": "decoder_model",
@@ -486,7 +485,7 @@
                 "replace_attn_mask_input_with_seq_len": true,
                 "optimization_options": {
                     "enable_gelu": false,
-                    "enable_layer_norm": false,
+                    "enable_layer_norm": true,
                     "enable_attention": true,
                     "use_multi_head_attention": true,
                     "enable_skip_layer_norm": false,

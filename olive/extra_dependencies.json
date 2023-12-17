@@ -1,6 +1,7 @@
 {
     "azureml": [
         "azure-ai-ml>=1.11.1",
+        "azure-keyvault-secrets",
         "azure-identity",
         "azureml-fsspec"
     ],

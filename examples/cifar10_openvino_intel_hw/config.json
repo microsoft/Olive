@@ -22,7 +22,7 @@
                     "name": "accuracy",
                     "type": "accuracy",
                     "sub_types": [
-                        {"name": "accuracy_score", "priority": 1}
+                        {"name": "accuracy_score", "priority": 1, "metric_config": {"task": "multiclass", "num_classes": 10}}
                     ],
                     "user_config":{
                         "post_processing_func": "post_process",

@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 class LocalSystem(OliveSystem):
     system_type = SystemType.Local
 
-    def __init__(self, accelerators: List[str] = None):
+    def __init__(self, accelerators: List[str] = None, hf_token: bool = None):
         super().__init__(accelerators=accelerators, olive_managed_env=False)
 
     def run_pass(
@@ -38,7 +38,7 @@ class LocalSystem(OliveSystem):
         self, model_config: ModelConfig, data_root: str, metrics: List["Metric"], accelerator: AcceleratorSpec
     ) -> "MetricResult":
         """Evaluate the model."""
-        if model_config.type.lower() == "CompositeOnnxModel".lower():
+        if model_config.type.lower() in ("compositemodel", "compositepytorchmodel"):
             raise NotImplementedError
 
         device = accelerator.accelerator_type if accelerator else Device.CPU

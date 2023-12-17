@@ -10,6 +10,7 @@ from urllib import request
 
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
+from transformers import __version__ as TransformersVersion
 
 SUPPORTED_WORKFLOWS = {
     ("cpu", "fp32"): ["conversion", "transformers_optimization", "insert_beam_search", "prepost"],
@@ -57,7 +58,7 @@ def get_args(raw_args):
             "Package the final model as a zipfile along with the required onnxruntime packages and sample code."
             " Default: False"
         ),
-    ),
+    )
     parser.add_argument(
         "--atol",
         type=float,
@@ -75,6 +76,7 @@ def main(raw_args=None):
 
     # version check
     version_1_16 = version.parse(OrtVersion) >= version.parse("1.16.0")
+    transformers_version_4_36 = version.parse(TransformersVersion) >= version.parse("4.36.0")
 
     # multi-lingual support check
     if args.multilingual and not version_1_16:
@@ -87,6 +89,8 @@ def main(raw_args=None):
 
     # update model name
     template_json["input_model"]["config"]["hf_config"]["model_name"] = model_name
+    if transformers_version_4_36:
+        template_json["input_model"]["config"]["hf_config"]["from_pretrained_args"] = {"attn_implementation": "eager"}
 
     # set dataloader
     template_json["evaluators"]["common_evaluator"]["metrics"][0]["user_config"]["dataloader_func"] = (

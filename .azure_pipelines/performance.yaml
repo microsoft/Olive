@@ -30,7 +30,7 @@ jobs:
 - template: job_templates/olive-performance-template.yaml
   parameters:
     name: Linux_GPU_CI
-    pool: $(OLIVE_GPU_POOL_UBUNTU2004)
+    pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
     windows: False
     device: gpu
     examples:

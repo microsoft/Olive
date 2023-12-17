@@ -7,16 +7,16 @@ import shutil
 from pathlib import Path
 from typing import Dict, List, Union
 
-from pydantic import root_validator, validator
-
 import olive.systems.system_alias as system_alias
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
+from olive.common.pydantic_v1 import root_validator, validator
 from olive.systems.common import AzureMLDockerConfig, LocalDockerConfig, SystemType
 
 
 class TargetUserConfig(ConfigBase):
     accelerators: List[str] = None
+    hf_token: bool = None
 
 
 class LocalTargetUserConfig(TargetUserConfig):

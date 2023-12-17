@@ -14,7 +14,7 @@ from prepare_whisper_configs import download_audio_test_data
 
 from olive.evaluator.olive_evaluator import OnnxEvaluator
 from olive.hardware import AcceleratorSpec
-from olive.model import ONNXModel
+from olive.model import ONNXModelHandler
 
 sys.path.append(str(Path(__file__).parent / "code"))
 
@@ -74,7 +74,7 @@ def main(raw_args=None):
         break
 
     # load output model onnx
-    olive_model = ONNXModel(**output_model_json["config"])
+    olive_model = ONNXModelHandler(**output_model_json["config"])
 
     # load audio data
     if not args.audio_path:

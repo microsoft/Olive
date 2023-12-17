@@ -1,9 +1,2 @@
-accelerate
-diffusers
-onnx
+-r requirements-common.txt
 onnxruntime-directml>=1.16.0
-pillow
-protobuf==3.20.3 # protobuf 4.x aborts with OOM when optimizing unet
-torch
-torchvision==0.14.1
-transformers
