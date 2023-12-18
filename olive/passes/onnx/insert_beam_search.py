@@ -34,11 +34,34 @@ class InsertBeamSearch(Pass):
                 default_value=0,
                 description=" If set to int > 0, all ngrams of that size can only occur once.",
             ),
+            "use_vocab_mask": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Use vocab_mask as an extra graph input to the beam search op. Only supported in ORT >= 1.16.0"
+                ),
+            ),
+            "use_prefix_vocab_mask": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Use prefix_vocab_mask as an extra graph input to the beam search op. Only supported in ORT >="
+                    " 1.16.0"
+                ),
+            ),
             "use_forced_decoder_ids": PassConfigParam(
                 type_=bool,
                 default_value=False,
                 description=(
                     "Use decoder_input_ids as an extra graph input to the beam search op. Only supported in ORT >="
+                    " 1.16.0"
+                ),
+            ),
+            "use_logits_processor": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Use logits_processor as an extra graph input to the beam search op. Only supported in ORT >="
                     " 1.16.0"
                 ),
             ),
@@ -77,12 +100,13 @@ class InsertBeamSearch(Pass):
             "num_return_sequences",
             "length_penalty_fp16" if options["fp16"] else "length_penalty",
             "repetition_penalty_fp16" if options["fp16"] else "repetition_penalty",
-            "",
-            "",
+            "vocab_mask" if (version_1_16 and options["use_vocab_mask"]) else "",
+            "prefix_vocab_mask" if (version_1_16 and options["use_prefix_vocab_mask"]) else "",
             "" if version_1_16 else "attention_mask",
         ]
         if version_1_16:
-            beam_inputs.extend(["decoder_input_ids" if options["use_forced_decoder_ids"] else "", ""])
+            beam_inputs.extend(["decoder_input_ids" if options["use_forced_decoder_ids"] else ""])
+            beam_inputs.extend(["logits_processor" if options["use_logits_processor"] else ""])
 
         input_features_cast_node, len_pen_cast_node, rep_pen_cast_node = None, None, None
         if options["fp16"]:
@@ -148,11 +172,28 @@ class InsertBeamSearch(Pass):
                 "attention_mask", TensorProto.INT32, ["batch_size", "feature_size", "sequence_length"]
             )
             graph_inputs.append(attention_mask)
-        if version_1_16 and options["use_forced_decoder_ids"]:
-            decoder_input_ids = helper.make_tensor_value_info(
-                "decoder_input_ids", TensorProto.INT32, ["batch_size", "initial_sequence_length"]
-            )
-            graph_inputs.append(decoder_input_ids)
+        else:
+            if options["use_vocab_mask"]:
+                vocab_mask = helper.make_tensor_value_info(
+                    "vocab_mask", TensorProto.INT32, [model_config["vocab_size"]]
+                )
+                graph_inputs.append(vocab_mask)
+
+            if options["use_prefix_vocab_mask"]:
+                prefix_vocab_mask = helper.make_tensor_value_info(
+                    "prefix_vocab_mask", TensorProto.INT32, ["batch_size", model_config["vocab_size"]]
+                )
+                graph_inputs.append(prefix_vocab_mask)
+
+            if options["use_forced_decoder_ids"]:
+                decoder_input_ids = helper.make_tensor_value_info(
+                    "decoder_input_ids", TensorProto.INT32, ["batch_size", "initial_sequence_length"]
+                )
+                graph_inputs.append(decoder_input_ids)
+
+            if options["use_logits_processor"]:
+                logits_processor = helper.make_tensor_value_info("logits_processor", TensorProto.INT32, [1])
+                graph_inputs.append(logits_processor)
 
         # graph outputs
         sequences = helper.make_tensor_value_info(

@@ -14,6 +14,7 @@ def add_pre_post_processing_to_model(
     model_name: str,
     use_audio_decoder: bool = True,
     use_onnx_stft: bool = True,
+    skip_special_tokens: bool = True,
 ) -> onnx.ModelProto:
     processor = WhisperProcessor.from_pretrained(model_name)
 
@@ -31,7 +32,7 @@ def add_pre_post_processing_to_model(
         pre_model, post_model = gen_processing_models(
             processor,
             pre_kwargs={"USE_AUDIO_DECODER": use_audio_decoder, "USE_ONNX_STFT": use_onnx_stft},
-            post_kwargs={},
+            post_kwargs={"skip_special_tokens": skip_special_tokens},
             opset=opset,
         )
     finally:
