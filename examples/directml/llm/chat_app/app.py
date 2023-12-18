@@ -7,18 +7,14 @@ import gradio as gr
 from app_modules.overwrites import postprocess
 from app_modules.presets import description, description_top, small_and_beautiful_theme, title
 from app_modules.utils import cancel_outputing, delete_last_conversation, reset_state, reset_textbox, transfer_input
-from interface.hddr_llama_onnx_dml_interface import LlamaOnnxDmlInterface
+from interface.hddr_llm_onnx_dml_interface import LLMOnnxDmlInterface
 
 top_directory = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+optimized_directory = os.path.join(top_directory, "models", "optimized")
 
-available_models = {
-    "LLaMA 7B Chat Float16": {
-        "onnx_file": os.path.join(
-            top_directory, "models", "optimized", "llama_v2", "llama_v2", "decoder_model_merged.onnx"
-        ),
-        "tokenizer_path": os.path.join(top_directory, "models", "optimized", "llama_v2", "tokenizer.model"),
-    },
-}
+available_models = {}
+for model_name in os.listdir(optimized_directory):
+    available_models[model_name] = {"model_dir": os.path.join(optimized_directory, model_name)}
 
 interface = None
 
@@ -33,9 +29,8 @@ def change_model_listener(new_model_name):
         gc.collect()
 
     d = available_models[new_model_name]
-    interface = LlamaOnnxDmlInterface(
-        onnx_file=d["onnx_file"],
-        tokenizer_path=d["tokenizer_path"],
+    interface = LLMOnnxDmlInterface(
+        model_dir=d["model_dir"],
     )
     interface.initialize()
 
@@ -90,7 +85,7 @@ def launch_chat_app(expose_locally: bool = False):
                     choices=list(available_models.keys()),
                     label="Model",
                     show_label=False,  # default="Empty STUB",
-                    value="LLaMA 7B Chat Float16",
+                    value=next(iter(available_models.keys())),
                 )
                 model_name.change(change_model_listener, inputs=[model_name], outputs=[model_name])
 
@@ -184,7 +179,7 @@ def launch_chat_app(expose_locally: bool = False):
 
         demo.load(change_model_listener, inputs=[model_name], outputs=model_name)
 
-    demo.title = "Llama Chat UI"
+    demo.title = "LLM Chat UI"
 
     if expose_locally:
         demo.queue(concurrency_count=1).launch(server_name="0.0.0.0", server_port=7860)

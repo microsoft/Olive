@@ -10,7 +10,7 @@ from pygments import highlight
 from pygments.formatters import HtmlFormatter
 from pygments.lexers import ClassNotFound, get_lexer_by_name, guess_lexer
 
-from examples.directml.llm.chat_app.app_modules.presets import ALREADY_CONVERTED_MARK
+from .presets import ALREADY_CONVERTED_MARK
 
 
 def markdown_to_html_with_syntax_highlight(md_str):

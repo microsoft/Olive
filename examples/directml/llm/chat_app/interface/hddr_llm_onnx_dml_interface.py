@@ -1,49 +1,18 @@
 import gc
-from pathlib import Path
-from typing import List
+import os
 
 import numpy as np
 import onnxruntime
-import torch
 from app_modules.utils import convert_to_markdown, is_stop_word_or_prefix, shared_state
 from interface.base_interface import BaseLLMInterface
-from sentencepiece import SentencePieceProcessor
+from transformers import AutoTokenizer
 
 
-class Tokenizer:
-    def __init__(self, model_path: str):
-        # reload tokenizer
-        assert Path(model_path).is_file(), model_path
-        self.sp_model = SentencePieceProcessor(model_file=model_path)
-
-        # BOS / EOS token IDs
-        self.n_words: int = self.sp_model.vocab_size()
-        self.bos_id: int = self.sp_model.bos_id()
-        self.eos_id: int = self.sp_model.eos_id()
-        self.pad_id: int = self.sp_model.pad_id()
-
-        assert self.sp_model.vocab_size() == self.sp_model.get_piece_size()
-
-    def encode(self, s: str, bos: bool, eos: bool) -> List[int]:
-        assert isinstance(s, str)
-        t = self.sp_model.encode(s)
-        if bos:
-            t = [self.bos_id, *t]
-        if eos:
-            t = [*t, self.eos_id]
-        return t
-
-    def decode(self, t: List[int]) -> str:
-        return self.sp_model.decode(t)
-
-
-class LlamaOnnxDmlInterface(BaseLLMInterface):
-    def __init__(self, onnx_file="", tokenizer_path=""):
+class LLMOnnxDmlInterface(BaseLLMInterface):
+    def __init__(self, model_dir=""):
         super().__init__()
 
-        self.onnx_file = onnx_file
-        self.tokenizer_path = tokenizer_path
-
+        self.model_dir = model_dir
         self.total_count = 0
 
     def initialize(self):
@@ -64,25 +33,24 @@ class LlamaOnnxDmlInterface(BaseLLMInterface):
         llm_session_options.add_free_dimension_override_by_name("seq_len_increment", 1)
 
         self.llm_session = onnxruntime.InferenceSession(
-            self.onnx_file,
+            os.path.join(self.model_dir, "decoder_model_merged.onnx"),
             sess_options=llm_session_options,
             providers=providers,
         )
 
         self.data_type = np.float16
-
-        self.hidden_size = 4096
-        self.n_heads = 32
-        self.n_layers = 32
-        self.max_seq_len = 512
+        max_seq_len = 2048
+        self.num_layers = 0
+        for inputs_meta in self.llm_session._inputs_meta:
+            if inputs_meta.name.startswith("cache.") and inputs_meta.name.endswith(".key"):
+                self.num_layers += 1
+                num_key_value_heads = inputs_meta.shape[1]
+                head_dim = inputs_meta.shape[3]
 
         # Initialize the tokenizer and produce the initial tokens.
-        self.tokenizer = Tokenizer(model_path=self.tokenizer_path)
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_dir)
 
         self.binding_device = "dml"
-
-        # Create the K and V caches.
-        self.head_dim = int(self.hidden_size / self.n_heads)
 
         # Create the I/O bindings
         self.llm_io_binding = self.llm_session.io_binding()
@@ -90,40 +58,41 @@ class LlamaOnnxDmlInterface(BaseLLMInterface):
         # Initialize the buffers
         self.tokens_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, 1), np.int64, self.binding_device)
 
-        cache_shape = (1, self.n_heads, self.max_seq_len, self.head_dim)
+        # Create the K and V caches.
+        cache_shape = (1, num_key_value_heads, max_seq_len, head_dim)
         initial_cache = np.zeros(cache_shape, dtype=self.data_type)
         self.k_caches = []
         self.v_caches = []
 
-        for _ in range(self.n_layers):
+        for _ in range(self.num_layers):
             self.k_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, self.binding_device))
             self.v_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, self.binding_device))
+
+        self.initial_prompt = [
+            {"role": "user", "content": "Hey there I am a human that would like to have a conversation with you."},
+            {"role": "assistant", "content": "Sure, I am happy to answer most questions."},
+            {"role": "user", "content": "Great, I insist that we take turns."},
+            {"role": "assistant", "content": "I agree, we should take turns."},
+            {"role": "user", "content": "Great, can we also keep answers short?"},
+            {"role": "assistant", "content": "Yes, short answers are usually best."},
+        ]
 
     def shutdown(self):
         pass
 
-    def generate_prompt_with_history(self, text, history, tokenizer, max_length=2048):
-        prompt = "[|Human|]Hey there I am a human that would like to have\
-a conversation with you.\n[|AI|]Sure, I am happy to answer most questions\
-\n[|Human|]Great, I insist that we take turns.\n[|AI|]I agree, we should\
- take turns.\n[|Human|]Great, can we also keep answers short\n[|AI|]Yes, \
-short answers are usually best"
+    def generate_prompt_with_history(self, text, history, max_length=2048):
+        prompt = []
+        prompt.extend(self.initial_prompt)
 
-        history = ["\n[|Human|]{}\n[|AI|]{}".format(x[0], x[1]) for x in history]
-        history.append("\n[|Human|]{}\n[|AI|]".format(text))
-        history_text = ""
-        flag = False
-        for x in history[::-1]:
-            # tokens = self.tokenizer.encode(text, bos=True, eos=False)
-            if len(self.tokenizer.encode(prompt + history_text + x, bos=True, eos=False)) <= max_length:
-                history_text = x + history_text
-                flag = True
-            else:
-                break
-        if flag:
-            return prompt + history_text, torch.tensor(
-                self.tokenizer.encode(prompt + history_text, bos=True, eos=False)
-            ).unsqueeze(0)
+        for dialogue in history:
+            prompt.append({"role": "user", "content": dialogue[0]})
+            prompt.append({"role": "assistant", "content": dialogue[1]})
+
+        prompt.append({"role": "user", "content": text})
+        tokens = self.tokenizer.apply_chat_template(prompt, return_tensors="np")
+
+        if len(tokens) <= max_length:
+            return tokens
         else:
             return None
 
@@ -157,17 +126,17 @@ short answers are usually best"
             seqlens_k = np.array(past_seq_len, dtype=np.int32, ndmin=1)
             self.llm_io_binding.bind_cpu_input("seqlens_k", seqlens_k)
 
-            # Bind the inputs/outputs of the LLaMA model
+            # Bind the inputs/outputs of the LLM
             self.llm_io_binding.bind_ortvalue_input("tokens", tokens)
             self.llm_io_binding.bind_ortvalue_input("tokens_increment", self.tokens_increment)
 
-            for layer_idx in range(self.n_layers):
+            for layer_idx in range(self.num_layers):
                 self.llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.key", self.k_caches[layer_idx])
                 self.llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.value", self.v_caches[layer_idx])
                 self.llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.key", self.k_caches[layer_idx])
                 self.llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.value", self.v_caches[layer_idx])
 
-            # Run the LLaMA model
+            # Run the LLM
             self.llm_session.run_with_iobinding(self.llm_io_binding)
             self.llm_io_binding.synchronize_outputs()
 
@@ -180,17 +149,17 @@ short answers are usually best"
             self.tokens_increment = onnxruntime.OrtValue.ortvalue_from_numpy(next_token, self.binding_device)
 
             if i % token_printing_step == 0:
-                yield tokenizer.decode(generated_tokens)
+                yield tokenizer.decode(generated_tokens, skip_special_tokens=True)
 
-            if generated_tokens[-1] == tokenizer.eos_id:
-                yield tokenizer.decode(generated_tokens)
+            if generated_tokens[-1] == tokenizer.eos_token_id:
+                yield tokenizer.decode(generated_tokens, skip_special_tokens=True)
                 return
 
             self.llm_io_binding.bind_ortvalue_input("tokens_increment", self.tokens_increment)
 
             if i == 0:
                 logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
-                    (1, 1, self.tokenizer.n_words), self.data_type, self.binding_device
+                    (1, 1, self.tokenizer.vocab_size), self.data_type, self.binding_device
                 )
                 self.llm_io_binding.bind_cpu_input("use_cache_branch", np.ones([1], dtype=np.bool_))
                 self.llm_io_binding.bind_ortvalue_output("logits", logits)
@@ -211,13 +180,11 @@ short answers are usually best"
             yield chatbot, history, "Empty context."
             return
 
-        inputs = self.generate_prompt_with_history(text, history, self.tokenizer, max_length=max_context_length_tokens)
+        inputs = self.generate_prompt_with_history(text, history, max_length=max_context_length_tokens)
 
         if inputs is None:
             yield chatbot, history, "Input too long."
             return
-        else:
-            _, inputs = inputs
 
         input_ids = inputs[:, -max_context_length_tokens:]
 
