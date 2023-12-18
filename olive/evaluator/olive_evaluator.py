@@ -44,7 +44,6 @@ from olive.model import (
     SNPEModelHandler,
 )
 from olive.model.config.io_config import is_io_config_static
-from olive.model.utils.onnx_utils import check_ort_fallback
 from olive.snpe.data_loader import SNPECommonDataLoader, SNPEDataLoader
 
 logger = logging.getLogger(__name__)
@@ -468,8 +467,6 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             execution_providers=execution_providers,
         )
 
-        check_ort_fallback(session, execution_providers)
-
         io_config = model.get_io_config()
 
         preds = []
@@ -531,8 +528,6 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             device=device,
             execution_providers=execution_providers,
         )
-        check_ort_fallback(session, execution_providers)
-
         io_config = model.get_io_config()
 
         input_data, _ = next(iter(dataloader))

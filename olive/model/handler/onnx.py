@@ -16,7 +16,7 @@ from olive.hardware.accelerator import AcceleratorLookup, Device
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
 from olive.model.handler.mixin import OnnxEpValidateMixin, OnnxGraphMixin
-from olive.model.utils.onnx_utils import check_and_normalize_provider_args, get_onnx_file_path
+from olive.model.utils.onnx_utils import check_and_normalize_provider_args, check_ort_fallback, get_onnx_file_path
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 logger = logging.getLogger(__name__)
@@ -123,7 +123,9 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):
                     provider_options[i] = {"device_id": str(rank)}
         inference_settings["execution_provider"] = execution_providers
         inference_settings["provider_options"] = provider_options
-        return get_ort_inference_session(self.model_path, inference_settings, self.use_ort_extensions)
+        session = get_ort_inference_session(self.model_path, inference_settings, self.use_ort_extensions)
+        check_ort_fallback(session, execution_providers)
+        return session
 
     def get_default_execution_providers(self, device: Device):
         # return firstly available ep as ort default ep
