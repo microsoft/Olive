@@ -180,7 +180,7 @@ if __name__ == "__main__":
 
     model_name = repo_id.replace("/", "_")
 
-    if args.optimize or not optimized_model_dir.exists():
+    if args.optimize or not (optimized_model_dir / model_name).exists():
         optimize(optimized_model_dir, repo_id, model_name, args.num_layers)
 
     if not args.optimize:
