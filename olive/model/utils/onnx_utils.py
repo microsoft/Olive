@@ -8,6 +8,8 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
+from olive.exception import OliveEvaluationError
+
 logger = logging.getLogger(__name__)
 
 
@@ -151,3 +153,29 @@ def check_and_normalize_provider_args(
                 raise ValueError("'providers' values must be either strings or (string, dict) tuples.")
 
     return list(provider_name_to_options.keys()), list(provider_name_to_options.values())
+
+
+def check_ort_fallback(session, execution_providers):
+    # pylint: disable=protected-access
+    import onnxruntime as ort
+
+    if execution_providers:
+        if isinstance(execution_providers, tuple):
+            assert len(execution_providers) == 2, "execution_providers must be a tuple of (provider, options)"
+            execution_providers_to_check = [execution_providers]
+        else:
+            assert isinstance(execution_providers, (str, list))
+            execution_providers_to_check = (
+                [execution_providers] if isinstance(execution_providers, str) else execution_providers
+            )
+        execution_providers_to_check, _ = check_and_normalize_provider_args(
+            execution_providers_to_check, None, ort.get_available_providers()
+        )
+        session_providers = session.get_providers()
+        for ep in execution_providers_to_check:
+            if ep not in session_providers:
+                raise OliveEvaluationError(
+                    f"The onnxruntime fallback happens. {ep} is not in the session providers {session_providers}."
+                    f" session._enable_fallback = {session._enable_fallback}"
+                )
+        session.disable_fallback()

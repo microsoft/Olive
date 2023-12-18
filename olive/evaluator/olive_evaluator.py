@@ -34,7 +34,6 @@ from olive.evaluator.metric import (
     joint_metric_key,
 )
 from olive.evaluator.metric_backend import MetricBackend
-from olive.exception import OliveEvaluationError
 from olive.hardware import Device
 from olive.model import (
     DistributedOnnxModelHandler,
@@ -45,6 +44,7 @@ from olive.model import (
     SNPEModelHandler,
 )
 from olive.model.config.io_config import is_io_config_static
+from olive.model.utils.onnx_utils import check_ort_fallback
 from olive.snpe.data_loader import SNPECommonDataLoader, SNPEDataLoader
 
 logger = logging.getLogger(__name__)
@@ -468,7 +468,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             execution_providers=execution_providers,
         )
 
-        OnnxEvaluator.disable_ort_fallback(session, execution_providers)
+        check_ort_fallback(session, execution_providers)
 
         io_config = model.get_io_config()
 
@@ -531,7 +531,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             device=device,
             execution_providers=execution_providers,
         )
-        OnnxEvaluator.disable_ort_fallback(session, execution_providers)
+        check_ort_fallback(session, execution_providers)
 
         io_config = model.get_io_config()
 
@@ -787,21 +787,6 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             return self._evaluate_distributed_latency(model, data_root, metric, device, execution_providers)
         else:
             raise TypeError(f"Cannot evaluate latency for model of type: {type(model)}")
-
-    @staticmethod
-    def disable_ort_fallback(session, execution_providers):
-        # pylint: disable=protected-access
-        if execution_providers:
-            assert isinstance(execution_providers, (str, list))
-            execution_providers = [execution_providers] if isinstance(execution_providers, str) else execution_providers
-            session_providers = session.get_providers()
-            for ep in execution_providers:
-                if ep not in session_providers:
-                    raise OliveEvaluationError(
-                        f"The onnxruntime fallback happens. {ep} is not in the session providers {session_providers}."
-                        f" session._enable_fallback = {session._enable_fallback}"
-                    )
-            session.disable_fallback()
 
 
 class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):

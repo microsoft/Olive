@@ -1,8 +1,8 @@
 from test.unit_test.utils import get_onnx_model
 from unittest.mock import ANY, MagicMock, patch
 
-from olive.evaluator.olive_evaluator import OnnxEvaluator
 from olive.hardware.accelerator import Device
+from olive.model.utils.onnx_utils import check_ort_fallback
 
 
 @patch("onnxruntime.InferenceSession")
@@ -34,4 +34,4 @@ def test_model_prepare_session(inference_session_mock):
     inference_session_mock.assert_called_once_with(
         model.model_path, sess_options=ANY, providers=execution_providers, provider_options=provider_options
     )
-    OnnxEvaluator.disable_ort_fallback(session, execution_providers)
+    check_ort_fallback(session, execution_providers)

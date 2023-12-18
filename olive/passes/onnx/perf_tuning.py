@@ -101,7 +101,7 @@ def tune_onnx_model(perf_tuning_pass_ep, model, data_root, config):
             assert isinstance(tuning_ep, str)
 
         # TODO(myguo): we need disable the following check when we enable cache in perf tuning.
-        if tuning_ep != perf_tuning_pass_ep:
+        if tuning_ep != perf_tuning_pass_ep and not config.force_evaluate_other_eps:
             logger.warning("Ignore perf tuning for EP %s since current pass EP is %s", tuning_ep, perf_tuning_pass_ep)
             continue
         tuning_item = ["provider", "execution_mode", "ort_opt_level", "io_bind"]
@@ -443,6 +443,14 @@ class OrtPerfTuning(Pass):
                 type_=Dict[str, Any],
                 default_value=None,
                 description="Extra customized session options during tuning process.",
+            ),
+            "force_evaluate_other_eps": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Whether force to evaluate all execution providers"
+                    " which are different with the associated execution provider."
+                ),
             ),
         }
 

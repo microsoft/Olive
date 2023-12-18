@@ -89,7 +89,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):
         # Originally, the inference_settings priority is higher than the execution_providers specified in arguments.
         # as the result, when calling OnnxEvaluator.evaluate with the provider_list in baseline evaluation,
         # the execution provider will be used as ["MIGraphXExecutionProvider"].
-        # later, the OnnxEvaluator.disable_ort_fallback(session, execution_providers) will check the
+        # later, the check_ort_fallback(session, execution_providers) will check the
         # whether the underlying session's providers(MIGraphXExecutionProvider, CPUExecutionProvider) contains the
         # execution_providers(ROCMExecutionProvider, MIGraphXExecutionProvider). In this case, the
         # ROCMExecutionProvider is excluded when creating inference session. and the OliveEvaluationError exception
@@ -104,7 +104,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):
         if not execution_providers:
             execution_providers = self.get_default_execution_providers(device)
             provider_options = None
-        elif isinstance(execution_providers, str):
+        elif isinstance(execution_providers, (str, tuple)):
             execution_providers = [execution_providers]
         else:
             # the execution_providers is a list

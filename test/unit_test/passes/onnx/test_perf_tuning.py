@@ -10,7 +10,7 @@ import pytest
 
 from olive.evaluator.metric import flatten_metric_result
 from olive.evaluator.olive_evaluator import OliveEvaluator, OnnxEvaluator
-from olive.hardware.accelerator import DEFAULT_GPU_CUDA_ACCELERATOR
+from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx import OrtPerfTuning
 from olive.passes.onnx.perf_tuning import PERFTUNING_BASELINE, generate_test_name
@@ -119,6 +119,57 @@ def test_perf_tuning_with_provider_options(mock_evaluate, caplog, return_baselin
         assert len(acutal_eps) == 1
         if acutal_eps[0][0] == "CUDAExecutionProvider":
             assert "enable_cuda_graph" in acutal_eps[0][1]
+
+
+@pytest.mark.parametrize("force_evaluate", [True, False])
+@patch.object(OnnxEvaluator, "evaluate")
+def test_perf_tuning_with_force_evaluate(mock_evaluate, caplog, force_evaluate):
+    logger = logging.getLogger("olive")
+    logger.propagate = True
+
+    def mock_evaluate_method(model, data_root, metrics, device, execution_providers):
+        metrics_res = {}
+        latency = 0.5
+        if len(execution_providers) == 1:
+            if execution_providers[0] == "CPUExecutionProvider":
+                latency = 0.5
+            elif execution_providers[0] == "CUDAExecutionProvider":
+                latency = 0.1
+        else:
+            assert len(execution_providers) == 2
+            latency = 0.6
+
+        latency_metric = OliveEvaluator.compute_latency(metrics[0], [latency])
+        metrics_res[metrics[0].name] = latency_metric
+        return flatten_metric_result(metrics_res)
+
+    mock_evaluate.side_effect = mock_evaluate_method
+    execution_providers = [
+        "CUDAExecutionProvider",
+        "CPUExecutionProvider",
+    ]
+    config = {
+        "providers_list": execution_providers,
+        "device": "gpu",
+        "force_evaluate_other_eps": force_evaluate,
+    }
+    input_model = get_onnx_model()
+    p = create_pass_from_dict(OrtPerfTuning, config, disable_search=True, accelerator_spec=DEFAULT_CPU_ACCELERATOR)
+    result = p.run(input_model, None, None)
+    if force_evaluate:
+        assert "execution_provider" in result.inference_settings
+        acutal_eps = result.inference_settings["execution_provider"]
+        assert len(acutal_eps) == 1 and acutal_eps[0][0] == "CUDAExecutionProvider"
+        assert "Best result(('cuda', " in caplog.text
+    else:
+        assert "execution_provider" in result.inference_settings
+        acutal_eps = result.inference_settings["execution_provider"]
+        assert len(acutal_eps) == 1 and acutal_eps[0][0] == "CPUExecutionProvider"
+        assert "Best result(cpu" in caplog.text
+        assert (
+            "Ignore perf tuning for EP CUDAExecutionProvider since current pass EP is CPUExecutionProvider"
+            in caplog.text
+        )
 
 
 @patch("olive.model.ONNXModelHandler.get_io_config")
