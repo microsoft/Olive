@@ -16,7 +16,7 @@ import torch
 import transformers
 from chat_app.app import launch_chat_app
 from huggingface_hub import hf_hub_download
-from run_llama_v2_io_binding import run_llama_v2_io_binding
+from run_llm_io_binding import run_llm_io_binding
 
 from olive.model import ONNXModelHandler
 from olive.workflows import run as olive_run
@@ -48,7 +48,7 @@ def optimize(optimized_model_dir: Path, repo_id: str, model_name: str, num_layer
     script_dir = Path(__file__).resolve().parent
     model_info = {}
 
-    with Path.open(script_dir / "config_llama_v2.json") as fin:
+    with Path.open(script_dir / "config_llm.json") as fin:
         olive_config = json.load(fin)
         olive_config["engine"]["output_name"] = model_name
         olive_config["passes"]["optimize"]["config"]["hidden_size"] = config.hidden_size
@@ -190,7 +190,7 @@ if __name__ == "__main__":
         else:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                run_llama_v2_io_binding(
+                run_llm_io_binding(
                     optimized_model_dir / model_name,
                     args.prompt,
                     args.max_seq_len,

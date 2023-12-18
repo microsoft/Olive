@@ -1,4 +1,4 @@
-# This program will run the ONNX version of the LlamaV2 model.
+# This program will run the ONNX version of the LLM.
 import argparse
 import os
 import time
@@ -9,7 +9,7 @@ import onnxruntime
 from transformers import AutoTokenizer
 
 
-def run_llama_v2_io_binding(
+def run_llm_io_binding(
     model_dir: str,
     prompts: List[str],
     max_seq_len: int = 2048,
@@ -225,11 +225,11 @@ if __name__ == "__main__":
         "--model_dir",
         type=str,
         required=True,
-        help="Path to the folder containing the argmax_sampling folder, llama_v2 folder and the tokenizer.model file",
+        help="Path to the folder containing the decoder_model_merged.onnx file",
     )
 
     args = parser.parse_args()
-    run_llama_v2_io_binding(
+    run_llm_io_binding(
         args.model_dir,
         args.prompts,
         args.max_seq_len,

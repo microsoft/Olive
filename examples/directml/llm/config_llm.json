@@ -519,7 +519,7 @@
         "host": "local_system",
         "target": "local_system",
         "cache_dir": "cache",
-        "output_name": "llama_v2",
+        "output_name": "",
         "output_dir": "footprints",
         "execution_providers": ["DmlExecutionProvider"]
     }
