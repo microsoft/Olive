@@ -52,8 +52,8 @@ def run_llama_v2_io_binding(
 
     # Initialize the tokenizer and produce the initial tokens.
     tokenizer = AutoTokenizer.from_pretrained(model_dir)
-    tokens = tokenizer.encode(prompt)
-    tokens = np.expand_dims(np.asarray(tokens, dtype=np.int64), 0)
+    tokens = tokenizer.apply_chat_template([{"role": "user", "content": prompt}], return_tensors="np")
+    tokens = np.asarray(tokens, dtype=np.int64)
     tokens = onnxruntime.OrtValue.ortvalue_from_numpy(tokens, binding_device)
     tokens_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, 1), np.int64, binding_device)
 

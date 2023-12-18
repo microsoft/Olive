@@ -62,8 +62,8 @@ def run_llama_v2_io_binding(
     max_tokens_len = 0
     for prompt in prompts:
         # Generate the tokens
-        prompt_tokens = tokenizer.encode(prompt)
-        prompt_tokens = np.expand_dims(np.asarray(prompt_tokens, dtype=np.int64), 0)
+        prompt_tokens = tokenizer.apply_chat_template([{"role": "user", "content": prompt}], return_tensors="np")
+        prompt_tokens = np.asarray(prompt_tokens, dtype=np.int64)
         batched_tokens.append(prompt_tokens)
 
         # Generate the mask
