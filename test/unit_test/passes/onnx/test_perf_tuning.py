@@ -109,6 +109,7 @@ def test_perf_tuning_with_provider_options(mock_evaluate, caplog, return_baselin
     result = p.run(input_model, None, None)
     assert "execution_provider" in result.inference_settings
     acutal_eps = result.inference_settings["execution_provider"]
+    assert "io_bind" in result.inference_settings
     if return_baseline:
         assert len(acutal_eps) == 2
         assert "enable_cuda_graph" not in acutal_eps[0][1]
@@ -156,6 +157,7 @@ def test_perf_tuning_with_force_evaluate(mock_evaluate, caplog, force_evaluate):
     input_model = get_onnx_model()
     p = create_pass_from_dict(OrtPerfTuning, config, disable_search=True, accelerator_spec=DEFAULT_CPU_ACCELERATOR)
     result = p.run(input_model, None, None)
+    assert "io_bind" in result.inference_settings
     if force_evaluate:
         assert "execution_provider" in result.inference_settings
         acutal_eps = result.inference_settings["execution_provider"]

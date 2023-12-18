@@ -100,11 +100,11 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):
         else:
             execution_providers = inference_settings.get("execution_provider")
             provider_options = inference_settings.get("provider_options")
+            if not execution_providers:
+                execution_providers = self.get_default_execution_providers(device)
+                provider_options = None
 
-        if not execution_providers:
-            execution_providers = self.get_default_execution_providers(device)
-            provider_options = None
-        elif isinstance(execution_providers, (str, tuple)):
+        if isinstance(execution_providers, (str, tuple)):
             execution_providers = [execution_providers]
         else:
             # the execution_providers is a list

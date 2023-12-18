@@ -118,7 +118,10 @@ def tune_onnx_model(perf_tuning_pass_ep, model, data_root, config):
     # Both baseline and pertuning result should have the execution provider in the test_results.
     assert "execution_provider" in best_result, "execution_provider should be in best_result"
     optimized_model = copy.copy(model)
-    optimized_model.inference_settings = {"execution_provider": best_result["execution_provider"]}
+    optimized_model.inference_settings = {
+        "execution_provider": best_result["execution_provider"],
+        "io_bind": best_result["io_bind"],
+    }
     session_options = best_result.get("session_options")
     if session_options is not None:
         optimized_model.inference_settings["session_options"] = session_options
@@ -314,12 +317,12 @@ def get_benchmark(model, data_root, latency_metric, config, test_params=None, io
     test_result["test_name"] = session_name
 
     latency_metric.user_config.io_bind = io_bind
+    test_result["io_bind"] = io_bind
     if test_params:
         assert "provider_options" not in test_params, "provider_options should not be in test_params"
         latency_metric.user_config.inference_settings = {"onnx": test_params}
         execution_providers = test_params.get("execution_provider")
         test_result["session_options"] = test_params.get("session_options").copy()
-        test_result["io_bind"] = io_bind
     else:
         execution_providers = config.providers_list
         inference_settings = copy.deepcopy(model.inference_settings) if model.inference_settings else {}
@@ -328,7 +331,6 @@ def get_benchmark(model, data_root, latency_metric, config, test_params=None, io
         session_options = inference_settings.get("session_options")
         if session_options:
             test_result["session_options"] = copy.deepcopy(session_options)
-            test_result["io_bind"] = io_bind
         # set the session_options for metrics so that the evalute will use them by default
         latency_metric.user_config.inference_settings = {"onnx": inference_settings}
 
