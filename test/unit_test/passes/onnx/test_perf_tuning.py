@@ -118,6 +118,7 @@ def test_perf_tuning_with_provider_options(mock_evaluate, caplog, return_baselin
         assert f"Best result({PERFTUNING_BASELINE}):" in caplog.text
     else:
         assert len(acutal_eps) == 1
+        assert acutal_eps[0][0] in ("CUDAExecutionProvider", "CPUExecutionProvider")
         if acutal_eps[0][0] == "CUDAExecutionProvider":
             assert "enable_cuda_graph" in acutal_eps[0][1]
 
