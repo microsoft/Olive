@@ -257,4 +257,4 @@ class HfConfig(ConfigBase):
 def get_model_type_from_hf_config(hf_config: HfConfig) -> str:
     from olive.model.utils.hf_utils import get_hf_model_config
 
-    return get_hf_model_config(hf_config.model_name, hf_config.get_loading_args_from_pretrained()).model_type
+    return get_hf_model_config(hf_config.model_name, **hf_config.get_loading_args_from_pretrained()).model_type
