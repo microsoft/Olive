@@ -30,6 +30,7 @@ def set_config_parameters(repo_id: str, num_layers: Optional[int]):
     )
 
     config.hidden_size = pipeline.model.config.hidden_size
+    config.intermediate_size = pipeline.model.config.intermediate_size
     config.num_heads = pipeline.model.config.num_attention_heads
     config.num_key_value_heads = pipeline.model.config.num_key_value_heads
     config.num_layers = num_layers or pipeline.model.config.num_hidden_layers
@@ -156,7 +157,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_type",
         default="llama-2-7b-chat",
-        choices=["llama-2-7b-chat", "llama-2-7b"],
+        choices=["llama-2-7b-chat", "mistral-7b-chat", "llama-2-7b"],
         help="Which model to convert.",
         type=str,
     )
@@ -174,6 +175,7 @@ if __name__ == "__main__":
 
     repo_id = {
         "llama-2-7b-chat": "meta-llama/Llama-2-7b-chat-hf",
+        "mistral-7b-chat": "mistralai/Mistral-7B-Instruct-v0.1",
         "llama-2-7b": "meta-llama/Llama-2-7b-hf",
     }[args.model_type]
 

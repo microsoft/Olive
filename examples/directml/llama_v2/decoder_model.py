@@ -13,12 +13,23 @@ class DecoderModel(torch.nn.Module):
         n_layers: int,
         vocab_size: int,
         hidden_size: int,
-        n_heads: int,
+        intermediate_size: int,
+        num_heads: int,
+        num_key_value_heads: int,
         scale_type: str,
         normalization_type: str,
     ) -> None:
         super().__init__()
-        self.model = Model(n_layers, vocab_size, hidden_size, n_heads, scale_type, normalization_type)
+        self.model = Model(
+            n_layers,
+            vocab_size,
+            hidden_size,
+            intermediate_size,
+            num_heads,
+            num_key_value_heads,
+            scale_type,
+            normalization_type,
+        )
         self.lm_head = torch.nn.Linear(hidden_size, vocab_size, bias=False)
 
     def forward_common(self, use_cache, tokens, position_ids_increment, attn_mask, cache):
@@ -51,7 +62,9 @@ class Model(torch.nn.Module):
         n_layers: int,
         vocab_size: int,
         hidden_size: int,
-        n_heads: int,
+        intermediate_size: int,
+        num_heads: int,
+        num_key_value_heads: int,
         scale_type: str,
         normalization_type: str,
     ) -> None:
@@ -67,7 +80,9 @@ class Model(torch.nn.Module):
         for _ in range(n_layers):
             layer = TransformerLayer(
                 hidden_size,
-                n_heads,
+                intermediate_size,
+                num_heads,
+                num_key_value_heads,
                 scale_type,
                 normalization_type,
             )
@@ -93,13 +108,13 @@ class Model(torch.nn.Module):
 
 def rotary_mat(
     hidden_size: int,
-    n_heads: int,
+    num_heads: int,
     max_seq_len: int,
     theta: float = 10000.0,
     head_scale=1.0,
     dtype=torch.float32,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    head_dim = head_scale * hidden_size / n_heads
+    head_dim = head_scale * hidden_size / num_heads
 
     pos = torch.arange(0, head_dim, step=2, dtype=dtype)
     freqs = 1.0 / (theta ** (pos / head_dim))
@@ -147,7 +162,9 @@ class TransformerLayer(torch.nn.Module):
     def __init__(
         self,
         hidden_size: int,
-        n_heads: int,
+        intermediate_size: int,
+        num_heads: int,
+        num_key_value_heads: int,
         scale_type: str,
         normalization_type: str,
     ) -> None:
@@ -162,17 +179,15 @@ class TransformerLayer(torch.nn.Module):
             "rms": RMSNorm(hidden_size, eps=1e-6),
         }[normalization_type]
 
-        self.cos, self.sin = rotary_mat(hidden_size, n_heads, 4096, head_scale=1.0)
+        self.cos, self.sin = rotary_mat(hidden_size, num_heads, 4096, head_scale=1.0)
 
         self.self_attn = SelfAttention(
             hidden_size,
-            n_heads,
+            num_heads,
+            num_key_value_heads,
             scale_type,
         )
-        proj_dim = hidden_size * 4
-        proj_dim = int(2 * proj_dim / 3)
-        proj_dim = 256 * ((proj_dim + 256 - 1) // 256)
-        self.mlp = ProjLayerSiluMatMul(hidden_size, proj_dim)
+        self.mlp = ProjLayerSiluMatMul(hidden_size, intermediate_size)
 
     def forward(
         self,
@@ -184,7 +199,7 @@ class TransformerLayer(torch.nn.Module):
         v_cache: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Dimension of x is [batch_size, seq_len, hidden_size] Dimension of
-        # k_cache and v_cache is [batch_size, n_layers, pos, n_heads, head_dim]
+        # k_cache and v_cache is [batch_size, n_layers, pos, num_heads, head_dim]
         h, k_out, v_out = self.self_attn(
             use_cache, self.input_layernorm(x), position_ids, attn_mask, self.cos, self.sin, k_cache, v_cache
         )
@@ -250,24 +265,34 @@ class RotaryEmbedding(torch.nn.Module):
         return apply_rope(x, cos, sin, position_ids)
 
 
+def broadcast_key_value(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
+    batch, num_key_value_heads, slen, head_dim = hidden_states.shape
+    hidden_states = hidden_states[:, :, None, :, :].expand(batch, num_key_value_heads, n_rep, slen, head_dim)
+    return hidden_states.reshape(batch, num_key_value_heads * n_rep, slen, head_dim)
+
+
 class SelfAttention(torch.nn.Module):
     def __init__(
         self,
         hidden_size: int,
-        n_heads: int,
+        num_heads: int,
+        num_key_value_heads: int,
         scale_type: str,
     ) -> None:
         super().__init__()
+        self.head_dim = int(hidden_size / num_heads)
+
+        key_value_hidden_size = num_key_value_heads * self.head_dim
         self.q_proj = torch.nn.Linear(hidden_size, hidden_size, bias=False)
-        self.k_proj = torch.nn.Linear(hidden_size, hidden_size, bias=False)
-        self.v_proj = torch.nn.Linear(hidden_size, hidden_size, bias=False)
+        self.k_proj = torch.nn.Linear(hidden_size, key_value_hidden_size, bias=False)
+        self.v_proj = torch.nn.Linear(hidden_size, key_value_hidden_size, bias=False)
         self.o_proj = torch.nn.Linear(hidden_size, hidden_size, bias=False)
         self.apply_mask = ApplyMask()
         self.rotary_embedding = RotaryEmbedding()
 
         self.hidden_size = hidden_size
-        self.n_heads = n_heads
-        self.head_dim = int(hidden_size / n_heads)
+        self.num_heads = num_heads
+        self.num_key_value_heads = num_key_value_heads
 
         if scale_type == "HeadDim":
             self.scale = self.head_dim
@@ -295,9 +320,9 @@ class SelfAttention(torch.nn.Module):
         seq_len = x.shape[1]
 
         # Split the attention heads
-        query = torch.reshape(query, [batch_size, seq_len, self.n_heads, self.head_dim]).transpose(1, 2)
-        key = torch.reshape(key, [batch_size, seq_len, self.n_heads, self.head_dim]).transpose(1, 2)
-        value = torch.reshape(value, [batch_size, seq_len, self.n_heads, self.head_dim]).transpose(1, 2)
+        query = torch.reshape(query, [batch_size, seq_len, self.num_heads, self.head_dim]).transpose(1, 2)
+        key = torch.reshape(key, [batch_size, seq_len, self.num_key_value_heads, self.head_dim]).transpose(1, 2)
+        value = torch.reshape(value, [batch_size, seq_len, self.num_key_value_heads, self.head_dim]).transpose(1, 2)
 
         # Apply rotary positional embedding
         query = self.rotary_embedding(query, cos, sin, position_ids)
@@ -312,11 +337,17 @@ class SelfAttention(torch.nn.Module):
 
         key = key.permute([0, 1, 3, 2])
 
+        # Broadcast key and value from num_key_value_heads to match the query's num_heads
+        if self.num_heads != self.num_key_value_heads:
+            n_reps = self.num_heads // self.num_key_value_heads
+            key = broadcast_key_value(key, n_reps)
+            value = broadcast_key_value(value, n_reps)
+
         # Calculate attention scores
         score = torch.matmul(query, key) / self.scale
 
         # Apply the mask
-        score = self.apply_mask(use_cache, score, attn_mask, seq_len, self.n_heads)
+        score = self.apply_mask(use_cache, score, attn_mask, seq_len, self.num_heads)
 
         # Calculate attention values
         prob = torch.nn.functional.softmax(score, dim=-1)
@@ -331,16 +362,13 @@ class SelfAttention(torch.nn.Module):
 class ProjLayerSiluMatMul(torch.nn.Module):
     def __init__(
         self,
-        in_feature_size: int,
-        hidden_feature_size: int,
+        hidden_size: int,
+        intermediate_size: int,
     ) -> None:
         super().__init__()
-        self.hidden_feature_size = hidden_feature_size
-        self.in_feature_size = in_feature_size
-
-        self.gate_proj = torch.nn.Linear(in_feature_size, hidden_feature_size, bias=False)
-        self.down_proj = torch.nn.Linear(hidden_feature_size, in_feature_size, bias=False)
-        self.up_proj = torch.nn.Linear(in_feature_size, hidden_feature_size, bias=False)
+        self.gate_proj = torch.nn.Linear(hidden_size, intermediate_size, bias=False)
+        self.down_proj = torch.nn.Linear(intermediate_size, hidden_size, bias=False)
+        self.up_proj = torch.nn.Linear(hidden_size, intermediate_size, bias=False)
 
     def forward(self, x):
         w1x = self.gate_proj(x)

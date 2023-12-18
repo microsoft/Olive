@@ -38,7 +38,9 @@ def get_or_create_decoder_model():
             config.num_layers,
             config.vocab_size,
             config.hidden_size,
+            config.intermediate_size,
             config.num_heads,
+            config.num_key_value_heads,
             scale_type,
             config.normalization_type,
         )

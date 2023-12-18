@@ -8,6 +8,7 @@ normalization_type = None
 state_dict = None
 strict_weights_loading = True
 hidden_size = 4096
+intermediate_size = 11008
 num_heads = 32
 num_key_value_heads = 32
 num_layers = 32
