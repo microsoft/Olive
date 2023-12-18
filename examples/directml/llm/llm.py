@@ -176,7 +176,6 @@ if __name__ == "__main__":
     repo_id = {
         "llama-2-7b-chat": "meta-llama/Llama-2-7b-chat-hf",
         "mistral-7b-chat": "mistralai/Mistral-7B-Instruct-v0.1",
-        "llama-2-7b": "meta-llama/Llama-2-7b-hf",
     }[args.model_type]
 
     model_name = repo_id.replace("/", "_")
