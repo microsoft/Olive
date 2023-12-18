@@ -335,13 +335,13 @@ class SelfAttention(torch.nn.Module):
         key = k_cache
         value = v_cache
 
-        key = key.permute([0, 1, 3, 2])
-
         # Broadcast key and value from num_key_value_heads to match the query's num_heads
         if self.num_heads != self.num_key_value_heads:
             n_reps = self.num_heads // self.num_key_value_heads
             key = broadcast_key_value(key, n_reps)
             value = broadcast_key_value(value, n_reps)
+
+        key = key.permute([0, 1, 3, 2])
 
         # Calculate attention scores
         score = torch.matmul(query, key) / self.scale
