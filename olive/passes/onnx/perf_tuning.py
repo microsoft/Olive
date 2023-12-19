@@ -155,24 +155,28 @@ def threads_num_tuning(model, data_root, latency_metric, config, tuning_combo):
     ort_opt_level = tuning_combo[2]
     io_bind = tuning_combo[3]
 
-    test_params = {}
-
     provider, options = populate_provider_options(provider, config)
     if provider == "CPUExecutionProvider" and config.enable_cuda_graph:
         io_bind = True
 
-    test_params["execution_provider"] = [(provider, options)]
-    test_params["session_options"] = {
-        "execution_mode": execution_mode,
-        "graph_optimization_level": ort_opt_level,
-        "extra_session_config": config.extra_session_config,
+    test_params = {
+        "execution_provider": [(provider, options)],
+        "session_options": {
+            "execution_mode": execution_mode,
+            "graph_optimization_level": ort_opt_level,
+        },
     }
+
+    if config.extra_session_config:
+        test_params["session_options"]["extra_session_config"] = config.extra_session_config
 
     try:
         for inter in config.inter_thread_num_list:
-            test_params["session_options"]["inter_op_num_threads"] = inter
+            if inter is not None:
+                test_params["session_options"]["inter_op_num_threads"] = inter
             for intra in config.intra_thread_num_list:
-                test_params["session_options"]["intra_op_num_threads"] = intra
+                if intra is not None:
+                    test_params["session_options"]["intra_op_num_threads"] = intra
                 tuning_result = threads_num_binary_search(
                     model, data_root, latency_metric, config, test_params, io_bind
                 )
