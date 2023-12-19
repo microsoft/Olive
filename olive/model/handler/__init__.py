@@ -11,6 +11,18 @@ from olive.model.handler.pytorch import DistributedPyTorchModelHandler, PyTorchM
 from olive.model.handler.snpe import SNPEModelHandler
 from olive.model.handler.tensorflow import TensorFlowModelHandler
 
+OliveModel = OliveModelHandler
+CompositeModel = CompositeModelHandler
+CompositePyTorchModel = CompositePyTorchModelHandler
+DistributedOnnxModel = DistributedOnnxModelHandler
+ONNXModel = ONNXModelHandler
+OpenVINOModel = OpenVINOModelHandler
+DistributedPyTorchModel = DistributedPyTorchModelHandler
+PyTorchModel = PyTorchModelHandler
+SNPEModel = SNPEModelHandler
+TensorFlowModel = TensorFlowModelHandler
+
+
 __all__ = [
     "OliveModelHandler",
     "CompositeModelHandler",
@@ -23,4 +35,15 @@ __all__ = [
     "PyTorchModelHandler",
     "SNPEModelHandler",
     "TensorFlowModelHandler",
+    # alias
+    "OliveModel",
+    "CompositeModel",
+    "CompositePyTorchModel",
+    "DistributedOnnxModel",
+    "ONNXModel",
+    "OpenVINOModel",
+    "DistributedPyTorchModel",
+    "PyTorchModel",
+    "SNPEModel",
+    "TensorFlowModel",
 ]
