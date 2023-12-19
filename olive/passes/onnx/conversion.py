@@ -30,6 +30,7 @@ from olive.model.config.hf_config import HfConfig, get_model_type_from_hf_config
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
+from olive.passes.onnx.merge_decoders import merge_decoders
 from olive.passes.pass_config import PassConfigParam
 
 logger = logging.getLogger(__name__)
@@ -90,6 +91,11 @@ class OnnxConversion(Pass):
                 required=False,
                 description="Number of parallel jobs. Defaulted to number of CPUs. Set it to 0 to disable.",
             ),
+            "merge_components": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Whether to merge the converted components.",
+            ),
         }
         config.update(get_external_data_config())
         return config
@@ -112,6 +118,9 @@ class OnnxConversion(Pass):
                 model, data_root, config, output_model_path, device, torch_dtype
             )
 
+        if not model.hf_config or not model.hf_config.components:
+            return self._convert_model_on_device(model, data_root, config, output_model_path, device, torch_dtype)
+
         onnx_models = []
         component_names = []
         for component_name, component_model in model.get_hf_components():
@@ -124,12 +133,14 @@ class OnnxConversion(Pass):
             onnx_models.append(output_model_component)
             component_names.append(component_name)
 
-        if onnx_models:
-            return CompositeModelHandler(onnx_models, component_names)
-        else:
-            return self._convert_model_on_device(model, data_root, config, output_model_path, device, torch_dtype)
+        if config["merge_components"] and len(onnx_models) == 2:
+            merged_model = merge_decoders(onnx_models[0].model_path, onnx_models[1].model_path)
+            return model_proto_to_olive_model(merged_model, resolve_onnx_path(output_model_path), config)
+
+        return CompositeModelHandler(onnx_models, component_names)
 
     @staticmethod
+    @torch.no_grad()
     def _export_pytorch_model(
         pytorch_model: torch.nn.Module,
         dummy_inputs,
@@ -412,13 +423,37 @@ class OnnxConversion(Pass):
             restore_args = replace_tensor_parallel_layers()
 
             input_model = DistributedPyTorchModelHandler(**model_config)
-            olive_pytorch_model = input_model.load_model(local_rank)
-            dummy_inputs = olive_pytorch_model.get_dummy_inputs()
-            io_config = None if pass_config["use_dynamo_exporter"] else olive_pytorch_model.get_io_config()
-            pytorch_model = olive_pytorch_model.prepare_session(rank=local_rank)
 
-            with torch.no_grad():
-                ranked_onnx_model = OnnxConversion._export_pytorch_model(
+            if input_model.hf_config and input_model.hf_config.components:
+                ranked_models = []
+                for _, component_model in input_model.get_hf_components(local_rank):
+                    dummy_inputs = component_model.get_dummy_inputs()
+                    io_config = None if pass_config["use_dynamo_exporter"] else component_model.get_io_config()
+                    pytorch_model = component_model.prepare_session(rank=local_rank)
+
+                    ranked_component_modelproto = OnnxConversion._export_pytorch_model(
+                        pytorch_model,
+                        dummy_inputs,
+                        io_config,
+                        pass_config,
+                        device,
+                        torch_dtype,
+                        tempdir,
+                    )
+
+                    ranked_models.append(ranked_component_modelproto)
+
+                if len(ranked_models) == 2:
+                    ranked_onnx_modelproto = merge_decoders(ranked_models[0], ranked_models[1])
+                else:
+                    raise RuntimeError("DistributedOnnxModelHandler can handle exactly 2 components.")
+            else:
+                olive_pytorch_model = input_model.load_model(local_rank)
+                dummy_inputs = olive_pytorch_model.get_dummy_inputs()
+                io_config = None if pass_config["use_dynamo_exporter"] else olive_pytorch_model.get_io_config()
+                pytorch_model = olive_pytorch_model.prepare_session(rank=local_rank)
+
+                ranked_onnx_modelproto = OnnxConversion._export_pytorch_model(
                     pytorch_model,
                     dummy_inputs,
                     io_config,
@@ -427,11 +462,12 @@ class OnnxConversion(Pass):
                     torch_dtype,
                     tempdir,
                 )
+
+            # save the model to the output path
+            model_proto_to_olive_model(ranked_onnx_modelproto, output_filepath, pass_config)
         finally:
             restore_tensor_parallel_layers(restore_args)
 
-        # save the model to the output path and return the model
-        model_proto_to_olive_model(ranked_onnx_model, output_filepath, pass_config)
         return 1  # Return 1 for success.
 
     def _convert_distributed_model_on_device(

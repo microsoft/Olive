@@ -3,12 +3,9 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from copy import deepcopy
-from typing import TYPE_CHECKING, List, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
-from olive.common.user_module_loader import UserModuleLoader
 from olive.constants import ModelFileFormat
-from olive.model.config.hf_config import HfConfig
 from olive.model.utils.hf_utils import (
     get_hf_model_config,
     get_hf_model_dummy_input,
@@ -59,37 +56,10 @@ class HfConfigMixin:
         else:
             return None
 
-    def get_hf_components(self) -> List[Tuple[str, "PyTorchModelHandler"]]:
-        # the following import is to solve circular import
-        from olive.model.handler.pytorch import PyTorchModelHandler
-
-        if not self.hf_config or not self.hf_config.components:
-            return
-
-        for component in self.hf_config.components:
-            if component.component_func is None:
-                logger.debug("component_func is not provided, using hf_config to get component")
-                model_component = self.load_hf_model(self.model_path)
-            else:
-                user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
-                model_component = user_module_loader.call_object(component.component_func, self)
-
-            # the second default parameter is to fix ruff b023:
-            # https://docs.astral.sh/ruff/rules/function-uses-loop-variable/
-            def model_loader(_, model_component=model_component):
-                return model_component
-
-            component_hf_config = deepcopy(self.hf_config).dict()
-            component_hf_config.pop("components", None)
-            yield component.name, PyTorchModelHandler(
-                model_loader=model_loader,
-                io_config=component.io_config,
-                dummy_inputs_func=component.dummy_inputs_func,
-                model_script=self.model_script,
-                script_dir=self.script_dir,
-                hf_config=HfConfig.parse_obj(component_hf_config),
-                model_attributes=self.model_attributes,
-            )
+    def get_hf_components(self, rank: Optional[int] = None) -> List[Tuple[str, "PyTorchModelHandler"]]:
+        if self.hf_config and self.hf_config.components:
+            for component in self.hf_config.components:
+                yield component.name, self.get_component_model(component, rank)
 
     def load_hf_model(self, model_path: str = None):
         """Load model from model_path or model_name."""
