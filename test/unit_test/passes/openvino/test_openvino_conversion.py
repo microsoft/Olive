@@ -14,7 +14,7 @@ def test_openvino_conversion_pass(tmp_path):
     # setup
     input_model = get_pytorch_model()
     dummy_input = get_pytorch_model_dummy_input(input_model)
-    openvino_conversion_config = {"example_input": dummy_input}
+    openvino_conversion_config = {"example_input_func": dummy_input}
 
     p = create_pass_from_dict(OpenVINOConversion, openvino_conversion_config, disable_search=True)
     output_folder = str(tmp_path / "openvino")
@@ -57,7 +57,7 @@ def test_openvino_conversion_pass_example_input_with_us(tmp_path):
     # setup
     input_model = get_pytorch_model()
     user_script_path = str(Path(__file__).parent / "user_script.py")
-    openvino_conversion_config = {"user_script": user_script_path, "example_input": "get_dummy_input"}
+    openvino_conversion_config = {"user_script": user_script_path, "example_input_func": "get_dummy_input"}
 
     p = create_pass_from_dict(OpenVINOConversion, openvino_conversion_config, disable_search=True)
     output_folder = str(tmp_path / "openvino")
