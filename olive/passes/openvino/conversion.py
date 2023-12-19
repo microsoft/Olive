@@ -21,7 +21,7 @@ class OpenVINOConversion(Pass):
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "input": PassConfigParam(
-                type_=List,
+                type_=Union[Callable, str, List],
                 required=False,
                 description=(
                     "Set or override shapes for model inputs. "
@@ -86,14 +86,24 @@ class OpenVINOConversion(Pass):
         if config.get("example_input_func"):
             example_input_func = config["example_input_func"]
             if isinstance(example_input_func, str):
-                example_input = self._user_module_loader.call_object()
+                example_input = self._user_module_loader.call_object(example_input_func)
             elif isinstance(example_input_func, Callable):
                 example_input = example_input_func()
+
+        input_shape = None
+        if config.get("input"):
+            config_input = config["input"]
+            if isinstance(config_input, str):
+                input_shape = self._user_module_loader.call_object(config_input)
+            elif isinstance(config_input, Callable):
+                input_shape = config_input()
+            elif isinstance(config_input, List):
+                input_shape = config_input
 
         extra_configs = config.get("extra_configs") or {}
         args = {
             "input_model": input_model,
-            "input": config.get("input"),
+            "input": input_shape,
             "example_input": example_input,
             **extra_configs,
         }
