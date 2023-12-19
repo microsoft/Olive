@@ -5,12 +5,12 @@
         "workspace_name": "<workspace_name>"
     },
     "input_model":{
-        "type": "OptimumModel",
+        "type": "PyTorchModel",
         "config": {
-            "model_path": "openlm-research/open_llama_3b",
-            "model_components": ["decoder_model.onnx", "decoder_with_past_model.onnx"],
             "hf_config": {
-                "model_class": "LlamaForCausalLM"
+                "model_name": "openlm-research/open_llama_3b",
+                "model_class": "LlamaForCausalLM",
+                "components": [{ "name": "decoder_model" }, { "name": "decoder_with_past_model" }]
             }
         }
     },

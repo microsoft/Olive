@@ -8,8 +8,9 @@ from pathlib import Path
 from typing import Any, Dict, Union
 
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import CompositeModelHandler, ONNXModelHandler, OptimumModelHandler
+from olive.model import CompositeModelHandler, ONNXModelHandler, PyTorchModelHandler
 from olive.model.config.hf_config import HfConfig
+from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config
 from olive.passes.pass_config import PassConfigParam
@@ -63,10 +64,8 @@ class OptimumConversion(Pass):
         return True
 
     def _run_for_config(
-        self, model: OptimumModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> Union[ONNXModelHandler, CompositeModelHandler]:
-        assert len(model.model_components) > 0
-
         from optimum import version as optimum_version
         from optimum.exporters.onnx import main_export as export_optimum_model
         from packaging import version
@@ -95,13 +94,18 @@ class OptimumConversion(Pass):
             **config["extra_args"],
         )
 
-        onnx_model_components = [
-            ONNXModelHandler(str(Path(output_model_path) / model_component), model_attributes=model.model_attributes)
-            for model_component in model.model_components
-        ]
-        onnx_model_component_names = [Path(model_component).stem for model_component in model.model_components]
+        hf_component_names = [name for name, _ in model.get_hf_components()]
+        if len(hf_component_names) == 0:
+            return ONNXModelHandler(resolve_onnx_path(output_model_path))
+        elif len(hf_component_names) == 1:
+            return ONNXModelHandler(Path(output_model_path) / hf_component_names[0])
 
-        if len(onnx_model_components) == 1:
-            return ONNXModelHandler(Path(output_model_path) / model.model_components[0])
+        model_components = []
+        model_component_names = []
+        for component_name in hf_component_names:
+            model_components.append(
+                ONNXModelHandler(str(Path(output_model_path) / component_name), model_attributes=model.model_attributes)
+            )
+            model_component_names.append(component_name)
 
-        return CompositeModelHandler(onnx_model_components, onnx_model_component_names)
+        return CompositeModelHandler(model_components, model_component_names)

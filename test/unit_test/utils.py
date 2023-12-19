@@ -16,7 +16,7 @@ from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
 from olive.evaluator.metric import Metric, MetricType
 from olive.evaluator.metric_config import MetricGoal
-from olive.model import ModelConfig, ONNXModelHandler, OptimumModelHandler, PyTorchModelHandler
+from olive.model import ModelConfig, ONNXModelHandler, PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx import OnnxConversion, OnnxDynamicQuantization
 
@@ -81,17 +81,20 @@ def get_pytorch_model():
 
 
 def get_optimum_model_by_model_path():
-    return OptimumModelHandler(
-        model_path="hf-internal-testing/tiny-random-gptj",
-        model_components=["model.onnx"],
-        hf_config={"model_class": "text-generation"},
+    return PyTorchModelHandler(
+        hf_config={
+            "model_name": "hf-internal-testing/tiny-random-gptj",
+            "task": "text-generation",
+        }
     )
 
 
 def get_optimum_model_by_hf_config():
-    return OptimumModelHandler(
-        model_components=["model.onnx"],
-        hf_config={"model_name": "hf-internal-testing/tiny-random-gptj", "model_class": "text-generation"},
+    return PyTorchModelHandler(
+        hf_config={
+            "model_name": "hf-internal-testing/tiny-random-gptj",
+            "task": "text-generation",
+        },
     )
 
 
