@@ -105,7 +105,7 @@ def get_hf_model_with_past():
     )
 
 
-def get_pytorch_model_dummy_input(model = None):
+def get_pytorch_model_dummy_input(model=None):
     return torch.randn(1, 1)
 
 
