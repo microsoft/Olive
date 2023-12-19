@@ -1019,9 +1019,9 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
             session.infer({0: input_data})
             result = session.get_output_tensor(0).data
             outputs = post_func(result) if post_func else result
-            preds.append(outputs)
-            targets.append(label)
-            logits.append(result)
+            preds.extend(outputs)
+            targets.extend(label)
+            logits.extend(result)
         return OliveModelOutput(preds=preds, logits=logits), targets
 
     def _evaluate_accuracy(

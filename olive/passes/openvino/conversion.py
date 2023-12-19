@@ -42,7 +42,7 @@ class OpenVINOConversion(Pass):
                 type_=bool,
                 default_value=True,
                 required=False,
-                description=("Compress weights in output OpenVINO model to FP16. Default is True."),
+                description="Compress weights in output OpenVINO model to FP16. Default is True.",
             ),
             "extra_configs": PassConfigParam(
                 type_=Dict,
@@ -84,21 +84,15 @@ class OpenVINOConversion(Pass):
 
         example_input = None
         if config.get("example_input_func"):
-            example_input_func = config["example_input_func"]
-            if isinstance(example_input_func, str):
-                example_input = self._user_module_loader.call_object(example_input_func)
-            elif isinstance(example_input_func, Callable):
-                example_input = example_input_func()
+            example_input = self._user_module_loader.call_object(config["example_input_func"])
 
         input_shape = None
         if config.get("input"):
             config_input = config["input"]
-            if isinstance(config_input, str):
-                input_shape = self._user_module_loader.call_object(config_input)
-            elif isinstance(config_input, Callable):
-                input_shape = config_input()
-            elif isinstance(config_input, List):
+            if isinstance(config_input, List):
                 input_shape = config_input
+            else:
+                input_shape = self._user_module_loader.call_object(config_input)
 
         extra_configs = config.get("extra_configs") or {}
         args = {
