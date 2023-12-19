@@ -18,6 +18,7 @@ class DecoderModel(torch.nn.Module):
         num_key_value_heads: int,
         scale_type: str,
         normalization_type: str,
+        epsilon: float,
     ) -> None:
         super().__init__()
         self.model = Model(
@@ -29,6 +30,7 @@ class DecoderModel(torch.nn.Module):
             num_key_value_heads,
             scale_type,
             normalization_type,
+            epsilon,
         )
         self.lm_head = torch.nn.Linear(hidden_size, vocab_size, bias=False)
 
@@ -67,6 +69,7 @@ class Model(torch.nn.Module):
         num_key_value_heads: int,
         scale_type: str,
         normalization_type: str,
+        epsilon: float,
     ) -> None:
         super().__init__()
         self.embed_tokens = torch.nn.Embedding(vocab_size, hidden_size)
@@ -85,6 +88,7 @@ class Model(torch.nn.Module):
                 num_key_value_heads,
                 scale_type,
                 normalization_type,
+                epsilon,
             )
             self.layers.append(layer)
 
@@ -131,7 +135,7 @@ def rotary_mat(
 
 
 class RMSNorm(torch.nn.Module):
-    def __init__(self, dim: int, eps: float = 1e-6) -> None:
+    def __init__(self, dim: int, eps: float) -> None:
         super().__init__()
         self.eps = eps
         self.weight = torch.nn.Parameter(torch.ones(dim))
@@ -145,7 +149,7 @@ class RMSNorm(torch.nn.Module):
 
 
 class LayerNorm(torch.nn.Module):
-    def __init__(self, dim: int, eps: float = 1e-6) -> None:
+    def __init__(self, dim: int, eps: float) -> None:
         super().__init__()
         self.eps = eps
         self.weight = torch.nn.Parameter(torch.ones(dim))
@@ -167,16 +171,17 @@ class TransformerLayer(torch.nn.Module):
         num_key_value_heads: int,
         scale_type: str,
         normalization_type: str,
+        epsilon: float,
     ) -> None:
         super().__init__()
         self.input_layernorm = {
-            "layer_norm": LayerNorm(hidden_size, eps=1e-6),
-            "rms": RMSNorm(hidden_size, eps=1e-6),
+            "layer_norm": LayerNorm(hidden_size, epsilon),
+            "rms": RMSNorm(hidden_size, epsilon),
         }[normalization_type]
 
         self.post_attention_layernorm = {
-            "layer_norm": LayerNorm(hidden_size, eps=1e-6),
-            "rms": RMSNorm(hidden_size, eps=1e-6),
+            "layer_norm": LayerNorm(hidden_size, epsilon),
+            "rms": RMSNorm(hidden_size, epsilon),
         }[normalization_type]
 
         self.cos, self.sin = rotary_mat(hidden_size, num_heads, 4096, head_scale=1.0)

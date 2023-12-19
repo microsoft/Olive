@@ -85,7 +85,7 @@ def run_llm_io_binding(
             position_ids = np.arange(seq_len, dtype=np.int64).reshape((1, seq_len))
             llm_io_binding.bind_cpu_input("position_ids", position_ids)
         else:
-            position_ids_increment = np.array(seq_len, dtype=np.int64, ndmin=2)
+            position_ids_increment = np.array(seq_len - 1, dtype=np.int64, ndmin=2)
             llm_io_binding.bind_cpu_input("position_ids_increment", position_ids_increment)
 
         seqlens_k = np.array(past_seq_len, dtype=np.int32, ndmin=1)

@@ -11,11 +11,7 @@ from interface.hddr_llm_onnx_dml_interface import LLMOnnxDmlInterface
 
 top_directory = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 optimized_directory = os.path.join(top_directory, "models", "optimized")
-
 available_models = {}
-for model_name in os.listdir(optimized_directory):
-    available_models[model_name] = {"model_dir": os.path.join(optimized_directory, model_name)}
-
 interface = None
 
 
@@ -54,6 +50,9 @@ def interface_retry(*args):
 
 
 def launch_chat_app(expose_locally: bool = False):
+    for model_name in os.listdir(optimized_directory):
+        available_models[model_name] = {"model_dir": os.path.join(optimized_directory, model_name)}
+
     with gr.Blocks(css=custom_css, theme=small_and_beautiful_theme) as demo:
         history = gr.State([])
         user_question = gr.State("")

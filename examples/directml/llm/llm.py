@@ -35,6 +35,16 @@ def set_config_parameters(repo_id: str, num_layers: Optional[int]):
     config.num_key_value_heads = pipeline.model.config.num_key_value_heads
     config.num_layers = num_layers or pipeline.model.config.num_hidden_layers
     config.vocab_size = pipeline.model.config.vocab_size
+
+    if hasattr(pipeline.model.config, "rms_norm_eps"):
+        config.normalization_type = "rms"
+        config.epsilon = pipeline.model.config.rms_norm_eps
+    elif hasattr(pipeline.model.config, "layer_norm_epsilon"):
+        config.normalization_type = "layer_norm"
+        config.epsilon = pipeline.model.config.layer_norm_epsilon
+    else:
+        raise ValueError("Normalization epsilon value was not found")
+
     config.normalization_type = "rms" if hasattr(pipeline.model.config, "rms_norm_eps") else "layer_norm"
     config.strict_weights_loading = config.num_layers == pipeline.model.config.num_hidden_layers
     config.state_dict = pipeline.model.state_dict()

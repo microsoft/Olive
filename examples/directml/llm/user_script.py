@@ -43,6 +43,7 @@ def get_or_create_decoder_model():
             config.num_key_value_heads,
             scale_type,
             config.normalization_type,
+            config.epsilon,
         )
         config.decoder_model.eval()
         config.decoder_model.load_state_dict(config.state_dict, strict=config.strict_weights_loading)
