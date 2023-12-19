@@ -11,7 +11,6 @@ from transformers import AutoConfig, AutoProcessor
 class WhisperDataset:
     SAMPLE_RATE = 16000
     N_FFT = 400
-    N_MELS = 80
     HOP_LENGTH = 160
     CHUNK_LENGTH = 30
     N_SAMPLES = CHUNK_LENGTH * SAMPLE_RATE  # 480000 samples in a 30-second chunk
@@ -20,6 +19,7 @@ class WhisperDataset:
     def __init__(
         self,
         data_dir: str,
+        model_name: str,
         use_audio_decoder: bool = True,
         file_ext: str = ".mp3",
         language: str = "english",
@@ -29,6 +29,9 @@ class WhisperDataset:
         audio_files = list(data_dir.glob(f"*{file_ext}"))
         audio_files.sort(key=lambda x: x.name)
         assert len(audio_files) > 0, f"No audio files found in {data_dir}"
+
+        config = AutoConfig.from_pretrained(model_name)
+        processor = AutoProcessor.from_pretrained(model_name)
 
         self.data = []
         for audio_file in audio_files:
@@ -52,12 +55,9 @@ class WhisperDataset:
                 "length_penalty": np.asarray([1.0], dtype=np.float32),
                 "repetition_penalty": np.asarray([1.0], dtype=np.float32),
                 # attention_mask only used when version < 1.16.0
-                "attention_mask": np.zeros((1, self.N_MELS, self.N_FRAMES)).astype(np.int32),
+                "attention_mask": np.zeros((1, config.num_mel_bins, self.N_FRAMES)).astype(np.int32),
             }
             # decoder_input_ids only used when version >= 1.16.0 and multilingual is True
-            model_name = "openai/whisper-tiny"
-            config = AutoConfig.from_pretrained(model_name)
-            processor = AutoProcessor.from_pretrained(model_name)
             forced_decoder_ids = processor.get_decoder_prompt_ids(language=language, task=task)
             forced_decoder_ids = [config.decoder_start_token_id, *[token[1] for token in forced_decoder_ids]]
             inputs["decoder_input_ids"] = np.asarray([forced_decoder_ids], dtype=np.int32)

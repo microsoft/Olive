@@ -54,6 +54,7 @@ def main(raw_args=None):
         config = json.load(f)
 
     # get model information
+    model_name = config["input_model"]["config"]["hf_config"]["model_name"]
     use_audio_decoder = config["passes"]["prepost"]["config"]["tool_command_args"]["use_audio_decoder"]
     multilingual = config["passes"]["insert_beam_search"]["config"].get("use_forced_decoder_ids", False)
     if not multilingual and not (args.language == "english" and args.task == "transcribe"):
@@ -89,6 +90,7 @@ def main(raw_args=None):
     # dataset
     dataset = WhisperDataset(
         data_dir=temp_dir_path,
+        model_name=model_name,
         use_audio_decoder=use_audio_decoder,
         file_ext=temp_audio_path.suffix,
         language=args.language,
