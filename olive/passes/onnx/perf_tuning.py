@@ -285,7 +285,7 @@ def generate_test_name(test_params, io_bind):
         return PERFTUNING_BASELINE
 
     name_list = []
-    eps = test_params.get("execution_provider")
+    eps = test_params["execution_provider"]
     ep_names = []
     for ep in eps:
         ep_name = ep[0]
@@ -312,30 +312,25 @@ def generate_test_name(test_params, io_bind):
 def get_benchmark(model, data_root, latency_metric, config, test_params=None, io_bind=False):
     from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
 
-    test_result = {}
-    session_name = generate_test_name(test_params, io_bind)
-    test_result["test_name"] = session_name
-
-    latency_metric.user_config.io_bind = io_bind
-    test_result["io_bind"] = io_bind
+    # prepare the inference_settings for metrics.
+    # prepare the execution_provider and session_options for evaluator.
     if test_params:
         assert "provider_options" not in test_params, "provider_options should not be in test_params"
-        latency_metric.user_config.inference_settings = {"onnx": test_params}
-        execution_providers = test_params.get("execution_provider")
-        test_result["session_options"] = test_params.get("session_options").copy()
+        inference_settings = test_params
+        execution_providers = inference_settings["execution_provider"]
+        session_options = inference_settings["session_options"].copy()
     else:
-        execution_providers = config.providers_list
         inference_settings = copy.deepcopy(model.inference_settings) if model.inference_settings else {}
         inference_settings.pop("execution_provider", None)
         inference_settings.pop("provider_options", None)
+        execution_providers = config.providers_list
         session_options = inference_settings.get("session_options")
-        if session_options:
-            test_result["session_options"] = copy.deepcopy(session_options)
-        # set the session_options for metrics so that the evalute will use them by default
-        latency_metric.user_config.inference_settings = {"onnx": inference_settings}
 
-    test_result["execution_provider"] = execution_providers
+    # set the session_options for metrics so that the evalute will use them by default
+    latency_metric.user_config.io_bind = io_bind
+    latency_metric.user_config.inference_settings = {"onnx": inference_settings}
 
+    session_name = generate_test_name(test_params, io_bind)
     logger.debug(f"Run benchmark for: {session_name}")
     evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
     joint_key = joint_metric_key(latency_metric.name, latency_metric.sub_types[0].name)
@@ -343,13 +338,19 @@ def get_benchmark(model, data_root, latency_metric, config, test_params=None, io
     # the evaluator will directly use the excution_providers which might includes the provider options.
     # The inference_settings["execution_provider"] in model itself will be ignored.
     # Only the inference_settings["session_options"] will be used.
-    test_result["latency_ms"] = evaluator.evaluate(
-        model, data_root, [latency_metric], config.device, execution_providers
-    )[joint_key].value
+    latency_ms = evaluator.evaluate(model, data_root, [latency_metric], config.device, execution_providers)[
+        joint_key
+    ].value
     end_time = time.perf_counter()
     logger.debug(f"It takes {(end_time - start_time):.5f} seconds to benchmark for: {session_name}")
 
-    return test_result
+    return {
+        "test_name": session_name,
+        "io_bind": io_bind,
+        "latency_ms": latency_ms,
+        "execution_provider": execution_providers,
+        "session_options": session_options if session_options else {},
+    }
 
 
 def parse_tuning_result(*tuning_results):
