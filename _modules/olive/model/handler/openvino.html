@@ -185,10 +185,11 @@
 
     <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="kn">from</span> <span class="nn">openvino.tools.pot</span> <span class="kn">import</span> <span class="n">load_model</span>
+            <span class="kn">import</span> <span class="nn">openvino</span> <span class="k">as</span> <span class="nn">ov</span>
         <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;Please install olive-ai[openvino] to use OpenVINO model&quot;</span><span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
-        <span class="k">return</span> <span class="n">load_model</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_config</span><span class="p">)</span>
+        <span class="n">core</span> <span class="o">=</span> <span class="n">ov</span><span class="o">.</span><span class="n">Core</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">core</span><span class="o">.</span><span class="n">read_model</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_config</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">])</span>
 
     <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -198,14 +199,16 @@
         <span class="n">rank</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="kn">from</span> <span class="nn">openvino.runtime</span> <span class="kn">import</span> <span class="n">Core</span>
+            <span class="kn">import</span> <span class="nn">openvino</span> <span class="k">as</span> <span class="nn">ov</span>
         <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;Please install olive-ai[openvino] to use OpenVINO model&quot;</span><span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
-        <span class="n">ie</span> <span class="o">=</span> <span class="n">Core</span><span class="p">()</span>
-        <span class="n">model_pot</span> <span class="o">=</span> <span class="n">ie</span><span class="o">.</span><span class="n">read_model</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model_config</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">])</span>
-        <span class="k">if</span> <span class="n">device</span> <span class="o">==</span> <span class="n">Device</span><span class="o">.</span><span class="n">INTEL_MYRIAD</span><span class="p">:</span>
+        <span class="n">core</span> <span class="o">=</span> <span class="n">ov</span><span class="o">.</span><span class="n">Core</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">inference_settings</span> <span class="ow">and</span> <span class="n">inference_settings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;device_name&quot;</span><span class="p">):</span>
+            <span class="n">device</span> <span class="o">=</span> <span class="n">inference_settings</span><span class="p">[</span><span class="s2">&quot;device_name&quot;</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">device</span> <span class="o">==</span> <span class="n">Device</span><span class="o">.</span><span class="n">INTEL_MYRIAD</span><span class="p">:</span>
             <span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;MYRIAD&quot;</span>
-        <span class="k">return</span> <span class="n">ie</span><span class="o">.</span><span class="n">compile_model</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">model_pot</span><span class="p">,</span> <span class="n">device_name</span><span class="o">=</span><span class="n">device</span><span class="o">.</span><span class="n">upper</span><span class="p">())</span></div>
+        <span class="n">compiled_model</span> <span class="o">=</span> <span class="n">core</span><span class="o">.</span><span class="n">compile_model</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_config</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">],</span> <span class="n">device</span><span class="o">.</span><span class="n">upper</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">compiled_model</span><span class="o">.</span><span class="n">create_infer_request</span><span class="p">()</span></div>
 </pre></div>
 
            </div>

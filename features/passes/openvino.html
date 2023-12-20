@@ -159,7 +159,7 @@ platforms.</p>
 <p>Read more at: <a class="reference external" href="https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/overview.html">Intel® Distribution of OpenVINO™ Toolkit</a></p>
 <section id="prerequisites">
 <h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this heading">¶</a></h2>
-<p>Note: OpenVINO version in Olive: 2022.3.0</p>
+<p>Note: OpenVINO version in Olive: 2023.2.0</p>
 <section id="option-1-install-olive-with-openvino-extras">
 <h3>Option 1: install Olive with OpenVINO extras<a class="headerlink" href="#option-1-install-olive-with-openvino-extras" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">olive</span><span class="o">-</span><span class="n">ai</span><span class="p">[</span><span class="n">openvino</span><span class="p">]</span>
@@ -168,7 +168,7 @@ platforms.</p>
 </section>
 <section id="option-2-install-openvino-runtime-and-openvino-development-tools-from-pypi">
 <h3>Option 2: Install OpenVINO Runtime and OpenVINO Development Tools from Pypi<a class="headerlink" href="#option-2-install-openvino-runtime-and-openvino-development-tools-from-pypi" title="Permalink to this heading">¶</a></h3>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">openvino</span><span class="o">==</span><span class="mf">2022.3.0</span> <span class="n">openvino</span><span class="o">-</span><span class="n">dev</span><span class="p">[</span><span class="n">tensorflow</span><span class="p">,</span><span class="n">onnx</span><span class="p">]</span><span class="o">==</span><span class="mf">2022.3.0</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">openvino</span><span class="o">==</span><span class="mf">2023.2.0</span>
 </pre></div>
 </div>
 </section>
@@ -183,7 +183,7 @@ platforms.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OpenVINOConversion&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;input_shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">]</span>
+<span class="w">        </span><span class="nt">&quot;input&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">]</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -192,7 +192,7 @@ platforms.</p>
 </section>
 <section id="post-training-quantization-ptq">
 <h2>Post Training Quantization (PTQ)<a class="headerlink" href="#post-training-quantization-ptq" title="Permalink to this heading">¶</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">OpenVINOQuantization</span></code> pass will run Post-training quantization for OpenVINO model which supports the uniform integer quantization method.
+<p><code class="docutils literal notranslate"><span class="pre">OpenVINOQuantization</span></code> pass will run <a class="reference external" href="https://docs.openvino.ai/2023.2/ptq_introduction.html">Post-training quantization</a> for OpenVINO model which supports the uniform integer quantization method.
 This method allows moving from floating-point precision to integer precision (for example, 8-bit) for weights and activations during the
 inference time. It helps to reduce the model size, memory footprint and latency, as well as improve the computational efficiency, using
 integer arithmetic. During the quantization process the model undergoes the transformation process when additional operations, that contain
@@ -201,24 +201,20 @@ quantization information, are inserted into the model. The actual transition to 
 <section id="id1">
 <h3>Example Configuration<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OpenVINOQuantization&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;engine_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;CPU&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;stat_requests_number&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;eval_requests_number&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">},</span>
-<span class="w">        </span><span class="nt">&quot;algorithms&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">            </span><span class="p">{</span>
-<span class="w">                </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DefaultQuantization&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;target_device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;CPU&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;preset&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;performance&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;stat_subset_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">300</span><span class="p">},</span>
-<span class="w">            </span><span class="p">}</span>
-<span class="w">        </span><span class="p">],</span>
-<span class="w">        </span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data_dir&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OpenVINOQuantizationWithAccuracy&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;validation_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;validate&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;max_drop&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.01</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;drop_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ABSOLUTE&quot;</span>
+<span class="w">        </span><span class="p">}</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
-<p>Check out <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/cifar10_openvino_intel_hw/user_script.py">this file</a>
-for an example implementation of <code class="docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;create_dataloader&quot;</span></code>.</p>
 </section>
 </section>
 </section>
