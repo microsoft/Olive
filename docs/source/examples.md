@@ -9,8 +9,6 @@
 
 [ResNet optimization with QAT PyTorch Lightning Module](https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-qat-pytorch-lightning-module-on-cpu)
 
-[Cifar10 optimization with OpenVINO for Intel HW](https://github.com/microsoft/Olive/tree/main/examples/cifar10_openvino_intel_hw)
-
 # Acceleration on GPU
 [Bert optimization with CUDA/TensorRT](https://github.com/microsoft/Olive/tree/main/examples/bert/#bert-optimization-with-cudatensorrt)
 

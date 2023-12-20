@@ -36,8 +36,8 @@ def post_process(res):
 
 
 def openvino_post_process(res):
-    res = next(iter(res.values()))
-    return res.argmax(1)
+    res = next(iter(res))
+    return [res.argmax()]
 
 
 def create_dataloader(data_dir, batch_size, *args, **kwargs):

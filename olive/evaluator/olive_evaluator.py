@@ -206,7 +206,6 @@ class OliveEvaluator(ABC):
             # priority: dataloader_func > data_config > user_config.input_names/input_shapes > model io_config
             metric = OliveEvaluator.generate_metric_user_config_with_model_io(original_metric, model)
             dataloader, eval_func, post_func = OliveEvaluator.get_user_config(model.framework, data_root, metric)
-
             if metric.type == MetricType.ACCURACY:
                 metrics_res[metric.name] = self._evaluate_accuracy(
                     model, data_root, metric, dataloader, post_func, device, execution_providers
@@ -823,8 +822,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> Tuple[OliveModelOutput, Any]:
-        session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
-
+        session = model.prepare_session()
         preds = []
         targets = []
         logits = []
@@ -1017,13 +1015,12 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
         preds = []
         targets = []
         logits = []
-        for input_data, labels in dataloader:
-            result = session.infer_new_request({0: input_data})
+        for input_data, label in dataloader:
+            session.infer({0: input_data})
+            result = session.get_output_tensor(0).data
             outputs = post_func(result) if post_func else result
-            if not isinstance(labels, list):
-                labels = [labels]  # noqa: PLW2901
             preds.extend(outputs)
-            targets.extend(labels)
+            targets.extend(label)
             logits.extend(result)
         return OliveModelOutput(preds=preds, logits=logits), targets
 
@@ -1055,7 +1052,7 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
         latencies = []
         for input_data, _ in dataloader:
             t = time.perf_counter()
-            session(input_data)
+            session.infer(input_data)
             latencies.append(time.perf_counter() - t)
         return latencies
 
