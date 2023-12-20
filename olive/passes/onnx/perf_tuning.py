@@ -102,7 +102,6 @@ def tune_onnx_model(perf_tuning_pass_ep, model, data_root, config):
     pretuning_inference_result = get_benchmark(model, data_root, latency_metric, config)
 
     tuning_results = []
-    #
     for provider, execution_mode, opt_level, io_bind in generate_tuning_combos(config):
         provider, options = populate_provider_options(provider, config)  # noqa: PLW2901
         if provider == "CUDAExecutionProvider" and config.enable_cuda_graph:
