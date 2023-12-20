@@ -288,16 +288,24 @@ def run_inference(
 
 
 def update_config_with_provider(config: Dict, provider: str, is_fp16: bool) -> Dict:
+    """Update the config with the provider and fp16 settings."""
+    # if is_fp16 is True, we are using fp16 fixed vae, so all models can be fully in fp16
     if provider == "dml":
-        # DirectML EP is the default, so no need to update config.
+        if is_fp16:
+            optimize_config = config["passes"]["optimize"]["config"]
+            optimize_config.update({"float16": True, "keep_io_types": False})
+            if "force_fp32_nodes" in optimize_config:
+                # no need to force fp32 nodes in the vae-decoder
+                del optimize_config["force_fp32_nodes"]
+        # DirectML EP is the default, so pass flows and engine don't need to be updated
         return config
     elif provider == "cuda":
+        optimize_cuda_config = config["passes"]["optimize_cuda"]["config"]
         if version.parse(OrtVersion) < version.parse("1.17.0"):
             # disable skip_group_norm fusion since there is a shape inference bug which leads to invalid models
-            config["passes"]["optimize_cuda"]["config"]["optimization_options"] = {"enable_skip_group_norm": False}
-        # keep model fully in fp16 if use_fp16_fixed_vae is set
+            optimize_cuda_config["optimization_options"] = {"enable_skip_group_norm": False}
         if is_fp16:
-            config["passes"]["optimize_cuda"]["config"].update({"float16": True, "keep_io_types": False})
+            optimize_cuda_config.update({"float16": True, "keep_io_types": False})
         config["pass_flows"] = [["convert", "optimize_cuda"]]
         config["engine"]["execution_providers"] = ["CUDAExecutionProvider"]
         return config
@@ -481,8 +489,7 @@ def main(raw_args=None):
         action="store_true",
         help=(
             "Use madebyollin/sdxl-vae-fp16-fix as VAE. All models will be in fp16 if this flag is set. Otherwise, vae"
-            " will be in fp32 while other sub models will be fp16 with fp32 input/outputs. Only supported for cuda"
-            " provider."
+            " will be in fp32 while other sub models will be fp16 with fp32 input/outputs."
         ),
     )
     parser.add_argument("--base_images", default=None, nargs="+")
@@ -541,10 +548,6 @@ def main(raw_args=None):
             f"WARNING: {args.model_id} is not an officially supported model for this example and may not work as "
             "expected."
         )
-
-    if args.use_fp16_fixed_vae and args.provider != "cuda":
-        print("WARNING: --use_fp16_fixed_vae is only supported for cuda provider currently.")
-        sys.exit(1)
 
     if args.provider == "dml" and version.parse(OrtVersion) < version.parse("1.16.2"):
         print("This script requires onnxruntime-directml 1.16.2 or newer")

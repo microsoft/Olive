@@ -29,6 +29,8 @@ For SDXL Refiner, run the following:
 python stable_diffusion_xl.py --model_id=stabilityai/stable-diffusion-xl-refiner-1.0 --optimize
 ```
 
+**Note:** Provide `--use_fp16_fixed_vae` option if you would like use [madebyollin/sdxl-vae-fp16-fix](https://huggingface.co/madebyollin/sdxl-vae-fp16-fix) for the vae models. If provided, all sub-models will be entirely in fp16. Otherwise, the vae models (vae-decoder for base and both vae-decoder and vae-encoder for refiner) will be in fp32 and all other sub-models will be in fp16 with fp32 input/output.
+
 The above commands will enumerate the `config_<model_name>.json` files and optimize each one with Olive, then gather the optimized models into a directory structure suitable for testing inference.
 
 The stable diffusion models are large, and the optimization process is resource intensive. It is recommended to run optimization on a system with a minimum of 16GB of memory (preferably 32GB). Expect optimization to take several minutes (especially the U-Net model).
@@ -69,6 +71,7 @@ Run `python stable_diffusion_xl.py --help` for additional options. A few particu
 - `--num_inference_steps <int>` : the number of sampling steps per inference. The default value is 50. A lower value (e.g. 20) will speed up inference at the expensive of quality, and a higher value (e.g. 100) may produce higher quality images.
 - `--num_images <int>` : the number of images to generate per script invocation (non-interactive UI) or per click of the generate button (interactive UI). The default value is 1.
 - `--batch_size <int>` : the number of images to generate per inference (default of 1). It is typically more efficient to use a larger batch size when producing multiple images than generating a single image at a time; however, larger batches also consume more video memory.
+- `--use_fp16_fixed_vae` : use this option if the model was optimized with `--use_fp16_fixed_vae` option.
 
 If you omit `--interactive`, the script will generate the requested number of images without displaying a UI and then terminate. Use the `--prompt` option to specify the prompt when using non-interactive mode.
 
@@ -83,6 +86,7 @@ The minimum number of inferences will be `ceil(num_images / batch_size)`; additi
   ```
 
 - If you want to use `stabilityai/stable-diffusion-xl-base-1.0` for image-to-image pipeline, set `"float16": false` in `config_vae_encoder.json`. Otherwise, the output image will be black.
+  You can also choose to use the `--use_fp16_fixed_vae` option instead.
 
 - Onnx conversion for unet terminates silently without any error message. This could be because your system ran out of disk space in the temp directory. You can add `--tempdir .` to the command line to use the current directory as the temp directory root. `.` can be replaced with any other directory with sufficient disk space and write permission.
 
