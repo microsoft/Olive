@@ -81,11 +81,14 @@ python stable_diffusion.py --provider cuda --optimize
 **_Stable Diffusion XL_**
 ```bash
 # default model_id is "stabilityai/stable-diffusion-xl-base-1.0"
-python stable_diffusion_xl.py --provider cuda --optimize
+python stable_diffusion_xl.py --provider cuda --optimize [--use_fp16_fixed_vae]
 
 # or specify a different model_id
-python stable_diffusion_xl.py --provider cuda --model_id stabilityai/stable-diffusion-xl-refiner-1.0 --optimize
+python stable_diffusion_xl.py --provider cuda --model_id stabilityai/stable-diffusion-xl-refiner-1.0 --optimize [--use_fp16_fixed_vae]
 ```
+
+`--use_fp16_fixed_vae` is optional. If provided, will use [madebyollin/sdxl-vae-fp16-fix](https://huggingface.co/madebyollin/sdxl-vae-fp16-fix) for the vae models and all sub-models will be entirely in fp16.
+Otherwise, the vae models (vae-decoder for base and both vae-decoder and vae-encoder for refiner) will be in fp32 and all other sub-models will be in fp16 with fp32 input/output.
 
 Once the script successfully completes:
 - The optimized ONNX pipeline will be stored under `models/optimized-cuda/[model_id]` (for example `models/optimized-cuda/runwayml/stable-diffusion-v1-5` or `models/optimized-cuda/stabilityai/stable-diffusion-xl-base-1.0`).

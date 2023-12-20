@@ -260,7 +260,7 @@ def run_inference(
             model_dir, provider=provider_map[provider], provider_options=provider_options, session_options=sess_options
         )
     if is_fp16:
-        # the pipeline watermarker doesn't work with fp16 images
+        # the pipeline default watermarker doesn't work with fp16 images
         pipeline.watermark = None
 
     if interactive:
@@ -297,7 +297,7 @@ def update_config_with_provider(config: Dict, provider: str, is_fp16: bool) -> D
             config["passes"]["optimize_cuda"]["config"]["optimization_options"] = {"enable_skip_group_norm": False}
         # keep model fully in fp16 if use_fp16_fixed_vae is set
         if is_fp16:
-            config["passes"]["optimze_cuda"]["config"].update({"float16": True, "keep_io_types": False})
+            config["passes"]["optimize_cuda"]["config"].update({"float16": True, "keep_io_types": False})
         config["pass_flows"] = [["convert", "optimize_cuda"]]
         config["engine"]["execution_providers"] = ["CUDAExecutionProvider"]
         return config
