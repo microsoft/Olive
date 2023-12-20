@@ -67,9 +67,15 @@ def test_ort_perf_tuning_with_customized_configs(mock_run, config):
 
 @pytest.mark.parametrize("return_baseline", [True, False])
 @patch.object(OnnxEvaluator, "evaluate")
-def test_perf_tuning_with_provider_options(mock_evaluate, caplog, return_baseline):
+@patch("onnxruntime.get_available_providers")
+def test_perf_tuning_with_provider_options(mock_get_available_providers, mock_evaluate, caplog, return_baseline):
     logger = logging.getLogger("olive")
     logger.propagate = True
+    mock_get_available_providers.return_value = [
+        "TensorrtExecutionProvider",
+        "CUDAExecutionProvider",
+        "CPUExecutionProvider",
+    ]
 
     def mock_evaluate_method(model, data_root, metrics, device, execution_providers):
         metrics_res = {}
@@ -124,10 +130,8 @@ def test_perf_tuning_with_provider_options(mock_evaluate, caplog, return_baselin
     acutal_eps = result.inference_settings["execution_provider"]
     assert "io_bind" in result.inference_settings
     if return_baseline:
-        assert len(acutal_eps) == 2
+        assert acutal_eps == ["TensorrtExecutionProvider", "CUDAExecutionProvider", "CPUExecutionProvider"]
         assert "enable_cuda_graph" not in result.inference_settings["provider_options"][0]
-
-        assert acutal_eps[1] == "CPUExecutionProvider"
         assert f"Best result({PERFTUNING_BASELINE}):" in caplog.text
     else:
         assert len(acutal_eps) == 1
