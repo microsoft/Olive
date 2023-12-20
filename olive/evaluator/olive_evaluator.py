@@ -82,15 +82,11 @@ class OliveEvaluator(ABC):
         )
 
     @classmethod
-    def io_bind_enabled(cls, metric: Metric, model: ONNXModelHandler) -> bool:
+    def io_bind_enabled(cls, metric: Metric, inference_settings: Dict) -> bool:
         if metric.user_config.io_bind:
             return True
 
-        inference_settings = cls.get_inference_settings(metric)
         if inference_settings and inference_settings.get("io_bind"):
-            return True
-
-        if model.inference_settings and model.inference_settings.get("io_bind"):
             return True
 
         return False
@@ -441,7 +437,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         logits = []
         logits_dict = collections.defaultdict(list)
         output_names = io_config["output_names"]
-        io_bind = self.io_bind_enabled(metric, model)
+        io_bind = self.io_bind_enabled(metric, model.inference_settings)
         if io_bind:
             io_bind_op = session.io_binding()
             kv_cache_ortvalues = {} if metric.user_config.shared_kv_buffer else None
@@ -460,7 +456,12 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
                     kv_cache_ortvalues=kv_cache_ortvalues,
                 )
                 bind_output_data(
-                    io_bind_op, use_fp16, session.get_outputs(), device, kv_cache_ortvalues=kv_cache_ortvalues
+                    io_bind_op,
+                    session.get_outputs(),
+                    use_fp16,
+                    device,
+                    shared_kv_buffer=metric.user_config.shared_kv_buffer,
+                    kv_cache_ortvalues=kv_cache_ortvalues,
                 )
                 io_bind_op.synchronize_inputs()
                 session.run_with_iobinding(io_bind_op)
@@ -504,7 +505,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
     def _evaluate_onnx_latency(
         self,
-        model: OliveModelHandler,
+        model: ONNXModelHandler,
         metric: Metric,
         dataloader: Dataset,
         post_func=None,
@@ -525,7 +526,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         # no deepcopy for kv_cache_ortvalues, will update the value inplace and keep it shared across runs
         kv_cache_ortvalues = {} if metric.user_config.shared_kv_buffer else None
 
-        io_bind = self.io_bind_enabled(metric, model)
+        io_bind = self.io_bind_enabled(metric, model.inference_settings)
         if io_bind:
             io_bind_op = prepare_io_bindings(
                 session,
@@ -680,7 +681,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         input_feed = OnnxEvaluator.format_input(input_feed, io_config)
         kv_cache_ortvalues = {} if metric.user_config.shared_kv_buffer else None
 
-        io_bind = OnnxEvaluator.io_bind_enabled(metric, model)
+        io_bind = OnnxEvaluator.io_bind_enabled(metric, model.inference_settings)
         if io_bind:
             io_bind_op = prepare_io_bindings(
                 session,
