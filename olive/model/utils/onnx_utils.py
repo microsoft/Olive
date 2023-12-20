@@ -143,7 +143,7 @@ def check_and_normalize_provider_args(
             if isinstance(provider, str):
                 set_provider_options(provider, {})
             elif (
-                isinstance(provider, tuple)
+                isinstance(provider, (tuple, list))
                 and len(provider) == 2
                 and isinstance(provider[0], str)
                 and isinstance(provider[1], dict)

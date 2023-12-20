@@ -82,35 +82,18 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):
         inference_settings = deepcopy(inference_settings)
 
         # if user doesn't not provide ep list, use default value([ep]). Otherwise, use the user's ep list
-        # eps given by arguments > user provided ep list > default eps
-        # Note by myguo: in DLIS scenarios, the inferenece_settings is something like:
-        #  {'execution_provider': [('MIGraphXExecutionProvider', {})]}
-        # and the provider_lists specified in perf_tuning is: ['ROCMExecutionProvider', 'MIGraphXExecutionProvider'].
-        # Originally, the inference_settings priority is higher than the execution_providers specified in arguments.
-        # as the result, when calling OnnxEvaluator.evaluate with the provider_list in baseline evaluation,
-        # the execution provider will be used as ["MIGraphXExecutionProvider"].
-        # later, the check_ort_fallback(session, execution_providers) will check the
-        # whether the underlying session's providers(MIGraphXExecutionProvider, CPUExecutionProvider) contains the
-        # execution_providers(ROCMExecutionProvider, MIGraphXExecutionProvider). In this case, the
-        # ROCMExecutionProvider is excluded when creating inference session. and the OliveEvaluationError exception
-        # will be raised.
-        # To fix this issue, we need to make sure the execution_providers specified in arguments has higher priority
-        if execution_providers:
-            provider_options = None
-        else:
+        # user provided ep list > eps given by arguments > default eps
+        if inference_settings.get("execution_provider") is not None:
             execution_providers = inference_settings.get("execution_provider")
             provider_options = inference_settings.get("provider_options")
-            if not execution_providers:
-                execution_providers = self.get_default_execution_providers(device)
-                provider_options = None
-
-        if isinstance(execution_providers, (str, tuple)):
-            execution_providers = [execution_providers]
         else:
-            # the execution_providers is a list
-            assert isinstance(
-                execution_providers, list
-            ), f"execution_providers should be a list, got {execution_providers}"
+            provider_options = None
+
+        if not execution_providers:
+            execution_providers = self.get_default_execution_providers(device)
+            provider_options = None
+        elif isinstance(execution_providers, (str, tuple)):
+            execution_providers = [execution_providers]
 
         # split the execution_providers and provider_options
         execution_providers, provider_options = check_and_normalize_provider_args(

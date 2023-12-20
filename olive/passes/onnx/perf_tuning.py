@@ -15,6 +15,7 @@ from olive.evaluator.metric_config import get_user_config_properties_from_metric
 from olive.exception import EXCEPTIONS_TO_RAISE
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
 from olive.model import ONNXModelHandler
+from olive.model.utils.onnx_utils import check_and_normalize_provider_args
 from olive.passes import Pass
 from olive.passes.pass_config import ParamCategory, PassConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
@@ -95,7 +96,7 @@ def tune_onnx_model(perf_tuning_pass_ep, model, data_root, config):
     tuning_results = []
     for tuning_combo in generate_tuning_combos(config):
         tuning_ep = tuning_combo[0]
-        if isinstance(tuning_ep, tuple):
+        if isinstance(tuning_ep, (tuple, list)):
             tuning_ep = tuning_ep[0]
         else:
             assert isinstance(tuning_ep, str)
@@ -120,6 +121,7 @@ def tune_onnx_model(perf_tuning_pass_ep, model, data_root, config):
     optimized_model = copy.copy(model)
     optimized_model.inference_settings = {
         "execution_provider": best_result["execution_provider"],
+        "provider_options": best_result["provider_options"],
         "io_bind": best_result["io_bind"],
     }
     session_options = best_result.get("session_options")
@@ -130,7 +132,7 @@ def tune_onnx_model(perf_tuning_pass_ep, model, data_root, config):
 
 
 def populate_provider_options(execution_provider, config):
-    if isinstance(execution_provider, tuple):
+    if isinstance(execution_provider, (tuple, list)):
         assert len(execution_provider) == 2, "execution_provider should be a tuple with execution provider and options"
         provider = execution_provider[0]
         provider_options = copy.deepcopy(execution_provider[1]) or {}
@@ -138,7 +140,7 @@ def populate_provider_options(execution_provider, config):
         provider = execution_provider
         provider_options = {}
     else:
-        raise ValueError("execution_provider should be a tuple or string")
+        raise ValueError("execution_provider should be a tuple, list or string")
 
     if provider == "TensorrtExecutionProvider":
         provider_options["trt_fp16_enable"] = config.trt_fp16_enable
@@ -160,7 +162,8 @@ def threads_num_tuning(model, data_root, latency_metric, config, tuning_combo):
         io_bind = True
 
     test_params = {
-        "execution_provider": [(provider, options)],
+        "execution_provider": [provider],
+        "provider_options": [options],
         "session_options": {
             "execution_mode": execution_mode,
             "graph_optimization_level": ort_opt_level,
@@ -289,17 +292,14 @@ def generate_test_name(test_params, io_bind):
         return PERFTUNING_BASELINE
 
     name_list = []
-    eps = test_params["execution_provider"]
+    ep = test_params["execution_provider"][0]
+    provider_option = test_params["provider_options"][0]
+    ep_name = ep.replace("ExecutionProvider", "").lower()
     ep_names = []
-    for ep in eps:
-        ep_name = ep[0]
-        ep_params = ep[1]
-
-        ep_name = ep_name.replace("ExecutionProvider", "").lower()
-        if ep_params:
-            ep_names.append((ep_name, ep_params))
-        else:
-            ep_names.append(ep_name)
+    if provider_option:
+        ep_names.append((ep_name, provider_option))
+    else:
+        ep_names.append(ep_name)
     if len(ep_names) == 1:
         ep_names = ep_names[0]
 
@@ -314,21 +314,22 @@ def generate_test_name(test_params, io_bind):
 
 
 def get_benchmark(model, data_root, latency_metric, config, test_params=None, io_bind=False):
+    import onnxruntime as ort
+
     from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
 
     # prepare the inference_settings for metrics.
-    # prepare the execution_provider and session_options for evaluator.
     if test_params:
-        assert "provider_options" not in test_params, "provider_options should not be in test_params"
+        assert "provider_options" in test_params, "provider_options should be in test_params"
         inference_settings = test_params
-        execution_providers = inference_settings["execution_provider"]
-        session_options = inference_settings["session_options"].copy()
     else:
         inference_settings = copy.deepcopy(model.inference_settings) if model.inference_settings else {}
-        inference_settings.pop("execution_provider", None)
-        inference_settings.pop("provider_options", None)
-        execution_providers = config.providers_list
-        session_options = inference_settings.get("session_options")
+        # put the execution_provider and provider_options in inference_settings for baseline evaluation
+        execution_providers, provider_options = check_and_normalize_provider_args(
+            config.providers_list, None, ort.get_available_providers()
+        )
+        inference_settings["execution_provider"] = execution_providers
+        inference_settings["provider_options"] = provider_options
 
     # set the session_options for metrics so that the evalute will use them by default
     latency_metric.user_config.io_bind = io_bind
@@ -339,20 +340,18 @@ def get_benchmark(model, data_root, latency_metric, config, test_params=None, io
     evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
     joint_key = joint_metric_key(latency_metric.name, latency_metric.sub_types[0].name)
     start_time = time.perf_counter()
-    # the evaluator will directly use the excution_providers which might includes the provider options.
-    # The inference_settings["execution_provider"] in model itself will be ignored.
-    # Only the inference_settings["session_options"] will be used.
-    latency_ms = evaluator.evaluate(model, data_root, [latency_metric], config.device, execution_providers)[
-        joint_key
-    ].value
+    # We deliberately set the execution_providers to None so that the evaluator will use the one in inference_settings
+    latency_ms = evaluator.evaluate(model, data_root, [latency_metric], config.device, None)[joint_key].value
     end_time = time.perf_counter()
     logger.debug(f"It takes {(end_time - start_time):.5f} seconds to benchmark for: {session_name}")
 
+    session_options = inference_settings.get("session_options")
     return {
         "test_name": session_name,
         "io_bind": io_bind,
         "latency_ms": latency_ms,
-        "execution_provider": execution_providers,
+        "execution_provider": inference_settings["execution_provider"],
+        "provider_options": inference_settings["provider_options"],
         "session_options": session_options if session_options else {},
     }
 

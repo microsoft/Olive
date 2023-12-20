@@ -74,12 +74,20 @@ def test_perf_tuning_with_provider_options(mock_evaluate, caplog, return_baselin
     def mock_evaluate_method(model, data_root, metrics, device, execution_providers):
         metrics_res = {}
         latency = 0.5
-        if len(execution_providers) == 1:
+
+        assert execution_providers is None
+        ep = metrics[0].user_config.inference_settings["onnx"]["execution_provider"]
+        if len(ep) == 1:
             # for single perf tuning case
             if return_baseline:
                 latency = 0.6
             else:
-                latency = 0.4
+                if ep[0] == "CUDAExecutionProvider":
+                    latency = 0.4
+                elif ep[0] == "TensorrtExecutionProvider":
+                    latency = 0.7
+                else:
+                    latency = 0.5
 
         latency_metric = OliveEvaluator.compute_latency(metrics[0], [latency])
         metrics_res[metrics[0].name] = latency_metric
@@ -88,6 +96,12 @@ def test_perf_tuning_with_provider_options(mock_evaluate, caplog, return_baselin
     mock_evaluate.side_effect = mock_evaluate_method
     execution_providers = [
         (
+            "TensorrtExecutionProvider",
+            {
+                "trt_fp16_enable": True,
+            },
+        ),
+        [
             "CUDAExecutionProvider",
             {
                 "device_id": 0,
@@ -96,14 +110,13 @@ def test_perf_tuning_with_provider_options(mock_evaluate, caplog, return_baselin
                 "cudnn_conv_algo_search": "EXHAUSTIVE",
                 "do_copy_in_default_stream": True,
             },
-        ),
+        ],
         "CPUExecutionProvider",
     ]
     config = {
         "providers_list": execution_providers,
         "device": "gpu",
     }
-    # setup
     input_model = get_onnx_model()
     p = create_pass_from_dict(OrtPerfTuning, config, disable_search=True, accelerator_spec=DEFAULT_GPU_CUDA_ACCELERATOR)
     result = p.run(input_model, None, None)
@@ -112,33 +125,42 @@ def test_perf_tuning_with_provider_options(mock_evaluate, caplog, return_baselin
     assert "io_bind" in result.inference_settings
     if return_baseline:
         assert len(acutal_eps) == 2
-        assert "enable_cuda_graph" not in acutal_eps[0][1]
+        assert "enable_cuda_graph" not in result.inference_settings["provider_options"][0]
 
         assert acutal_eps[1] == "CPUExecutionProvider"
         assert f"Best result({PERFTUNING_BASELINE}):" in caplog.text
     else:
         assert len(acutal_eps) == 1
-        assert acutal_eps[0][0] in ("CUDAExecutionProvider", "CPUExecutionProvider")
-        if acutal_eps[0][0] == "CUDAExecutionProvider":
-            assert "enable_cuda_graph" in acutal_eps[0][1]
+        assert acutal_eps[0] == "CUDAExecutionProvider"
+        assert "enable_cuda_graph" in result.inference_settings["provider_options"][0]
+        assert "arena_extend_strategy" in result.inference_settings["provider_options"][0]
 
 
 @pytest.mark.parametrize("force_evaluate", [True, False])
 @patch.object(OnnxEvaluator, "evaluate")
-def test_perf_tuning_with_force_evaluate(mock_evaluate, caplog, force_evaluate):
+@patch("onnxruntime.get_available_providers")
+def test_perf_tuning_with_force_evaluate(mock_get_available_providers, mock_evaluate, caplog, force_evaluate):
     logger = logging.getLogger("olive")
     logger.propagate = True
+
+    mock_get_available_providers.return_value = [
+        "TensorrtExecutionProvider",
+        "CUDAExecutionProvider",
+        "CPUExecutionProvider",
+    ]
 
     def mock_evaluate_method(model, data_root, metrics, device, execution_providers):
         metrics_res = {}
         latency = 0.5
-        if len(execution_providers) == 1:
-            if execution_providers[0] == "CPUExecutionProvider":
+        assert execution_providers is None
+        ep = metrics[0].user_config.inference_settings["onnx"]["execution_provider"]
+        if len(ep) == 1:
+            if ep[0] == "CPUExecutionProvider":
                 latency = 0.5
-            elif execution_providers[0] == "CUDAExecutionProvider":
+            elif ep[0] == "CUDAExecutionProvider":
                 latency = 0.1
         else:
-            assert len(execution_providers) == 2
+            assert len(ep) == 2
             latency = 0.6
 
         latency_metric = OliveEvaluator.compute_latency(metrics[0], [latency])
@@ -162,12 +184,12 @@ def test_perf_tuning_with_force_evaluate(mock_evaluate, caplog, force_evaluate):
     if force_evaluate:
         assert "execution_provider" in result.inference_settings
         acutal_eps = result.inference_settings["execution_provider"]
-        assert len(acutal_eps) == 1 and acutal_eps[0][0] == "CUDAExecutionProvider"
+        assert len(acutal_eps) == 1 and acutal_eps[0] == "CUDAExecutionProvider"
         assert "Best result(('cuda', " in caplog.text
     else:
         assert "execution_provider" in result.inference_settings
         acutal_eps = result.inference_settings["execution_provider"]
-        assert len(acutal_eps) == 1 and acutal_eps[0][0] == "CPUExecutionProvider"
+        assert len(acutal_eps) == 1 and acutal_eps[0] == "CPUExecutionProvider"
         assert "Best result(cpu" in caplog.text
         assert (
             "Ignore perf tuning for EP CUDAExecutionProvider since current pass EP is CPUExecutionProvider"
@@ -213,7 +235,8 @@ def test_ort_perf_tuning_pass_with_import_error(mock_threads_num_binary_search, 
 
 def test_generate_test_name():
     test_params = {
-        "execution_provider": [("CPUExecutionProvider", {})],
+        "execution_provider": ["CPUExecutionProvider"],
+        "provider_options": [{}],
         "session_options": {
             "execution_mode": 1,
             "extra_session_config": None,
@@ -230,7 +253,8 @@ def test_generate_test_name():
     )
 
     test_params = {
-        "execution_provider": [("TensorrtExecutionProvider", {"trt_fp16_enable": True})],
+        "execution_provider": ["TensorrtExecutionProvider"],
+        "provider_options": [{"trt_fp16_enable": True}],
         "session_options": {
             "execution_mode": 1,
             "extra_session_config": {
