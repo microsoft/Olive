@@ -57,15 +57,23 @@ def valid_config(tuning_combos, config):
     # So ORT will make the execution mode sequential when it uses the CUDA Execution Provider.
 
     # if the first combo is CPUExecutionProvider, then the io_bind should not be True
-    if tuning_combos[0] == "CPUExecutionProvider" and tuning_combos[3]:
+    providers, _ = tuning_combos[0]
+    provider = providers[0]
+    if provider == "CPUExecutionProvider" and tuning_combos[3]:
         logger.info("[Ignored] Because EP is CPUExecutionProvider, the io_bind should not be True")
         return False
-    if tuning_combos[0] != "CUDAExecutionProvider" and config.enable_cuda_graph:
+    if provider != "CUDAExecutionProvider" and config.enable_cuda_graph:
         logger.info("[Ignored] Because EP is not CUDAExecutionProvider, the enable_cuda_graph is ignored")
         return True
-    if tuning_combos[0] != "TensorrtExecutionProvider" and config.trt_fp16_enable:
+    if provider != "TensorrtExecutionProvider" and config.trt_fp16_enable:
         logger.info("[Ignored] Because EP is not TensorrtExecutionProvider, the trt_fp16_enable is ignored")
         return True
+    if provider == "CUDAExecutionProvider" and config.enable_cuda_graph and tuning_combos[1] == 1:
+        logger.warning(
+            "[Ignored] Because EP is CUDAExecutionProvider, the execution_mode should not be 1 "
+            "in case of enable_cuda_graph is True"
+        )
+        return False
     return True
 
 
@@ -94,22 +102,23 @@ def tune_onnx_model(perf_tuning_pass_ep, model, data_root, config):
     pretuning_inference_result = get_benchmark(model, data_root, latency_metric, config)
 
     tuning_results = []
-    for tuning_combo in generate_tuning_combos(config):
-        tuning_ep = tuning_combo[0]
-        if isinstance(tuning_ep, (tuple, list)):
-            tuning_ep = tuning_ep[0]
-        else:
-            assert isinstance(tuning_ep, str)
+    #
+    for provider, execution_mode, opt_level, io_bind in generate_tuning_combos(config):
+        provider, options = populate_provider_options(provider, config)  # noqa: PLW2901
+        if provider == "CUDAExecutionProvider" and config.enable_cuda_graph:
+            io_bind = True  # noqa: PLW2901
+
+        tuning_combo = (([provider], [options]), execution_mode, opt_level, io_bind)
 
         # TODO(myguo): we need disable the following check when we enable cache in perf tuning.
-        if tuning_ep != perf_tuning_pass_ep and not config.force_evaluate_other_eps:
-            logger.warning("Ignore perf tuning for EP %s since current pass EP is %s", tuning_ep, perf_tuning_pass_ep)
+        if provider != perf_tuning_pass_ep and not config.force_evaluate_other_eps:
+            logger.warning("Ignore perf tuning for EP %s since current pass EP is %s", provider, perf_tuning_pass_ep)
             continue
         tuning_item = ["provider", "execution_mode", "ort_opt_level", "io_bind"]
-        logger.info("Run tuning for: %s", list(zip(tuning_item, tuning_combo)))
         if not valid_config(tuning_combo, config):
             continue
-        tuning_results.extend(threads_num_tuning(model, data_root, latency_metric, config, tuning_combo))
+        logger.info("Run tuning for: %s", list(zip(tuning_item, tuning_combo)))
+        tuning_results.extend(threads_num_tuning(model, data_root, latency_metric, config, *tuning_combo))
 
     for tuning_result in tuning_results:
         logger.debug("Tuning result: %s", tuning_result["latency_ms"])
@@ -150,20 +159,13 @@ def populate_provider_options(execution_provider, config):
     return provider, provider_options
 
 
-def threads_num_tuning(model, data_root, latency_metric, config, tuning_combo):
+def threads_num_tuning(model, data_root, latency_metric, config, providers, execution_mode, ort_opt_level, io_bind):
     tuning_results = []
-    provider = tuning_combo[0]
-    execution_mode = tuning_combo[1]
-    ort_opt_level = tuning_combo[2]
-    io_bind = tuning_combo[3]
-
-    provider, options = populate_provider_options(provider, config)
-    if provider == "CUDAExecutionProvider" and config.enable_cuda_graph:
-        io_bind = True
+    provider, options = providers
 
     test_params = {
-        "execution_provider": [provider],
-        "provider_options": [options],
+        "execution_provider": provider,
+        "provider_options": options,
         "session_options": {
             "execution_mode": execution_mode,
             "graph_optimization_level": ort_opt_level,
@@ -187,7 +189,11 @@ def threads_num_tuning(model, data_root, latency_metric, config, tuning_combo):
     except EXCEPTIONS_TO_RAISE:
         raise
     except Exception:
-        logger.error("Optimization failed for tuning combo %s", tuning_combo, exc_info=True)
+        logger.error(
+            "Optimization failed for tuning combo %s",
+            (providers, execution_mode, ort_opt_level, io_bind),
+            exc_info=True,
+        )
 
     return tuning_results
 

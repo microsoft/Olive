@@ -122,6 +122,7 @@ def test_perf_tuning_with_provider_options(mock_get_available_providers, mock_ev
     config = {
         "providers_list": execution_providers,
         "device": "gpu",
+        "enable_cuda_graph": True,
     }
     input_model = get_onnx_model()
     p = create_pass_from_dict(OrtPerfTuning, config, disable_search=True, accelerator_spec=DEFAULT_GPU_CUDA_ACCELERATOR)
