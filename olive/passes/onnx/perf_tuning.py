@@ -158,7 +158,7 @@ def threads_num_tuning(model, data_root, latency_metric, config, tuning_combo):
     io_bind = tuning_combo[3]
 
     provider, options = populate_provider_options(provider, config)
-    if provider == "CPUExecutionProvider" and config.enable_cuda_graph:
+    if provider == "CUDAExecutionProvider" and config.enable_cuda_graph:
         io_bind = True
 
     test_params = {
