@@ -99,7 +99,7 @@ def main(raw_args=None):
 
     # multi-lingual support check
     if not version_1_16:
-        if args.multilingual and not version_1_16:
+        if args.multilingual:
             raise ValueError("Multi-lingual support is only supported in ORT >= 1.16.0")
         if args.enable_timestamps:
             raise ValueError("Enabling timestamps is only supported in ORT >= 1.16.0")
