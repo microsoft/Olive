@@ -44,7 +44,7 @@ from olive.model import (
     SNPEModelHandler,
 )
 from olive.model.config.io_config import is_io_config_static
-from olive.model.utils.onnx_utils import CudaGraphHelper, prepare_io_bindings
+from olive.model.utils.onnx_utils import bind_input_data, bind_output_data, prepare_io_bindings
 from olive.snpe.data_loader import SNPECommonDataLoader, SNPEDataLoader
 
 logger = logging.getLogger(__name__)
@@ -440,19 +440,19 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         io_bind = self.io_bind_enabled(metric, model.inference_settings)
         device = "cuda" if device == "gpu" else "cpu"
         if io_bind and device == "cuda":
-            input_and_output_shape = dict(zip(io_config["input_names"], io_config["input_shapes"]))
-            cuda_graph_helper = CudaGraphHelper(session, input_and_output_shape, device)
-            io_binding = cuda_graph_helper.io_binding
+            io_binding = session.io_binding()
 
         is_single_tensor_output = len(output_names) == 1
         for input_data, labels in dataloader:
             input_dict = OnnxEvaluator.format_input(input_data, io_config)
             if io_bind and device == "cuda":
-                cuda_graph_helper.update_inputs(input_dict)
+                use_fp16 = any(v.dtype == np.float16 for v in input_data.values())
+                bind_input_data(io_binding, input_dict, use_fp16, device)
+                bind_output_data(io_binding, session.get_outputs(), use_fp16, device)
                 io_binding.synchronize_inputs()
                 session.run_with_iobinding(io_binding)
                 io_binding.synchronize_outputs()
-                res = [cuda_graph_helper.get_output(output_name) for output_name in output_names]
+                res = [i.numpy() for i in io_binding.get_outputs()]
             else:
                 res = session.run(input_feed=input_dict, output_names=None)
             if is_single_tensor_output:

@@ -6,7 +6,7 @@ import collections
 import collections.abc
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -254,56 +254,3 @@ def prepare_io_bindings(
     bind_input_data(io_bind_op, input_data, use_fp16, device, device_id, shared_kv_buffer, kv_cache_ortvalues)
     bind_output_data(io_bind_op, session.get_outputs(), use_fp16, device, shared_kv_buffer, kv_cache_ortvalues)
     return io_bind_op
-
-
-class CudaGraphHelper:
-    def __init__(
-        self,
-        ort_session,
-        input_and_output_shape: Dict[str, List[int]],
-        device,
-        device_id: int = 0,
-    ):
-        from onnxruntime import OrtValue
-
-        self.input_names = [i.name for i in ort_session.get_inputs()]
-        self.output_names = [o.name for o in ort_session.get_outputs()]
-
-        self.input_and_output_shape = input_and_output_shape
-        self.io_numpy_type = self.get_io_numpy_type_map(ort_session)
-        self.io_binding = ort_session.io_binding()
-        self.io_ort_value = {}
-
-        for name in self.input_names + self.output_names:
-            ort_value = OrtValue.ortvalue_from_shape_and_type(
-                input_and_output_shape[name], self.io_numpy_type[name], device, device_id
-            )
-            self.io_ort_value[name] = ort_value
-            if name in self.input_names:
-                self.io_binding.bind_ortvalue_input(name, ort_value)
-            else:
-                self.io_binding.bind_ortvalue_output(name, ort_value)
-
-    def get_io_numpy_type_map(self, ort_session):
-        ort_type_to_numpy_type = {
-            "tensor(int64)": np.longlong,
-            "tensor(int32)": np.intc,
-            "tensor(float)": np.float32,
-            "tensor(float16)": np.float16,
-        }
-
-        name_to_numpy_type = {}
-        for _input in ort_session.get_inputs():
-            name_to_numpy_type[_input.name] = ort_type_to_numpy_type[_input.type]
-
-        for output in ort_session.get_outputs():
-            name_to_numpy_type[output.name] = ort_type_to_numpy_type[output.type]
-
-        return name_to_numpy_type
-
-    def update_inputs(self, inputs: Dict[str, np.ndarray]):
-        for input_name in self.input_names:
-            self.io_ort_value[input_name].update_inplace(inputs[input_name])
-
-    def get_output(self, output_name: str):
-        return self.io_ort_value[output_name].numpy()
