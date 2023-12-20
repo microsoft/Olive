@@ -215,6 +215,7 @@ def run_inference(
     static_dims,
     device_id,
     interactive,
+    is_fp16,
     base_images=None,
 ):
     ort.set_default_logger_severity(3)
@@ -258,6 +259,9 @@ def run_inference(
         pipeline = ORTStableDiffusionXLImg2ImgPipeline.from_pretrained(
             model_dir, provider=provider_map[provider], provider_options=provider_options, session_options=sess_options
         )
+    if is_fp16:
+        # the pipeline default watermarker doesn't work with fp16 images
+        pipeline.watermark = None
 
     if interactive:
         run_inference_gui(
@@ -283,7 +287,7 @@ def run_inference(
         )
 
 
-def update_config_with_provider(config: Dict, provider: str):
+def update_config_with_provider(config: Dict, provider: str, is_fp16: bool) -> Dict:
     if provider == "dml":
         # DirectML EP is the default, so no need to update config.
         return config
@@ -291,6 +295,9 @@ def update_config_with_provider(config: Dict, provider: str):
         if version.parse(OrtVersion) < version.parse("1.17.0"):
             # disable skip_group_norm fusion since there is a shape inference bug which leads to invalid models
             config["passes"]["optimize_cuda"]["config"]["optimization_options"] = {"enable_skip_group_norm": False}
+        # keep model fully in fp16 if use_fp16_fixed_vae is set
+        if is_fp16:
+            config["passes"]["optimize_cuda"]["config"].update({"float16": True, "keep_io_types": False})
         config["pass_flows"] = [["convert", "optimize_cuda"]]
         config["engine"]["execution_providers"] = ["CUDAExecutionProvider"]
         return config
@@ -302,6 +309,7 @@ def optimize(
     model_id: str,
     is_refiner_model: bool,
     provider: str,
+    use_fp16_fixed_vae: bool,
     unoptimized_model_dir: Path,
     optimized_model_dir: Path,
 ):
@@ -342,13 +350,19 @@ def optimize(
         olive_config = None
         with (script_dir / f"config_{submodel_name}.json").open() as fin:
             olive_config = json.load(fin)
-        olive_config = update_config_with_provider(olive_config, provider)
+        olive_config = update_config_with_provider(olive_config, provider, use_fp16_fixed_vae)
 
-        # TODO(PatriceVignola): Remove this once we figure out which nodes are causing the black screen
-        if is_refiner_model and submodel_name == "vae_encoder":
+        if is_refiner_model and submodel_name == "vae_encoder" and not use_fp16_fixed_vae:
+            # TODO(PatriceVignola): Remove this once we figure out which nodes are causing the black screen
             olive_config["passes"]["optimize"]["config"]["float16"] = False
+            olive_config["passes"]["optimize_cuda"]["config"]["float16"] = False
 
-        olive_config["input_model"]["config"]["model_path"] = model_id
+        # Use fp16 fixed vae if use_fp16_fixed_vae is set
+        if use_fp16_fixed_vae and "vae" in submodel_name:
+            olive_config["input_model"]["config"]["model_path"] = "madebyollin/sdxl-vae-fp16-fix"
+        else:
+            olive_config["input_model"]["config"]["model_path"] = model_id
+
         olive_run(olive_config)
 
         footprints_file_path = (
@@ -462,6 +476,15 @@ def main(raw_args=None):
     parser.add_argument(
         "--provider", default="dml", type=str, choices=["dml", "cuda"], help="Execution provider to use"
     )
+    parser.add_argument(
+        "--use_fp16_fixed_vae",
+        action="store_true",
+        help=(
+            "Use madebyollin/sdxl-vae-fp16-fix as VAE. All models will be in fp16 if this flag is set. Otherwise, vae"
+            " will be in fp32 while other sub models will be fp16 with fp32 input/outputs. Only supported for cuda"
+            " provider."
+        ),
+    )
     parser.add_argument("--base_images", default=None, nargs="+")
     parser.add_argument("--interactive", action="store_true", help="Run with a GUI")
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
@@ -519,6 +542,10 @@ def main(raw_args=None):
             "expected."
         )
 
+    if args.use_fp16_fixed_vae and args.provider != "cuda":
+        print("WARNING: --use_fp16_fixed_vae is only supported for cuda provider currently.")
+        sys.exit(1)
+
     if args.provider == "dml" and version.parse(OrtVersion) < version.parse("1.16.2"):
         print("This script requires onnxruntime-directml 1.16.2 or newer")
         sys.exit(1)
@@ -571,7 +598,14 @@ def main(raw_args=None):
         # TODO(PatriceVignola): clean up warning filter (mostly during conversion from torch to ONNX)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            optimize(args.model_id, is_refiner_model, args.provider, unoptimized_model_dir, optimized_model_dir)
+            optimize(
+                args.model_id,
+                is_refiner_model,
+                args.provider,
+                args.use_fp16_fixed_vae,
+                unoptimized_model_dir,
+                optimized_model_dir,
+            )
 
     # Run inference on the models
     if not args.optimize:
@@ -592,6 +626,7 @@ def main(raw_args=None):
                 use_static_dims,
                 args.device_id,
                 args.interactive,
+                args.use_fp16_fixed_vae,
                 args.base_images,
             )
 
