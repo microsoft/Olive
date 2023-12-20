@@ -44,7 +44,7 @@ from olive.model import (
     SNPEModelHandler,
 )
 from olive.model.config.io_config import is_io_config_static
-from olive.model.utils.onnx_utils import bind_input_data, bind_output_data, prepare_io_bindings
+from olive.model.utils.onnx_utils import CudaGraphHelper, prepare_io_bindings
 from olive.snpe.data_loader import SNPECommonDataLoader, SNPEDataLoader
 
 logger = logging.getLogger(__name__)
@@ -438,35 +438,21 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         logits_dict = collections.defaultdict(list)
         output_names = io_config["output_names"]
         io_bind = self.io_bind_enabled(metric, model.inference_settings)
-        if io_bind:
-            io_bind_op = session.io_binding()
-            kv_cache_ortvalues = {} if metric.user_config.shared_kv_buffer else None
+        device = "cuda" if device == "gpu" else "cpu"
+        if io_bind and device == "cuda":
+            input_and_output_shape = dict(zip(io_config["input_names"], io_config["input_shapes"]))
+            cuda_graph_helper = CudaGraphHelper(session, input_and_output_shape, device)
+            io_binding = cuda_graph_helper.io_binding
 
         is_single_tensor_output = len(output_names) == 1
         for input_data, labels in dataloader:
             input_dict = OnnxEvaluator.format_input(input_data, io_config)
-            if io_bind:
-                use_fp16 = any(v.dtype == np.float16 for v in input_data.values())
-                bind_input_data(
-                    io_bind_op,
-                    input_dict,
-                    use_fp16,
-                    device,
-                    shared_kv_buffer=metric.user_config.shared_kv_buffer,
-                    kv_cache_ortvalues=kv_cache_ortvalues,
-                )
-                bind_output_data(
-                    io_bind_op,
-                    session.get_outputs(),
-                    use_fp16,
-                    device,
-                    shared_kv_buffer=metric.user_config.shared_kv_buffer,
-                    kv_cache_ortvalues=kv_cache_ortvalues,
-                )
-                io_bind_op.synchronize_inputs()
-                session.run_with_iobinding(io_bind_op)
-                io_bind_op.synchronize_outputs()
-                res = io_bind_op.copy_outputs_to_cpu()
+            if io_bind and device == "cuda":
+                cuda_graph_helper.update_inputs(input_dict)
+                io_binding.synchronize_inputs()
+                session.run_with_iobinding(io_binding)
+                io_binding.synchronize_outputs()
+                res = [cuda_graph_helper.get_output(output_name) for output_name in output_names]
             else:
                 res = session.run(input_feed=input_dict, output_names=None)
             if is_single_tensor_output:
