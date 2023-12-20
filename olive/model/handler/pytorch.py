@@ -5,6 +5,7 @@
 import logging
 import os
 import tempfile
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Dict, List, Optional, Tuple, Union
 
@@ -16,7 +17,7 @@ from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import copy_dir
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
-from olive.model.config import HfConfig, IoConfig
+from olive.model.config import HfComponent, HfConfig, IoConfig
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
 from olive.model.handler.mixin import DummyInputsMixin, HfConfigMixin
@@ -152,6 +153,31 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
 
         return model
 
+    def get_component_model(self, component: HfComponent, rank: Optional[int] = None) -> "PyTorchModelHandler":
+        if component.component_func is None:
+            logger.debug("component_func is not provided, using hf_config to get component")
+            model_component = self.load_hf_model(self.model_path)
+        else:
+            user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
+            model_component = user_module_loader.call_object(component.component_func, self)
+
+        # the second default parameter is to fix ruff b023:
+        # https://docs.astral.sh/ruff/rules/function-uses-loop-variable/
+        def model_loader(_, model_component=model_component):
+            return model_component
+
+        component_hf_config = deepcopy(self.hf_config).dict()
+        component_hf_config.pop("components", None)
+        return PyTorchModelHandler(
+            model_loader=model_loader,
+            io_config=component.io_config,
+            dummy_inputs_func=component.dummy_inputs_func,
+            model_script=self.model_script,
+            script_dir=self.script_dir,
+            hf_config=HfConfig.parse_obj(component_hf_config),
+            model_attributes=self.model_attributes,
+        )
+
     def prepare_session(
         self,
         inference_settings: Optional[Dict[str, Any]] = None,
@@ -251,7 +277,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
 
 
 @model_handler_registry("DistributedPyTorchModel")
-class DistributedPyTorchModelHandler(OliveModelHandler):
+class DistributedPyTorchModelHandler(OliveModelHandler, HfConfigMixin):
     resource_keys: Tuple[str, ...] = ("model_path", "script_dir", "model_script", "adapter_path")
     json_config_keys: Tuple[str, ...] = (
         "model_name_pattern",
@@ -295,7 +321,7 @@ class DistributedPyTorchModelHandler(OliveModelHandler):
             validate_config(io_config, IoConfig).dict() if isinstance(io_config, (IoConfig, dict)) else io_config
         )
         self.dummy_inputs_func = dummy_inputs_func
-        self.hf_config = hf_config
+        self.hf_config = validate_config(hf_config, HfConfig) if hf_config else None
 
     @property
     def script_dir(self) -> str:
@@ -325,6 +351,22 @@ class DistributedPyTorchModelHandler(OliveModelHandler):
             io_config=self.io_config,
             dummy_inputs_func=self.dummy_inputs_func,
             hf_config=self.hf_config,
+            adapter_path=self.adapter_path,
+            model_attributes=self.model_attributes,
+        )
+
+    def get_component_model(self, component: HfComponent, rank: int = 0) -> PyTorchModelHandler:
+        # TODO(shaahji): Add support for 'HfComponent.component_func'
+        hf_config = deepcopy(self.hf_config).dict()
+        hf_config.pop("components", None)
+        return PyTorchModelHandler(
+            model_path=self.ranked_model_path(rank),
+            model_file_format=ModelFileFormat.PYTORCH_ENTIRE_MODEL,
+            model_script=self.model_script,
+            script_dir=self.script_dir,
+            io_config=component.io_config,
+            dummy_inputs_func=component.dummy_inputs_func,
+            hf_config=HfConfig.parse_obj(hf_config),
             adapter_path=self.adapter_path,
             model_attributes=self.model_attributes,
         )
