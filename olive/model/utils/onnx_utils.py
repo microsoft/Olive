@@ -8,6 +8,8 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
+import numpy as np
+
 from olive.exception import OliveEvaluationError
 
 logger = logging.getLogger(__name__)
@@ -179,3 +181,76 @@ def check_ort_fallback(session, execution_providers):
                     f" session._enable_fallback = {session._enable_fallback}"
                 )
         session.disable_fallback()
+
+
+def bind_input_data(
+    io_bind_op,
+    input_data,
+    use_fp16,
+    device,
+    device_id: int = 0,
+    shared_kv_buffer: bool = False,
+    kv_cache_ortvalues: dict = None,
+):
+    from onnxruntime import OrtValue
+
+    io_bind_device = "cuda" if device == "gpu" else "cpu"
+
+    for k, v in input_data.items():
+        # "cache": from microsoft llama model" https://github.com/microsoft/Llama-2-Onnx#before-you-start
+        # "past_key_values": from huggingface llama2 https://huggingface.co/meta-llama/Llama-2-13b-hf
+        if shared_kv_buffer and use_fp16 and ("cache" in k or "past_key_values" in k):
+            if k not in kv_cache_ortvalues:
+                kv_cache_ortvalues[k] = OrtValue.ortvalue_from_numpy(v, io_bind_device, device_id)
+            else:
+                kv_cache_ortvalues[k].update_inplace(v)
+            ort_v = kv_cache_ortvalues[k]
+        else:
+            ort_v = OrtValue.ortvalue_from_numpy(v, io_bind_device, device_id)
+        io_bind_op.bind_ortvalue_input(k, ort_v)
+
+
+def bind_output_data(
+    io_bind_op,
+    output_data,
+    use_fp16,
+    device,
+    shared_kv_buffer: bool = False,
+    kv_cache_ortvalues: dict = None,
+):
+    io_bind_device = "cuda" if device == "gpu" else "cpu"
+
+    for item in output_data:
+        name = item.name
+        # "out": from microsoft llama model" https://github.com/microsoft/Llama-2-Onnx#before-you-start
+        # "present": from huggingface llama2 https://huggingface.co/meta-llama/Llama-2-13b-hf
+        if shared_kv_buffer and use_fp16 and ("out" in name or "present" in name):
+            # Bind present KV cache outputs to past KV cache inputs in order to use shared buffer
+            output_name = name.replace("out", "cache").replace("present", "past_key_values")
+            io_bind_op.bind_ortvalue_output(name, kv_cache_ortvalues[output_name])
+        else:
+            io_bind_op.bind_output(name, io_bind_device)
+
+
+def prepare_io_bindings(
+    session, input_data, device, device_id: int = 0, shared_kv_buffer: bool = False, kv_cache_ortvalues: dict = None
+):
+    """Convert input from numpy array to OrtValue.
+
+    session: ONNXRuntime session
+    input_data: dict of input data, value is numpy array
+    device: olive device
+    device_id: 0 by default. TODO(trajep): support user to specified device id
+    shared_kv_buffer: whether to share the key/value buffer across multiple runs, it is False by default,
+        and only used when we observe kv cache and fp16 is used.
+        TODO(trajep): how shared_kv_buffer works with generation task
+    """
+    use_fp16 = any(v.dtype == np.float16 for v in input_data.values())
+    io_bind_op = session.io_binding()
+
+    if shared_kv_buffer:
+        kv_cache_ortvalues = kv_cache_ortvalues or {}
+
+    bind_input_data(io_bind_op, input_data, use_fp16, device, device_id, shared_kv_buffer, kv_cache_ortvalues)
+    bind_output_data(io_bind_op, session.get_outputs(), use_fp16, device, shared_kv_buffer, kv_cache_ortvalues)
+    return io_bind_op

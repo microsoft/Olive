@@ -41,12 +41,7 @@ def generate_tuning_combos(config):
     )
     opt_level_list = config.opt_level_list if config.opt_level_list else [99]
 
-    if config.io_bind:
-        io_bind_list = [True, False]
-    else:
-        io_bind_list = [False]
-
-    tuning_combos = itertools.product(providers_list, execution_mode_list, opt_level_list, io_bind_list)
+    tuning_combos = itertools.product(providers_list, execution_mode_list, opt_level_list)
     yield from tuning_combos
 
 
@@ -102,10 +97,14 @@ def tune_onnx_model(perf_tuning_pass_ep, model, data_root, config):
     pretuning_inference_result = get_benchmark(model, data_root, latency_metric, config)
 
     tuning_results = []
-    for provider, execution_mode, opt_level, io_bind in generate_tuning_combos(config):
+    for provider, execution_mode, opt_level in generate_tuning_combos(config):
         provider, options = populate_provider_options(provider, config)  # noqa: PLW2901
-        if provider == "CUDAExecutionProvider" and config.enable_cuda_graph:
-            io_bind = True  # noqa: PLW2901
+        if provider == "CUDAExecutionProvider":
+            io_bind = True
+        elif provider == "CPUExecutionProvider":
+            io_bind = False
+        else:
+            io_bind = False
 
         tuning_combo = (([provider], [options]), execution_mode, opt_level, io_bind)
 
@@ -419,11 +418,6 @@ class OrtPerfTuning(Pass):
             ),
             "cpu_cores": PassConfigParam(
                 type_=int, default_value=None, description="CPU cores used for thread tuning."
-            ),
-            "io_bind": PassConfigParam(
-                type_=bool,
-                default_value=False,
-                description="Whether enable IOBinding Search for ONNX Runtime inference.",
             ),
             "enable_cuda_graph": PassConfigParam(
                 type_=bool,

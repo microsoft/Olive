@@ -44,6 +44,7 @@ from olive.model import (
     SNPEModelHandler,
 )
 from olive.model.config.io_config import is_io_config_static
+from olive.model.utils.onnx_utils import bind_input_data, bind_output_data, prepare_io_bindings
 from olive.snpe.data_loader import SNPECommonDataLoader, SNPEDataLoader
 
 logger = logging.getLogger(__name__)
@@ -69,15 +70,27 @@ class OliveEvaluator(ABC):
     def __init__(self):
         pass
 
-    def get_inference_settings(self, metric: Metric) -> Dict[str, Any]:
+    @classmethod
+    def get_inference_settings(cls, metric: Metric) -> Dict[str, Any]:
         # user.config.inference_settings > model.inference_settings > default inference_settings
         # when user.config.inference_settings is None, the model.inference_settings
         # will be used in model.prepare_session(..)
         return (
-            metric.user_config.inference_settings.get(self.framework.lower())
+            metric.user_config.inference_settings.get(cls.framework.lower())
             if metric.user_config.inference_settings
             else None
         )
+
+    @classmethod
+    def io_bind_enabled(cls, metric: Metric) -> bool:
+        if metric.user_config.io_bind:
+            return True
+
+        inference_settings = cls.get_inference_settings(metric)
+        if inference_settings and inference_settings.get("io_bind"):
+            return True
+
+        return False
 
     @abstractmethod
     def _inference(
@@ -403,55 +416,6 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             if k in input_names
         }
 
-    @staticmethod
-    def prepare_io_bindings(
-        session, input_data, device, device_id: int = 0, shared_kv_buffer: bool = False, kv_cache_ortvalues: dict = None
-    ):
-        """Convert input from numpy array to OrtValue.
-
-        session: ONNXRuntime session
-        input_data: dict of input data, value is numpy array
-        device: olive device
-        device_id: 0 by default. TODO(trajep): support user to specified device id
-        shared_kv_buffer: whether to share the key/value buffer across multiple runs, it is False by default,
-            and only used when we observe kv cache and fp16 is used.
-            TODO(trajep): how shared_kv_buffer works with generation task
-        """
-        from onnxruntime import OrtValue
-
-        use_fp16 = any(v.dtype == np.float16 for v in input_data.values())
-        io_bind_op = session.io_binding()
-        io_bind_device = "cuda" if device == "gpu" else "cpu"
-
-        if shared_kv_buffer:
-            kv_cache_ortvalues = kv_cache_ortvalues or {}
-
-        for k, v in input_data.items():
-            # "cache": from microsoft llama model" https://github.com/microsoft/Llama-2-Onnx#before-you-start
-            # "past_key_values": from huggingface llama2 https://huggingface.co/meta-llama/Llama-2-13b-hf
-            if shared_kv_buffer and use_fp16 and ("cache" in k or "past_key_values" in k):
-                if k not in kv_cache_ortvalues:
-                    kv_cache_ortvalues[k] = OrtValue.ortvalue_from_numpy(v, io_bind_device, device_id)
-                else:
-                    kv_cache_ortvalues[k].update_inplace(v)
-                ort_v = kv_cache_ortvalues[k]
-            else:
-                ort_v = OrtValue.ortvalue_from_numpy(v, io_bind_device, device_id)
-            io_bind_op.bind_ortvalue_input(k, ort_v)
-
-        for item in session.get_outputs():
-            name = item.name
-            # "out": from microsoft llama model" https://github.com/microsoft/Llama-2-Onnx#before-you-start
-            # "present": from huggingface llama2 https://huggingface.co/meta-llama/Llama-2-13b-hf
-            if shared_kv_buffer and use_fp16 and ("out" in name or "present" in name):
-                # Bind present KV cache outputs to past KV cache inputs in order to use shared buffer
-                input_name = name.replace("out", "cache").replace("present", "past_key_values")
-                io_bind_op.bind_ortvalue_output(name, kv_cache_ortvalues[input_name])
-            else:
-                io_bind_op.bind_output(name, io_bind_device)
-
-        return io_bind_op
-
     def _inference(
         self,
         model: ONNXModelHandler,
@@ -474,10 +438,33 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         logits = []
         logits_dict = collections.defaultdict(list)
         output_names = io_config["output_names"]
+        io_bind = self.io_bind_enabled(metric)
+        if io_bind:
+            io_bind_op = session.io_binding()
+            kv_cache_ortvalues = {} if metric.user_config.shared_kv_buffer else None
+
         is_single_tensor_output = len(output_names) == 1
         for input_data, labels in dataloader:
             input_dict = OnnxEvaluator.format_input(input_data, io_config)
-            res = session.run(input_feed=input_dict, output_names=None)
+            if io_bind:
+                use_fp16 = any(v.dtype == np.float16 for v in input_data.values())
+                bind_input_data(
+                    io_bind_op,
+                    input_dict,
+                    use_fp16,
+                    device,
+                    shared_kv_buffer=metric.user_config.shared_kv_buffer,
+                    kv_cache_ortvalues=kv_cache_ortvalues,
+                )
+                bind_output_data(
+                    io_bind_op, use_fp16, session.get_outputs(), device, kv_cache_ortvalues=kv_cache_ortvalues
+                )
+                io_bind_op.synchronize_inputs()
+                session.run_with_iobinding(io_bind_op)
+                io_bind_op.synchronize_outputs()
+                res = io_bind_op.copy_outputs_to_cpu()
+            else:
+                res = session.run(input_feed=input_dict, output_names=None)
             if is_single_tensor_output:
                 result = torch.Tensor(res[0])
             else:
@@ -535,8 +522,9 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         # no deepcopy for kv_cache_ortvalues, will update the value inplace and keep it shared across runs
         kv_cache_ortvalues = {} if metric.user_config.shared_kv_buffer else None
 
-        if metric.user_config.io_bind:
-            io_bind_op = OnnxEvaluator.prepare_io_bindings(
+        io_bind = self.io_bind_enabled(metric)
+        if io_bind:
+            io_bind_op = prepare_io_bindings(
                 session,
                 input_dict,
                 device,
@@ -545,7 +533,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             )
 
         for _ in range(warmup_num):
-            if metric.user_config.io_bind:
+            if io_bind:
                 io_bind_op.synchronize_inputs()
                 session.run_with_iobinding(io_bind_op)
                 io_bind_op.synchronize_outputs()
@@ -554,7 +542,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
         latencies = []
         for _ in range(repeat_test_num):
-            if metric.user_config.io_bind:
+            if io_bind:
                 io_bind_op.synchronize_inputs()
                 # count the time after data are all in gpu after data copy
                 t = time.perf_counter()
@@ -689,8 +677,9 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         input_feed = OnnxEvaluator.format_input(input_feed, io_config)
         kv_cache_ortvalues = {} if metric.user_config.shared_kv_buffer else None
 
-        if metric.user_config.io_bind:
-            io_bind_op = OnnxEvaluator.prepare_io_bindings(
+        io_bind = OnnxEvaluator.io_bind_enabled(metric)
+        if io_bind:
+            io_bind_op = prepare_io_bindings(
                 session,
                 input_feed,
                 Device.GPU,
@@ -701,7 +690,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         for i in range(warmup_num + repeat_test_num):
             MPI.COMM_WORLD.barrier()  # Synchronize before starting each run
             start_time = time.perf_counter()
-            if metric.user_config.io_bind:
+            if io_bind:
                 session.run_with_iobinding(io_bind_op)
             else:
                 session.run(input_feed=input_feed, output_names=None)
