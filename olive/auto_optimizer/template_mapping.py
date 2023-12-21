@@ -40,8 +40,7 @@ def get_pass_flows_by_accelerator_ep_precision(opt_level, accelerator, ep, preci
     # [a, b, d], [a, b, e], [a, b, f], [a, c, d], [a, c, e], [a, c, f]
     # as we need to step over some intermediate passes, we cannot use len(pass_flow_candidate) to
     # indicate the current pass level, instead, we use the length of available_passes_tree to indicate
-
-    # item in pass tack is (pass, depth, pass_flow_candidate)
+    # item in pass stack is (pass, depth, pass_flow_candidate)
     pass_deque = deque([(-1, [])])
     while pass_deque:
         depth, pf_candidate = pass_deque.popleft()
