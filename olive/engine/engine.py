@@ -47,7 +47,7 @@ class Engine:
         search_strategy: Optional[SearchStrategy] = None,
         host: Optional[OliveSystem] = None,
         target: Optional[OliveSystem] = None,
-        evaluator_config: Optional["OliveEvaluatorConfig"] = None
+        evaluator_config: Optional["OliveEvaluatorConfig"] = None,
     ):
         self._config = validate_config(config, EngineConfig)
 
@@ -95,7 +95,7 @@ class Engine:
         self.passes = OrderedDict()
         self.pass_flows = None
         self.pass_flows_search_spaces = None
-        
+
         self.footprints = defaultdict(Footprint)
         self.azureml_client_config = self._config.azureml_client_config
         self._initialized = False

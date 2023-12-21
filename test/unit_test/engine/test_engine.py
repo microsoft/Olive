@@ -621,11 +621,6 @@ class TestEngine:
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
 
-        engine = Engine(
-            options,
-            host=mock_local_system,
-            target=mock_docker_system,
-            evaluator_config=evaluator_config
-        )
+        engine = Engine(options, host=mock_local_system, target=mock_docker_system, evaluator_config=evaluator_config)
 
         assert engine.target.system_type == SystemType.Docker
