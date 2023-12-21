@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import os
 import tempfile
 from copy import deepcopy
 from pathlib import Path
@@ -288,7 +289,13 @@ class IncQuantization(Pass):
                 Intel® Neural Compressor Quantization mode. 'dynamic' for dynamic quantization,
                 'static' for static quantization, "weight_only" for 4-bits weight-only quantization.
             """,
-            )
+            ),
+            "diagnosis": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="""Whether to enable diagnosis mode. If enabled,
+                Intel® Neural Compressor will print the quantization summary.""",
+            ),
         }
 
         # common quantization config
@@ -545,6 +552,7 @@ class IncQuantization(Pass):
                 data_config = validate_config(config["data_config"], DataConfig)
                 inc_calib_dataloader = data_config.to_data_container().create_calibration_dataloader(data_root)
 
+        os.environ["LOGLEVEL"] = logging.getLevelName(logger.level)
         q_model = quantization.fit(
             model.model_path, ptq_config, calib_dataloader=inc_calib_dataloader, eval_func=eval_func
         )
