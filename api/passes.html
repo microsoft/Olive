@@ -2681,9 +2681,36 @@
 </dd></dl>
 
 <dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-use_vocab_mask">
+<span class="sig-name descname"><span class="pre">use_vocab_mask</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-use_vocab_mask" title="Permalink to this definition">¶</a></dt>
+<dd><p>Use vocab_mask as an extra graph input to the beam search op. Only supported in ORT &gt;= 1.16.0</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-use_prefix_vocab_mask">
+<span class="sig-name descname"><span class="pre">use_prefix_vocab_mask</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-use_prefix_vocab_mask" title="Permalink to this definition">¶</a></dt>
+<dd><p>Use prefix_vocab_mask as an extra graph input to the beam search op. Only supported in ORT &gt;= 1.16.0</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-use_forced_decoder_ids">
 <span class="sig-name descname"><span class="pre">use_forced_decoder_ids</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-use_forced_decoder_ids" title="Permalink to this definition">¶</a></dt>
 <dd><p>Use decoder_input_ids as an extra graph input to the beam search op. Only supported in ORT &gt;= 1.16.0</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-use_logits_processor">
+<span class="sig-name descname"><span class="pre">use_logits_processor</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-use_logits_processor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Use logits_processor as an extra graph input to the beam search op. Only supported in ORT &gt;= 1.16.0</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
 <p><strong>searchable_values:</strong> None</p>
