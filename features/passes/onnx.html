@@ -498,7 +498,20 @@ improve performance.
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">        </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;providers_list&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">            </span><span class="p">[</span>
+<span class="w">                </span><span class="s2">&quot;CUDAExecutionProvider&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;device_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;arena_extend_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;kNextPowerOfTwo&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;gpu_mem_limit&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2147483648</span><span class="p">,</span><span class="w"> </span><span class="c1">// 2 * 1024 * 1024 * 1024,</span>
+<span class="w">                    </span><span class="nt">&quot;cudnn_conv_algo_search&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;EXHAUSTIVE&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;do_copy_in_default_stream&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">                </span><span class="p">},</span>
+<span class="w">            </span><span class="p">],</span>
+<span class="w">            </span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">]</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>

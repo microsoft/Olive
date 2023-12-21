@@ -160,18 +160,12 @@
     <span class="s2">&quot;input_shapes&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="n">List</span><span class="p">),</span>
     <span class="s2">&quot;input_types&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="n">List</span><span class="p">),</span>
     <span class="s2">&quot;shared_kv_buffer&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+    <span class="s2">&quot;io_bind&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
 <span class="p">}</span>
 
 <span class="n">_common_user_config_validators</span> <span class="o">=</span> <span class="p">{}</span>
 
 <span class="n">_type_to_user_config</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;latency&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="c1"># TODO(anyone): extract io_bind to a _common_user_config</span>
-        <span class="s2">&quot;io_bind&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
-    <span class="p">},</span>
-    <span class="s2">&quot;throughput&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s2">&quot;io_bind&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
-    <span class="p">},</span>
     <span class="s2">&quot;accuracy&quot;</span><span class="p">:</span> <span class="p">{</span>
         <span class="s2">&quot;post_processing_func&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="n">Union</span><span class="p">[</span><span class="n">Callable</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">category</span><span class="o">=</span><span class="n">ParamCategory</span><span class="o">.</span><span class="n">OBJECT</span><span class="p">),</span>
     <span class="p">},</span>
