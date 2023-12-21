@@ -11,43 +11,13 @@ import sys
 from pathlib import Path
 from typing import List, Union
 
+from olive.auto_optimizer import AutoOptimizer
+from olive.hardware.accelerator import create_accelerators
 from olive.logging import enable_filelog, set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
 from olive.systems.common import SystemType
-from olive.workflows.run.config import RunConfig
+from olive.workflows.run.config import RunConfig, RunPassConfig
 
 logger = logging.getLogger(__name__)
-
-
-def automatically_insert_passes(config):
-    new_config_dict = json.loads(config.json())
-    new_passes = {}
-
-    # insert onnx converter
-    oc_config = {"type": "OnnxConversion"}
-    new_passes["conversion"] = oc_config
-
-    # insert transformer opt
-    to_config = {"type": "OrtTransformersOptimization"}
-    to_config["config"] = {"model_type": "bert"}
-    to_config["disable_search"] = True
-    new_passes["transformers_optimization"] = to_config
-
-    # insert quantization
-    q_config = {"type": "OnnxDynamicQuantization"}
-    q_config["config"] = {"per_channel": "SEARCHABLE_VALUES", "reduce_range": "SEARCHABLE_VALUES"}
-    q_config["clean_run_cache"] = False
-    new_passes["dynamic_quantization"] = q_config
-
-    # insert perf_tuning
-    t_config = {"type": "OrtPerfTuning"}
-    t_config["config"] = {"user_script": "user_script.py", "dataloader_func": "create_dataloader", "batch_size": 1}
-    new_passes["perf_tuning"] = t_config
-
-    new_config_dict["passes"] = new_passes
-    new_config = RunConfig.parse_obj(new_config_dict)
-    new_engine = new_config.engine.create_engine()
-
-    return new_engine, new_config
 
 
 def dependency_setup(config):
@@ -182,41 +152,64 @@ def run_engine(config: RunConfig, data_root: str = None):
     if config.azureml_client:
         config.engine.azureml_client_config = config.azureml_client
 
-    # engine
     engine = config.engine.create_engine()
+    accelerator_specs = create_accelerators(engine.target, config.engine.execution_providers)
 
-    if not config.passes and not config.engine.evaluate_input_model:
-        # TODO(trajep): enhance this logic for more passes templates
-        engine, config = automatically_insert_passes(config)
+    pass_list = []
+    acc_list = []
+    if (
+        not config.passes
+        and config.auto_optimizer_config is not None
+        and not config.auto_optimizer_config.disable_auto_optimizer
+    ):
+        for acc_spec in accelerator_specs:
+            _passes, pass_flows = AutoOptimizer(
+                input_model,
+                engine.evaluator_config,
+                acc_spec,
+                config.auto_optimizer_config,
+                config.data_configs,
+            ).suggest()
+            pass_list.append(({k: RunPassConfig.parse_obj(v) for k, v in _passes.items()}, pass_flows))
+            acc_list.append([acc_spec])
+    else:
+        pass_list.append((config.passes, config.pass_flows))
+        acc_list.append(accelerator_specs)
 
-    # passes
-    if config.passes:
-        for pass_name, pass_config in config.passes.items():
-            host = pass_config.host.create_system() if pass_config.host is not None else None
-            engine.register(
-                Pass.registry[pass_config.type.lower()],
-                config=pass_config.config,
-                disable_search=pass_config.disable_search,
-                name=pass_name,
-                host=host,
-                evaluator_config=pass_config.evaluator,
-                clean_run_cache=pass_config.clean_run_cache,
-                output_name=pass_config.output_name,
+    run_rls = {}
+    for accelerator_spec, (passes, pass_flows) in zip(acc_list, pass_list):
+        engine.reset_passes()
+        if passes:
+            for pass_name, pass_config in passes.items():
+                host = pass_config.host.create_system() if pass_config.host is not None else None
+                engine.register(
+                    Pass.registry[pass_config.type.lower()],
+                    config=pass_config.config,
+                    disable_search=pass_config.disable_search,
+                    name=pass_name,
+                    host=host,
+                    evaluator_config=pass_config.evaluator,
+                    clean_run_cache=pass_config.clean_run_cache,
+                    output_name=pass_config.output_name,
+                )
+            engine.set_pass_flows(pass_flows)
+
+        if data_root is None:
+            data_root = config.data_root
+
+        # run
+        run_rls.update(
+            engine.run(
+                input_model,
+                accelerator_spec,
+                data_root,
+                config.engine.packaging_config,
+                config.engine.output_dir,
+                config.engine.output_name,
+                config.engine.evaluate_input_model,
             )
-        engine.set_pass_flows(config.pass_flows)
-
-    if data_root is None:
-        data_root = config.data_root
-
-    # run
-    return engine.run(
-        input_model,
-        data_root,
-        config.engine.packaging_config,
-        config.engine.output_dir,
-        config.engine.output_name,
-        config.engine.evaluate_input_model,
-    )
+        )
+    return run_rls
 
 
 def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = None):

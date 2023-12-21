@@ -84,9 +84,10 @@ setup(
     include_package_data=False,
     package_data={
         "olive": ["extra_dependencies.json"],
+        "olive.auto_optimizer": ["config_template/*.yaml"],
+        "olive.engine.packaging": ["sample_code/*/*/*"],
         "olive.snpe": ["create_python36_env.sh", "copy_libcdsprpc.ps1"],
         "olive.systems.docker": ["Dockerfile*"],
-        "olive.engine.packaging": ["sample_code/*/*/*"],
     },
     data_files=[],
     entry_points={

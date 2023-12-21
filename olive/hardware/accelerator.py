@@ -5,7 +5,11 @@
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import ClassVar, List, Union
+from typing import TYPE_CHECKING, ClassVar, List, Union
+
+if TYPE_CHECKING:
+    from olive.systems.olive_system import OliveSystem
+
 
 logger = logging.getLogger(__name__)
 
@@ -131,3 +135,77 @@ class AcceleratorLookup:
         if is_unique_inferring:
             return list({accelerator[0] for accelerator in accelerators})
         return None
+
+
+def create_accelerators(target: "OliveSystem", execution_providers):
+    from olive.systems.common import SystemType
+
+    if not execution_providers:
+        if target.olive_managed_env:
+            raise ValueError("Managed environment requires execution providers to be specified.")
+        elif target.system_type == SystemType.AzureML:
+            # verify the AzureML system have specified the execution providers
+            # Please note we could not use isinstance(target, AzureMLSystem) since it would import AzureML packages.
+            raise ValueError("AzureMLSystem requires execution providers to be specified.")
+        elif target.system_type in (SystemType.Local, SystemType.PythonEnvironment):
+            execution_providers = target.get_supported_execution_providers()
+        elif target.system_type == SystemType.Docker:
+            # for docker system we default use CPUExecutionProvider
+            execution_providers = ["CPUExecutionProvider"]
+    logger.debug(f"Initial execution providers: {execution_providers}")
+
+    accelerators: List[str] = target.accelerators
+    if accelerators is None:
+        inferred_accelerators = AcceleratorLookup.infer_accelerators_from_execution_provider(execution_providers)
+        if not inferred_accelerators:
+            logger.warning("Cannot infer the accelerators from the target system. Use CPU as default.")
+            accelerators = ["CPU"]
+        else:
+            logger.debug(
+                "User inferred accelerators %s from given execution providers %s.", accelerators, execution_providers
+            )
+            accelerators = inferred_accelerators
+    logger.debug(f"Initial accelerators: {accelerators}")
+
+    ep_to_process = set(execution_providers)
+    # Flatten the accelerators to list of AcceleratorSpec
+    accelerator_specs: List[AcceleratorSpec] = []
+    is_cpu_available = "cpu" in [accelerator.lower() for accelerator in accelerators]
+    for accelerator in accelerators:
+        device = Device(accelerator.lower())
+        if target.olive_managed_env:
+            available_eps = AcceleratorLookup.get_managed_supported_execution_providers(device)
+        elif target.system_type in (SystemType.Local, SystemType.PythonEnvironment):
+            available_eps = target.get_supported_execution_providers()
+        elif target.system_type == SystemType.Docker:
+            # TODO(myguo): do we need allow docker system support other execution providers?
+            available_eps = ["CPUExecutionProvider"]
+        else:
+            available_eps = execution_providers
+
+        supported_eps = AcceleratorLookup.get_execution_providers_for_device_by_available_providers(
+            device, available_eps
+        )
+        logger.debug(f"Supported execution providers for device {device}: {supported_eps}")
+        for ep in ep_to_process.copy():
+            if ep == "CPUExecutionProvider" and device != "cpu" and is_cpu_available:
+                logger.info("Ignore the CPUExecutionProvider for non-cpu device since cpu accelerator is also present.")
+            elif ep in supported_eps:
+                accelerator_specs.append(AcceleratorSpec(device, ep))
+                ep_to_process.remove(ep)
+
+    assert accelerator_specs, (
+        "No valid accelerator specified for target system. "
+        "Please specify the accelerators in the target system or provide valid execution providers. "
+        f"Given execution providers: {execution_providers}. "
+        f"Current accelerators: {accelerators}."
+        f"Supported execution providers: {AcceleratorLookup.EXECUTION_PROVIDERS}."
+    )
+    logger.info(f"Running workflow on accelerator specs: {','.join([str(spec) for spec in accelerator_specs])}")
+    if ep_to_process:
+        logger.warning(
+            f"The following execution provider is not supported: {','.join(ep_to_process)}. "
+            "Please consider installing an onnxruntime build that contains the relevant execution providers. "
+        )
+
+    return accelerator_specs

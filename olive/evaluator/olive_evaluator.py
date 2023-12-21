@@ -1067,6 +1067,14 @@ class OliveEvaluatorFactory:
 class OliveEvaluatorConfig(ConfigBase):
     metrics: List[Metric] = []  # noqa: RUF012
 
+    @property
+    def is_accuracy_drop_tolerance(self):
+        for metric in self.metrics:
+            for sub_metric in metric.sub_types:
+                if metric.type == MetricType.ACCURACY and sub_metric.higher_is_better:
+                    return sub_metric.goal is not None and sub_metric.goal.has_regression_goal()
+        return False
+
     @validator("metrics")
     def validate_metrics(cls, v):
         metric_len = len(v)

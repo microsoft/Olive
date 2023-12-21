@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Union
 
+from olive.auto_optimizer import AutoOptimizerConfig
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.pydantic_v1 import validator
@@ -69,6 +70,7 @@ class RunConfig(ConfigBase):
     engine: RunEngineConfig = None
     pass_flows: List[List[str]] = None
     passes: Dict[str, RunPassConfig] = None
+    auto_optimizer_config: AutoOptimizerConfig = None
 
     @validator("input_model", pre=True)
     def insert_aml_client(cls, v, values):

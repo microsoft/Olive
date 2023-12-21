@@ -1,0 +1,72 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
+
+# This file defines the capability of each pass. The capability is defined by
+# the execution provider (EP), precision, and accelerator.
+# 1. EP: the ort execution provider that the pass supports. The value can be any
+#    of the available execution provider names in ort releases. The value is list
+#    of strings. If the value is null, the pass supports all execution providers.
+#    The value is case insensitive but suggest to use the same case as the
+#    execution provider name(remove the suffix of "ExecutionProvider").
+# 2. precision: the output model precision that the pass supports. The value is
+#    list of strings. If the value is null, the pass supports all precisions.
+#    Available precisions are: fp32, fp16, int8, int4.
+# 3. accelerator: the accelerator that the pass supports. The value is list of
+#    strings. If the value is null, the pass supports all accelerators.
+#    Available accelerators are: cpu, gpu, npu.
+# When anyone adds a new pass, please update this file to add the capability of
+# the pass. The capability is used to filter the passes that are applicable to
+# the model, target device, precision, and EPs.
+
+OnnxConversion:
+  EP: null
+  precision: null
+  accelerator: null
+OrtTransformersOptimization:
+  EP: null
+  precision: null
+  accelerator: null
+OrtMixedPrecision:
+  EP:
+    - CUDA
+    - Dml
+  precision:
+    - fp16
+  accelerator:
+    - gpu
+OnnxQuantization:
+  EP:
+    - CPU
+  precision:
+    - int8
+  accelerator:
+    - cpu
+IncQuantization:
+  EP:
+    - CPU
+  precision:
+    - int8
+  accelerator:
+    - cpu
+VitisAIQuantization:
+  EP:
+    - VitisAI
+  precision:
+    - int8
+  accelerator:
+    - npu
+OnnxMatMul4Quantizer:
+  EP:
+    - CPU
+    - CUDA
+  precision:
+    - int4
+  accelerator:
+    - cpu
+    - gpu
+OrtPerfTuning:
+  EP: null
+  precision: null
+  accelerator: null

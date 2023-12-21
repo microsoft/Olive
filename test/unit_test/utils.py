@@ -153,14 +153,21 @@ def create_fixed_dataloader(datadir, batchsize, *args, **kwargs):
     return DataLoader(FixedDummyDataset(1))
 
 
-def get_accuracy_metric(*acc_subtype, random_dataloader=True, user_config=None, backend="torch_metrics"):
+def get_accuracy_metric(
+    *acc_subtype,
+    random_dataloader=True,
+    user_config=None,
+    backend="torch_metrics",
+    goal_type="threshold",
+    goal_value=0.99,
+):
     accuracy_metric_config = {"dataloader_func": create_dataloader if random_dataloader else create_fixed_dataloader}
     accuracy_score_metric_config = {"task": "multiclass", "num_classes": 10}
     sub_types = [
         {
             "name": sub,
             "metric_config": accuracy_score_metric_config if sub == "accuracy_score" else {},
-            "goal": MetricGoal(type="threshold", value=0.99),
+            "goal": MetricGoal(type=goal_type, value=goal_value),
         }
         for sub in acc_subtype
     ]
