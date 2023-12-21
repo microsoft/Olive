@@ -625,8 +625,7 @@ class TestEngine:
             options,
             host=mock_local_system,
             target=mock_docker_system,
-            evaluator_config=evaluator_config,
-            execution_providers=["OpenVINOExecutionProvider", "CPUExecutionProvider"],
+            evaluator_config=evaluator_config
         )
 
         assert engine.target.system_type == SystemType.Docker

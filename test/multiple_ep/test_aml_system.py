@@ -54,8 +54,7 @@ class TestOliveAzureMLSystem:
 
         metric = get_latency_metric()
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
-        options = {"execution_providers": self.execution_providers}
-        engine = Engine(options, target=self.system, host=self.system, evaluator_config=evaluator_config)
+        engine = Engine(target=self.system, host=self.system, evaluator_config=evaluator_config)
         accelerator_specs = create_accelerators(self.system, self.execution_providers)
         engine.register(OrtPerfTuning)
         output = engine.run(self.input_model_config, accelerator_specs, output_dir=output_dir)
