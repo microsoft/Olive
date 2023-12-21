@@ -46,7 +46,7 @@ def generate_tuning_combos(config):
 
 
 def valid_config(tuning_combos, config):
-    # the order of combos: "provider", "execution_mode", "ort_opt_level"
+    # the order of combos: "provider", "execution_mode", "ort_opt_level", "io_bind"
 
     # Parallel execution mode does not support the CUDA Execution Provider.
     # So ORT will make the execution mode sequential when it uses the CUDA Execution Provider.
@@ -115,7 +115,8 @@ def tune_onnx_model(perf_tuning_pass_ep, model, data_root, config):
 
     # TODO(myguo): from the time being, the baseline evaluation doesn't enable enable_cuda_graph.
     # do we need enable it?
-    pretuning_inference_result = get_benchmark(model, data_root, latency_metric, config)
+    io_bind = config.io_bind
+    pretuning_inference_result = get_benchmark(model, data_root, latency_metric, config, io_bind=io_bind)
 
     tuning_results = []
     for provider, execution_mode, opt_level in generate_tuning_combos(config):
@@ -136,8 +137,6 @@ def tune_onnx_model(perf_tuning_pass_ep, model, data_root, config):
             #    expr=cudnnDestroy(cudnn_handle_);
             io_bind = True
         elif provider == "CPUExecutionProvider":
-            io_bind = False
-        else:
             io_bind = False
 
         tuning_combo = (([provider], [options]), execution_mode, opt_level, io_bind)
@@ -452,6 +451,11 @@ class OrtPerfTuning(Pass):
             ),
             "cpu_cores": PassConfigParam(
                 type_=int, default_value=None, description="CPU cores used for thread tuning."
+            ),
+            "io_bind": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Whether enable IOBinding Search for ONNX Runtime inference.",
             ),
             "enable_cuda_graph": PassConfigParam(
                 type_=bool,
