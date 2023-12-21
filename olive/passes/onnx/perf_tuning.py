@@ -63,12 +63,12 @@ def valid_config(tuning_combos, config):
     if provider != "TensorrtExecutionProvider" and config.trt_fp16_enable:
         logger.info("[Ignored] Because EP is not TensorrtExecutionProvider, the trt_fp16_enable is ignored")
         return True
-    if provider == "CUDAExecutionProvider" and config.enable_cuda_graph and tuning_combos[1] == 1:
-        logger.warning(
-            "[Ignored] Because EP is CUDAExecutionProvider, the execution_mode should not be 1 "
-            "in case of enable_cuda_graph is True"
-        )
-        return False
+    # if provider == "CUDAExecutionProvider" and config.enable_cuda_graph and tuning_combos[1] == 1:
+    #     logger.warning(
+    #         "[Ignored] Because EP is CUDAExecutionProvider, the execution_mode should not be 1 "
+    #         "in case of enable_cuda_graph is True"
+    #     )
+    #     return False
     return True
 
 
@@ -119,10 +119,10 @@ def tune_onnx_model(perf_tuning_pass_ep, model, data_root, config):
         tuning_results.extend(threads_num_tuning(model, data_root, latency_metric, config, *tuning_combo))
 
     for tuning_result in tuning_results:
-        logger.debug("Tuning result: %s", tuning_result["latency_ms"])
+        logger.debug("Tuning result for %s: %s", tuning_result["test_name"], tuning_result["latency_ms"])
 
     best_result = parse_tuning_result(*tuning_results, pretuning_inference_result)
-    logger.info("Best result(%s): %s", best_result["test_name"], best_result)
+    logger.info("Best result: %s", best_result)
     # Both baseline and pertuning result should have the execution provider in the test_results.
     assert "execution_provider" in best_result, "execution_provider should be in best_result"
     optimized_model = copy.copy(model)

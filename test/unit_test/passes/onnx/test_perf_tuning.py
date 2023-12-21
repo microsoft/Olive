@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import re
 from test.unit_test.utils import create_dataloader, get_onnx_model
 from unittest.mock import patch
 
@@ -133,7 +134,7 @@ def test_perf_tuning_with_provider_options(mock_get_available_providers, mock_ev
     if return_baseline:
         assert acutal_eps == ["TensorrtExecutionProvider", "CUDAExecutionProvider", "CPUExecutionProvider"]
         assert "enable_cuda_graph" not in result.inference_settings["provider_options"][0]
-        assert f"Best result({PERFTUNING_BASELINE}):" in caplog.text
+        assert re.search(f"Best result:.*{PERFTUNING_BASELINE}", caplog.text)
     else:
         assert len(acutal_eps) == 1
         assert acutal_eps[0] == "CUDAExecutionProvider"
@@ -190,12 +191,12 @@ def test_perf_tuning_with_force_evaluate(mock_get_available_providers, mock_eval
         assert "execution_provider" in result.inference_settings
         acutal_eps = result.inference_settings["execution_provider"]
         assert len(acutal_eps) == 1 and acutal_eps[0] == "CUDAExecutionProvider"
-        assert "Best result(('cuda', " in caplog.text
+        assert re.search("Best result:.*cuda", caplog.text)
     else:
         assert "execution_provider" in result.inference_settings
         acutal_eps = result.inference_settings["execution_provider"]
         assert len(acutal_eps) == 1 and acutal_eps[0] == "CPUExecutionProvider"
-        assert "Best result(cpu" in caplog.text
+        assert re.search("Best result: .*cpu", caplog.text)
         assert (
             "Ignore perf tuning for EP CUDAExecutionProvider since current pass EP is CPUExecutionProvider"
             in caplog.text
