@@ -93,7 +93,8 @@
         "insert_beam_search" : {
             "type" : "InsertBeamSearch",
             "config": {
-                "use_forced_decoder_ids": "<place_holder>"
+                "use_forced_decoder_ids": "<place_holder>",
+                "use_logits_processor": "<place_holder>"
             }
         },
         "prepost": {

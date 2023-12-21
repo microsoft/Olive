@@ -30,7 +30,13 @@ SUPPORTED_WORKFLOWS = {
     ],
     ("gpu", "fp32"): ["conversion", "transformers_optimization", "insert_beam_search", "prepost"],
     ("gpu", "fp16"): ["conversion", "transformers_optimization", "mixed_precision", "insert_beam_search", "prepost"],
-    ("gpu", "int8"): ["conversion", "onnx_dynamic_quantization", "insert_beam_search", "prepost"],
+    ("gpu", "int8"): [
+        "conversion",
+        "transformers_optimization",
+        "onnx_dynamic_quantization",
+        "insert_beam_search",
+        "prepost",
+    ],
 }
 DEVICE_TO_EP = {
     "cpu": "CPUExecutionProvider",
@@ -50,6 +56,19 @@ def get_args(raw_args):
         "--multilingual",
         action="store_true",
         help="Support using model for multiple languages. Only supported in ORT >= 1.16.0. Default: False",
+    )
+    parser.add_argument(
+        "--enable_timestamps",
+        action="store_true",
+        help=(
+            "Enable model to output timestamps along with text. Only supported in ORT >= 1.16.0 and doesn't work with"
+            " whisper-large-v3. Default: False"
+        ),
+    )
+    parser.add_argument(
+        "--skip_evaluation",
+        action="store_true",
+        help="Skip evaluation. Default: False",
     )
     parser.add_argument(
         "--package_model",
@@ -79,8 +98,16 @@ def main(raw_args=None):
     transformers_version_4_36 = version.parse(TransformersVersion) >= version.parse("4.36.0")
 
     # multi-lingual support check
-    if args.multilingual and not version_1_16:
-        raise ValueError("Multi-lingual support is only supported in ORT >= 1.16.0")
+    if not version_1_16:
+        if args.multilingual:
+            raise ValueError("Multi-lingual support is only supported in ORT >= 1.16.0")
+        if args.enable_timestamps:
+            raise ValueError("Enabling timestamps is only supported in ORT >= 1.16.0")
+    if "large-v3" in args.model_name and args.enable_timestamps:
+        print(
+            "WARNING: Model has large-v3 in the name. openai/whisper-large-v3 doesn't support enabling timestamps so"
+            " this might not work as expected."
+        )
 
     # load template
     with open("whisper_template.json") as f:  # noqa: PTH123
@@ -93,14 +120,24 @@ def main(raw_args=None):
         template_json["input_model"]["config"]["hf_config"]["from_pretrained_args"] = {"attn_implementation": "eager"}
 
     # set dataloader
-    metric_dataloader_kwargs = template_json["evaluators"]["common_evaluator"]["metrics"][0]["user_config"][
-        "func_kwargs"
-    ]["dataloader_func"]
-    metric_dataloader_kwargs["model_name"] = model_name
-    metric_dataloader_kwargs["use_audio_decoder"] = not args.no_audio_decoder
+    if not args.skip_evaluation:
+        metric_dataloader_kwargs = template_json["evaluators"]["common_evaluator"]["metrics"][0]["user_config"][
+            "func_kwargs"
+        ]["dataloader_func"]
+        metric_dataloader_kwargs["model_name"] = model_name
+        metric_dataloader_kwargs["use_audio_decoder"] = not args.no_audio_decoder
+    else:
+        del template_json["evaluators"]
+        template_json["engine"]["evaluator"] = None
 
     # update multi-lingual support
     template_json["passes"]["insert_beam_search"]["config"]["use_forced_decoder_ids"] = args.multilingual
+    # update predict timestep
+    template_json["passes"]["insert_beam_search"]["config"]["use_logits_processor"] = args.enable_timestamps
+    # update no audio decoder
+    template_json["passes"]["prepost"]["config"]["tool_command_args"]["use_audio_decoder"] = not args.no_audio_decoder
+    # update atol
+    template_json["passes"]["mixed_precision"]["config"]["atol"] = args.atol
 
     # set model name in prepost
     template_json["passes"]["prepost"]["config"]["tool_command_args"]["model_name"] = model_name
@@ -127,12 +164,8 @@ def main(raw_args=None):
             pass_config = deepcopy(template_json["passes"][pass_name])
             if pass_name == "insert_beam_search":
                 pass_config["config"]["fp16"] = precision == "fp16"
-            if pass_name == "mixed_precision":
-                pass_config["config"]["atol"] = args.atol
             if pass_name == "transformers_optimization":
                 pass_config["config"]["use_gpu"] = device == "gpu"
-            if pass_name == "prepost":
-                pass_config["config"]["tool_command_args"]["use_audio_decoder"] = not args.no_audio_decoder
             config["passes"][pass_name] = pass_config
 
         # dump config
