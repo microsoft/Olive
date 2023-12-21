@@ -29,18 +29,12 @@ _common_user_config = {
     "input_shapes": ConfigParam(type_=List),
     "input_types": ConfigParam(type_=List),
     "shared_kv_buffer": ConfigParam(type_=bool, default_value=False),
+    "io_bind": ConfigParam(type_=bool, default_value=False),
 }
 
 _common_user_config_validators = {}
 
 _type_to_user_config = {
-    "latency": {
-        # TODO(anyone): extract io_bind to a _common_user_config
-        "io_bind": ConfigParam(type_=bool, default_value=False),
-    },
-    "throughput": {
-        "io_bind": ConfigParam(type_=bool, default_value=False),
-    },
     "accuracy": {
         "post_processing_func": ConfigParam(type_=Union[Callable, str], category=ParamCategory.OBJECT),
     },

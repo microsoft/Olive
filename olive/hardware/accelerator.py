@@ -63,6 +63,7 @@ class AcceleratorLookup:
             "DmlExecutionProvider",
             "CUDAExecutionProvider",
             "ROCMExecutionProvider",
+            "MIGraphXExecutionProvider",
             "TensorrtExecutionProvider",
             "CPUExecutionProvider",
             "OpenVINOExecutionProvider",

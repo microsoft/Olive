@@ -15,6 +15,7 @@ from olive.evaluator.metric_config import get_user_config_properties_from_metric
 from olive.exception import EXCEPTIONS_TO_RAISE
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
 from olive.model import ONNXModelHandler
+from olive.model.utils.onnx_utils import check_and_normalize_provider_args
 from olive.passes import Pass
 from olive.passes.pass_config import ParamCategory, PassConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
@@ -40,12 +41,7 @@ def generate_tuning_combos(config):
     )
     opt_level_list = config.opt_level_list if config.opt_level_list else [99]
 
-    if config.io_bind:
-        io_bind_list = [True, False]
-    else:
-        io_bind_list = [False]
-
-    tuning_combos = itertools.product(providers_list, execution_mode_list, opt_level_list, io_bind_list)
+    tuning_combos = itertools.product(providers_list, execution_mode_list, opt_level_list)
     yield from tuning_combos
 
 
@@ -56,19 +52,46 @@ def valid_config(tuning_combos, config):
     # So ORT will make the execution mode sequential when it uses the CUDA Execution Provider.
 
     # if the first combo is CPUExecutionProvider, then the io_bind should not be True
-    if tuning_combos[0] == "CPUExecutionProvider" and tuning_combos[3]:
+    providers, _ = tuning_combos[0]
+    provider = providers[0]
+    if provider == "CPUExecutionProvider" and tuning_combos[3]:
         logger.info("[Ignored] Because EP is CPUExecutionProvider, the io_bind should not be True")
         return False
-    if tuning_combos[0] != "CUDAExecutionProvider" and config.enable_cuda_graph:
+    if provider != "CUDAExecutionProvider" and config.enable_cuda_graph:
         logger.info("[Ignored] Because EP is not CUDAExecutionProvider, the enable_cuda_graph is ignored")
         return True
-    if tuning_combos[0] != "TensorrtExecutionProvider" and config.trt_fp16_enable:
+    if provider != "TensorrtExecutionProvider" and config.trt_fp16_enable:
         logger.info("[Ignored] Because EP is not TensorrtExecutionProvider, the trt_fp16_enable is ignored")
         return True
+    if provider == "CUDAExecutionProvider" and config.enable_cuda_graph and tuning_combos[1] == 1:
+        # Need disable the ort.ExecutionMode.ORT_PARALLEL if enable_cuda_graph is True
+        # because the CUDA Graph does not support the parallel execution mode.
+        # Otherwise, the following error will be thrown:
+        #  self._sess.run_with_iobinding(iobinding._iobinding, run_options)
+        #  RuntimeError: Error in execution: /onnxruntime_src/onnxruntime/core/providers/cuda/cuda_call.cc:121
+        #  std::conditional_t<THRW, void, onnxruntime::common::Status> onnxruntime::CudaCall(
+        #       ERRTYPE, const char*, const char*, ERRTYPE, const char*, const char*, int)
+        #    [with ERRTYPE = cudaError; bool THRW = true;
+        #       std::conditional_t<THRW, void, onnxruntime::common::Status> = void]
+        #    /onnxruntime_src/onnxruntime/core/providers/cuda/cuda_call.cc:114
+        #  std::conditional_t<THRW, void, onnxruntime::common::Status> onnxruntime::CudaCall(
+        #       ERRTYPE, const char*, const char*, ERRTYPE, const char*, const char*, int)
+        #    [with ERRTYPE = cudaError; bool THRW = true;
+        #       std::conditional_t<THRW, void, onnxruntime::common::Status> = void]
+        #    CUDA failure 901: operation failed due to a previous error during capture ;
+        #       GPU=0 ; hostname=41bcb832c000001 ;
+        #    file=/onnxruntime_src/onnxruntime/core/providers/cuda/cuda_graph.cc ; line=33 ;
+        #    expr=cudaStreamEndCapture(stream_, &graph_);
+        # The RuntimeError doesn't impact the perf-tuning result, but it will waste the time.
+        logger.warning(
+            "[Ignored] Because EP is CUDAExecutionProvider, the execution_mode should not be 1 "
+            "in case of enable_cuda_graph is True. Otherwise, the RuntimeError will be thrown."
+        )
+        return False
     return True
 
 
-def tune_onnx_model(model, data_root, config):
+def tune_onnx_model(perf_tuning_pass_ep, model, data_root, config):
     latency_user_config = {}
     # which should be the same as the config in the metric
     config_dict = config.dict()
@@ -90,73 +113,106 @@ def tune_onnx_model(model, data_root, config):
     }
     latency_metric = Metric(**latency_metric_config)
 
-    pretuning_inference_result = get_benchmark(model, data_root, latency_metric, config)
+    # TODO(myguo): from the time being, the baseline evaluation doesn't enable enable_cuda_graph.
+    # do we need enable it?
+    io_bind = config.io_bind
+    pretuning_inference_result = get_benchmark(model, data_root, latency_metric, config, io_bind=io_bind)
 
     tuning_results = []
-    for tuning_combo in generate_tuning_combos(config):
+    for provider, execution_mode, opt_level in generate_tuning_combos(config):
+        provider, options = populate_provider_options(provider, config)  # noqa: PLW2901
+        if provider == "CUDAExecutionProvider":
+            # if enable_cuda_graph is True but the io_bind is False, the following errors will be raised.
+            # onnxruntime.capi.onnxruntime_pybind11_state.Fail: [ONNXRuntimeError] : 1 : FAIL : CUDA failure 700:
+            #    an illegal memory access was encountered ; GPU=0 ; hostname=c93f1847c000000 ;
+            #    file=/onnxruntime_src/onnxruntime/core/providers/cuda/cuda_graph.cc ; line=49 ;
+            #    expr=cudaGraphLaunch(graph_exec_, stream_);
+            # [E:onnxruntime:Default, cuda_call.cc:116 CudaCall] CUDA failure 700:
+            #    an illegal memory access was encountered ; GPU=0 ; hostname=c93f1847c000000 ;
+            #    file=/onnxruntime_src/onnxruntime/core/providers/cuda/cuda_execution_provider.cc ; line=286 ;
+            #    expr=cudaStreamDestroy(stream_);
+            # [E:onnxruntime:Default, cuda_call.cc:116 CudaCall] CUDNN failure 4:
+            #    CUDNN_STATUS_INTERNAL_ERROR ; GPU=0 ; hostname=c93f1847c000000 ;
+            #    file=/onnxruntime_src/onnxruntime/core/providers/cuda/cuda_execution_provider.cc ; line=181 ;
+            #    expr=cudnnDestroy(cudnn_handle_);
+            io_bind = True
+        elif provider == "CPUExecutionProvider":
+            io_bind = False
+
+        tuning_combo = (([provider], [options]), execution_mode, opt_level, io_bind)
+
+        # TODO(myguo): we need disable the following check when we enable cache in perf tuning.
+        if provider != perf_tuning_pass_ep and not config.force_evaluate_other_eps:
+            logger.warning("Ignore perf tuning for EP %s since current pass EP is %s", provider, perf_tuning_pass_ep)
+            continue
         tuning_item = ["provider", "execution_mode", "ort_opt_level", "io_bind"]
-        logger.info("Run tuning for: %s", list(zip(tuning_item, tuning_combo)))
         if not valid_config(tuning_combo, config):
             continue
-        tuning_results.extend(threads_num_tuning(model, data_root, latency_metric, config, tuning_combo))
+        logger.info("Run tuning for: %s", list(zip(tuning_item, tuning_combo)))
+        tuning_results.extend(threads_num_tuning(model, data_root, latency_metric, config, *tuning_combo))
 
     for tuning_result in tuning_results:
-        logger.debug("Tuning result: %s", tuning_result["latency_ms"])
+        logger.debug("Tuning result for %s: %s", tuning_result["test_name"], tuning_result["latency_ms"])
 
     best_result = parse_tuning_result(*tuning_results, pretuning_inference_result)
     logger.info("Best result: %s", best_result)
-    if best_result.get("test_name") != PERFTUNING_BASELINE:
-        optimized_model = copy.copy(model)
-        optimized_model.inference_settings = {
-            "execution_provider": best_result.get("execution_provider"),
-        }
-        session_options = best_result.get("session_options")
-        if session_options is not None:
-            optimized_model.inference_settings["session_options"] = session_options
+    # Both baseline and pertuning result should have the execution provider in the test_results.
+    assert "execution_provider" in best_result, "execution_provider should be in best_result"
+    optimized_model = copy.copy(model)
+    optimized_model.inference_settings = {
+        "execution_provider": best_result["execution_provider"],
+        "provider_options": best_result["provider_options"],
+        "io_bind": best_result["io_bind"],
+    }
+    session_options = best_result.get("session_options")
+    if session_options is not None:
+        optimized_model.inference_settings["session_options"] = session_options
 
-        return optimized_model
+    return optimized_model
+
+
+def populate_provider_options(execution_provider, config):
+    if isinstance(execution_provider, (tuple, list)):
+        assert len(execution_provider) == 2, "execution_provider should be a tuple with execution provider and options"
+        provider = execution_provider[0]
+        provider_options = copy.deepcopy(execution_provider[1]) or {}
+    elif isinstance(execution_provider, str):
+        provider = execution_provider
+        provider_options = {}
     else:
-        return model
-
-
-def threads_num_tuning(model, data_root, latency_metric, config, tuning_combo):
-    tuning_results = []
-    provider = tuning_combo[0]
-    execution_mode = tuning_combo[1]
-    ort_opt_level = tuning_combo[2]
-    io_bind = tuning_combo[3]
-
-    test_params = {}
+        raise ValueError("execution_provider should be a tuple, list or string")
 
     if provider == "TensorrtExecutionProvider":
-        test_params["execution_provider"] = [
-            (
-                "TensorrtExecutionProvider",
-                {"trt_fp16_enable": config.trt_fp16_enable},
-            )
-        ]
+        provider_options["trt_fp16_enable"] = config.trt_fp16_enable
     elif provider == "CUDAExecutionProvider":
-        test_params["execution_provider"] = [
-            (
-                "CUDAExecutionProvider",
-                {"enable_cuda_graph": config.enable_cuda_graph},
-            )
-        ]
-        if config.enable_cuda_graph:
-            io_bind = True
-    else:
-        test_params["execution_provider"] = [(provider, {})]
-    test_params["session_options"] = {
-        "execution_mode": execution_mode,
-        "graph_optimization_level": ort_opt_level,
-        "extra_session_config": config.extra_session_config,
+        provider_options["enable_cuda_graph"] = config.enable_cuda_graph
+
+    return provider, provider_options
+
+
+def threads_num_tuning(model, data_root, latency_metric, config, providers, execution_mode, ort_opt_level, io_bind):
+    tuning_results = []
+    provider, options = providers
+
+    test_params = {
+        "execution_provider": provider,
+        "provider_options": options,
+        "session_options": {
+            "execution_mode": execution_mode,
+            "graph_optimization_level": ort_opt_level,
+        },
     }
+
+    if config.extra_session_config:
+        test_params["session_options"]["extra_session_config"] = config.extra_session_config
 
     try:
         for inter in config.inter_thread_num_list:
-            test_params["session_options"]["inter_op_num_threads"] = inter
+            if inter is not None:
+                test_params["session_options"]["inter_op_num_threads"] = inter
             for intra in config.intra_thread_num_list:
-                test_params["session_options"]["intra_op_num_threads"] = intra
+                if intra is not None:
+                    test_params["session_options"]["intra_op_num_threads"] = intra
                 tuning_result = threads_num_binary_search(
                     model, data_root, latency_metric, config, test_params, io_bind
                 )
@@ -164,7 +220,11 @@ def threads_num_tuning(model, data_root, latency_metric, config, tuning_combo):
     except EXCEPTIONS_TO_RAISE:
         raise
     except Exception:
-        logger.error("Optimization failed for tuning combo %s", tuning_combo, exc_info=True)
+        logger.error(
+            "Optimization failed for tuning combo %s",
+            (providers, execution_mode, ort_opt_level, io_bind),
+            exc_info=True,
+        )
 
     return tuning_results
 
@@ -269,17 +329,14 @@ def generate_test_name(test_params, io_bind):
         return PERFTUNING_BASELINE
 
     name_list = []
-    eps = test_params.get("execution_provider")
+    ep = test_params["execution_provider"][0]
+    provider_option = test_params["provider_options"][0]
+    ep_name = ep.replace("ExecutionProvider", "").lower()
     ep_names = []
-    for ep in eps:
-        ep_name = ep[0]
-        ep_params = ep[1]
-
-        ep_name = ep_name.replace("ExecutionProvider", "").lower()
-        if ep_params:
-            ep_names.append((ep_name, ep_params))
-        else:
-            ep_names.append(ep_name)
+    if provider_option:
+        ep_names.append((ep_name, provider_option))
+    else:
+        ep_names.append(ep_name)
     if len(ep_names) == 1:
         ep_names = ep_names[0]
 
@@ -294,32 +351,46 @@ def generate_test_name(test_params, io_bind):
 
 
 def get_benchmark(model, data_root, latency_metric, config, test_params=None, io_bind=False):
+    import onnxruntime as ort
+
     from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
 
-    test_result = {}
-    session_name = generate_test_name(test_params, io_bind)
-    test_result["test_name"] = session_name
-
+    # prepare the inference_settings for metrics.
     if test_params:
-        # params starts with _ are not used in inference setting, we need add special handling for io_bind
-        latency_metric.user_config.io_bind = io_bind
+        assert "provider_options" in test_params, "provider_options should be in test_params"
+        inference_settings = test_params
+    else:
+        inference_settings = copy.deepcopy(model.inference_settings) if model.inference_settings else {}
+        # put the execution_provider and provider_options in inference_settings for baseline evaluation
+        execution_providers, provider_options = check_and_normalize_provider_args(
+            config.providers_list, None, ort.get_available_providers()
+        )
+        inference_settings["execution_provider"] = execution_providers
+        inference_settings["provider_options"] = provider_options
 
-        latency_metric.user_config.inference_settings = {"onnx": test_params}
-        test_result["execution_provider"] = test_params.get("execution_provider")
-        test_result["session_options"] = test_params.get("session_options").copy()
-        test_result["io_bind"] = io_bind
+    # set the session_options for metrics so that the evalute will use them by default
+    latency_metric.user_config.io_bind = io_bind
+    latency_metric.user_config.inference_settings = {"onnx": inference_settings}
 
+    session_name = generate_test_name(test_params, io_bind)
     logger.debug(f"Run benchmark for: {session_name}")
     evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
     joint_key = joint_metric_key(latency_metric.name, latency_metric.sub_types[0].name)
     start_time = time.perf_counter()
-    test_result["latency_ms"] = evaluator.evaluate(
-        model, data_root, [latency_metric], config.device, config.providers_list
-    )[joint_key].value
+    # We deliberately set the execution_providers to None so that the evaluator will use the one in inference_settings
+    latency_ms = evaluator.evaluate(model, data_root, [latency_metric], config.device, None)[joint_key].value
     end_time = time.perf_counter()
     logger.debug(f"It takes {(end_time - start_time):.5f} seconds to benchmark for: {session_name}")
 
-    return test_result
+    session_options = inference_settings.get("session_options")
+    return {
+        "test_name": session_name,
+        "io_bind": io_bind,
+        "latency_ms": latency_ms,
+        "execution_provider": inference_settings["execution_provider"],
+        "provider_options": inference_settings["provider_options"],
+        "session_options": session_options if session_options else {},
+    }
 
 
 def parse_tuning_result(*tuning_results):
@@ -416,6 +487,14 @@ class OrtPerfTuning(Pass):
                 default_value=None,
                 description="Extra customized session options during tuning process.",
             ),
+            "force_evaluate_other_eps": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Whether force to evaluate all execution providers"
+                    " which are different with the associated execution provider."
+                ),
+            ),
         }
 
     def _run_for_config(
@@ -425,4 +504,4 @@ class OrtPerfTuning(Pass):
         # TODO(jambayk): decide on whether to ignore the output_model_path
         # if we want to ignore it, we can just return the model
         # otherwise save or symlink the original model to the output_model_path
-        return tune_onnx_model(model, data_root, config)
+        return tune_onnx_model(self.accelerator_spec.execution_provider, model, data_root, config)

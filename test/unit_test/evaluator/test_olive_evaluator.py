@@ -29,7 +29,8 @@ from olive.evaluator.olive_evaluator import (
     PyTorchEvaluator,
     SNPEEvaluator,
 )
-from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR
+from olive.exception import OliveEvaluationError
+from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR, Device
 from olive.systems.local import LocalSystem
 
 
@@ -158,6 +159,53 @@ class TestOliveEvaluator:
         # assert
         for sub_type in metric.sub_types:
             assert expected_res > actual_res.get_value(metric.name, sub_type.name)
+
+    @pytest.mark.parametrize(
+        "execution_providers",
+        [
+            ("CPUExecutionProvider", {}),
+            "CPUExecutionProvider",
+            ["CPUExecutionProvider"],
+            [("CPUExecutionProvider", {})],
+        ],
+    )
+    def test_evaluate_latency_with_eps(self, execution_providers):
+        model = get_onnx_model()
+        evaluator = OnnxEvaluator()
+        latency_metric = get_latency_metric(LatencySubType.AVG)
+        evaluator.evaluate(model, None, [latency_metric], Device.CPU, execution_providers)
+
+    @pytest.mark.parametrize(
+        "execution_providers,exception_type",
+        [(("CPUExecutionProvider", {}, {}), ValueError), (("CPUExecutionProvider",), ValueError)],
+    )
+    def test_evaluate_latency_with_wrong_ep(self, execution_providers, exception_type):
+        model = get_onnx_model()
+        evaluator = OnnxEvaluator()
+        latency_metric = get_latency_metric(LatencySubType.AVG)
+        with pytest.raises(exception_type):
+            evaluator.evaluate(model, None, [latency_metric], Device.CPU, execution_providers)
+
+    @pytest.mark.parametrize(
+        "execution_providers",
+        [
+            ["CPUExecutionProvider", "OpenVINOExecutionProvider"],
+            [("CPUExecutionProvider", {}), ("OpenVINOExecutionProvider", {})],
+            [("CPUExecutionProvider", {}), "OpenVINOExecutionProvider"],
+            ["CPUExecutionProvider", ("OpenVINOExecutionProvider", {})],
+        ],
+    )
+    @patch("onnxruntime.get_available_providers")
+    def test_evaluate_latency_with_unsupported_ep(self, mock_get_available_providers, execution_providers):
+        mock_get_available_providers.return_value = ["CPUExecutionProvider"]
+        model = get_onnx_model()
+        evaluator = OnnxEvaluator()
+        latency_metric = get_latency_metric(LatencySubType.AVG)
+        with pytest.raises(
+            OliveEvaluationError,
+            match="The onnxruntime fallback happens. OpenVINOExecutionProvider is not in the session providers",
+        ):
+            evaluator.evaluate(model, None, [latency_metric], Device.CPU, execution_providers)
 
     THROUGHPUT_TEST_CASE: ClassVar[list] = [
         (

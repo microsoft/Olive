@@ -47,11 +47,11 @@ def get_ort_inference_session(
         for key, value in extra_session_config.items():
             sess_options.add_session_config_entry(key, value)
 
-    if isinstance(execution_provider, list):
-        # execution_provider may be a list of tuples/lists where the first item in each tuple is the EP name
-        execution_provider = [i[0] if isinstance(i, (tuple, list)) else i for i in execution_provider]
-    elif isinstance(execution_provider, str):
+    if isinstance(execution_provider, str):
         execution_provider = [execution_provider]
+    else:
+        # execution providers should be list[str]
+        assert isinstance(execution_provider, list) and all(isinstance(ep, str) for ep in execution_provider)
 
     for idx, ep in enumerate(execution_provider):
         if ep == "QNNExecutionProvider":
