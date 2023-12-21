@@ -51,6 +51,7 @@ This document introduces Olive and provides some examples to get you started.
 
    tutorials/configure_systems
    tutorials/configure_metrics
+   tutorials/configure_auto_optimizer
    tutorials/configure_pass
    tutorials/configure_data
    tutorials/configure_model_path

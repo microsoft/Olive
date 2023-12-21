@@ -86,6 +86,7 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="configure_systems.html">How To Configure System</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configure_auto_optimizer.html">How To Configure Auto Optimizer</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configure_pass.html">How To Configure Pass</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configure_data.html">How To Configure Data</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configure_model_path.html">How To Set Model Path</a></li>
@@ -265,7 +266,7 @@ Passes available in Olive can be found at …</p>
 <h2>Run the engine<a class="headerlink" href="#run-the-engine" title="Permalink to this heading">¶</a></h2>
 <p>Finally, run the engine on your input model. The output will be the best set of parameters for the passes and the output
 model. Note: the engine run result will be updated soon.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">best_execution</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">input_model</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">best_execution</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">input_model</span><span class="p">,</span> <span class="p">[</span><span class="n">DEFAULT_CPU_ACCELERATOR</span><span class="p">])</span>
 </pre></div>
 </div>
 </section>

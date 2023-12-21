@@ -84,6 +84,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_systems.html">How To Configure System</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_auto_optimizer.html">How To Configure Auto Optimizer</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_pass.html">How To Configure Pass</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_data.html">How To Configure Data</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_model_path.html">How To Set Model Path</a></li>
@@ -147,6 +148,7 @@
 
 
 <div class="viewcode-block" id="MetricType"><a class="viewcode-back" href="../../../api/metric.html#olive.evaluator.metric.MetricType">[docs]</a><span class="k">class</span> <span class="nc">MetricType</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Enum</span><span class="p">):</span>
+    <span class="c1"># TODO(trajep): support throughput</span>
     <span class="n">ACCURACY</span> <span class="o">=</span> <span class="s2">&quot;accuracy&quot;</span>
     <span class="n">LATENCY</span> <span class="o">=</span> <span class="s2">&quot;latency&quot;</span>
     <span class="n">THROUGHPUT</span> <span class="o">=</span> <span class="s2">&quot;throughput&quot;</span>

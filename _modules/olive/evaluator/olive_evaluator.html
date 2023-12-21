@@ -84,6 +84,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_systems.html">How To Configure System</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_auto_optimizer.html">How To Configure Auto Optimizer</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_pass.html">How To Configure Pass</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_data.html">How To Configure Data</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_model_path.html">How To Set Model Path</a></li>
@@ -1196,6 +1197,14 @@
 
 <div class="viewcode-block" id="OliveEvaluatorConfig"><a class="viewcode-back" href="../../../api/engine.html#olive.evaluator.olive_evaluator.OliveEvaluatorConfig">[docs]</a><span class="k">class</span> <span class="nc">OliveEvaluatorConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
     <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># noqa: RUF012</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_accuracy_drop_tolerance</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">sub_metric</span> <span class="ow">in</span> <span class="n">metric</span><span class="o">.</span><span class="n">sub_types</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">MetricType</span><span class="o">.</span><span class="n">ACCURACY</span> <span class="ow">and</span> <span class="n">sub_metric</span><span class="o">.</span><span class="n">higher_is_better</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">sub_metric</span><span class="o">.</span><span class="n">goal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">sub_metric</span><span class="o">.</span><span class="n">goal</span><span class="o">.</span><span class="n">has_regression_goal</span><span class="p">()</span>
+        <span class="k">return</span> <span class="kc">False</span>
 
     <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;metrics&quot;</span><span class="p">)</span>
     <span class="k">def</span> <span class="nf">validate_metrics</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>

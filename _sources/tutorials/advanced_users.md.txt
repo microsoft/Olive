@@ -135,5 +135,5 @@ Finally, run the engine on your input model. The output will be the best set of 
 model. Note: the engine run result will be updated soon.
 
 ```python
-best_execution = engine.run(input_model)
+best_execution = engine.run(input_model, [DEFAULT_CPU_ACCELERATOR])
 ```
