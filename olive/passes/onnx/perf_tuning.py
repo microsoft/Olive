@@ -46,7 +46,7 @@ def generate_tuning_combos(config):
 
 
 def valid_config(tuning_combos, config):
-    # the order of combos: "provider", "execution_mode", "ort_opt_level", "io_bind"
+    # the order of combos: "provider", "execution_mode", "ort_opt_level"
 
     # Parallel execution mode does not support the CUDA Execution Provider.
     # So ORT will make the execution mode sequential when it uses the CUDA Execution Provider.
@@ -63,12 +63,31 @@ def valid_config(tuning_combos, config):
     if provider != "TensorrtExecutionProvider" and config.trt_fp16_enable:
         logger.info("[Ignored] Because EP is not TensorrtExecutionProvider, the trt_fp16_enable is ignored")
         return True
-    # if provider == "CUDAExecutionProvider" and config.enable_cuda_graph and tuning_combos[1] == 1:
-    #     logger.warning(
-    #         "[Ignored] Because EP is CUDAExecutionProvider, the execution_mode should not be 1 "
-    #         "in case of enable_cuda_graph is True"
-    #     )
-    #     return False
+    if provider == "CUDAExecutionProvider" and config.enable_cuda_graph and tuning_combos[1] == 1:
+        # Need disable the ort.ExecutionMode.ORT_PARALLEL if enable_cuda_graph is True
+        # because the CUDA Graph does not support the parallel execution mode.
+        # Otherwise, the following error will be thrown:
+        #  self._sess.run_with_iobinding(iobinding._iobinding, run_options)
+        #  RuntimeError: Error in execution: /onnxruntime_src/onnxruntime/core/providers/cuda/cuda_call.cc:121
+        #  std::conditional_t<THRW, void, onnxruntime::common::Status> onnxruntime::CudaCall(
+        #       ERRTYPE, const char*, const char*, ERRTYPE, const char*, const char*, int)
+        #    [with ERRTYPE = cudaError; bool THRW = true;
+        #       std::conditional_t<THRW, void, onnxruntime::common::Status> = void]
+        #    /onnxruntime_src/onnxruntime/core/providers/cuda/cuda_call.cc:114
+        #  std::conditional_t<THRW, void, onnxruntime::common::Status> onnxruntime::CudaCall(
+        #       ERRTYPE, const char*, const char*, ERRTYPE, const char*, const char*, int)
+        #    [with ERRTYPE = cudaError; bool THRW = true;
+        #       std::conditional_t<THRW, void, onnxruntime::common::Status> = void]
+        #    CUDA failure 901: operation failed due to a previous error during capture ;
+        #       GPU=0 ; hostname=41bcb832c000001 ;
+        #    file=/onnxruntime_src/onnxruntime/core/providers/cuda/cuda_graph.cc ; line=33 ;
+        #    expr=cudaStreamEndCapture(stream_, &graph_);
+        # The RuntimeError doesn't impact the perf-tuning result, but it will waste the time.
+        logger.warning(
+            "[Ignored] Because EP is CUDAExecutionProvider, the execution_mode should not be 1 "
+            "in case of enable_cuda_graph is True. Otherwise, the RuntimeError will be thrown."
+        )
+        return False
     return True
 
 
@@ -94,6 +113,8 @@ def tune_onnx_model(perf_tuning_pass_ep, model, data_root, config):
     }
     latency_metric = Metric(**latency_metric_config)
 
+    # TODO(myguo): from the time being, the baseline evaluation doesn't enable enable_cuda_graph.
+    # do we need enable it?
     pretuning_inference_result = get_benchmark(model, data_root, latency_metric, config)
 
     tuning_results = []

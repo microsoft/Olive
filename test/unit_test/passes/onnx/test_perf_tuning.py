@@ -116,6 +116,7 @@ def test_perf_tuning_with_provider_options(mock_get_available_providers, mock_ev
                 "gpu_mem_limit": 2 * 1024 * 1024 * 1024,
                 "cudnn_conv_algo_search": "EXHAUSTIVE",
                 "do_copy_in_default_stream": True,
+                "enable_cuda_graph": False,
             },
         ],
         "CPUExecutionProvider",
@@ -138,8 +139,10 @@ def test_perf_tuning_with_provider_options(mock_get_available_providers, mock_ev
     else:
         assert len(acutal_eps) == 1
         assert acutal_eps[0] == "CUDAExecutionProvider"
-        assert "enable_cuda_graph" in result.inference_settings["provider_options"][0]
-        assert "arena_extend_strategy" in result.inference_settings["provider_options"][0]
+        assert result.inference_settings["provider_options"][0][
+            "enable_cuda_graph"
+        ], "enable_cuda_graph is should be overridden to True"
+        assert result.inference_settings["provider_options"][0]["arena_extend_strategy"] == "kNextPowerOfTwo"
 
 
 @pytest.mark.parametrize("force_evaluate", [True, False])
