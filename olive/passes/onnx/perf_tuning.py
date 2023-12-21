@@ -121,6 +121,19 @@ def tune_onnx_model(perf_tuning_pass_ep, model, data_root, config):
     for provider, execution_mode, opt_level in generate_tuning_combos(config):
         provider, options = populate_provider_options(provider, config)  # noqa: PLW2901
         if provider == "CUDAExecutionProvider":
+            # if enable_cuda_graph is True but the io_bind is False, the following errors will be raised.
+            # onnxruntime.capi.onnxruntime_pybind11_state.Fail: [ONNXRuntimeError] : 1 : FAIL : CUDA failure 700:
+            #    an illegal memory access was encountered ; GPU=0 ; hostname=c93f1847c000000 ;
+            #    file=/onnxruntime_src/onnxruntime/core/providers/cuda/cuda_graph.cc ; line=49 ;
+            #    expr=cudaGraphLaunch(graph_exec_, stream_);
+            # [E:onnxruntime:Default, cuda_call.cc:116 CudaCall] CUDA failure 700:
+            #    an illegal memory access was encountered ; GPU=0 ; hostname=c93f1847c000000 ;
+            #    file=/onnxruntime_src/onnxruntime/core/providers/cuda/cuda_execution_provider.cc ; line=286 ;
+            #    expr=cudaStreamDestroy(stream_);
+            # [E:onnxruntime:Default, cuda_call.cc:116 CudaCall] CUDNN failure 4:
+            #    CUDNN_STATUS_INTERNAL_ERROR ; GPU=0 ; hostname=c93f1847c000000 ;
+            #    file=/onnxruntime_src/onnxruntime/core/providers/cuda/cuda_execution_provider.cc ; line=181 ;
+            #    expr=cudnnDestroy(cudnn_handle_);
             io_bind = True
         elif provider == "CPUExecutionProvider":
             io_bind = False
