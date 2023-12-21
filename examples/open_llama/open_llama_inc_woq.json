@@ -1,11 +1,11 @@
 {
     "input_model":{
-        "type": "OptimumModel",
+        "type": "PyTorchModel",
         "config": {
-            "model_path": "openlm-research/open_llama_3b",
-            "model_components": ["decoder_model.onnx", "decoder_with_past_model.onnx"],
             "hf_config": {
-                "model_class": "LlamaForCausalLM"
+                "model_name": "openlm-research/open_llama_3b",
+                "model_class": "LlamaForCausalLM",
+                "components": [{ "name": "decoder_model" }, { "name": "decoder_with_past_model" }]
             }
         }
     },
@@ -57,23 +57,23 @@
             "config": {
                 "user_script": "user_script.py",
                 "approach": "weight_only",
-        "weight_only_config":{
-            "bits": 4,
-            "algorithm": "GPTQ"
-        },
-        "dataloader_func": "calib_dataloader",
+                "weight_only_config": {
+                    "bits": 4,
+                    "algorithm": "GPTQ"
+                },
+                "dataloader_func": "calib_dataloader",
                 "calibration_sampling_size": [8],
                 "save_as_external_data": true,
                 "all_tensors_to_one_file": true
             }
         },
-    "merge": {
+        "merge": {
             "type": "OptimumMerging",
-        "config": {
-        "save_as_external_data": true,
-        "all_tensors_to_one_file": true
+            "config": {
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true
+            }
         }
-    }
     },
     "engine": {
         "evaluator": "common_evaluator",

@@ -1,11 +1,11 @@
 {
     "input_model": {
-        "type": "OptimumModel",
+        "type": "PyTorchModel",
         "config": {
-            "model_path": "togethercomputer/RedPajama-INCITE-Base-3B-v1",
-            "model_components": ["decoder_model.onnx", "decoder_with_past_model.onnx"],
             "hf_config": {
-                "model_class": "GPTNeoXForCausalLM"
+                "model_name": "togethercomputer/RedPajama-INCITE-Base-3B-v1",
+                "model_class": "GPTNeoXForCausalLM",
+                "components": [{ "name": "decoder_model" }, { "name": "decoder_with_past_model" }]
             }
         }
     },
