@@ -441,18 +441,40 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         device = "cuda" if device == "gpu" else "cpu"
         if io_bind and device == "cuda":
             io_binding = session.io_binding()
+            input_data, _ = next(iter(dataloader))
+            input_dict = OnnxEvaluator.format_input(input_data, io_config)
+            use_fp16 = any(v.dtype == np.float16 for v in input_data.values())
+            # no deepcopy for kv_cache_ortvalues, will update the value inplace and keep it shared across runs
+            if metric.user_config.shared_kv_buffer:
+                kv_cache_ortvalues = {}
+            else:
+                kv_cache_ortvalues = None
+            bind_output_data(
+                io_binding,
+                session.get_outputs(),
+                use_fp16,
+                device,
+                shared_kv_buffer=metric.user_config.shared_kv_buffer,
+                kv_cache_ortvalues=kv_cache_ortvalues,
+            )
 
         is_single_tensor_output = len(output_names) == 1
         for input_data, labels in dataloader:
             input_dict = OnnxEvaluator.format_input(input_data, io_config)
             if io_bind and device == "cuda":
-                use_fp16 = any(v.dtype == np.float16 for v in input_data.values())
-                bind_input_data(io_binding, input_dict, use_fp16, device)
-                bind_output_data(io_binding, session.get_outputs(), use_fp16, device)
+                bind_input_data(
+                    io_binding,
+                    input_dict,
+                    use_fp16,
+                    device,
+                    shared_kv_buffer=metric.user_config.shared_kv_buffer,
+                    kv_cache_ortvalues=kv_cache_ortvalues,
+                )
                 io_binding.synchronize_inputs()
                 session.run_with_iobinding(io_binding)
                 io_binding.synchronize_outputs()
                 res = [i.numpy() for i in io_binding.get_outputs()]
+                io_binding.clear_binding_inputs()
             else:
                 res = session.run(input_feed=input_dict, output_names=None)
             if is_single_tensor_output:
