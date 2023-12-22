@@ -48,7 +48,6 @@ class Engine:
         host: Optional[OliveSystem] = None,
         target: Optional[OliveSystem] = None,
         evaluator_config: Optional["OliveEvaluatorConfig"] = None,
-        execution_providers: Optional[List[str]] = None,
     ):
         self._config = validate_config(config, EngineConfig)
 
@@ -94,14 +93,11 @@ class Engine:
 
         # {"pass_name": {"pass": pass, "host": host, "evaluator": evaluator, "clean_run_cache": clean_run_cache}}
         self.passes = OrderedDict()
-
         self.pass_flows = None
         self.pass_flows_search_spaces = None
 
         self.footprints = defaultdict(Footprint)
-
         self.azureml_client_config = self._config.azureml_client_config
-
         self._initialized = False
 
     def initialize(self):

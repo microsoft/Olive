@@ -36,8 +36,7 @@ class TestOliveManagedPythonEnvironmentSystem:
 
         metric = get_latency_metric(LatencySubType.AVG)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
-        options = {"execution_providers": self.execution_providers}
-        engine = Engine(options, target=self.system, host=self.system, evaluator_config=evaluator_config)
+        engine = Engine(target=self.system, host=self.system, evaluator_config=evaluator_config)
         accelerator_specs = create_accelerators(self.system, self.execution_providers)
 
         engine.register(OrtPerfTuning)
@@ -63,8 +62,7 @@ class TestOliveManagedPythonEnvironmentSystem:
 
         metric = get_latency_metric(LatencySubType.AVG)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
-        options = {"execution_providers": self.execution_providers}
-        engine = Engine(options, target=self.system, host=self.system, evaluator_config=evaluator_config)
+        engine = Engine(target=self.system, host=self.system, evaluator_config=evaluator_config)
         accelerator_specs = create_accelerators(self.system, self.execution_providers)
         engine.register(OrtPerfTuning)
         output = engine.run(
