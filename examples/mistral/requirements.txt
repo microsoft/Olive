@@ -1,0 +1,6 @@
+datasets
+git+https://github.com/intel/neural-compressor.git
+onnxruntime-extensions
+optimum
+tabulate
+transformers>=4.34.99
