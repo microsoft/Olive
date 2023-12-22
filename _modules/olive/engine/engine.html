@@ -179,7 +179,6 @@
         <span class="n">host</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OliveSystem</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">target</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OliveSystem</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">evaluator_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">&quot;OliveEvaluatorConfig&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">EngineConfig</span><span class="p">)</span>
 
@@ -225,14 +224,11 @@
 
         <span class="c1"># {&quot;pass_name&quot;: {&quot;pass&quot;: pass, &quot;host&quot;: host, &quot;evaluator&quot;: evaluator, &quot;clean_run_cache&quot;: clean_run_cache}}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">passes</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">pass_flows</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">pass_flows_search_spaces</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="n">Footprint</span><span class="p">)</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">azureml_client_config</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">_initialized</span> <span class="o">=</span> <span class="kc">False</span>
 
     <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
