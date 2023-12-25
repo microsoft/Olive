@@ -570,13 +570,7 @@ class IncDynamicQuantization(IncQuantization):
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, Any]:
         config = {
-            "approach": PassConfigParam(type_=str, default_value="dynamic", description="dynamic quantization mode"),
-            "diagnosis": PassConfigParam(
-                type_=bool,
-                default_value=False,
-                description="""Whether to enable diagnosis mode. If enabled,
-                Intel® Neural Compressor will print the quantization summary.""",
-            ),
+            "approach": PassConfigParam(type_=str, default_value="dynamic", description="dynamic quantization mode")
         }
         # common quantization config
         config.update(deepcopy(_inc_quantization_config))
