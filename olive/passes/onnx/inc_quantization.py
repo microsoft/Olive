@@ -549,6 +549,9 @@ class IncQuantization(Pass):
                 data_config = validate_config(config["data_config"], DataConfig)
                 inc_calib_dataloader = data_config.to_data_container().create_calibration_dataloader(data_root)
 
+        if run_config.get("diagnosis", False):
+            assert inc_calib_dataloader is not None, "diagnosis mode requires dataloader"
+
         q_model = quantization.fit(
             model.model_path, ptq_config, calib_dataloader=inc_calib_dataloader, eval_func=eval_func
         )
