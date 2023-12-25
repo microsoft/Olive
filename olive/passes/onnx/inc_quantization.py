@@ -18,7 +18,6 @@ from olive.evaluator.metric import Metric, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
 from olive.exception import OlivePassError
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.logging import get_logger_level
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
@@ -472,7 +471,8 @@ class IncQuantization(Pass):
         self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
         # set the log level for neural-compressor
-        os.environ["LOGLEVEL"] = logging.getLevelName(get_logger_level(logger.level))
+        os.environ["LOGLEVEL"] = logging.getLevelName(logger.getEffectiveLevel())
+
         try:
             from neural_compressor import quantization
             from neural_compressor.config import PostTrainingQuantConfig
