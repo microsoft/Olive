@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import os
 import tempfile
 from copy import deepcopy
 from pathlib import Path
@@ -288,7 +289,7 @@ class IncQuantization(Pass):
                 Intel® Neural Compressor Quantization mode. 'dynamic' for dynamic quantization,
                 'static' for static quantization, "weight_only" for 4-bits weight-only quantization.
             """,
-            )
+            ),
         }
 
         # common quantization config
@@ -469,6 +470,9 @@ class IncQuantization(Pass):
     def _run_for_config(
         self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
+        # set the log level for neural-compressor
+        os.environ["LOGLEVEL"] = logging.getLevelName(logger.getEffectiveLevel())
+
         try:
             from neural_compressor import quantization
             from neural_compressor.config import PostTrainingQuantConfig
@@ -545,6 +549,9 @@ class IncQuantization(Pass):
                 data_config = validate_config(config["data_config"], DataConfig)
                 inc_calib_dataloader = data_config.to_data_container().create_calibration_dataloader(data_root)
 
+        if run_config.get("diagnosis", False):
+            assert inc_calib_dataloader is not None, "diagnosis mode requires dataloader"
+
         q_model = quantization.fit(
             model.model_path, ptq_config, calib_dataloader=inc_calib_dataloader, eval_func=eval_func
         )
@@ -586,7 +593,13 @@ class IncStaticQuantization(IncQuantization):
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, Any]:
         config = {
-            "approach": PassConfigParam(type_=str, default_value="static", description="static quantization mode")
+            "approach": PassConfigParam(type_=str, default_value="static", description="static quantization mode"),
+            "diagnosis": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="""Whether to enable diagnosis mode. If enabled,
+                Intel® Neural Compressor will print the quantization summary.""",
+            ),
         }
         # common quantization config
         config.update(deepcopy(_inc_quantization_config))
