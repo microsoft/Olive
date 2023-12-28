@@ -125,8 +125,8 @@ class OpenVINOQuantizationBase(Pass):
                 default_value=None,
                 description=(
                     "This parameter can be used to exclude some layers "
-                    "from the quantization process to preserve the model accuracy. "
-                    "Please refer to https://docs.openvino.ai/2023.2/basic_quantization_flow.html#tune-quantization-parameters."
+                    "from the quantization process to preserve the model accuracy. Please refer to "
+                    "https://docs.openvino.ai/2023.2/basic_quantization_flow.html#tune-quantization-parameters."
                 ),
             ),
             "ignored_scope_type": PassConfigParam(
@@ -149,8 +149,8 @@ class OpenVINOQuantizationBase(Pass):
                 type_=List[Dict],
                 required=False,
                 description=(
-                    "Extra configurations for OpenVINO model quantization. "
-                    "Please refer to https://docs.openvino.ai/2023.2/basic_quantization_flow.html#tune-quantization-parameters."
+                    "Extra configurations for OpenVINO model quantization. Please refer to "
+                    "https://docs.openvino.ai/2023.2/basic_quantization_flow.html#tune-quantization-parameters."
                 ),
             ),
         }

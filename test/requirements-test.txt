@@ -13,10 +13,10 @@ docker
 evaluate
 mlflow>=2.4.0
 neural-compressor
+nncf==2.7.0
 onnxconverter_common
 onnxruntime-extensions
 openvino==2023.2.0
-nncf==2.7.0
 optimum
 pandas
 peft
