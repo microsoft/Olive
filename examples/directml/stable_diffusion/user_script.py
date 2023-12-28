@@ -42,14 +42,13 @@ def merge_lora_weights(base_model, lora_model_id, submodel_name="unet", scale=1.
         # moved in version 0.24.0
         from diffusers.loaders.lora import LORA_WEIGHT_NAME
     from diffusers.models.attention_processor import LoRAAttnProcessor
-    from diffusers.utils import DIFFUSERS_CACHE
     from diffusers.utils.hub_utils import _get_model_file
 
     # Load LoRA weights
     model_file = _get_model_file(
         lora_model_id,
         weights_name=LORA_WEIGHT_NAME,
-        cache_dir=DIFFUSERS_CACHE,
+        cache_dir=None,
         force_download=False,
         resume_download=False,
         proxies=None,
