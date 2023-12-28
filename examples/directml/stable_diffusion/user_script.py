@@ -33,6 +33,7 @@ def is_lora_model(model_name):
 
 # Merges LoRA weights into the layers of a base model
 def merge_lora_weights(base_model, lora_model_id, submodel_name="unet", scale=1.0):
+    import inspect
     from collections import defaultdict
     from functools import reduce
 
@@ -42,25 +43,32 @@ def merge_lora_weights(base_model, lora_model_id, submodel_name="unet", scale=1.
         # moved in version 0.24.0
         from diffusers.loaders.lora import LORA_WEIGHT_NAME
     from diffusers.models.attention_processor import LoRAAttnProcessor
-    from diffusers.utils import DIFFUSERS_CACHE
     from diffusers.utils.hub_utils import _get_model_file
+
+    parameters = inspect.signature(_get_model_file).parameters
+
+    kwargs = {}
+    if "use_auth_token" in parameters:
+        kwargs["use_auth_token"] = None
+    elif "token" in parameters:
+        kwargs["token"] = None
 
     # Load LoRA weights
     model_file = _get_model_file(
         lora_model_id,
         weights_name=LORA_WEIGHT_NAME,
-        cache_dir=DIFFUSERS_CACHE,
+        cache_dir=None,
         force_download=False,
         resume_download=False,
         proxies=None,
         local_files_only=False,
-        use_auth_token=None,
         revision=None,
         subfolder=None,
         user_agent={
             "file_type": "attn_procs_weights",
             "framework": "pytorch",
         },
+        **kwargs,
     )
     lora_state_dict = torch.load(model_file, map_location="cpu")
 
