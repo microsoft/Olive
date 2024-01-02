@@ -368,6 +368,11 @@ def get_benchmark(model, data_root, latency_metric, config, test_params=None, io
         inference_settings["execution_provider"] = execution_providers
         inference_settings["provider_options"] = provider_options
 
+    if config.enable_profiling:
+        if "session_options" not in inference_settings:
+            inference_settings["session_options"] = {}
+        inference_settings["session_options"]["enable_profiling"] = True
+
     # set the session_options for metrics so that the evalute will use them by default
     latency_metric.user_config.io_bind = io_bind
     latency_metric.user_config.inference_settings = {"onnx": inference_settings}
@@ -494,6 +499,11 @@ class OrtPerfTuning(Pass):
                     "Whether force to evaluate all execution providers"
                     " which are different with the associated execution provider."
                 ),
+            ),
+            "enable_profiling": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Whether enable profiling for ONNX Runtime inference.",
             ),
         }
 

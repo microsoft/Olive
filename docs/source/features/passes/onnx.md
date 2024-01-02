@@ -336,7 +336,8 @@ improve performance.
                 },
             ],
             "CPUExecutionProvider",
-        ]
+        ],
+        "enable_profiling": false,
     }
 }
 ```
