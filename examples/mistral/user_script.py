@@ -43,6 +43,9 @@ class PileDataloader:
         self.dataset.set_format(type="torch", columns=["input_ids", "attention_mask"])
 
     def __iter__(self):
+        if all(d["input_ids"].shape[0] <= self.seq_len for d in self.dataset):
+            raise ValueError(f"All inputs are less than seq_len: {self.seq_len}")
+
         length = len(self.dataset)
         counter = 0
 
