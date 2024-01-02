@@ -4,8 +4,7 @@
         "config": {
             "hf_config": {
                 "model_name": "openlm-research/open_llama_3b",
-                "model_class": "LlamaForCausalLM",
-                "components": [{ "name": "decoder_model" }, { "name": "decoder_with_past_model" }]
+                "model_class": "LlamaForCausalLM"
             }
         }
     },
@@ -32,6 +31,8 @@
             "type": "OptimumConversion",
             "config": {
                 "target_opset": 14,
+                "legacy": true,
+                "components": ["decoder_model", "decoder_with_past_model"],
                 "save_as_external_data": true,
                 "all_tensors_to_one_file": true
             }

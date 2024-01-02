@@ -3,16 +3,19 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, Union
+from typing import Any, Dict, List, Union
+
+import onnx
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, ONNXModelHandler, PyTorchModelHandler
 from olive.model.config.hf_config import HfConfig
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_config
+from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
 
 logger = logging.getLogger(__name__)
@@ -29,6 +32,14 @@ class OptimumConversion(Pass):
             "target_opset": PassConfigParam(
                 type_=int, default_value=14, description="The version of the default (ai.onnx) opset to target."
             ),
+            "components": PassConfigParam(
+                type_=List[str],
+                default_value=None,
+                description=(
+                    "List of component models to export. E.g. ['decoder_model', 'decoder_with_past_model']. None means"
+                    " export all components."
+                ),
+            ),
             "fp16": PassConfigParam(
                 type_=bool,
                 default_value=False,
@@ -41,6 +52,14 @@ class OptimumConversion(Pass):
                 type_=bool,
                 default_value=True,
                 description="Whether to skip post-processing the exported model.",
+            ),
+            "legacy": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Export decoder only models in three files (without + with past and the resulting merged model)."
+                    " False is only valid for Optimum version 1.14.0+."
+                ),
             ),
             "extra_args": PassConfigParam(
                 type_=dict,
@@ -70,42 +89,60 @@ class OptimumConversion(Pass):
         from optimum.exporters.onnx import main_export as export_optimum_model
         from packaging import version
 
-        # TODO(jambayk): export into temp dir and then move to sub-dirs of output_model_path
-        # so that we only keep the final model files in the output_model_path
-        # and track external data if present
-        config["extra_args"] = config["extra_args"] or {}
-        config["extra_args"].update(
+        extra_args = deepcopy(config["extra_args"]) or {}
+        extra_args.update(
             {
                 "opset": config["target_opset"],
                 "fp16": config["fp16"],
                 "no_post_process": config["no_post_process"],
                 "device": config["device"],
+                "legacy": config["legacy"],
             }
         )
         hf_config = deepcopy(model.hf_config) or HfConfig()
-        if version.parse(optimum_version.__version__) >= version.parse("1.14.0"):
-            # Optimum 1.14.0 needs to be run in legacy mode to support older versions of transformers
-            # TODO(trajep): deprecated legacy after fully test with the model using optimum merging
-            config["extra_args"]["legacy"] = True
+        if hf_config.from_pretrained_args:
+            extra_args["trust_remote_code"] = hf_config.from_pretrained_args.trust_remote_code
+        if version.parse(optimum_version.__version__) < version.parse("1.14.0"):
+            if not config["legacy"]:
+                raise ValueError(
+                    "Optimum version is less than 1.14.0 which only supports legacy mode. Please upgrade to version"
+                    " 1.14.0+ or set legacy=True."
+                )
+            del extra_args["legacy"]
 
-        export_optimum_model(
-            model.model_path or hf_config.model_name,
-            output_model_path,
-            **config["extra_args"],
-        )
-
-        hf_component_names = [name for name, _ in model.get_hf_components()]
-        if len(hf_component_names) == 0:
-            return ONNXModelHandler(resolve_onnx_path(output_model_path))
-        elif len(hf_component_names) == 1:
-            return ONNXModelHandler(Path(output_model_path) / hf_component_names[0])
-
-        model_components = []
-        model_component_names = []
-        for component_name in hf_component_names:
-            model_components.append(
-                ONNXModelHandler(str(Path(output_model_path) / component_name), model_attributes=model.model_attributes)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            export_optimum_model(
+                model.model_path or hf_config.model_name,
+                temp_dir,
+                **extra_args,
             )
-            model_component_names.append(component_name)
 
-        return CompositeModelHandler(model_components, model_component_names)
+            exported_models = [name.stem for name in Path(temp_dir).iterdir() if name.suffix == ".onnx"]
+            logger.debug(f"Exported models: {exported_models}")
+            if config["components"]:
+                assert all(
+                    component in exported_models for component in config["components"]
+                ), f"Components {config['components']} are not exported. Only {exported_models} are exported."
+            components = config["components"] or exported_models
+            logger.debug(f"Components to export: {components}")
+
+            # if there is only one component, return it directly
+            if len(components) == 1:
+                output_model_path = resolve_onnx_path(output_model_path)
+                model_proto = onnx.load(Path(temp_dir) / f"{components[0]}.onnx")
+                return model_proto_to_olive_model(model_proto, output_model_path, config)
+
+            # if there are multiple components, return a composite model
+            model_components = []
+            model_component_names = []
+            for component_name in components:
+                # save the component model to a sub-directory
+                component_output_path = resolve_onnx_path(Path(output_model_path).with_suffix("") / component_name)
+                component_proto = onnx.load(Path(temp_dir) / f"{component_name}.onnx")
+                component_handler = model_proto_to_olive_model(component_proto, component_output_path, config)
+                component_handler.model_attributes = model.model_attributes
+                # add the component model to the composite model
+                model_components.append(component_handler)
+                model_component_names.append(component_name)
+
+            return CompositeModelHandler(model_components, model_component_names)
