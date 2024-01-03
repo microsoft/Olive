@@ -4263,7 +4263,7 @@
 </section>
 <section id="optimumconversion">
 <span id="optimum-conversion"></span><h2>OptimumConversion<a class="headerlink" href="#optimumconversion" title="Permalink to this heading">¶</a></h2>
-<p>Convert a Optimum model to ONNX model using the Optimum export function.</p>
+<p>Convert a Hugging Face PyTorch model to ONNX model using the Optimum export function.</p>
 <p><strong>Input:</strong> handler.pytorch.PyTorchModelHandler</p>
 <p><strong>Output:</strong> handler.onnx.ONNXModelHandler | handler.composite.CompositeModelHandler</p>
 <dl class="std option">
@@ -4294,6 +4294,15 @@
 </dd></dl>
 
 <dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-components">
+<span class="sig-name descname"><span class="pre">components</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-components" title="Permalink to this definition">¶</a></dt>
+<dd><p>List of component models to export. E.g. [‘decoder_model’, ‘decoder_with_past_model’]. None means export all components.</p>
+<p><strong>type:</strong> List[str]</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-239">
 <span class="sig-name descname"><span class="pre">fp16</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-239" title="Permalink to this definition">¶</a></dt>
 <dd><p>Whether to use fp16 precision to load torch model and then convert it to onnx.</p>
@@ -4312,20 +4321,26 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-no_post_process">
-<span class="sig-name descname"><span class="pre">no_post_process</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-no_post_process" title="Permalink to this definition">¶</a></dt>
-<dd><p>Whether to skip post-processing the exported model.</p>
-<p><strong>type:</strong> bool</p>
-<p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
-</dd></dl>
-
-<dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-241">
 <span class="sig-name descname"><span class="pre">extra_args</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-241" title="Permalink to this definition">¶</a></dt>
 <dd><p>Extra arguments to pass to the <cite>optimum.exporters.onnx.main_export</cite> function.</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> None</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+</section>
+<section id="optimummerging">
+<span id="optimum-merging"></span><h2>OptimumMerging<a class="headerlink" href="#optimummerging" title="Permalink to this heading">¶</a></h2>
+<p>Merges a decoder_model with its decoder_with_past_model via the Optimum library.</p>
+<p><strong>Input:</strong> handler.composite.CompositeModelHandler</p>
+<p><strong>Output:</strong> handler.onnx.ONNXModelHandler | handler.composite.CompositeModelHandler</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-strict">
+<span class="sig-name descname"><span class="pre">strict</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-strict" title="Permalink to this definition">¶</a></dt>
+<dd><p>When set, the decoder and decoder_with_past are expected to have strictly the same number of outputs. When False, the decoder is allowed to have more outputs that decoder_with_past, in which case constant outputs are added to match the number of outputs.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> True</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 
@@ -4368,66 +4383,6 @@
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-246">
 <span class="sig-name descname"><span class="pre">convert_attribute</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-246" title="Permalink to this definition">¶</a></dt>
-<dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
-<p><strong>type:</strong> bool</p>
-<p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
-</dd></dl>
-
-</section>
-<section id="optimummerging">
-<span id="optimum-merging"></span><h2>OptimumMerging<a class="headerlink" href="#optimummerging" title="Permalink to this heading">¶</a></h2>
-<p>Merges a decoder_model with its decoder_with_past_model via the Optimum library.</p>
-<p><strong>Input:</strong> handler.composite.CompositeModelHandler</p>
-<p><strong>Output:</strong> handler.onnx.ONNXModelHandler | handler.composite.CompositeModelHandler</p>
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-strict">
-<span class="sig-name descname"><span class="pre">strict</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-strict" title="Permalink to this definition">¶</a></dt>
-<dd><p>When set, the decoder and decoder_with_past are expected to have strictly the same number of outputs. When False, the decoder is allowed to have more outputs that decoder_with_past, in which case constant outputs are added to match the number of outputs.</p>
-<p><strong>type:</strong> bool</p>
-<p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
-</dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-247">
-<span class="sig-name descname"><span class="pre">save_as_external_data</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-247" title="Permalink to this definition">¶</a></dt>
-<dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
-<p><strong>type:</strong> bool</p>
-<p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> None</p>
-</dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-248">
-<span class="sig-name descname"><span class="pre">all_tensors_to_one_file</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-248" title="Permalink to this definition">¶</a></dt>
-<dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
-<p><strong>type:</strong> bool</p>
-<p><strong>default_value:</strong> True</p>
-<p><strong>searchable_values:</strong> None</p>
-</dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-249">
-<span class="sig-name descname"><span class="pre">external_data_name</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-249" title="Permalink to this definition">¶</a></dt>
-<dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
-<p><strong>type:</strong> str</p>
-<p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
-</dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-250">
-<span class="sig-name descname"><span class="pre">size_threshold</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-250" title="Permalink to this definition">¶</a></dt>
-<dd><p>Effective only if save_as_external_data is True. Threshold for size of data. Only when tensor’s data is &gt;= the size_threshold it will be converted to external data. To convert every tensor with raw data to external data set size_threshold=0.</p>
-<p><strong>type:</strong> int</p>
-<p><strong>default_value:</strong> 1024</p>
-<p><strong>searchable_values:</strong> None</p>
-</dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-251">
-<span class="sig-name descname"><span class="pre">convert_attribute</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-251" title="Permalink to this definition">¶</a></dt>
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
