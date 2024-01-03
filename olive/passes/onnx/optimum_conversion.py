@@ -12,7 +12,6 @@ import onnx
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, ONNXModelHandler, PyTorchModelHandler
-from olive.model.config.hf_config import HfConfig
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
@@ -22,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class OptimumConversion(Pass):
-    """Convert a Optimum model to ONNX model using the Optimum export function."""
+    """Convert a Hugging Face PyTorch model to ONNX model using the Optimum export function."""
 
     _requires_user_script = True
 
@@ -85,6 +84,9 @@ class OptimumConversion(Pass):
     def _run_for_config(
         self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> Union[ONNXModelHandler, CompositeModelHandler]:
+        if not model.hf_config:
+            raise ValueError("OptimumConversion pass only supports PyTorchModelHandler with hf_config.")
+
         from optimum import version as optimum_version
         from optimum.exporters.onnx import main_export as export_optimum_model
         from packaging import version
@@ -99,9 +101,8 @@ class OptimumConversion(Pass):
                 "legacy": config["legacy"],
             }
         )
-        hf_config = deepcopy(model.hf_config) or HfConfig()
-        if hf_config.from_pretrained_args:
-            extra_args["trust_remote_code"] = hf_config.from_pretrained_args.trust_remote_code
+        if model.hf_config.from_pretrained_args:
+            extra_args["trust_remote_code"] = model.hf_config.from_pretrained_args.trust_remote_code
         if version.parse(optimum_version.__version__) < version.parse("1.14.0"):
             if not config["legacy"]:
                 raise ValueError(
@@ -112,7 +113,7 @@ class OptimumConversion(Pass):
 
         with tempfile.TemporaryDirectory() as temp_dir:
             export_optimum_model(
-                model.model_path or hf_config.model_name,
+                model.model_path or model.hf_config.model_name,
                 temp_dir,
                 **extra_args,
             )
