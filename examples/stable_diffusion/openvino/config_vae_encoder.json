@@ -30,7 +30,7 @@
         "search_strategy": false,
         "evaluate_input_model": false,
         "host": "local_system",
-        "target": "local_system",
+        "execution_providers": ["CPUExecutionProvider"],
         "cache_dir": "cache",
         "output_name": "vae_encoder",
         "output_dir": "models"
