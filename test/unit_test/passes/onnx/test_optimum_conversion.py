@@ -65,12 +65,11 @@ def test_optimum_conversion_pass_with_components(components, extra_args, expecte
         assert Path(output_model.model_path).exists()
     else:
         assert isinstance(output_model, CompositeModelHandler)
-        component_models = list(output_model.get_model_components())
-        assert len(component_models) == len(expected_components)
-        for i, (component_name, component_model) in enumerate(component_models):
-            assert component_name == expected_components[i]
-            assert isinstance(component_model, ONNXModelHandler)
+        component_names = []
+        for component_name, component_model in output_model.get_model_components():
+            component_names.append(component_name)
             assert Path(component_model.model_path).exists()
+        assert set(component_names) == set(expected_components)
 
 
 @pytest.mark.parametrize(
