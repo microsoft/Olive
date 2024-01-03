@@ -74,6 +74,10 @@ class Footprint:
         self.objective_dict = objective_dict or {}
         self.is_marked_pareto_frontier = is_marked_pareto_frontier
 
+    def get_output_model_path(self):
+        model_id = next(reversed(self.nodes.keys()))
+        return self.get_model_path(model_id)
+
     def metric_numbers(self):
         if not self.nodes:
             return 0
