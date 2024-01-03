@@ -8,6 +8,7 @@ from test.unit_test.utils import get_hf_model
 
 import pytest
 
+from olive.model import CompositeModelHandler, ONNXModelHandler, PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.optimum_conversion import OptimumConversion
 
@@ -24,6 +25,52 @@ def test_optimum_conversion_pass(extra_args, tmp_path):
 
     # assert
     assert Path(onnx_model.model_path).exists()
+
+
+@pytest.mark.parametrize(
+    "components,extra_args,expected_components",
+    [
+        (None, None, None),  # latest model can be used for both prompt processing and token generation
+        (
+            None,
+            {"legacy": True, "no_post_process": True},
+            ["decoder_with_past_model", "decoder_model"],
+        ),  # legacy model with separate prompt processing and token generation
+        (
+            ["decoder_model", "decoder_with_past_model"],
+            {"legacy": True, "no_post_process": True},
+            ["decoder_model", "decoder_with_past_model"],
+        ),  # select specific components in order from legacy export
+    ],
+)
+def test_optimum_conversion_pass_with_components(components, extra_args, expected_components, tmp_path):
+    input_model = PyTorchModelHandler(
+        hf_config={
+            "model_name": "hf-internal-testing/tiny-random-OPTForCausalLM",
+            "task": "text-generation",
+        }
+    )
+    # setup
+    p = create_pass_from_dict(
+        OptimumConversion, {"components": components, "extra_args": extra_args}, disable_search=True
+    )
+    output_folder = tmp_path
+
+    # execute
+    output_model = p.run(input_model, None, output_folder)
+
+    # assert
+    if expected_components is None:
+        assert isinstance(output_model, ONNXModelHandler)
+        assert Path(output_model.model_path).exists()
+    else:
+        assert isinstance(output_model, CompositeModelHandler)
+        component_models = list(output_model.get_model_components())
+        assert len(component_models) == len(expected_components)
+        for i, (component_name, component_model) in enumerate(component_models):
+            assert component_name == expected_components[i]
+            assert isinstance(component_model, ONNXModelHandler)
+            assert Path(component_model.model_path).exists()
 
 
 @pytest.mark.parametrize(

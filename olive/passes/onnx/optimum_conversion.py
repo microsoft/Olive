@@ -12,6 +12,7 @@ import onnx
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, ONNXModelHandler, PyTorchModelHandler
+from olive.model.config.hf_config import HfConfig
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
@@ -47,19 +48,6 @@ class OptimumConversion(Pass):
             "device": PassConfigParam(
                 type_=str, default_value="cpu", description="The device to use to do the export. Defaults to 'cpu'."
             ),
-            "no_post_process": PassConfigParam(
-                type_=bool,
-                default_value=True,
-                description="Whether to skip post-processing the exported model.",
-            ),
-            "legacy": PassConfigParam(
-                type_=bool,
-                default_value=False,
-                description=(
-                    "Export decoder only models in three files (without + with past and the resulting merged model)."
-                    " False is only valid for Optimum version 1.14.0+."
-                ),
-            ),
             "extra_args": PassConfigParam(
                 type_=dict,
                 default_value=None,
@@ -84,9 +72,6 @@ class OptimumConversion(Pass):
     def _run_for_config(
         self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> Union[ONNXModelHandler, CompositeModelHandler]:
-        if not model.hf_config:
-            raise ValueError("OptimumConversion pass only supports PyTorchModelHandler with hf_config.")
-
         from optimum import version as optimum_version
         from optimum.exporters.onnx import main_export as export_optimum_model
         from packaging import version
@@ -96,24 +81,29 @@ class OptimumConversion(Pass):
             {
                 "opset": config["target_opset"],
                 "fp16": config["fp16"],
-                "no_post_process": config["no_post_process"],
                 "device": config["device"],
-                "legacy": config["legacy"],
             }
         )
-        if model.hf_config.from_pretrained_args:
-            extra_args["trust_remote_code"] = model.hf_config.from_pretrained_args.trust_remote_code
+        hf_config = model.hf_config or HfConfig()
+        if hf_config.from_pretrained_args and "trust_remote_code" not in extra_args:
+            extra_args["trust_remote_code"] = hf_config.from_pretrained_args.trust_remote_code
+
         if version.parse(optimum_version.__version__) < version.parse("1.14.0"):
-            if not config["legacy"]:
-                raise ValueError(
-                    "Optimum version is less than 1.14.0 which only supports legacy mode. Please upgrade to version"
-                    " 1.14.0+ or set legacy=True."
+            logger.warning(
+                "The behavior of Optimum onnx exporter changed in version 1.14.0 with the introduction of `legacy`"
+                " option. You are using an older version of optimum so it will use the legacy behavior and the output"
+                " model/s may not be the same as the latest version. Please upgrade to the latest version of optimum if"
+                " you do not want the legacy behavior!"
+            )
+            if "legacy" in extra_args:
+                logger.warning(
+                    "`legacy` option is set in the extra_args, but it is ignored because you are using optimum<1.14.0."
                 )
-            del extra_args["legacy"]
+                del extra_args["legacy"]
 
         with tempfile.TemporaryDirectory() as temp_dir:
             export_optimum_model(
-                model.model_path or model.hf_config.model_name,
+                model.model_path or hf_config.model_name,
                 temp_dir,
                 **extra_args,
             )
