@@ -50,12 +50,10 @@
         "convert": {
             "type": "OptimumConversion",
             "config": {
-                "no_post_process": false,
                 "target_opset": 14,
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true,
                 "extra_args": {
-                    "legacy": false
+                    "legacy": false,
+                    "no_post_process": false
                 }
             }
         },

@@ -28,6 +28,34 @@ git config --system core.longpaths true
 python -m olive.workflows.run --config mistral_optimize.json
 ```
 
+### Local model
+if the input model is saved locally, you can specify the configuration like the following:
+```json
+{
+    "input_model": {
+        "type": "PyTorchModel",
+        "config": {
+            "model_path": "C:/git/Olive/examples/mistral/mistral-7b2"
+        }
+    },
+    //...
+    "passes": {
+        "convert": {
+            "type": "OptimumConversion",
+            "config": {
+                "target_opset": 14,
+                "extra_args": {
+                    "legacy": false,
+                    "no_post_process": false,
+                    "task": "text-generation-with-past"
+                }
+            }
+        }
+    }
+    //...
+}
+```
+
 ## Known issues
 From the time being, the latency for sequence length larger than 1 will be worse than that of original model if the int4 quantized model is running in CPU. So, we'd suggest to run the int4 quantized model in GPU for better performance.
 
