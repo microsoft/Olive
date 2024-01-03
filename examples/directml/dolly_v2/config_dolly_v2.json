@@ -3,7 +3,8 @@
         "type": "PyTorchModel",
         "config": {
             "hf_config": {
-                "model_name": "databricks/dolly-v2-7b"
+                "model_name": "databricks/dolly-v2-7b",
+                "task": "text-generation"
             }
         }
     },

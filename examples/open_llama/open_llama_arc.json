@@ -9,7 +9,7 @@
         "config": {
             "hf_config": {
                 "model_name": "openlm-research/open_llama_3b",
-                "model_class": "LlamaForCausalLM"
+                "task": "text-generation"
             }
         }
     },
