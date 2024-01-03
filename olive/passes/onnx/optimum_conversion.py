@@ -98,17 +98,14 @@ class OptimumConversion(Pass):
         # TODO(anyone): consider using a temporary directory to export the model and then save the relevant components
         export_optimum_model(model.model_path or hf_config.model_name, output_model_path, **extra_args)
 
-        output_model_path = Path(output_model_path)
-
         # check the exported components
-        exported_models = [name.stem for name in output_model_path.iterdir() if name.suffix == ".onnx"]
-        logger.debug(f"Exported models: {exported_models}")
+        exported_models = [name.stem for name in Path(output_model_path).iterdir() if name.suffix == ".onnx"]
         if config["components"]:
             assert all(
                 component in exported_models for component in config["components"]
             ), f"Components {config['components']} are not exported. Only {exported_models} are exported."
         components = config["components"] or exported_models
-        logger.debug(f"Components to export: {components}")
+        logger.debug(f"Exported models are: {exported_models}. Returning components: {components}.")
 
         # if there is only one component, return it directly
         if len(components) == 1:
