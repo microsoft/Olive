@@ -86,7 +86,7 @@
                 },
                 "recipes":{
                     "gptq_args": {
-                        "accuracy_level": 4
+                        "accuracy_level": 0
                     }
                 },
                 "dataloader_func": "calib_dataloader",
