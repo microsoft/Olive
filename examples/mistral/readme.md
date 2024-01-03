@@ -27,3 +27,15 @@ git config --system core.longpaths true
 ```bash
 python -m olive.workflows.run --config mistral_optimize.json
 ```
+
+## Known issues
+From the time being, the latency for sequence length larger than 1 will be worse than that of original model if the int4 quantized model is running in CPU. So, we'd suggest to run the int4 quantized model in GPU for better performance.
+
+To make sure int4 quantized model running in GPU, please start with the example by changing the accelerator/EP to GPU/CUDA in the config file.
+
+The following table show the latency comparison between original model and int4 quantized model with different accuracy level when running in my CPU (AMD EPYC 7763) with sequence length 32.
+| Model | Average Latency in ms |
+| --- | --- |
+| Original | 944.14496 |
+| int4 quantized with accuracy level 0 | 1663.0327 |
+| int4 quantized with accuracy level 4 | 1743.15224 |
