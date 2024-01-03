@@ -78,8 +78,10 @@ class PileDataloader:
         self.dataset = self.dataset.map(tokenize_function, batched=True)
         self.dataset.set_format(type="torch", columns=["input_ids", "attention_mask"])
         self.sess = None
-        if not model_path.endswith("decoder_model.onnx"):
-            for item in Path(model_path).parent.parent.glob("**/decoder_model.onnx"):
+        model_path = Path(model_path).resolve()
+        if model_path.parent.stem == "decoder_with_past_model":
+            decoder_model_path = None
+            for item in Path(model_path).parent.parent.glob("decoder_model/*.onnx"):
                 decoder_model_path = item.resolve()
                 break
             self.sess = ort.InferenceSession(decoder_model_path, providers=["CPUExecutionProvider"])
@@ -135,7 +137,9 @@ def eval_accuracy(model: OliveModelHandler, data_dir, batch_size, device, execut
     if model.framework == Framework.PYTORCH:
         results = evaluate(
             model="hf-causal",
-            model_args="pretrained=" + model.model_path + ",tokenizer=" + model_id + ",dtype=float32",
+            model_args=(
+                f"pretrained={model.model_path or model.hf_config.model_name},tokenizer={model_id},dtype=float32"
+            ),
             batch_size=batch_size,
             tasks=["lambada_openai"],
         )
@@ -144,7 +148,7 @@ def eval_accuracy(model: OliveModelHandler, data_dir, batch_size, device, execut
         config.to_json_file(output_config_file, use_diff=False)
         results = evaluate(
             model="hf-causal",
-            model_args="pretrained=" + str(Path(model.model_path).resolve().parent) + ",tokenizer=" + model_id,
+            model_args=f"pretrained={Path(model.model_path).resolve().parent},tokenizer={model_id}",
             batch_size=batch_size,
             tasks=["lambada_openai"],
             model_format="onnx",

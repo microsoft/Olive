@@ -4,7 +4,7 @@
         "config": {
             "hf_config": {
                 "model_name": "databricks/dolly-v2-7b",
-                "components": [{ "name": "decoder_model" }, { "name": "decoder_with_past_model" }]
+                "task": "text-generation"
             }
         }
     },
@@ -37,8 +37,11 @@
             "type": "OptimumConversion",
             "config": {
                 "target_opset": 14,
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true
+                "components": ["decoder_model", "decoder_with_past_model"],
+                "extra_args": {
+                    "legacy": true,
+                    "no_post_process": true
+                }
             }
         },
         "optimize": {

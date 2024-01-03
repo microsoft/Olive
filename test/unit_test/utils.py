@@ -80,21 +80,12 @@ def get_pytorch_model():
     )
 
 
-def get_optimum_model_by_model_path():
+def get_hf_model():
     return PyTorchModelHandler(
         hf_config={
             "model_name": "hf-internal-testing/tiny-random-gptj",
             "task": "text-generation",
         }
-    )
-
-
-def get_optimum_model_by_hf_config():
-    return PyTorchModelHandler(
-        hf_config={
-            "model_name": "hf-internal-testing/tiny-random-gptj",
-            "task": "text-generation",
-        },
     )
 
 

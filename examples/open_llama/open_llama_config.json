@@ -4,16 +4,7 @@
         "config": {
             "hf_config": {
                 "model_name": "openlm-research/open_llama_3b",
-                "model_class": "LlamaForCausalLM",
-                "components": [{ "name": "decoder_model" }, { "name": "decoder_with_past_model" }]
-            }
-        }
-    },
-    "systems": {
-        "local_system": {
-            "type": "LocalSystem",
-            "config": {
-                "accelerators": ["gpu"]
+                "task": "text-generation"
             }
         }
     },
@@ -38,8 +29,11 @@
             "type": "OptimumConversion",
             "config": {
                 "target_opset": 14,
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true
+                "components": ["decoder_model", "decoder_with_past_model"],
+                "extra_args": {
+                    "legacy": true,
+                    "no_post_process": true
+                }
             }
         },
         "optimize": {
@@ -64,8 +58,7 @@
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
         "output_name": "ollama",
-        "target": "local_system",
-        "host": "local_system",
+        "execution_providers": ["CUDAExecutionProvider"],
         "output_dir": "models/open_llama"
     }
 }
