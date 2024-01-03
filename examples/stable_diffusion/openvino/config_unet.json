@@ -1,0 +1,38 @@
+{
+    "input_model": {
+        "type": "PyTorchModel",
+        "config": {
+            "model_path": "runwayml/stable-diffusion-v1-5",
+            "model_loader": "unet_load",
+            "model_script": "user_script.py"
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": ["cpu"]
+            }
+        }
+    },
+    "passes": {
+        "conversion": {
+            "type": "OpenVINOConversion",
+            "config": {
+                "user_script": "user_script.py",
+                "example_input_func": "get_unet_example_input",
+                "input": "get_unet_input_shape",
+                "output_model": "unet"
+            }
+        }
+    },
+    "engine": {
+        "search_strategy": false,
+        "evaluate_input_model": false,
+        "host": "local_system",
+        "execution_providers": ["CPUExecutionProvider"],
+        "cache_dir": "cache",
+        "output_name": "unet",
+        "output_dir": "models"
+    }
+}

@@ -1,8 +1,12 @@
-# Stable Diffusion and Stable Diffusion XL Optimization
+# Stable Diffusion Optimization
 
-This folder contains sample use cases of Olive to optimize:
+This folder contains sample use cases of Olive with ONNX Runtime and OpenVINO to optimize:
 - Stable Diffusion: [Stable Diffusion v1-4](https://huggingface.co/CompVis/stable-diffusion-v1-4), [Stable Diffusion v1-5](https://huggingface.co/runwayml/stable-diffusion-v1-5), [Stable Diffusion v2](https://huggingface.co/stabilityai/stable-diffusion-2)
 - Stable Diffusion XL: [Stable Diffusion XL Base](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0), [Stable Diffusion XL Refiner](https://huggingface.co/stabilityai/stable-diffusion-xl-refiner-1.0)
+
+
+## Stable Diffusion and Stable Diffusion XL Optimization with ONNX Runtime
+
 
 Stable Diffusion comprises multiple PyTorch models tied together into a *pipeline*. This Olive sample will convert each PyTorch model to ONNX, and then run the converted ONNX models through the `OrtTransformersOptimization` pass. The transformer optimization pass performs several time-consuming graph transformations that make the models more efficient for inference at runtime.
 
@@ -12,7 +16,7 @@ See the following for instructions on how to optimize Stable Diffusion models wi
     - [Stable Diffusion XL](../directml/stable_diffusion_xl/README.md)
 - [CUDA](#optimization-with-cuda)
 
-## Optimization with CUDA
+### Optimization with CUDA
 
 This sample performs the following optimization workflow for each model in the Stable Diffusion pipeline:
 - *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model fp16*
@@ -28,8 +32,8 @@ Transformers optimization uses the following optimizations to speed up Stable Di
 * BiasAdd fuses Add bias and residual.
 * Reduce Transpose nodes by graph transformation.
 
-### Prerequisites
-#### Clone the repository and install Olive
+#### Prerequisites
+##### Clone the repository and install Olive
 
 Refer to the instructions in the [examples README](../README.md) to clone the repository and install Olive.
 
@@ -48,7 +52,7 @@ cd examples/directml/stable_diffusion
 cd examples/directml/stable_diffusion_xl
 ```
 
-#### Install onnxruntime
+##### Install onnxruntime
 
 This example requires the latest onnxruntime-gpu code which can either be built from source or installed from the nightly builds. The following command can be used to install the latest nightly build of onnxruntime-gpu:
 
@@ -60,7 +64,7 @@ pip uninstall -y onnxruntime onnxruntime-gpu onnxruntime-directml ort-nightly or
 pip install ort-nightly-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
 ```
 
-#### Install other dependencies
+##### Install other dependencies
 
 Install the necessary python packages:
 
@@ -68,7 +72,7 @@ Install the necessary python packages:
 python -m pip install -r requirements-common.txt
 ```
 
-### Conversion to ONNX and Latency Optimization
+#### Conversion to ONNX and Latency Optimization
 
 The easiest way to optimize the pipeline is with the `stable_diffusion.py` and `stable_diffusion_xl.py` scripts. These scripts will enumerate the `config_<model_name>.json` files and optimize each with Olive, then gather the optimized models into a directory structure suitable for testing inference.
 
@@ -96,7 +100,7 @@ Once the script successfully completes:
 
 Re-running the script with `--optimize` will delete the output models, but it will *not* delete the Olive cache. Subsequent runs will complete much faster since it will simply be copying previously optimized models; you may use the `--clean_cache` option to start from scratch (not typically used unless you are modifying the scripts, for example).
 
-## Test Inference
+### Test Inference
 
 Test ONNX runtime inference with the optimized models using `OnnxStableDiffusionPipeline`:
 
@@ -115,3 +119,8 @@ The result will be saved as `result_<i>.png` on disk.
 Refer to the corresponding section in the DirectML READMEs for more details on the test inference options:
 - [Stable Diffusion](../directml/stable_diffusion/README.md#test-inference)
 - [Stable Diffusion XL](../directml/stable_diffusion_xl/README.md#test-inference)
+
+
+# Stable Diffusion Optimization with OpenVINO
+
+Please follow this [instruction](./openvino/) to optimize Stable Diffusion model with OpenVINO.
