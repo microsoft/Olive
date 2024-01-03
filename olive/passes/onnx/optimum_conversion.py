@@ -3,19 +3,14 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-import tempfile
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, List, Union
 
-import onnx
-
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, ONNXModelHandler, PyTorchModelHandler
 from olive.model.config.hf_config import HfConfig
-from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
 
 logger = logging.getLogger(__name__)
@@ -28,7 +23,7 @@ class OptimumConversion(Pass):
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        config = {
+        return {
             "target_opset": PassConfigParam(
                 type_=int, default_value=14, description="The version of the default (ai.onnx) opset to target."
             ),
@@ -54,8 +49,6 @@ class OptimumConversion(Pass):
                 description="Extra arguments to pass to the `optimum.exporters.onnx.main_export` function.",
             ),
         }
-        config.update(get_external_data_config())
-        return config
 
     def validate_search_point(
         self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
@@ -101,39 +94,40 @@ class OptimumConversion(Pass):
                 )
                 del extra_args["legacy"]
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            export_optimum_model(
-                model.model_path or hf_config.model_name,
-                temp_dir,
-                **extra_args,
+        # export directly to the output path
+        # TODO(anyone): consider using a temporary directory to export the model and then save the relevant components
+        export_optimum_model(model.model_path or hf_config.model_name, output_model_path, **extra_args)
+
+        output_model_path = Path(output_model_path)
+
+        # check the exported components
+        exported_models = [name.stem for name in output_model_path.iterdir() if name.suffix == ".onnx"]
+        logger.debug(f"Exported models: {exported_models}")
+        if config["components"]:
+            assert all(
+                component in exported_models for component in config["components"]
+            ), f"Components {config['components']} are not exported. Only {exported_models} are exported."
+        components = config["components"] or exported_models
+        logger.debug(f"Components to export: {components}")
+
+        # if there is only one component, return it directly
+        if len(components) == 1:
+            # will always return an onnx model handler with folder as the model path
+            return ONNXModelHandler(model_path=output_model_path, onnx_file_name=f"{components[0]}.onnx")
+
+        # if there are multiple components, return a composite model
+        model_components = []
+        model_component_names = []
+        for component_name in components:
+            # Note: since conversion is done directly to the output path, all components are in the same folder
+            # this is not the same as for other composite models where each component is in a separate subfolder
+            model_components.append(
+                ONNXModelHandler(
+                    model_path=output_model_path,
+                    onnx_file_name=f"{component_name}.onnx",
+                    model_attributes=model.model_attributes,
+                )
             )
+            model_component_names.append(component_name)
 
-            exported_models = [name.stem for name in Path(temp_dir).iterdir() if name.suffix == ".onnx"]
-            logger.debug(f"Exported models: {exported_models}")
-            if config["components"]:
-                assert all(
-                    component in exported_models for component in config["components"]
-                ), f"Components {config['components']} are not exported. Only {exported_models} are exported."
-            components = config["components"] or exported_models
-            logger.debug(f"Components to export: {components}")
-
-            # if there is only one component, return it directly
-            if len(components) == 1:
-                output_model_path = resolve_onnx_path(output_model_path)
-                model_proto = onnx.load(Path(temp_dir) / f"{components[0]}.onnx")
-                return model_proto_to_olive_model(model_proto, output_model_path, config)
-
-            # if there are multiple components, return a composite model
-            model_components = []
-            model_component_names = []
-            for component_name in components:
-                # save the component model to a sub-directory
-                component_output_path = resolve_onnx_path(Path(output_model_path).with_suffix("") / component_name)
-                component_proto = onnx.load(Path(temp_dir) / f"{component_name}.onnx")
-                component_handler = model_proto_to_olive_model(component_proto, component_output_path, config)
-                component_handler.model_attributes = model.model_attributes
-                # add the component model to the composite model
-                model_components.append(component_handler)
-                model_component_names.append(component_name)
-
-            return CompositeModelHandler(model_components, model_component_names)
+        return CompositeModelHandler(model_components, model_component_names)

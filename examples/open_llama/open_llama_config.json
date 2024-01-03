@@ -33,9 +33,7 @@
                 "extra_args": {
                     "legacy": true,
                     "no_post_process": true
-                },
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true
+                }
             }
         },
         "optimize": {
