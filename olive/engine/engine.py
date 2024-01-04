@@ -15,7 +15,7 @@ import olive.cache as cache_utils
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.utils import hash_dict
 from olive.engine.config import FAILED_CONFIG, INVALID_CONFIG, PRUNED_CONFIGS, EngineConfig
-from olive.engine.footprint import Footprint, FootprintNode, FootprintNodeMetric
+from olive.engine.footprint import Footprint, FootprintNodeMetric
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import Metric, MetricResult, joint_metric_key
 from olive.exception import EXCEPTIONS_TO_RAISE, OlivePassError
@@ -1028,22 +1028,6 @@ class Engine:
             ),
         )
         return signal
-
-    def _get_top_ranked_nodes(
-        self, objective_dict: Dict[str, Any], footprint: Footprint, k: int
-    ) -> List[FootprintNode]:
-        footprint_node_list = footprint.nodes.values()
-        sorted_footprint_node_list = sorted(
-            footprint_node_list,
-            key=lambda x: tuple(
-                x.metrics.value[metric].value
-                if x.metrics.cmp_direction[metric] == 1
-                else -x.metrics.value[metric].value
-                for metric in objective_dict
-            ),
-            reverse=True,
-        )
-        return sorted_footprint_node_list[:k]
 
     @contextmanager
     def create_managed_environment(self, accelerator_spec):

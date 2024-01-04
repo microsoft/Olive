@@ -66,15 +66,15 @@ class Footprint:
 
     def __init__(
         self,
-        nodes: Dict = None,
+        nodes=None,
         objective_dict: Dict = None,
         is_marked_pareto_frontier: bool = False,
     ):
-        self.nodes = nodes or OrderedDict()
+        self.nodes: Dict[str, FootprintNode] = nodes or OrderedDict()
         self.objective_dict = objective_dict or {}
         self.is_marked_pareto_frontier = is_marked_pareto_frontier
 
-    def _metric_numbers(self):
+    def _len_first_metric(self):
         if not self.nodes:
             return 0
         for metric in self.nodes.values():
@@ -208,22 +208,24 @@ class Footprint:
         return sorted_footprint_node_list[:k]
 
     def _get_metrics_name_by_indices(self, indices):
-        rls = []
+        """Get the first available metrics names by index."""
         for v in self.nodes.values():
             if v.metrics:
+                rls = []
                 for index in indices:
                     if isinstance(index, str):
                         if index in self.objective_dict:
                             rls.append(index)
                         else:
                             logger.error(f"the metric {index} is not in the metrics")
-                    if isinstance(index, int):
+                    elif isinstance(index, int):
                         if index < len(self.objective_dict):
                             rls.append(list(self.objective_dict.keys())[index])
                         else:
                             logger.error(f"the index {index} is out of range")
-                return rls
-        return rls
+                if rls:
+                    return rls
+        return []
 
     def plot_pareto_frontier_to_html(self, index=None, save_path=None, is_show=False):
         self._plot_pareto_frontier(index, save_path, is_show, "html")
@@ -240,7 +242,7 @@ class Footprint:
         :param save_format: the format of the pareto frontier chart, can be "html" or "image"
         """
         assert save_path is not None or is_show, "you must specify the save path or set is_show to True"
-        if self._metric_numbers() <= 1:
+        if self._len_first_metric() <= 1:
             logger.warning("There is no need to plot pareto frontier with only one metric")
             return
 
