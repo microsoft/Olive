@@ -1,8 +1,8 @@
 ## Prerequisites
 * transformers>=4.34.99
 * optimum
+* neural-compressor>=2.4.1
 * ort-nightly
-* git+https://github.com/intel/neural-compressor.git
 
 ## Installation
 ```bash
