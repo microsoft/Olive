@@ -487,6 +487,7 @@ class Engine:
             objective_dict = self.resolve_objectives(
                 input_model_config, input_model_id, data_root, evaluator_config.metrics, accelerator_spec
             )
+            self.footprints[accelerator_spec].record_objective_dict(objective_dict)
 
         # initialize the search strategy
         self.search_strategy.initialize(self.pass_flows_search_spaces, input_model_id, objective_dict)
@@ -528,13 +529,11 @@ class Engine:
         self.footprints[accelerator_spec].to_file(output_dir / f"{prefix_output_name}footprints.json")
 
         return self.create_pareto_frontier_footprints(
-            accelerator_spec, output_model_num, objective_dict, output_dir, prefix_output_name
+            accelerator_spec, output_model_num, output_dir, prefix_output_name
         )
 
-    def create_pareto_frontier_footprints(
-        self, accelerator_spec, output_model_num, objective_dict, output_dir, prefix_output_name
-    ):
-        pf_footprints = self.footprints[accelerator_spec].create_pareto_frontier(output_model_num, objective_dict)
+    def create_pareto_frontier_footprints(self, accelerator_spec, output_model_num, output_dir, prefix_output_name):
+        pf_footprints = self.footprints[accelerator_spec].create_pareto_frontier(output_model_num)
         pf_footprints.to_file(output_dir / f"{prefix_output_name}pareto_frontier_footprints.json")
 
         if self._config.plot_pareto_frontier:
@@ -584,7 +583,6 @@ class Engine:
                     "goal": goals.get(metric_key),
                     "priority": sub_type.priority,
                 }
-        self.footprints[accelerator_spec].record_objective_dict(objective_dict)
         return dict(sorted(objective_dict.items(), key=lambda x: x[1]["priority"]))
 
     def resolve_goals(

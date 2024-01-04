@@ -6,7 +6,7 @@
 import logging
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
-from typing import Any, DefaultDict, Dict, List, NamedTuple
+from typing import DefaultDict, Dict, List, NamedTuple
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
 from olive.evaluator.metric import MetricResult
@@ -173,12 +173,12 @@ class Footprint:
             nodes[model_id] = deepcopy(self.nodes[model_id])
         return Footprint(nodes=nodes, objective_dict=deepcopy(self.objective_dict))
 
-    def create_pareto_frontier(self, output_model_num, objective_dict):
+    def create_pareto_frontier(self, output_model_num: int = None):
         if output_model_num is None or len(self.nodes) <= output_model_num:
             logger.info(f"Output all {len(self.nodes)} models")
             return self._create_pareto_frontier_from_nodes(self.nodes)
         else:
-            topk_nodes = self._get_top_ranked_nodes(objective_dict, output_model_num)
+            topk_nodes = self._get_top_ranked_nodes(output_model_num)
             logger.info(f"Output top ranked {len(topk_nodes)} models based on metric priorities")
             return self._create_pareto_frontier_from_nodes(topk_nodes)
 
@@ -193,7 +193,7 @@ class Footprint:
             nodes=deepcopy(rls), objective_dict=deepcopy(self.objective_dict), is_marked_pareto_frontier=True
         )
 
-    def _get_top_ranked_nodes(self, objective_dict: Dict[str, Any], k: int) -> List[FootprintNode]:
+    def _get_top_ranked_nodes(self, k: int) -> List[FootprintNode]:
         footprint_node_list = self.nodes.values()
         sorted_footprint_node_list = sorted(
             footprint_node_list,
@@ -201,7 +201,7 @@ class Footprint:
                 x.metrics.value[metric].value
                 if x.metrics.cmp_direction[metric] == 1
                 else -x.metrics.value[metric].value
-                for metric in objective_dict
+                for metric in self.objective_dict
             ),
             reverse=True,
         )
