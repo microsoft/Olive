@@ -562,6 +562,13 @@ class IncQuantization(Pass):
                 "find any quantized model which meet accuracy goal. "
                 "Try to increase 'max_trials' in 'tuning_criterion'."
             )
+
+        # reload weight for model with size > 2GB to prevent error of missing weight files
+        if q_model.is_large_model:
+            from onnx.external_data_helper import load_external_data_for_model
+
+            load_external_data_for_model(q_model.model, os.path.dirname(q_model._model_path))
+
         # save the model to the output path and return the model
         return model_proto_to_olive_model(q_model.model, output_model_path, config)
 
