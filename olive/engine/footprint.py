@@ -74,15 +74,11 @@ class Footprint:
         self.objective_dict = objective_dict or {}
         self.is_marked_pareto_frontier = is_marked_pareto_frontier
 
-    def get_output_model_path(self):
-        model_id = next(reversed(self.nodes.keys()))
-        return self.get_model_path(model_id)
-
     def metric_numbers(self):
         if not self.nodes:
             return 0
         for metric in self.nodes.values():
-            if self._is_empty_metric(metric.metrics):
+            if not metric.metrics:
                 continue
             return len(metric.metrics.value)
         return 0
@@ -90,12 +86,9 @@ class Footprint:
     def record_objective_dict(self, objective_dict):
         self.objective_dict = objective_dict
 
-    def _is_empty_metric(self, metric: FootprintNodeMetric):
-        return not metric
-
     def resolve_metrics(self):
         for k, v in self.nodes.items():
-            if self._is_empty_metric(v.metrics):
+            if not v.metrics:
                 continue
             if self.nodes[k].metrics.cmp_direction is None:
                 self.nodes[k].metrics.cmp_direction = {}
@@ -135,7 +128,7 @@ class Footprint:
         return {
             k: v
             for k, v in self.nodes.items()
-            if not self._is_empty_metric(v.metrics) and v.parent_model_id is not None and v.metrics.if_goals_met
+            if v.metrics and v.parent_model_id is not None and v.metrics.if_goals_met
         }
 
     def mark_pareto_frontier(self):
@@ -200,7 +193,7 @@ class Footprint:
     def _get_metrics_name_by_indices(self, indices):
         rls = []
         for v in self.nodes.values():
-            if not self._is_empty_metric(v.metrics):
+            if v.metrics:
                 for index in indices:
                     if isinstance(index, str):
                         if index in self.objective_dict:
@@ -344,7 +337,7 @@ class Footprint:
 
     def to_df(self):
         # to pandas.DataFrame
-        pass
+        raise NotImplementedError
 
     def to_json(self):
         return config_json_dumps(self.nodes)
@@ -365,40 +358,24 @@ class Footprint:
         with open(file_path) as f:  # noqa: PTH123
             return cls.from_json(f.read())
 
-    def get_model_inference_config(self, model_id):
-        model_config = self.nodes[model_id].model_config
-        if model_config is None:
-            return None
-
-        return model_config.get("config", {}).get("inference_settings", None)
-
-    def get_model_path(self, model_id):
-        model_config = self.nodes[model_id].model_config
-        if model_config is None:
-            return None
-
-        return model_config.get("config", {}).get("model_path", None)
-
     def get_model_config(self, model_id):
         model_config = self.nodes[model_id].model_config
         if model_config is None:
-            return None
+            return {}
 
         return model_config.get("config", {})
 
-    def get_model_type(self, model_id):
-        model_config = self.nodes[model_id].model_config
-        if model_config is None:
-            return None
+    def get_model_inference_config(self, model_id):
+        return self.get_model_config(model_id).get("inference_settings", None)
 
-        return model_config.get("type", None)
+    def get_model_path(self, model_id):
+        return self.get_model_config(model_id).get("model_path", None)
+
+    def get_model_type(self, model_id):
+        return self.get_model_config(model_id).get("type", None)
 
     def get_use_ort_extensions(self, model_id):
-        model_config = self.nodes[model_id].model_config
-        if model_config is None:
-            return False
-
-        return model_config.get("config", {}).get("use_ort_extensions", False)
+        return self.get_model_config(model_id).get("use_ort_extensions", False)
 
     def get_input_node(self):
         return next(v for _, v in self.nodes.items() if v.parent_model_id is None)
