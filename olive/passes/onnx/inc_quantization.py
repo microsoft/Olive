@@ -566,6 +566,7 @@ class IncQuantization(Pass):
         # reload weight for model with size > 2GB to prevent error of missing weight files
         if q_model.is_large_model:
             from onnx.external_data_helper import load_external_data_for_model
+
             load_external_data_for_model(q_model.model, os.path.dirname(q_model._model_path))
 
         # save the model to the output path and return the model
