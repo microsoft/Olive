@@ -534,14 +534,7 @@ class Engine:
     def create_pareto_frontier_footprints(
         self, accelerator_spec, output_model_num, objective_dict, output_dir, prefix_output_name
     ):
-        pf_footprints = self.footprints[accelerator_spec].create_pareto_frontier()
-        if output_model_num is None or len(pf_footprints.nodes) <= output_model_num:
-            logger.info(f"Output all {len(pf_footprints.nodes)} models")
-        else:
-            top_ranked_nodes = self._get_top_ranked_nodes(objective_dict, pf_footprints, output_model_num)
-            logger.info(f"Output top ranked {len(top_ranked_nodes)} models based on metric priorities")
-            pf_footprints.update_nodes(top_ranked_nodes)
-
+        pf_footprints = self.footprints[accelerator_spec].create_pareto_frontier(output_model_num, objective_dict)
         pf_footprints.to_file(output_dir / f"{prefix_output_name}pareto_frontier_footprints.json")
 
         if self._config.plot_pareto_frontier:

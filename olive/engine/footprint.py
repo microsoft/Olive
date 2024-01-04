@@ -6,7 +6,7 @@
 import logging
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
-from typing import DefaultDict, Dict, NamedTuple
+from typing import Any, DefaultDict, Dict, List, NamedTuple
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
 from olive.evaluator.metric import MetricResult
@@ -74,7 +74,7 @@ class Footprint:
         self.objective_dict = objective_dict or {}
         self.is_marked_pareto_frontier = is_marked_pareto_frontier
 
-    def metric_numbers(self):
+    def _metric_numbers(self):
         if not self.nodes:
             return 0
         for metric in self.nodes.values():
@@ -86,7 +86,7 @@ class Footprint:
     def record_objective_dict(self, objective_dict):
         self.objective_dict = objective_dict
 
-    def resolve_metrics(self):
+    def _resolve_metrics(self):
         for k, v in self.nodes.items():
             if not v.metrics:
                 continue
@@ -122,19 +122,19 @@ class Footprint:
             self.nodes[_model_id].update(**kwargs)
         else:
             self.nodes[_model_id] = FootprintNode(**kwargs)
-        self.resolve_metrics()
+        self._resolve_metrics()
 
-    def get_candidates(self):
+    def _get_candidates(self):
         return {
             k: v
             for k, v in self.nodes.items()
             if v.metrics and v.parent_model_id is not None and v.metrics.if_goals_met
         }
 
-    def mark_pareto_frontier(self):
+    def _mark_pareto_frontier(self):
         if self.is_marked_pareto_frontier:
             return
-        candidates = self.get_candidates()
+        candidates = self._get_candidates()
         for k, v in candidates.items():
             # if current point's metrics is less than any other point's metrics, it is not pareto frontier
             cmp_flag = True
@@ -173,9 +173,18 @@ class Footprint:
             nodes[model_id] = deepcopy(self.nodes[model_id])
         return Footprint(nodes=nodes, objective_dict=deepcopy(self.objective_dict))
 
-    def create_pareto_frontier(self):
-        self.mark_pareto_frontier()
-        rls = {k: v for k, v in self.nodes.items() if v.is_pareto_frontier}
+    def create_pareto_frontier(self, output_model_num, objective_dict):
+        if output_model_num is None or len(self.nodes) <= output_model_num:
+            logger.info(f"Output all {len(self.nodes)} models")
+            return self._create_pareto_frontier_from_nodes(self.nodes)
+        else:
+            topk_nodes = self._get_top_ranked_nodes(objective_dict, output_model_num)
+            logger.info(f"Output top ranked {len(topk_nodes)} models based on metric priorities")
+            return self._create_pareto_frontier_from_nodes(topk_nodes)
+
+    def _create_pareto_frontier_from_nodes(self, nodes: Dict):
+        self._mark_pareto_frontier()
+        rls = {k: v for k, v in nodes.items() if v.is_pareto_frontier}
         for v in rls.values():
             logger.info(f"pareto frontier points: {v.model_id} \n{v.metrics.value}")
 
@@ -184,11 +193,19 @@ class Footprint:
             nodes=deepcopy(rls), objective_dict=deepcopy(self.objective_dict), is_marked_pareto_frontier=True
         )
 
-    def update_nodes(self, nodes):
-        node_dict = OrderedDict()
-        for node in nodes:
-            node_dict[node.model_id] = node
-        self.nodes = node_dict
+    def _get_top_ranked_nodes(self, objective_dict: Dict[str, Any], k: int) -> List[FootprintNode]:
+        footprint_node_list = self.nodes.values()
+        sorted_footprint_node_list = sorted(
+            footprint_node_list,
+            key=lambda x: tuple(
+                x.metrics.value[metric].value
+                if x.metrics.cmp_direction[metric] == 1
+                else -x.metrics.value[metric].value
+                for metric in objective_dict
+            ),
+            reverse=True,
+        )
+        return sorted_footprint_node_list[:k]
 
     def _get_metrics_name_by_indices(self, indices):
         rls = []
@@ -209,12 +226,12 @@ class Footprint:
         return rls
 
     def plot_pareto_frontier_to_html(self, index=None, save_path=None, is_show=False):
-        self.plot_pareto_frontier(index, save_path, is_show, "html")
+        self._plot_pareto_frontier(index, save_path, is_show, "html")
 
     def plot_pareto_frontier_to_image(self, index=None, save_path=None, is_show=False):
-        self.plot_pareto_frontier(index, save_path, is_show, "image")
+        self._plot_pareto_frontier(index, save_path, is_show, "image")
 
-    def plot_pareto_frontier(self, ranks=None, save_path=None, is_show=True, save_format="html"):
+    def _plot_pareto_frontier(self, ranks=None, save_path=None, is_show=True, save_format="html"):
         """Plot pareto frontier with plotly.
 
         :param ranks: the rank list of the metrics to be shown in the pareto frontier chart
@@ -223,14 +240,14 @@ class Footprint:
         :param save_format: the format of the pareto frontier chart, can be "html" or "image"
         """
         assert save_path is not None or is_show, "you must specify the save path or set is_show to True"
-        if self.metric_numbers() <= 1:
+        if self._metric_numbers() <= 1:
             logger.warning("There is no need to plot pareto frontier with only one metric")
             return
 
         ranks = ranks or [1, 2]
         index = [i - 1 for i in ranks]
-        self.mark_pareto_frontier()
-        nodes_to_be_plotted = self.get_candidates()
+        self._mark_pareto_frontier()
+        nodes_to_be_plotted = self._get_candidates()
 
         if not nodes_to_be_plotted:
             logger.warning("there is no candidate to be plotted.")
@@ -372,7 +389,11 @@ class Footprint:
         return self.get_model_config(model_id).get("model_path", None)
 
     def get_model_type(self, model_id):
-        return self.get_model_config(model_id).get("type", None)
+        model_config = self.nodes[model_id].model_config
+        if model_config is None:
+            return None
+
+        return model_config.get("type", None)
 
     def get_use_ort_extensions(self, model_id):
         return self.get_model_config(model_id).get("use_ort_extensions", False)
