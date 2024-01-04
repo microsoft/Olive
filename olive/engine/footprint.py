@@ -74,6 +74,140 @@ class Footprint:
         self.objective_dict = objective_dict or {}
         self.is_marked_pareto_frontier = is_marked_pareto_frontier
 
+    def record_objective_dict(self, objective_dict):
+        self.objective_dict = objective_dict
+
+    def record(self, foot_print_node: FootprintNode = None, **kwargs):
+        _model_id = kwargs.get("model_id", None)
+        if foot_print_node is not None:
+            _model_id = foot_print_node.model_id
+            self.nodes[_model_id] = foot_print_node
+        elif _model_id in self.nodes:
+            self.nodes[_model_id].update(**kwargs)
+        else:
+            self.nodes[_model_id] = FootprintNode(**kwargs)
+        self._resolve_metrics()
+
+    def create_footprints_by_model_ids(self, model_ids):
+        nodes = OrderedDict()
+        for model_id in model_ids:
+            nodes[model_id] = deepcopy(self.nodes[model_id])
+        return Footprint(nodes=nodes, objective_dict=deepcopy(self.objective_dict))
+
+    def create_pareto_frontier(self, output_model_num: int = None):
+        if output_model_num is None or len(self.nodes) <= output_model_num:
+            logger.info(f"Output all {len(self.nodes)} models")
+            return self._create_pareto_frontier_from_nodes(self.nodes)
+        else:
+            topk_nodes = self._get_top_ranked_nodes(output_model_num)
+            logger.info(f"Output top ranked {len(topk_nodes)} models based on metric priorities")
+            return self._create_pareto_frontier_from_nodes(topk_nodes)
+
+    def plot_pareto_frontier_to_html(self, index=None, save_path=None, is_show=False):
+        self._plot_pareto_frontier(index, save_path, is_show, "html")
+
+    def plot_pareto_frontier_to_image(self, index=None, save_path=None, is_show=False):
+        self._plot_pareto_frontier(index, save_path, is_show, "image")
+
+    def _create_pareto_frontier_from_nodes(self, nodes: Dict):
+        self._mark_pareto_frontier()
+        rls = {k: v for k, v in nodes.items() if v.is_pareto_frontier}
+        for v in rls.values():
+            logger.info(f"pareto frontier points: {v.model_id} \n{v.metrics.value}")
+
+        # restructure the pareto frontier points to instance of Footprints node for further analysis
+        return Footprint(
+            nodes=deepcopy(rls), objective_dict=deepcopy(self.objective_dict), is_marked_pareto_frontier=True
+        )
+
+    def summarize_run_history(self):
+        """Summarize the run history of a model.
+
+        The summarization includes the columns of model_id, parent_model_id, from_pass, duration, metrics
+        """
+        rls = []
+        for model_id, node in self.nodes.items():
+            # get the run duration between current model and its parent model
+            if node.parent_model_id is not None:
+                duration = max(node.end_time - node.start_time, 0)
+            else:
+                duration = None
+            run_history = RunHistory(
+                model_id=model_id,
+                parent_model_id=node.parent_model_id,
+                from_pass=node.from_pass,
+                duration_sec=duration,
+                metrics=str(node.metrics.value) if node.metrics else None,
+            )
+            rls.append(run_history)
+        return rls
+
+    def trace_back_run_history(self, model_id):
+        """Trace back the run history of a model.
+
+        The trace order: model_id -> parent_model_id1 -> parent_model_id2 -> ...
+        """
+        rls = OrderedDict()
+        while model_id is not None:
+            if model_id in rls:
+                raise ValueError(f"Loop detected in the run history of model {model_id}")
+            rls[model_id] = self.nodes[model_id].pass_run_config
+            model_id = self.nodes[model_id].parent_model_id
+        return rls
+
+    def to_df(self):
+        # to pandas.DataFrame
+        raise NotImplementedError
+
+    def to_json(self):
+        return config_json_dumps(self.nodes)
+
+    @classmethod
+    def from_json(cls, json_str):
+        nodes = OrderedDict()
+        for k, v in config_json_loads(json_str, object_pairs_hook=OrderedDict).items():
+            nodes[k] = FootprintNode(**v)
+        return cls(nodes=nodes)
+
+    def to_file(self, file_path):
+        with open(file_path, "w") as f:  # noqa: PTH123
+            f.write(self.to_json())
+
+    @classmethod
+    def from_file(cls, file_path):
+        with open(file_path) as f:  # noqa: PTH123
+            return cls.from_json(f.read())
+
+    def get_output_model_path(self):
+        model_id = next(reversed(self.nodes.keys()))
+        return self.get_model_path(model_id)
+
+    def get_model_config(self, model_id):
+        model_config = self.nodes[model_id].model_config
+        if model_config is None:
+            return {}
+
+        return model_config.get("config", {})
+
+    def get_model_inference_config(self, model_id):
+        return self.get_model_config(model_id).get("inference_settings", None)
+
+    def get_model_path(self, model_id):
+        return self.get_model_config(model_id).get("model_path", None)
+
+    def get_model_type(self, model_id):
+        model_config = self.nodes[model_id].model_config
+        if model_config is None:
+            return None
+
+        return model_config.get("type", None)
+
+    def get_use_ort_extensions(self, model_id):
+        return self.get_model_config(model_id).get("use_ort_extensions", False)
+
+    def get_input_node(self):
+        return next(v for _, v in self.nodes.items() if v.parent_model_id is None)
+
     def _len_first_metric(self):
         if not self.nodes:
             return 0
@@ -82,9 +216,6 @@ class Footprint:
                 continue
             return len(metric.metrics.value)
         return 0
-
-    def record_objective_dict(self, objective_dict):
-        self.objective_dict = objective_dict
 
     def _resolve_metrics(self):
         for k, v in self.nodes.items():
@@ -112,17 +243,6 @@ class Footprint:
                         else v.metrics.value[metric_name].value <= _goal
                     )
             self.nodes[k].metrics.if_goals_met = all(if_goals_met)
-
-    def record(self, foot_print_node: FootprintNode = None, **kwargs):
-        _model_id = kwargs.get("model_id", None)
-        if foot_print_node is not None:
-            _model_id = foot_print_node.model_id
-            self.nodes[_model_id] = foot_print_node
-        elif _model_id in self.nodes:
-            self.nodes[_model_id].update(**kwargs)
-        else:
-            self.nodes[_model_id] = FootprintNode(**kwargs)
-        self._resolve_metrics()
 
     def _get_candidates(self):
         return {
@@ -167,32 +287,6 @@ class Footprint:
             self.nodes[k].is_pareto_frontier = cmp_flag
         self.is_marked_pareto_frontier = True
 
-    def create_footprints_by_model_ids(self, model_ids):
-        nodes = OrderedDict()
-        for model_id in model_ids:
-            nodes[model_id] = deepcopy(self.nodes[model_id])
-        return Footprint(nodes=nodes, objective_dict=deepcopy(self.objective_dict))
-
-    def create_pareto_frontier(self, output_model_num: int = None):
-        if output_model_num is None or len(self.nodes) <= output_model_num:
-            logger.info(f"Output all {len(self.nodes)} models")
-            return self._create_pareto_frontier_from_nodes(self.nodes)
-        else:
-            topk_nodes = self._get_top_ranked_nodes(output_model_num)
-            logger.info(f"Output top ranked {len(topk_nodes)} models based on metric priorities")
-            return self._create_pareto_frontier_from_nodes(topk_nodes)
-
-    def _create_pareto_frontier_from_nodes(self, nodes: Dict):
-        self._mark_pareto_frontier()
-        rls = {k: v for k, v in nodes.items() if v.is_pareto_frontier}
-        for v in rls.values():
-            logger.info(f"pareto frontier points: {v.model_id} \n{v.metrics.value}")
-
-        # restructure the pareto frontier points to instance of Footprints node for further analysis
-        return Footprint(
-            nodes=deepcopy(rls), objective_dict=deepcopy(self.objective_dict), is_marked_pareto_frontier=True
-        )
-
     def _get_top_ranked_nodes(self, k: int) -> List[FootprintNode]:
         footprint_node_list = self.nodes.values()
         sorted_footprint_node_list = sorted(
@@ -226,12 +320,6 @@ class Footprint:
                 if rls:
                     return rls
         return []
-
-    def plot_pareto_frontier_to_html(self, index=None, save_path=None, is_show=False):
-        self._plot_pareto_frontier(index, save_path, is_show, "html")
-
-    def plot_pareto_frontier_to_image(self, index=None, save_path=None, is_show=False):
-        self._plot_pareto_frontier(index, save_path, is_show, "image")
 
     def _plot_pareto_frontier(self, ranks=None, save_path=None, is_show=True, save_format="html"):
         """Plot pareto frontier with plotly.
@@ -318,87 +406,3 @@ class Footprint:
 
         if is_show:
             fig.show()
-
-    def summarize_run_history(self):
-        """Summarize the run history of a model.
-
-        The summarization includes the columns of model_id, parent_model_id, from_pass, duration, metrics
-        """
-        rls = []
-        for model_id, node in self.nodes.items():
-            # get the run duration between current model and its parent model
-            if node.parent_model_id is not None:
-                duration = max(node.end_time - node.start_time, 0)
-            else:
-                duration = None
-            run_history = RunHistory(
-                model_id=model_id,
-                parent_model_id=node.parent_model_id,
-                from_pass=node.from_pass,
-                duration_sec=duration,
-                metrics=str(node.metrics.value) if node.metrics else None,
-            )
-            rls.append(run_history)
-        return rls
-
-    def trace_back_run_history(self, model_id):
-        """Trace back the run history of a model.
-
-        The trace order: model_id -> parent_model_id1 -> parent_model_id2 -> ...
-        """
-        rls = OrderedDict()
-        while model_id is not None:
-            if model_id in rls:
-                raise ValueError(f"Loop detected in the run history of model {model_id}")
-            rls[model_id] = self.nodes[model_id].pass_run_config
-            model_id = self.nodes[model_id].parent_model_id
-        return rls
-
-    def to_df(self):
-        # to pandas.DataFrame
-        raise NotImplementedError
-
-    def to_json(self):
-        return config_json_dumps(self.nodes)
-
-    @classmethod
-    def from_json(cls, json_str):
-        nodes = OrderedDict()
-        for k, v in config_json_loads(json_str, object_pairs_hook=OrderedDict).items():
-            nodes[k] = FootprintNode(**v)
-        return cls(nodes=nodes)
-
-    def to_file(self, file_path):
-        with open(file_path, "w") as f:  # noqa: PTH123
-            f.write(self.to_json())
-
-    @classmethod
-    def from_file(cls, file_path):
-        with open(file_path) as f:  # noqa: PTH123
-            return cls.from_json(f.read())
-
-    def get_model_config(self, model_id):
-        model_config = self.nodes[model_id].model_config
-        if model_config is None:
-            return {}
-
-        return model_config.get("config", {})
-
-    def get_model_inference_config(self, model_id):
-        return self.get_model_config(model_id).get("inference_settings", None)
-
-    def get_model_path(self, model_id):
-        return self.get_model_config(model_id).get("model_path", None)
-
-    def get_model_type(self, model_id):
-        model_config = self.nodes[model_id].model_config
-        if model_config is None:
-            return None
-
-        return model_config.get("type", None)
-
-    def get_use_ort_extensions(self, model_id):
-        return self.get_model_config(model_id).get("use_ort_extensions", False)
-
-    def get_input_node(self):
-        return next(v for _, v in self.nodes.items() if v.parent_model_id is None)
