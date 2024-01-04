@@ -15,7 +15,7 @@ import olive.cache as cache_utils
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.utils import hash_dict
 from olive.engine.config import FAILED_CONFIG, INVALID_CONFIG, PRUNED_CONFIGS, EngineConfig
-from olive.engine.footprint import Footprint, FootprintNode, FootprintNodeMetric
+from olive.engine.footprint import Footprint, FootprintNodeMetric
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import Metric, MetricResult, joint_metric_key
 from olive.exception import EXCEPTIONS_TO_RAISE, OlivePassError
@@ -487,6 +487,7 @@ class Engine:
             objective_dict = self.resolve_objectives(
                 input_model_config, input_model_id, data_root, evaluator_config.metrics, accelerator_spec
             )
+            self.footprints[accelerator_spec].record_objective_dict(objective_dict)
 
         # initialize the search strategy
         self.search_strategy.initialize(self.pass_flows_search_spaces, input_model_id, objective_dict)
@@ -528,20 +529,11 @@ class Engine:
         self.footprints[accelerator_spec].to_file(output_dir / f"{prefix_output_name}footprints.json")
 
         return self.create_pareto_frontier_footprints(
-            accelerator_spec, output_model_num, objective_dict, output_dir, prefix_output_name
+            accelerator_spec, output_model_num, output_dir, prefix_output_name
         )
 
-    def create_pareto_frontier_footprints(
-        self, accelerator_spec, output_model_num, objective_dict, output_dir, prefix_output_name
-    ):
-        pf_footprints = self.footprints[accelerator_spec].create_pareto_frontier()
-        if output_model_num is None or len(pf_footprints.nodes) <= output_model_num:
-            logger.info(f"Output all {len(pf_footprints.nodes)} models")
-        else:
-            top_ranked_nodes = self._get_top_ranked_nodes(objective_dict, pf_footprints, output_model_num)
-            logger.info(f"Output top ranked {len(top_ranked_nodes)} models based on metric priorities")
-            pf_footprints.update_nodes(top_ranked_nodes)
-
+    def create_pareto_frontier_footprints(self, accelerator_spec, output_model_num, output_dir, prefix_output_name):
+        pf_footprints = self.footprints[accelerator_spec].create_pareto_frontier(output_model_num)
         pf_footprints.to_file(output_dir / f"{prefix_output_name}pareto_frontier_footprints.json")
 
         if self._config.plot_pareto_frontier:
@@ -591,7 +583,6 @@ class Engine:
                     "goal": goals.get(metric_key),
                     "priority": sub_type.priority,
                 }
-        self.footprints[accelerator_spec].record_objective_dict(objective_dict)
         return dict(sorted(objective_dict.items(), key=lambda x: x[1]["priority"]))
 
     def resolve_goals(
@@ -1035,22 +1026,6 @@ class Engine:
             ),
         )
         return signal
-
-    def _get_top_ranked_nodes(
-        self, objective_dict: Dict[str, Any], footprint: Footprint, k: int
-    ) -> List[FootprintNode]:
-        footprint_node_list = footprint.nodes.values()
-        sorted_footprint_node_list = sorted(
-            footprint_node_list,
-            key=lambda x: tuple(
-                x.metrics.value[metric].value
-                if x.metrics.cmp_direction[metric] == 1
-                else -x.metrics.value[metric].value
-                for metric in objective_dict
-            ),
-            reverse=True,
-        )
-        return sorted_footprint_node_list[:k]
 
     @contextmanager
     def create_managed_environment(self, accelerator_spec):
