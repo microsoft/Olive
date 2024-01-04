@@ -40,7 +40,7 @@ class TestFootprint:
         assert len(fp2.nodes) == 3
 
     def test_pareto_frontier(self):
-        pareto_frontier_fp = self.fp.create_pareto_frontier()
+        pareto_frontier_fp = self.fp.create_pareto_frontier(None, None)
         assert isinstance(pareto_frontier_fp, Footprint)
         assert len(pareto_frontier_fp.nodes) == 2
         assert all(v.is_pareto_frontier for v in pareto_frontier_fp.nodes.values())
