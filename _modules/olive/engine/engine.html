@@ -146,7 +146,7 @@
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">validate_config</span>
 <span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">hash_dict</span>
 <span class="kn">from</span> <span class="nn">olive.engine.config</span> <span class="kn">import</span> <span class="n">FAILED_CONFIG</span><span class="p">,</span> <span class="n">INVALID_CONFIG</span><span class="p">,</span> <span class="n">PRUNED_CONFIGS</span><span class="p">,</span> <span class="n">EngineConfig</span>
-<span class="kn">from</span> <span class="nn">olive.engine.footprint</span> <span class="kn">import</span> <span class="n">Footprint</span><span class="p">,</span> <span class="n">FootprintNode</span><span class="p">,</span> <span class="n">FootprintNodeMetric</span>
+<span class="kn">from</span> <span class="nn">olive.engine.footprint</span> <span class="kn">import</span> <span class="n">Footprint</span><span class="p">,</span> <span class="n">FootprintNodeMetric</span>
 <span class="kn">from</span> <span class="nn">olive.engine.packaging.packaging_generator</span> <span class="kn">import</span> <span class="n">generate_output_artifacts</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">MetricResult</span><span class="p">,</span> <span class="n">joint_metric_key</span>
 <span class="kn">from</span> <span class="nn">olive.exception</span> <span class="kn">import</span> <span class="n">EXCEPTIONS_TO_RAISE</span><span class="p">,</span> <span class="n">OlivePassError</span>
@@ -618,6 +618,7 @@
             <span class="n">objective_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">resolve_objectives</span><span class="p">(</span>
                 <span class="n">input_model_config</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">evaluator_config</span><span class="o">.</span><span class="n">metrics</span><span class="p">,</span> <span class="n">accelerator_spec</span>
             <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">record_objective_dict</span><span class="p">(</span><span class="n">objective_dict</span><span class="p">)</span>
 
         <span class="c1"># initialize the search strategy</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pass_flows_search_spaces</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">objective_dict</span><span class="p">)</span>
@@ -659,20 +660,11 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">to_file</span><span class="p">(</span><span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix_output_name</span><span class="si">}</span><span class="s2">footprints.json&quot;</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_pareto_frontier_footprints</span><span class="p">(</span>
-            <span class="n">accelerator_spec</span><span class="p">,</span> <span class="n">output_model_num</span><span class="p">,</span> <span class="n">objective_dict</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">,</span> <span class="n">prefix_output_name</span>
+            <span class="n">accelerator_spec</span><span class="p">,</span> <span class="n">output_model_num</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">,</span> <span class="n">prefix_output_name</span>
         <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">create_pareto_frontier_footprints</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">,</span> <span class="n">output_model_num</span><span class="p">,</span> <span class="n">objective_dict</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">,</span> <span class="n">prefix_output_name</span>
-    <span class="p">):</span>
-        <span class="n">pf_footprints</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">create_pareto_frontier</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">output_model_num</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">pf_footprints</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">output_model_num</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Output all </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">pf_footprints</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span><span class="si">}</span><span class="s2"> models&quot;</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">top_ranked_nodes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_top_ranked_nodes</span><span class="p">(</span><span class="n">objective_dict</span><span class="p">,</span> <span class="n">pf_footprints</span><span class="p">,</span> <span class="n">output_model_num</span><span class="p">)</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Output top ranked </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">top_ranked_nodes</span><span class="p">)</span><span class="si">}</span><span class="s2"> models based on metric priorities&quot;</span><span class="p">)</span>
-            <span class="n">pf_footprints</span><span class="o">.</span><span class="n">update_nodes</span><span class="p">(</span><span class="n">top_ranked_nodes</span><span class="p">)</span>
-
+    <span class="k">def</span> <span class="nf">create_pareto_frontier_footprints</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">,</span> <span class="n">output_model_num</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">,</span> <span class="n">prefix_output_name</span><span class="p">):</span>
+        <span class="n">pf_footprints</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">create_pareto_frontier</span><span class="p">(</span><span class="n">output_model_num</span><span class="p">)</span>
         <span class="n">pf_footprints</span><span class="o">.</span><span class="n">to_file</span><span class="p">(</span><span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix_output_name</span><span class="si">}</span><span class="s2">pareto_frontier_footprints.json&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">plot_pareto_frontier</span><span class="p">:</span>
@@ -722,7 +714,6 @@
                     <span class="s2">&quot;goal&quot;</span><span class="p">:</span> <span class="n">goals</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">metric_key</span><span class="p">),</span>
                     <span class="s2">&quot;priority&quot;</span><span class="p">:</span> <span class="n">sub_type</span><span class="o">.</span><span class="n">priority</span><span class="p">,</span>
                 <span class="p">}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">record_objective_dict</span><span class="p">(</span><span class="n">objective_dict</span><span class="p">)</span>
         <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">objective_dict</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s2">&quot;priority&quot;</span><span class="p">]))</span>
 
     <span class="k">def</span> <span class="nf">resolve_goals</span><span class="p">(</span>
@@ -1166,22 +1157,6 @@
             <span class="p">),</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">signal</span>
-
-    <span class="k">def</span> <span class="nf">_get_top_ranked_nodes</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">objective_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">footprint</span><span class="p">:</span> <span class="n">Footprint</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">FootprintNode</span><span class="p">]:</span>
-        <span class="n">footprint_node_list</span> <span class="o">=</span> <span class="n">footprint</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
-        <span class="n">sorted_footprint_node_list</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
-            <span class="n">footprint_node_list</span><span class="p">,</span>
-            <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">(</span>
-                <span class="n">x</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span><span class="o">.</span><span class="n">value</span>
-                <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">cmp_direction</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span>
-                <span class="k">else</span> <span class="o">-</span><span class="n">x</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span><span class="o">.</span><span class="n">value</span>
-                <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">objective_dict</span>
-            <span class="p">),</span>
-            <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">sorted_footprint_node_list</span><span class="p">[:</span><span class="n">k</span><span class="p">]</span>
 
     <span class="nd">@contextmanager</span>
     <span class="k">def</span> <span class="nf">create_managed_environment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">):</span>
