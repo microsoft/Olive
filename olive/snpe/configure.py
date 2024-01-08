@@ -22,8 +22,8 @@ def dev(args):
     get_snpe_root()
 
     logger.info(f"Configuring SNPE for {snpe_arch} with python{args.py_version}...")
-    with resources.path("olive.snpe", "create_python36_env.sh") as create_python36_env_path:
-        cmd = f"bash {create_python36_env_path} -v {args.py_version}"
+    with resources.path("olive.snpe", "create_python_env.sh") as create_python_env_path:
+        cmd = f"bash {create_python_env_path} -v {args.py_version}"
         return_code, stdout, stderr = run_subprocess(cmd)
         if return_code != 0:
             raise RuntimeError(f"Failed to create python36 environment. stdout: {stdout}, stderr: {stderr}")

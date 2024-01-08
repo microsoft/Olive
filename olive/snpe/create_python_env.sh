@@ -25,8 +25,8 @@ done
 
 PY_ENV_NAME=olive-pyenv
 FILES_DIR=$SNPE_ROOT/python-env-setup
-rm -rf $FILES_DIR
-mkdir $FILES_DIR
+rm -rf "$FILES_DIR"
+mkdir "$FILES_DIR"
 
 # Install conda if not already installed
 if ! command -v conda; then
@@ -39,22 +39,22 @@ else
 fi
 
 # Create python environment
-$CONDA create -y -p $FILES_DIR/$PY_ENV_NAME python=$PY_VERSION
+$CONDA create -y -p "$FILES_DIR"/$PY_ENV_NAME python="$PY_VERSION"
 
 # Install snpe requirements
-$FILES_DIR/$PY_ENV_NAME/bin/python -m pip install --upgrade pip
+"$FILES_DIR"/$PY_ENV_NAME/bin/python -m pip install --upgrade pip
 if [ "$PY_VERSION" == "3.6" ]; then
-    $FILES_DIR/$PY_ENV_NAME/bin/python -m pip install onnx==1.11.0 onnx-simplifier packaging tensorflow==1.15.0 pyyaml
+    "$FILES_DIR"/$PY_ENV_NAME/bin/python -m pip install onnx==1.11.0 onnx-simplifier packaging tensorflow==1.15.0 pyyaml
 elif [ "$PY_VERSION" == "3.8" ]; then
-    $FILES_DIR/$PY_ENV_NAME/bin/python -m pip install onnx onnx-simplifier packaging tensorflow pyyaml
+    "$FILES_DIR"/$PY_ENV_NAME/bin/python -m pip install onnx onnx-simplifier packaging tensorflow pyyaml
 else
     echo "Unsupported python version: $PY_VERSION, only 3.6 and 3.8 are supported"
     exit 1
 fi
 
 
-rm -rf $SNPE_ROOT/$PY_ENV_NAME
-mv $FILES_DIR/$PY_ENV_NAME $SNPE_ROOT/$PY_ENV_NAME
+rm -rf "$SNPE_ROOT"/$PY_ENV_NAME
+mv "$FILES_DIR"/$PY_ENV_NAME "$SNPE_ROOT"/$PY_ENV_NAME
 
 # Remove all unnecessary files
-rm -rf $FILES_DIR
+rm -rf "$FILES_DIR"
