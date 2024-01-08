@@ -39,6 +39,10 @@ def get_pass_config(model_name, task, **kwargs):
     return {
         "train_data_config": data_config,
         "eval_dataset_size": 2,
+        # hidden sizes are 4 or 16
+        # will have invalid adapter weights since `in_features` and/or `out_features` say 64 (lora_r) even though
+        # the actual weights are 4 or 16. Bug not from our code, it's from peft
+        "lora_r": 4,
         "training_args": {
             "per_device_train_batch_size": 1,
             "per_device_eval_batch_size": 1,
@@ -82,13 +86,16 @@ def test_lora(tmp_path):
     platform.system() == "Windows" or not torch.cuda.is_available(),
     reason="bitsandbytes requires Linux GPU.",
 )
-def test_qlora(tmp_path):
+@pytest.mark.parametrize("use_loftq", [True, False])
+def test_qlora(use_loftq, tmp_path):
     # execute
     # bfloat16 is not supported on all gpu
-    out = run_finetuning(QLoRA, tmp_path, torch_dtype="float32")
+    out = run_finetuning(QLoRA, tmp_path, torch_dtype="float32", use_loftq=use_loftq)
 
     # assert
     assert Path(out.get_resource("adapter_path")).exists()
+    if use_loftq:
+        assert Path(out.get_resource("model_path")).exists()
 
 
 @pytest.fixture(name="mock_torch_ort")
