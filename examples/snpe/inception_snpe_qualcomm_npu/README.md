@@ -10,6 +10,8 @@ Outputs a summary of the accuracy and latency metrics for each SNPE model.
 ### Download and unzip SNPE SDK
 Download the SNPE SDK zip following [instructions from Qualcomm](https://developer.qualcomm.com/software/qualcomm-neural-processing-sdk)
 
+We test it with SNPE v2.18.0.240101.
+
 Unzip the file and set the unzipped directory path as environment variable `SNPE_ROOT`
 
 ### Configure SNPE
