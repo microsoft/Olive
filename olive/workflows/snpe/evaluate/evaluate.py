@@ -11,8 +11,9 @@ import numpy as np
 
 from olive.hardware import Device
 from olive.model import SNPEModelHandler
-from olive.snpe import SNPEProcessedDataLoader
-from olive.snpe.utils.local import get_snpe_target_arch
+from olive.platform_sdk.qualcomm.constants import SDKTargetDevice
+from olive.platform_sdk.qualcomm.snpe.env import SNPESDKEnv
+from olive.platform_sdk.qualcomm.utils.data_loader import FileListProcessedDataLoader
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,8 @@ def evaluate(model: str, config: Union[str, Dict], data: str, input_list_file: O
 
     # Devices to evaluate on
     devices = [Device.CPU]
-    if get_snpe_target_arch() == "ARM64-Windows":
+    env = SNPESDKEnv().env
+    if env.get("TARGET_ARCH") == SDKTargetDevice.arm64x_windows:
         devices.append(Device.NPU)
 
     config["inference_settings"]["return_numpy_results"] = True
@@ -44,7 +46,7 @@ def evaluate(model: str, config: Union[str, Dict], data: str, input_list_file: O
     # devices.append(Device.NPU)
 
     # Data
-    data = SNPEProcessedDataLoader(data_dir, input_list_file=input_list_file)
+    data = FileListProcessedDataLoader(data_dir, input_list_file=input_list_file)
     input_list = data.get_input_list()
 
     # Run inference

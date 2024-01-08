@@ -9,10 +9,10 @@ from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
+from olive.platform_sdk.qualcomm.constants import SNPEDevice
+from olive.platform_sdk.qualcomm.snpe import SNPEInferenceSession, SNPESessionOptions
+from olive.platform_sdk.qualcomm.snpe.tools.dev import get_dlc_metrics
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
-from olive.snpe.constants import SNPEDevice
-from olive.snpe.snpe import SNPEInferenceSession, SNPESessionOptions
-from olive.snpe.tools.dev import get_dlc_metrics
 
 
 @model_handler_registry("SNPEModel")

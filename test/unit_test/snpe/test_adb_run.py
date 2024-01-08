@@ -10,8 +10,8 @@ from unittest.mock import patch
 
 import pytest
 
-from olive.snpe.utils.adb import run_adb_command
-from olive.snpe.utils.local import run_snpe_command
+from olive.platform_sdk.qualcomm.runner import SDKRunner
+from olive.platform_sdk.qualcomm.snpe.utils.adb import run_adb_command
 
 # pylint: disable=redefined-outer-name, unused-variable
 
@@ -36,22 +36,30 @@ def test_run_adb_command(mock_run_subprocess, mock_which, android_target):
 
 
 def test_run_snpe_command():
-    os.environ["SNPE_ROOT"] = "C:\\snpe"
+    os.environ["SNPE_ROOT"] = "C:\\snpe" if platform.system() == "Windows" else "/snpe"
     with patch.object(Path, "exists") as mock_exists, patch.object(Path, "glob") as mock_glob, patch(
         "shutil.which"
     ) as mock_witch, patch("subprocess.run") as mock_run_subprocess:
+        runner = SDKRunner(platform="SNPE", cmd="snpe-net-run --container xxxx")
         mock_exists.return_value = True
         mock_glob.return_value = [Path("lib") / "lib/x86_64-windows-vc19"]
         mock_witch.side_effect = lambda x, path: x
         mock_run_subprocess.return_value = CompletedProcess(None, returncode=0, stdout=b"stdout", stderr=b"stderr")
-        stdout, stderr = run_snpe_command("snpe-net-run --container xxxx")
+        stdout, _ = runner.run()
         if platform.system() == "Linux":
             env = {
-                "LD_LIBRARY_PATH": "C:\\snpe/lib/x86_64-linux-clang",
-                "PATH": "C:\\snpe/bin/x86_64-linux-clang:/usr/bin",
+                "LD_LIBRARY_PATH": "/snpe/lib/x86_64-linux-clang",
+                "PATH": "/snpe/bin/x86_64-linux-clang:/usr/bin",
+                "PYTHONPATH": "/snpe/lib/python",
+                "SDK_ROOT": "/snpe",
+                "TARGET_ARCH": "x86_64-linux-clang",
             }
         else:
-            env = {"PATH": "C:\\snpe\\bin\\x86_64-windows-vc19;C:\\snpe\\lib\\x86_64-windows-vc19"}
+            env = {
+                "PATH": "C:\\snpe\\bin\\x86_64-windows-vc19;C:\\snpe\\lib\\x86_64-windows-vc19",
+                "SDK_ROOT": "C:\\snpe",
+                "TARGET_ARCH": "x86_64-windows-msvc",
+            }
 
         mock_run_subprocess.assert_called_once_with(
             "snpe-net-run --container xxxx".split(),

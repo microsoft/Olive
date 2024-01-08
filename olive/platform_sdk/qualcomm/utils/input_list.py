@@ -94,6 +94,7 @@ def create_input_list(
     output_names: The names of the outputs. Required if add_output_names is True.
     append_0: If True, a ":0" is appended to the input names. For some reason, SNPE attaches a ":0" to the input and
         output names when converting TensorFlow models to SNPE DLC.
+        TODO[jiapli]: To be verify for QNN SDK.
     num_samples: The number of samples to add to the input list file. If not specified, all samples are added.
     """
     data_dir_path = Path(data_dir).resolve()
