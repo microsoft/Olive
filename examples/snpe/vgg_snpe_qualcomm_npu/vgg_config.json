@@ -39,6 +39,7 @@
         }
     },
     "engine": {
+        "log_severity_level": 0,
         "search_strategy": false,
         "clean_cache": true,
         "cache_dir": "cache",

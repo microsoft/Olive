@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import argparse
 import logging
 import shutil
 from importlib import resources
@@ -13,16 +14,16 @@ from olive.snpe.utils.local import get_snpe_root, get_snpe_target_arch, get_snpe
 logger = logging.getLogger("olive.snpe.configure")
 
 
-def dev():
+def dev(args):
     snpe_arch = get_snpe_target_arch(False)
     if snpe_arch != "x64-Linux":
         return
 
     get_snpe_root()
 
-    logger.info(f"Configuring SNPE for {snpe_arch}...")
+    logger.info(f"Configuring SNPE for {snpe_arch} with python{args.py_version}...")
     with resources.path("olive.snpe", "create_python36_env.sh") as create_python36_env_path:
-        cmd = f"bash {create_python36_env_path}"
+        cmd = f"bash {create_python36_env_path} -v {args.py_version}"
         return_code, stdout, stderr = run_subprocess(cmd)
         if return_code != 0:
             raise RuntimeError(f"Failed to create python36 environment. stdout: {stdout}, stderr: {stderr}")
@@ -66,5 +67,15 @@ def eval():  # noqa: A001  #pylint: disable=redefined-builtin
 
 
 if __name__ == "__main__":
-    dev()
+    # create args for py_version
+    parser = argparse.ArgumentParser("Olive SNPE: Configure")
+    parser.add_argument(
+        "--py_version",
+        type=str,
+        help="Python version, use 3.6 for tensorflow 1.15. Otherwise 3.8",
+        required=True,
+        choices=["3.6", "3.8"],
+    )
+    args = parser.parse_args()
+    dev(args)
     eval()
