@@ -53,7 +53,7 @@ else
 fi
 
 
-rm -rf "$SNPE_ROOT"/$PY_ENV_NAME
+rm -rf "${SNPE_ROOT:?}"/$PY_ENV_NAME
 mv "$FILES_DIR"/$PY_ENV_NAME "$SNPE_ROOT"/$PY_ENV_NAME
 
 # Remove all unnecessary files
