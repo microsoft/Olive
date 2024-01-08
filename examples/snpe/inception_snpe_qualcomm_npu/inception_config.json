@@ -1,5 +1,5 @@
 {
-    "input_model":{
+    "input_model": {
         "type": "TensorFlowModel",
         "config": {
             "model_path": "models/inception_v3.pb"
@@ -17,8 +17,17 @@
             },
             "params_config": {
                 "data_dir": "data",
-                "input_names": ["input"],
-                "input_shapes": [[1, 299, 299, 3]],
+                "input_names": [
+                    "input"
+                ],
+                "input_shapes": [
+                    [
+                        1,
+                        299,
+                        299,
+                        3
+                    ]
+                ],
                 "input_order_file": "input_order.txt",
                 "annotations_file": "labels.npy",
                 "batch_size": 7
@@ -27,14 +36,22 @@
     },
     "evaluators": {
         "common_evaluator": {
-            "metrics":[
+            "metrics": [
                 {
                     "name": "accuracy",
                     "type": "accuracy",
                     "sub_types": [
-                        {"name": "accuracy_score", "priority": 1}
+                        {
+                            "name": "accuracy_score",
+                            "priority": 1,
+                            "metric_config": {
+                                "task": "multiclass",
+                                "num_classes": "100",
+                                "top_k": 1
+                            }
+                        }
                     ],
-                    "user_config":{
+                    "user_config": {
                         "inference_settings": {
                             "snpe": {
                                 "return_numpy_results": true
@@ -47,7 +64,15 @@
                     "name": "latency",
                     "type": "latency",
                     "sub_types": [
-                        {"name": "avg", "priority": 2, "metric_config": {"warmup_num": 0, "repeat_test_num": 5, "sleep_num": 2}}
+                        {
+                            "name": "avg",
+                            "priority": 2,
+                            "metric_config": {
+                                "warmup_num": 0,
+                                "repeat_test_num": 5,
+                                "sleep_num": 2
+                            }
+                        }
                     ],
                     "user_config": {
                         "inference_settings": {
@@ -67,9 +92,20 @@
         "snpe_conversion": {
             "type": "SNPEConversion",
             "config": {
-                "input_names": ["input"],
-                "input_shapes": [[1, 299, 299, 3]],
-                "output_names": ["InceptionV3/Predictions/Reshape_1"]
+                "input_names": [
+                    "input"
+                ],
+                "input_shapes": [
+                    [
+                        1,
+                        299,
+                        299,
+                        3
+                    ]
+                ],
+                "output_names": [
+                    "InceptionV3/Predictions/Reshape_1"
+                ]
             }
         },
         "snpe_quantization": {
@@ -82,9 +118,10 @@
     },
     "engine": {
         "search_strategy": false,
+        "evaluate_input_model": false,
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
-        "output_dir" : "outputs",
+        "output_dir": "outputs",
         "output_name": "snpe_quantized"
     }
 }

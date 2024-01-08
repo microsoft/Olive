@@ -32,3 +32,12 @@ Run the conversion and quantization locally. Only supports `x64-Linux`.
 ```
 python -m olive.workflows.run --config vgg_config.json
 ```
+
+## Issues
+
+1. "Module 'qti.aisw.converters' has no attribute 'onnx':
+    Refer to this: https://developer.qualcomm.com/comment/21810#comment-21810,
+    change the import statement in `{SNPE_ROOT}/lib/python/qti/aisw/converters/onnx/onnx_to_ir.py:L30` to:
+    ```python
+    from qti.aisw.converters.onnx import composable_custom_op_utils as ComposableCustomOp
+    ```

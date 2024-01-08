@@ -90,20 +90,22 @@ def get_snpe_env(dev: bool = False) -> dict:
 
     bin_path = str(Path(f"{snpe_root}/bin/{target_arch_name}"))
     lib_path = str(Path(f"{snpe_root}/lib/{target_arch_name}"))
+    python36_env_bin_path = str(Path(f"{snpe_root}/python36-env/bin"))
+    python36_env_lib_path = str(Path(f"{snpe_root}/python36-env/lib"))
 
     env = {}
     delimiter = os.path.pathsep
     if platform.system() == "Linux":
-        env["LD_LIBRARY_PATH"] = lib_path
         if dev:
-            python36_env_path = str(Path(f"{snpe_root}/python36-env/bin"))
-            if not Path(python36_env_path).exists():
+            if not Path(python36_env_bin_path).exists():
                 raise FileNotFoundError(
-                    f"Path {python36_env_path} does not exist. Please run 'python -m olive.snpe.configure' to add the"
-                    " missing file"
+                    f"Path {python36_env_bin_path} does not exist."
+                    " Please run 'python -m olive.snpe.configure' to add the missing file"
                 )
-            bin_path += delimiter + python36_env_path
+            bin_path += delimiter + python36_env_bin_path
+            lib_path += delimiter + python36_env_lib_path
             env["PYTHONPATH"] = str(Path(f"{snpe_root}/lib/python"))
+        env["LD_LIBRARY_PATH"] = lib_path
         bin_path += delimiter + "/usr/bin"
     elif platform.system() == "Windows":
         if target_arch == "ARM64-Windows":

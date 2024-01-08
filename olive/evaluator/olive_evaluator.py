@@ -936,8 +936,8 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
                 raise ValueError("Post processing function is required for SNPE model")
             preds.extend(outputs.tolist())
             targets.extend(labels.tolist())
-            # TODO(trajep): verify if we need to return logits
-            logits.extend(result.tolist())
+            lg = result["results"].get("logits")
+            logits.extend(lg.to_list() if lg else [])
         return OliveModelOutput(preds=preds, logits=logits), targets
 
     def _evaluate_accuracy(
