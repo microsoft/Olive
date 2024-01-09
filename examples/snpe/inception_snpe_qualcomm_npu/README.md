@@ -10,11 +10,16 @@ Outputs a summary of the accuracy and latency metrics for each SNPE model.
 ### Download and unzip SNPE SDK
 Download the SNPE SDK zip following [instructions from Qualcomm](https://developer.qualcomm.com/software/qualcomm-neural-processing-sdk)
 
+We test it with SNPE v2.18.0.240101.
+
 Unzip the file and set the unzipped directory path as environment variable `SNPE_ROOT`
 
 ### Configure SNPE
-```
-python -m olive.snpe.configure
+```sh
+# in general, python 3.8 is recommended
+python -m olive.snpe.configure --py_version 3.8
+# only when the tensorflow 1.15.0 is needed, use python 3.6
+python -m olive.snpe.configure --py_version 3.6
 ```
 
 ### Pip requirements
