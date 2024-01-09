@@ -1067,8 +1067,8 @@
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Post processing function is required for SNPE model&quot;</span><span class="p">)</span>
             <span class="n">preds</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">outputs</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
             <span class="n">targets</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">labels</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
-            <span class="c1"># TODO(trajep): verify if we need to return logits</span>
-            <span class="n">logits</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+            <span class="n">lg</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;results&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;logits&quot;</span><span class="p">)</span>
+            <span class="n">logits</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">lg</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span> <span class="k">if</span> <span class="n">lg</span> <span class="k">else</span> <span class="p">[])</span>
         <span class="k">return</span> <span class="n">OliveModelOutput</span><span class="p">(</span><span class="n">preds</span><span class="o">=</span><span class="n">preds</span><span class="p">,</span> <span class="n">logits</span><span class="o">=</span><span class="n">logits</span><span class="p">),</span> <span class="n">targets</span>
 
     <span class="k">def</span> <span class="nf">_evaluate_accuracy</span><span class="p">(</span>
