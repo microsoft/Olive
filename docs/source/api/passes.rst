@@ -108,10 +108,16 @@ QLoRA
 ------
 .. autoconfigclass:: olive.passes.QLoRA
 
+.. _loftq:
+
+LoftQ
+-----
+.. autoconfigclass:: olive.passes.LoftQ
+
 .. _lora_hf_training_arguments:
 
-LoRA/QLoRA HFTrainingArguments
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+LoRA/QLoRA/LoftQ HFTrainingArguments
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autopydantic_settings:: olive.passes.pytorch.lora.HFTrainingArguments
 

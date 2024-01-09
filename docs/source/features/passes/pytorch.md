@@ -54,6 +54,30 @@ This pass only supports Hugging Face transformers PyTorch models. Please refer t
 ```
 Please refer to [QLoRA HFTrainingArguments](lora_hf_training_arguments) for more details on supported the `"training_args"` and their default values.
 
+## LoftQ
+`LoftQ` is a quantization framework which simultaneously quantizes and finds a proper low-rank initialization for LoRA fine-tuning. It is based on the LoftQ [paper](https://arxiv.org/pdf/2310.08659.pdf)
+and [code](https://github.com/yxli2123/LoftQ). More information on LoRA can be found in the [paper](https://arxiv.org/abs/2106.09685).
+
+The `LoftQ` pass initializes the quantized LoRA model using the LoftQ initialization method and then fine-tunes the adapters. The output model has new quantization aware master weights and the fine-tuned LoRA adapters.
+
+This pass only supports Hugging Face transformers PyTorch models. Please refer to [LoftQ](loftq) for more details about the pass and its config parameters.
+
+**Note:** LoftQ requires a GPU to run.
+```json
+{
+    "type": "LoftQ",
+    "config": {
+        "compute_dtype": "bfloat16",
+        "train_data_config": // ...,
+        "training_args": {
+            "learning_rate": 0.0002,
+            // ...
+        }
+    }
+}
+```
+Please refer to [LoftQ HFTrainingArguments](lora_hf_training_arguments) for more details on supported the `"training_args"` and their default values.
+
 ## Quantization Aware Training
 The Quantization Aware Training (QAT) technique is used to improve the performance and efficiency of deep learning models by quantizing their
 weights and activations to lower bit-widths. The technique is applied during training, where the weights and activations are fake quantized

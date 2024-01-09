@@ -15,7 +15,7 @@ import torch
 from olive.data.template import huggingface_data_config_template
 from olive.model import PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.pytorch import LoRA, QLoRA
+from olive.passes.pytorch import LoftQ, LoRA, QLoRA
 
 # pylint: disable=redefined-outer-name
 
@@ -86,16 +86,27 @@ def test_lora(tmp_path):
     platform.system() == "Windows" or not torch.cuda.is_available(),
     reason="bitsandbytes requires Linux GPU.",
 )
-@pytest.mark.parametrize("use_loftq", [True, False])
-def test_qlora(use_loftq, tmp_path):
+def test_qlora(tmp_path):
     # execute
     # bfloat16 is not supported on all gpu
-    out = run_finetuning(QLoRA, tmp_path, torch_dtype="float32", use_loftq=use_loftq)
+    out = run_finetuning(QLoRA, tmp_path, torch_dtype="float32")
 
     # assert
     assert Path(out.get_resource("adapter_path")).exists()
-    if use_loftq:
-        assert Path(out.get_resource("model_path")).exists()
+
+
+@pytest.mark.skipif(
+    platform.system() == "Windows" or not torch.cuda.is_available(),
+    reason="bitsandbytes requires Linux GPU.",
+)
+def test_loftq(tmp_path):
+    # execute
+    # bfloat16 is not supported on all gpu
+    out = run_finetuning(LoftQ, tmp_path, torch_dtype="float32")
+
+    # assert
+    assert Path(out.get_resource("model_path")).exists()
+    assert Path(out.get_resource("adapter_path")).exists()
 
 
 @pytest.fixture(name="mock_torch_ort")
