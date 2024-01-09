@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from functools import partial
 from test.unit_test.utils import get_accuracy_metric, get_custom_metric, get_latency_metric
 from typing import ClassVar, List
 from unittest.mock import MagicMock, patch
@@ -36,25 +37,25 @@ class TestLocalSystem:
         p.run.assert_called_once_with(olive_model.create_model(), None, output_model_path, None)
 
     METRIC_TEST_CASE: ClassVar[List[Metric]] = [
-        (get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)),
-        (get_accuracy_metric(AccuracySubType.F1_SCORE)),
-        (get_accuracy_metric(AccuracySubType.PRECISION)),
-        (get_accuracy_metric(AccuracySubType.RECALL)),
-        (get_accuracy_metric(AccuracySubType.AUROC)),
-        (get_latency_metric(LatencySubType.AVG)),
-        (get_latency_metric(LatencySubType.MAX)),
-        (get_latency_metric(LatencySubType.MIN)),
-        (get_latency_metric(LatencySubType.P50)),
-        (get_latency_metric(LatencySubType.P75)),
-        (get_latency_metric(LatencySubType.P90)),
-        (get_latency_metric(LatencySubType.P95)),
-        (get_latency_metric(LatencySubType.P99)),
-        (get_latency_metric(LatencySubType.P999)),
-        (get_custom_metric()),
+        (partial(get_accuracy_metric, AccuracySubType.ACCURACY_SCORE)),
+        (partial(get_accuracy_metric, AccuracySubType.F1_SCORE)),
+        (partial(get_accuracy_metric, AccuracySubType.PRECISION)),
+        (partial(get_accuracy_metric, AccuracySubType.RECALL)),
+        (partial(get_accuracy_metric, AccuracySubType.AUROC)),
+        (partial(get_latency_metric, LatencySubType.AVG)),
+        (partial(get_latency_metric, LatencySubType.MAX)),
+        (partial(get_latency_metric, LatencySubType.MIN)),
+        (partial(get_latency_metric, LatencySubType.P50)),
+        (partial(get_latency_metric, LatencySubType.P75)),
+        (partial(get_latency_metric, LatencySubType.P90)),
+        (partial(get_latency_metric, LatencySubType.P95)),
+        (partial(get_latency_metric, LatencySubType.P99)),
+        (partial(get_latency_metric, LatencySubType.P999)),
+        (get_custom_metric),
     ]
 
     @pytest.mark.parametrize(
-        "metric",
+        "metric_func",
         METRIC_TEST_CASE,
     )
     @patch("olive.evaluator.olive_evaluator.OliveEvaluator.get_user_config")
@@ -66,13 +67,14 @@ class TestLocalSystem:
         side_effect=lambda x, _: x,
     )
     def test_evaluate_model(
-        self, _, mock_evaluate_custom, mock_evaluate_latency, mock_evaluate_accuracy, mock_get_user_config, metric
+        self, _, mock_evaluate_custom, mock_evaluate_latency, mock_evaluate_accuracy, mock_get_user_config, metric_func
     ):
         # setup
         olive_model_config = MagicMock()
         olive_model = olive_model_config.create_model()
         olive_model.framework = Framework.ONNX
 
+        metric = metric_func()
         # olive_model.framework = Framework.ONNX
         expected_res = MetricResult.parse_obj(
             {
