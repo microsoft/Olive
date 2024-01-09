@@ -81,6 +81,7 @@
 <li class="toctree-l4"><a class="reference internal" href="#id1">Example Configuration</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#loftq">LoftQ</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#quantization-aware-training">Quantization Aware Training</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id2">Example Configuration</a></li>
 </ul>
@@ -212,6 +213,28 @@ the QLoRA <a class="reference external" href="https://arxiv.org/abs/2305.14314">
 </div>
 <p>Please refer to <a class="reference internal" href="../../api/passes.html#lora-hf-training-arguments"><span class="std std-ref">QLoRA HFTrainingArguments</span></a> for more details on supported the <code class="docutils literal notranslate"><span class="pre">&quot;training_args&quot;</span></code> and their default values.</p>
 </section>
+</section>
+<section id="loftq">
+<h2>LoftQ<a class="headerlink" href="#loftq" title="Permalink to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">LoftQ</span></code> is a quantization framework which simultaneously quantizes and finds a proper low-rank initialization for LoRA fine-tuning. It is based on the LoftQ <a class="reference external" href="https://arxiv.org/abs/2310.08659">paper</a>
+and <a class="reference external" href="https://github.com/yxli2123/LoftQ">code</a>. More information on LoRA can be found in the <a class="reference external" href="https://arxiv.org/abs/2106.09685">paper</a>.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">LoftQ</span></code> pass initializes the quantized LoRA model using the LoftQ initialization method and then fine-tunes the adapters. The output model has new quantization aware master weights and the fine-tuned LoRA adapters.</p>
+<p>This pass only supports Hugging Face transformers PyTorch models. Please refer to <a class="reference internal" href="../../api/passes.html#loftq"><span class="std std-ref">LoftQ</span></a> for more details about the pass and its config parameters.</p>
+<p><strong>Note:</strong> LoftQ requires a GPU to run.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;LoftQ&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;compute_dtype&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bfloat16&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;train_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="c1">// ...,</span>
+<span class="w">        </span><span class="nt">&quot;training_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;learning_rate&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0002</span><span class="p">,</span>
+<span class="w">            </span><span class="c1">// ...</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Please refer to <a class="reference internal" href="../../api/passes.html#lora-hf-training-arguments"><span class="std std-ref">LoftQ HFTrainingArguments</span></a> for more details on supported the <code class="docutils literal notranslate"><span class="pre">&quot;training_args&quot;</span></code> and their default values.</p>
 </section>
 <section id="quantization-aware-training">
 <h2>Quantization Aware Training<a class="headerlink" href="#quantization-aware-training" title="Permalink to this heading">¶</a></h2>
