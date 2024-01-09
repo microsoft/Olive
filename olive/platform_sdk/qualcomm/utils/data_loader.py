@@ -12,7 +12,7 @@ from typing import Any, Tuple
 import numpy as np
 import torch
 
-from olive.platform_sdk.qualcomm.utils import input_list_handler as input_list_utils
+from olive.platform_sdk.qualcomm.utils import input_list as input_list_utils
 
 logger = logging.getLogger(__name__)
 
