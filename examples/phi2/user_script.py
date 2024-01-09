@@ -10,6 +10,8 @@ import numpy as np
 import torch
 from transformers import AutoConfig, AutoModelForCausalLM
 
+from olive.constants import Framework
+
 if TYPE_CHECKING:
     from transformers import PhiConfig
 
@@ -127,8 +129,10 @@ def get_io_config(model):
 def create_dataloader(data_dir, batch_size, *args, **kwargs):
     sequence_length, past_sequence_length = 8, 0
     max_sequence_length = 512
+    model_framework = kwargs.get("model_framework", Framework.PYTORCH)
+    engine = "ort" if model_framework == Framework.ONNX else "pt"
 
-    return RandomDataLoader(batch_size, sequence_length, past_sequence_length, max_sequence_length, engine="ort")
+    return RandomDataLoader(batch_size, sequence_length, past_sequence_length, max_sequence_length, engine=engine)
 
 
 class RandomDataLoader:

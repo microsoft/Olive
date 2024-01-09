@@ -90,7 +90,7 @@
     ],
     "engine": {
         "search_strategy": false,
-        "evaluate_input_model": false,
+        "evaluate_input_model": true,
         "evaluator": "common_evaluator",
         "target": "local_system",
         "cache_dir": "cache",
