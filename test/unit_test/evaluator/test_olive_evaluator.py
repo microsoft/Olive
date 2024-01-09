@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from functools import partial
 from test.unit_test.utils import (
     get_accuracy_metric,
     get_custom_metric,
@@ -39,85 +40,86 @@ class TestOliveEvaluator:
         (
             PyTorchEvaluator(),
             get_pytorch_model,
-            get_accuracy_metric(AccuracySubType.ACCURACY_SCORE),
+            partial(get_accuracy_metric, AccuracySubType.ACCURACY_SCORE),
             "olive.evaluator.accuracy.AccuracyScore",
             0.99,
         ),
         (
             PyTorchEvaluator(),
             get_pytorch_model,
-            get_accuracy_metric(AccuracySubType.F1_SCORE),
+            partial(get_accuracy_metric, AccuracySubType.F1_SCORE),
             "olive.evaluator.accuracy.F1Score",
             0.99,
         ),
         (
             PyTorchEvaluator(),
             get_pytorch_model,
-            get_accuracy_metric(AccuracySubType.PRECISION),
+            partial(get_accuracy_metric, AccuracySubType.PRECISION),
             "olive.evaluator.accuracy.Precision",
             0.99,
         ),
         (
             PyTorchEvaluator(),
             get_pytorch_model,
-            get_accuracy_metric(AccuracySubType.RECALL),
+            partial(get_accuracy_metric, AccuracySubType.RECALL),
             "olive.evaluator.accuracy.Recall",
             0.99,
         ),
         (
             PyTorchEvaluator(),
             get_pytorch_model,
-            get_accuracy_metric(AccuracySubType.AUROC),
+            partial(get_accuracy_metric, AccuracySubType.AUROC),
             "olive.evaluator.accuracy.AUROC",
             0.99,
         ),
         (
             OnnxEvaluator(),
             get_onnx_model,
-            get_accuracy_metric(AccuracySubType.ACCURACY_SCORE),
+            partial(get_accuracy_metric, AccuracySubType.ACCURACY_SCORE),
             "olive.evaluator.accuracy.AccuracyScore",
             0.99,
         ),
         (
             OnnxEvaluator(),
             get_onnx_model,
-            get_accuracy_metric(AccuracySubType.F1_SCORE),
+            partial(get_accuracy_metric, AccuracySubType.F1_SCORE),
             "olive.evaluator.accuracy.F1Score",
             0.99,
         ),
         (
             OnnxEvaluator(),
             get_onnx_model,
-            get_accuracy_metric(AccuracySubType.PRECISION),
+            partial(get_accuracy_metric, AccuracySubType.PRECISION),
             "olive.evaluator.accuracy.Precision",
             0.99,
         ),
         (
             OnnxEvaluator(),
             get_onnx_model,
-            get_accuracy_metric(AccuracySubType.RECALL),
+            partial(get_accuracy_metric, AccuracySubType.RECALL),
             "olive.evaluator.accuracy.Recall",
             0.99,
         ),
         (
             OnnxEvaluator(),
             get_onnx_model,
-            get_accuracy_metric(AccuracySubType.AUROC),
+            partial(get_accuracy_metric, AccuracySubType.AUROC),
             "olive.evaluator.accuracy.AUROC",
             0.99,
         ),
     ]
 
     @pytest.mark.parametrize(
-        "evaluator,model_loader,metric,acc_subtype,expected_res",
+        "evaluator,model_loader,metric_func,acc_subtype,expected_res",
         ACCURACY_TEST_CASE,
     )
-    def test_evaluate_accuracy(self, evaluator, model_loader, metric, acc_subtype, expected_res):
+    def test_evaluate_accuracy(self, evaluator, model_loader, metric_func, acc_subtype, expected_res):
         # setup
         with patch(f"{acc_subtype}.measure") as mock_acc:
             mock_acc.return_value = expected_res
 
             olive_model = model_loader()
+            metric = metric_func()
             # execute
             actual_res = evaluator.evaluate(olive_model, None, [metric])
 
@@ -127,33 +129,39 @@ class TestOliveEvaluator:
                 assert expected_res == actual_res.get_value(metric.name, sub_type.name)
 
     LATENCY_TEST_CASE: ClassVar[list] = [
-        (PyTorchEvaluator(), get_pytorch_model, get_latency_metric(LatencySubType.AVG, LatencySubType.MAX), 10),
-        (PyTorchEvaluator(), get_pytorch_model, get_latency_metric(LatencySubType.MAX), 10),
-        (PyTorchEvaluator(), get_pytorch_model, get_latency_metric(LatencySubType.MIN), 10),
-        (PyTorchEvaluator(), get_pytorch_model, get_latency_metric(LatencySubType.P50), 10),
-        (PyTorchEvaluator(), get_pytorch_model, get_latency_metric(LatencySubType.P75), 10),
-        (PyTorchEvaluator(), get_pytorch_model, get_latency_metric(LatencySubType.P90), 10),
-        (PyTorchEvaluator(), get_pytorch_model, get_latency_metric(LatencySubType.P95), 10),
-        (PyTorchEvaluator(), get_pytorch_model, get_latency_metric(LatencySubType.P99), 10),
-        (PyTorchEvaluator(), get_pytorch_model, get_latency_metric(LatencySubType.P999), 10),
-        (OnnxEvaluator(), get_onnx_model, get_latency_metric(LatencySubType.AVG), 10),
-        (OnnxEvaluator(), get_onnx_model, get_latency_metric(LatencySubType.MAX), 10),
-        (OnnxEvaluator(), get_onnx_model, get_latency_metric(LatencySubType.MIN), 10),
-        (OnnxEvaluator(), get_onnx_model, get_latency_metric(LatencySubType.P50), 10),
-        (OnnxEvaluator(), get_onnx_model, get_latency_metric(LatencySubType.P75), 10),
-        (OnnxEvaluator(), get_onnx_model, get_latency_metric(LatencySubType.P90), 10),
-        (OnnxEvaluator(), get_onnx_model, get_latency_metric(LatencySubType.P95), 10),
-        (OnnxEvaluator(), get_onnx_model, get_latency_metric(LatencySubType.P99), 10),
-        (OnnxEvaluator(), get_onnx_model, get_latency_metric(LatencySubType.P999), 10),
+        (
+            PyTorchEvaluator(),
+            get_pytorch_model,
+            partial(get_latency_metric, LatencySubType.AVG, LatencySubType.MAX),
+            10,
+        ),
+        (PyTorchEvaluator(), get_pytorch_model, partial(get_latency_metric, LatencySubType.MAX), 10),
+        (PyTorchEvaluator(), get_pytorch_model, partial(get_latency_metric, LatencySubType.MIN), 10),
+        (PyTorchEvaluator(), get_pytorch_model, partial(get_latency_metric, LatencySubType.P50), 10),
+        (PyTorchEvaluator(), get_pytorch_model, partial(get_latency_metric, LatencySubType.P75), 10),
+        (PyTorchEvaluator(), get_pytorch_model, partial(get_latency_metric, LatencySubType.P90), 10),
+        (PyTorchEvaluator(), get_pytorch_model, partial(get_latency_metric, LatencySubType.P95), 10),
+        (PyTorchEvaluator(), get_pytorch_model, partial(get_latency_metric, LatencySubType.P99), 10),
+        (PyTorchEvaluator(), get_pytorch_model, partial(get_latency_metric, LatencySubType.P999), 10),
+        (OnnxEvaluator(), get_onnx_model, partial(get_latency_metric, LatencySubType.AVG), 10),
+        (OnnxEvaluator(), get_onnx_model, partial(get_latency_metric, LatencySubType.MAX), 10),
+        (OnnxEvaluator(), get_onnx_model, partial(get_latency_metric, LatencySubType.MIN), 10),
+        (OnnxEvaluator(), get_onnx_model, partial(get_latency_metric, LatencySubType.P50), 10),
+        (OnnxEvaluator(), get_onnx_model, partial(get_latency_metric, LatencySubType.P75), 10),
+        (OnnxEvaluator(), get_onnx_model, partial(get_latency_metric, LatencySubType.P90), 10),
+        (OnnxEvaluator(), get_onnx_model, partial(get_latency_metric, LatencySubType.P95), 10),
+        (OnnxEvaluator(), get_onnx_model, partial(get_latency_metric, LatencySubType.P99), 10),
+        (OnnxEvaluator(), get_onnx_model, partial(get_latency_metric, LatencySubType.P999), 10),
     ]
 
     @pytest.mark.parametrize(
-        "evaluator,model_loader,metric,expected_res",
+        "evaluator,model_loader,metric_func,expected_res",
         LATENCY_TEST_CASE,
     )
-    def test_evaluate_latency(self, evaluator, model_loader, metric, expected_res):
+    def test_evaluate_latency(self, evaluator, model_loader, metric_func, expected_res):
         olive_model = model_loader()
         # execute
+        metric = metric_func()
         actual_res = evaluator.evaluate(olive_model, None, [metric])
 
         # assert
@@ -211,35 +219,36 @@ class TestOliveEvaluator:
         (
             PyTorchEvaluator(),
             get_pytorch_model,
-            get_throughput_metric(ThroughputSubType.AVG, ThroughputSubType.MAX),
+            partial(get_throughput_metric, ThroughputSubType.AVG, ThroughputSubType.MAX),
             1e8,
         ),
-        (PyTorchEvaluator(), get_pytorch_model, get_throughput_metric(ThroughputSubType.MAX), 1e8),
-        (PyTorchEvaluator(), get_pytorch_model, get_throughput_metric(ThroughputSubType.MIN), 1e8),
-        (PyTorchEvaluator(), get_pytorch_model, get_throughput_metric(ThroughputSubType.P50), 1e8),
-        (PyTorchEvaluator(), get_pytorch_model, get_throughput_metric(ThroughputSubType.P75), 1e8),
-        (PyTorchEvaluator(), get_pytorch_model, get_throughput_metric(ThroughputSubType.P90), 1e8),
-        (PyTorchEvaluator(), get_pytorch_model, get_throughput_metric(ThroughputSubType.P95), 1e8),
-        (PyTorchEvaluator(), get_pytorch_model, get_throughput_metric(ThroughputSubType.P99), 1e8),
-        (PyTorchEvaluator(), get_pytorch_model, get_throughput_metric(ThroughputSubType.P999), 1e8),
-        (OnnxEvaluator(), get_onnx_model, get_throughput_metric(ThroughputSubType.AVG), 1e8),
-        (OnnxEvaluator(), get_onnx_model, get_throughput_metric(ThroughputSubType.MAX), 1e8),
-        (OnnxEvaluator(), get_onnx_model, get_throughput_metric(ThroughputSubType.MIN), 1e8),
-        (OnnxEvaluator(), get_onnx_model, get_throughput_metric(ThroughputSubType.P50), 1e8),
-        (OnnxEvaluator(), get_onnx_model, get_throughput_metric(ThroughputSubType.P75), 1e8),
-        (OnnxEvaluator(), get_onnx_model, get_throughput_metric(ThroughputSubType.P90), 1e8),
-        (OnnxEvaluator(), get_onnx_model, get_throughput_metric(ThroughputSubType.P95), 1e8),
-        (OnnxEvaluator(), get_onnx_model, get_throughput_metric(ThroughputSubType.P99), 1e8),
-        (OnnxEvaluator(), get_onnx_model, get_throughput_metric(ThroughputSubType.P999), 1e8),
+        (PyTorchEvaluator(), get_pytorch_model, partial(get_throughput_metric, ThroughputSubType.MAX), 1e8),
+        (PyTorchEvaluator(), get_pytorch_model, partial(get_throughput_metric, ThroughputSubType.MIN), 1e8),
+        (PyTorchEvaluator(), get_pytorch_model, partial(get_throughput_metric, ThroughputSubType.P50), 1e8),
+        (PyTorchEvaluator(), get_pytorch_model, partial(get_throughput_metric, ThroughputSubType.P75), 1e8),
+        (PyTorchEvaluator(), get_pytorch_model, partial(get_throughput_metric, ThroughputSubType.P90), 1e8),
+        (PyTorchEvaluator(), get_pytorch_model, partial(get_throughput_metric, ThroughputSubType.P95), 1e8),
+        (PyTorchEvaluator(), get_pytorch_model, partial(get_throughput_metric, ThroughputSubType.P99), 1e8),
+        (PyTorchEvaluator(), get_pytorch_model, partial(get_throughput_metric, ThroughputSubType.P999), 1e8),
+        (OnnxEvaluator(), get_onnx_model, partial(get_throughput_metric, ThroughputSubType.AVG), 1e8),
+        (OnnxEvaluator(), get_onnx_model, partial(get_throughput_metric, ThroughputSubType.MAX), 1e8),
+        (OnnxEvaluator(), get_onnx_model, partial(get_throughput_metric, ThroughputSubType.MIN), 1e8),
+        (OnnxEvaluator(), get_onnx_model, partial(get_throughput_metric, ThroughputSubType.P50), 1e8),
+        (OnnxEvaluator(), get_onnx_model, partial(get_throughput_metric, ThroughputSubType.P75), 1e8),
+        (OnnxEvaluator(), get_onnx_model, partial(get_throughput_metric, ThroughputSubType.P90), 1e8),
+        (OnnxEvaluator(), get_onnx_model, partial(get_throughput_metric, ThroughputSubType.P95), 1e8),
+        (OnnxEvaluator(), get_onnx_model, partial(get_throughput_metric, ThroughputSubType.P99), 1e8),
+        (OnnxEvaluator(), get_onnx_model, partial(get_throughput_metric, ThroughputSubType.P999), 1e8),
     ]
 
     @pytest.mark.parametrize(
-        "evaluator,model_loader,metric,expected_res",
+        "evaluator,model_loader,metric_func,expected_res",
         THROUGHPUT_TEST_CASE,
     )
-    def test_evaluate_throughput(self, evaluator, model_loader, metric, expected_res):
+    def test_evaluate_throughput(self, evaluator, model_loader, metric_func, expected_res):
         olive_model = model_loader()
         # execute
+        metric = metric_func()
         actual_res = evaluator.evaluate(olive_model, None, [metric])
 
         # assert
@@ -247,19 +256,20 @@ class TestOliveEvaluator:
             assert expected_res > actual_res.get_value(metric.name, sub_type.name)
 
     CUSTOM_TEST_CASE: ClassVar[list] = [
-        (PyTorchEvaluator(), get_pytorch_model, get_custom_metric(), 0.382715310),
-        (OnnxEvaluator(), get_onnx_model, get_custom_metric(), 0.382715310),
-        (SNPEEvaluator(), get_mock_snpe_model, get_custom_metric(), 0.382715310),
-        (OpenVINOEvaluator(), get_mock_openvino_model, get_custom_metric(), 0.382715310),
+        (PyTorchEvaluator(), get_pytorch_model, get_custom_metric, 0.382715310),
+        (OnnxEvaluator(), get_onnx_model, get_custom_metric, 0.382715310),
+        (SNPEEvaluator(), get_mock_snpe_model, get_custom_metric, 0.382715310),
+        (OpenVINOEvaluator(), get_mock_openvino_model, get_custom_metric, 0.382715310),
     ]
 
     @pytest.mark.parametrize(
-        "evaluator,model_loader,metric,expected_res",
+        "evaluator,model_loader,metric_func,expected_res",
         CUSTOM_TEST_CASE,
     )
-    def test_evaluate_custom(self, evaluator, model_loader, metric, expected_res):
+    def test_evaluate_custom(self, evaluator, model_loader, metric_func, expected_res):
         olive_model = model_loader()
         # execute
+        metric = metric_func()
         actual_res = evaluator.evaluate(olive_model, None, [metric])
 
         # assert

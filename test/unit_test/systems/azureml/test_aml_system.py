@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import tempfile
+from functools import partial
 from pathlib import Path
 from test.unit_test.utils import ONNX_MODEL_PATH, get_accuracy_metric, get_latency_metric, get_pytorch_model_config
 from typing import ClassVar, List
@@ -44,30 +45,30 @@ class TestAzureMLSystem:
         self.system = AzureMLSystem(mock_azureml_client_config, "dummy", docker_config)
 
     METRIC_TEST_CASE: ClassVar[List[Metric]] = [
-        (get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)),
-        (get_accuracy_metric(AccuracySubType.F1_SCORE)),
-        (get_accuracy_metric(AccuracySubType.PRECISION)),
-        (get_accuracy_metric(AccuracySubType.RECALL)),
-        (get_accuracy_metric(AccuracySubType.AUROC)),
-        (get_latency_metric(LatencySubType.AVG)),
-        (get_latency_metric(LatencySubType.MAX)),
-        (get_latency_metric(LatencySubType.MIN)),
-        (get_latency_metric(LatencySubType.P50)),
-        (get_latency_metric(LatencySubType.P75)),
-        (get_latency_metric(LatencySubType.P90)),
-        (get_latency_metric(LatencySubType.P95)),
-        (get_latency_metric(LatencySubType.P99)),
-        (get_latency_metric(LatencySubType.P999)),
+        (partial(get_accuracy_metric, AccuracySubType.ACCURACY_SCORE)),
+        (partial(get_accuracy_metric, AccuracySubType.F1_SCORE)),
+        (partial(get_accuracy_metric, AccuracySubType.PRECISION)),
+        (partial(get_accuracy_metric, AccuracySubType.RECALL)),
+        (partial(get_accuracy_metric, AccuracySubType.AUROC)),
+        (partial(get_latency_metric, LatencySubType.AVG)),
+        (partial(get_latency_metric, LatencySubType.MAX)),
+        (partial(get_latency_metric, LatencySubType.MIN)),
+        (partial(get_latency_metric, LatencySubType.P50)),
+        (partial(get_latency_metric, LatencySubType.P75)),
+        (partial(get_latency_metric, LatencySubType.P90)),
+        (partial(get_latency_metric, LatencySubType.P95)),
+        (partial(get_latency_metric, LatencySubType.P99)),
+        (partial(get_latency_metric, LatencySubType.P999)),
     ]
 
     @pytest.mark.parametrize(
-        "metric",
+        "metric_func",
         METRIC_TEST_CASE,
     )
     @patch("olive.systems.azureml.aml_system.retry_func")
     @patch("olive.systems.azureml.aml_system.AzureMLSystem._create_pipeline_for_evaluation")
     @patch("olive.systems.azureml.aml_system.tempfile.TemporaryDirectory")
-    def test_evaluate_model(self, mock_tempdir, mock_create_pipeline, mock_retry_func, metric):
+    def test_evaluate_model(self, mock_tempdir, mock_create_pipeline, mock_retry_func, metric_func):
         # setup
         model_config = get_pytorch_model_config()
         output_folder = Path(__file__).absolute().parent / "output_metrics"
@@ -78,6 +79,7 @@ class TestAzureMLSystem:
         self.system.azureml_client_config.operation_retry_interval = 5
 
         # execute
+        metric = metric_func()
         res = self.system.evaluate_model(model_config, None, [metric], DEFAULT_CPU_ACCELERATOR)
 
         # assert
