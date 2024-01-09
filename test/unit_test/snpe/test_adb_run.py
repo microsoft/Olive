@@ -56,7 +56,7 @@ def test_run_snpe_command():
             }
         else:
             env = {
-                "PATH": "C:\\snpe\\bin\\x86_64-windows-vc19;C:\\snpe\\lib\\x86_64-windows-vc19",
+                "PATH": "C:\\snpe\\bin\\x86_64-windows-msvc;C:\\snpe\\lib\\x86_64-windows-msvc",
                 "SDK_ROOT": "C:\\snpe",
                 "TARGET_ARCH": "x86_64-windows-msvc",
             }
