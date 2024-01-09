@@ -885,6 +885,7 @@ class QLoRA(QLoRABase):
         # this doesn't pick up the embedding layer and projection layer since those are not quantized
         # this is good since we don't want to touch those, LoRA might not work with input output embedding layers
         quantized_modules = find_submodules(pytorch_model, bnb.nn.Linear4bit)
+        logger.debug(f"Quantized modules: {quantized_modules}")
 
         # tokenizer
         tokenizer = AutoTokenizer.from_pretrained(
@@ -956,6 +957,7 @@ class LoftQ(QLoRA):
 
         # find the quantized modules
         quantized_modules = find_submodules(pytorch_model, bnb.nn.Linear4bit)
+        logger.debug(f"Quantized modules: {quantized_modules}")
 
         # only need the quantized module to find the quantized modules
         # delete quantized model to free memory
@@ -967,7 +969,7 @@ class LoftQ(QLoRA):
             model, config, device_map="auto", quantization_method=None, quantization_config=None
         )
         # get loftq initialized lora model
-        logger.debug("Initialize LoRA with LoftQ")
+        logger.debug("Initializing LoRA with LoftQ")
         pytorch_model = self.init_lora_adapters(
             pytorch_model, new_model_handler.hf_config.task, config, quantized_modules, use_loftq=True
         )

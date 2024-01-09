@@ -102,6 +102,16 @@ Note: You must be logged in to HuggingFace using `huggingface-cli login` to down
 
 Requirements file: [requirements-lora.txt](requirements-lora.txt)
 
+### Fine-tune Open Llama Model on a code generation dataset using LoftQ
+This workflow fine-tunes Open LLaMA model using [LoftQ](https://arxiv.org/abs/2310.08659) to generate code given a prompt.
+
+The relevant config file is [open_llama_loftq_tinycodes.json](open_llama_loftq_tinycodes.json). The code language is set to `Python` but can be changed to other languages by changing the `language` field in the config file.
+Supported languages are Python, TypeScript, JavaScript, Ruby, Julia, Rust, C++, Bash, Java, C#, and Go. Refer to the [dataset card](https://huggingface.co/datasets/nampdn-ai/tiny-codes) for more details on the dataset.
+
+Note: You must be logged in to HuggingFace using `huggingface-cli login` to download the dataset or update `token` field in the config file with your HuggingFace token.
+
+Requirements file: [requirements-lora.txt](requirements-lora.txt)
+
 **Train using ONNX Runtime Training**
 You can also train the model using [ONNX Runtime Training](https://techcommunity.microsoft.com/t5/ai-machine-learning-blog/onnx-runtime-training-technical-deep-dive/ba-p/1398310).
 
