@@ -398,7 +398,7 @@ will be used.
 saved to the engine's `output_dir` with the prefix of `output_name`. For the final pass, if the engine's `output_name` is provided, it will override
 the `output_name` of the pass.
 
-Please refer to [Configuring Pass](configuring_pass) for more details on `type`, `disable_search` and `config`.
+Please refer to [Configuring Pass](../tutorials/configure_pass.rst) for more details on `type`, `disable_search` and `config`.
 
 Please also find the detailed options from following table for each pass:
 
