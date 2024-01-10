@@ -61,7 +61,7 @@ class SDKEnv:
             target_arch = self._verify_target_arch(target_arch)
         except FileNotFoundError:
             if fail_on_unsupported:
-                raise ValueError(f"Unsupported system {system}") from None
+                raise FileNotFoundError(f"Cannot find target_arch {target_arch} under {self.sdk_root_path}") from None
             else:
                 target_arch = None
 

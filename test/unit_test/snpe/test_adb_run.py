@@ -36,15 +36,21 @@ def test_run_adb_command(mock_run_subprocess, mock_which, android_target):
 
 
 def test_run_snpe_command():
-    os.environ["SNPE_ROOT"] = "C:\\snpe" if platform.system() == "Windows" else "/snpe"
+    if platform.system() == "Windows":
+        os.environ["SNPE_ROOT"] = "C:\\snpe"
+        target_arch = "x86_64-windows-msvc"
+    else:
+        os.environ["SNPE_ROOT"] = "/snpe"
+        target_arch = "x86_64-linux-clang"
+
     with patch.object(Path, "exists") as mock_exists, patch.object(Path, "glob") as mock_glob, patch(
         "shutil.which"
     ) as mock_witch, patch("subprocess.run") as mock_run_subprocess:
-        runner = SDKRunner(platform="SNPE", cmd="snpe-net-run --container xxxx")
         mock_exists.return_value = True
-        mock_glob.return_value = [Path("lib") / "lib/x86_64-windows-vc19"]
+        mock_glob.return_value = [Path("lib") / target_arch]
         mock_witch.side_effect = lambda x, path: x
         mock_run_subprocess.return_value = CompletedProcess(None, returncode=0, stdout=b"stdout", stderr=b"stderr")
+        runner = SDKRunner(platform="SNPE", cmd="snpe-net-run --container xxxx")
         stdout, _ = runner.run()
         if platform.system() == "Linux":
             env = {
