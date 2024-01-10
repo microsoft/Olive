@@ -60,15 +60,14 @@
                 "target_opset": 14,
                 "extra_args": {
                     "legacy": false,
-                    "no_post_process": false,
-                    "trust_remote_code": true
+                    "no_post_process": false
                 }
             }
         },
         "convert": {
             "type": "OnnxConversion",
             "config": {
-                "target_opset": 17,
+                "target_opset": 18,
                 "save_as_external_data": true,
                 "all_tensors_to_one_file": true
             }
@@ -85,7 +84,8 @@
     },
     "pass_flows": [
         [
-            "convert"
+            "convert",
+            "perf_tuning"
         ]
     ],
     "engine": {
