@@ -13,8 +13,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get -y update && ACCEPT_EULA=Y apt-get -y upgrade
 RUN apt-get install -y --no-install-recommends wget gnupg
 
-RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-RUN pip install pandas \
+RUN python3 -m pip cache purge
+RUN python3 -m pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+RUN python3 -m pip install pandas \
             plotly \
             psutil \
             datasets \
