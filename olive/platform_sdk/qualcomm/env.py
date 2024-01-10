@@ -99,5 +99,4 @@ class SDKEnv:
         if unexpected_envs:
             raise FileNotFoundError(f"{unexpected_envs} do not exist")
 
-        env["TARGET_ARCH"] = self.target_arch
         return env

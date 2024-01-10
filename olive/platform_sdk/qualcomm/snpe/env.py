@@ -18,8 +18,8 @@ class SNPESDKEnv(SDKEnv):
     @property
     def env(self):
         env = super().env
-        target_arch = env.get("TARGET_ARCH")
-        sdk_root_path = env.get("SDK_ROOT")
+        target_arch = self.target_arch
+        sdk_root_path = self.sdk_root_path
         delimiter = os.path.pathsep
         python_env_bin_path = str(Path(f"{sdk_root_path}/olive-pyenv/bin"))
         python_env_lib_path = str(Path(f"{sdk_root_path}/olive-pyenv/lib"))

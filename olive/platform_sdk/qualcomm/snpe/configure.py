@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 
 
 def dev(args):
-    snpe_env = SNPESDKEnv().env
-    snpe_arch = snpe_env.get("TARGET_ARCH")
+    snpe_env = SNPESDKEnv()
+    snpe_arch = snpe_env.target_arch
     if snpe_arch != SDKTargetDevice.x86_64_linux:
         return
 
@@ -31,12 +31,12 @@ def dev(args):
 
 
 def eval():  # noqa: A001  #pylint: disable=redefined-builtin
-    snpe_env = SNPESDKEnv().env
-    target_arch_name = snpe_env.get("TARGET_ARCH")
+    snpe_env = SNPESDKEnv()
+    target_arch_name = snpe_env.target_arch
     if target_arch_name not in [SDKTargetDevice.aarch64_windows, SDKTargetDevice.arm64x_windows]:
         return
 
-    snpe_root = snpe_env.get("SDK_ROOT")
+    snpe_root = snpe_env.sdk_root_path
 
     logger.info(f"Configuring SNPE for {target_arch_name}...")
 

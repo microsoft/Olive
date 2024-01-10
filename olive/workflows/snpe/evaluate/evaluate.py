@@ -37,8 +37,7 @@ def evaluate(model: str, config: Union[str, Dict], data: str, input_list_file: O
 
     # Devices to evaluate on
     devices = [Device.CPU]
-    env = SNPESDKEnv().env
-    if env.get("TARGET_ARCH") == SDKTargetDevice.arm64x_windows:
+    if SNPESDKEnv().target_arch == SDKTargetDevice.arm64x_windows:
         devices.append(Device.NPU)
 
     config["inference_settings"]["return_numpy_results"] = True
