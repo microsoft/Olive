@@ -15,9 +15,14 @@ class SDKEnv:
         self.sdk = sdk
 
         self.root_env_name = root_env_name
+        if not self.root_env_name:
+            raise ValueError("root_env_name is required.")
+
         self.sdk_root_path = os.environ.get(root_env_name)
         if not self.sdk_root_path:
-            raise ValueError(f"{root_env_name} is not set")
+            raise ValueError(f"{root_env_name} is not set.")
+        elif not Path(self.sdk_root_path).exists():
+            raise FileNotFoundError(f"The path {self.sdk_root_path} for {self.root_env_name} does not exist.")
 
         # dev: Whether to use the development version of the SDK,
         # only applicable to SNPE/QNN x86_64 linux/windows
@@ -92,7 +97,7 @@ class SDKEnv:
                 if not _path.exists():
                     unexpected_envs.append(str(_path))
         if unexpected_envs:
-            raise FileNotFoundError(f"{unexpected_envs} does not exist")
+            raise FileNotFoundError(f"{unexpected_envs} do not exist")
 
         env["TARGET_ARCH"] = self.target_arch
         return env

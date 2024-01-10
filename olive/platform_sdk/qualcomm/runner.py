@@ -20,7 +20,6 @@ class SDKRunner:
         runs: int = 1,
         sleep: int = 0,
         log_error: bool = True,
-        android_target: str = None,
     ):
         self.platform = platform
         self.cmd = cmd
@@ -28,12 +27,13 @@ class SDKRunner:
         self.runs = runs
         self.sleep = sleep
         self.log_error = log_error
-        self.android_target = android_target
 
-        if self.platform not in ["SNPE", "QNN"]:
+        if self.platform not in ("SNPE", "QNN"):
             raise ValueError(f"Unsupported platform {platform}")
         elif self.platform == "SNPE":
             self.env = SNPESDKEnv(dev=self.dev).env
+        elif self.platform == "QNN":
+            raise NotImplementedError("QNN not supported yet, coming soon!")
 
     def run(self):
         full_cmd = self.cmd
