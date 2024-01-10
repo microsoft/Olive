@@ -50,8 +50,8 @@ def test_run_snpe_command():
         mock_glob.return_value = [Path("lib") / target_arch]
         mock_witch.side_effect = lambda x, path: x
         mock_run_subprocess.return_value = CompletedProcess(None, returncode=0, stdout=b"stdout", stderr=b"stderr")
-        runner = SDKRunner(platform="SNPE", cmd="snpe-net-run --container xxxx")
-        stdout, _ = runner.run()
+        runner = SDKRunner(platform="SNPE")
+        stdout, _ = runner.run(cmd="snpe-net-run --container xxxx")
         if platform.system() == "Linux":
             env = {
                 "LD_LIBRARY_PATH": "/snpe/lib/x86_64-linux-clang",

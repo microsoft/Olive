@@ -16,7 +16,7 @@ from olive.platform_sdk.qualcomm.runner import SNPESDKRunner as SNPERunner
 def get_snpe_version() -> str:
     """Get the version of the SNPE SDK at SNPE_ROOT."""
     cmd = "snpe-net-run --version"
-    stdout, _ = SNPERunner(cmd).run()
+    stdout, _ = SNPERunner().run(cmd)
     return stdout.split("SNPE v")[1].strip()
 
 
@@ -25,7 +25,7 @@ def get_dlc_info(dlc_path: str, csv_path: str = None) -> str:
     cmd = f"snpe-dlc-info -i {dlc_path}"
     if csv_path:
         cmd += f" -s {csv_path}"
-    stdout, _ = SNPERunner(cmd, dev=True).run()
+    stdout, _ = SNPERunner(dev=True).run(cmd)
 
     prefix = "DLC info for:"
     return prefix + stdout.split(prefix)[1]
@@ -168,7 +168,7 @@ def to_dlc(model_file: str, model_framework: str, config: dict, output_file: str
     if config["extra_args"] is not None:
         cmd += " " + config["extra_args"]
 
-    _, stderr = SNPERunner(cmd, dev=True).run()
+    _, stderr = SNPERunner(dev=True).run(cmd)
 
     # check if conversion succeeded
     if "Conversion completed successfully" not in stderr:
@@ -196,7 +196,7 @@ def quantize_dlc(dlc_path: str, input_list: str, config: dict, output_file: str)
     if config["extra_args"] is not None:
         cmd += " " + config["extra_args"]
 
-    _, stderr = SNPERunner(cmd, dev=True).run()
+    _, stderr = SNPERunner(dev=True).run(cmd)
 
     # check if quantization succeeded
     if not ("Writing quantized model" in stderr or "Saved quantized dlc" in stderr):

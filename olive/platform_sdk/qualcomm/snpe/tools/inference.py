@@ -194,7 +194,7 @@ def snpe_net_run(
             initialized=android_initialized,
         )
     else:
-        SNPERunner(cmd, runs=runs, sleep=sleep).run()
+        SNPERunner(runs=runs, sleep=sleep).run(cmd)
 
     output_dir = None
     if workspace is not None:
@@ -283,7 +283,7 @@ def snpe_net_run(
         snpe_diag_csv = tmp_dir_path / f"SNPEDiag_{run}.csv"
 
         cmd = f"snpe-diagview --input_log {snpe_diag_log} --output {snpe_diag_csv}"
-        SNPERunner(cmd).run()
+        SNPERunner().run(cmd)
 
         diag_log = {"init": None, "avg_total_inference_time": None}
         with snpe_diag_csv.open() as f:
@@ -432,5 +432,5 @@ def snpe_throughput_net_run(
             cmd, android_target, data_dir, persist_ws=android_persist_ws, initialized=android_initialized
         )
     else:
-        stdout, _ = SNPERunner(cmd).run()
+        stdout, _ = SNPERunner().run(cmd)
     return float(stdout.split("Total throughput: ")[1].split(" ")[0])
