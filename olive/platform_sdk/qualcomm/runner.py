@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import subprocess
 import time
 
 from olive.common.utils import run_subprocess
@@ -18,13 +19,11 @@ class SDKRunner:
         dev: bool = False,
         runs: int = 1,
         sleep: int = 0,
-        log_error: bool = True,
     ):
         self.platform = platform
         self.dev = dev
         self.runs = runs
         self.sleep = sleep
-        self.log_error = log_error
 
         if self.platform not in ("SNPE", "QNN"):
             raise ValueError(f"Unsupported platform {platform}")
@@ -36,25 +35,21 @@ class SDKRunner:
     def run(self, cmd: str):
         for run in range(self.runs):
             run_log_msg = "" if self.runs == 1 else f" (run {run + 1}/{self.runs})"
-            logger.debug(f"Running {self.platform} command{run_log_msg}: {cmd}")
+            logger.debug(f"Running {self.platform} command{run_log_msg}: {cmd}, with env: {self.env}")
             returncode, stdout, stderr = run_subprocess(cmd, self.env)
-            logger.debug(f"Return code: {returncode} \n Stdout: {stdout} \n Stderr: {stderr}")
             if returncode != 0:
-                break
+                error_msg = [
+                    "Error running {self.platform} command.",
+                    f"Command: {cmd}",
+                    f"Return code: {returncode}Stdout: {stdout}" if stdout else "",
+                    f"Stderr: {stderr}" if stderr else "",
+                    f"ENV: {self.env}",
+                ]
+                logger.error("\n".join(error_msg))
+                raise subprocess.CalledProcessError(returncode, cmd, output=stdout, stderr=stderr)
             if self.sleep > 0 and run < self.runs - 1:
                 time.sleep(self.sleep)
 
-        if returncode != 0:
-            error_msg = [
-                "Error running {self.platform} command.",
-                f"Command: {cmd}",
-                f"Return code: {returncode}Stdout: {stdout}" if stdout else "",
-                f"Stderr: {stderr}" if stderr else "",
-                f"ENV: {self.env}",
-            ]
-            if self.log_error:
-                logger.error("\n".join(error_msg))
-            raise RuntimeError(error_msg)
         return stdout, stderr
 
 
