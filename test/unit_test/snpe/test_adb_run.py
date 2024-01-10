@@ -58,13 +58,11 @@ def test_run_snpe_command():
                 "PATH": "/snpe/bin/x86_64-linux-clang:/usr/bin",
                 "PYTHONPATH": "/snpe/lib/python",
                 "SDK_ROOT": "/snpe",
-                "TARGET_ARCH": "x86_64-linux-clang",
             }
         else:
             env = {
                 "PATH": "C:\\snpe\\bin\\x86_64-windows-msvc;C:\\snpe\\lib\\x86_64-windows-msvc",
                 "SDK_ROOT": "C:\\snpe",
-                "TARGET_ARCH": "x86_64-windows-msvc",
             }
 
         mock_run_subprocess.assert_called_once_with(
