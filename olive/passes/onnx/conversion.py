@@ -194,7 +194,7 @@ class OnnxConversion(Pass):
             exported = dynamo_export(
                 pytorch_model,
                 *dummy_inputs,
-                export_options=torch.onnx.ExportOptions(opset_version=config["target_opset"], dynamic_shapes=True),
+                export_options=torch.onnx.ExportOptions(dynamic_shapes=True),
             )
             onnx_model = exported.model_proto
         else:
@@ -216,14 +216,15 @@ class OnnxConversion(Pass):
                 dummy_input_keys = set(dummy_inputs.keys())
 
                 # handle dummy inputs for model with past, which has past_key_values
-                # match input names in `past_key_values.(hidden_layer_num).(key|value)` pattern
+                # match input names in `past_key_values.(hidden_layer_num).(key|value)` pattern(llama2 case)
+                # or `past_key_values.(hidden_layer_num)` pattern (phi2 case)
                 for name, dm_input in dummy_inputs.items():
-                    if isinstance(dm_input, list):
-                        key_value_names = set(
-                            [f"{name}.{idx}.key" for idx in range(len(dm_input))]
-                            + [f"{name}.{idx}.value" for idx in range(len(dm_input))]
-                        )
-                        if key_value_names.issubset(set(input_names)):
+                    if name == "past_key_values" and isinstance(dm_input, list):
+                        key_value_names = [f"{name}.{idx}" for idx in range(len(dm_input))]
+                        if all(
+                            any(key_value_name in input_name for input_name in input_names)
+                            for key_value_name in key_value_names
+                        ):
                             dummy_input_keys.discard(name)
 
                 unused_keys = dummy_input_keys - set(input_names)
