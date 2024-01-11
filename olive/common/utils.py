@@ -27,7 +27,17 @@ def run_subprocess(cmd, env=None, cwd=None, check=False):  # pragma: no cover
         path = env.get("PATH") if env else None
         cmd_exe = shutil.which(cmd[0], path=path)
         cmd[0] = cmd_exe
-    out = subprocess.run(cmd, env=env, cwd=cwd, capture_output=True, check=check)
+    try:
+        out = subprocess.run(cmd, env=env, cwd=cwd, capture_output=True, check=check)
+    except subprocess.CalledProcessError as e:
+        err_msg = [
+            f"Failed to run {cmd}!",
+            f"Stderr: {e.stderr.decode('utf-8')}",
+            f"Stdout: {e.stdout.decode('utf-8')}",
+            f"Env: {env}",
+        ]
+        logger.error("\n".join(err_msg))
+        raise e
     returncode = out.returncode
     stdout = out.stdout.decode("utf-8")
     stderr = out.stderr.decode("utf-8")

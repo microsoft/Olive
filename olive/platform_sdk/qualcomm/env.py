@@ -31,7 +31,7 @@ class SDKEnv:
 
     def _verify_target_arch(self, target_device: SDKTargetDevice) -> str:
         archs = list(Path(self.sdk_root_path).glob(f"lib/{target_device}*"))
-        if len(archs) == 0:
+        if not archs:
             raise FileNotFoundError(f"{self.sdk_root_path} missing {target_device}")
         return archs[0].name
 
@@ -90,13 +90,13 @@ class SDKEnv:
         env["PATH"] = bin_path
         env["SDK_ROOT"] = sdk_root_path
 
-        unexpected_envs = []
+        unfound_paths = []
         for paths in env.values():
             for path in paths.split(delimiter):
                 _path = Path(path).resolve()
                 if not _path.exists():
-                    unexpected_envs.append(str(_path))
-        if unexpected_envs:
-            raise FileNotFoundError(f"{unexpected_envs} do not exist")
+                    unfound_paths.append(str(_path))
+        if unfound_paths:
+            raise FileNotFoundError(f"{unfound_paths} do not exist")
 
         return env

@@ -61,8 +61,8 @@ def test_run_snpe_command():
             }
         else:
             env = {
-                "PATH": "C:\\snpe\\bin\\x86_64-windows-msvc;C:\\snpe\\lib\\x86_64-windows-msvc",
-                "SDK_ROOT": "C:\\snpe",
+                "PATH": "C:/snpe/bin/x86_64-windows-msvc;C:/snpe/lib/x86_64-windows-msvc",
+                "SDK_ROOT": "C:/snpe",
             }
 
         mock_run_subprocess.assert_called_once_with(
@@ -70,6 +70,6 @@ def test_run_snpe_command():
             capture_output=True,
             env=env,
             cwd=None,
-            check=False,
+            check=True,
         )
         assert stdout.strip() == "stdout"
