@@ -403,10 +403,7 @@
         <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">ONNXModelHandler</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">accelerator</span><span class="p">:</span> <span class="n">AcceleratorSpec</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the model inference settings.&quot;&quot;&quot;</span>
-        <span class="n">metric_inference_settings</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">inference_settings</span>
-        <span class="n">inference_settings</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">metric_inference_settings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">framework</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span> <span class="k">if</span> <span class="n">metric_inference_settings</span> <span class="k">else</span> <span class="kc">None</span>
-        <span class="p">)</span>
+        <span class="n">inference_settings</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">get_inference_settings</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">framework</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
         <span class="n">inference_settings</span> <span class="o">=</span> <span class="n">inference_settings</span> <span class="ow">or</span> <span class="n">model</span><span class="o">.</span><span class="n">inference_settings</span> <span class="ow">or</span> <span class="p">{}</span>
         <span class="n">inference_settings</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">inference_settings</span><span class="p">)</span>
 

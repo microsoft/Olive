@@ -202,17 +202,6 @@
         <span class="k">pass</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">get_inference_settings</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-        <span class="c1"># user.config.inference_settings &gt; model.inference_settings &gt; default inference_settings</span>
-        <span class="c1"># when user.config.inference_settings is None, the model.inference_settings</span>
-        <span class="c1"># will be used in model.prepare_session(..)</span>
-        <span class="k">return</span> <span class="p">(</span>
-            <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">inference_settings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">framework</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
-            <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">inference_settings</span>
-            <span class="k">else</span> <span class="kc">None</span>
-        <span class="p">)</span>
-
-    <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">io_bind_enabled</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">io_bind</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">True</span>
@@ -555,8 +544,10 @@
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">OliveModelOutput</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="c1"># user.config.inference_settings &gt; model.inference_settings &gt; default inference_settings</span>
+        <span class="n">inference_settings</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">get_inference_settings</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">framework</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span> <span class="ow">or</span> <span class="n">model</span><span class="o">.</span><span class="n">inference_settings</span> <span class="ow">or</span> <span class="p">{}</span>
         <span class="n">session</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">prepare_session</span><span class="p">(</span>
-            <span class="n">inference_settings</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_inference_settings</span><span class="p">(</span><span class="n">metric</span><span class="p">),</span>
+            <span class="n">inference_settings</span><span class="o">=</span><span class="n">inference_settings</span><span class="p">,</span>
             <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
             <span class="n">execution_providers</span><span class="o">=</span><span class="n">execution_providers</span><span class="p">,</span>
         <span class="p">)</span>
@@ -653,8 +644,10 @@
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
         <span class="n">warmup_num</span><span class="p">,</span> <span class="n">repeat_test_num</span><span class="p">,</span> <span class="n">sleep_num</span> <span class="o">=</span> <span class="n">get_latency_config_from_metric</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
 
+        <span class="c1"># user.config.inference_settings &gt; model.inference_settings &gt; default inference_settings</span>
+        <span class="n">inference_settings</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">get_inference_settings</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">framework</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span> <span class="ow">or</span> <span class="n">model</span><span class="o">.</span><span class="n">inference_settings</span> <span class="ow">or</span> <span class="p">{}</span>
         <span class="n">session</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">prepare_session</span><span class="p">(</span>
-            <span class="n">inference_settings</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_inference_settings</span><span class="p">(</span><span class="n">metric</span><span class="p">),</span>
+            <span class="n">inference_settings</span><span class="o">=</span><span class="n">inference_settings</span><span class="p">,</span>
             <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
             <span class="n">execution_providers</span><span class="o">=</span><span class="n">execution_providers</span><span class="p">,</span>
         <span class="p">)</span>
@@ -762,7 +755,7 @@
             <span class="s2">&quot;model_path&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
             <span class="s2">&quot;local_rank&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
             <span class="s2">&quot;world_size&quot;</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">num_ranks</span><span class="p">,</span>
-            <span class="s2">&quot;inference_settings&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_inference_settings</span><span class="p">(</span><span class="n">metric</span><span class="p">),</span>
+            <span class="s2">&quot;inference_settings&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="o">.</span><span class="n">get_inference_settings</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">framework</span><span class="o">.</span><span class="n">lower</span><span class="p">()),</span>
             <span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="o">.</span><span class="n">to_json</span><span class="p">(),</span>
         <span class="p">}</span>
 
@@ -857,7 +850,7 @@
             <span class="s2">&quot;model_path&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
             <span class="s2">&quot;local_rank&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
             <span class="s2">&quot;world_size&quot;</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">num_ranks</span><span class="p">,</span>
-            <span class="s2">&quot;inference_settings&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_inference_settings</span><span class="p">(</span><span class="n">metric</span><span class="p">),</span>
+            <span class="s2">&quot;inference_settings&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="o">.</span><span class="n">get_inference_settings</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">framework</span><span class="o">.</span><span class="n">lower</span><span class="p">()),</span>
             <span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="o">.</span><span class="n">to_json</span><span class="p">(),</span>
         <span class="p">}</span>
 
@@ -992,7 +985,8 @@
     <span class="p">):</span>
         <span class="c1"># pylint: disable=expression-not-assigned</span>
         <span class="n">warmup_num</span><span class="p">,</span> <span class="n">repeat_test_num</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">get_latency_config_from_metric</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
-        <span class="n">session</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">prepare_session</span><span class="p">(</span><span class="n">inference_settings</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_inference_settings</span><span class="p">(</span><span class="n">metric</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="c1"># pytorch model doesn&#39;t use inference_settings, so we can pass None</span>
+        <span class="n">session</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">prepare_session</span><span class="p">(</span><span class="n">inference_settings</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 
         <span class="n">input_data</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">dataloader</span><span class="p">))</span>
         <span class="n">device</span> <span class="o">=</span> <span class="n">PyTorchEvaluator</span><span class="o">.</span><span class="n">_device_string_to_torch_device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
@@ -1054,7 +1048,9 @@
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">OliveModelOutput</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
         <span class="n">dataloader</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_dataloader</span><span class="p">(</span><span class="n">dataloader</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span>
-        <span class="n">session</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">prepare_session</span><span class="p">(</span><span class="n">inference_settings</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_inference_settings</span><span class="p">(</span><span class="n">metric</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">session</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">prepare_session</span><span class="p">(</span>
+            <span class="n">inference_settings</span><span class="o">=</span><span class="n">metric</span><span class="o">.</span><span class="n">get_inference_settings</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">framework</span><span class="o">.</span><span class="n">lower</span><span class="p">()),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
+        <span class="p">)</span>
 
         <span class="n">preds</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">targets</span> <span class="o">=</span> <span class="p">[]</span>
@@ -1096,7 +1092,9 @@
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
         <span class="n">dataloader</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_dataloader</span><span class="p">(</span><span class="n">dataloader</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span>
         <span class="n">warmup_num</span><span class="p">,</span> <span class="n">repeat_test_num</span><span class="p">,</span> <span class="n">sleep_num</span> <span class="o">=</span> <span class="n">get_latency_config_from_metric</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
-        <span class="n">session</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">prepare_session</span><span class="p">(</span><span class="n">inference_settings</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_inference_settings</span><span class="p">(</span><span class="n">metric</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">session</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">prepare_session</span><span class="p">(</span>
+            <span class="n">inference_settings</span><span class="o">=</span><span class="n">metric</span><span class="o">.</span><span class="n">get_inference_settings</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">framework</span><span class="o">.</span><span class="n">lower</span><span class="p">()),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
+        <span class="p">)</span>
 
         <span class="n">data_dir</span><span class="p">,</span> <span class="n">input_data</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">dataloader</span><span class="p">))</span>
         <span class="n">total_runs</span> <span class="o">=</span> <span class="n">warmup_num</span> <span class="o">+</span> <span class="n">repeat_test_num</span>
@@ -1122,7 +1120,9 @@
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">OliveModelOutput</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-        <span class="n">session</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">prepare_session</span><span class="p">(</span><span class="n">inference_settings</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_inference_settings</span><span class="p">(</span><span class="n">metric</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">session</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">prepare_session</span><span class="p">(</span>
+            <span class="n">inference_settings</span><span class="o">=</span><span class="n">metric</span><span class="o">.</span><span class="n">get_inference_settings</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">framework</span><span class="o">.</span><span class="n">lower</span><span class="p">()),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
+        <span class="p">)</span>
 
         <span class="n">preds</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">targets</span> <span class="o">=</span> <span class="p">[]</span>
@@ -1159,7 +1159,9 @@
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
-        <span class="n">session</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">prepare_session</span><span class="p">(</span><span class="n">inference_settings</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_inference_settings</span><span class="p">(</span><span class="n">metric</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">session</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">prepare_session</span><span class="p">(</span>
+            <span class="n">inference_settings</span><span class="o">=</span><span class="n">metric</span><span class="o">.</span><span class="n">get_inference_settings</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">framework</span><span class="o">.</span><span class="n">lower</span><span class="p">()),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
+        <span class="p">)</span>
 
         <span class="n">latencies</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">input_data</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">dataloader</span><span class="p">:</span>
