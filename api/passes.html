@@ -3758,7 +3758,7 @@
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-205">
 <span class="sig-name descname"><span class="pre">input_types</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-205" title="Permalink to this definition">¶</a></dt>
-<dd><p>List of input types. If not None, it must be a list of the same length as input_names. List members can be None to use default value. Refer to olive.snpe.constants.InputType for valid values.</p>
+<dd><p>List of input types. If not None, it must be a list of the same length as input_names. List members can be None to use default value. Refer to olive.platform_sdk.qualcomm.constants.InputType for valid values.</p>
 <p><strong>type:</strong> List[str | None]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
@@ -3767,7 +3767,7 @@
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-input_layouts">
 <span class="sig-name descname"><span class="pre">input_layouts</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-input_layouts" title="Permalink to this definition">¶</a></dt>
-<dd><p>List of input layouts. If not None, it must be a list of the same length as input_names. List members can be None to use inferred value. Refer to olive.snpe.constants.InputLayout for valid values.</p>
+<dd><p>List of input layouts. If not None, it must be a list of the same length as input_names. List members can be None to use inferred value. Refer to olive.platform_sdk.qualcomm.constants.InputLayout for valid values.</p>
 <p><strong>type:</strong> List[str | None]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
@@ -3820,7 +3820,7 @@
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-209">
 <span class="sig-name descname"><span class="pre">dataloader_func</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-209" title="Permalink to this definition">¶</a></dt>
-<dd><p>Function or function name to create dataloader for quantization. Function should take data directory as an argument and return a olive.snpe.SNPEDataLoader or torch.data.DataLoader-like object. Required if data_config is None.</p>
+<dd><p>Function or function name to create dataloader for quantization. Function should take data directory as an argument and return a FileListDataLoader or torch.data.DataLoader-like object. Required if data_config is None.</p>
 <p><strong>type:</strong> Callable | str</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
@@ -3890,7 +3890,7 @@
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-213">
 <span class="sig-name descname"><span class="pre">target_device</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-213" title="Permalink to this definition">¶</a></dt>
-<dd><p>Target device for the ONNX model. Refer to olive.snpe.SNPEDevice for valid values.</p>
+<dd><p>Target device for the ONNX model. Refer to oliveolive.platform_sdk.qualcomm.constants.SNPEDevice for valid values.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> cpu</p>
 <p><strong>searchable_values:</strong> None</p>

@@ -176,7 +176,7 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">olive.model.config.io_config</span> <span class="kn">import</span> <span class="n">is_io_config_static</span>
 <span class="kn">from</span> <span class="nn">olive.model.utils.onnx_utils</span> <span class="kn">import</span> <span class="n">bind_input_data</span><span class="p">,</span> <span class="n">bind_output_data</span><span class="p">,</span> <span class="n">prepare_io_bindings</span>
-<span class="kn">from</span> <span class="nn">olive.snpe.data_loader</span> <span class="kn">import</span> <span class="n">SNPECommonDataLoader</span><span class="p">,</span> <span class="n">SNPEDataLoader</span>
+<span class="kn">from</span> <span class="nn">olive.platform_sdk.qualcomm.utils.data_loader</span> <span class="kn">import</span> <span class="n">FileListCommonDataLoader</span><span class="p">,</span> <span class="n">FileListDataLoader</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
@@ -1103,10 +1103,10 @@
         <span class="n">results</span> <span class="o">=</span> <span class="n">session</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">data_dir</span><span class="p">,</span> <span class="n">runs</span><span class="o">=</span><span class="n">total_runs</span><span class="p">,</span> <span class="n">sleep</span><span class="o">=</span><span class="n">sleep_num</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;latencies&quot;</span><span class="p">][</span><span class="s2">&quot;total_inference_time&quot;</span><span class="p">][</span><span class="n">warmup_num</span><span class="p">:]</span>
 
-    <span class="k">def</span> <span class="nf">_prepare_dataloader</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">SNPEModelHandler</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SNPEDataLoader</span><span class="p">:</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dataloader</span><span class="p">,</span> <span class="n">SNPEDataLoader</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_prepare_dataloader</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">SNPEModelHandler</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FileListDataLoader</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dataloader</span><span class="p">,</span> <span class="n">FileListDataLoader</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">dataloader</span>
-        <span class="k">return</span> <span class="n">SNPECommonDataLoader</span><span class="p">(</span><span class="n">dataloader</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">io_config</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">FileListCommonDataLoader</span><span class="p">(</span><span class="n">dataloader</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">io_config</span><span class="p">)</span>
 
 
 <span class="k">class</span> <span class="nc">OpenVINOEvaluator</span><span class="p">(</span><span class="n">OliveEvaluator</span><span class="p">,</span> <span class="n">framework</span><span class="o">=</span><span class="n">Framework</span><span class="o">.</span><span class="n">OPENVINO</span><span class="p">):</span>

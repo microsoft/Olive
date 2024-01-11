@@ -140,10 +140,10 @@
 <span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">Device</span>
 <span class="kn">from</span> <span class="nn">olive.model.config.registry</span> <span class="kn">import</span> <span class="n">model_handler_registry</span>
 <span class="kn">from</span> <span class="nn">olive.model.handler.base</span> <span class="kn">import</span> <span class="n">OliveModelHandler</span>
+<span class="kn">from</span> <span class="nn">olive.platform_sdk.qualcomm.constants</span> <span class="kn">import</span> <span class="n">SNPEDevice</span>
+<span class="kn">from</span> <span class="nn">olive.platform_sdk.qualcomm.snpe</span> <span class="kn">import</span> <span class="n">SNPEInferenceSession</span><span class="p">,</span> <span class="n">SNPESessionOptions</span>
+<span class="kn">from</span> <span class="nn">olive.platform_sdk.qualcomm.snpe.tools.dev</span> <span class="kn">import</span> <span class="n">get_dlc_metrics</span>
 <span class="kn">from</span> <span class="nn">olive.resource_path</span> <span class="kn">import</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span>
-<span class="kn">from</span> <span class="nn">olive.snpe.constants</span> <span class="kn">import</span> <span class="n">SNPEDevice</span>
-<span class="kn">from</span> <span class="nn">olive.snpe.snpe</span> <span class="kn">import</span> <span class="n">SNPEInferenceSession</span><span class="p">,</span> <span class="n">SNPESessionOptions</span>
-<span class="kn">from</span> <span class="nn">olive.snpe.tools.dev</span> <span class="kn">import</span> <span class="n">get_dlc_metrics</span>
 
 
 <div class="viewcode-block" id="SNPEModelHandler"><a class="viewcode-back" href="../../../../api/models.html#olive.model.SNPEModelHandler">[docs]</a><span class="nd">@model_handler_registry</span><span class="p">(</span><span class="s2">&quot;SNPEModel&quot;</span><span class="p">)</span>
