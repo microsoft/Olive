@@ -101,6 +101,14 @@ class Metric(ConfigBase):
     user_config: ConfigBase = None
     data_config: Optional[DataConfig] = None
 
+    def get_inference_settings(self, framework):
+        if self.user_config is None:
+            return None
+        if self.user_config.inference_settings:
+            return self.user_config.inference_settings.get(framework)
+        else:
+            return None
+
     def get_sub_type_info(self, info_name, no_priority_filter=True, callback=lambda x: x):
         sub_type_info = {}
         for sub_type in self.sub_types:
