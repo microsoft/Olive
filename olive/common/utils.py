@@ -37,7 +37,7 @@ def run_subprocess(cmd, env=None, cwd=None, check=False):  # pragma: no cover
             f"Env: {env}",
         ]
         logger.error("\n".join(err_msg))
-        raise e
+        raise
     returncode = out.returncode
     stdout = out.stdout.decode("utf-8")
     stderr = out.stderr.decode("utf-8")
