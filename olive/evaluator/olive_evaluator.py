@@ -854,6 +854,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
     ):
         # pylint: disable=expression-not-assigned
         warmup_num, repeat_test_num, _ = get_latency_config_from_metric(metric)
+        # pytorch model doesn't use inference_settings, so we can pass None
         session = model.prepare_session(inference_settings=None, device=device)
 
         input_data, _ = next(iter(dataloader))
