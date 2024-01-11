@@ -43,7 +43,8 @@ def download_model():
     mobilenet_name = "mobilenetv2-12"
     mobilenet_archive_file = "mobilenetv2-12.tar.gz"
     mobilenet_archive_url = (
-        "https://github.com/onnx/models/raw/main/vision/classification/mobilenet/model/" + mobilenet_archive_file
+        "https://github.com/onnx/models/raw/main/validated/vision/classification/mobilenet/model/"
+        f"{mobilenet_archive_file}"
     )
     mobilenet_archive_path = stage_dir / mobilenet_archive_file
     request.urlretrieve(mobilenet_archive_url, mobilenet_archive_path)
