@@ -31,7 +31,7 @@ def run_subprocess(cmd, env=None, cwd=None, check=False):  # pragma: no cover
         out = subprocess.run(cmd, env=env, cwd=cwd, capture_output=True, check=check)
     except subprocess.CalledProcessError as e:
         err_msg = [
-            f"Failed to run {cmd}!",
+            f"Failed to run {cmd} with returncode {e.returncode}!",
             f"Stderr: {e.stderr.decode('utf-8')}",
             f"Stdout: {e.stdout.decode('utf-8')}",
             f"Env: {env}",
