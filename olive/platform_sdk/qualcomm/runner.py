@@ -6,6 +6,7 @@ import logging
 import time
 
 from olive.common.utils import run_subprocess
+from olive.platform_sdk.qualcomm.qnn.env import QNNSDKEnv
 from olive.platform_sdk.qualcomm.snpe.env import SNPESDKEnv
 
 logger = logging.getLogger(__name__)
@@ -27,15 +28,15 @@ class SDKRunner:
         if self.platform not in ("SNPE", "QNN"):
             raise ValueError(f"Unsupported platform {platform}")
         elif self.platform == "SNPE":
-            self.env = SNPESDKEnv(dev=self.dev).env
+            self.sdk_env = SNPESDKEnv(dev=self.dev)
         elif self.platform == "QNN":
-            raise NotImplementedError("QNN not supported yet, coming soon!")
+            self.sdk_env = QNNSDKEnv(dev=self.dev)
 
     def run(self, cmd: str):
         for run in range(self.runs):
             run_log_msg = "" if self.runs == 1 else f" (run {run + 1}/{self.runs})"
-            logger.debug(f"Running {self.platform} command{run_log_msg}: {cmd}, with env: {self.env}")
-            _, stdout, stderr = run_subprocess(cmd, self.env, check=True)
+            logger.debug(f"Running {self.platform} command{run_log_msg}: {cmd}, with env: {self.sdk_env.env}")
+            _, stdout, stderr = run_subprocess(cmd, self.sdk_env.env, check=True)
             if self.sleep > 0 and run < self.runs - 1:
                 time.sleep(self.sleep)
 
@@ -43,10 +44,10 @@ class SDKRunner:
 
 
 class SNPESDKRunner(SDKRunner):
-    def __init__(self, dev: bool = False, runs: int = 1, sleep: int = 0, log_error: bool = True):
-        super().__init__("SNPE", dev, runs, sleep, log_error)
+    def __init__(self, dev: bool = False, runs: int = 1, sleep: int = 0):
+        super().__init__("SNPE", dev, runs, sleep)
 
 
 class QNNSDKRunner(SDKRunner):
-    def __init__(self, dev: bool = False, runs: int = 1, sleep: int = 0, log_error: bool = True):
-        super().__init__("QNN", dev, runs, sleep, log_error)
+    def __init__(self, dev: bool = False, runs: int = 1, sleep: int = 0):
+        super().__init__("QNN", dev, runs, sleep)

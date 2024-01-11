@@ -41,6 +41,7 @@ from olive.model import (
     ONNXModelHandler,
     OpenVINOModelHandler,
     PyTorchModelHandler,
+    QNNModelHandler,
     SNPEModelHandler,
 )
 from olive.model.config.io_config import is_io_config_static
@@ -936,8 +937,8 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
                 raise ValueError("Post processing function is required for SNPE model")
             preds.extend(outputs.tolist())
             targets.extend(labels.tolist())
-            lg = result["results"].get("logits")
-            logits.extend(lg.to_list() if lg else [])
+            # TODO(trajep): verify if we need to return logits
+            logits.extend(result.tolist())
         return OliveModelOutput(preds=preds, logits=logits), targets
 
     def _evaluate_accuracy(
@@ -1036,6 +1037,75 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
             session.infer(input_data)
             latencies.append(time.perf_counter() - t)
         return latencies
+
+
+class QNNEvaluator(OliveEvaluator, framework=Framework.QNN):
+    def __init__(self):
+        super().__init__()
+
+    def _inference(
+        self,
+        model: QNNModelHandler,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ) -> Tuple[OliveModelOutput, Any]:
+        dataloader = self._prepare_dataloader(dataloader, model)
+        session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
+
+        preds = []
+        targets = []
+        logits = []
+        for data_dir, input_list, labels in dataloader:
+            result = session(input_list, data_dir).get("result")
+            if post_func:
+                outputs = post_func(result)
+            else:
+                raise ValueError("Post processing function is required for QNN model")
+            preds.extend(outputs.tolist())
+            targets.extend(labels.tolist())
+            logits.extend(result.tolist())
+        return OliveModelOutput(preds=preds, logits=logits), targets
+
+    def _evaluate_accuracy(
+        self,
+        model: QNNModelHandler,
+        data_root: str,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ) -> MetricResult:
+        inference_output, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
+        return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
+
+    def _evaluate_raw_latency(
+        self,
+        model: QNNModelHandler,
+        data_root: str,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ):
+        dataloader = self._prepare_dataloader(dataloader, model)
+        warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
+        session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
+
+        data_dir, input_data, _ = next(iter(dataloader))
+        # for qnn-net-run only keep 20 logs
+        total_runs = min(warmup_num + repeat_test_num, 20)
+        results = session(input_data, data_dir, runs=total_runs, sleep=sleep_num)
+        return results["latencies"]["net_run"][warmup_num:]
+
+    def _prepare_dataloader(self, dataloader: Dataset, model: QNNModelHandler) -> FileListDataLoader:
+        if isinstance(dataloader, FileListDataLoader):
+            return dataloader
+        return FileListCommonDataLoader(dataloader, model.io_config)
 
 
 class OliveEvaluatorFactory:

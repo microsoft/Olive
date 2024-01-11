@@ -1,0 +1,83 @@
+{
+    "input_model":{
+        "type": "OnnxModel",
+        "config": {
+            "model_path": "models/mobilenetv2-12.onnx"
+        }
+    },
+    "evaluators": {
+        "common_evaluator":{
+            "metrics":[
+                {
+                    "name": "accuracy",
+                    "type": "accuracy",
+                    "sub_types": [{"name": "accuracy_score", "priority": 1, "metric_config": {"task": "multiclass", "num_classes": 1000}}],
+                    "user_config":{
+                        "user_script": "user_script.py",
+                        "data_dir": "data",
+                        "batch_size": 1,
+                        "dataloader_func": "qnn_data_loader",
+                        "post_processing_func": "post_process",
+                        "inference_settings": {
+                            "qnn":{
+                                "backend": "libQnnCpu.so"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_types": [{"name": "avg", "priority": 2}],
+                    "user_config":{
+                        "user_script": "user_script.py",
+                        "data_dir": "data",
+                        "batch_size": 1,
+                        "dataloader_func": "qnn_data_loader",
+                        "inference_settings": {
+                            "qnn":{
+                                "backend": "libQnnCpu.so"
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "passes": {
+        "converter": {
+            "type": "QNNConversion"
+        },
+        "quantization": {
+            "type": "QNNConversion",
+            "config": {
+                "extra_args": "--input_list /home/jiapli/workspace/olive/examples/mobilenet_qnn_qualcomm_npu/data/eval/input_order.txt"
+            }
+        },
+        "build_model_lib": {
+            "type": "QNNModelLibGenerator",
+            "config": {
+                "lib_targets": "x86_64-linux-clang"
+            }
+        },
+        "context_build": {
+            "type": "QNNContextBinaryGenerator",
+            "config": {
+                "backend": "libQnnHtp.so"
+            }
+        }
+    },
+    "pass_flows":[
+        ["converter", "build_model_lib"],
+        ["quantization", "build_model_lib"],
+        ["converter", "build_model_lib", "context_build"]
+    ],
+    "engine": {
+        "log_severity_level": 0,
+        "evaluator": "common_evaluator",
+        "cache_dir": "cache",
+        "cache_enabled": true,
+        "output_dir": "models",
+        "evaluate_input_model": false
+    }
+}
