@@ -13,7 +13,7 @@ from typing import ClassVar, List
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from azure.ai.ml import Input, MLClient, Output
+from azure.ai.ml import Input, Output
 from azure.ai.ml.constants import AssetTypes
 from azure.ai.ml.entities import UserIdentityConfiguration
 
@@ -718,7 +718,7 @@ def test__get_enironment_from_config(mock_retry_func):
         label="label",
     )
     mock_azureml_client_config = Mock(spec=AzureMLClientConfig)
-    ml_client = MagicMock(spec=MLClient)
+    ml_client = MagicMock()
     mock_azureml_client_config.create_client.return_value = ml_client
     mock_azureml_client_config.max_operation_retries = 3
     mock_azureml_client_config.operation_retry_interval = 5
