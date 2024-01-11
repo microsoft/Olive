@@ -10,9 +10,9 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler, SNPEModelHandler, TensorFlowModelHandler
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import PassConfigParam
+from olive.platform_sdk.qualcomm.constants import InputLayout, InputType
+from olive.platform_sdk.qualcomm.snpe.tools.dev import get_dlc_io_config, to_dlc
 from olive.resource_path import LocalFile
-from olive.snpe.constants import InputLayout, InputType
-from olive.snpe.tools.dev import get_dlc_io_config, to_dlc
 
 
 def _validate_input_types_layouts(v, values, field):
@@ -59,8 +59,8 @@ class SNPEConversion(Pass):
                 default_value=None,
                 description=(
                     "List of input types. If not None, it must be a list of the same length as input_names. List"
-                    " members can be None to use default value. Refer to olive.snpe.constants.InputType for valid"
-                    " values."
+                    " members can be None to use default value. Refer to"
+                    " olive.platform_sdk.qualcomm.constants.InputType for valid values."
                 ),
             ),
             "input_layouts": PassConfigParam(
@@ -68,8 +68,8 @@ class SNPEConversion(Pass):
                 default_value=None,
                 description=(
                     "List of input layouts. If not None, it must be a list of the same length as input_names. List"
-                    " members can be None to use inferred value. Refer to olive.snpe.constants.InputLayout for valid"
-                    " values."
+                    " members can be None to use inferred value."
+                    " Refer to olive.platform_sdk.qualcomm.constants.InputLayout for valid values."
                 ),
             ),
             "extra_args": PassConfigParam(

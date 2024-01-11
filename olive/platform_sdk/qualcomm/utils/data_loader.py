@@ -12,13 +12,13 @@ from typing import Any, Tuple
 import numpy as np
 import torch
 
-import olive.snpe.utils.input_list as input_list_utils
+from olive.platform_sdk.qualcomm.utils import input_list as input_list_utils
 
 logger = logging.getLogger(__name__)
 
 
-class SNPEDataLoader(ABC):
-    """Abstraction for logical "SNPEDataLoader", it contains data path and related metadata."""
+class FileListDataLoader(ABC):
+    """Abstraction for logical "FileListDataLoader", it contains data path and related metadata."""
 
     def __init__(self, config: dict, batch_size: int = None):
         """:param config: data loader specific config."""
@@ -126,7 +126,7 @@ class SNPEDataLoader(ABC):
         return self.input_list
 
 
-class SNPEProcessedDataLoader(SNPEDataLoader):
+class FileListProcessedDataLoader(FileListDataLoader):
     def __init__(
         self,
         data_dir: str,
@@ -158,7 +158,7 @@ class SNPEProcessedDataLoader(SNPEDataLoader):
         return self.config["data_dir"], input_list, annotations
 
 
-class SNPERandomDataLoader(SNPEDataLoader):
+class FileListRandomDataLoader(FileListDataLoader):
     def __init__(
         self,
         io_config: dict,
@@ -216,23 +216,23 @@ class SNPERandomDataLoader(SNPEDataLoader):
         return str(data_dir), input_list, None
 
 
-class SNPECommonDataLoader(SNPEDataLoader):
-    """SNPE dataloader created from a common dataloader such as torch.data.DataLoader."""
+class FileListCommonDataLoader(FileListDataLoader):
+    """FileList dataloader created from a common dataloader such as torch.data.DataLoader."""
 
     def __init__(self, dataloader: Any, io_config: dict, batch_size: int = None):
-        """Intialize SNPE Dataloader.
+        """Initialize FileList Dataloader.
 
         :param dataloader: dataloader object. Dataloader must be iterable and return a tuple of (input, target).
         input is a dictionary of input names and input tensors.
         :param io_config: dictionary containing input and output names and shapes of the model.
-        :param batch_size: batch size for the SNPE dataloader. This is not the same as the batch size of the common
+        :param batch_size: batch size for the FileList dataloader. This is not the same as the batch size of the common
         dataloader.
         """
         config = {"dataloader": dataloader, "io_config": io_config}
         super().__init__(config, batch_size)
 
     def load_data(self) -> Tuple[str, str, np.ndarray]:
-        logger.debug(f"Converting dataloader of type {type(self.config['dataloader'])} to SNPE dataloader")
+        logger.debug(f"Converting dataloader of type {type(self.config['dataloader'])} to FileList dataloader")
         input_specs = {}
         for input_name, input_shape in zip(
             self.config["io_config"]["input_names"], self.config["io_config"]["input_shapes"]
@@ -310,7 +310,7 @@ class SNPECommonDataLoader(SNPEDataLoader):
             input_order.append(input_file_name)
             for input_spec in input_specs.values():
                 data = input_data[input_spec["source_name"]]
-                # snpe data loader only supports float32
+                # FileList data loader only supports float32
                 data = np.array(data, dtype=np.float32)
 
                 # permute if necessary

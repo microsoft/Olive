@@ -119,6 +119,7 @@
     "engine": {
         "search_strategy": false,
         "evaluate_input_model": false,
+        "clean_cache": true,
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
         "output_dir": "outputs",

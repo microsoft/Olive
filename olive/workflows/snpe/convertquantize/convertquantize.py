@@ -10,7 +10,8 @@ from typing import Dict, Optional, Union
 from olive.model import ONNXModelHandler, TensorFlowModelHandler
 from olive.passes import SNPEConversion, SNPEQuantization, SNPEtoONNXConversion
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.snpe import SNPEDevice, SNPEProcessedDataLoader
+from olive.platform_sdk.qualcomm.constants import SNPEDevice
+from olive.platform_sdk.qualcomm.utils.data_loader import FileListProcessedDataLoader
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +71,7 @@ def convertquantize(
     snpe_quantized_model_file = str(models_dir / f"{name}.quant.dlc")
 
     def dataloader_func(data_dir):
-        return SNPEProcessedDataLoader(data_dir, input_list_file=input_list_file)
+        return FileListProcessedDataLoader(data_dir, input_list_file=input_list_file)
 
     snpe_quantization = create_pass_from_dict(
         SNPEQuantization,

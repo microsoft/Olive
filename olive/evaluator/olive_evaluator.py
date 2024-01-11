@@ -45,7 +45,7 @@ from olive.model import (
 )
 from olive.model.config.io_config import is_io_config_static
 from olive.model.utils.onnx_utils import bind_input_data, bind_output_data, prepare_io_bindings
-from olive.snpe.data_loader import SNPECommonDataLoader, SNPEDataLoader
+from olive.platform_sdk.qualcomm.utils.data_loader import FileListCommonDataLoader, FileListDataLoader
 
 logger = logging.getLogger(__name__)
 
@@ -972,10 +972,10 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         results = session(input_data, data_dir, runs=total_runs, sleep=sleep_num)
         return results["latencies"]["total_inference_time"][warmup_num:]
 
-    def _prepare_dataloader(self, dataloader: Dataset, model: SNPEModelHandler) -> SNPEDataLoader:
-        if isinstance(dataloader, SNPEDataLoader):
+    def _prepare_dataloader(self, dataloader: Dataset, model: SNPEModelHandler) -> FileListDataLoader:
+        if isinstance(dataloader, FileListDataLoader):
             return dataloader
-        return SNPECommonDataLoader(dataloader, model.io_config)
+        return FileListCommonDataLoader(dataloader, model.io_config)
 
 
 class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):

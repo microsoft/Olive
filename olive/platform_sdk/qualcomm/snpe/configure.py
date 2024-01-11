@@ -9,20 +9,20 @@ from importlib import resources
 from pathlib import Path
 
 from olive.common.utils import run_subprocess
-from olive.snpe.utils.local import get_snpe_root, get_snpe_target_arch, get_snpe_win_arch_name
+from olive.platform_sdk.qualcomm.constants import SDKTargetDevice
+from olive.platform_sdk.qualcomm.snpe.env import SNPESDKEnv
 
-logger = logging.getLogger("olive.snpe.configure")
+logger = logging.getLogger(__name__)
 
 
 def dev(args):
-    snpe_arch = get_snpe_target_arch(False)
-    if snpe_arch != "x64-Linux":
+    snpe_env = SNPESDKEnv()
+    snpe_arch = snpe_env.target_arch
+    if snpe_arch != SDKTargetDevice.x86_64_linux:
         return
 
-    get_snpe_root()
-
     logger.info(f"Configuring SNPE for {snpe_arch} with python{args.py_version}...")
-    with resources.path("olive.snpe", "create_python_env.sh") as create_python_env_path:
+    with resources.path("olive.platform_sdk.qualcomm.snpe", "create_python_env.sh") as create_python_env_path:
         cmd = f"bash {create_python_env_path} -v {args.py_version}"
         return_code, stdout, stderr = run_subprocess(cmd)
         if return_code != 0:
@@ -31,14 +31,14 @@ def dev(args):
 
 
 def eval():  # noqa: A001  #pylint: disable=redefined-builtin
-    snpe_arch = get_snpe_target_arch(False)
-    if snpe_arch != "ARM64-Windows":
+    snpe_env = SNPESDKEnv()
+    target_arch_name = snpe_env.target_arch
+    if target_arch_name not in [SDKTargetDevice.aarch64_windows, SDKTargetDevice.arm64x_windows]:
         return
 
-    snpe_root = get_snpe_root()
-    target_arch_name = get_snpe_win_arch_name(snpe_root, snpe_arch)
+    snpe_root = snpe_env.sdk_root_path
 
-    logger.info(f"Configuring SNPE for {snpe_arch}...")
+    logger.info(f"Configuring SNPE for {target_arch_name}...")
 
     # paths for snpe files
     bin_path = Path(f"{snpe_root}/bin/{target_arch_name}")
@@ -48,7 +48,7 @@ def eval():  # noqa: A001  #pylint: disable=redefined-builtin
     # symlink all files under 'olive-arm-win'
     # If all files are not under the same path, there are problems with the dll files being spread under
     # multiple PATH directories
-    olive_snpe_path = Path(get_snpe_root()).resolve() / "olive-arm-win"
+    olive_snpe_path = Path(snpe_root).resolve() / "olive-arm-win"
     if olive_snpe_path.exists():
         shutil.rmtree(olive_snpe_path)
     olive_snpe_path.mkdir()
@@ -57,7 +57,7 @@ def eval():  # noqa: A001  #pylint: disable=redefined-builtin
             (olive_snpe_path / member.name).symlink_to(member)
 
     # copy over libcdsprpc.dll
-    with resources.path("olive.snpe", "copy_libcdsprpc.ps1") as copy_libcdsprpc_path:
+    with resources.path("olive.platform_sdk.qualcomm.snpe", "copy_libcdsprpc.ps1") as copy_libcdsprpc_path:
         cmd = f"powershell {copy_libcdsprpc_path} {olive_snpe_path}"
         return_code, stdout, stderr = run_subprocess(cmd)
         if return_code != 0 or not (olive_snpe_path / "libcdsprpc.dll").exists():

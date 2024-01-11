@@ -11,8 +11,8 @@ from olive.model.utils import resolve_onnx_path
 from olive.passes.olive_pass import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
-from olive.snpe import SNPEDevice
-from olive.snpe.tools.dev import dlc_to_onnx
+from olive.platform_sdk.qualcomm.constants import SNPEDevice
+from olive.platform_sdk.qualcomm.snpe.tools.dev import dlc_to_onnx
 
 
 def _validate_target_device(v):
@@ -34,7 +34,10 @@ class SNPEtoONNXConversion(Pass):
             "target_device": PassConfigParam(
                 type_=str,
                 default_value="cpu",
-                description="Target device for the ONNX model. Refer to olive.snpe.SNPEDevice for valid values.",
+                description=(
+                    "Target device for the ONNX model. Refer to"
+                    " oliveolive.platform_sdk.qualcomm.constants.SNPEDevice for valid values."
+                ),
             ),
             "target_opset": PassConfigParam(type_=int, default_value=12, description="Target ONNX opset version."),
         }

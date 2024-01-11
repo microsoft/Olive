@@ -12,9 +12,9 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import SNPEModelHandler
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import ParamCategory, PassConfigParam
+from olive.platform_sdk.qualcomm.snpe.tools.dev import quantize_dlc
+from olive.platform_sdk.qualcomm.utils.data_loader import FileListCommonDataLoader, FileListDataLoader
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, LocalFile
-from olive.snpe import SNPECommonDataLoader, SNPEDataLoader
-from olive.snpe.tools.dev import quantize_dlc
 from olive.strategy.search_parameter import Boolean
 
 
@@ -41,7 +41,7 @@ class SNPEQuantization(Pass):
                 category=ParamCategory.OBJECT,
                 description=(
                     "Function or function name to create dataloader for quantization. Function should take data"
-                    " directory as an argument and return a olive.snpe.SNPEDataLoader or torch.data.DataLoader-like"
+                    " directory as an argument and return a FileListDataLoader or torch.data.DataLoader-like"
                     " object. Required if data_config is None."
                 ),
             ),
@@ -101,9 +101,9 @@ class SNPEQuantization(Pass):
             data_config = validate_config(config["data_config"], DataConfig)
             dataloader = data_config.to_data_container().create_dataloader(data_root)
 
-        # convert dataloader to SNPEDataLoader if it is not already
-        if not isinstance(dataloader, SNPEDataLoader):
-            dataloader = SNPECommonDataLoader(dataloader, model.io_config)
+        # convert dataloader to FileListDataLoader if it is not already
+        if not isinstance(dataloader, FileListDataLoader):
+            dataloader = FileListCommonDataLoader(dataloader, model.io_config)
 
         quantize_dlc(model.model_path, dataloader.get_input_list(), config, output_model_path)
         return SNPEModelHandler(model_path=LocalFile({"path": output_model_path}), **model.io_config)

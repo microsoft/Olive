@@ -5,9 +5,9 @@
 import logging
 
 from olive.common.config_utils import ConfigBase
-from olive.snpe.constants import PerfProfile, ProfilingLevel, SNPEDevice
-from olive.snpe.tools.dev import get_dlc_metrics
-from olive.snpe.tools.inference import init_snpe_net_adb, snpe_net_run, snpe_throughput_net_run
+from olive.platform_sdk.qualcomm.constants import PerfProfile, ProfilingLevel, SNPEDevice
+from olive.platform_sdk.qualcomm.snpe.tools.dev import get_dlc_metrics
+from olive.platform_sdk.qualcomm.snpe.tools.inference import init_snpe_net_adb, snpe_net_run, snpe_throughput_net_run
 
 logger = logging.getLogger(__name__)
 

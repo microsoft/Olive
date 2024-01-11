@@ -5,6 +5,15 @@
 from enum import Enum
 
 
+class SDKTargetDevice(str, Enum):
+    x86_64_linux = "x86_64-linux-clang"
+    x86_64_windows = "x86_64-windows-msvc"
+    # evaluation only
+    aarch64_windows = "aarch64-windows-msvc"
+    arm64x_windows = "arm64x-windows-msvc"
+    aarch64_android = "aarch64-android"
+
+
 class SNPEDevice(str, Enum):
     CPU = "cpu"
     GPU = "gpu"

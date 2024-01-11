@@ -11,11 +11,11 @@ from typing import List, Tuple
 
 import numpy as np
 
-import olive.snpe.utils.adb as adb_utils
+import olive.platform_sdk.qualcomm.snpe.utils.adb as adb_utils
 from olive.common.config_utils import validate_enum
-from olive.snpe.constants import PerfProfile, ProfilingLevel, SNPEDevice
-from olive.snpe.utils.input_list import get_input_ids, resolve_input_list
-from olive.snpe.utils.local import run_snpe_command
+from olive.platform_sdk.qualcomm.constants import PerfProfile, ProfilingLevel, SNPEDevice
+from olive.platform_sdk.qualcomm.runner import SNPESDKRunner as SNPERunner
+from olive.platform_sdk.qualcomm.utils.input_list import get_input_ids, resolve_input_list
 
 logger = logging.getLogger(__name__)
 
@@ -194,7 +194,7 @@ def snpe_net_run(
             initialized=android_initialized,
         )
     else:
-        run_snpe_command(cmd, runs=runs, sleep=sleep)
+        SNPERunner(runs=runs, sleep=sleep).run(cmd)
 
     output_dir = None
     if workspace is not None:
@@ -283,7 +283,7 @@ def snpe_net_run(
         snpe_diag_csv = tmp_dir_path / f"SNPEDiag_{run}.csv"
 
         cmd = f"snpe-diagview --input_log {snpe_diag_log} --output {snpe_diag_csv}"
-        run_snpe_command(cmd)
+        SNPERunner().run(cmd)
 
         diag_log = {"init": None, "avg_total_inference_time": None}
         with snpe_diag_csv.open() as f:
@@ -432,5 +432,5 @@ def snpe_throughput_net_run(
             cmd, android_target, data_dir, persist_ws=android_persist_ws, initialized=android_initialized
         )
     else:
-        stdout, _ = run_snpe_command(cmd)
+        stdout, _ = SNPERunner().run(cmd)
     return float(stdout.split("Total throughput: ")[1].split(" ")[0])
