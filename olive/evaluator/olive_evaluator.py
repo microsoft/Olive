@@ -71,17 +71,6 @@ class OliveEvaluator(ABC):
         pass
 
     @classmethod
-    def get_inference_settings(cls, metric: Metric) -> Dict[str, Any]:
-        # user.config.inference_settings > model.inference_settings > default inference_settings
-        # when user.config.inference_settings is None, the model.inference_settings
-        # will be used in model.prepare_session(..)
-        return (
-            metric.user_config.inference_settings.get(cls.framework.lower())
-            if metric.user_config.inference_settings
-            else None
-        )
-
-    @classmethod
     def io_bind_enabled(cls, metric: Metric, inference_settings: Dict) -> bool:
         if metric.user_config.io_bind:
             return True
@@ -424,8 +413,10 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> Tuple[OliveModelOutput, Any]:
+        # user.config.inference_settings > model.inference_settings > default inference_settings
+        inference_settings = metric.get_inference_settings(self.framework.lower()) or model.inference_settings or {}
         session = model.prepare_session(
-            inference_settings=self.get_inference_settings(metric),
+            inference_settings=inference_settings,
             device=device,
             execution_providers=execution_providers,
         )
@@ -522,8 +513,10 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
     ) -> MetricResult:
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
 
+        # user.config.inference_settings > model.inference_settings > default inference_settings
+        inference_settings = metric.get_inference_settings(self.framework.lower()) or model.inference_settings or {}
         session = model.prepare_session(
-            inference_settings=self.get_inference_settings(metric),
+            inference_settings=inference_settings,
             device=device,
             execution_providers=execution_providers,
         )
@@ -631,7 +624,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             "model_path": None,
             "local_rank": None,
             "world_size": model.num_ranks,
-            "inference_settings": self.get_inference_settings(metric),
+            "inference_settings": metric.get_inference_settings(self.framework.lower()),
             "metric": metric.to_json(),
         }
 
@@ -726,7 +719,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             "model_path": None,
             "local_rank": None,
             "world_size": model.num_ranks,
-            "inference_settings": self.get_inference_settings(metric),
+            "inference_settings": metric.get_inference_settings(self.framework.lower()),
             "metric": metric.to_json(),
         }
 
@@ -861,7 +854,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
     ):
         # pylint: disable=expression-not-assigned
         warmup_num, repeat_test_num, _ = get_latency_config_from_metric(metric)
-        session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
+        session = model.prepare_session(inference_settings=None, device=device)
 
         input_data, _ = next(iter(dataloader))
         device = PyTorchEvaluator._device_string_to_torch_device(device)
@@ -923,7 +916,9 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         execution_providers: Union[str, List[str]] = None,
     ) -> Tuple[OliveModelOutput, Any]:
         dataloader = self._prepare_dataloader(dataloader, model)
-        session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
+        session = model.prepare_session(
+            inference_settings=metric.get_inference_settings(self.framework.lower()), device=device
+        )
 
         preds = []
         targets = []
@@ -965,7 +960,9 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
     ) -> MetricResult:
         dataloader = self._prepare_dataloader(dataloader, model)
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
-        session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
+        session = model.prepare_session(
+            inference_settings=metric.get_inference_settings(self.framework.lower()), device=device
+        )
 
         data_dir, input_data, _ = next(iter(dataloader))
         total_runs = warmup_num + repeat_test_num
@@ -991,7 +988,9 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> Tuple[OliveModelOutput, Any]:
-        session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
+        session = model.prepare_session(
+            inference_settings=metric.get_inference_settings(self.framework.lower()), device=device
+        )
 
         preds = []
         targets = []
@@ -1028,7 +1027,9 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
-        session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
+        session = model.prepare_session(
+            inference_settings=metric.get_inference_settings(self.framework.lower()), device=device
+        )
 
         latencies = []
         for input_data, _ in dataloader:

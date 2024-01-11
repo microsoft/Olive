@@ -272,10 +272,7 @@ class PythonEnvironmentSystem(OliveSystem):
         self, model: ONNXModelHandler, metric: Metric, accelerator: AcceleratorSpec
     ) -> Dict[str, Any]:
         """Get the model inference settings."""
-        metric_inference_settings = metric.user_config.inference_settings
-        inference_settings = (
-            metric_inference_settings.get(model.framework.lower()) if metric_inference_settings else None
-        )
+        inference_settings = metric.get_inference_settings(model.framework.lower())
         inference_settings = inference_settings or model.inference_settings or {}
         inference_settings = deepcopy(inference_settings)
 
