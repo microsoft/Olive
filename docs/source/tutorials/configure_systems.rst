@@ -88,11 +88,43 @@ System Configuration
             )
             aml_system = AzureMLSystem(
                 aml_compute="cpu-cluster",
-                aml_docker_config={
-                    "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
-                    "conda_file_path": "conda.yaml"
-                }
+                aml_docker_config=docker_config
             )
+
+If you provide a :code:`aml_docker_config`, Olive will create a new Azure ML Environment using the :code:`aml_docker_config` configuration.
+Alternatively, you can provide an existing Azure ML Environment using :code:`aml_environment_config`:
+
+.. tabs::
+    .. tab:: Config JSON
+
+        .. code-block:: json
+
+            {
+                "type": "AzureML",
+                "config": {
+                    "aml_compute": "cpu-cluster",
+                    "aml_environment_config": {
+                        "name": "myenv",
+                        "version": "1"
+                    }
+                }
+            }
+
+    .. tab:: Python Class
+
+        .. code-block:: python
+
+            from olive.systems.azureml import AzureMLDockerConfig, AzureMLSystem
+
+            aml_environment_config = AzureMLEnvironmentConfig(
+                name="myenv",
+                version="1",
+            )
+            aml_system = AzureMLSystem(
+                aml_compute="cpu-cluster",
+                aml_environment_config=aml_environment_config
+            )
+
 
 Olive can also manage the environment by setting :code:`olive_managed_env = True`
 
