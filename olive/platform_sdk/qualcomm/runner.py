@@ -43,10 +43,10 @@ class SDKRunner:
 
 
 class SNPESDKRunner(SDKRunner):
-    def __init__(self, dev: bool = False, runs: int = 1, sleep: int = 0, log_error: bool = True):
-        super().__init__("SNPE", dev, runs, sleep, log_error)
+    def __init__(self, dev: bool = False, runs: int = 1, sleep: int = 0):
+        super().__init__("SNPE", dev, runs, sleep)
 
 
 class QNNSDKRunner(SDKRunner):
-    def __init__(self, dev: bool = False, runs: int = 1, sleep: int = 0, log_error: bool = True):
-        super().__init__("QNN", dev, runs, sleep, log_error)
+    def __init__(self, dev: bool = False, runs: int = 1, sleep: int = 0):
+        super().__init__("QNN", dev, runs, sleep)
