@@ -91,7 +91,7 @@ def import_system_from_type(system_type: SystemType):
 
 
 class SystemConfig(ConfigBase):
-    type: SystemType  # noqa: A003
+    type: SystemType
     config: TargetUserConfig = None
 
     @root_validator(pre=True)

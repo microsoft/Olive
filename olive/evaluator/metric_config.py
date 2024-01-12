@@ -76,7 +76,7 @@ class ThroughputMetricConfig(ConfigBase):
 
 
 class MetricGoal(ConfigBase):
-    type: str  # threshold , deviation, percent-deviation, # noqa: A003
+    type: str  # threshold , deviation, percent-deviation
     value: float
 
     @validator("type")

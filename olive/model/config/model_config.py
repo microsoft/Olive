@@ -58,7 +58,7 @@ class ModelConfig(ConfigBase):
             ]
     """
 
-    type: str  # noqa: A003
+    type: str
     config: dict
 
     @validator("type")

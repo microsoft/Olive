@@ -16,6 +16,6 @@ class PackagingType(str, Enum):
 class PackagingConfig(ConfigBase):
     """Olive output artifacts generation config."""
 
-    type: PackagingType = PackagingType.Zipfile  # noqa: A003
+    type: PackagingType = PackagingType.Zipfile
     name: str = "OutputModels"
     export_in_mlflow_format: bool = False
