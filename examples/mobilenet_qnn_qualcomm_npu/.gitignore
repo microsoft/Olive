@@ -1,1 +1,4 @@
+output/
+
 mobilenet_config.json
+tmp

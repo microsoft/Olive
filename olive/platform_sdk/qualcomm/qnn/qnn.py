@@ -69,6 +69,8 @@ class QNNInferenceSession:
         main_cmd = "qnn-net-run"
         tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_qnn_")  # pylint: disable=consider-using-with
         tmp_dir_path = Path(tmp_dir.name)
+        runner = QNNSDKRunner(runs=runs, sleep=sleep)
+        backend = runner.sdk_env.get_qnn_backend(self.session_options.backend)
 
         if self.model_file_format == ModelFileFormat.QNN_SERIALIZED_BIN:
             # only support serialized bin format
@@ -80,13 +82,13 @@ class QNNInferenceSession:
         cmd = [
             main_cmd,
             input_model_arg,
-            f"--backend {self.session_options.backend}",
+            f"--backend {backend}",
             f"--input_list {input_list}",
             f"--output_dir {tmp_dir_path}",
             f"--profiling_level {self.session_options.profiling_level}",
             self.session_options.extra_args or "",
         ]
-        runner = QNNSDKRunner(runs=runs, sleep=sleep)
+
         runner.run(" ".join(cmd))
 
         result = []

@@ -20,7 +20,7 @@
                         "post_processing_func": "post_process",
                         "inference_settings": {
                             "qnn":{
-                                "backend": "libQnnCpu.so"
+                                "backend": "QnnCpu"
                             }
                         }
                     }
@@ -36,7 +36,7 @@
                         "dataloader_func": "qnn_data_loader",
                         "inference_settings": {
                             "qnn":{
-                                "backend": "libQnnCpu.so"
+                                "backend": "QnnCpu"
                             }
                         }
                     }
@@ -51,31 +51,25 @@
         "quantization": {
             "type": "QNNConversion",
             "config": {
-                "extra_args": "--input_list /home/jiapli/workspace/olive/examples/mobilenet_qnn_qualcomm_npu/data/eval/input_order.txt"
+                "extra_args": "--input_list <input_list.txt>"
             }
         },
         "build_model_lib": {
             "type": "QNNModelLibGenerator",
             "config": {
-                "lib_targets": "x86_64-linux-clang"
-            }
-        },
-        "context_build": {
-            "type": "QNNContextBinaryGenerator",
-            "config": {
-                "backend": "libQnnHtp.so"
+                "lib_targets": "x86_64-windows-msvc"
             }
         }
     },
     "pass_flows":[
         ["converter", "build_model_lib"],
-        ["quantization", "build_model_lib"],
-        ["converter", "build_model_lib", "context_build"]
+        ["quantization", "build_model_lib"]
     ],
     "engine": {
         "log_severity_level": 0,
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
+        "clean_cache": true,
         "cache_enabled": true,
         "output_dir": "models",
         "evaluate_input_model": false

@@ -83,12 +83,12 @@ class SDKEnv:
         if platform.system() == "Linux":
             bin_path += delimiter + "/usr/bin"
             env["LD_LIBRARY_PATH"] = lib_path
-            env["PYTHONPATH"] = python_path
         elif platform.system() == "Windows":
             bin_path += delimiter + lib_path
 
         env["PATH"] = bin_path
         env["SDK_ROOT"] = sdk_root_path
+        env["PYTHONPATH"] = python_path
 
         unfound_paths = []
         for paths in env.values():
@@ -99,4 +99,5 @@ class SDKEnv:
         if unfound_paths:
             raise FileNotFoundError(f"{unfound_paths} do not exist")
 
+        env["PATH"] += delimiter + os.environ["PATH"]
         return env
