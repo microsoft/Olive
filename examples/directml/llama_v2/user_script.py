@@ -116,7 +116,7 @@ def decoder_inputs(model):
         "tokens": torch.zeros((batch_size, seq_len), dtype=torch.int64),
         "position_ids": torch.zeros((batch_size, seq_len), dtype=torch.int64),
         "attn_mask": torch.zeros((batch_size, max_seq_len), dtype=torch.int32),
-        "cache": [
+        "past_key_values": [
             {
                 "key": torch.rand((batch_size, num_heads, max_seq_len, head_size), dtype=torch.float32),
                 "value": torch.rand((batch_size, num_heads, max_seq_len, head_size), dtype=torch.float32),
@@ -147,7 +147,7 @@ def decoder_with_past_inputs(model):
         "tokens_increment": torch.zeros((batch_size, 1), dtype=torch.int64),
         "position_ids_increment": torch.zeros((batch_size, 1), dtype=torch.int64),
         "attn_mask": torch.zeros((batch_size, max_seq_len), dtype=torch.int32),
-        "cache": [
+        "past_key_values": [
             {
                 "key": torch.rand((batch_size, num_heads, max_seq_len, head_size), dtype=torch.float32),
                 "value": torch.rand((batch_size, num_heads, max_seq_len, head_size), dtype=torch.float32),
@@ -177,10 +177,10 @@ def merged_decoders_inputs(model):
     }
 
     for layer_idx in range(config.num_layers):
-        inputs[f"cache.{layer_idx}.key"] = torch.rand(
+        inputs[f"past_key_values.{layer_idx}.key"] = torch.rand(
             (batch_size, num_heads, max_seq_len, head_size), dtype=torch.float32
         )
-        inputs[f"cache.{layer_idx}.value"] = torch.rand(
+        inputs[f"past_key_values.{layer_idx}.value"] = torch.rand(
             (batch_size, num_heads, max_seq_len, head_size), dtype=torch.float32
         )
 

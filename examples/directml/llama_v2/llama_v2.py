@@ -45,16 +45,16 @@ def optimize(optimized_model_dir: Path, model_type: str):
                         layer_range = range(config.num_layers, 32)
 
                         # Remove the extra inputs
-                        key_inputs_to_remove = {f"cache.{idx}.key" for idx in layer_range}
-                        value_inputs_to_remove = {f"cache.{idx}.value" for idx in layer_range}
+                        key_inputs_to_remove = {f"past_key_values.{idx}.key" for idx in layer_range}
+                        value_inputs_to_remove = {f"past_key_values.{idx}.value" for idx in layer_range}
                         input_names = model_component["config"]["io_config"]["input_names"]
                         input_names = [x for x in input_names if x not in key_inputs_to_remove]
                         input_names = [x for x in input_names if x not in value_inputs_to_remove]
                         model_component["config"]["io_config"]["input_names"] = input_names
 
                         # Remove the extra outputs
-                        key_output_to_remove = {f"cache_out.{idx}.key" for idx in layer_range}
-                        value_output_to_remove = {f"cache_out.{idx}.value" for idx in layer_range}
+                        key_output_to_remove = {f"present.{idx}.key" for idx in layer_range}
+                        value_output_to_remove = {f"present.{idx}.value" for idx in layer_range}
                         output_names = model_component["config"]["io_config"]["output_names"]
                         output_names = [x for x in output_names if x not in key_output_to_remove]
                         output_names = [x for x in output_names if x not in value_output_to_remove]
@@ -62,8 +62,8 @@ def optimize(optimized_model_dir: Path, model_type: str):
 
                         # Remove the dynamic axes
                         for idx in layer_range:
-                            del model_component["config"]["io_config"]["dynamic_axes"][f"cache.{idx}.key"]
-                            del model_component["config"]["io_config"]["dynamic_axes"][f"cache.{idx}.value"]
+                            del model_component["config"]["io_config"]["dynamic_axes"][f"past_key_values.{idx}.key"]
+                            del model_component["config"]["io_config"]["dynamic_axes"][f"past_key_values.{idx}.value"]
 
         olive_run(olive_config)
 
