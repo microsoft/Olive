@@ -67,7 +67,8 @@ class QNNInferenceSession:
 
     def net_run(self, input_list: str, data_dir: str = None, runs: int = 1, sleep: int = 0) -> dict:
         main_cmd = "qnn-net-run"
-        tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_qnn_")  # pylint: disable=consider-using-with
+        # pylint: disable=consider-using-with
+        tmp_dir = tempfile.TemporaryDirectory(dir=Path.cwd(), prefix="olive_tmp_qnn_")
         tmp_dir_path = Path(tmp_dir.name)
         runner = QNNSDKRunner(runs=runs, sleep=sleep)
         backend = runner.sdk_env.get_qnn_backend(self.session_options.backend)

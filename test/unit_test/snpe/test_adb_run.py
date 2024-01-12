@@ -63,6 +63,7 @@ def test_run_snpe_command():
             env = {
                 "PATH": "C:\\snpe\\bin\\x86_64-windows-msvc;C:\\snpe\\lib\\x86_64-windows-msvc",
                 "SDK_ROOT": "C:\\snpe",
+                "PYTHONPATH": "C:\\snpe\\lib\\python",
             }
 
         mock_run_subprocess.assert_called_once_with(

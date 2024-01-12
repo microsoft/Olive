@@ -60,9 +60,9 @@ $CONDA create -y -p "$FILES_DIR"/$PY_ENV_NAME python="$PY_VERSION"
 # Install snpe requirements
 "$FILES_DIR"/$PY_ENV_NAME/bin/python -m pip install --upgrade pip
 if [ "$PY_VERSION" == "3.6" ]; then
-    "$FILES_DIR"/$PY_ENV_NAME/bin/python -m pip install onnx==1.11.0 onnx-simplifier packaging tensorflow==1.15.0 pyyaml
+    "$FILES_DIR"/$PY_ENV_NAME/bin/python -m pip install onnx==1.11.0 onnx-simplifier packaging tensorflow==1.15.0 pyyaml pandas==1.1.5 numpy==1.18.5
 elif [ "$PY_VERSION" == "3.8" ]; then
-    "$FILES_DIR"/$PY_ENV_NAME/bin/python -m pip install onnx onnx-simplifier packaging tensorflow pyyaml
+    "$FILES_DIR"/$PY_ENV_NAME/bin/python -m pip install onnx onnx-simplifier packaging tensorflow pyyaml pandas==1.1.5 numpy==1.18.5
 else
     echo "Unsupported python version: $PY_VERSION, only 3.6 and 3.8 are supported"
     exit 1
