@@ -223,6 +223,15 @@ class OrtTransformersOptimization(Pass):
         if optimization_options:
             self._set_fusion_options(run_config)
 
+        if run_config["use_gpu"]:
+            from onnxruntime import __version__ as OrtVersion
+            from packaging import version
+
+            if version.parse(OrtVersion) >= version.parse("1.17.0"):
+                run_config["provider"] = self.accelerator_spec.execution_provider.replace(
+                    "ExecutionProvider", ""
+                ).lower()
+
         optimizer = transformers_optimizer.optimize_model(input=model.model_path, **run_config)
 
         if config["float16"]:
