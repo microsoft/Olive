@@ -71,7 +71,7 @@ class QNNModelHandler(OliveModelHandler):
             if not model_paths:
                 raise FileNotFoundError(f"No model file found in {model_folder}")
             elif len(model_paths) > 1:
-                raise FileNotFoundError(f"Multiple model files found in {model_folder}: {model_paths}")
+                raise RuntimeError(f"Multiple model files found in {model_folder}: {model_paths}")
             return str(model_paths[0])
         elif self.model_file_format == ModelFileFormat.QNN_SERIALIZED_BIN:
             logger.debug("QNNModelHandler: model_path is the .serialized.bin file for QNN_SERIALIZED_BIN model format.")
@@ -92,6 +92,9 @@ class QNNModelHandler(OliveModelHandler):
         inference_settings = inference_settings or {}
         model_attributes = self.model_attributes or {}
         inference_settings["model_file_format"] = inference_settings.get("model_file_format") or self.model_file_format
+        # some model is build under specific backend, e.g. serialized bin model is built under HTP backend
+        # in these cases, we should respect the backend specified in the model_attributes, then overwrite it with
+        # the backend specified in inference_settings
         inference_settings["backend"] = model_attributes.get("backend") or inference_settings.get("backend")
         session_options = QNNSessionOptions(**inference_settings)
         return QNNInferenceSession(self.model_path, self.io_config, session_options)

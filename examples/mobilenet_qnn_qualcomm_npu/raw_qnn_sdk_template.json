@@ -20,7 +20,7 @@
                         "post_processing_func": "post_process",
                         "inference_settings": {
                             "qnn":{
-                                "backend": "QnnCpu"
+                                "backend": "libQnnCpu"
                             }
                         }
                     }
@@ -36,7 +36,7 @@
                         "dataloader_func": "qnn_data_loader",
                         "inference_settings": {
                             "qnn":{
-                                "backend": "QnnCpu"
+                                "backend": "libQnnCpu"
                             }
                         }
                     }
@@ -57,7 +57,7 @@
         "build_model_lib": {
             "type": "QNNModelLibGenerator",
             "config": {
-                "lib_targets": "x86_64-windows-msvc"
+                "lib_targets": "x86_64-linux-clang"
             }
         }
     },
