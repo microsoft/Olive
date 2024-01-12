@@ -22,6 +22,7 @@ class QNNSDKEnv(SDKEnv):
         python_env_parent_folder = "Scripts" if platform.system() == "Windows" else "bin"
         python_env_bin_path = str(Path(f"{sdk_root_path}/olive-pyenv/{python_env_parent_folder}"))
 
+        env["PATH"] += delimiter + os.environ["PATH"]
         if self.dev:
             if not Path(python_env_bin_path).exists():
                 raise FileNotFoundError(

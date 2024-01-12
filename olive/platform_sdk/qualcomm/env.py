@@ -99,5 +99,4 @@ class SDKEnv:
         if unfound_paths:
             raise FileNotFoundError(f"{unfound_paths} do not exist")
 
-        env["PATH"] += delimiter + os.environ["PATH"]
         return env
