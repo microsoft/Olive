@@ -83,7 +83,7 @@ def run_llama_v2_io_binding(
     n_layers = 0
 
     for inputs_meta in llm_session._inputs_meta:
-        if inputs_meta.name.startswith("cache.") and inputs_meta.name.endswith(".key"):
+        if inputs_meta.name.startswith("past_key_values.") and inputs_meta.name.endswith(".key"):
             n_layers += 1
 
     binding_device = "dml"
@@ -163,10 +163,10 @@ def run_llama_v2_io_binding(
         llm_io_binding.bind_ortvalue_output("attn_mask_out", attn_mask_out)
 
         for layer_idx in range(n_layers):
-            llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.key", k_caches[layer_idx])
-            llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.value", v_caches[layer_idx])
-            llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.key", k_caches_out[layer_idx])
-            llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.value", v_caches_out[layer_idx])
+            llm_io_binding.bind_ortvalue_input(f"past_key_values.{layer_idx}.key", k_caches[layer_idx])
+            llm_io_binding.bind_ortvalue_input(f"past_key_values.{layer_idx}.value", v_caches[layer_idx])
+            llm_io_binding.bind_ortvalue_output(f"present.{layer_idx}.key", k_caches_out[layer_idx])
+            llm_io_binding.bind_ortvalue_output(f"present.{layer_idx}.value", v_caches_out[layer_idx])
 
         llm_session.run_with_iobinding(llm_io_binding)
         llm_io_binding.synchronize_outputs()

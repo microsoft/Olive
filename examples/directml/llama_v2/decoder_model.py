@@ -40,15 +40,15 @@ class DecoderModel(torch.nn.Module):
         self.hidden_size = hidden_size
         self.n_heads = n_heads
 
-    def forward_common(self, use_cache, tokens, position_ids, attn_mask, cache):
+    def forward_common(self, use_cache, tokens, position_ids, attn_mask, past_key_values):
         k_caches = []
         v_caches = []
 
         x = self.tok_embeddings(tokens)
 
         for layer_idx, layer in enumerate(self.layers):
-            k_cache = cache[layer_idx]["key"].clone().detach()
-            v_cache = cache[layer_idx]["value"].clone().detach()
+            k_cache = past_key_values[layer_idx]["key"].clone().detach()
+            v_cache = past_key_values[layer_idx]["value"].clone().detach()
 
             x, k_cache, v_cache = layer(use_cache, x, position_ids, attn_mask, k_cache, v_cache)
 
@@ -70,13 +70,13 @@ class DecoderModel(torch.nn.Module):
 
         return tuple(return_values)
 
-    def forward_no_cache(self, tokens, position_ids, attn_mask, cache):
+    def forward_no_cache(self, tokens, position_ids, attn_mask, past_key_values):
         use_cache = False
-        return self.forward_common(use_cache, tokens, position_ids, attn_mask, cache)
+        return self.forward_common(use_cache, tokens, position_ids, attn_mask, past_key_values)
 
-    def forward_use_cache(self, tokens_increment, position_ids_increment, attn_mask, cache):
+    def forward_use_cache(self, tokens_increment, position_ids_increment, attn_mask, past_key_values):
         use_cache = True
-        return self.forward_common(use_cache, tokens_increment, position_ids_increment, attn_mask, cache)
+        return self.forward_common(use_cache, tokens_increment, position_ids_increment, attn_mask, past_key_values)
 
     def set_use_cache(self, use_cache):
         self.forward = self.forward_use_cache if use_cache else self.forward_no_cache

@@ -217,10 +217,10 @@ short answers are usually best"
             self.llm_io_binding.bind_ortvalue_output("attn_mask_out", attn_mask_out)
 
             for layer_idx in range(self.n_layers):
-                self.llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.key", self.k_caches[layer_idx])
-                self.llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.value", self.v_caches[layer_idx])
-                self.llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.key", self.k_caches_out[layer_idx])
-                self.llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.value", self.v_caches_out[layer_idx])
+                self.llm_io_binding.bind_ortvalue_input(f"past_key_values.{layer_idx}.key", self.k_caches[layer_idx])
+                self.llm_io_binding.bind_ortvalue_input(f"past_key_values.{layer_idx}.value", self.v_caches[layer_idx])
+                self.llm_io_binding.bind_ortvalue_output(f"present.{layer_idx}.key", self.k_caches_out[layer_idx])
+                self.llm_io_binding.bind_ortvalue_output(f"present.{layer_idx}.value", self.v_caches_out[layer_idx])
 
             # Run the LLaMA model
             self.llm_session.run_with_iobinding(self.llm_io_binding)
