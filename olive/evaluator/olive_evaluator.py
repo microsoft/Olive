@@ -1055,7 +1055,9 @@ class QNNEvaluator(OliveEvaluator, framework=Framework.QNN):
         execution_providers: Union[str, List[str]] = None,
     ) -> Tuple[OliveModelOutput, Any]:
         dataloader = self._prepare_dataloader(dataloader, model)
-        session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
+        session = model.prepare_session(
+            inference_settings=metric.get_inference_settings(self.framework.lower()), device=device
+        )
 
         preds = []
         targets = []
@@ -1096,7 +1098,9 @@ class QNNEvaluator(OliveEvaluator, framework=Framework.QNN):
     ):
         dataloader = self._prepare_dataloader(dataloader, model)
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
-        session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
+        session = model.prepare_session(
+            inference_settings=metric.get_inference_settings(self.framework.lower()), device=device
+        )
 
         data_dir, input_data, _ = next(iter(dataloader))
         # for qnn-net-run only keep 20 logs

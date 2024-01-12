@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 
 import logging
+import platform
 from pathlib import Path
 from typing import Any, Callable, Dict, Union
 
@@ -20,6 +21,9 @@ logger = logging.getLogger(__name__)
 class QNNContextBinaryGenerator(Pass):
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+        if platform.system() == "Windows":
+            raise NotImplementedError("QNNContextBinaryGenerator is not supported on Windows.")
+
         return {
             "backend": PassConfigParam(
                 type_=str,
@@ -53,12 +57,11 @@ class QNNContextBinaryGenerator(Pass):
         output_model_path: str,
     ) -> QNNModelHandler:
         main_cmd = "qnn-context-binary-generator"
+        runner = QNNSDKRunner(dev=True)
 
         # input model path's name without suffix
         # TODO(trajep): find .so file in the same directory as the model
         output_model_path = Path(output_model_path).resolve()
-
-        runner = QNNSDKRunner(dev=True)
 
         binary_file = config["binary_file"]
         if not binary_file:

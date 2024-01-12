@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 
 import logging
+import platform
 from pathlib import Path
 from typing import Any, Callable, Dict, Union
 
@@ -50,6 +51,11 @@ class QNNModelLibGenerator(Pass):
         output_model_path: str,
     ) -> QNNModelHandler:
         main_cmd = "qnn-model-lib-generator"
+        runner = QNNSDKRunner(dev=True)
+        if platform.system() == "Windows":
+            main_cmd = "python " + str(
+                Path(runner.sdk_env.sdk_root_path) / "bin" / runner.sdk_env.target_arch / main_cmd
+            )
 
         # input model path's name without suffix
         input_model_path = Path(model.model_path).resolve()

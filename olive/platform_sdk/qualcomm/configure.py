@@ -5,6 +5,7 @@
 
 import argparse
 import logging
+import platform
 import shutil
 from importlib import resources
 from pathlib import Path
@@ -15,6 +16,8 @@ from olive.platform_sdk.qualcomm.qnn.env import QNNSDKEnv
 from olive.platform_sdk.qualcomm.snpe.env import SNPESDKEnv
 
 logger = logging.getLogger(__name__)
+
+script_name = "create_python_env.sh" if platform.system() == "Linux" else "create_python_env.ps1"
 
 
 def dev(args):
@@ -28,7 +31,7 @@ def dev(args):
         return
 
     logger.info(f"Configuring {args.sdk} for {sdk_arch} with python{args.py_version}...")
-    with resources.path(resource_path, "create_python_env.sh") as create_python_env_path:
+    with resources.path(resource_path, script_name) as create_python_env_path:
         cmd = f"bash {create_python_env_path} -v {args.py_version} --sdk {args.sdk}"
         run_subprocess(cmd, check=True)
     logger.info("Done")

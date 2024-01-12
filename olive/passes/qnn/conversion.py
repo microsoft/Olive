@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+import platform
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Union
 
@@ -85,6 +86,12 @@ class QNNConversion(Pass):
             raise NotImplementedError(f"Unsupported model handler type: {type(model)}")
         converter_program = f"qnn-{converter_platform}-converter"
 
+        runner = QNNSDKRunner(dev=True)
+        if platform.system() == "Windows":
+            converter_program = "python " + str(
+                Path(runner.sdk_env.sdk_root_path) / "bin" / runner.sdk_env.target_arch / converter_program
+            )
+
         # get input dim from io_config
         input_dims = None
         if config.get("input_dim"):
@@ -112,6 +119,5 @@ class QNNConversion(Pass):
             " ".join([f"--out_node {o}" for o in out_nodes]) if out_nodes else "",
             config["extra_args"] or "",
         ]
-        runner = QNNSDKRunner(dev=True)
         runner.run(" ".join(cmd_list))
         return QNNModelHandler(output_model_path, model_file_format=ModelFileFormat.QNN_CPP)

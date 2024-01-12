@@ -63,11 +63,12 @@ class QNNModelHandler(OliveModelHandler):
                     lib_targets = "x86_64-linux-clang"
                     model_lib_suffix = ".so"
                 elif platform.system() == "Windows":
-                    lib_targets = "x86_64-windows-msvc"
+                    # might be different for arm devices
+                    lib_targets = "x64"
                     model_lib_suffix = ".dll"
             model_folder = Path(model_path) / lib_targets
             model_paths = list(model_folder.glob(f"*{model_lib_suffix}"))
-            if len(model_paths) == 0:
+            if not model_paths:
                 raise FileNotFoundError(f"No model file found in {model_folder}")
             elif len(model_paths) > 1:
                 raise FileNotFoundError(f"Multiple model files found in {model_folder}: {model_paths}")
