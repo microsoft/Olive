@@ -127,6 +127,9 @@ jobs:
       whisper:
         exampleFolder: whisper
         exampleName: whisper
+      mobilenet_qnn_toolkit:
+        exampleFolder: mobilenet_qnn_qualcomm_npu
+        exampleName: qnn_tooklit
 
 # Linux GPU examples testing.
 - template: job_templates/olive-example-template.yaml
