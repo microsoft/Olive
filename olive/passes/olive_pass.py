@@ -392,7 +392,7 @@ class Pass(ABC):
 
 # TODO(jambayk): rename. We are using FullPassConfig since PassConfigBase already refers to inner config
 class FullPassConfig(ConfigBase):
-    type: str  # noqa: A003
+    type: str
     disable_search: bool = False
     accelerator: Dict[str, str] = None
     config: Dict[str, Any] = None
