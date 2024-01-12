@@ -53,8 +53,8 @@ def optimize(optimized_model_dir: Path, model_type: str):
                         model_component["config"]["io_config"]["input_names"] = input_names
 
                         # Remove the extra outputs
-                        key_output_to_remove = {f"past_key_values_out.{idx}.key" for idx in layer_range}
-                        value_output_to_remove = {f"past_key_values_out.{idx}.value" for idx in layer_range}
+                        key_output_to_remove = {f"present.{idx}.key" for idx in layer_range}
+                        value_output_to_remove = {f"present.{idx}.value" for idx in layer_range}
                         output_names = model_component["config"]["io_config"]["output_names"]
                         output_names = [x for x in output_names if x not in key_output_to_remove]
                         output_names = [x for x in output_names if x not in value_output_to_remove]

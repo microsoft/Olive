@@ -196,8 +196,8 @@ def run_llama_v2_io_binding(
         for layer_idx in range(n_layers):
             llm_io_binding.bind_ortvalue_input(f"past_key_values.{layer_idx}.key", k_caches[layer_idx])
             llm_io_binding.bind_ortvalue_input(f"past_key_values.{layer_idx}.value", v_caches[layer_idx])
-            llm_io_binding.bind_ortvalue_output(f"past_key_values_out.{layer_idx}.key", k_caches_out[layer_idx])
-            llm_io_binding.bind_ortvalue_output(f"past_key_values_out.{layer_idx}.value", v_caches_out[layer_idx])
+            llm_io_binding.bind_ortvalue_output(f"present.{layer_idx}.key", k_caches_out[layer_idx])
+            llm_io_binding.bind_ortvalue_output(f"present.{layer_idx}.value", v_caches_out[layer_idx])
 
         llm_session.run_with_iobinding(llm_io_binding)
         llm_io_binding.synchronize_outputs()
