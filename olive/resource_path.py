@@ -49,7 +49,7 @@ class ResourcePath(AutoConfigClass):
         return self.get_path()
 
     @property
-    def type(self) -> ResourceType:  # noqa: A003
+    def type(self) -> ResourceType:
         return self.name
 
     @abstractmethod
@@ -92,7 +92,7 @@ class ResourcePath(AutoConfigClass):
 
 
 class ResourcePathConfig(ConfigBase):
-    type: ResourceType = Field(..., description="Type of the resource.")  # noqa: A003
+    type: ResourceType = Field(..., description="Type of the resource.")
     config: ConfigBase = Field(..., description="Config of the resource.")
 
     @validator("config", pre=True)

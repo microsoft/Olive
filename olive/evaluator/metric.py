@@ -95,7 +95,7 @@ class SubMetric(ConfigBase):
 
 class Metric(ConfigBase):
     name: str
-    type: MetricType  # noqa: A003
+    type: MetricType
     backend: Optional[str] = "torch_metrics"
     sub_types: List[SubMetric]
     user_config: ConfigBase = None

@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 class DataComponentConfig(ConfigBase):
     name: str = None
-    type: str = None  # noqa: A003
+    type: str = None
     params: Dict = None
 
 
@@ -36,7 +36,7 @@ DefaultDataComponentCombos = {
 
 class DataConfig(ConfigBase):
     name: str = DefaultDataContainer.DATA_CONTAINER.value
-    type: str = DefaultDataContainer.DATA_CONTAINER.value  # noqa: A003
+    type: str = DefaultDataContainer.DATA_CONTAINER.value
 
     # used to store the params for each component
     params_config: Dict = None
