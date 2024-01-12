@@ -3,12 +3,12 @@
 # Licensed under the MIT License.
 # Example modified from: https://docs.openvino.ai/2023.2/notebooks/225-stable-diffusion-text-to-image-with-output.html
 # --------------------------------------------------------------------------
-from dataclasses import dataclass
 import inspect
 import json
-from pathlib import Path
 import shutil
 import sys
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
 import cv2
@@ -16,13 +16,14 @@ import numpy as np
 import openvino as ov
 import PIL
 import torch
-from diffusers.pipelines.pipeline_utils import DiffusionPipeline
 from diffusers import StableDiffusionPipeline
+from diffusers.pipelines.pipeline_utils import DiffusionPipeline
 from diffusers.schedulers import DDIMScheduler, LMSDiscreteScheduler, PNDMScheduler
 from openvino.runtime import Model
 from transformers import CLIPTokenizer
 
 OV_OPTIMIZED_MODEL_INFO = "ov_optimized_model_info.json"
+
 
 def scale_fit_to_window(dst_width: int, dst_height: int, image_width: int, image_height: int):
     """Preprocessing helper function for calculating image size.
@@ -74,8 +75,7 @@ def preprocess(image: PIL.Image.Image):
 
 @dataclass
 class OvStableDiffusionPipelineOutput:
-    """
-    Output class for Stable Diffusion pipelines.
+    """Output class for Stable Diffusion pipelines.
 
     Args:
         images (`List[PIL.Image.Image]` or `np.ndarray`)
@@ -85,6 +85,7 @@ class OvStableDiffusionPipelineOutput:
 
     images: Union[List[PIL.Image.Image], np.ndarray]
     nsfw_content_detected: Optional[List[bool]] = None
+
 
 class OVStableDiffusionPipeline(DiffusionPipeline):
     def __init__(
@@ -163,6 +164,8 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
                 expense of slower inference.
             negative_prompt (str or List[str]):
                 The negative prompt or prompts to guide the image generation.
+            num_images_per_prompt (int, *optional*, defaults to 1):
+                Number of images to generate per prompt.
             guidance_scale (float, *optional*, defaults to 7.5):
                 Guidance scale as defined in Classifier-Free Diffusion Guidance(https://arxiv.org/abs/2207.12598).
                 guidance_scale is defined as `w` of equation 2.
@@ -180,6 +183,10 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
                 Controls the amount of noise that is added to the input image.
             gif (bool, *optional*, False):
                 Flag for storing all steps results or not.
+            callback (Callable[[int, int, np.ndarray], None], *optional*, None):
+                Callback function for each step of generation.
+            callback_steps (int, *optional*, 1):
+                Number of steps between callback calls.
             kwargs: Additional keyword arguments.
 
         Returns:
@@ -190,7 +197,7 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
         """
         if seed is not None:
             np.random.seed(seed)
-        
+
         batch_size = len(prompts) if isinstance(prompts, list) else 1
 
         print(f"Start inference with prompt: {prompts}")
@@ -199,7 +206,10 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
 
         # get prompt text embeddings
         text_embeddings = self._encode_prompt(
-            prompts, num_images_per_prompt, do_classifier_free_guidance=do_classifier_free_guidance, negative_prompt=negative_prompt
+            prompts,
+            num_images_per_prompt,
+            do_classifier_free_guidance=do_classifier_free_guidance,
+            negative_prompt=negative_prompt,
         )
 
         # set timesteps
@@ -244,7 +254,7 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
                 image = self.vae_decoder(latents * (1 / 0.18215))[self._vae_d_output]
                 image = self.postprocess_image(image, meta, output_type)
                 img_buffer.extend(image)
-            
+
             # call the callback, if provided
             if callback is not None and i % callback_steps == 0:
                 step_idx = i // getattr(self.scheduler, "order", 1)
@@ -254,9 +264,8 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
         image = self.vae_decoder(latents * (1 / 0.18215))[self._vae_d_output]
 
         image = self.postprocess_image(image, meta, output_type)
-        
-        return OvStableDiffusionPipelineOutput(images=image)
 
+        return OvStableDiffusionPipelineOutput(images=image)
 
     def _encode_prompt(
         self,
@@ -269,6 +278,7 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
 
         Args:
             prompt (str): prompt to be encoded
+            num_images_per_prompt (int): number of images to generate per prompt
             do_classifier_free_guidance (bool): whether to use classifier free guidance or not
             negative_prompt (str or list(str)): negative prompt to be encoded
         Returns:
@@ -320,10 +330,26 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
 
         return text_embeddings
 
-    def prepare_latents(self, batch_size, num_images_per_prompt, height, width, image: PIL.Image.Image = None, latent_timestep: torch.Tensor = None):
+    def prepare_latents(
+        self,
+        batch_size,
+        num_images_per_prompt,
+        height,
+        width,
+        image: PIL.Image.Image = None,
+        latent_timestep: torch.Tensor = None,
+    ):
         """Get initial latents for starting generation.
 
         Args:
+            batch_size (int):
+                Batch size for generation
+            num_images_per_prompt (int):
+                Number of images to generate per prompt
+            height (int):
+                Height of generated image
+            width (int):
+                Width of generated image
             image (PIL.Image.Image, *optional*, None):
                 Input image for generation, if not provided randon noise will be used as starting point
             latent_timestep (torch.Tensor, *optional*, None):
@@ -402,7 +428,8 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
         timesteps = self.scheduler.timesteps[t_start:]
 
         return timesteps, num_inference_steps - t_start
-   
+
+
 def update_ov_config(config: Dict):
     config["pass_flows"] = [["ov_convert"]]
     config["engine"]["search_strategy"] = False
@@ -410,7 +437,8 @@ def update_ov_config(config: Dict):
     del config["evaluators"]
     del config["engine"]["evaluator"]
     return config
-    
+
+
 def save_optimized_ov_submodel(run_res, submodel, optimized_model_dir, optimized_model_path_map):
     res = next(iter(run_res.values()))
 
@@ -419,17 +447,17 @@ def save_optimized_ov_submodel(run_res, submodel, optimized_model_dir, optimized
     shutil.copytree(output_model_dir, optimized_model_path)
     model_path = (optimized_model_path / submodel).with_suffix(".xml")
     optimized_model_path_map[submodel] = str(model_path)
-    
-    
+
+
 def get_ov_pipeline(common_args, ov_args, optimized_model_dir):
     if common_args.test_unoptimized:
         return StableDiffusionPipeline.from_pretrained(common_args.model_id)
-    
+
     with (optimized_model_dir / OV_OPTIMIZED_MODEL_INFO).open("r") as model_info_file:
         optimized_model_path_map = json.load(model_info_file)
-    
+
     device = ov_args.device
-    
+
     core = ov.Core()
     text_enc = core.compile_model(optimized_model_path_map["text_encoder"], device)
     unet_model = core.compile_model(optimized_model_path_map["unet"], device)
@@ -442,7 +470,7 @@ def get_ov_pipeline(common_args, ov_args, optimized_model_dir):
     lms = LMSDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear")
     tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
 
-    ov_pipe = OVStableDiffusionPipeline(
+    return OVStableDiffusionPipeline(
         tokenizer=tokenizer,
         text_encoder=text_enc,
         unet=unet_model,
@@ -451,9 +479,10 @@ def get_ov_pipeline(common_args, ov_args, optimized_model_dir):
         scheduler=lms,
     )
 
-    return ov_pipe
 
-def run_ov_image_inference(pipe, image_path, prompt, strength, guidance_scale, image_size, num_inference_steps, common_args):
+def run_ov_image_inference(
+    pipe, image_path, prompt, strength, guidance_scale, image_size, num_inference_steps, common_args
+):
     image = None
     if image_path:
         img_path = Path(image_path)
@@ -462,16 +491,17 @@ def run_ov_image_inference(pipe, image_path, prompt, strength, guidance_scale, i
             print("Image doesn't exist.")
             sys.exit(1)
         image = PIL.Image.open(img_path)
-    
+
     return pipe(
-        prompts=[prompt] * common_args.batch_size, 
-        image=image, 
-        num_inference_steps=num_inference_steps, 
+        prompts=[prompt] * common_args.batch_size,
+        image=image,
+        num_inference_steps=num_inference_steps,
         height=image_size,
         width=image_size,
         strength=strength,
-        guidance_scale=guidance_scale
+        guidance_scale=guidance_scale,
     )
+
 
 def run_ov_img_to_img_example(pipe, guidance_scale, common_args):
     prompt = "amazing watercolor painting"
@@ -479,8 +509,10 @@ def run_ov_img_to_img_example(pipe, guidance_scale, common_args):
     image_path = Path("./assets/dog.png")
     image_size = 512
     num_inference_steps = 10
-    
-    return run_ov_image_inference(pipe, image_path, prompt, strength, guidance_scale, image_size, num_inference_steps, common_args)
+
+    return run_ov_image_inference(
+        pipe, image_path, prompt, strength, guidance_scale, image_size, num_inference_steps, common_args
+    )
 
 
 def save_ov_model_info(model_info, optimized_model_dir):

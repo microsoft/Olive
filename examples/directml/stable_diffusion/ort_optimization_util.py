@@ -3,19 +3,20 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
-from pathlib import Path
 import shutil
 import sys
+from pathlib import Path
 from typing import Dict
 
 import onnxruntime as ort
+from diffusers import OnnxRuntimeModel, OnnxStableDiffusionPipeline
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
-from diffusers import OnnxRuntimeModel, OnnxStableDiffusionPipeline
 
 from olive.model import ONNXModelHandler
 
 # ruff: noqa: TID252
+
 
 def update_cuda_config(config: Dict):
     if version.parse(OrtVersion) < version.parse("1.17.0"):
@@ -25,6 +26,7 @@ def update_cuda_config(config: Dict):
     config["engine"]["execution_providers"] = ["CUDAExecutionProvider"]
     return config
 
+
 def validate_args(args, provider):
     ort.set_default_logger_severity(4)
     if args.static_dims:
@@ -32,8 +34,9 @@ def validate_args(args, provider):
             "WARNING: the --static_dims option is deprecated, and static shape optimization is enabled by default. "
             "Use --dynamic_dims to disable static shape optimization."
         )
-    
+
     validate_ort_version(provider)
+
 
 def validate_ort_version(provider: str):
     if provider == "dml" and version.parse(OrtVersion) < version.parse("1.16.0"):
@@ -47,7 +50,8 @@ def validate_ort_version(provider: str):
             f"WARNING: onnxruntime {OrtVersion} has known issues with shape inference for SkipGroupNorm. Will disable"
             " skip_group_norm fusion. onnxruntime-gpu 1.17.0 or newer is strongly recommended!"
         )
-        
+
+
 def save_optimized_onnx_submodel(submodel_name, provider, model_info):
     footprints_file_path = (
         Path(__file__).resolve().parent / "footprints" / f"{submodel_name}_gpu-{provider}_footprints.json"
@@ -79,9 +83,11 @@ def save_optimized_onnx_submodel(submodel_name, provider, model_info):
 
         print(f"Unoptimized Model : {model_info[submodel_name]['unoptimized']['path']}")
         print(f"Optimized Model   : {model_info[submodel_name]['optimized']['path']}")
-        
 
-def save_onnx_pipeline(has_safety_checker, model_info, optimized_model_dir, unoptimized_model_dir, pipeline, submodel_names):
+
+def save_onnx_pipeline(
+    has_safety_checker, model_info, optimized_model_dir, unoptimized_model_dir, pipeline, submodel_names
+):
     # Save the unoptimized models in a directory structure that the diffusers library can load and run.
     # This is optional, and the optimized models can be used directly in a custom pipeline if desired.
     print("\nCreating ONNX pipeline...")
@@ -115,14 +121,15 @@ def save_onnx_pipeline(has_safety_checker, model_info, optimized_model_dir, unop
         shutil.copyfile(src_path, dst_path)
 
     print(f"The optimized pipeline is located here: {optimized_model_dir}")
-    
+
+
 def get_ort_pipeline(model_dir, common_args, ort_args, guidance_scale):
     ort.set_default_logger_severity(3)
 
     print("Loading models into ORT session...")
     sess_options = ort.SessionOptions()
     sess_options.enable_mem_pattern = False
-    
+
     static_dims = not ort_args.dynamic_dims
     batch_size = common_args.batch_size
     image_size = common_args.image_size
@@ -146,8 +153,6 @@ def get_ort_pipeline(model_dir, common_args, ort_args, guidance_scale):
         "cuda": "CUDAExecutionProvider",
     }
     assert provider in provider_map, f"Unsupported provider: {provider}"
-    pipeline = OnnxStableDiffusionPipeline.from_pretrained(
+    return OnnxStableDiffusionPipeline.from_pretrained(
         model_dir, provider=provider_map[provider], sess_options=sess_options
     )
-    
-    return pipeline
