@@ -180,7 +180,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_path</span><span class="p">()</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ResourceType</span><span class="p">:</span>  <span class="c1"># noqa: A003</span>
+    <span class="k">def</span> <span class="nf">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ResourceType</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span>
 
     <span class="nd">@abstractmethod</span>
@@ -223,7 +223,7 @@
 
 
 <span class="k">class</span> <span class="nc">ResourcePathConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
-    <span class="nb">type</span><span class="p">:</span> <span class="n">ResourceType</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Type of the resource.&quot;</span><span class="p">)</span>  <span class="c1"># noqa: A003</span>
+    <span class="nb">type</span><span class="p">:</span> <span class="n">ResourceType</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Type of the resource.&quot;</span><span class="p">)</span>
     <span class="n">config</span><span class="p">:</span> <span class="n">ConfigBase</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Config of the resource.&quot;</span><span class="p">)</span>
 
     <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;config&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
