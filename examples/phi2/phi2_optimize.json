@@ -2,7 +2,6 @@
     "input_model": {
         "type": "PyTorchModel",
         "config": {
-            "model_loader": "model_loader",
             "model_script": "user_script.py",
             "dummy_inputs_func": "dummy_inputs",
             "io_config": "get_io_config",
@@ -67,7 +66,7 @@
         "convert": {
             "type": "OnnxConversion",
             "config": {
-                "target_opset": 18,
+                "target_opset": 17,
                 "save_as_external_data": true,
                 "all_tensors_to_one_file": true
             }
