@@ -47,6 +47,14 @@
                 "target_opset": 14
             }
         },
+        "ov_convert": {
+            "type": "OpenVINOConversion",
+            "config": {
+                "user_script": "user_script.py",
+                "example_input_func": "safety_checker_conversion_inputs",
+                "output_model": "safety_checker"
+            }
+        },
         "optimize": {
             "type": "OrtTransformersOptimization",
             "disable_search": true,

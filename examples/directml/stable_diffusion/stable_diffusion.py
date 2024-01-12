@@ -12,17 +12,38 @@ from pathlib import Path
 from typing import Dict
 
 import config
-import onnxruntime as ort
 import torch
-from diffusers import DiffusionPipeline, OnnxRuntimeModel, OnnxStableDiffusionPipeline
-from onnxruntime import __version__ as OrtVersion
+from diffusers import DiffusionPipeline
 from packaging import version
 from user_script import get_base_model_name
 
-from olive.model import ONNXModelHandler
 from olive.workflows import run as olive_run
 
+file_path = str(Path(__file__).resolve().parent)
+sys.path.append(file_path)
+
 # pylint: disable=redefined-outer-name
+# ruff: noqa: TID252
+
+
+def save_image(result, batch_size, provider, num_images, images_saved, image_callback=None):
+    passed_safety_checker = 0
+    for image_index in range(batch_size):
+        if result.nsfw_content_detected is None or not result.nsfw_content_detected[image_index]:
+            passed_safety_checker += 1
+            if images_saved < num_images:
+                output_path = f"result_{images_saved}.png"
+                result.images[image_index].save(output_path)
+                if image_callback:
+                    image_callback(images_saved, output_path)
+                images_saved += 1
+                print(f"Generated {output_path}")
+    print(f"Inference Batch End ({passed_safety_checker}/{batch_size} images).")
+    if provider == "openvino":
+        print("WARNING: Safety checker is not supported by OpenVINO. It will be disabled.")
+    else:
+        print("Images passed the safety checker.")
+    return images_saved
 
 
 def run_inference_loop(
@@ -32,7 +53,9 @@ def run_inference_loop(
     batch_size,
     image_size,
     num_inference_steps,
-    disable_classifier_free_guidance,
+    guidance_scale,
+    strength: float,
+    provider: str,
     image_callback=None,
     step_callback=None,
 ):
@@ -45,9 +68,7 @@ def run_inference_loop(
     while images_saved < num_images:
         print(f"\nInference Batch Start (batch size = {batch_size}).")
 
-        kwargs = {}
-        if disable_classifier_free_guidance:
-            kwargs["guidance_scale"] = 0.0
+        kwargs = {"strength": strength} if provider == "openvino" else {}
 
         result = pipeline(
             [prompt] * batch_size,
@@ -55,26 +76,15 @@ def run_inference_loop(
             callback=update_steps if step_callback else None,
             height=image_size,
             width=image_size,
+            guidance_scale=guidance_scale,
             **kwargs,
         )
-        passed_safety_checker = 0
 
-        for image_index in range(batch_size):
-            if result.nsfw_content_detected is None or not result.nsfw_content_detected[image_index]:
-                passed_safety_checker += 1
-                if images_saved < num_images:
-                    output_path = f"result_{images_saved}.png"
-                    result.images[image_index].save(output_path)
-                    if image_callback:
-                        image_callback(images_saved, output_path)
-                    images_saved += 1
-                    print(f"Generated {output_path}")
-
-        print(f"Inference Batch End ({passed_safety_checker}/{batch_size} images passed the safety checker).")
+        images_saved = save_image(result, batch_size, provider, num_images, images_saved, image_callback)
 
 
 def run_inference_gui(
-    pipeline, prompt, num_images, batch_size, image_size, num_inference_steps, disable_classifier_free_guidance
+    pipeline, prompt, num_images, batch_size, image_size, num_inference_steps, guidance_scale, strength, provider
 ):
     import threading
     import tkinter as tk
@@ -105,7 +115,9 @@ def run_inference_gui(
                 batch_size,
                 image_size,
                 num_inference_steps,
-                disable_classifier_free_guidance,
+                guidance_scale,
+                strength,
+                provider,
                 image_completed,
                 update_progress_bar,
             ),
@@ -155,67 +167,18 @@ def run_inference_gui(
     window.mainloop()
 
 
-def run_inference(
-    optimized_model_dir,
-    provider,
-    prompt,
-    num_images,
-    batch_size,
-    image_size,
-    num_inference_steps,
-    disable_classifier_free_guidance,
-    static_dims,
-    interactive,
-):
-    ort.set_default_logger_severity(3)
-
-    print("Loading models into ORT session...")
-    sess_options = ort.SessionOptions()
-    sess_options.enable_mem_pattern = False
-
-    if static_dims:
-        hidden_batch_size = batch_size if disable_classifier_free_guidance else batch_size * 2
-        # Not necessary, but helps DML EP further optimize runtime performance.
-        # batch_size is doubled for sample & hidden state because of classifier free guidance:
-        # https://github.com/huggingface/diffusers/blob/46c52f9b9607e6ecb29c782c052aea313e6487b7/src/diffusers/pipelines/stable_diffusion/pipeline_stable_diffusion.py#L672
-        sess_options.add_free_dimension_override_by_name("unet_sample_batch", hidden_batch_size)
-        sess_options.add_free_dimension_override_by_name("unet_sample_channels", 4)
-        sess_options.add_free_dimension_override_by_name("unet_sample_height", image_size // 8)
-        sess_options.add_free_dimension_override_by_name("unet_sample_width", image_size // 8)
-        sess_options.add_free_dimension_override_by_name("unet_time_batch", 1)
-        sess_options.add_free_dimension_override_by_name("unet_hidden_batch", hidden_batch_size)
-        sess_options.add_free_dimension_override_by_name("unet_hidden_sequence", 77)
-
-    provider_map = {
-        "dml": "DmlExecutionProvider",
-        "cuda": "CUDAExecutionProvider",
-    }
-    assert provider in provider_map, f"Unsupported provider: {provider}"
-    pipeline = OnnxStableDiffusionPipeline.from_pretrained(
-        optimized_model_dir, provider=provider_map[provider], sess_options=sess_options
-    )
-
-    if interactive:
-        run_inference_gui(
-            pipeline, prompt, num_images, batch_size, image_size, num_inference_steps, disable_classifier_free_guidance
-        )
-    else:
-        run_inference_loop(
-            pipeline, prompt, num_images, batch_size, image_size, num_inference_steps, disable_classifier_free_guidance
-        )
-
-
 def update_config_with_provider(config: Dict, provider: str):
     if provider == "dml":
         # DirectML EP is the default, so no need to update config.
         return config
     elif provider == "cuda":
-        if version.parse(OrtVersion) < version.parse("1.17.0"):
-            # disable skip_group_norm fusion since there is a shape inference bug which leads to invalid models
-            config["passes"]["optimize_cuda"]["config"]["optimization_options"] = {"enable_skip_group_norm": False}
-        config["pass_flows"] = [["convert", "optimize_cuda"]]
-        config["engine"]["execution_providers"] = ["CUDAExecutionProvider"]
-        return config
+        from ort_optimization_util import update_cuda_config
+
+        return update_cuda_config(config)
+    elif provider == "openvino":
+        from ov_optimization_utils import update_ov_config
+
+        return update_ov_config(config)
     else:
         raise ValueError(f"Unsupported provider: {provider}")
 
@@ -233,7 +196,6 @@ def optimize(
         print("This script requires protobuf 3.20.3. Please ensure your package version matches requirements.txt.")
         sys.exit(1)
 
-    ort.set_default_logger_severity(4)
     script_dir = Path(__file__).resolve().parent
 
     # Clean up previously optimized models, if any.
@@ -261,7 +223,10 @@ def optimize(
     has_safety_checker = getattr(pipeline, "safety_checker", None) is not None
 
     if has_safety_checker:
-        submodel_names.append("safety_checker")
+        if provider == "openvino":
+            print("WARNING: Safety checker is not supported by OpenVINO. It will be disabled.")
+        else:
+            submodel_names.append("safety_checker")
 
     for submodel_name in submodel_names:
         print(f"\nOptimizing {submodel_name}")
@@ -279,84 +244,42 @@ def optimize(
             # base model ID should be able to reuse previously optimized copies.
             olive_config["input_model"]["config"]["model_path"] = base_model_id
 
-        olive_run(olive_config)
+        run_res = olive_run(olive_config)
 
-        footprints_file_path = (
-            Path(__file__).resolve().parent / "footprints" / f"{submodel_name}_gpu-{provider}_footprints.json"
-        )
-        with footprints_file_path.open("r") as footprint_file:
-            footprints = json.load(footprint_file)
+        if provider == "openvino":
+            from ov_optimization_utils import save_optimized_ov_submodel
 
-            conversion_footprint = None
-            optimizer_footprint = None
-            for footprint in footprints.values():
-                if footprint["from_pass"] == "OnnxConversion":
-                    conversion_footprint = footprint
-                elif footprint["from_pass"] == "OrtTransformersOptimization":
-                    optimizer_footprint = footprint
+            save_optimized_ov_submodel(run_res, submodel_name, optimized_model_dir, model_info)
+        else:
+            from ort_optimization_util import save_optimized_onnx_submodel
 
-            assert conversion_footprint and optimizer_footprint
+            save_optimized_onnx_submodel(submodel_name, provider, model_info)
 
-            unoptimized_olive_model = ONNXModelHandler(**conversion_footprint["model_config"]["config"])
-            optimized_olive_model = ONNXModelHandler(**optimizer_footprint["model_config"]["config"])
+    if provider == "openvino":
+        from ov_optimization_utils import save_ov_model_info
 
-            model_info[submodel_name] = {
-                "unoptimized": {
-                    "path": Path(unoptimized_olive_model.model_path),
-                },
-                "optimized": {
-                    "path": Path(optimized_olive_model.model_path),
-                },
-            }
-
-            print(f"Unoptimized Model : {model_info[submodel_name]['unoptimized']['path']}")
-            print(f"Optimized Model   : {model_info[submodel_name]['optimized']['path']}")
-
-    # Save the unoptimized models in a directory structure that the diffusers library can load and run.
-    # This is optional, and the optimized models can be used directly in a custom pipeline if desired.
-    print("\nCreating ONNX pipeline...")
-
-    if has_safety_checker:
-        safety_checker = OnnxRuntimeModel.from_pretrained(model_info["safety_checker"]["unoptimized"]["path"].parent)
+        save_ov_model_info(model_info, optimized_model_dir)
     else:
-        safety_checker = None
+        from ort_optimization_util import save_onnx_pipeline
 
-    onnx_pipeline = OnnxStableDiffusionPipeline(
-        vae_encoder=OnnxRuntimeModel.from_pretrained(model_info["vae_encoder"]["unoptimized"]["path"].parent),
-        vae_decoder=OnnxRuntimeModel.from_pretrained(model_info["vae_decoder"]["unoptimized"]["path"].parent),
-        text_encoder=OnnxRuntimeModel.from_pretrained(model_info["text_encoder"]["unoptimized"]["path"].parent),
-        tokenizer=pipeline.tokenizer,
-        unet=OnnxRuntimeModel.from_pretrained(model_info["unet"]["unoptimized"]["path"].parent),
-        scheduler=pipeline.scheduler,
-        safety_checker=safety_checker,
-        feature_extractor=pipeline.feature_extractor,
-        requires_safety_checker=True,
-    )
+        save_onnx_pipeline(
+            has_safety_checker, model_info, optimized_model_dir, unoptimized_model_dir, pipeline, submodel_names
+        )
 
-    print("Saving unoptimized models...")
-    onnx_pipeline.save_pretrained(unoptimized_model_dir)
-
-    # Create a copy of the unoptimized model directory, then overwrite with optimized models from the olive cache.
-    print("Copying optimized models...")
-    shutil.copytree(unoptimized_model_dir, optimized_model_dir, ignore=shutil.ignore_patterns("weights.pb"))
-    for submodel_name in submodel_names:
-        src_path = model_info[submodel_name]["optimized"]["path"]
-        dst_path = optimized_model_dir / submodel_name / "model.onnx"
-        shutil.copyfile(src_path, dst_path)
-
-    print(f"The optimized pipeline is located here: {optimized_model_dir}")
+    return model_info
 
 
-def main(raw_args=None):
-    parser = argparse.ArgumentParser()
+def parse_common_args(raw_args):
+    parser = argparse.ArgumentParser("Common arguments")
+
     parser.add_argument("--model_id", default="runwayml/stable-diffusion-v1-5", type=str)
     parser.add_argument(
-        "--provider", default="dml", type=str, choices=["dml", "cuda"], help="Execution provider to use"
+        "--provider", default="dml", type=str, choices=["dml", "cuda", "openvino"], help="Execution provider to use"
     )
-    parser.add_argument("--interactive", action="store_true", help="Run with a GUI")
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
     parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")
     parser.add_argument("--test_unoptimized", action="store_true", help="Use unoptimized model for inference")
+    parser.add_argument("--batch_size", default=1, type=int, help="Number of images to generate per batch")
     parser.add_argument(
         "--prompt",
         default=(
@@ -365,90 +288,150 @@ def main(raw_args=None):
         ),
         type=str,
     )
-    parser.add_argument("--num_images", default=1, type=int, help="Number of images to generate")
-    parser.add_argument("--batch_size", default=1, type=int, help="Number of images to generate per batch")
-    parser.add_argument("--image_size", default=768, type=int, help="Width and height of the images to generate")
     parser.add_argument(
-        "--disable_classifier_free_guidance",
-        action="store_true",
-        help=(
-            "Whether to disable classifier free guidance. Classifier free guidance should be disabled for turbo models."
-        ),
+        "--guidance_scale",
+        default=7.5,
+        type=float,
+        help="Guidance scale as defined in Classifier-Free Diffusion Guidance",
     )
+    parser.add_argument("--num_images", default=1, type=int, help="Number of images to generate")
     parser.add_argument("--num_inference_steps", default=50, type=int, help="Number of steps in diffusion process")
+    parser.add_argument("--interactive", action="store_true", help="Run with a GUI")
+    parser.add_argument("--tempdir", default=None, type=str, help="Root directory for tempfile directories and files")
+    parser.add_argument(
+        "--strength",
+        default=1.0,
+        type=float,
+        help="Value between 0.0 and 1.0, that controls the amount of noise that is added to the input image. "
+        "Values that approach 1.0 enable lots of variations but will also produce images "
+        "that are not semantically consistent with the input.",
+    )
+    parser.add_argument("--image_size", default=768, type=int, help="Width and height of the images to generate")
+
+    return parser.parse_known_args(raw_args)
+
+
+def parse_ort_args(raw_args):
+    parser = argparse.ArgumentParser("ONNX Runtime arguments")
+
     parser.add_argument(
         "--static_dims",
         action="store_true",
         help="DEPRECATED (now enabled by default). Use --dynamic_dims to disable static_dims.",
     )
     parser.add_argument("--dynamic_dims", action="store_true", help="Disable static shape optimization")
-    parser.add_argument("--tempdir", default=None, type=str, help="Root directory for tempfile directories and files")
-    args = parser.parse_args(raw_args)
 
-    if args.static_dims:
-        print(
-            "WARNING: the --static_dims option is deprecated, and static shape optimization is enabled by default. "
-            "Use --dynamic_dims to disable static shape optimization."
-        )
+    return parser.parse_known_args(raw_args)
 
-    if args.provider == "dml" and version.parse(OrtVersion) < version.parse("1.16.0"):
-        print("This script requires onnxruntime-directml 1.16.0 or newer")
-        sys.exit(1)
-    elif args.provider == "cuda" and version.parse(OrtVersion) < version.parse("1.17.0"):
-        if version.parse(OrtVersion) < version.parse("1.16.2"):
-            print("This script requires onnxruntime-gpu 1.16.2 or newer")
-            sys.exit(1)
-        print(
-            f"WARNING: onnxruntime {OrtVersion} has known issues with shape inference for SkipGroupNorm. Will disable"
-            " skip_group_norm fusion. onnxruntime-gpu 1.17.0 or newer is strongly recommended!"
-        )
+
+def parse_ov_args(raw_args):
+    parser = argparse.ArgumentParser("OpenVINO arguments")
+
+    parser.add_argument("--device", choices=["CPU", "GPU", "VPU"], default="CPU", type=str)
+    parser.add_argument("--image_path", default=None, type=str)
+    parser.add_argument("--img_to_img_example", action="store_true", help="Runs the image to image example")
+
+    return parser.parse_known_args(raw_args)
+
+
+def main(raw_args=None):
+    common_args, extra_args = parse_common_args(raw_args)
+
+    provider = common_args.provider
+    model_id = common_args.model_id
 
     script_dir = Path(__file__).resolve().parent
-    unoptimized_model_dir = script_dir / "models" / "unoptimized" / args.model_id
-    optimized_dir_name = "optimized" if args.provider == "dml" else "optimized-cuda"
-    optimized_model_dir = script_dir / "models" / optimized_dir_name / args.model_id
+    unoptimized_model_dir = script_dir / "models" / "unoptimized" / model_id
+    optimized_dir_name = f"optimized-{provider}"
+    optimized_model_dir = script_dir / "models" / optimized_dir_name / model_id
 
-    if args.clean_cache:
+    if common_args.clean_cache:
         shutil.rmtree(script_dir / "cache", ignore_errors=True)
 
-    disable_classifier_free_guidance = args.disable_classifier_free_guidance
+    guidance_scale = common_args.guidance_scale
 
-    if args.model_id == "stabilityai/sd-turbo" and not disable_classifier_free_guidance:
-        disable_classifier_free_guidance = True
-        print(
-            f"WARNING: Classifier free guidance has been forcefully disabled since {args.model_id} doesn't support it."
-        )
+    if model_id == "stabilityai/sd-turbo" and guidance_scale > 0:
+        guidance_scale = 0.0
+        print(f"WARNING: Classifier free guidance has been forcefully disabled since {model_id} doesn't support it.")
 
-    if args.optimize or not optimized_model_dir.exists():
-        if args.tempdir is not None:
+    if provider == "openvino":
+        ov_args, extra_args = parse_ov_args(extra_args)
+    else:
+        ort_args, extra_args = parse_ort_args(extra_args)
+
+    if common_args.optimize or not optimized_model_dir.exists():
+        if common_args.tempdir is not None:
             # set tempdir if specified
-            tempdir = Path(args.tempdir).resolve()
+            tempdir = Path(common_args.tempdir).resolve()
             tempdir.mkdir(parents=True, exist_ok=True)
             tempfile.tempdir = str(tempdir)
 
         # TODO(jstoecker): clean up warning filter (mostly during conversion from torch to ONNX)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            optimize(args.model_id, args.provider, unoptimized_model_dir, optimized_model_dir)
+            if provider != "openvino":
+                from ort_optimization_util import validate_args
 
-    if not args.optimize:
-        model_dir = unoptimized_model_dir if args.test_unoptimized else optimized_model_dir
-        use_static_dims = not args.dynamic_dims
+                validate_args(ort_args, common_args.provider)
+            optimize(common_args.model_id, common_args.provider, unoptimized_model_dir, optimized_model_dir)
 
+    if not common_args.optimize:
+        model_dir = unoptimized_model_dir if common_args.test_unoptimized else optimized_model_dir
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            run_inference(
-                model_dir,
-                args.provider,
-                args.prompt,
-                args.num_images,
-                args.batch_size,
-                args.image_size,
-                args.num_inference_steps,
-                disable_classifier_free_guidance,
-                use_static_dims,
-                args.interactive,
-            )
+            if provider == "openvino":
+                from ov_optimization_utils import get_ov_pipeline
+
+                pipeline = get_ov_pipeline(common_args, ov_args, optimized_model_dir)
+            else:
+                from ort_optimization_util import get_ort_pipeline
+
+                pipeline = get_ort_pipeline(model_dir, common_args, ort_args, guidance_scale)
+            if provider == "openvino" and (ov_args.image_path or ov_args.img_to_img_example):
+                if ov_args.image_path:
+                    from ov_optimization_utils import run_ov_image_inference
+
+                    res = run_ov_image_inference(
+                        pipeline,
+                        ov_args.image_path,
+                        common_args.prompt,
+                        common_args.strength,
+                        guidance_scale,
+                        common_args.image_size,
+                        common_args.num_inference_steps,
+                        common_args,
+                    )
+                if ov_args.img_to_img_example:
+                    from ov_optimization_utils import run_ov_img_to_img_example
+
+                    res = run_ov_img_to_img_example(pipeline, guidance_scale, common_args)
+                save_image(res, common_args.batch_size, "openvino", common_args.num_images, 0)
+                sys.exit(0)
+
+            if common_args.interactive:
+                run_inference_gui(
+                    pipeline,
+                    common_args.prompt,
+                    common_args.num_images,
+                    common_args.batch_size,
+                    common_args.image_size,
+                    common_args.num_inference_steps,
+                    guidance_scale,
+                    common_args.strength,
+                    provider=provider,
+                )
+            else:
+                run_inference_loop(
+                    pipeline,
+                    common_args.prompt,
+                    common_args.num_images,
+                    common_args.batch_size,
+                    common_args.image_size,
+                    common_args.num_inference_steps,
+                    guidance_scale,
+                    common_args.strength,
+                    provider=provider,
+                )
 
 
 if __name__ == "__main__":

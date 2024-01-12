@@ -3,13 +3,13 @@
 # Licensed under the MIT License.
 # Example modified from: https://docs.openvino.ai/2023.2/notebooks/225-stable-diffusion-text-to-image-with-output.html
 # --------------------------------------------------------------------------
-import argparse
+from dataclasses import dataclass
 import inspect
 import json
-import shutil
-import time
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+import shutil
+import sys
+from typing import Callable, Dict, List, Optional, Union
 
 import cv2
 import numpy as np
@@ -17,12 +17,12 @@ import openvino as ov
 import PIL
 import torch
 from diffusers.pipelines.pipeline_utils import DiffusionPipeline
+from diffusers import StableDiffusionPipeline
 from diffusers.schedulers import DDIMScheduler, LMSDiscreteScheduler, PNDMScheduler
 from openvino.runtime import Model
 from transformers import CLIPTokenizer
 
-from olive.workflows import run as olive_run
-
+OV_OPTIMIZED_MODEL_INFO = "ov_optimized_model_info.json"
 
 def scale_fit_to_window(dst_width: int, dst_height: int, image_width: int, image_height: int):
     """Preprocessing helper function for calculating image size.
@@ -72,6 +72,20 @@ def preprocess(image: PIL.Image.Image):
     return image, {"padding": pad, "src_width": src_width, "src_height": src_height}
 
 
+@dataclass
+class OvStableDiffusionPipelineOutput:
+    """
+    Output class for Stable Diffusion pipelines.
+
+    Args:
+        images (`List[PIL.Image.Image]` or `np.ndarray`)
+            List of denoised PIL images of length `batch_size` or NumPy array of shape `(batch_size, height, width,
+            num_channels)`.
+    """
+
+    images: Union[List[PIL.Image.Image], np.ndarray]
+    nsfw_content_detected: Optional[List[bool]] = None
+
 class OVStableDiffusionPipeline(DiffusionPipeline):
     def __init__(
         self,
@@ -92,8 +106,7 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
                 [CLIP](https://huggingface.co/docs/transformers/model_doc/clip#transformers.CLIPTextModel), specifically
                 the clip-vit-large-patch14(https://huggingface.co/openai/clip-vit-large-patch14) variant.
             tokenizer (CLIPTokenizer):
-                Tokenizer of class CLIPTokenizer
-                (https://huggingface.co/docs/transformers/v4.21.0/en/model_doc/clip#transformers.CLIPTokenizer).
+                Tokenizer of class CLIPTokenizer(https://huggingface.co/docs/transformers/v4.21.0/en/model_doc/clip#transformers.CLIPTokenizer).
             unet (Model): Conditional U-Net architecture to denoise the encoded image latents.
             scheduler (SchedulerMixin):
                 A scheduler to be used in combination with unet to denoise the encoded image latents. Can be one of
@@ -117,25 +130,34 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
 
     def __call__(
         self,
-        prompts: List[str],
+        prompts: Union[str, List[str]],
         image: PIL.Image.Image = None,
+        height: Optional[int] = 512,
+        width: Optional[int] = 512,
         num_inference_steps: Optional[int] = 50,
         negative_prompt: Union[str, List[str]] = None,
+        num_images_per_prompt: Optional[int] = 1,
         guidance_scale: Optional[float] = 7.5,
         eta: Optional[float] = 0.0,
         output_type: Optional[str] = "pil",
         seed: Optional[int] = None,
         strength: float = 0.5,
         gif: Optional[bool] = False,
+        callback: Optional[Callable[[int, int, np.ndarray], None]] = None,
+        callback_steps: int = 1,
         **kwargs,
     ):
         """Invoke when calling the pipeline for generation.
 
         Args:
-            prompts (List[str]):
+            prompts (str or List[str]):
                 The prompts to guide the image generation.
             image (PIL.Image.Image, *optional*, None):
                  Intinal image for generation.
+            height (int, *optional*, defaults to 512):
+                Height of the generated image.
+            width (int, *optional*, defaults to 512):
+                Width of the generated image.
             num_inference_steps (int, *optional*, defaults to 50):
                 The number of denoising steps. More denoising steps usually lead to a higher quality image at the
                 expense of slower inference.
@@ -168,24 +190,16 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
         """
         if seed is not None:
             np.random.seed(seed)
+        
+        batch_size = len(prompts) if isinstance(prompts, list) else 1
 
-        return [
-            self._infer(
-                prompt, negative_prompt, num_inference_steps, guidance_scale, eta, output_type, gif, image, strength
-            )
-            for prompt in prompts
-        ]
-
-    def _infer(
-        self, prompt: str, negative_prompt, num_inference_steps, guidance_scale, eta, output_type, gif, image, strength
-    ):
-        print(f"Start inference with prompt: {prompt}")
+        print(f"Start inference with prompt: {prompts}")
         img_buffer = []
         do_classifier_free_guidance = guidance_scale > 1.0
 
         # get prompt text embeddings
         text_embeddings = self._encode_prompt(
-            prompt, do_classifier_free_guidance=do_classifier_free_guidance, negative_prompt=negative_prompt
+            prompts, num_images_per_prompt, do_classifier_free_guidance=do_classifier_free_guidance, negative_prompt=negative_prompt
         )
 
         # set timesteps
@@ -199,7 +213,7 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
         latent_timestep = timesteps[:1]
 
         # get the initial random noise unless the user supplied it
-        latents, meta = self.prepare_latents(image, latent_timestep)
+        latents, meta = self.prepare_latents(batch_size, num_images_per_prompt, height, width, image, latent_timestep)
 
         # prepare extra kwargs for the scheduler step, since not all schedulers have the same signature
         # eta (η) is only used with the DDIMScheduler, it will be ignored for other schedulers.
@@ -210,7 +224,7 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
         if accepts_eta:
             extra_step_kwargs["eta"] = eta
 
-        for t in self.progress_bar(timesteps):
+        for i, t in enumerate(self.progress_bar(timesteps)):
             # expand the latents if you are doing classifier free guidance
             latent_model_input = np.concatenate([latents] * 2) if do_classifier_free_guidance else latents
             latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
@@ -230,16 +244,24 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
                 image = self.vae_decoder(latents * (1 / 0.18215))[self._vae_d_output]
                 image = self.postprocess_image(image, meta, output_type)
                 img_buffer.extend(image)
+            
+            # call the callback, if provided
+            if callback is not None and i % callback_steps == 0:
+                step_idx = i // getattr(self.scheduler, "order", 1)
+                callback(step_idx, t, latents)
 
         # scale and decode the image latents with vae
         image = self.vae_decoder(latents * (1 / 0.18215))[self._vae_d_output]
 
         image = self.postprocess_image(image, meta, output_type)
-        return {"sample": image, "iterations": img_buffer}
+        
+        return OvStableDiffusionPipelineOutput(images=image)
+
 
     def _encode_prompt(
         self,
         prompt: str,
+        num_images_per_prompt: int = 1,
         do_classifier_free_guidance: bool = True,
         negative_prompt: Union[str, List[str]] = None,
     ):
@@ -286,6 +308,11 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
 
             uncond_embeddings = self.text_encoder(uncond_input.input_ids)[self._text_encoder_output]
 
+            # duplicate unconditional embeddings for each generation per prompt, using mps friendly method
+            seq_len = uncond_embeddings.shape[1]
+            uncond_embeddings = np.tile(uncond_embeddings, (1, num_images_per_prompt, 1))
+            uncond_embeddings = np.reshape(uncond_embeddings, (batch_size * num_images_per_prompt, seq_len, -1))
+
             # For classifier free guidance, we need to do two forward passes.
             # Here we concatenate the unconditional and text embeddings into a single batch
             # to avoid doing two forward passes
@@ -293,7 +320,7 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
 
         return text_embeddings
 
-    def prepare_latents(self, image: PIL.Image.Image = None, latent_timestep: torch.Tensor = None):
+    def prepare_latents(self, batch_size, num_images_per_prompt, height, width, image: PIL.Image.Image = None, latent_timestep: torch.Tensor = None):
         """Get initial latents for starting generation.
 
         Args:
@@ -305,7 +332,7 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
             latents (np.ndarray):
                 Image encoded in latent space
         """
-        latents_shape = (1, 4, self.height // 8, self.width // 8)
+        latents_shape = (batch_size * num_images_per_prompt, 4, height // 8, width // 8)
         noise = np.random.randn(*latents_shape).astype(np.float32)
         if image is None:
             # if you use LMSDiscreteScheduler, let's make sure latents are multiplied by sigmas
@@ -375,47 +402,34 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
         timesteps = self.scheduler.timesteps[t_start:]
 
         return timesteps, num_inference_steps - t_start
+   
+def update_ov_config(config: Dict):
+    config["pass_flows"] = [["ov_convert"]]
+    config["engine"]["search_strategy"] = False
+    config["engine"]["execution_providers"] = ["CPUExecutionProvider"]
+    del config["evaluators"]
+    del config["engine"]["evaluator"]
+    return config
+    
+def save_optimized_ov_submodel(run_res, submodel, optimized_model_dir, optimized_model_path_map):
+    res = next(iter(run_res.values()))
 
-
-def optimize(model_id: str, optimized_model_dir: Path):
-    optimized_model_path_map = {}
-    script_dir = Path(__file__).resolve().parent
-
-    # Clean up previously optimized models, if any.
-    shutil.rmtree(script_dir / "sd_openvino", ignore_errors=True)
-    shutil.rmtree(optimized_model_dir, ignore_errors=True)
-
-    submodel_names = ["text_encoder", "vae_encoder", "vae_decoder", "unet"]
-
-    for submodel in submodel_names:
-        print(f"Start optimizing {submodel}")
-        olive_config = None
-        with (script_dir / f"config_{submodel}.json").open() as f:
-            olive_config = json.load(f)
-
-        olive_config["input_model"]["config"]["model_path"] = model_id
-
-        # TODO(xiaoyuz): simplify output api
-        res = next(iter(olive_run(olive_config).values()))
-
-        output_model_dir = res.get_output_model_path()
-        optimized_model_path = optimized_model_dir / submodel
-        shutil.copytree(output_model_dir, optimized_model_path)
-        model_path = (optimized_model_path / submodel).with_suffix(".xml")
-        optimized_model_path_map[submodel] = model_path
-    return optimized_model_path_map
-
-
-def inference(
-    device: str,
-    optimized_model_path_map: dict,
-    prompt: List[str],
-    guidance_scale: float = 7.5,
-    num_steps: int = 20,
-    seed: int = 42,
-    strength: float = 1.0,
-    image=None,
-):
+    output_model_dir = res.get_output_model_path()
+    optimized_model_path = optimized_model_dir / submodel
+    shutil.copytree(output_model_dir, optimized_model_path)
+    model_path = (optimized_model_path / submodel).with_suffix(".xml")
+    optimized_model_path_map[submodel] = str(model_path)
+    
+    
+def get_ov_pipeline(common_args, ov_args, optimized_model_dir):
+    if common_args.test_unoptimized:
+        return StableDiffusionPipeline.from_pretrained(common_args.model_id)
+    
+    with (optimized_model_dir / OV_OPTIMIZED_MODEL_INFO).open("r") as model_info_file:
+        optimized_model_path_map = json.load(model_info_file)
+    
+    device = ov_args.device
+    
     core = ov.Core()
     text_enc = core.compile_model(optimized_model_path_map["text_encoder"], device)
     unet_model = core.compile_model(optimized_model_path_map["unet"], device)
@@ -437,171 +451,39 @@ def inference(
         scheduler=lms,
     )
 
-    return ov_pipe(
-        prompt, image, num_inference_steps=num_steps, guidance_scale=guidance_scale, seed=seed, strength=strength
+    return ov_pipe
+
+def run_ov_image_inference(pipe, image_path, prompt, strength, guidance_scale, image_size, num_inference_steps, common_args):
+    image = None
+    if image_path:
+        img_path = Path(image_path)
+        print(f"Image path is {img_path}")
+        if not img_path.exists():
+            print("Image doesn't exist.")
+            sys.exit(1)
+        image = PIL.Image.open(img_path)
+    
+    return pipe(
+        prompts=[prompt] * common_args.batch_size, 
+        image=image, 
+        num_inference_steps=num_inference_steps, 
+        height=image_size,
+        width=image_size,
+        strength=strength,
+        guidance_scale=guidance_scale
     )
 
-
-def save_image(image, output_dir, index):
-    output_dir = Path(output_dir)
-    output_dir.mkdir(exist_ok=True, parents=True)
-    image_path = output_dir / f"prompt_{index}.png"
-    image.save(image_path)
-    print(f"Image saved to {image_path}")
-
-
-def evaluate(model_id: str, device: str, optimized_model_path_map: dict):
-    """Evaluate the inference latency of stable diffusion pipeline from huggingface model hub and OpenVINO model.
-
-    Total 5 prompts are used for evaluation.
-    """
-    prompt_list = [
-        "a dog in the park",
-        "a cat in the park",
-        "a bird in the park",
-        "a man in the park",
-        "a woman in the park",
-    ]
-    num_steps = 20
-    guidance_scale = 7.5
-    evaluate_path = Path("./evaluate")
-
-    print("Start evaluating stable diffusion pipeline from huggingface model hub...")
-    from diffusers import StableDiffusionPipeline
-
-    pipe = StableDiffusionPipeline.from_pretrained(model_id)
-    if device == "GPU":
-        pipe.to("cuda")
-    latencies = []
-    for prompt in prompt_list:
-        start = time.perf_counter()
-        pipe(prompt, num_inference_steps=num_steps, guidance_scale=guidance_scale).images[0]
-        latencies.append(time.perf_counter() - start)
-    sd_lat_avg = sum(latencies) / len(latencies)
-
-    print("Start evaluating stable diffusion pipeline from OpenVINO model...")
-    latencies = []
-    for prompt in prompt_list:
-        start = time.perf_counter()
-        inference(device, optimized_model_path_map, prompt=[prompt], num_steps=num_steps, guidance_scale=guidance_scale)
-        latencies.append(time.perf_counter() - start)
-    ov_lat_avg = sum(latencies) / len(latencies)
-    print(f"Average latency for stable diffusion Huggingface pipeline is {sd_lat_avg} seconds")
-    print(f"Average latency for stable diffusion OpenVINO pipeline is {ov_lat_avg} seconds")
-    print(f"compare to huggingface model hub, OpenVINO model is {sd_lat_avg / ov_lat_avg} times faster")
-    print("Clean up the outputs...")
-    shutil.rmtree(evaluate_path, ignore_errors=True)
-    print("Evaluation finished.")
+def run_ov_img_to_img_example(pipe, guidance_scale, common_args):
+    prompt = "amazing watercolor painting"
+    strength = 0.5
+    image_path = Path("./assets/dog.png")
+    image_size = 512
+    num_inference_steps = 10
+    
+    return run_ov_image_inference(pipe, image_path, prompt, strength, guidance_scale, image_size, num_inference_steps, common_args)
 
 
-def main(raw_args=None):
-    print("Start running stable diffusion OpenVINO script...")
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model_id", default="runwayml/stable-diffusion-v1-5", type=str)
-    parser.add_argument("--output_dir", default="outputs", type=str, help="Directory to save the generated images")
-    parser.add_argument("--device", choices=["CPU", "GPU", "VPU"], default="CPU", type=str)
-    parser.add_argument("--image_path", default=None, type=str)
-    parser.add_argument("--evaluate", action="store_true", help="Runs the evaluation")
-    parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")
-    parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
-    parser.add_argument("--img_to_img_example", action="store_true", help="Runs the image to image example")
-    parser.add_argument("--inference", action="store_true", help="Runs the inference step")
-    parser.add_argument(
-        "--prompt",
-        nargs="*",
-        default=(
-            [
-                "castle surrounded by water and nature, village, volumetric lighting, photorealistic, "
-                "detailed and intricate, fantasy, epic cinematic shot, mountains, 8k ultra hd"
-            ]
-        ),
-    )
-    parser.add_argument(
-        "--num_images_per_prompt ", default=1, type=int, help="The number of images to generate per prompt."
-    )
-    parser.add_argument(
-        "--guidance_scale",
-        default=7.5,
-        type=float,
-        help="Guidance scale as defined in Classifier-Free Diffusion Guidance",
-    )
-    parser.add_argument(
-        "--strength",
-        default=1.0,
-        type=float,
-        help="Value between 0.0 and 1.0, that controls the amount of noise that is added to the input image. "
-        "Values that approach 1.0 enable lots of variations but will also produce images "
-        "that are not semantically consistent with the input.",
-    )
-    parser.add_argument("--num_steps", default=20, type=int, help="Number of denoising steps")
-    parser.add_argument("--seed", default=42, type=int, help="Seed for random generator state initialization")
-
-    args = parser.parse_args(raw_args)
-    model_id = args.model_id
-    device = args.device
-
-    script_dir = Path(__file__).resolve().parent
-    optimized_dir_name = f"optimized_{device}"
-    optimized_model_dir = script_dir / "models" / optimized_dir_name / model_id
-
-    if args.clean_cache:
-        shutil.rmtree(script_dir / "cache", ignore_errors=True)
-
-    optimized_model_path_map = {}
-    if args.optimize:
-        optimized_model_path_map = optimize(model_id, optimized_model_dir)
-
-    if args.inference:
-        image = None
-        prompt = args.prompt
-        num_steps = args.num_steps
-        strength = args.strength
-
-        if args.image_path:
-            img_path = Path(args.image_path)
-            print(f"Image path is {img_path}")
-            if not img_path.exists():
-                print("Image doesn't exist.")
-                return
-            image = PIL.Image.open(img_path)
-
-        if args.img_to_img_example:
-            prompt = ["amazing watercolor painting"]
-            num_steps = 10
-            strength = 0.5
-            image = PIL.Image.open(Path("./assets/dog.png"))
-
-        results = inference(
-            device,
-            optimized_model_path_map,
-            prompt=prompt,
-            image=image,
-            guidance_scale=args.guidance_scale,
-            num_steps=num_steps,
-            seed=args.seed,
-            strength=strength,
-        )
-
-        for index, result in enumerate(results):
-            final_image = result["sample"][0]
-            if result["iterations"]:
-                all_frames = result["iterations"]
-                img = next(iter(all_frames))
-                img.save(
-                    fp="result.gif",
-                    format="GIF",
-                    append_images=iter(all_frames),
-                    save_all=True,
-                    duration=len(all_frames) * 5,
-                    loop=0,
-                )
-            save_image(final_image, args.output_dir, index)
-
-    if args.evaluate:
-        if not optimized_model_path_map:
-            optimized_model_path_map = optimize(model_id, optimized_model_dir)
-        evaluate(model_id, device, optimized_model_path_map)
-
-
-if __name__ == "__main__":
-    main()
+def save_ov_model_info(model_info, optimized_model_dir):
+    model_info_path = optimized_model_dir / OV_OPTIMIZED_MODEL_INFO
+    with model_info_path.open("w") as model_info_file:
+        json.dump(model_info, model_info_file, indent=4)
