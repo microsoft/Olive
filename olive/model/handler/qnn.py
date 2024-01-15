@@ -68,10 +68,8 @@ class QNNModelHandler(OliveModelHandler):
                     model_lib_suffix = ".dll"
             model_folder = Path(model_path) / lib_targets
             model_paths = list(model_folder.glob(f"*{model_lib_suffix}"))
-            if not model_paths:
-                raise FileNotFoundError(f"No model file found in {model_folder}")
-            elif len(model_paths) > 1:
-                raise RuntimeError(f"Multiple model files found in {model_folder}: {model_paths}")
+            assert model_paths, f"No model file found in {model_folder}"
+            assert len(model_paths) == 1, f"Multiple model files found in {model_folder}: {model_paths}"
             return str(model_paths[0])
         elif self.model_file_format == ModelFileFormat.QNN_SERIALIZED_BIN:
             logger.debug("QNNModelHandler: model_path is the .serialized.bin file for QNN_SERIALIZED_BIN model format.")
