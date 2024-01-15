@@ -238,31 +238,36 @@ def compute_scale_zp_pof2s(rmin, rmax, qmin, qmax, symmetric=False):
     # Adjust rmin and rmax such that 0 is included in the range. This is
     # required to make sure zero can be represented by the quantization data
     # type (i.e. to make sure qmin <= zero_point <= qmax)
-    rmin = min(rmin, 0)
-    rmax = max(rmax, 0)
+    rmin = np.minimum(rmin, np.array(0, dtype=rmin.dtype))
+    rmax = np.maximum(rmax, np.array(0, dtype=rmax.dtype))
 
     # Ensure that rmax-rmin is less than or equal to sys.float_info.max
     if rmin == float("-inf"):
-        rmin = -sys.float_info.max / 2
+        rmin = -np.finfo(rmin.dtype).max / 2
     if rmax == float("inf"):
-        rmax = sys.float_info.max / 2
+        rmax = np.finfo(rmax.dtype).max / 2
 
     if symmetric:
-        absmax = max(abs(rmin), abs(rmax))
+        absmax = np.maximum(np.abs(rmin), np.abs(rmax))
         rmin = -absmax
         rmax = +absmax
 
-    scale = (rmax - rmin) / float(qmax - qmin)
+    assert qmin <= qmax, f"qmin={rmin} > qmax={rmax}"
+    dr = np.array(rmax - rmin, dtype=np.float64)
+    dq = np.array(qmax, dtype=np.float64) - np.array(qmin, dtype=np.float64)
+    scale = np.array(dr / dq)
+
     pos = scale2pos(scale)
     pof2_scale = pos2scale(pos)
 
-    if pof2_scale < np.finfo(np.float32).tiny:
-        pof2_scale = 1.0
-        zero_point = 0
+    if pof2_scale < np.finfo(rmax.dtype).tiny:
+        pof2_scale = np.array(1.0, dtype=rmax.dtype)
+        zero_point = np.array(0, dtype=qmin.dtype)
     else:
-        zero_point = round(qmin - rmin / pof2_scale)
+        pof2_scale = np.array(pof2_scale, dtype=rmin.dtype)
+        zero_point = np.array(round(qmin - rmin / pof2_scale), dtype=qmin.dtype)
     if symmetric:
-        zero_point = 0
+        zero_point = np.array(0, dtype=qmin.dtype)
     return [zero_point, pof2_scale]
 
 
@@ -273,15 +278,15 @@ def quantize_zero_point(rmin, qmin, qmax, symmetric, scale):
     rmin = min(rmin, 0)
 
     if symmetric:
-        return 0
+        return np.array(0, dtype=qmin.dtype)
 
-    pof2_scale = scale
+    pof2_scale = np.array(scale, dtype=rmin.dtype)
 
-    if pof2_scale < np.finfo(np.float32).tiny:
-        pof2_scale = 1.0
-        zero_point = 0
+    if pof2_scale < np.finfo(rmin.dtype).tiny:
+        pof2_scale = np.array(1.0, dtype=rmin.dtype)
+        zero_point = np.array(0, dtype=qmin.dtype)
     else:
-        zero_point = round(qmin - rmin / pof2_scale)
+        zero_point = np.array(round(qmin - rmin / pof2_scale), dtype=qmin.dtype)
 
     return zero_point
 
@@ -289,7 +294,7 @@ def quantize_zero_point(rmin, qmin, qmax, symmetric, scale):
 def dequantize_data(data, scale, zero_point):
     data = data.astype(np.float32)
     deq_arr = (data - zero_point) * scale
-    return deq_arr.astype(np.float32)
+    return deq_arr.astype(scale.dtype)
 
 
 def quantize_data_pof2s(data, qType, symmetric, reduce_range=False, method=PowerOfTwoMethod.NonOverflow, pos_range=5):
@@ -314,23 +319,30 @@ def quantize_data_pof2s(data, qType, symmetric, reduce_range=False, method=Power
     - *S*: scale
     - *z*: zero point
     """
-
-    rmin = 0
-    rmax = 0
-    zero_point = 0
-    scale = 1.0
-    if isinstance(data, np.ndarray):
-        rmin = data.min()
-        rmax = data.max()
-
-    elif isinstance(data, list) and len(data):
-        rmin = min(data)
-        rmax = max(data)
+    assert data.dtype in {
+        np.float16,
+        np.float32,
+        np.dtype("float16"),
+        np.dtype("float32"),
+    }, f"Unexpected dtype {data.dtype!r}"
+    rmin = data.min()
+    rmax = data.max()
+    assert rmin.dtype in {
+        np.float16,
+        np.float32,
+        np.dtype("float16"),
+        np.dtype("float32"),
+    }, f"Unexpected dtype {rmin.dtype!r}"
+    assert rmin.dtype == rmax.dtype
 
     qmin, qmax = get_qmin_qmax_for_qType(qType, reduce_range, symmetric=symmetric)
     zero_point, scale = compute_scale_zp_pof2s(rmin, rmax, qmin, qmax, symmetric)
+    assert qmin.dtype == qmax.dtype
 
-    quantized_data = quantize_nparray(qType, np.asarray(data), scale, zero_point)
+    quantized_data = quantize_nparray(qType, data, scale, zero_point)
+    assert (
+        quantized_data.dtype == zero_point.dtype
+    ), f"dtype mismatch {quantized_data.dtype} != {zero_point.dtype}, sType={qType}"
 
     if method == PowerOfTwoMethod.NonOverflow:
         return rmin, rmax, zero_point, scale, quantized_data
@@ -341,20 +353,20 @@ def quantize_data_pof2s(data, qType, symmetric, reduce_range=False, method=Power
         quantized_data_mse = quantized_data
         diff_min = float("inf")
         for i in range(pos_range):
-            new_scale = pos2scale(scale2pos(scale) + i)
-            rmin = min((qmin - zero_point) * new_scale, 0)
+            new_scale = np.array(pos2scale(scale2pos(scale) + i), dtype=rmin.dtype)
+            rmin = np.array(min((qmin - zero_point) * new_scale, 0), dtype=rmin.dtype)
             new_zero_point = quantize_zero_point(rmin, qmin, qmax, symmetric, new_scale)
 
-            new_quantized_data = quantize_nparray(qType, np.asarray(data), new_scale, new_zero_point)
-            diff = np.sum((dequantize_data(new_quantized_data, new_scale, new_zero_point) - np.asarray(data)) ** 2)
+            new_quantized_data = quantize_nparray(qType, data, new_scale, new_zero_point)
+            diff = np.sum((dequantize_data(new_quantized_data, new_scale, new_zero_point) - data) ** 2)
             if diff < diff_min:
                 diff_min = diff
                 scale_mse = new_scale
                 zp_mse = new_zero_point
                 quantized_data_mse = new_quantized_data
 
-        rmin_mse = (qmin - zp_mse) * scale_mse
-        rmax_mse = (qmax - zp_mse) * scale_mse
+        rmin_mse = np.array((qmin - zp_mse) * scale_mse, dtype=rmin.dtype)
+        rmax_mse = np.array((qmax - zp_mse) * scale_mse, dtype=rmax.dtype)
 
         return rmin_mse, rmax_mse, zp_mse, scale_mse, quantized_data_mse
 
