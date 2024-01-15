@@ -123,7 +123,7 @@ def tune_onnx_model(perf_tuning_pass_ep, model, data_root, config):
         model, data_root, latency_metric, config, io_bind=io_bind, tuning_result=None
     )
 
-    tuning_op_result = pretuning_inference_result.get("tuning_result")
+    tuning_op_result = pretuning_inference_result.get("tuning_op_result")
     tuning_results = []
     for provider, execution_mode, opt_level in generate_tuning_combos(config):
         provider, options = populate_provider_options(provider, config)  # noqa: PLW2901
@@ -171,7 +171,7 @@ def tune_onnx_model(perf_tuning_pass_ep, model, data_root, config):
         "execution_provider": best_result["execution_provider"],
         "provider_options": best_result["provider_options"],
         "io_bind": best_result["io_bind"],
-        "tuning_result": best_result.get("tuning_result"),
+        "tuning_op_result": best_result.get("tuning_op_result"),
     }
     session_options = best_result.get("session_options")
     if session_options is not None:
@@ -180,7 +180,7 @@ def tune_onnx_model(perf_tuning_pass_ep, model, data_root, config):
     return optimized_model
 
 
-def rocm_tuning_enable(provider, provider_options):
+def enable_rocm_op_tuning(provider, provider_options):
     assert provider == "ROCMExecutionProvider", "provider should be ROCMExecutionProvider"
     # Please refer to the following links for the config or ROCMExecutionProvider
     # https://github.com/microsoft/onnxruntime/blob/71657d1eb8b0a24a4b6584d9e904506a0b4e1521/onnxruntime/core/providers/rocm/rocm_execution_provider_info.cc#L24C1-L25
@@ -208,7 +208,7 @@ def populate_provider_options(execution_provider, config):
     elif provider == "CUDAExecutionProvider":
         provider_options["enable_cuda_graph"] = config.enable_cuda_graph
     elif provider == "ROCMExecutionProvider":
-        provider_options = rocm_tuning_enable(provider, provider_options)
+        provider_options = enable_rocm_op_tuning(provider, provider_options)
 
     return provider, provider_options
 
@@ -405,7 +405,7 @@ def get_benchmark(model, data_root, latency_metric, config, test_params=None, io
         )
         for i, ep in enumerate(execution_providers):
             if ep == "ROCMExecutionProvider":
-                rocm_options = rocm_tuning_enable(ep, provider_options[i])
+                rocm_options = enable_rocm_op_tuning(ep, provider_options[i])
                 provider_options[i] = rocm_options
                 tuning_result_file = "tuning_result_baseline.json"
                 break
@@ -442,10 +442,10 @@ def get_benchmark(model, data_root, latency_metric, config, test_params=None, io
 
         session_options = inference_settings.get("session_options")
 
-        tuning_result_ret = None
+        tuning_op_result = None
         if tuning_result_file:
             with tuning_result_file.open() as f:
-                tuning_result_ret = json.load(f)
+                tuning_op_result = json.load(f)
 
         return {
             "test_name": session_name,
@@ -454,7 +454,7 @@ def get_benchmark(model, data_root, latency_metric, config, test_params=None, io
             "execution_provider": inference_settings["execution_provider"],
             "provider_options": inference_settings["provider_options"],
             "session_options": session_options if session_options else {},
-            "tuning_result": tuning_result_ret,
+            "tuning_op_result": tuning_op_result,
         }
 
 

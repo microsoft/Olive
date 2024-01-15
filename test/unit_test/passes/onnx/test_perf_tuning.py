@@ -339,5 +339,5 @@ def test_rocm_tuning_enable(mock_get_available_providers, inference_session_mock
 
     # execute
     result = p.run(input_model, None, output_folder)
-    tuning_result_ret = result.inference_settings["tuning_result"]
+    tuning_result_ret = result.inference_settings["tuning_op_result"]
     assert tuning_result_ret == tuning_result
