@@ -5,13 +5,13 @@
 import logging
 import re
 from test.unit_test.utils import create_dataloader, get_onnx_model
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from olive.evaluator.metric import flatten_metric_result
 from olive.evaluator.olive_evaluator import OliveEvaluator, OnnxEvaluator
-from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR
+from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR, AcceleratorSpec, Device
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx import OrtPerfTuning
 from olive.passes.onnx.perf_tuning import PERFTUNING_BASELINE, generate_test_name
@@ -281,3 +281,63 @@ def test_generate_test_name():
         "'extra_session_config': {'session.intra_op_thread_affinities': '0;1;2;3;4;5;6;7'}, "
         "'inter_op_num_threads': 1, 'intra_op_num_threads': 8, 'graph_optimization_level': 99}"
     )
+
+
+@patch("onnxruntime.InferenceSession")
+@patch("onnxruntime.get_available_providers")
+def test_rocm_tuning_enable(mock_get_available_providers, inference_session_mock, tmp_path):
+    tuning_result = [
+        {
+            "ep": "ROCMExecutionProvider",
+            "results": {
+                "onnxruntime::rocm::tunable::blas::internal::GemmTunableOp<__half, ck::tensor_layout::gemm::RowMajor, ck::tensor_layout::gemm::RowMajor>": {  # noqa: E501
+                    "NN_992_4096_4096": 300,
+                    "NN_992_4096_11008": 664,
+                    "NN_984_4096_4096": 1295,
+                },
+                "onnxruntime::contrib::rocm::SkipLayerNormTunableOp<__half, float, __half, true>": {
+                    "4096_4620288": 20,
+                    "4096_13697024": 39,
+                    "4096_16744448": 39,
+                },
+            },
+            "validators": {
+                "ORT_VERSION": "1.17.0",
+                "ORT_GIT_COMMIT": "",
+                "ORT_BUILD_CONFIG": "USE_CK=1|USE_ROCBLAS_EXTENSION_API=1|USE_HIPBLASLT=1|",
+                "HIP_VERSION": "50731921",
+                "ROCBLAS_VERSION": "3.1.0.b80e4220-dirty",
+                "DEVICE_MODEL": "AMD Instinct MI250X/MI250",
+            },
+        }
+    ]
+
+    mock = MagicMock()
+    mock.get_providers.return_value = ["ROCMExecutionProvider"]
+    mock.get_tuning_results.return_value = tuning_result
+    inference_session_mock.return_value = mock
+
+    mock_get_available_providers.return_value = [
+        "ROCMExecutionProvider",
+        "CPUExecutionProvider",
+    ]
+
+    config = {
+        "providers_list": ["ROCMExecutionProvider"],
+        "device": "gpu",
+    }
+
+    # setup
+    input_model = get_onnx_model()
+    p = create_pass_from_dict(
+        OrtPerfTuning,
+        config,
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(accelerator_type=Device.GPU, execution_provider="ROCMExecutionProvider"),
+    )
+    output_folder = str(tmp_path / "onnx")
+
+    # execute
+    result = p.run(input_model, None, output_folder)
+    tuning_result_ret = result.inference_settings["tuning_result"]
+    assert tuning_result_ret == tuning_result

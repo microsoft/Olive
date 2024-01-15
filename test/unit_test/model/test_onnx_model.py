@@ -54,7 +54,6 @@ def test_model_prepare_session_with_unsupported_eps(mock_get_available_providers
         "CPUExecutionProvider",
     ]
     inference_session_mock.return_value = mock
-    inference_session_mock.return_value = mock
     model = get_onnx_model()
     inference_settings = {
         "execution_provider": [("MIGraphXExecutionProvider", {})],

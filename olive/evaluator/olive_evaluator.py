@@ -3,12 +3,14 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import collections
+import json
 import logging
 import time
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from functools import partial
 from numbers import Number
+from pathlib import Path
 from typing import Any, ClassVar, Dict, List, NamedTuple, Tuple, Type, Union
 
 import numpy as np
@@ -422,6 +424,12 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             execution_providers=execution_providers,
         )
 
+        tuning_result_file = inference_settings.get("tuning_result_file")
+        if tuning_result_file and Path(tuning_result_file).exists():
+            with Path(tuning_result_file).open() as f:
+                tuning_result = json.load(f)
+                session.set_tuning_results(tuning_result)
+
         io_config = model.get_io_config()
 
         preds = []
@@ -489,6 +497,11 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             logits = torch.cat(logits, dim=0)
         else:
             logits = {k: torch.cat(logits[k], dim=0) for k in output_names}
+
+        if tuning_result_file:
+            tuning_result = session.get_tuning_results()
+            with Path(tuning_result_file).open("w") as f:
+                json.dump(tuning_result, f, indent=2)
         return OliveModelOutput(preds=preds, logits=logits), targets
 
     def _evaluate_onnx_accuracy(
@@ -521,6 +534,13 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             device=device,
             execution_providers=execution_providers,
         )
+
+        tuning_result_file = inference_settings.get("tuning_result_file")
+        if tuning_result_file and Path(tuning_result_file).exists():
+            with Path(tuning_result_file).open() as f:
+                tuning_result = json.load(f)
+                session.set_tuning_results(tuning_result)
+
         io_config = model.get_io_config()
 
         input_data, _ = next(iter(dataloader))
@@ -561,6 +581,10 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
                 latencies.append(time.perf_counter() - t)
             time.sleep(sleep_num)
 
+        if tuning_result_file:
+            tuning_result = session.get_tuning_results()
+            with Path(tuning_result_file).open("w") as f:
+                json.dump(tuning_result, f, indent=2)
         return latencies
 
     @staticmethod
