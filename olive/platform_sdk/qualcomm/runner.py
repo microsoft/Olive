@@ -16,27 +16,29 @@ class SDKRunner:
     def __init__(
         self,
         platform,
-        dev: bool = False,
+        optional_local_run: bool = False,
         runs: int = 1,
         sleep: int = 0,
     ):
         self.platform = platform
-        self.dev = dev
+        # optional_local_run: if the runner can be run locally
+        self.optional_local_run = optional_local_run
         self.runs = runs
         self.sleep = sleep
 
         if self.platform not in ("SNPE", "QNN"):
             raise ValueError(f"Unsupported platform {platform}")
         elif self.platform == "SNPE":
-            self.sdk_env = SNPESDKEnv(dev=self.dev)
+            self.sdk_env = SNPESDKEnv(optional_local_run=self.optional_local_run)
         elif self.platform == "QNN":
-            self.sdk_env = QNNSDKEnv(dev=self.dev)
+            self.sdk_env = QNNSDKEnv(optional_local_run=self.optional_local_run)
 
-    def run(self, cmd: str):
+    def run(self, cmd: str, use_olive_env: bool = True):
+        env = self.sdk_env.env if use_olive_env else None
         for run in range(self.runs):
             run_log_msg = "" if self.runs == 1 else f" (run {run + 1}/{self.runs})"
-            logger.debug(f"Running {self.platform} command{run_log_msg}: {cmd}, with env: {self.sdk_env.env}")
-            _, stdout, stderr = run_subprocess(cmd, self.sdk_env.env, check=True)
+            logger.debug(f"Running {self.platform} command{run_log_msg}: {cmd}, with env: {env}")
+            _, stdout, stderr = run_subprocess(cmd, env, check=True)
             if self.sleep > 0 and run < self.runs - 1:
                 time.sleep(self.sleep)
 
@@ -44,10 +46,10 @@ class SDKRunner:
 
 
 class SNPESDKRunner(SDKRunner):
-    def __init__(self, dev: bool = False, runs: int = 1, sleep: int = 0):
-        super().__init__("SNPE", dev, runs, sleep)
+    def __init__(self, optional_local_run: bool = False, runs: int = 1, sleep: int = 0):
+        super().__init__("SNPE", optional_local_run, runs, sleep)
 
 
 class QNNSDKRunner(SDKRunner):
-    def __init__(self, dev: bool = False, runs: int = 1, sleep: int = 0):
-        super().__init__("QNN", dev, runs, sleep)
+    def __init__(self, optional_local_run: bool = False, runs: int = 1, sleep: int = 0):
+        super().__init__("QNN", optional_local_run, runs, sleep)

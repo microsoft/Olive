@@ -11,8 +11,8 @@ from olive.platform_sdk.qualcomm.env import SDKEnv
 
 
 class QNNSDKEnv(SDKEnv):
-    def __init__(self, target_arch: str = None, dev: bool = False):
-        super().__init__("QNN", "QNN_SDK_ROOT", target_arch=target_arch, dev=dev)
+    def __init__(self, target_arch: str = None, optional_local_run: bool = False):
+        super().__init__("QNN", "QNN_SDK_ROOT", target_arch=target_arch, optional_local_run=optional_local_run)
 
     @property
     def env(self):
@@ -23,7 +23,7 @@ class QNNSDKEnv(SDKEnv):
         python_env_bin_path = str(Path(f"{sdk_root_path}/olive-pyenv/{python_env_parent_folder}"))
 
         env["PATH"] += delimiter + os.environ["PATH"]
-        if self.dev:
+        if self.optional_local_run:
             if not Path(python_env_bin_path).exists():
                 raise FileNotFoundError(
                     f"Path {python_env_bin_path} does not exist. Please run"

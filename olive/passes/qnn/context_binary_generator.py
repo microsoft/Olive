@@ -25,6 +25,24 @@ class QNNContextBinaryGenerator(Pass):
             raise NotImplementedError("QNNContextBinaryGenerator is not supported on Windows.")
 
         return {
+            "use_olive_env": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                description=(
+                    "Whether to use the Olive built-in environment. Usually, if you do not prepare the environment with"
+                    "Olive's `python -m olive.platform_sdk.qualcomm.configure --py_version 3.8 --sdk qnn`"
+                    " you should set `use_olive_env` to False."
+                    " If set to True, only QNN_SDK_ROOT need to be set,"
+                    " other environment variables will be set by Olive."
+                    " If set to False, QNN_SDK_ROOT, LD_LIBRARY_PATH, PYTHONPATH and PATH need to be set as:"
+                    " QNN_SDK_ROOT: the path to the QNN SDK directory;"
+                    " LD_LIBRARY_PATH: $QNN_SDK_ROOT/lib/<target_arch>;"
+                    " PYTHONPATH: $QNN_SDK_ROOT/lib/python;"
+                    " PATH: $QNN_SDK_ROOT/bin/<target_arch>."
+                    " <target_arch> is the target architecture in"
+                    " olive.platform_sdk.qualcomm.constants.SDKTargetDevice."
+                ),
+            ),
             "backend": PassConfigParam(
                 type_=str,
                 required=True,
@@ -57,7 +75,7 @@ class QNNContextBinaryGenerator(Pass):
         output_model_path: str,
     ) -> QNNModelHandler:
         main_cmd = "qnn-context-binary-generator"
-        runner = QNNSDKRunner(dev=True)
+        runner = QNNSDKRunner(optional_local_run=True)
 
         # input model path's name without suffix
         # TODO(trajep): find .so file in the same directory as the model
@@ -78,7 +96,7 @@ class QNNContextBinaryGenerator(Pass):
             config["extra_args"] or "",
         ]
 
-        runner.run(" ".join(cmd_list))
+        runner.run(" ".join(cmd_list), use_olive_env=config["use_olive_env"])
         return QNNModelHandler(
             output_model_full_path,
             model_file_format=ModelFileFormat.QNN_SERIALIZED_BIN,

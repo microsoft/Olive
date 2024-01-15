@@ -11,7 +11,7 @@ from olive.platform_sdk.qualcomm.constants import SDKTargetDevice
 
 
 class SDKEnv:
-    def __init__(self, sdk: str, root_env_name: str, target_arch: str = None, dev: bool = False):
+    def __init__(self, sdk: str, root_env_name: str, target_arch: str = None, optional_local_run: bool = False):
         self.sdk = sdk
 
         self.root_env_name = root_env_name
@@ -24,9 +24,7 @@ class SDKEnv:
         elif not Path(self.sdk_root_path).exists():
             raise FileNotFoundError(f"The path {self.sdk_root_path} for {self.root_env_name} does not exist.")
 
-        # dev: Whether to use the development version of the SDK,
-        # only applicable to SNPE/QNN x86_64 linux/windows
-        self.dev = dev
+        self.optional_local_run = optional_local_run
         self.target_arch = self._verify_target_arch(target_arch) if target_arch else self._infer_target_arch()
 
     def _verify_target_arch(self, target_device: SDKTargetDevice) -> str:
@@ -71,7 +69,10 @@ class SDKEnv:
     def env(self):
         sdk_root_path = self.sdk_root_path
 
-        if self.dev and self.target_arch not in (SDKTargetDevice.x86_64_linux, SDKTargetDevice.x86_64_windows):
+        if self.optional_local_run and self.target_arch not in (
+            SDKTargetDevice.x86_64_linux,
+            SDKTargetDevice.x86_64_windows,
+        ):
             raise ValueError(f"Unsupported target device {self.target_arch} for development SDK")
 
         bin_path = str(Path(f"{sdk_root_path}/bin/{self.target_arch}"))

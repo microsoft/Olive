@@ -95,7 +95,7 @@ class QNNInferenceSession:
         result = []
         result_files = self._parse_model_output(output_dir, input_list, tmp_dir_path)
         for rf in result_files:
-            result.append(np.fromfile(rf[1]))
+            result.append(np.fromfile(rf[1], dtype=np.float32))
         latencies = {"init": [], "net_run": [], "net_run_throughput": []}
         for i in range(runs):
             latencies_item = self._parse_latency(i, tmp_dir_path)
@@ -158,8 +158,10 @@ class QNNInferenceSession:
             for raw_line in f:
                 line = raw_line.lower()
                 if "init" in line:
-                    latencies["init"] = float(line.split(",")[2]) / 1000
-                if "execute ips" in line:
-                    latencies["net_run"] = 1 / float(line.split(",")[2]) * 1000
+                    # us to s by / 1e6
+                    latencies[",init,"] = float(line.split(",")[2]) / 1e6
+                elif ",execute," in line:
+                    latencies["net_run"] = float(line.split(",")[2]) / 1e6
+                elif ",execute ips," in line:
                     latencies["net_run_throughput"] = float(line.split(",")[2])
         return latencies
