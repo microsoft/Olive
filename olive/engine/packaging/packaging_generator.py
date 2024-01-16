@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import itertools
 import json
 import logging
 import platform
@@ -53,6 +54,7 @@ def _generate_zipfile_output(
     with tempfile.TemporaryDirectory() as temp_dir:
         tempdir = Path(temp_dir)
         _package_sample_code(cur_path, tempdir)
+        _package_models_order(tempdir, pf_footprints)
         for accelerator_spec, pf_footprint in pf_footprints.items():
             if pf_footprint.nodes and footprints[accelerator_spec].nodes:
                 _package_candidate_models(
@@ -65,6 +67,28 @@ def _generate_zipfile_output(
         _package_onnxruntime_packages(tempdir, next(iter(pf_footprints.values())))
         shutil.make_archive(packaging_config.name, "zip", tempdir)
         shutil.move(f"{packaging_config.name}.zip", output_dir / f"{packaging_config.name}.zip")
+
+
+def _package_models_order(tempdir, footprints: Dict["AcceleratorSpec", "Footprint"]):
+    metrics_dict = next(iter(footprints.values())).objective_dict
+    sorted_nodes = sorted(
+        itertools.chain.from_iterable(f.nodes.values() for f in footprints.values()),
+        key=lambda x: tuple(
+            x.metrics.value[metric].value if x.metrics.cmp_direction[metric] == 1 else -x.metrics.value[metric].value
+            for metric in metrics_dict
+        ),
+        reverse=True,
+    )
+    with (tempdir / "models_rank.json").open("w") as f:
+        rank = 1
+        for node in sorted_nodes:
+            model_info = {
+                "rank": rank,
+                "model_config": node.model_config,
+                "metrics": node.metrics.value.to_json() if node.metrics else None,
+            }
+            f.write(json.dumps(model_info) + "\n")
+            rank += 1
 
 
 def _package_sample_code(cur_path, tempdir):

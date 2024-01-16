@@ -67,6 +67,7 @@ def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, m
         zip_ref.extractall(output_dir)
     assert (output_dir / "SampleCode").exists()
     assert (output_dir / "CandidateModels").exists()
+    assert (output_dir / "models_rank.json").exists()
     assert (output_dir / "ONNXRuntimePackages").exists()
 
     # contain the evaluation result
@@ -120,6 +121,7 @@ def test_generate_zipfile_artifacts_no_search(tmp_path):
         zip_ref.extractall(output_dir)
     assert (output_dir / "SampleCode").exists()
     assert (output_dir / "CandidateModels").exists()
+    assert (output_dir / "models_rank.json").exists()
     assert (output_dir / "ONNXRuntimePackages").exists()
 
 
@@ -158,6 +160,7 @@ def test_generate_zipfile_artifacts_mlflow(tmp_path):
         zip_ref.extractall(output_dir)
     assert (output_dir / "SampleCode").exists()
     assert (output_dir / "CandidateModels").exists()
+    assert (output_dir / "models_rank.json").exists()
     assert (output_dir / "ONNXRuntimePackages").exists()
     assert (output_dir / "CandidateModels" / "cpu-cpu" / "BestCandidateModel_1" / "mlflow_model").exists()
 
