@@ -1,0 +1,118 @@
+{
+    "input_model": {
+        "type": "PyTorchModel",
+        "config": {
+            "model_script": "user_script.py",
+            "dummy_inputs_func": "dummy_inputs",
+            "io_config": "get_io_config",
+            "hf_config": {
+                "model_name": "microsoft/phi-2",
+                "task": "text-generation",
+                "from_pretrained_args": {
+                    "trust_remote_code": true
+                }
+            }
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    "cpu"
+                ]
+            }
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics": [
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_types": [
+                        {
+                            "name": "avg",
+                            "priority": 1
+                        }
+                    ],
+                    "user_config": {
+                        "user_script": "user_script.py",
+                        "dataloader_func": "create_dataloader",
+                        "batch_size": 2,
+                        "inference_settings": {
+                            "onnx": {
+                                "session_options": {
+                                    "enable_profiling": false
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "passes": {
+        "convert_optimum": {
+            "type": "OptimumConversion",
+            "config": {
+                "target_opset": 17,
+                "extra_args": {
+                    "legacy": false,
+                    "no_post_process": true
+                }
+            }
+        },
+        "convert": {
+            "type": "OnnxConversion",
+            "config": {
+                "target_opset": 17,
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true
+            }
+        },
+        "optimize": {
+            "type": "OrtTransformersOptimization",
+            "config": {
+                "model_type": "gpt2",
+                "use_gpu": false,
+                "keep_io_types": true,
+                "num_heads": 32,
+                "hidden_size": 2560,
+                "optimization_options": {
+                    "use_multi_head_attention": false
+                },
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true
+            }
+        },
+        "perf_tuning": {
+            "type": "OrtPerfTuning",
+            "config": {
+                "user_script": "user_script.py",
+                "dataloader_func": "create_dataloader",
+                "batch_size": 2,
+                "enable_profiling": false
+            }
+        }
+    },
+    "pass_flows": [
+        [
+            "convert",
+            "optimize",
+            "perf_tuning"
+        ]
+    ],
+    "engine": {
+        "search_strategy": false,
+        "evaluate_input_model": true,
+        "evaluator": "common_evaluator",
+        "target": "local_system",
+        "cache_dir": "cache",
+        "output_name": "phi2",
+        "output_dir": "phi2",
+        "clean_cache": false,
+        "log_severity_level": 0,
+        "log_to_file": false
+    }
+}
