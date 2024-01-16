@@ -37,6 +37,12 @@ class AzureMLDockerConfig(ConfigBase):
             return None
 
 
+class AzureMLEnvironmentConfig(ConfigBase):
+    name: str
+    version: Optional[str] = None
+    label: Optional[str] = None
+
+
 class LocalDockerConfig(ConfigBase):
     image_name: str
     base_image: Optional[str] = None

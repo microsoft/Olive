@@ -32,7 +32,7 @@ from olive.resource_path import (
     ResourceType,
     create_resource_path,
 )
-from olive.systems.common import AzureMLDockerConfig, SystemType
+from olive.systems.common import AzureMLDockerConfig, AzureMLEnvironmentConfig, SystemType
 from olive.systems.olive_system import OliveSystem
 
 if TYPE_CHECKING:
@@ -82,6 +82,7 @@ class AzureMLSystem(OliveSystem):
         azureml_client_config: AzureMLClientConfig,
         aml_compute: str,
         aml_docker_config: Union[Dict[str, Any], AzureMLDockerConfig] = None,
+        aml_environment_config: Union[Dict[str, Any], AzureMLEnvironmentConfig] = None,
         resources: Dict = None,
         instance_count: int = 1,
         is_dev: bool = False,
@@ -98,9 +99,14 @@ class AzureMLSystem(OliveSystem):
         self.compute = aml_compute
         azureml_client_config = validate_config(azureml_client_config, AzureMLClientConfig)
         self.azureml_client_config = azureml_client_config
-        if aml_docker_config and olive_managed_env:
-            raise ValueError("Olive managed environment is not supported if aml_docker_config is provided.")
-        if aml_docker_config:
+        if (aml_docker_config or aml_environment_config) and olive_managed_env:
+            raise ValueError(
+                "Olive managed environment is not supported if aml_docker_config or aml_environment_config is provided."
+            )
+        if aml_environment_config:
+            aml_environment_config = validate_config(aml_environment_config, AzureMLEnvironmentConfig)
+            self.environment = self._get_enironment_from_config(aml_environment_config)
+        elif aml_docker_config:
             aml_docker_config = validate_config(aml_docker_config, AzureMLDockerConfig)
             self.environment = self._create_environment(aml_docker_config)
         self.env_vars = self._get_hf_token_env(azureml_client_config.keyvault_name) if self.hf_token else None
@@ -114,6 +120,16 @@ class AzureMLSystem(OliveSystem):
         env_vars = {"HF_LOGIN": True}
         env_vars.update({"KEYVAULT_NAME": keyvault_name})
         return env_vars
+
+    def _get_enironment_from_config(self, aml_environment_config: AzureMLEnvironmentConfig):
+        ml_client = self.azureml_client_config.create_client()
+        return retry_func(
+            ml_client.environments.get,
+            [aml_environment_config.name, aml_environment_config.version, aml_environment_config.label],
+            max_tries=self.azureml_client_config.max_operation_retries,
+            delay=self.azureml_client_config.operation_retry_interval,
+            exceptions=ServiceResponseError,
+        )
 
     def _create_environment(self, docker_config: AzureMLDockerConfig):
         if docker_config.build_context_path:

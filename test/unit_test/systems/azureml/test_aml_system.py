@@ -28,7 +28,7 @@ from olive.resource_path import AzureMLModel, ResourcePath, ResourceType, create
 from olive.systems.azureml.aml_evaluation_runner import main as aml_evaluation_runner_main
 from olive.systems.azureml.aml_pass_runner import main as aml_pass_runner_main
 from olive.systems.azureml.aml_system import AzureMLSystem
-from olive.systems.common import AzureMLDockerConfig
+from olive.systems.common import AzureMLDockerConfig, AzureMLEnvironmentConfig
 
 # pylint: disable=attribute-defined-outside-init, protected-access
 
@@ -707,3 +707,26 @@ def test_aml_system_no_keyvault_name_raise_valueerror(mock_env):
     # assert
     with pytest.raises(ValueError):
         AzureMLSystem(mock_azureml_client_config, "dummy", docker_config, hf_token=True)
+
+
+@patch("olive.systems.azureml.aml_system.retry_func")
+def test__get_enironment_from_config(mock_retry_func):
+    # setup
+    aml_environment_config = AzureMLEnvironmentConfig(
+        name="name",
+        version="version",
+        label="label",
+    )
+    mock_azureml_client_config = Mock(spec=AzureMLClientConfig)
+    ml_client = MagicMock()
+    mock_azureml_client_config.create_client.return_value = ml_client
+    mock_azureml_client_config.max_operation_retries = 3
+    mock_azureml_client_config.operation_retry_interval = 5
+    expected_env = MagicMock()
+    mock_retry_func.return_value = expected_env
+
+    # execute
+    system = AzureMLSystem(mock_azureml_client_config, "dummy", aml_environment_config=aml_environment_config)
+
+    # assert
+    assert expected_env == system.environment
