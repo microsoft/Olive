@@ -235,17 +235,20 @@ def compute_scale_zp_pof2s(rmin, rmax, qmin, qmax, symmetric=False):
     if qmin > 0 or qmax < 0:
         raise ValueError(f"qmin and qmax must meet requirement: qmin <= 0 <= qmax while qmin:{qmin}, qmmax:{qmax}")
 
+    # hasattr(rmin, "dtype") is True for onnxruntime>=1.17
+    rmin_dtype = rmin.dtype if hasattr(rmin, "dtype") else np.float32
+
     # Adjust rmin and rmax such that 0 is included in the range. This is
     # required to make sure zero can be represented by the quantization data
     # type (i.e. to make sure qmin <= zero_point <= qmax)
-    rmin = np.minimum(rmin, np.array(0, dtype=rmin.dtype))
-    rmax = np.maximum(rmax, np.array(0, dtype=rmax.dtype))
+    rmin = np.minimum(rmin, np.array(0, dtype=rmin_dtype))
+    rmax = np.maximum(rmax, np.array(0, dtype=rmin_dtype))
 
     # Ensure that rmax-rmin is less than or equal to sys.float_info.max
     if rmin == float("-inf"):
-        rmin = -np.finfo(rmin.dtype).max / 2
+        rmin = -np.finfo(rmin_dtype).max / 2
     if rmax == float("inf"):
-        rmax = np.finfo(rmax.dtype).max / 2
+        rmax = np.finfo(rmin_dtype).max / 2
 
     if symmetric:
         absmax = np.maximum(np.abs(rmin), np.abs(rmax))
@@ -268,7 +271,7 @@ def compute_scale_zp_pof2s(rmin, rmax, qmin, qmax, symmetric=False):
     else:
         pof2_scale = np.array(pof2_scale, dtype=rmin.dtype)
         zero_point = (
-            np.array(round(qmin - rmin / pof2_scale), dtype=qmin.dtype)
+            np.array(np.round(qmin - rmin / pof2_scale), dtype=qmin.dtype)
             if has_dtype
             else int(round(qmin - rmin / pof2_scale))
         )
