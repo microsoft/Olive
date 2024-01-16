@@ -44,6 +44,14 @@
                 "target_opset": 14
             }
         },
+        "ov_convert": {
+            "type": "OpenVINOConversion",
+            "config": {
+                "user_script": "user_script.py",
+                "example_input_func": "vae_encoder_conversion_inputs",
+                "output_model": "vae_encoder"
+            }
+        },
         "optimize": {
             "type": "OrtTransformersOptimization",
             "disable_search": true,

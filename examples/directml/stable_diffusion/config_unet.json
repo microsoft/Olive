@@ -51,6 +51,14 @@
                 "external_data_name": "weights.pb"
             }
         },
+        "ov_convert": {
+            "type": "OpenVINOConversion",
+            "config": {
+                "user_script": "user_script.py",
+                "example_input_func": "get_unet_ov_example_input",
+                "output_model": "unet"
+            }
+        },
         "optimize": {
             "type": "OrtTransformersOptimization",
             "disable_search": true,

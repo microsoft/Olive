@@ -131,7 +131,7 @@ def text_encoder_load(model_name):
     return model
 
 
-def text_encoder_conversion_inputs(model):
+def text_encoder_conversion_inputs(model=None):
     return text_encoder_inputs(1, torch.int32)
 
 
@@ -172,6 +172,16 @@ def unet_inputs(batchsize, torch_dtype, is_conversion_inputs=False):
     return inputs
 
 
+def get_unet_ov_example_input():
+    import numpy as np
+
+    encoder_hidden_state = torch.ones((2, 77, 768))
+    latents_shape = (2, 4, 512 // 8, 512 // 8)
+    latents = torch.randn(latents_shape)
+    t = torch.from_numpy(np.array(1, dtype=float))
+    return (latents, t, encoder_hidden_state)
+
+
 def unet_load(model_name):
     base_model_id = get_base_model_name(model_name)
     model = UNet2DConditionModel.from_pretrained(base_model_id, subfolder="unet")
@@ -180,7 +190,7 @@ def unet_load(model_name):
     return model
 
 
-def unet_conversion_inputs(model):
+def unet_conversion_inputs(model=None):
     return tuple(unet_inputs(1, torch.float32, True).values())
 
 
@@ -194,20 +204,17 @@ def unet_data_loader(data_dir, batchsize, *args, **kwargs):
 
 
 def vae_encoder_inputs(batchsize, torch_dtype):
-    return {
-        "sample": torch.rand((batchsize, 3, config.vae_sample_size, config.vae_sample_size), dtype=torch_dtype),
-        "return_dict": False,
-    }
+    return {"sample": torch.rand((batchsize, 3, config.vae_sample_size, config.vae_sample_size), dtype=torch_dtype)}
 
 
 def vae_encoder_load(model_name):
     base_model_id = get_base_model_name(model_name)
     model = AutoencoderKL.from_pretrained(base_model_id, subfolder="vae")
-    model.forward = lambda sample, return_dict: model.encode(sample, return_dict)[0].sample()
+    model.forward = lambda sample: model.encode(sample)[0].sample()
     return model
 
 
-def vae_encoder_conversion_inputs(model):
+def vae_encoder_conversion_inputs(model=None):
     return tuple(vae_encoder_inputs(1, torch.float32).values())
 
 
@@ -222,10 +229,7 @@ def vae_encoder_data_loader(data_dir, batchsize, *args, **kwargs):
 
 def vae_decoder_inputs(batchsize, torch_dtype):
     return {
-        "latent_sample": torch.rand(
-            (batchsize, 4, config.unet_sample_size, config.unet_sample_size), dtype=torch_dtype
-        ),
-        "return_dict": False,
+        "latent_sample": torch.rand((batchsize, 4, config.unet_sample_size, config.unet_sample_size), dtype=torch_dtype)
     }
 
 
@@ -236,7 +240,7 @@ def vae_decoder_load(model_name):
     return model
 
 
-def vae_decoder_conversion_inputs(model):
+def vae_decoder_conversion_inputs(model=None):
     return tuple(vae_decoder_inputs(1, torch.float32).values())
 
 
@@ -263,7 +267,7 @@ def safety_checker_load(model_name):
     return model
 
 
-def safety_checker_conversion_inputs(model):
+def safety_checker_conversion_inputs(model=None):
     return tuple(safety_checker_inputs(1, torch.float32).values())
 
 
