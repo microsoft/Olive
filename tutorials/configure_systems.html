@@ -217,17 +217,42 @@ the workspace config json.</p>
 <span class="p">)</span>
 <span class="n">aml_system</span> <span class="o">=</span> <span class="n">AzureMLSystem</span><span class="p">(</span>
     <span class="n">aml_compute</span><span class="o">=</span><span class="s2">&quot;cpu-cluster&quot;</span><span class="p">,</span>
-    <span class="n">aml_docker_config</span><span class="o">=</span><span class="p">{</span>
-        <span class="s2">&quot;base_image&quot;</span><span class="p">:</span> <span class="s2">&quot;mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;conda_file_path&quot;</span><span class="p">:</span> <span class="s2">&quot;conda.yaml&quot;</span>
-    <span class="p">}</span>
+    <span class="n">aml_docker_config</span><span class="o">=</span><span class="n">docker_config</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div></div>
+<p>If you provide a <code class="code docutils literal notranslate"><span class="pre">aml_docker_config</span></code>, Olive will create a new Azure ML Environment using the <code class="code docutils literal notranslate"><span class="pre">aml_docker_config</span></code> configuration.
+Alternatively, you can provide an existing Azure ML Environment using <code class="code docutils literal notranslate"><span class="pre">aml_environment_config</span></code>:</p>
+<div class="sphinx-tabs docutils container">
+<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-2-2-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-2-2-0" name="2-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-2-2-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-2-2-1" name="2-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-2-2-0" class="sphinx-tabs-panel" id="panel-2-2-0" name="2-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AzureML&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;aml_compute&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu-cluster&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;aml_environment_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;myenv&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div><div aria-labelledby="tab-2-2-1" class="sphinx-tabs-panel" hidden="true" id="panel-2-2-1" name="2-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.systems.azureml</span> <span class="kn">import</span> <span class="n">AzureMLDockerConfig</span><span class="p">,</span> <span class="n">AzureMLSystem</span>
+
+<span class="n">aml_environment_config</span> <span class="o">=</span> <span class="n">AzureMLEnvironmentConfig</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;myenv&quot;</span><span class="p">,</span>
+    <span class="n">version</span><span class="o">=</span><span class="s2">&quot;1&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">aml_system</span> <span class="o">=</span> <span class="n">AzureMLSystem</span><span class="p">(</span>
+    <span class="n">aml_compute</span><span class="o">=</span><span class="s2">&quot;cpu-cluster&quot;</span><span class="p">,</span>
+    <span class="n">aml_environment_config</span><span class="o">=</span><span class="n">aml_environment_config</span>
 <span class="p">)</span>
 </pre></div>
 </div>
 </div></div>
 <p>Olive can also manage the environment by setting <code class="code docutils literal notranslate"><span class="pre">olive_managed_env</span> <span class="pre">=</span> <span class="pre">True</span></code></p>
 <div class="sphinx-tabs docutils container">
-<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-2-2-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-2-2-0" name="2-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-2-2-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-2-2-1" name="2-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-2-2-0" class="sphinx-tabs-panel" id="panel-2-2-0" name="2-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-3-3-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-3-3-0" name="3-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-3-3-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-3-3-1" name="3-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-3-3-0" class="sphinx-tabs-panel" id="panel-3-3-0" name="3-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AzureML&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;aml_compute&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu-cluster&quot;</span><span class="p">,</span>
@@ -237,7 +262,7 @@ the workspace config json.</p>
 <span class="p">}</span>
 </pre></div>
 </div>
-</div><div aria-labelledby="tab-2-2-1" class="sphinx-tabs-panel" hidden="true" id="panel-2-2-1" name="2-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.systems.azureml</span> <span class="kn">import</span> <span class="n">AzureMLSystem</span>
+</div><div aria-labelledby="tab-3-3-1" class="sphinx-tabs-panel" hidden="true" id="panel-3-3-1" name="3-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.systems.azureml</span> <span class="kn">import</span> <span class="n">AzureMLSystem</span>
 
 <span class="n">aml_system</span> <span class="o">=</span> <span class="n">AzureMLSystem</span><span class="p">(</span>
     <span class="n">aml_compute</span><span class="o">=</span><span class="s2">&quot;cpu-cluster&quot;</span><span class="p">,</span>
@@ -297,7 +322,7 @@ for <code class="code docutils literal notranslate"><span class="pre">&quot;cond
 <section id="id3">
 <h3>System Configuration<a class="headerlink" href="#id3" title="Permalink to this heading">¶</a></h3>
 <div class="sphinx-tabs docutils container">
-<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-3-3-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-3-3-0" name="3-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-3-3-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-3-3-1" name="3-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-3-3-0" class="sphinx-tabs-panel" id="panel-3-3-0" name="3-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-4-4-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-4-4-0" name="4-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-4-4-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-4-4-1" name="4-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-4-4-0" class="sphinx-tabs-panel" id="panel-4-4-0" name="4-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Docker&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;local_docker_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
@@ -309,7 +334,7 @@ for <code class="code docutils literal notranslate"><span class="pre">&quot;cond
 <span class="p">}</span>
 </pre></div>
 </div>
-</div><div aria-labelledby="tab-3-3-1" class="sphinx-tabs-panel" hidden="true" id="panel-3-3-1" name="3-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.systems.docker</span> <span class="kn">import</span> <span class="n">DockerSystem</span><span class="p">,</span> <span class="n">LocalDockerConfig</span>
+</div><div aria-labelledby="tab-4-4-1" class="sphinx-tabs-panel" hidden="true" id="panel-4-4-1" name="4-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.systems.docker</span> <span class="kn">import</span> <span class="n">DockerSystem</span><span class="p">,</span> <span class="n">LocalDockerConfig</span>
 
 <span class="n">local_docker_config</span> <span class="o">=</span> <span class="n">LocalDockerConfig</span><span class="p">(</span>
     <span class="n">image_name</span><span class="o">=</span><span class="s2">&quot;olive&quot;</span><span class="p">,</span>
@@ -322,7 +347,7 @@ for <code class="code docutils literal notranslate"><span class="pre">&quot;cond
 </div></div>
 <p>Olive can manage the environment by setting <code class="code docutils literal notranslate"><span class="pre">olive_managed_env</span> <span class="pre">=</span> <span class="pre">True</span></code></p>
 <div class="sphinx-tabs docutils container">
-<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-4-4-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-4-4-0" name="4-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-4-4-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-4-4-1" name="4-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-4-4-0" class="sphinx-tabs-panel" id="panel-4-4-0" name="4-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-5-5-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-5-5-0" name="5-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-5-5-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-5-5-1" name="5-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-5-5-0" class="sphinx-tabs-panel" id="panel-5-5-0" name="5-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Docker&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;cpu&quot;</span><span class="p">],</span>
@@ -333,7 +358,7 @@ for <code class="code docutils literal notranslate"><span class="pre">&quot;cond
 <span class="p">}</span>
 </pre></div>
 </div>
-</div><div aria-labelledby="tab-4-4-1" class="sphinx-tabs-panel" hidden="true" id="panel-4-4-1" name="4-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.systems.docker</span> <span class="kn">import</span> <span class="n">DockerSystem</span>
+</div><div aria-labelledby="tab-5-5-1" class="sphinx-tabs-panel" hidden="true" id="panel-5-5-1" name="5-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.systems.docker</span> <span class="kn">import</span> <span class="n">DockerSystem</span>
 
 <span class="n">docker_system</span> <span class="o">=</span> <span class="n">DockerSystem</span><span class="p">(</span>
     <span class="n">accelerators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;cpu&quot;</span><span class="p">],</span>
@@ -355,7 +380,7 @@ for <code class="code docutils literal notranslate"><span class="pre">&quot;dock
 <section id="python-environment-system">
 <h2>Python Environment System<a class="headerlink" href="#python-environment-system" title="Permalink to this heading">¶</a></h2>
 <div class="sphinx-tabs docutils container">
-<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-5-5-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-5-5-0" name="5-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-5-5-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-5-5-1" name="5-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-5-5-0" class="sphinx-tabs-panel" id="panel-5-5-0" name="5-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-6-6-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-6-6-0" name="6-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-6-6-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-6-6-1" name="6-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-6-6-0" class="sphinx-tabs-panel" id="panel-6-6-0" name="6-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PythonEnvironment&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;python_environment_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/home/user/.virtualenvs/myenv&quot;</span><span class="p">,</span>
@@ -364,7 +389,7 @@ for <code class="code docutils literal notranslate"><span class="pre">&quot;dock
 <span class="p">}</span>
 </pre></div>
 </div>
-</div><div aria-labelledby="tab-5-5-1" class="sphinx-tabs-panel" hidden="true" id="panel-5-5-1" name="5-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.systems.python_environment</span> <span class="kn">import</span> <span class="n">PythonEnvironmentSystem</span>
+</div><div aria-labelledby="tab-6-6-1" class="sphinx-tabs-panel" hidden="true" id="panel-6-6-1" name="6-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.systems.python_environment</span> <span class="kn">import</span> <span class="n">PythonEnvironmentSystem</span>
 <span class="kn">from</span> <span class="nn">olive.system.common</span> <span class="kn">import</span> <span class="n">Device</span>
 
 <span class="n">python_environment_system</span> <span class="o">=</span> <span class="n">PythonEnvironmentSystem</span><span class="p">(</span>
@@ -376,7 +401,7 @@ for <code class="code docutils literal notranslate"><span class="pre">&quot;dock
 </div></div>
 <p>Olive can also manage the environment by setting <code class="code docutils literal notranslate"><span class="pre">olive_managed_env</span> <span class="pre">=</span> <span class="pre">True</span></code>. This feature works best when used from Conda.</p>
 <div class="sphinx-tabs docutils container">
-<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-6-6-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-6-6-0" name="6-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-6-6-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-6-6-1" name="6-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-6-6-0" class="sphinx-tabs-panel" id="panel-6-6-0" name="6-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-7-7-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-7-7-0" name="7-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-7-7-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-7-7-1" name="7-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-7-7-0" class="sphinx-tabs-panel" id="panel-7-7-0" name="7-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PythonEnvironment&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;cpu&quot;</span><span class="p">],</span>
@@ -385,7 +410,7 @@ for <code class="code docutils literal notranslate"><span class="pre">&quot;dock
 <span class="p">}</span>
 </pre></div>
 </div>
-</div><div aria-labelledby="tab-6-6-1" class="sphinx-tabs-panel" hidden="true" id="panel-6-6-1" name="6-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.systems.python_environment</span> <span class="kn">import</span> <span class="n">PythonEnvironmentSystem</span>
+</div><div aria-labelledby="tab-7-7-1" class="sphinx-tabs-panel" hidden="true" id="panel-7-7-1" name="7-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.systems.python_environment</span> <span class="kn">import</span> <span class="n">PythonEnvironmentSystem</span>
 <span class="kn">from</span> <span class="nn">olive.system.common</span> <span class="kn">import</span> <span class="n">Device</span>
 
 <span class="n">python_environment_system</span> <span class="o">=</span> <span class="n">PythonEnvironmentSystem</span><span class="p">(</span>

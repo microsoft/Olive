@@ -142,7 +142,7 @@
 <span class="kn">from</span> <span class="nn">olive.azureml.azureml_client</span> <span class="kn">import</span> <span class="n">AzureMLClientConfig</span>
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">validate_config</span>
 <span class="kn">from</span> <span class="nn">olive.common.pydantic_v1</span> <span class="kn">import</span> <span class="n">root_validator</span><span class="p">,</span> <span class="n">validator</span>
-<span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">AzureMLDockerConfig</span><span class="p">,</span> <span class="n">LocalDockerConfig</span><span class="p">,</span> <span class="n">SystemType</span>
+<span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">AzureMLDockerConfig</span><span class="p">,</span> <span class="n">AzureMLEnvironmentConfig</span><span class="p">,</span> <span class="n">LocalDockerConfig</span><span class="p">,</span> <span class="n">SystemType</span>
 
 
 <span class="k">class</span> <span class="nc">TargetUserConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
@@ -165,6 +165,7 @@
     <span class="n">azureml_client_config</span><span class="p">:</span> <span class="n">AzureMLClientConfig</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">aml_compute</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">aml_docker_config</span><span class="p">:</span> <span class="n">AzureMLDockerConfig</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">aml_environment_config</span><span class="p">:</span> <span class="n">AzureMLEnvironmentConfig</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">resources</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">instance_count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
     <span class="n">is_dev</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
