@@ -306,7 +306,7 @@ def parse_common_args(raw_args):
         "Values that approach 1.0 enable lots of variations but will also produce images "
         "that are not semantically consistent with the input.",
     )
-    parser.add_argument("--image_size", default=768, type=int, help="Width and height of the images to generate")
+    parser.add_argument("--image_size", default=512, type=int, help="Width and height of the images to generate")
 
     return parser.parse_known_args(raw_args)
 
