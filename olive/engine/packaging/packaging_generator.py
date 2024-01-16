@@ -54,7 +54,7 @@ def _generate_zipfile_output(
     with tempfile.TemporaryDirectory() as temp_dir:
         tempdir = Path(temp_dir)
         _package_sample_code(cur_path, tempdir)
-        _package_models_order(tempdir, pf_footprints)
+        _package_models_rank(tempdir, pf_footprints)
         for accelerator_spec, pf_footprint in pf_footprints.items():
             if pf_footprint.nodes and footprints[accelerator_spec].nodes:
                 _package_candidate_models(
@@ -69,7 +69,7 @@ def _generate_zipfile_output(
         shutil.move(f"{packaging_config.name}.zip", output_dir / f"{packaging_config.name}.zip")
 
 
-def _package_models_order(tempdir, footprints: Dict["AcceleratorSpec", "Footprint"]):
+def _package_models_rank(tempdir, footprints: Dict["AcceleratorSpec", "Footprint"]):
     metrics_dict = next(iter(footprints.values())).objective_dict
     sorted_nodes = sorted(
         itertools.chain.from_iterable(f.nodes.values() for f in footprints.values()),
