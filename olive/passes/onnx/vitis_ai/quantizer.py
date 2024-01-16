@@ -43,6 +43,7 @@ from olive.passes.onnx.vitis_ai.quant_utils import (
     get_annotate_output_name,
     get_qdq_to_remove,
     get_relu_name,
+    is_ort_version_below_1_17,
     quantize_data_pof2s,
     remove_nodes,
     vitis_quantize_data,
@@ -465,7 +466,7 @@ class VitisQOpQuantizer(ONNXQuantizer):
 
                 zero, scale = compute_scale_zp_pof2s(rmin, rmax, qmin, qmax, self.is_activation_symmetric)
                 if is_ort_version_below_1_17():
-                    quantization_params[tensor_name] = QuantizationParams(zero_point=zero, scale=scale)
+                    quantization_params[tensor_name] = QuantizationParams(zero_point=int(zero), scale=float(scale))
                 else:
                     quantization_params[tensor_name] = QuantizationParams(
                         zero_point=zero, scale=scale, quant_type=self.activation_qType
@@ -586,11 +587,24 @@ class VitisQDQQuantizer(VitisQOpQuantizer):
         data_type = self._tensor_quantizable_data_type(tensor_name)
         if data_type is not None:
             if quant_sharing_param:
-                self.tensors_to_quantize[tensor_name] = QDQTensorQuantInfo(
-                    tensor_type=tensor_type, quant_para_provider=quant_sharing_param, data_type=data_type
-                )
+                try:
+                    self.tensors_to_quantize[tensor_name] = QDQTensorQuantInfo(
+                        tensor_type=tensor_type, quant_para_provider=quant_sharing_param, data_type=data_type
+                    )
+                except TypeError:
+                    # onnxruntime<1.17
+                    self.tensors_to_quantize[tensor_name] = QDQTensorQuantInfo(
+                        tensor_type=tensor_type,
+                        quant_para_provider=quant_sharing_param,
+                    )
             elif tensor_name not in self.tensors_to_quantize:
-                self.tensors_to_quantize[tensor_name] = QDQTensorQuantInfo(tensor_type=tensor_type, data_type=data_type)
+                try:
+                    self.tensors_to_quantize[tensor_name] = QDQTensorQuantInfo(
+                        tensor_type=tensor_type, data_type=data_type
+                    )
+                except TypeError:
+                    # onnxruntime<1.17
+                    self.tensors_to_quantize[tensor_name] = QDQTensorQuantInfo(tensor_type=tensor_type)
 
     def quantize_activation_tensor(self, tensor_name, quant_sharing_param=None):
         """

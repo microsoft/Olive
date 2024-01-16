@@ -260,14 +260,20 @@ def compute_scale_zp_pof2s(rmin, rmax, qmin, qmax, symmetric=False):
     pos = scale2pos(scale)
     pof2_scale = pos2scale(pos)
 
+    has_dtype = hasattr(qmin, "dtype")  # True for onnxruntime>=1.17
+
     if pof2_scale < np.finfo(rmax.dtype).tiny:
         pof2_scale = np.array(1.0, dtype=rmax.dtype)
-        zero_point = np.array(0, dtype=qmin.dtype)
+        zero_point = np.array(0, dtype=qmin.dtype) if has_dtype else 0
     else:
         pof2_scale = np.array(pof2_scale, dtype=rmin.dtype)
-        zero_point = np.array(round(qmin - rmin / pof2_scale), dtype=qmin.dtype)
+        zero_point = (
+            np.array(round(qmin - rmin / pof2_scale), dtype=qmin.dtype)
+            if has_dtype
+            else int(round(qmin - rmin / pof2_scale))
+        )
     if symmetric:
-        zero_point = np.array(0, dtype=qmin.dtype)
+        zero_point = np.array(0, dtype=qmin.dtype) if has_dtype else 0
     return [zero_point, pof2_scale]
 
 
@@ -282,11 +288,17 @@ def quantize_zero_point(rmin, qmin, qmax, symmetric, scale):
 
     pof2_scale = np.array(scale, dtype=rmin.dtype)
 
+    has_dtype = hasattr(qmin, "dtype")  # True for onnxruntime>=1.17
+
     if pof2_scale < np.finfo(rmin.dtype).tiny:
         pof2_scale = np.array(1.0, dtype=rmin.dtype)
-        zero_point = np.array(0, dtype=qmin.dtype)
+        zero_point = np.array(0, dtype=qmin.dtype) if has_dtype else 0
     else:
-        zero_point = np.array(round(qmin - rmin / pof2_scale), dtype=qmin.dtype)
+        zero_point = (
+            np.array(round(qmin - rmin / pof2_scale), dtype=qmin.dtype)
+            if has_dtype
+            else int(round(qmin - rmin / pof2_scale))
+        )
 
     return zero_point
 
@@ -337,12 +349,8 @@ def quantize_data_pof2s(data, qType, symmetric, reduce_range=False, method=Power
 
     qmin, qmax = get_qmin_qmax_for_qType(qType, reduce_range, symmetric=symmetric)
     zero_point, scale = compute_scale_zp_pof2s(rmin, rmax, qmin, qmax, symmetric)
-    assert qmin.dtype == qmax.dtype
 
     quantized_data = quantize_nparray(qType, data, scale, zero_point)
-    assert (
-        quantized_data.dtype == zero_point.dtype
-    ), f"dtype mismatch {quantized_data.dtype} != {zero_point.dtype}, sType={qType}"
 
     if method == PowerOfTwoMethod.NonOverflow:
         return rmin, rmax, zero_point, scale, quantized_data
