@@ -46,14 +46,6 @@ class QNNConversion(Pass):
                     ' Example: ["out_1", "out_2"]'
                 ),
             ),
-            "qnn_sdk_root": PassConfigParam(
-                type_=str,
-                default_value=None,
-                description=(
-                    "Path to the QNN SDK directory. If not specified, the QNN_SDK_ROOT environment variable"
-                    " will be used."
-                ),
-            ),
             "extra_args": PassConfigParam(
                 type_=str,
                 default_value=None,
@@ -64,7 +56,7 @@ class QNNConversion(Pass):
                 ),
             ),
         }
-        config.extend(get_env_config())
+        config.update(get_env_config())
         return config
 
     @staticmethod

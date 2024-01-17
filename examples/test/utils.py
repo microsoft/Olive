@@ -14,7 +14,7 @@ def check_output(footprints):
     for footprint in footprints.values():
         assert footprint.nodes
         for v in footprint.nodes.values():
-            assert all(metric_result.value >= 0 for metric_result in v.metrics.value.values())
+            assert all(metric_result.value > 0 for metric_result in v.metrics.value.values())
 
 
 def patch_config(config_json_path: str, search_algorithm: str, execution_order: str, system: str, is_gpu: bool = False):

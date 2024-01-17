@@ -123,7 +123,7 @@ def preprocess_image(image):
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
         ]
     )
-    return transformations(src_img).numpy().astype(np.float32)
+    return transformations(src_img).numpy().astype(np.float32).transpose(1, 2, 0)
 
 
 def create_quant_data():
