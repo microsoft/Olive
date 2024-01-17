@@ -1,5 +1,6 @@
 from test.unit_test.utils import get_onnx_model, get_pytorch_model_dummy_input
 
+import pytest
 from onnxruntime.quantization.calibrate import CalibrationDataReader
 
 from olive.passes.olive_pass import create_pass_from_dict
@@ -28,16 +29,20 @@ def resnet_calibration_reader(data_dir, batch_size, *args, **kwargs):
     return ResnetCalibrationDataReader(data_dir, batch_size=batch_size)
 
 
-def test_quantization(tmp_path):
+@pytest.mark.parametrize("calibrate_method", ["MinMax", "Entropy", "Percentile"])
+def test_quantization(calibrate_method, tmp_path):
     input_model = get_onnx_model()
     config = {
         "quant_mode": "static",
-        "calibrate_method": "Entropy",
+        "calibrate_method": calibrate_method,
         "quant_format": "QOperator",
         "MatMulConstBOnly": False,
         "per_channel": True,
         "reduce_range": True,
         "dataloader_func": resnet_calibration_reader,
+        "weight_type": "QUInt8",
+        "activation_type": "QUInt8",
+        "quant_preprocess": True,
     }
     p = create_pass_from_dict(OnnxQuantization, config, disable_search=True)
     out = p.run(input_model, None, tmp_path)
