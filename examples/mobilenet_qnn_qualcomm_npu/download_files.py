@@ -90,7 +90,10 @@ def download_eval_data():
     for jpeg in jpegs[:20]:
         input_file_name = (input_data_path / jpeg.name).with_suffix(".raw")
         out = preprocess_image(jpeg)
-        out.tofile(input_file_name)
+        # reshape to NHWC from NCHW as QNN converter will do this
+        # with this transpose, the shape is (1, 224, 224, 3). Otherwise, it is (1, 3, 224, 224)
+        single_out_file = out.transpose(1, 2, 0)
+        single_out_file.tofile(input_file_name)
         input_order.append(input_file_name)
         inputs.append(out)
     inputs = np.stack(inputs)
@@ -123,7 +126,7 @@ def preprocess_image(image):
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
         ]
     )
-    return transformations(src_img).numpy().astype(np.float32).transpose(1, 2, 0)
+    return transformations(src_img).numpy().astype(np.float32)
 
 
 def create_quant_data():
