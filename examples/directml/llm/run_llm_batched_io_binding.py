@@ -14,18 +14,22 @@ def run_llm_io_binding(
     prompts: List[str],
     max_seq_len: int = 2048,
     max_gen_len: int = 256,
+    device: str = "dml",
     device_id: int = 0,
-    disable_metacommands: bool = False,
     ignore_eos: bool = False,
 ) -> str:
     onnxruntime.set_default_logger_severity(3)
 
+    execution_provider = {
+        "dml": "DmlExecutionProvider",
+        "cuda": "CUDAExecutionProvider",
+    }[device]
+
     # Create the ONNX session
     providers = [
         (
-            "DmlExecutionProvider",
+            execution_provider,
             {
-                "disable_metacommands": disable_metacommands,
                 "device_id": device_id,
             },
         )
@@ -48,8 +52,6 @@ def run_llm_io_binding(
             num_layers += 1
             num_key_value_heads = inputs_meta.shape[1]
             head_dim = inputs_meta.shape[3]
-
-    binding_device = "dml"
 
     # Initialize the tokenizer and produce the initial tokens.
     tokenizer = AutoTokenizer.from_pretrained(model_dir)
@@ -86,12 +88,12 @@ def run_llm_io_binding(
     # [ 0,    0, 524,  25, 124]
     #
     # Where 0 represents padding that was added for prompts that were shorter, which will be masked out in the model
-    tokens = onnxruntime.OrtValue.ortvalue_from_numpy(tokens, binding_device)
-    tokens_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type((batch_size, 1), np.int64, binding_device)
+    tokens = onnxruntime.OrtValue.ortvalue_from_numpy(tokens, device)
+    tokens_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type((batch_size, 1), np.int64, device)
 
     # Create the LLM model's I/O binding
     logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
-        (batch_size, max_tokens_len, tokenizer.vocab_size), data_type, binding_device
+        (batch_size, max_tokens_len, tokenizer.vocab_size), data_type, device
     )
     llm_io_binding = llm_session.io_binding()
     llm_io_binding.bind_ortvalue_output("logits", logits)
@@ -105,17 +107,19 @@ def run_llm_io_binding(
     v_caches_out = []
 
     for _ in range(num_layers):
-        k_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, binding_device))
-        v_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, binding_device))
+        k_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, device))
+        v_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, device))
         k_caches_out.append(
-            onnxruntime.OrtValue.ortvalue_from_shape_and_type(initial_cache.shape, initial_cache.dtype, binding_device)
+            onnxruntime.OrtValue.ortvalue_from_shape_and_type(initial_cache.shape, initial_cache.dtype, device)
         )
         v_caches_out.append(
-            onnxruntime.OrtValue.ortvalue_from_shape_and_type(initial_cache.shape, initial_cache.dtype, binding_device)
+            onnxruntime.OrtValue.ortvalue_from_shape_and_type(initial_cache.shape, initial_cache.dtype, device)
         )
 
     llm_io_binding.bind_cpu_input("use_cache_branch", np.zeros([1], dtype=np.bool_))
-    llm_io_binding.bind_output("logits", "cpu")
+    llm_io_binding.bind_output("logits", device)
+    llm_io_binding.bind_ortvalue_input("tokens", tokens)
+    llm_io_binding.bind_ortvalue_input("tokens_increment", tokens_increment)
 
     before_time = time.perf_counter()
 
@@ -138,18 +142,14 @@ def run_llm_io_binding(
         seqlens_k = np.array(past_seq_lens, dtype=np.int32, ndmin=1)
         llm_io_binding.bind_cpu_input("seqlens_k", seqlens_k)
 
-        # Run the LLM model
-        llm_io_binding.bind_ortvalue_input("tokens", tokens)
-        llm_io_binding.bind_ortvalue_input("tokens_increment", tokens_increment)
-
         for layer_idx in range(num_layers):
             llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.key", k_caches[layer_idx])
             llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.value", v_caches[layer_idx])
             llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.key", k_caches[layer_idx])
             llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.value", v_caches[layer_idx])
 
+        # Run the LLM
         llm_session.run_with_iobinding(llm_io_binding)
-        llm_io_binding.synchronize_outputs()
 
         # Decide the next token using your preferred sampling strategy.
         if idx == 0:
@@ -162,7 +162,7 @@ def run_llm_io_binding(
         next_tokens = np.argmax(logits, axis=-1, keepdims=False).reshape(batch_size, 1)
 
         # Set the token for the next iteration
-        tokens_increment = onnxruntime.OrtValue.ortvalue_from_numpy(next_tokens, binding_device)
+        llm_io_binding.bind_cpu_input("tokens_increment", next_tokens)
 
         tokens_list = next_tokens.tolist()
         for output_token_idx in range(len(tokens_list)):
@@ -181,11 +181,8 @@ def run_llm_io_binding(
             break
 
         if idx == 0:
-            logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
-                (batch_size, 1, tokenizer.vocab_size), data_type, binding_device
-            )
             llm_io_binding.bind_cpu_input("use_cache_branch", np.ones([1], dtype=np.bool_))
-            llm_io_binding.bind_ortvalue_output("logits", logits)
+            llm_io_binding.bind_output("logits", device)
 
         for seq_len_idx in range(len(seq_lens)):
             past_seq_lens[seq_len_idx] = seq_lens[seq_len_idx]
@@ -218,8 +215,8 @@ if __name__ == "__main__":
     )
     parser.add_argument("--max_seq_len", type=int, default=2048)
     parser.add_argument("--max_gen_len", type=int, default=256)
-    parser.add_argument("--disable_metacommands", action="store_true")
     parser.add_argument("--ignore_eos", action="store_true")
+    parser.add_argument("--device", type=str, choices=["dml", "cuda"], default="dml")
     parser.add_argument("--device_id", type=int, default=0)
     parser.add_argument(
         "--model_dir",
@@ -234,7 +231,7 @@ if __name__ == "__main__":
         args.prompts,
         args.max_seq_len,
         args.max_gen_len,
+        args.device,
         args.device_id,
-        args.disable_metacommands,
         args.ignore_eos,
     )

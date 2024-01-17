@@ -164,6 +164,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--max_gen_len", default=256, type=int, help="The maximum number of tokens that can be included in an answer"
     )
+    parser.add_argument("--device", type=str, choices=["dml", "cuda"], default="dml")
     parser.add_argument(
         "--model_type",
         default="llama-2-7b-chat",
@@ -204,5 +205,6 @@ if __name__ == "__main__":
                     args.prompt,
                     args.max_seq_len,
                     args.max_gen_len,
+                    args.device,
                     args.device_id,
                 )

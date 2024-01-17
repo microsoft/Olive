@@ -13,18 +13,22 @@ def run_llm_io_binding(
     prompt: str,
     max_seq_len: int = 2048,
     max_gen_len: int = 256,
+    device: str = "dml",
     device_id: int = 0,
-    disable_metacommands: bool = False,
     ignore_eos: bool = False,
 ) -> str:
     onnxruntime.set_default_logger_severity(3)
 
+    execution_provider = {
+        "dml": "DmlExecutionProvider",
+        "cuda": "CUDAExecutionProvider",
+    }[device]
+
     # Create the ONNX session
     providers = [
         (
-            "DmlExecutionProvider",
+            execution_provider,
             {
-                "disable_metacommands": disable_metacommands,
                 "device_id": device_id,
             },
         )
@@ -48,14 +52,12 @@ def run_llm_io_binding(
             num_key_value_heads = inputs_meta.shape[1]
             head_dim = inputs_meta.shape[3]
 
-    binding_device = "dml"
-
     # Initialize the tokenizer and produce the initial tokens.
     tokenizer = AutoTokenizer.from_pretrained(model_dir)
     tokens = tokenizer.apply_chat_template([{"role": "user", "content": prompt}], return_tensors="np")
     tokens = np.asarray(tokens, dtype=np.int64)
-    tokens = onnxruntime.OrtValue.ortvalue_from_numpy(tokens, binding_device)
-    tokens_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, 1), np.int64, binding_device)
+    tokens = onnxruntime.OrtValue.ortvalue_from_numpy(tokens, device)
+    tokens_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, 1), np.int64, device)
 
     past_seq_len = 0
     seq_len = tokens.shape()[1]
@@ -70,11 +72,13 @@ def run_llm_io_binding(
     v_caches = []
 
     for _ in range(num_layers):
-        k_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, binding_device))
-        v_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, binding_device))
+        k_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, device))
+        v_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, device))
 
     llm_io_binding.bind_cpu_input("use_cache_branch", np.zeros([1], dtype=np.bool_))
-    llm_io_binding.bind_output("logits", "cpu")
+    llm_io_binding.bind_output("logits", device)
+    llm_io_binding.bind_ortvalue_input("tokens", tokens)
+    llm_io_binding.bind_ortvalue_input("tokens_increment", tokens_increment)
 
     before_time = time.perf_counter()
 
@@ -91,18 +95,14 @@ def run_llm_io_binding(
         seqlens_k = np.array(past_seq_len, dtype=np.int32, ndmin=1)
         llm_io_binding.bind_cpu_input("seqlens_k", seqlens_k)
 
-        # Run the LLM model
-        llm_io_binding.bind_ortvalue_input("tokens", tokens)
-        llm_io_binding.bind_ortvalue_input("tokens_increment", tokens_increment)
-
         for layer_idx in range(num_layers):
             llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.key", k_caches[layer_idx])
             llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.value", v_caches[layer_idx])
             llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.key", k_caches[layer_idx])
             llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.value", v_caches[layer_idx])
 
+        # Run the LLM
         llm_session.run_with_iobinding(llm_io_binding)
-        llm_io_binding.synchronize_outputs()
 
         # Decide the next token using your preferred sampling strategy.
         logits = llm_io_binding.get_outputs()[0].numpy()[:, -1, :]
@@ -110,18 +110,15 @@ def run_llm_io_binding(
         output_tokens.append(next_token.item())
 
         # Set the token for the next iteration
-        tokens_increment = onnxruntime.OrtValue.ortvalue_from_numpy(next_token, binding_device)
+        llm_io_binding.bind_cpu_input("tokens_increment", next_token)
 
         # Stop if/when we get an ENDOFTEXT token before reaching maximum sequence length
         if not ignore_eos and output_tokens[-1] == tokenizer.eos_token_id:
             break
 
         if idx == 0:
-            logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
-                (1, 1, tokenizer.vocab_size), data_type, binding_device
-            )
             llm_io_binding.bind_cpu_input("use_cache_branch", np.ones([1], dtype=np.bool_))
-            llm_io_binding.bind_ortvalue_output("logits", logits)
+            llm_io_binding.bind_output("logits", device)
 
         past_seq_len = seq_len
         seq_len += 1
@@ -144,8 +141,8 @@ if __name__ == "__main__":
     parser.add_argument("--prompt", type=str, default="What is the lightest element?")
     parser.add_argument("--max_seq_len", type=int, default=2048)
     parser.add_argument("--max_gen_len", type=int, default=256)
-    parser.add_argument("--disable_metacommands", action="store_true")
     parser.add_argument("--ignore_eos", action="store_true")
+    parser.add_argument("--device", type=str, choices=["dml", "cuda"], default="dml")
     parser.add_argument("--device_id", type=int, default=0)
     parser.add_argument(
         "--model_dir",
@@ -160,7 +157,7 @@ if __name__ == "__main__":
         args.prompt,
         args.max_seq_len,
         args.max_gen_len,
+        args.device,
         args.device_id,
-        args.disable_metacommands,
         args.ignore_eos,
     )
