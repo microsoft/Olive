@@ -7,7 +7,7 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx import OnnxQuantization
 
 
-class ResnetCalibrationDataReader(CalibrationDataReader):
+class DummyCalibrationDataReader(CalibrationDataReader):
     def __init__(self, data_dir: str, batch_size: int = 16):
         super().__init__()
         self.sample_counter = 500
@@ -25,8 +25,8 @@ class ResnetCalibrationDataReader(CalibrationDataReader):
             return None
 
 
-def resnet_calibration_reader(data_dir, batch_size, *args, **kwargs):
-    return ResnetCalibrationDataReader(data_dir, batch_size=batch_size)
+def dummpy_dataloader_func(data_dir, batch_size, *args, **kwargs):
+    return DummyCalibrationDataReader(data_dir, batch_size=batch_size)
 
 
 @pytest.mark.parametrize("calibrate_method", ["MinMax", "Entropy", "Percentile"])
@@ -39,7 +39,7 @@ def test_quantization(calibrate_method, tmp_path):
         "MatMulConstBOnly": False,
         "per_channel": True,
         "reduce_range": True,
-        "dataloader_func": resnet_calibration_reader,
+        "dataloader_func": dummpy_dataloader_func,
         "weight_type": "QUInt8",
         "activation_type": "QUInt8",
         "quant_preprocess": True,
