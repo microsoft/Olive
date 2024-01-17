@@ -11,7 +11,7 @@ from olive.platform_sdk.qualcomm.constants import SDKTargetDevice
 
 
 class SDKEnv:
-    def __init__(self, sdk: str, root_env_name: str, target_arch: str = None, optional_local_run: bool = False):
+    def __init__(self, sdk: str, root_env_name: str, target_arch: str = None, use_dev_tools: bool = False):
         self.sdk = sdk
 
         self.root_env_name = root_env_name
@@ -24,7 +24,7 @@ class SDKEnv:
         elif not Path(self.sdk_root_path).exists():
             raise FileNotFoundError(f"The path {self.sdk_root_path} for {self.root_env_name} does not exist.")
 
-        self.optional_local_run = optional_local_run
+        self.use_dev_tools = use_dev_tools
         self.target_arch = self._verify_target_arch(target_arch) if target_arch else self._infer_target_arch()
 
     def _verify_target_arch(self, target_device: SDKTargetDevice) -> str:
@@ -69,7 +69,7 @@ class SDKEnv:
     def env(self):
         sdk_root_path = self.sdk_root_path
 
-        if self.optional_local_run and self.target_arch not in (
+        if self.use_dev_tools and self.target_arch not in (
             SDKTargetDevice.x86_64_linux,
             SDKTargetDevice.x86_64_windows,
         ):

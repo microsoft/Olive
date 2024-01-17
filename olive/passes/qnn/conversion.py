@@ -12,31 +12,14 @@ from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler, PyTorchModelHandler, QNNModelHandler, TensorFlowModelHandler
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import PassConfigParam
+from olive.passes.qnn.common import get_env_config
 from olive.platform_sdk.qualcomm.runner import QNNSDKRunner
 
 
 class QNNConversion(Pass):
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        return {
-            "use_olive_env": PassConfigParam(
-                type_=bool,
-                default_value=True,
-                description=(
-                    "Whether to use the Olive built-in environment. Usually, if you do not prepare the environment with"
-                    "Olive's `python -m olive.platform_sdk.qualcomm.configure --py_version 3.8 --sdk qnn`"
-                    " you should set `use_olive_env` to False."
-                    " If set to True, only QNN_SDK_ROOT need to be set,"
-                    " other environment variables will be set by Olive."
-                    " If set to False, QNN_SDK_ROOT, LD_LIBRARY_PATH, PYTHONPATH and PATH need to be set as:"
-                    " QNN_SDK_ROOT: the path to the QNN SDK directory;"
-                    " LD_LIBRARY_PATH: $QNN_SDK_ROOT/lib/<target_arch>;"
-                    " PYTHONPATH: $QNN_SDK_ROOT/lib/python;"
-                    " PATH: $QNN_SDK_ROOT/bin/<target_arch>."
-                    " <target_arch> is the target architecture in"
-                    " olive.platform_sdk.qualcomm.constants.SDKTargetDevice."
-                ),
-            ),
+        config = {
             # input_network is required for qnn conversion, but we don't have it in the config.
             # The `input_network` will be set in the runtime.
             "input_dim": PassConfigParam(
@@ -81,6 +64,8 @@ class QNNConversion(Pass):
                 ),
             ),
         }
+        config.extend(get_env_config())
+        return config
 
     @staticmethod
     def _validators() -> Dict[str, Callable[..., Any]]:
@@ -104,7 +89,7 @@ class QNNConversion(Pass):
             raise NotImplementedError(f"Unsupported model handler type: {type(model)}")
         converter_program = f"qnn-{converter_platform}-converter"
 
-        runner = QNNSDKRunner(optional_local_run=True)
+        runner = QNNSDKRunner(use_dev_tools=True)
         if platform.system() == "Windows":
             converter_program = "python " + str(
                 Path(runner.sdk_env.sdk_root_path) / "bin" / runner.sdk_env.target_arch / converter_program
