@@ -79,16 +79,18 @@ def _package_models_rank(tempdir, footprints: Dict["AcceleratorSpec", "Footprint
         ),
         reverse=True,
     )
+    rank = 1
+    model_info_list = []
+    for node in sorted_nodes:
+        model_info = {
+            "rank": rank,
+            "model_config": node.model_config,
+            "metrics": node.metrics.value.to_json() if node.metrics else None,
+        }
+        model_info_list.append(model_info)
+        rank += 1
     with (tempdir / "models_rank.json").open("w") as f:
-        rank = 1
-        for node in sorted_nodes:
-            model_info = {
-                "rank": rank,
-                "model_config": node.model_config,
-                "metrics": node.metrics.value.to_json() if node.metrics else None,
-            }
-            f.write(json.dumps(model_info) + "\n")
-            rank += 1
+        f.write(json.dumps(model_info_list))
 
 
 def _package_sample_code(cur_path, tempdir):
