@@ -172,6 +172,7 @@
     <span class="n">ONNXModelHandler</span><span class="p">,</span>
     <span class="n">OpenVINOModelHandler</span><span class="p">,</span>
     <span class="n">PyTorchModelHandler</span><span class="p">,</span>
+    <span class="n">QNNModelHandler</span><span class="p">,</span>
     <span class="n">SNPEModelHandler</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">olive.model.config.io_config</span> <span class="kn">import</span> <span class="n">is_io_config_static</span>
@@ -1169,6 +1170,79 @@
             <span class="n">session</span><span class="o">.</span><span class="n">infer</span><span class="p">(</span><span class="n">input_data</span><span class="p">)</span>
             <span class="n">latencies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">latencies</span>
+
+
+<span class="k">class</span> <span class="nc">QNNEvaluator</span><span class="p">(</span><span class="n">OliveEvaluator</span><span class="p">,</span> <span class="n">framework</span><span class="o">=</span><span class="n">Framework</span><span class="o">.</span><span class="n">QNN</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_inference</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="n">QNNModelHandler</span><span class="p">,</span>
+        <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
+        <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+        <span class="n">post_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
+        <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">OliveModelOutput</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="n">dataloader</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_dataloader</span><span class="p">(</span><span class="n">dataloader</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span>
+        <span class="n">session</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">prepare_session</span><span class="p">(</span>
+            <span class="n">inference_settings</span><span class="o">=</span><span class="n">metric</span><span class="o">.</span><span class="n">get_inference_settings</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">framework</span><span class="o">.</span><span class="n">lower</span><span class="p">()),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
+        <span class="p">)</span>
+
+        <span class="n">preds</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">targets</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">logits</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">data_dir</span><span class="p">,</span> <span class="n">input_list</span><span class="p">,</span> <span class="n">labels</span> <span class="ow">in</span> <span class="n">dataloader</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">session</span><span class="p">(</span><span class="n">input_list</span><span class="p">,</span> <span class="n">data_dir</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;result&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">post_func</span><span class="p">:</span>
+                <span class="n">outputs</span> <span class="o">=</span> <span class="n">post_func</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Post processing function is required for QNN model&quot;</span><span class="p">)</span>
+            <span class="n">preds</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">outputs</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+            <span class="n">targets</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">labels</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+            <span class="n">logits</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">OliveModelOutput</span><span class="p">(</span><span class="n">preds</span><span class="o">=</span><span class="n">preds</span><span class="p">,</span> <span class="n">logits</span><span class="o">=</span><span class="n">logits</span><span class="p">),</span> <span class="n">targets</span>
+
+    <span class="k">def</span> <span class="nf">_evaluate_accuracy</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="n">QNNModelHandler</span><span class="p">,</span>
+        <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
+        <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+        <span class="n">post_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
+        <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
+        <span class="n">inference_output</span><span class="p">,</span> <span class="n">targets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_inference</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">dataloader</span><span class="p">,</span> <span class="n">post_func</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">execution_providers</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">compute_accuracy</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">inference_output</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_evaluate_raw_latency</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="n">QNNModelHandler</span><span class="p">,</span>
+        <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
+        <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+        <span class="n">post_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
+        <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="n">dataloader</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_dataloader</span><span class="p">(</span><span class="n">dataloader</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span>
+        <span class="n">warmup_num</span><span class="p">,</span> <span class="n">repeat_test_num</span><span class="p">,</span> <span class="n">sleep_num</span> <span class="o">=</span> <span class="n">get_latency_config_from_metric</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
+        <span class="n">session</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">prepare_session</span><span class="p">(</span>
+            <span class="n">inference_settings</span><span class="o">=</span><span class="n">metric</span><span class="o">.</span><span class="n">get_inference_settings</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">framework</span><span class="o">.</span><span class="n">lower</span><span class="p">()),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
+        <span class="p">)</span>
+
+        <span class="n">data_dir</span><span class="p">,</span> <span class="n">input_data</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">dataloader</span><span class="p">))</span>
+        <span class="c1"># for qnn-net-run only keep 20 logs</span>
+        <span class="n">total_runs</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">warmup_num</span> <span class="o">+</span> <span class="n">repeat_test_num</span><span class="p">,</span> <span class="mi">20</span><span class="p">)</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="n">session</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">data_dir</span><span class="p">,</span> <span class="n">runs</span><span class="o">=</span><span class="n">total_runs</span><span class="p">,</span> <span class="n">sleep</span><span class="o">=</span><span class="n">sleep_num</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;latencies&quot;</span><span class="p">][</span><span class="s2">&quot;net_run&quot;</span><span class="p">][</span><span class="n">warmup_num</span><span class="p">:]</span>
+
+    <span class="k">def</span> <span class="nf">_prepare_dataloader</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">QNNModelHandler</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FileListDataLoader</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dataloader</span><span class="p">,</span> <span class="n">FileListDataLoader</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">dataloader</span>
+        <span class="k">return</span> <span class="n">FileListCommonDataLoader</span><span class="p">(</span><span class="n">dataloader</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">io_config</span><span class="p">)</span>
 
 
 <span class="k">class</span> <span class="nc">OliveEvaluatorFactory</span><span class="p">:</span>
