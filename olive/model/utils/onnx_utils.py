@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import collections
 import collections.abc
+import json
 import logging
 from pathlib import Path
 from typing import Any, Dict, Optional, Sequence, Tuple, Union
@@ -254,3 +255,15 @@ def prepare_io_bindings(
     bind_input_data(io_bind_op, input_data, use_fp16, device, device_id, shared_kv_buffer, kv_cache_ortvalues)
     bind_output_data(io_bind_op, session.get_outputs(), use_fp16, device, shared_kv_buffer, kv_cache_ortvalues)
     return io_bind_op
+
+
+def set_tuning_result(session, tuning_op_result):
+    assert isinstance(tuning_op_result, list)
+    session.set_tuning_results(tuning_op_result)
+
+
+def dump_tuning_result(session, tuning_result_path):
+    assert tuning_result_path.endswith(".json")
+    tuning_result = session.get_tuning_results()
+    with Path(tuning_result_path).open("w") as f:
+        json.dump(tuning_result, f, indent=2)

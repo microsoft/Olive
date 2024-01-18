@@ -328,6 +328,49 @@ class TestOliveEvaluator:
             "model", "data_dir", "batch_size", "device", "execution_providers", **(evaluate_func_kwargs or {})
         )
 
+    @patch("onnxruntime.InferenceSession")
+    @patch("onnxruntime.get_available_providers")
+    def test_evaluate_latency_with_tunable_op(self, mock_get_available_providers, inference_session_mock):
+        tuning_result = [
+            {
+                "ep": "ROCMExecutionProvider",
+                "results": {
+                    "onnxruntime::rocm::tunable::blas::internal::GemmTunableOp<__half, ck::tensor_layout::gemm::RowMajor, ck::tensor_layout::gemm::RowMajor>": {  # noqa: E501
+                        "NN_992_4096_4096": 300,
+                        "NN_992_4096_11008": 664,
+                        "NN_984_4096_4096": 1295,
+                    },
+                    "onnxruntime::contrib::rocm::SkipLayerNormTunableOp<__half, float, __half, true>": {
+                        "4096_4620288": 20,
+                        "4096_13697024": 39,
+                        "4096_16744448": 39,
+                    },
+                },
+                "validators": {
+                    "ORT_VERSION": "1.17.0",
+                    "ORT_GIT_COMMIT": "",
+                    "ORT_BUILD_CONFIG": "USE_CK=1|USE_ROCBLAS_EXTENSION_API=1|USE_HIPBLASLT=1|",
+                    "HIP_VERSION": "50731921",
+                    "ROCBLAS_VERSION": "3.1.0.b80e4220-dirty",
+                    "DEVICE_MODEL": "AMD Instinct MI250X/MI250",
+                },
+            }
+        ]
+
+        mock = MagicMock()
+        mock.get_providers.return_value = ["ROCMExecutionProvider"]
+        mock.get_tuning_results.return_value = tuning_result
+        inference_session_mock.return_value = mock
+
+        # setup
+        model = get_onnx_model()
+        model.inference_settings = {}
+        model.inference_settings["tuning_op_result"] = tuning_result
+        evaluator = OnnxEvaluator()
+        latency_metric = get_latency_metric(LatencySubType.AVG)
+        evaluator.evaluate(model, None, [latency_metric], Device.GPU, ["ROCMExecutionProvider"])
+        mock.set_tuning_results.assert_called_with(tuning_result)
+
 
 @pytest.mark.skip(reason="Requires custom onnxruntime build with mpi enabled")
 class TestDistributedOnnxEvaluator:

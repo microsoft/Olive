@@ -418,17 +418,17 @@ def get_benchmark(model, data_root, latency_metric, config, test_params=None, io
             inference_settings["session_options"] = {}
         inference_settings["session_options"]["enable_profiling"] = True
 
-    # set the session_options for metrics so that the evalute will use them by default
-    latency_metric.user_config.io_bind = io_bind
-    latency_metric.user_config.inference_settings = {"onnx": inference_settings}
-
     with tempfile.TemporaryDirectory() as temp_dir:
         if tuning_result_file:
             tuning_result_file = Path(temp_dir) / tuning_result_file
             if tuning_result:
-                with tuning_result_file.open("w") as f:
-                    json.dump(tuning_result, f)
+                inference_settings["tuning_op_result"] = tuning_result
             inference_settings["tuning_result_file"] = str(Path(temp_dir) / tuning_result_file)
+
+        # set the session_options for metrics so that the evalute will use them by default
+        latency_metric.user_config.io_bind = io_bind
+        latency_metric.user_config.inference_settings = {"onnx": inference_settings}
+
         session_name = generate_test_name(test_params, io_bind)
         logger.debug(f"Run benchmark for: {session_name}")
         evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)

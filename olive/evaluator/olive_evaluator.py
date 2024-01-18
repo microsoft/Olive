@@ -3,14 +3,12 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import collections
-import json
 import logging
 import time
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from functools import partial
 from numbers import Number
-from pathlib import Path
 from typing import Any, ClassVar, Dict, List, NamedTuple, Tuple, Type, Union
 
 import numpy as np
@@ -47,7 +45,13 @@ from olive.model import (
     SNPEModelHandler,
 )
 from olive.model.config.io_config import is_io_config_static
-from olive.model.utils.onnx_utils import bind_input_data, bind_output_data, prepare_io_bindings
+from olive.model.utils.onnx_utils import (
+    bind_input_data,
+    bind_output_data,
+    dump_tuning_result,
+    prepare_io_bindings,
+    set_tuning_result,
+)
 from olive.platform_sdk.qualcomm.utils.data_loader import FileListCommonDataLoader, FileListDataLoader
 
 logger = logging.getLogger(__name__)
@@ -424,11 +428,9 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             execution_providers=execution_providers,
         )
 
-        tuning_result_file = inference_settings.get("tuning_result_file")
-        if tuning_result_file and Path(tuning_result_file).exists():
-            with Path(tuning_result_file).open() as f:
-                tuning_result = json.load(f)
-                session.set_tuning_results(tuning_result)
+        tuning_op_result = inference_settings.get("tuning_op_result")
+        if tuning_op_result:
+            set_tuning_result(session, tuning_op_result)
 
         io_config = model.get_io_config()
 
@@ -498,10 +500,9 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         else:
             logits = {k: torch.cat(logits[k], dim=0) for k in output_names}
 
+        tuning_result_file = inference_settings.get("tuning_result_file")
         if tuning_result_file:
-            tuning_result = session.get_tuning_results()
-            with Path(tuning_result_file).open("w") as f:
-                json.dump(tuning_result, f, indent=2)
+            dump_tuning_result(session, tuning_result_file)
         return OliveModelOutput(preds=preds, logits=logits), targets
 
     def _evaluate_onnx_accuracy(
@@ -535,11 +536,9 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             execution_providers=execution_providers,
         )
 
-        tuning_result_file = inference_settings.get("tuning_result_file")
-        if tuning_result_file and Path(tuning_result_file).exists():
-            with Path(tuning_result_file).open() as f:
-                tuning_result = json.load(f)
-                session.set_tuning_results(tuning_result)
+        tuning_op_result = inference_settings.get("tuning_op_result")
+        if tuning_op_result:
+            set_tuning_result(session, tuning_op_result)
 
         io_config = model.get_io_config()
 
@@ -581,10 +580,9 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
                 latencies.append(time.perf_counter() - t)
             time.sleep(sleep_num)
 
+        tuning_result_file = inference_settings.get("tuning_result_file")
         if tuning_result_file:
-            tuning_result = session.get_tuning_results()
-            with Path(tuning_result_file).open("w") as f:
-                json.dump(tuning_result, f, indent=2)
+            dump_tuning_result(session, tuning_result_file)
         return latencies
 
     @staticmethod
