@@ -1,1 +1,5 @@
+output/
+tmp/
+
 mobilenet_config.json
+raw_qnn_sdk_config.json

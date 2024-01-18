@@ -127,3 +127,18 @@ def set_docker_system(olive_config):
             "is_dev": True,
         },
     }
+
+
+def download_azure_blob(container, blob, download_path):
+    from azure.storage.blob import BlobClient
+
+    try:
+        conn_str = os.environ["OLIVEWHEELS_STORAGE_CONNECTION_STRING"]
+    except KeyError as e:
+        raise Exception("Please set the environment variable OLIVEWHEELS_STORAGE_CONNECTION_STRING") from e
+
+    blob = BlobClient.from_connection_string(conn_str=conn_str, container_name=container, blob_name=blob)
+
+    with open(download_path, "wb") as my_blob:  # noqa: PTH123
+        blob_data = blob.download_blob()
+        blob_data.readinto(my_blob)

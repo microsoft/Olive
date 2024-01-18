@@ -5,27 +5,42 @@
 # --------------------------------------------------------------------------
 set -eux
 
-# This script creates a python 3.6 environment in $SNPE_ROOT/olive-pyenv
-# and installs the required packages for SNPE-v2.18.0.240101
+# This script creates a python environment in $QNN_SDK_ROOT/olive-pyenv or $SNPE_ROOT/olive-pyenv
 
-# Usage: ./create_python_env.sh -v/--version <python_version>
+# Usage: ./create_python_env.sh -v/--version <python_version> --sdk <snpe/qnn>
 while [[ "$#" -gt 0 ]]; do
     key="$1"
+
     case $key in
         -v|--version)
             PY_VERSION="$2"
-            shift
-            shift
+            shift # Shift past argument
+            ;;
+        --sdk)
+            SDK="$2"
+            shift # Shift past argument
             ;;
         *)
-            echo "Unknown option: $key"
+            # Handle unknown arguments
+            echo "Unknown argument: $key"
             exit 1
-            ;;
+        ;;
     esac
+    shift # Shift to the next argument
 done
 
+
+if [ "$SDK" == "snpe" ]; then
+    SDK_ROOT=$SNPE_ROOT
+elif [ "$SDK" == "qnn" ]; then
+    SDK_ROOT=$QNN_SDK_ROOT
+else
+    echo "Unknown SDK: $SDK"
+    exit 1
+fi
+
 PY_ENV_NAME=olive-pyenv
-FILES_DIR=$SNPE_ROOT/python-env-setup
+FILES_DIR=$SDK_ROOT/python-env-setup
 rm -rf "$FILES_DIR"
 mkdir "$FILES_DIR"
 
@@ -45,17 +60,17 @@ $CONDA create -y -p "$FILES_DIR"/$PY_ENV_NAME python="$PY_VERSION"
 # Install snpe requirements
 "$FILES_DIR"/$PY_ENV_NAME/bin/python -m pip install --upgrade pip
 if [ "$PY_VERSION" == "3.6" ]; then
-    "$FILES_DIR"/$PY_ENV_NAME/bin/python -m pip install onnx==1.11.0 onnx-simplifier packaging tensorflow==1.15.0 pyyaml
+    "$FILES_DIR"/$PY_ENV_NAME/bin/python -m pip install onnx==1.11.0 onnx-simplifier packaging tensorflow==1.15.0 pyyaml pandas==1.1.5 numpy==1.18.5
 elif [ "$PY_VERSION" == "3.8" ]; then
-    "$FILES_DIR"/$PY_ENV_NAME/bin/python -m pip install onnx onnx-simplifier packaging tensorflow pyyaml
+    "$FILES_DIR"/$PY_ENV_NAME/bin/python -m pip install onnx onnx-simplifier packaging tensorflow pyyaml pandas==1.1.5 numpy==1.18.5
 else
     echo "Unsupported python version: $PY_VERSION, only 3.6 and 3.8 are supported"
     exit 1
 fi
 
 
-rm -rf "${SNPE_ROOT:?}"/$PY_ENV_NAME
-mv "$FILES_DIR"/$PY_ENV_NAME "$SNPE_ROOT"/$PY_ENV_NAME
+rm -rf "${SDK_ROOT:?}"/$PY_ENV_NAME
+mv "$FILES_DIR"/$PY_ENV_NAME "$SDK_ROOT"/$PY_ENV_NAME
 
 # Remove all unnecessary files
 rm -rf "$FILES_DIR"

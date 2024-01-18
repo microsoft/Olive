@@ -25,7 +25,7 @@ def get_dlc_info(dlc_path: str, csv_path: str = None) -> str:
     cmd = f"snpe-dlc-info -i {dlc_path}"
     if csv_path:
         cmd += f" -s {csv_path}"
-    stdout, _ = SNPERunner(dev=True).run(cmd)
+    stdout, _ = SNPERunner(use_dev_tools=True).run(cmd)
 
     prefix = "DLC info for:"
     return prefix + stdout.split(prefix)[1]
@@ -168,7 +168,7 @@ def to_dlc(model_file: str, model_framework: str, config: dict, output_file: str
     if config["extra_args"] is not None:
         cmd += " " + config["extra_args"]
 
-    _, stderr = SNPERunner(dev=True).run(cmd)
+    _, stderr = SNPERunner(use_dev_tools=True).run(cmd)
 
     # check if conversion succeeded
     if "Conversion completed successfully" not in stderr:
@@ -196,7 +196,7 @@ def quantize_dlc(dlc_path: str, input_list: str, config: dict, output_file: str)
     if config["extra_args"] is not None:
         cmd += " " + config["extra_args"]
 
-    _, stderr = SNPERunner(dev=True).run(cmd)
+    _, stderr = SNPERunner(use_dev_tools=True).run(cmd)
 
     # check if quantization succeeded
     if not ("Writing quantized model" in stderr or "Saved quantized dlc" in stderr):
