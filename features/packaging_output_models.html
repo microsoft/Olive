@@ -82,7 +82,10 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#how-to-package-olive-artifacts">How to package Olive artifacts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#how-to-package-olive-artifacts">How to package Olive artifacts</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#models-rank-json-file">Models rank JSON file</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="custom_scripts.html">Custom Scripts</a></li>
@@ -148,7 +151,7 @@
 <p>Olive will output multiple candidate models based on metrics priorities. It also can package output artifacts when the user required. Olive packaging can be used in different scenarios. There is only one packaging type: <code class="docutils literal notranslate"><span class="pre">Zipfile</span></code>.</p>
 <section id="zipfile">
 <h3>Zipfile<a class="headerlink" href="#zipfile" title="Permalink to this heading">¶</a></h3>
-<p>Zipfile packaging will generate a ZIP file which includes 3 folders: <code class="docutils literal notranslate"><span class="pre">CandidateModels</span></code>, <code class="docutils literal notranslate"><span class="pre">SampleCode</span></code> and <code class="docutils literal notranslate"><span class="pre">ONNXRuntimePackages</span></code> in the <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> folder (from Engine Configuration):</p>
+<p>Zipfile packaging will generate a ZIP file which includes 3 folders: <code class="docutils literal notranslate"><span class="pre">CandidateModels</span></code>, <code class="docutils literal notranslate"><span class="pre">SampleCode</span></code> and <code class="docutils literal notranslate"><span class="pre">ONNXRuntimePackages</span></code>, and a <code class="docutils literal notranslate"><span class="pre">models_rank.json</span></code> file in the <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> folder (from Engine Configuration):</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">CandidateModels</span></code>: top ranked output model set</p>
 <ul>
@@ -165,6 +168,7 @@
 </ul>
 </li>
 <li><p><code class="docutils literal notranslate"><span class="pre">ONNXRuntimePackages</span></code>: ONNXRuntime package files with the same version that were used by Olive Engine in this workflow run.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">models_rank.json</span></code>: A JSON file containing a list that ranks all output models based on specific metrics across all accelerators.</p></li>
 </ul>
 <section id="candidatemodels">
 <h4>CandidateModels<a class="headerlink" href="#candidatemodels" title="Permalink to this heading">¶</a></h4>
@@ -235,6 +239,54 @@ Export model in mlflow format. This is <code class="docutils literal notranslate
 <span class="p">}</span>
 </pre></div>
 </div>
+<section id="models-rank-json-file">
+<h3>Models rank JSON file<a class="headerlink" href="#models-rank-json-file" title="Permalink to this heading">¶</a></h3>
+<p>A file that contains a JSON list for ranked model info across all accelerators, e.g.:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;rank&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="s2">&quot;model_config&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;ONNXModel&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;config&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;model_path&quot;</span><span class="p">:</span> <span class="s2">&quot;path/model.onnx&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;inference_settings&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;execution_provider&quot;</span><span class="p">:</span> <span class="p">[</span>
+                        <span class="s2">&quot;CPUExecutionProvider&quot;</span>
+                    <span class="p">],</span>
+                    <span class="s2">&quot;provider_options&quot;</span><span class="p">:</span> <span class="p">[</span>
+                        <span class="p">{}</span>
+                    <span class="p">],</span>
+                    <span class="s2">&quot;io_bind&quot;</span><span class="p">:</span> <span class="n">false</span><span class="p">,</span>
+                    <span class="s2">&quot;session_options&quot;</span><span class="p">:</span> <span class="p">{</span>
+                        <span class="s2">&quot;execution_mode&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+                        <span class="s2">&quot;graph_optimization_level&quot;</span><span class="p">:</span> <span class="mi">99</span><span class="p">,</span>
+                        <span class="s2">&quot;inter_op_num_threads&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+                        <span class="s2">&quot;intra_op_num_threads&quot;</span><span class="p">:</span> <span class="mi">14</span>
+                    <span class="p">}</span>
+                <span class="p">},</span>
+                <span class="s2">&quot;use_ort_extensions&quot;</span><span class="p">:</span> <span class="n">false</span><span class="p">,</span>
+                <span class="s2">&quot;model_attributes&quot;</span><span class="p">:</span> <span class="p">{</span><span class="o">&lt;</span><span class="n">model_attributes</span><span class="o">&gt;</span><span class="p">}</span>
+            <span class="p">}</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;metrics&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;accuracy-accuracy&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="mf">0.8602941176470589</span><span class="p">,</span>
+                <span class="s2">&quot;priority&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+                <span class="s2">&quot;higher_is_better&quot;</span><span class="p">:</span> <span class="n">true</span>
+            <span class="p">},</span>
+            <span class="s2">&quot;latency-avg&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="mf">36.2313</span><span class="p">,</span>
+                <span class="s2">&quot;priority&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+                <span class="s2">&quot;higher_is_better&quot;</span><span class="p">:</span> <span class="n">false</span>
+            <span class="p">},</span>
+        <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="p">{</span><span class="s2">&quot;rank&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;model_config&quot;</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">model_config</span><span class="o">&gt;</span><span class="p">,</span> <span class="s2">&quot;metrics&quot;</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">metrics</span><span class="o">&gt;</span><span class="p">},</span>
+    <span class="p">{</span><span class="s2">&quot;rank&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;model_config&quot;</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">model_config</span><span class="o">&gt;</span><span class="p">,</span> <span class="s2">&quot;metrics&quot;</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">metrics</span><span class="o">&gt;</span><span class="p">}</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+</section>
 </section>
 </section>
 
