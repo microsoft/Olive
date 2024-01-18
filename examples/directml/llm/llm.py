@@ -30,12 +30,17 @@ def set_config_parameters(repo_id: str, num_layers: Optional[int]):
     )
 
     config.hidden_size = pipeline.model.config.hidden_size
-    config.intermediate_size = pipeline.model.config.intermediate_size
+    config.intermediate_size = pipeline.model.config.hidden_size * 4
     config.num_heads = pipeline.model.config.num_attention_heads
-    config.num_key_value_heads = pipeline.model.config.num_key_value_heads
+    #config.num_key_value_heads = pipeline.model.config.num_key_value_heads
     config.num_layers = num_layers or pipeline.model.config.num_hidden_layers
     config.vocab_size = pipeline.model.config.vocab_size
 
+    if hasattr(pipeline.model.config, "multi_query") and pipeline.model.config.multi_query:
+        config.num_key_value_heads = 1
+    else:
+        config.num_key_value_heads = pipeline.model.config.num_key_value_heads
+        
     if hasattr(pipeline.model.config, "rms_norm_eps"):
         config.normalization_type = "rms"
         config.epsilon = pipeline.model.config.rms_norm_eps
@@ -168,7 +173,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_type",
         default="llama-2-7b-chat",
-        choices=["llama-2-7b-chat", "mistral-7b-chat"],
+        choices=["llama-2-7b-chat", "mistral-7b-chat", "falcon"],
         help="Which model to convert.",
         type=str,
     )
@@ -187,6 +192,7 @@ if __name__ == "__main__":
     repo_id = {
         "llama-2-7b-chat": "meta-llama/Llama-2-7b-chat-hf",
         "mistral-7b-chat": "mistralai/Mistral-7B-Instruct-v0.1",
+        "falcon": "tiiuae/falcon-7b-instruct",
     }[args.model_type]
 
     model_name = repo_id.replace("/", "_")
