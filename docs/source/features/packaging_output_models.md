@@ -5,7 +5,7 @@ Olive will output multiple candidate models based on metrics priorities. It also
 
 
 ### Zipfile
-Zipfile packaging will generate a ZIP file which includes 3 folders: `CandidateModels`, `SampleCode` and `ONNXRuntimePackages` in the `output_dir` folder (from Engine Configuration):
+Zipfile packaging will generate a ZIP file which includes 3 folders: `CandidateModels`, `SampleCode` and `ONNXRuntimePackages`, and a `models_rank.json` file in the `output_dir` folder (from Engine Configuration):
 * `CandidateModels`: top ranked output model set
     * Model file
     * Olive Pass run history configurations for candidate model
@@ -15,6 +15,7 @@ Zipfile packaging will generate a ZIP file which includes 3 folders: `CandidateM
     * C#
     * Python
 * `ONNXRuntimePackages`: ONNXRuntime package files with the same version that were used by Olive Engine in this workflow run.
+* `models_rank.json`: A JSON file containing a list that ranks all output models based on specific metrics across all accelerators.
 
 #### CandidateModels
 `CandidateModels` includes k folders where k is the number of output models, with name `BestCandidateModel_1`, `BestCandidateModel_2`, ... and `BestCandidateModel_k`. The order is ranked by metrics priorities. e.g., if you have 3 metrics `metric_1`, `metric_2` and `metric_3` with priority `1`, `2` and `3`. The output models will be sorted firstly by `metric_1`. If the value of `metric_1` of 2 output models are same, they will be sorted by `metric_2`, and followed by next lower priority metric.
@@ -79,4 +80,51 @@ You can add `PackagingConfig` to Engine configurations. e.g.:
     "clean_cache": true,
     "cache_dir": "cache"
 }
+```
+
+#### Models rank JSON file
+A file that contains a JSON list for ranked model info across all accelerators, e.g.:
+```
+[
+    {
+        "rank": 1,
+        "model_config": {
+            "type": "ONNXModel",
+            "config": {
+                "model_path": "path/model.onnx",
+                "inference_settings": {
+                    "execution_provider": [
+                        "CPUExecutionProvider"
+                    ],
+                    "provider_options": [
+                        {}
+                    ],
+                    "io_bind": false,
+                    "session_options": {
+                        "execution_mode": 1,
+                        "graph_optimization_level": 99,
+                        "inter_op_num_threads": 1,
+                        "intra_op_num_threads": 14
+                    }
+                },
+                "use_ort_extensions": false,
+                "model_attributes": {<model_attributes>}
+            }
+        },
+        "metrics": {
+            "accuracy-accuracy": {
+                "value": 0.8602941176470589,
+                "priority": 1,
+                "higher_is_better": true
+            },
+            "latency-avg": {
+                "value": 36.2313,
+                "priority": 2,
+                "higher_is_better": false
+            },
+        }
+    },
+    {"rank": 2, "model_config": <model_config>, "metrics": <metrics>},
+    {"rank": 3, "model_config": <model_config>, "metrics": <metrics>}
+]
 ```

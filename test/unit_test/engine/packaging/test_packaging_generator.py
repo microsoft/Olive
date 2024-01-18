@@ -3,7 +3,9 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
+import shutil
 import zipfile
+from pathlib import Path
 from test.unit_test.utils import get_accuracy_metric, get_pytorch_model_config
 from unittest.mock import patch
 
@@ -65,9 +67,9 @@ def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, m
     assert artifacts_path.exists()
     with zipfile.ZipFile(artifacts_path) as zip_ref:
         zip_ref.extractall(output_dir)
-    assert (output_dir / "SampleCode").exists()
-    assert (output_dir / "CandidateModels").exists()
-    assert (output_dir / "ONNXRuntimePackages").exists()
+    verify_output_artifacts(output_dir)
+    models_rank_path = output_dir / "models_rank.json"
+    verify_models_rank_json_file(models_rank_path)
 
     # contain the evaluation result
     candidate_model_path = output_dir / "CandidateModels" / "cpu-cpu" / "BestCandidateModel_1"
@@ -84,6 +86,9 @@ def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, m
         metrics = json.load(f)
         assert "input_model_metrics" in metrics
         assert "candidate_model_metrics" in metrics
+
+    # clean up
+    shutil.rmtree(output_dir)
 
 
 def test_generate_zipfile_artifacts_no_search(tmp_path):
@@ -118,9 +123,12 @@ def test_generate_zipfile_artifacts_no_search(tmp_path):
     assert artifacts_path.exists()
     with zipfile.ZipFile(artifacts_path) as zip_ref:
         zip_ref.extractall(output_dir)
-    assert (output_dir / "SampleCode").exists()
-    assert (output_dir / "CandidateModels").exists()
-    assert (output_dir / "ONNXRuntimePackages").exists()
+    verify_output_artifacts(output_dir)
+    models_rank_path = output_dir / "models_rank.json"
+    verify_models_rank_json_file(models_rank_path)
+
+    # clean up
+    shutil.rmtree(output_dir)
 
 
 def test_generate_zipfile_artifacts_mlflow(tmp_path):
@@ -156,10 +164,13 @@ def test_generate_zipfile_artifacts_mlflow(tmp_path):
     assert artifacts_path.exists()
     with zipfile.ZipFile(artifacts_path) as zip_ref:
         zip_ref.extractall(output_dir)
-    assert (output_dir / "SampleCode").exists()
-    assert (output_dir / "CandidateModels").exists()
-    assert (output_dir / "ONNXRuntimePackages").exists()
+    verify_output_artifacts(output_dir)
+    models_rank_path = output_dir / "models_rank.json"
+    verify_models_rank_json_file(models_rank_path)
     assert (output_dir / "CandidateModels" / "cpu-cpu" / "BestCandidateModel_1" / "mlflow_model").exists()
+
+    # clean up
+    shutil.rmtree(output_dir)
 
 
 def test_generate_zipfile_artifacts_none_nodes(tmp_path):
@@ -202,3 +213,16 @@ def test_generate_zipfile_artifacts_zero_len_nodes(tmp_path):
     # assert
     artifacts_path = output_dir / "OutputModels.zip"
     assert not artifacts_path.exists()
+
+
+def verify_output_artifacts(output_dir):
+    assert (output_dir / "SampleCode").exists()
+    assert (output_dir / "CandidateModels").exists()
+    assert (output_dir / "models_rank.json").exists()
+    assert (output_dir / "ONNXRuntimePackages").exists()
+
+
+def verify_models_rank_json_file(file_path):
+    with Path.open(file_path) as file:
+        data = json.load(file)
+    assert data is not None
