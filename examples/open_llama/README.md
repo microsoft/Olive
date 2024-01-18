@@ -102,6 +102,24 @@ Note: You must be logged in to HuggingFace using `huggingface-cli login` to down
 
 Requirements file: [requirements-lora.txt](requirements-lora.txt)
 
+**Train using ONNX Runtime Training**
+You can also train the model using [ONNX Runtime Training](https://techcommunity.microsoft.com/t5/ai-machine-learning-blog/onnx-runtime-training-technical-deep-dive/ba-p/1398310).
+
+The relevant config file is [open_llama_qlora_ort_tinycodes.json](open_llama_qlora_ort_tinycodes.json).
+
+Requirements file: [requirements-qlora-ort.txt](requirements-qlora-ort.txt)
+
+It also requires the latest version of onnxruntime-training:
+```bash
+python -m pip uninstall -y onnxruntime onnxruntime-gpu ort-nightly ort-nightly-gpu
+python -m pip install onnxruntime-training --pre --upgrade --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
+```
+
+Configure `torch-ort`:
+```bash
+python -m torch_ort.configure
+```
+
 ### Optimizing Open Llama Model with Azure Arc
 This workflow optimizes Open Llama model on Azure ML compute, and evaluate output models on your device. Please connect your device to Azure Arc by following instruction: [Self-hosted Kubernetes cluster](https://microsoft.github.io/Olive/tutorials/azure_arc.html)
 
@@ -114,7 +132,7 @@ This workflow compresses Open Llama model with 4-bits weight-only quantization u
 
 This example config file is [open_llama_inc_woq.json](open_llama_inc_woq.json).
 
-Requirements file: [requirements-woq.txt](requirements-arc.txt)
+Requirements file: [requirements-woq.txt](requirements-woq.txt). Skip installing LLM runtime of  `intel-extension-for-transformers` with this command `SKIP_RUNTIME=True pip install -r requirements-woq.txt`
 
 #### Prerequisites
 
@@ -187,46 +205,46 @@ The following table shows the accuracy and perplexity results of Open Llama mode
   <tr>
     <td rowspan="2">openlm-research/open_llama_3b</td>
     <td>FP32</td>
-    <td>0.6637</td>
-    <td>4.8496</td>
+    <td>0.6647</td>
+    <td>4.8445</td>
     <td>/</td>
   </tr>
   <tr>
     <td>GPTQ<br>W4G32Asym</td>
-    <td>0.6579</td>
-    <td>4.9773</td>
-    <td>99.13%</td>
+    <td>0.6569</td>
+    <td>4.9937</td>
+    <td>98.82%</td>
   </tr>
   <tr>
     <td rowspan="2">openlm-research/open_llama_7b</td>
     <td>FP32</td>
-    <td>0.7044</td>
-    <td>3.9716</td>
+    <td>0.7041</td>
+    <td>3.9686</td>
     <td>/</td>
   </tr>
   <tr>
-    <td>GPTQ<br>W4G32Sym</td>
-    <td>0.7017</td>
-    <td>4.1320</td>
-    <td>99.62%</td>
+    <td>RTN<br>W4G32Asym</td>
+    <td>0.6887</td>
+    <td>4.1749</td>
+    <td>97.81%</td>
   </tr>
   <tr>
     <td rowspan="2">openlm-research/open_llama_13b</td>
     <td>FP32</td>
     <td>0.7213</td>
-    <td>3.5728</td>
+    <td>3.5750</td>
     <td>/</td>
   </tr>
   <tr>
     <td>RTN<br>W4G32Sym</td>
-    <td>0.7174</td>
-    <td>3.7322</td>
-    <td>99.36%</td>
+    <td>0.7169</td>
+    <td>3.7339</td>
+    <td>99.39%</td>
   </tr>
 </tbody>
 </table>
 
-> Note: The above results are obtained using onnxruntime built from source code with the `sub_byte_quant_zp` branch, which enables support for the `MatMulWithQuantWeight` op. Weight-only quantization in Intel® Neural Compressor is still under development. We encourage you to use the master branch to access the latest features.
+> Note: The above results are obtained using `onnxruntime==1.16.3`, which supports the `MatMulNBits` op. Tested by Intel(R) Xeon(R) Platinum 8375c CPU @2.9GHz
 
 
 ## How to run

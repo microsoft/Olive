@@ -11,11 +11,11 @@ Stable Diffusion XL comprises multiple PyTorch models tied together into a *pipe
 - [Issues](#issues)
 - [Stable Diffusion Pipeline](#stable-diffusion-pipeline)
 
-# Setup
+## Setup
 
 Olive is currently under pre-release, with constant updates and improvements to the functions and usage. This sample code will be frequently updated as Olive evolves, so it is important to install Olive from source when checking out this code from the main branch. See the [README for examples](https://github.com/microsoft/Olive/blob/main/examples/README.md#important) for detailed instructions on how to do this.
 
-# Conversion to ONNX and Latency Optimization
+## Conversion to ONNX and Latency Optimization
 
 The easiest way to optimize the pipeline is with the `stable_diffusion_xl.py` helper script. For SDXL Base, run the following:
 
@@ -39,7 +39,7 @@ Once the script successfully completes:
 
 Re-running the script with `--optimize` will delete the output models, but it will *not* delete the Olive cache. Subsequent runs will complete much faster since it will simply be copying previously optimized models; you may use the `--clean_cache` option to start from scratch (not typically used unless you are modifying the scripts, for example).
 
-# Test Inference
+## Test Inference
 
 This sample code is primarily intended to illustrate model optimization with Olive, but it also provides a simple interface for testing inference with the ONNX models. Inference is done by creating an `OnnxStableDiffusionPipeline` from the saved models, which leans on ONNX runtime for inference of the core models (text encoder, u-net and decoder).
 
@@ -60,7 +60,7 @@ Generated result_1.png
 Inference Batch End.
 ```
 
-Inference will loop until the generated image passes the safety checker (otherwise you would see black images). The result will be saved as `result_<i>.png` on disk, which is then loaded and displayed in the UI.
+The result will be saved as `result_<i>.png` on disk, which is then loaded and displayed in the UI.
 
 Run `python stable_diffusion_xl.py --help` for additional options. A few particularly relevant ones:
 - `--model_id <string>` : name of a stable diffusion model ID hosted by huggingface.co. This script has been tested with the following:
@@ -74,15 +74,19 @@ If you omit `--interactive`, the script will generate the requested number of im
 
 The minimum number of inferences will be `ceil(num_images / batch_size)`; additional inferences may be required of some outputs are flagged by the safety checker to ensure the desired number of outputs are produced.
 
-# Issues
+## Issues
 
-If you run into the following error while optimizing models, it is likely that your local HuggingFace cache has an incomplete copy of the stable diffusion model pipeline. Deleting `C:\users\<username>\.cache\huggingface` should resolve the issue by ensuring a fresh copy is downloaded.
+- If you run into the following error while optimizing models, it is likely that your local HuggingFace cache has an incomplete copy of the stable diffusion model pipeline. Deleting `C:\users\<username>\.cache\huggingface` should resolve the issue by ensuring a fresh copy is downloaded.
 
-```
-OSError: Can't load tokenizer for 'C:\Users\<username>\.cache\huggingface\hub\models--stabilityai--stable-diffusion-xl-base-1.0\snapshots\<sha>'. If you were trying to load it from 'https://huggingface.co/models', make sure you don't have a local directory with the same name. Otherwise, make sure 'C:\Users\<username>\.cache\huggingface\hub\models--stabilityai--stable-diffusion-xl-base-1.0\snapshots\<sha>' is the correct path to a directory containing all relevant files for a CLIPTokenizer tokenizer.
-```
+  ```
+  OSError: Can't load tokenizer for 'C:\Users\<username>\.cache\huggingface\hub\models--stabilityai--stable-diffusion-xl-base-1.0\snapshots\<sha>'. If you were trying to load it from 'https://huggingface.co/models', make sure you don't have a local directory with the same name. Otherwise, make sure 'C:\Users\<username>\.cache\huggingface\hub\models--stabilityai--stable-diffusion-xl-base-1.0\snapshots\<sha>' is the correct path to a directory containing all relevant files for a CLIPTokenizer tokenizer.
+  ```
 
-# Stable Diffusion Pipeline
+- If you want to use `stabilityai/stable-diffusion-xl-base-1.0` for image-to-image pipeline, set `"float16": false` in `config_vae_encoder.json`. Otherwise, the output image will be black.
+
+- Onnx conversion for unet terminates silently without any error message. This could be because your system ran out of disk space in the temp directory. You can add `--tempdir .` to the command line to use the current directory as the temp directory root. `.` can be replaced with any other directory with sufficient disk space and write permission.
+
+## Stable Diffusion Pipeline
 
 The figure below is a high-level overview of the Stable Diffusion pipeline, and is based on a figure from [Hugging Face Blog](https://huggingface.co/blog/stable_diffusion) that covers Stable Diffusion with Diffusers library. The blue boxes are the converted & optimized ONNX models. The gray boxes remain implemented by diffusers library when using this example for inference; a custom pipeline may implement the full pipeline without leveraging Python or the diffusers library.
 

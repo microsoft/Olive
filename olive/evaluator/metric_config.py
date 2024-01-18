@@ -6,9 +6,8 @@
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Union
 
-from pydantic import validator
-
 from olive.common.config_utils import ConfigBase, ConfigParam, ParamCategory, create_config_class
+from olive.common.pydantic_v1 import validator
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 WARMUP_NUM = 10
@@ -34,6 +33,10 @@ _common_user_config_validators = {}
 
 _type_to_user_config = {
     "latency": {
+        # TODO(anyone): extract io_bind to a _common_user_config
+        "io_bind": ConfigParam(type_=bool, default_value=False),
+    },
+    "throughput": {
         "io_bind": ConfigParam(type_=bool, default_value=False),
     },
     "accuracy": {
@@ -51,7 +54,7 @@ _type_to_user_config_validators = {}
 
 def get_user_config_class(metric_type: str):
     default_config = _common_user_config.copy()
-    default_config.update(_type_to_user_config[metric_type])
+    default_config.update(_type_to_user_config.get(metric_type, {}))
     validators = _common_user_config_validators.copy()
     validators.update(_type_to_user_config_validators.get(metric_type, {}))
     return create_config_class(f"{metric_type.title()}UserConfig", default_config, ConfigBase, validators)
@@ -65,6 +68,12 @@ def get_user_config_properties_from_metric_type(metric_type):
 
 # TODO(jambayk): automate latency metric config also we standardize accuracy metric config
 class LatencyMetricConfig(ConfigBase):
+    warmup_num: int = WARMUP_NUM
+    repeat_test_num: int = REPEAT_TEST_NUM
+    sleep_num: int = SLEEP_NUM
+
+
+class ThroughputMetricConfig(ConfigBase):
     warmup_num: int = WARMUP_NUM
     repeat_test_num: int = REPEAT_TEST_NUM
     sleep_num: int = SLEEP_NUM

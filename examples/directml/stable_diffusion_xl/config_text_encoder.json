@@ -82,6 +82,7 @@
             "disable_search": true,
             "config": {
                 "model_type": "clip",
+                "opt_level": 0,
                 "float16": true,
                 "use_gpu": true,
                 "keep_io_types": true,
@@ -111,8 +112,22 @@
                     "GroupNorm": [0, 1, 2]
                 }
             }
+        },
+        "optimize_cuda": {
+            "type": "OrtTransformersOptimization",
+            "disable_search": true,
+            "config": {
+                "model_type": "clip",
+                "opt_level": 0,
+                "float16": true,
+                "use_gpu": true,
+                "keep_io_types": true
+            }
         }
     },
+    "pass_flows": [
+        ["convert", "optimize"]
+    ],
     "engine": {
         "search_strategy": {
             "execution_order": "joint",

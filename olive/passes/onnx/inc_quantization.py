@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-import os
 import tempfile
 from copy import deepcopy
 from pathlib import Path
@@ -18,7 +17,8 @@ from olive.evaluator.metric import Metric, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
 from olive.exception import OlivePassError
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import ONNXModel
+from olive.model import ONNXModelHandler
+from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import ParamCategory, PassConfigParam
@@ -467,8 +467,8 @@ class IncQuantization(Pass):
         return {"bits": bits, "group_size": group_size, "scheme": scheme, "algorithm": algo}
 
     def _run_for_config(
-        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> ONNXModel:
+        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> ONNXModelHandler:
         try:
             from neural_compressor import quantization
             from neural_compressor.config import PostTrainingQuantConfig
@@ -495,7 +495,7 @@ class IncQuantization(Pass):
                 config["dataloader_func"] or config["data_config"]
             ), "dataloader_func or data_config is required for {} quantization.".format(run_config["approach"])
 
-        output_model_path = ONNXModel.resolve_path(os.path.join(output_model_path, os.path.basename(model.model_path)))
+        output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
         eval_func, accuracy_criterion, tuning_criterion = self._set_tuning_config(run_config, data_root)
         weight_only_config = self._set_woq_config(run_config)

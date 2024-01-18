@@ -12,8 +12,7 @@ from typing import Any, Dict, Optional, Tuple
 import torch
 import torch.nn.functional as F
 
-from olive.hardware import AcceleratorSpec
-from olive.passes.pytorch.tensor_parallel import PyTorchTensorParallel
+from olive.passes.pytorch.tensor_parallel import TensorParallel
 from olive.passes.pytorch.tensor_parallel_layers import TensorParallelColumnLinear, TensorParallelRowLinear
 
 logger = logging.getLogger(__name__)
@@ -28,14 +27,21 @@ def tp_llama_mlp_init(self, config):
     self.config = config
     self.hidden_size = config.hidden_size
     self.intermediate_size = config.intermediate_size
+    self.world_size = config.world_size if hasattr(config, "world_size") else 1
 
     # Original
     # self.gate_proj = nn.Linear(self.hidden_size, self.intermediate_size, bias=False)
     # self.up_proj = nn.Linear(self.hidden_size, self.intermediate_size, bias=False)
     # self.down_proj = nn.Linear(self.intermediate_size, self.hidden_size, bias=False)
-    self.gate_proj = TensorParallelColumnLinear(self.hidden_size, self.intermediate_size, bias=False)
-    self.up_proj = TensorParallelColumnLinear(self.hidden_size, self.intermediate_size, bias=False)
-    self.down_proj = TensorParallelRowLinear(self.intermediate_size, self.hidden_size, bias=False)
+    self.gate_proj = TensorParallelColumnLinear(
+        self.hidden_size, self.intermediate_size, bias=False, world_size=self.world_size
+    )
+    self.up_proj = TensorParallelColumnLinear(
+        self.hidden_size, self.intermediate_size, bias=False, world_size=self.world_size
+    )
+    self.down_proj = TensorParallelRowLinear(
+        self.intermediate_size, self.hidden_size, bias=False, world_size=self.world_size
+    )
 
     self.act_fn = ACT2FN[config.hidden_act]
 
@@ -52,6 +58,7 @@ def tp_llama_attention_init(self, config):
     self.num_key_value_groups = self.num_heads // self.num_key_value_heads
     self.max_position_embeddings = config.max_position_embeddings
     self.rope_theta = config.rope_theta
+    self.world_size = config.world_size if hasattr(config, "world_size") else 1
 
     if (self.head_dim * self.num_heads) != self.hidden_size:
         raise ValueError(
@@ -64,10 +71,18 @@ def tp_llama_attention_init(self, config):
     # self.k_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=False)
     # self.v_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=False)
     # self.o_proj = nn.Linear(self.num_heads * self.head_dim, self.hidden_size, bias=False)
-    self.q_proj = TensorParallelColumnLinear(self.hidden_size, self.num_heads * self.head_dim, bias=False)
-    self.k_proj = TensorParallelColumnLinear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=False)
-    self.v_proj = TensorParallelColumnLinear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=False)
-    self.o_proj = TensorParallelRowLinear(self.num_heads * self.head_dim, self.hidden_size, bias=False)
+    self.q_proj = TensorParallelColumnLinear(
+        self.hidden_size, self.num_heads * self.head_dim, bias=False, world_size=self.world_size
+    )
+    self.k_proj = TensorParallelColumnLinear(
+        self.hidden_size, self.num_key_value_heads * self.head_dim, bias=False, world_size=self.world_size
+    )
+    self.v_proj = TensorParallelColumnLinear(
+        self.hidden_size, self.num_key_value_heads * self.head_dim, bias=False, world_size=self.world_size
+    )
+    self.o_proj = TensorParallelRowLinear(
+        self.num_heads * self.head_dim, self.hidden_size, bias=False, world_size=self.world_size
+    )
 
     self._init_rope()  # pylint: disable=protected-access
 
@@ -133,9 +148,11 @@ def tp_llama_attention_forward(
         key_states = self.k_proj(hidden_states)
         value_states = self.v_proj(hidden_states)
 
-    query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
-    key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-    value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+    query_states = query_states.view(bsz, q_len, self.num_heads // self.world_size, self.head_dim).transpose(1, 2)
+    key_states = key_states.view(bsz, q_len, self.num_key_value_heads // self.world_size, self.head_dim).transpose(1, 2)
+    value_states = value_states.view(bsz, q_len, self.num_key_value_heads // self.world_size, self.head_dim).transpose(
+        1, 2
+    )
 
     kv_seq_len = key_states.shape[-2]
     if past_key_value is not None:
@@ -157,9 +174,9 @@ def tp_llama_attention_forward(
 
     attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(self.head_dim)
 
-    if attn_weights.size() != (bsz, self.num_heads, q_len, kv_seq_len):
+    if attn_weights.size() != (bsz, self.num_heads // self.world_size, q_len, kv_seq_len):
         raise ValueError(
-            f"Attention weights should be of size {(bsz, self.num_heads, q_len, kv_seq_len)}, but is"
+            f"Attention weights should be of size {(bsz, self.num_heads // self.world_size, q_len, kv_seq_len)}, but is"
             f" {attn_weights.size()}"
         )
 
@@ -171,12 +188,14 @@ def tp_llama_attention_forward(
         attn_weights = attn_weights + attention_mask
 
     # upcast attention to fp32
-    attn_weights = torch.nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
+    attn_weights = F.softmax(attn_weights, dim=-1, dtype=torch.float32).to(  # pylint: disable=not-callable
+        query_states.dtype
+    )
     attn_output = torch.matmul(attn_weights, value_states)
 
-    if attn_output.size() != (bsz, self.num_heads, q_len, self.head_dim):
+    if attn_output.size() != (bsz, self.num_heads // self.world_size, q_len, self.head_dim):
         raise ValueError(
-            f"`attn_output` should be of size {(bsz, self.num_heads, q_len, self.head_dim)}, but is"
+            f"`attn_output` should be of size {(bsz, self.num_heads // self.world_size, q_len, self.head_dim)}, but is"
             f" {attn_output.size()}"
         )
 
@@ -201,69 +220,79 @@ def tp_llama_attention_forward(
     return attn_output, attn_weights, past_key_value
 
 
-def tp_llama_attention_parallel_split(self, ws):
-    self.num_heads = self.num_heads // ws
-    self.num_key_value_heads = self.num_key_value_heads // ws
+def tp_llama_attention_parallel_split(self, world_size):
+    self.num_heads = self.num_heads // world_size
+    self.num_key_value_heads = self.num_key_value_heads // world_size
 
 
-class LlamaPyTorchTensorParallel(PyTorchTensorParallel):
-    def __init__(
-        self, accelerator_spec: AcceleratorSpec, config: Dict[str, Any], disable_search: Optional[bool] = False
-    ):
-        from transformers.models import llama
+def replace_llama2_tensor_parallel_layers():
+    from transformers.models import llama
 
-        super().__init__(accelerator_spec, config, disable_search)
-        self.mlp_init = llama.modeling_llama.LlamaMLP.__init__
-        self.attention_init = llama.modeling_llama.LlamaAttention.__init__
-        self.attention_forward = llama.modeling_llama.LlamaAttention.forward
-        self.apply_rotary_pos_emb = llama.modeling_llama.apply_rotary_pos_emb
+    originals = {
+        "mlp_init": llama.modeling_llama.LlamaMLP.__init__,
+        "attention_init": llama.modeling_llama.LlamaAttention.__init__,
+        "attention_forward": llama.modeling_llama.LlamaAttention.forward,
+        "parallel_split": None,
+        "apply_rotary_pos_emb": llama.modeling_llama.apply_rotary_pos_emb,
+        "uniform_": torch.nn.init.uniform_,
+        "kaiming_normal_": torch.nn.init.kaiming_normal_,
+        "kaiming_uniform_": torch.nn.init.kaiming_uniform_,
+    }
 
-        self.uniform_ = torch.nn.init.uniform_
-        self.kaiming_normal_ = torch.nn.init.kaiming_normal_
-        self.kaiming_uniform_ = torch.nn.init.kaiming_uniform_
+    llama.modeling_llama.LlamaMLP.__init__ = tp_llama_mlp_init
+    llama.modeling_llama.LlamaAttention.__init__ = tp_llama_attention_init
+    llama.modeling_llama.LlamaAttention.forward = tp_llama_attention_forward
+    llama.modeling_llama.LlamaAttention.parallel_split = tp_llama_attention_parallel_split
+    llama.modeling_llama.apply_rotary_pos_emb = tp_llama_apply_rotary_pos_emb
+
+    torch.nn.init.uniform_ = lambda x, *args, **kwargs: x
+    torch.nn.init.kaiming_normal_ = lambda x, *args, **kwargs: x
+    torch.nn.init.kaiming_uniform_ = lambda x, *args, **kwargs: x
+
+    return originals
+
+
+def restore_llama2_tensor_parallel_layers(originals: Dict[str, Any]):
+    from transformers.models import llama
+
+    llama.modeling_llama.LlamaMLP.__init__ = originals["mlp_init"]
+    llama.modeling_llama.LlamaAttention.__init__ = originals["attention_init"]
+    llama.modeling_llama.LlamaAttention.forward = originals["attention_forward"]
+    llama.modeling_llama.LlamaAttention.parallel_split = originals["parallel_split"]
+    llama.modeling_llama.apply_rotary_pos_emb = originals["apply_rotary_pos_emb"]
+
+    torch.nn.init.uniform_ = originals["uniform_"]
+    torch.nn.init.kaiming_normal_ = originals["kaiming_normal_"]
+    torch.nn.init.kaiming_uniform_ = originals["kaiming_uniform_"]
+
+
+class LlamaPyTorchTensorParallel(TensorParallel):
+    def __init__(self, rank: int, world_size: int):
+        super().__init__(rank, world_size)
+        self.originals = {}
 
     def replace_layers(self):
-        from transformers.models import llama
-
-        llama.modeling_llama.LlamaMLP.__init__ = tp_llama_mlp_init
-        llama.modeling_llama.LlamaAttention.__init__ = tp_llama_attention_init
-        llama.modeling_llama.LlamaAttention.forward = tp_llama_attention_forward
-        llama.modeling_llama.LlamaAttention.parallel_split = tp_llama_attention_parallel_split
-        llama.modeling_llama.apply_rotary_pos_emb = tp_llama_apply_rotary_pos_emb
-
-        torch.nn.init.uniform_ = lambda x, *args, **kwargs: x
-        torch.nn.init.kaiming_normal_ = lambda x, *args, **kwargs: x
-        torch.nn.init.kaiming_uniform_ = lambda x, *args, **kwargs: x
+        self.originals = replace_llama2_tensor_parallel_layers()
 
     def restore_layers(self):
-        from transformers.models import llama
+        restore_llama2_tensor_parallel_layers(self.originals)
 
-        llama.modeling_llama.LlamaMLP.__init__ = self.mlp_init
-        llama.modeling_llama.LlamaAttention.__init__ = self.attention_init
-        llama.modeling_llama.LlamaAttention.forward = self.attention_forward
-        llama.modeling_llama.LlamaAttention.parallel_split = None
-        llama.modeling_llama.apply_rotary_pos_emb = self.apply_rotary_pos_emb
-
-        torch.nn.init.uniform_ = self.uniform_
-        torch.nn.init.kaiming_normal_ = self.kaiming_normal_
-        torch.nn.init.kaiming_uniform_ = self.kaiming_uniform_
-
-    def split_weights(self, model: torch.nn.Module, world_size: int):
+    def split_weights(self, model: torch.nn.Module):
         from transformers.models.llama.modeling_llama import LlamaAttention
 
-        def _split_model(m):
-            if isinstance(m, (TensorParallelColumnLinear, TensorParallelRowLinear, LlamaAttention)):
-                m.parallel_split(world_size)
+        def _split_weights(m):
+            if isinstance(m, LlamaAttention):
+                m.parallel_split(self.world_size)
 
             for mm in m._modules.values():  # pylint: disable=protected-access
-                _split_model(mm)
+                _split_weights(mm)
 
-        _split_model(model)
+        _split_weights(model)
 
-    def load_rank_weights(self, model: torch.nn.Module, rank: int, world_size: int):
+    def load_rank_weights(self, model: torch.nn.Module):
         def _load_rank_weights(m):
             if isinstance(m, (TensorParallelColumnLinear, TensorParallelRowLinear)):
-                m.load_rank_weights(rank, world_size)
+                m.load_rank_weights(self.rank, self.world_size)
 
             for mm in m._modules.values():  # pylint: disable=protected-access
                 _load_rank_weights(mm)

@@ -4,15 +4,16 @@
 # --------------------------------------------------------------------------
 import logging
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Tuple, Union
-
-from pydantic import validator
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 from olive.common.config_utils import ConfigBase, validate_config
-from olive.evaluator.metric import MetricResult
+from olive.common.pydantic_v1 import validator
 from olive.strategy.search_algorithm import REGISTRY, SearchAlgorithm
-from olive.strategy.search_parameter import SearchParameter
 from olive.strategy.search_results import SearchResults
+
+if TYPE_CHECKING:
+    from olive.evaluator.metric import MetricResult
+    from olive.strategy.search_parameter import SearchParameter
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,7 @@ class SearchStrategy:
 
     def initialize(
         self,
-        pass_flows_search_spaces: List[List[Tuple[str, Dict[str, SearchParameter]]]],
+        pass_flows_search_spaces: List[List[Tuple[str, Dict[str, "SearchParameter"]]]],
         init_model_id: str,
         objective_dict: Dict[str, dict],
     ):
@@ -244,7 +245,7 @@ class SearchStrategy:
     def record_feedback_signal(
         self,
         search_point: Dict[str, Dict[str, Any]],
-        signal: MetricResult,
+        signal: "MetricResult",
         model_ids: List[str],
         should_prune: bool = False,
     ):

@@ -3,12 +3,14 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from copy import deepcopy
-from typing import Any, Dict, List, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Tuple
 
 import numpy as np
 
 from olive.common.utils import hash_dict
-from olive.evaluator.metric import MetricResult
+
+if TYPE_CHECKING:
+    from olive.evaluator.metric import MetricResult
 
 
 class SearchResults:
@@ -39,14 +41,14 @@ class SearchResults:
         self.results = {}
         self.model_ids = {}
 
-    def record(self, search_point: Dict[str, Dict[str, Any]], result: MetricResult, model_ids: List[str]):
+    def record(self, search_point: Dict[str, Dict[str, Any]], result: "MetricResult", model_ids: List[str]):
         """Report the result of a configuration."""
         search_point_hash = hash_dict(search_point)
         self.search_point_hash_table[search_point_hash] = deepcopy(search_point)
         self.results[search_point_hash] = deepcopy(result)
         self.model_ids[search_point_hash] = model_ids
 
-    def check_goals(self, result: MetricResult) -> bool:
+    def check_goals(self, result: "MetricResult") -> bool:
         """Check if the result satisfies the constraints."""
         # if goals are not set, return True always
         if not self.goals:

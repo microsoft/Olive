@@ -11,7 +11,7 @@ import pytest
 from olive.constants import Framework
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricResult, MetricType, joint_metric_key
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
-from olive.model import PyTorchModel
+from olive.model import PyTorchModelHandler
 from olive.systems.local import LocalSystem
 
 # pylint: disable=attribute-defined-outside-init
@@ -25,7 +25,7 @@ class TestLocalSystem:
     def test_run_pass(self):
         # setup
         p = MagicMock()
-        p.run.return_value = PyTorchModel("model_path")
+        p.run.return_value = PyTorchModelHandler("model_path")
         olive_model = MagicMock()
         output_model_path = "output_model_path"
 

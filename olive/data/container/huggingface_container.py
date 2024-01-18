@@ -31,4 +31,8 @@ class HuggingfaceContainer(DataContainer):
             DataComponentType.PRE_PROCESS_DATA.value: "text_generation_huggingface_pre_process",
             DataComponentType.POST_PROCESS_DATA.value: "text_generation_post_process",
         },
+        "audio-classification": {
+            DataComponentType.PRE_PROCESS_DATA.value: "audio_classification_pre_process",
+            DataComponentType.POST_PROCESS_DATA.value: "text_classification_post_process",
+        },
     }

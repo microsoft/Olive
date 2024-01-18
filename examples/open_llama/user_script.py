@@ -12,7 +12,7 @@ from datasets import load_dataset
 from transformers import AutoConfig, LlamaTokenizer
 
 from olive.constants import Framework
-from olive.model import OliveModel
+from olive.model import OliveModelHandler
 
 model_id = "openlm-research/open_llama_3b"
 config = AutoConfig.from_pretrained(model_id)
@@ -82,7 +82,7 @@ class PileDataloader:
             for item in Path(model_path).parent.parent.glob("**/decoder_model.onnx"):
                 decoder_model_path = item.resolve()
                 break
-            self.sess = ort.InferenceSession(decoder_model_path)
+            self.sess = ort.InferenceSession(decoder_model_path, providers=["CPUExecutionProvider"])
 
     def __iter__(self):
         try:
@@ -129,7 +129,7 @@ def calib_dataloader(data_dir, batch_size, *args, **kwargs):
     return PileDataloader(model_path, batch_size=batch_size)
 
 
-def eval_accuracy(model: OliveModel, data_dir, batch_size, device, execution_providers):
+def eval_accuracy(model: OliveModelHandler, data_dir, batch_size, device, execution_providers):
     from intel_extension_for_transformers.llm.evaluation.lm_eval import evaluate
 
     if model.framework == Framework.PYTORCH:

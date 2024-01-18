@@ -56,6 +56,13 @@ def _run_onnx(filepath, world_size, inputs):
 def _main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
+        "--model-id",
+        dest="model_id",
+        type=str,
+        default="meta-llama/Llama-2-7b-hf",
+        help="Model Id to load",
+    )
+    parser.add_argument(
         "--filename-pattern",
         dest="filename_pattern",
         type=str,
@@ -72,19 +79,19 @@ def _main():
     parser.add_argument("--debug", action="store_true", default=False, help="Enable debug output")
     args = parser.parse_args()
 
-    model_id = "meta-llama/Llama-2-7b-hf"
     prompt = "Is it normal to have a dark ring around the iris of my eye?"
     device = "cuda"
 
-    tokenizer = LlamaTokenizer.from_pretrained(model_id)
+    tokenizer = LlamaTokenizer.from_pretrained(args.model_id)
     tokens = tokenizer(prompt, return_tensors="pt")
     tokenizer = None
 
-    config = LlamaConfig.from_pretrained(model_id)
-    num_heads, head_size = config.num_key_value_heads, config.hidden_size // config.num_key_value_heads
+    config = LlamaConfig.from_pretrained(args.model_id)
+    num_heads = config.num_key_value_heads
+    head_size = config.hidden_size // config.num_attention_heads
     batch_size, past_seq_len = 2, 0
 
-    model = LlamaForCausalLM.from_pretrained(model_id, torch_dtype=config.torch_dtype, config=config)
+    model = LlamaForCausalLM.from_pretrained(args.model_id, torch_dtype=config.torch_dtype, config=config)
     model.to(device)
     model.eval()
     model.requires_grad_(False)
@@ -111,10 +118,10 @@ def _main():
     }
     for i in range(config.num_hidden_layers):
         onnx_inputs[f"past_key_values.{i}.key"] = torch.rand(
-            batch_size, num_heads, past_seq_len, head_size, dtype=torch.float32
+            batch_size, num_heads // args.world_size, past_seq_len, head_size, dtype=torch.float16
         ).numpy()
         onnx_inputs[f"past_key_values.{i}.value"] = torch.rand(
-            batch_size, num_heads, past_seq_len, head_size, dtype=torch.float32
+            batch_size, num_heads // args.world_size, past_seq_len, head_size, dtype=torch.float16
         ).numpy()
 
     onnx_outputs = _run_onnx(args.filename_pattern, args.world_size, onnx_inputs)
@@ -139,7 +146,7 @@ def _main():
         if args.debug:
             pprint.pprint(results)
 
-        atol = 1e-4
+        atol = 5e-4
         if not np.all(np.array(list(results.values())) < atol):
             raise RuntimeError("Inference test failed!")
 
@@ -151,13 +158,15 @@ if __name__ == "__main__":
     sys.exit(_main())
 
 
-# python3 inference.py \
-#   --filename-pattern model_{:02d}.onnx \
-#   --world-size 2
+# python3 tensor_parallel_inference.py      \
+#   --filename-pattern model_{:02d}.onnx    \
+#   --world-size 2                          \
+#   [--model-id meta-llama/Llama-2-7b-hf]   \
 #   [--debug]
 #
-# python3 inference.py \
-#   --filename-pattern model_{:02d}.onnx \
-#   --world-size 2 \
-#   [--compare] \
+# python3 tensor_parallel_inference.py      \
+#   --filename-pattern model_{:02d}.onnx    \
+#   --world-size 2                          \
+#   [--model-id meta-llama/Llama-2-7b-hf]   \
+#   [--compare]                             \
 #   [--debug]

@@ -11,7 +11,7 @@ import platform
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import numpy as np
 import torch
@@ -26,11 +26,14 @@ from olive.evaluator.metric import (
 )
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveModelOutput, OnnxEvaluator
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec, Device
-from olive.model import ModelConfig, ONNXModel
-from olive.passes.olive_pass import Pass
+from olive.model import ModelConfig, ONNXModelHandler
 from olive.systems.common import SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import PythonEnvironmentTargetUserConfig
+
+if TYPE_CHECKING:
+    from olive.passes.olive_pass import Pass
+
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +49,7 @@ class PythonEnvironmentSystem(OliveSystem):
         accelerators: List[str] = None,
         olive_managed_env: bool = False,
         requirements_file: Union[Path, str] = None,
+        hf_token: bool = None,
     ):
         super().__init__(accelerators=accelerators, olive_managed_env=olive_managed_env)
         self.config = PythonEnvironmentTargetUserConfig(
@@ -83,7 +87,7 @@ class PythonEnvironmentSystem(OliveSystem):
 
     def run_pass(
         self,
-        the_pass: Pass,
+        the_pass: "Pass",
         model_config: ModelConfig,
         data_root: str,
         output_model_path: str,
@@ -148,7 +152,7 @@ class PythonEnvironmentSystem(OliveSystem):
         return flatten_metric_result(metrics_res)
 
     def evaluate_accuracy(
-        self, model: ONNXModel, data_root: str, metric: Metric, accelerator: AcceleratorSpec
+        self, model: ONNXModelHandler, data_root: str, metric: Metric, accelerator: AcceleratorSpec
     ) -> float:
         """Evaluate the accuracy of the model."""
         dataloader, _, post_func = OliveEvaluator.get_user_config(model.framework, data_root, metric)
@@ -219,7 +223,9 @@ class PythonEnvironmentSystem(OliveSystem):
         model_output = OliveModelOutput(preds, logits)
         return OliveEvaluator.compute_accuracy(metric, model_output, targets)
 
-    def evaluate_latency(self, model: ONNXModel, data_root: str, metric: Metric, accelerator: AcceleratorSpec) -> float:
+    def evaluate_latency(
+        self, model: ONNXModelHandler, data_root: str, metric: Metric, accelerator: AcceleratorSpec
+    ) -> float:
         """Evaluate the latency of the model."""
         dataloader, _, _ = OliveEvaluator.get_user_config(model.framework, data_root, metric)
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
@@ -262,7 +268,9 @@ class PythonEnvironmentSystem(OliveSystem):
 
         return OliveEvaluator.compute_latency(metric, latencies)
 
-    def get_inference_settings(self, model: ONNXModel, metric: Metric, accelerator: AcceleratorSpec) -> Dict[str, Any]:
+    def get_inference_settings(
+        self, model: ONNXModelHandler, metric: Metric, accelerator: AcceleratorSpec
+    ) -> Dict[str, Any]:
         """Get the model inference settings."""
         metric_inference_settings = metric.user_config.inference_settings
         inference_settings = (
@@ -303,7 +311,7 @@ class PythonEnvironmentSystem(OliveSystem):
         available_eps = self.get_supported_execution_providers()
         return AcceleratorLookup.get_execution_providers_for_device_by_available_providers(self.device, available_eps)
 
-    def get_default_execution_provider(self, model: ONNXModel) -> List[str]:
+    def get_default_execution_provider(self, model: ONNXModelHandler) -> List[str]:
         """Get the default execution provider for the model."""
         # return first available ep as ort default ep
         available_providers = self.get_execution_providers()
@@ -312,7 +320,7 @@ class PythonEnvironmentSystem(OliveSystem):
                 return [ep]
         return ["CPUExecutionProvider"]
 
-    def is_valid_ep(self, ep: str, model: ONNXModel) -> bool:
+    def is_valid_ep(self, ep: str, model: ONNXModelHandler) -> bool:
         """Check if the execution provider is valid for the model."""
         with tempfile.TemporaryDirectory() as temp_dir:
             is_valid_ep_path = Path(__file__).parent.resolve() / "is_valid_ep.py"

@@ -14,11 +14,13 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 from azure.ai.ml import Input, Output
 from azure.ai.ml.constants import AssetTypes
+from azure.ai.ml.entities import UserIdentityConfiguration
 
 from olive.azureml.azureml_client import AzureMLClientConfig
+from olive.data.config import DataConfig
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricResult
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
-from olive.model import ONNXModel
+from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.resource_path import AzureMLModel, ResourcePath, ResourceType, create_resource_path
@@ -139,7 +141,9 @@ class TestAzureMLSystem:
             actual_res = self.system.run_pass(p, model_config, None, output_model_path)
 
         # assert
-        mock_create_pipeline.assert_called_once_with(None, output_folder, model_config, p.to_json(), p.path_params)
+        mock_create_pipeline.assert_called_once_with(
+            None, output_folder, model_config, p.to_json(), p.path_params, ({}, {})
+        )
         assert mock_retry_func.call_count == 2
         ml_client.jobs.stream.assert_called_once()
         output_model_file = actual_res.config["model_path"]
@@ -255,12 +259,43 @@ class TestAzureMLSystem:
             command=self.create_command(script_name, inputs, outputs),
             resources=resources,
             environment=aml_environment,
+            environment_variables=None,
             code=code,
             inputs=inputs,
             outputs=outputs,
             instance_count=1,
             compute=compute,
+            identity=UserIdentityConfiguration(),
         )
+
+    def test__create_data_script_inputs_and_args(self):
+        # setup
+        script_dir_path = Path(__file__).absolute().parent / "script_dir"
+        user_script_path = script_dir_path / "user_script.py"
+        data_config = DataConfig(
+            type="HuggingfaceContainer",
+            name="data_name",
+            user_script=str(user_script_path),
+            script_dir=str(script_dir_path),
+        )
+        pass_config = {"data_config": data_config}
+        the_pass = MagicMock()
+        the_pass._config = pass_config
+        expected_data_inputs = {
+            "data_name_user_script": Input(type=AssetTypes.URI_FILE, optional=True),
+            "data_name_script_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
+        }
+        expected_data_args = {
+            "data_name_user_script": Input(type=AssetTypes.URI_FILE, path=str(user_script_path)),
+            "data_name_script_dir": Input(type=AssetTypes.URI_FOLDER, path=str(script_dir_path)),
+        }
+
+        # execute
+        actual_data_params = self.system._create_data_script_inputs_and_args(the_pass)
+
+        # assert
+        assert actual_data_params.data_inputs == expected_data_inputs
+        assert actual_data_params.data_args == expected_data_args
 
     def test__create_metric_args(self):
         # setup
@@ -308,8 +343,8 @@ class TestAzureMLSystem:
     @patch("olive.systems.azureml.aml_system.AzureMLSystem._create_metric_args")
     def test__create_metric_component(self, mock_create_metric_args, mock_command, mock_copy, model_resource_type):
         # setup
-        tem_dir = Path()
-        code_path = tem_dir / "code"
+        tmp_dir = Path()
+        code_path = tmp_dir / "code"
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         metric.user_config = {}
         model_args = {"input": Input(type=AssetTypes.URI_FILE, path="path")}
@@ -327,7 +362,7 @@ class TestAzureMLSystem:
             "metric_script_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
             "metric_data_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
         }
-        accelerator_config_path = tem_dir / "accelerator_config.json"
+        accelerator_config_path = tmp_dir / "accelerator_config.json"
         inputs = {
             **model_inputs,
             **metric_inputs,
@@ -354,7 +389,12 @@ class TestAzureMLSystem:
         else:
             model_resource_path = create_resource_path(ONNX_MODEL_PATH)
         actual_res = self.system._create_metric_component(
-            None, tem_dir, metric, model_args, {"model_path": model_resource_path}, accelerator_config_path
+            data_root=None,
+            tmp_dir=tmp_dir,
+            metric=metric,
+            model_args=model_args,
+            model_resource_paths={"model_path": model_resource_path},
+            accelerator_config_path=accelerator_config_path,
         )
 
         # assert
@@ -366,11 +406,13 @@ class TestAzureMLSystem:
             command=self.create_command("aml_evaluation_runner.py", inputs, outputs),
             resources=None,
             environment=self.system.environment,
+            environment_variables=self.system.env_vars,
             code=str(code_path),
             inputs=inputs,
             outputs={"pipeline_output": Output(type=AssetTypes.URI_FOLDER)},
             instance_count=1,
             compute=self.system.compute,
+            identity=UserIdentityConfiguration(),
         )
 
         # cleanup
@@ -613,7 +655,7 @@ class TestAzureMLSystem:
         ouptut_dir = tmp_path / "pipeline_output"
         ouptut_dir.mkdir()
         shutil.copy(ONNX_MODEL_PATH, ouptut_dir)
-        mock_conversion_run.return_value = ONNXModel(ouptut_dir / ONNX_MODEL_PATH.name)
+        mock_conversion_run.return_value = ONNXModelHandler(ouptut_dir / ONNX_MODEL_PATH.name)
 
         args = [
             "--model_config",
@@ -630,3 +672,36 @@ class TestAzureMLSystem:
 
         aml_pass_runner_main(args)
         mock_conversion_run.assert_called_once()
+
+
+@patch("olive.systems.azureml.aml_system.Environment")
+def test_aml_system_with_hf_token(mock_env):
+    # setup
+    mock_azureml_client_config = Mock(spec=AzureMLClientConfig)
+    mock_azureml_client_config.keyvault_name = "keyvault_name"
+    docker_config = AzureMLDockerConfig(
+        base_image="base_image",
+        conda_file_path="conda_file_path",
+    )
+    expected_env_vars = {"HF_LOGIN": True, "KEYVAULT_NAME": "keyvault_name"}
+
+    # execute
+    system = AzureMLSystem(mock_azureml_client_config, "dummy", docker_config, hf_token=True)
+
+    # assert
+    assert system.env_vars == expected_env_vars
+
+
+@patch("olive.systems.azureml.aml_system.Environment")
+def test_aml_system_no_keyvault_name_raise_valueerror(mock_env):
+    # setup
+    mock_azureml_client_config = Mock(spec=AzureMLClientConfig)
+    mock_azureml_client_config.keyvault_name = None
+    docker_config = AzureMLDockerConfig(
+        base_image="base_image",
+        conda_file_path="conda_file_path",
+    )
+
+    # assert
+    with pytest.raises(ValueError):
+        AzureMLSystem(mock_azureml_client_config, "dummy", docker_config, hf_token=True)

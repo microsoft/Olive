@@ -3,8 +3,8 @@ onnx
 optuna
 pandas
 protobuf<4.0.0
-pydantic<2.0.0
+pydantic
 pyyaml
 torch
-torchmetrics~=0.10.0
+torchmetrics>=1.0.0
 transformers

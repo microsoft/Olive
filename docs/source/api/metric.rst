@@ -29,6 +29,14 @@ LatencySubType
     :members:
     :undoc-members:
 
+.. _throughput_sub_type:
+
+ThroughputSubType
+^^^^^^^^^^^^^^^^^
+.. autoclass:: olive.evaluator.metric.ThroughputSubType
+    :members:
+    :undoc-members:
+
 MetricGoal
 ^^^^^^^^^^
 .. autopydantic_settings:: olive.evaluator.metric.MetricGoal

@@ -16,7 +16,7 @@ approach may not take advantage of all the features supported by standard Olive 
 Now, let's take a look at how you can use advance Python interface.
 
 ## Input Model
-Start by creating an instance of an OliveModel to represent the model to be optimized. Depending on the model framework, the
+Start by creating an instance of an OliveModelHandler to represent the model to be optimized. Depending on the model framework, the
 model can be loaded from file or using a model loader function. For a complete of available models and their initialization options, refer to [OliveModels api reference](models).
 
 ```python

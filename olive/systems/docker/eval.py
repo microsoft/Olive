@@ -8,6 +8,7 @@ import logging
 import os
 import sys
 
+from olive.common.utils import huggingface_login
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorConfig, OliveEvaluatorFactory
 from olive.model import ModelConfig
 
@@ -17,6 +18,11 @@ logger = logging.getLogger(__name__)
 def evaluate_entry(config, output_path, output_name, accelerator_type, execution_provider):
     with open(config) as f:  # noqa: PTH123
         config_json = json.load(f)
+
+    hf_token = os.environ.get("HF_TOKEN")
+    if hf_token:
+        huggingface_login(hf_token)
+
     evaluator_config = OliveEvaluatorConfig(metrics=config_json["metrics"])
     model_json = config_json["model"]
 

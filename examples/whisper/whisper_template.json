@@ -65,7 +65,10 @@
             }
         },
         "mixed_precision": {
-            "type": "OrtMixedPrecision"
+            "type": "OrtMixedPrecision",
+            "config": {
+                "atol": 1e-6
+            }
         },
         "onnx_dynamic_quantization": {
             "type": "OnnxDynamicQuantization",

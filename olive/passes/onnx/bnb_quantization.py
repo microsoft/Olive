@@ -4,14 +4,15 @@
 # --------------------------------------------------------------------------
 import logging
 import re
+from pathlib import Path
 from typing import Any, Dict, List
 
 import onnx
-from onnxruntime import __version__ as OrtVersion
 from packaging import version
 
 from olive.hardware import AcceleratorSpec
-from olive.model import ONNXModel
+from olive.model import ONNXModelHandler
+from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
@@ -27,6 +28,7 @@ class OnnxBnb4Quantization(Pass):
         config = {
             "quant_type": PassConfigParam(
                 type_=str,
+                default_value=None,
                 description="The quantization type. Only 'fp4' and 'nf4' are supported.",
             ),
             "quantized_modules": PassConfigParam(
@@ -46,15 +48,17 @@ class OnnxBnb4Quantization(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> ONNXModel:
+        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> ONNXModelHandler:
+        from onnxruntime import __version__ as OrtVersion
+
         assert version.parse(OrtVersion) >= version.parse(
             "1.16.2"
         ), "MatMulBnb4Quantizer is only supported in onnxruntime >= 1.16.2"
 
         from onnxruntime.quantization.matmul_bnb4_quantizer import MatMulBnb4Quantizer
 
-        output_model_path = ONNXModel.resolve_path(output_model_path)
+        output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
         quant_type = config["quant_type"]
         quantized_modules = config["quantized_modules"]

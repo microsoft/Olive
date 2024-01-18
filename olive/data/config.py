@@ -3,12 +3,14 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import re
 from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Union
 
 from olive.common.config_utils import ConfigBase
 from olive.common.import_lib import import_user_module
+from olive.common.pydantic_v1 import validator
 from olive.data.constants import DataComponentType, DefaultDataComponent, DefaultDataContainer
 from olive.data.registry import Registry
 
@@ -63,6 +65,13 @@ class DataConfig(ConfigBase):
     # value: is corresponding component function name registered in Registry
     # for example, {DataComponentType.LOAD_DATASET.value: "huggingface_dataset"}
     default_components_type: Dict[str, str] = None
+
+    @validator("name", pre=True)
+    def validate_name(cls, v):
+        pattern = r"^[A-Za-z0-9_]+$"
+        if not re.match(pattern, v):
+            raise ValueError(f"DataConfig name {v} should only contain letters, numbers and underscore.")
+        return v
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -151,7 +160,7 @@ class DataConfig(ConfigBase):
                     if info.kind in (info.VAR_POSITIONAL, info.VAR_KEYWORD):
                         continue
                     elif info.default is info.empty:
-                        logger.debug(f"Missing parameter {param} for component {k}")
+                        logger.debug(f"Missing parameter {param} for component {k} with type {v.type}. Set to None.")
                         v.params[param] = None
                     else:
                         v.params[param] = params[param].default

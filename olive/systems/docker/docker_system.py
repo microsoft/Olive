@@ -8,7 +8,7 @@ import logging
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import docker
 from docker.errors import BuildError, ContainerError
@@ -17,11 +17,13 @@ import olive.systems.docker.utils as docker_utils
 from olive.common.config_utils import validate_config
 from olive.evaluator.metric import Metric, MetricResult
 from olive.hardware import Device
-from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import ModelConfig
-from olive.passes import Pass
 from olive.systems.common import LocalDockerConfig, SystemType
 from olive.systems.olive_system import OliveSystem
+
+if TYPE_CHECKING:
+    from olive.hardware.accelerator import AcceleratorSpec
+    from olive.model import ModelConfig
+    from olive.passes import Pass
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +40,13 @@ class DockerSystem(OliveSystem):
         is_dev: bool = False,
         olive_managed_env: bool = False,
         requirements_file: Union[Path, str] = None,
+        hf_token: bool = None,
     ):
-        super().__init__(accelerators=accelerators, olive_managed_env=olive_managed_env)
+        super().__init__(
+            accelerators=accelerators,
+            olive_managed_env=olive_managed_env,
+            hf_token=hf_token,
+        )
         logger.info("Initializing Docker System...")
         self.is_dev = is_dev
         self.requirements_file = requirements_file
@@ -97,18 +104,18 @@ class DockerSystem(OliveSystem):
 
     def run_pass(
         self,
-        the_pass: Pass,
-        model_config: ModelConfig,
+        the_pass: "Pass",
+        model_config: "ModelConfig",
         data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
-    ) -> ModelConfig:
+    ) -> "ModelConfig":
         """Run the pass on the model at a specific point in the search space."""
         logger.warning("DockerSystem.run_pass is not implemented yet.")
         raise NotImplementedError
 
     def evaluate_model(
-        self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
+        self, model_config: "ModelConfig", data_root: str, metrics: List[Metric], accelerator: "AcceleratorSpec"
     ) -> Dict[str, Any]:
         container_root_path = Path("/olive-ws/")
         with tempfile.TemporaryDirectory() as tempdir:
@@ -124,10 +131,10 @@ class DockerSystem(OliveSystem):
     def _run_container(
         self,
         tempdir,
-        model_config: ModelConfig,
+        model_config: "ModelConfig",
         data_root: str,
         metrics: List[Metric],
-        accelerator: AcceleratorSpec,
+        accelerator: "AcceleratorSpec",
         container_root_path: Path,
     ):
         eval_output_path = "eval_output"
@@ -189,6 +196,9 @@ class DockerSystem(OliveSystem):
                 environment = {env.split("=")[0]: env.split("=")[1] for env in environment}
             elif isinstance(environment, dict) and not environment.get(k):
                 environment[k] = v
+        if self.hf_token:
+            token = get_huggingface_token()
+            environment.update({"HF_TOKEN": token})
 
         logger.debug(f"Running container with eval command: {eval_command}")
         if accelerator.accelerator_type == Device.GPU:
@@ -244,3 +254,24 @@ def _print_docker_logs(logs, level=logging.DEBUG):
 
     message = "\n".join(msgs)
     logger.log(level, message)
+
+
+def get_huggingface_token():
+    """Get huggingface token from environment variable or token file."""
+    import os
+
+    if os.getenv("HF_TOKEN"):
+        return os.getenv("HF_TOKEN")
+
+    token_path = Path.home() / ".huggingface" / "token"
+    if not token_path.exists():
+        logger.error(
+            "Huggingface token is required at this step."
+            f"Could not find huggingface token at {token_path}. "
+            "Please login to huggingface first using `huggingface-cli login`. "
+            "If you already logged in, Olive will get token from '~/.huggingface/token' file'. "
+            f"Please make sure the token file exists."
+        )
+        return None
+    with Path(token_path).open() as f:
+        return f.read().strip()

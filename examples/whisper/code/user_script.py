@@ -3,14 +3,16 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from past_helper import PastKeyValuesHelper
-from transformers import WhisperForConditionalGeneration
 from whisper_dataset import WhisperDataset
 from whisper_decoder import WhisperDecoder, WhisperDecoderInputs
 from whisper_encoder_decoder_init import WhisperEncoderDecoderInit, WhisperEncoderDecoderInitInputs
 
+from olive.model import PyTorchModelHandler
 
-def get_encoder_decoder_init(model_name):
-    model = WhisperForConditionalGeneration.from_pretrained(model_name)
+
+def get_encoder_decoder_init(olive_model: PyTorchModelHandler):
+    # model is WhisperForConditionalGeneration
+    model = olive_model.load_model()
     return WhisperEncoderDecoderInit(
         model,
         model,
@@ -19,13 +21,15 @@ def get_encoder_decoder_init(model_name):
     )
 
 
-def get_decoder(model_name):
-    model = WhisperForConditionalGeneration.from_pretrained(model_name)
+def get_decoder(olive_model: PyTorchModelHandler):
+    # model is WhisperForConditionalGeneration
+    model = olive_model.load_model()
     return WhisperDecoder(model, model.config)
 
 
-def get_encdec_io_config(model_name):
-    model = get_encoder_decoder_init(model_name)
+def get_encdec_io_config(olive_model: PyTorchModelHandler):
+    # model is WhisperEncoderDecoderInit
+    model = olive_model.load_model()
     use_decoder_input_ids = True
 
     inputs = WhisperEncoderDecoderInitInputs.create_dummy(
@@ -96,13 +100,13 @@ def get_encdec_io_config(model_name):
     }
 
 
-def get_dec_io_config(model_name):
+def get_dec_io_config(olive_model: PyTorchModelHandler):
     # Fix past disappearing bug - duplicate first past entry
     # input_list.insert(2, input_list[2])
-    model = get_decoder(model_name)
-    past_names = PastKeyValuesHelper.get_past_names(model.config.decoder_layers, present=False)
-    present_names = PastKeyValuesHelper.get_past_names(model.config.decoder_layers, present=True)
-    present_self_names = present_names[: 2 * model.config.decoder_layers]
+    config = olive_model.get_hf_model_config()
+    past_names = PastKeyValuesHelper.get_past_names(config.decoder_layers, present=False)
+    present_names = PastKeyValuesHelper.get_past_names(config.decoder_layers, present=True)
+    present_self_names = present_names[: 2 * config.decoder_layers]
 
     input_past_names = past_names
     output_present_names = present_self_names
@@ -138,10 +142,9 @@ def get_dec_io_config(model_name):
     }
 
 
-def encoder_decoder_init_dummy_inputs(model):
-    model = model.load_model()
+def encoder_decoder_init_dummy_inputs(olive_model: PyTorchModelHandler):
     inputs = WhisperEncoderDecoderInitInputs.create_dummy(
-        model.config,
+        olive_model.get_hf_model_config(),
         batch_size=2,
         encode_sequence_length=3000,
         use_decoder_input_ids=True,
@@ -151,10 +154,9 @@ def encoder_decoder_init_dummy_inputs(model):
     return tuple(inputs.to_list())
 
 
-def decoder_dummy_inputs(model):
-    model = model.load_model()
+def decoder_dummy_inputs(olive_model: PyTorchModelHandler):
     inputs = WhisperDecoderInputs.create_dummy(
-        model.config,
+        olive_model.get_hf_model_config(),
         batch_size=2,
         encode_sequence_length=3000,
         past_decode_sequence_length=5,

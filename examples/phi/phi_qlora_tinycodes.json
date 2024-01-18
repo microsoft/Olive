@@ -5,7 +5,7 @@
             "hf_config": {
                 "model_name": "microsoft/phi-1_5",
                 "task": "text-generation",
-                "model_loading_args": {
+                "from_pretrained_args": {
                     "trust_remote_code": true
                 }
             }
@@ -30,7 +30,6 @@
                         "token": true
                     },
                     "pre_process_data": {
-                        "dataset_type": "corpus",
                         "corpus_strategy": "join",
                         "text_template": "### Question: {prompt} \n### Answer: {response}",
                         "source_max_len": 1024,
@@ -54,6 +53,7 @@
                     "gradient_checkpointing": false,
                     "max_steps": 1500,
                     "logging_steps": 100,
+                    "save_steps": 100,
                     "evaluation_strategy": "steps",
                     "adam_beta2": 0.999,
                     "max_grad_norm": 0.3,

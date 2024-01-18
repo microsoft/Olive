@@ -6,12 +6,11 @@ import logging
 from typing import Any, Dict
 
 from onnx import ModelProto, TensorProto, helper
-from onnxruntime import __version__ as OrtVersion
-from onnxruntime.transformers.convert_generation import get_shared_initializers
 from packaging import version
 
-from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import CompositeOnnxModel, OliveModel, ONNXModel
+from olive.hardware.accelerator import AcceleratorSpec, Device
+from olive.model import CompositeModelHandler, OliveModelHandler, ONNXModelHandler
+from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
@@ -28,6 +27,7 @@ class InsertBeamSearch(Pass):
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+        use_gpu = accelerator_spec.accelerator_type == Device.GPU
         config = {
             "no_repeat_ngram_size": PassConfigParam(
                 type_=int,
@@ -42,6 +42,16 @@ class InsertBeamSearch(Pass):
                     " 1.16.0"
                 ),
             ),
+            "fp16": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Is the model in fp16 precision.",
+            ),
+            "use_gpu": PassConfigParam(
+                type_=bool,
+                default_value=use_gpu,
+                description="Use GPU for beam search op.",
+            ),
         }
         config.update(get_external_data_config())
         return config
@@ -49,6 +59,9 @@ class InsertBeamSearch(Pass):
     def chain_model(
         self, model_A: ModelProto, model_A_name: str, model_B: ModelProto, model_B_name: str, model_config, options
     ):
+        from onnxruntime import __version__ as OrtVersion
+        from onnxruntime.transformers.convert_generation import get_shared_initializers
+
         # version check
         version_1_16 = version.parse(OrtVersion) >= version.parse("1.16.0")
 
@@ -57,19 +70,43 @@ class InsertBeamSearch(Pass):
         model_B.graph.name = f"{model_B_name} subgraph"
 
         beam_inputs = [
-            "input_features",
+            "input_features_fp16" if options["fp16"] else "input_features",
             "max_length",
             "min_length",
             "num_beams",
             "num_return_sequences",
-            "length_penalty",
-            "repetition_penalty",
+            "length_penalty_fp16" if options["fp16"] else "length_penalty",
+            "repetition_penalty_fp16" if options["fp16"] else "repetition_penalty",
             "",
             "",
             "" if version_1_16 else "attention_mask",
         ]
         if version_1_16:
             beam_inputs.extend(["decoder_input_ids" if options["use_forced_decoder_ids"] else "", ""])
+
+        input_features_cast_node, len_pen_cast_node, rep_pen_cast_node = None, None, None
+        if options["fp16"]:
+            input_features_cast_node = helper.make_node(
+                "Cast",
+                inputs=["input_features"],
+                outputs=["input_features_fp16"],
+                name="CastInputFeaturesToFp16",
+                to=TensorProto.FLOAT16,
+            )
+            len_pen_cast_node = helper.make_node(
+                "Cast",
+                inputs=["length_penalty"],
+                outputs=["length_penalty_fp16"],
+                name="CastLengthPenaltyToFp16",
+                to=TensorProto.FLOAT16,
+            )
+            rep_pen_cast_node = helper.make_node(
+                "Cast",
+                inputs=["repetition_penalty"],
+                outputs=["repetition_penalty_fp16"],
+                name="CastRepetitionPenaltyToFp16",
+                to=TensorProto.FLOAT16,
+            )
 
         beam_outputs = ["sequences"]
 
@@ -123,6 +160,16 @@ class InsertBeamSearch(Pass):
         )
         graph_outputs = [sequences]
 
+        if options["use_gpu"] and version_1_16:
+            from onnxruntime.transformers.convert_generation import (
+                update_decoder_subgraph_share_buffer_and_use_decoder_masked_mha as update_decoder_with_ort,
+            )
+
+            if update_decoder_with_ort(model_B.graph):
+                logger.info("Updated whisper decoder subgraph to use DecoderMaskedMultiHeadAttention successfully!")
+            else:
+                logger.warning("DecoderMaskedMultiHeadAttention could not be applied to whisper decoder subgraph")
+
         # Initializers/opsets
         # Delete shared data between decoder/encoder and move to larger graph initializers
         initializers = get_shared_initializers(model_A, model_B)
@@ -136,8 +183,11 @@ class InsertBeamSearch(Pass):
             helper.make_opsetid(domain="com.microsoft", version=1),
             helper.make_opsetid(domain="", version=17),
         ]
+        graph_nodes = (
+            [input_features_cast_node, len_pen_cast_node, rep_pen_cast_node, node] if options["fp16"] else [node]
+        )
 
-        beam_graph = helper.make_graph([node], "beam-search-test", graph_inputs, graph_outputs, initializers)
+        beam_graph = helper.make_graph(graph_nodes, "beam-search-test", graph_inputs, graph_outputs, initializers)
         assert model_A.ir_version == model_B.ir_version
         logger.debug(f"Using IR version {model_A.ir_version} for chained model")
 
@@ -156,12 +206,15 @@ class InsertBeamSearch(Pass):
         model.graph.input.insert(1, mask)
 
     def _run_for_config(
-        self, model: OliveModel, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> ONNXModel:
-        if isinstance(model, ONNXModel):
+        self, model: OliveModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> ONNXModelHandler:
+        from onnxruntime import __version__ as OrtVersion
+        from onnxruntime.transformers import onnx_model as ort_onnx_model
+
+        if isinstance(model, ONNXModelHandler):
             return model
 
-        if not isinstance(model, CompositeOnnxModel):
+        if not isinstance(model, CompositeModelHandler):
             raise ValueError
 
         # TODO(jambayk): Right now we are assuming that the composite model only has two components and beam search op
@@ -177,20 +230,24 @@ class InsertBeamSearch(Pass):
             )
 
         # Load encoder/decoder and insert necessary (but unused) graph inputs expected by BeamSearch op
-        model_A = model.get_model_component(0)
-        model_A_name = model.get_model_component_name(0)
-        model_B = model.get_model_component(1)
-        model_B_name = model.get_model_component_name(1)
+        components = model.get_model_components()
+        names, models = zip(*components)
+
+        model_A = models[0]
+        model_A_name = names[0]
+        model_B = models[1]
+        model_B_name = names[1]
         model_proto_A = model_A.load_model()
         model_proto_B = model_B.load_model()
         if not version_1_16:
             self.add_attention_mask(model_proto_A)
             self.add_attention_mask(model_proto_B)
 
+        ort_onnx_model.OnnxModel.graph_topological_sort(model_proto_A.graph)
+        ort_onnx_model.OnnxModel.graph_topological_sort(model_proto_B.graph)
         combined_model = self.chain_model(
             model_proto_A, model_A_name, model_proto_B, model_B_name, model.model_attributes, config
         )
-
         # save the model to the output path and return the model
-        output_model_path = ONNXModel.resolve_path(output_model_path)
+        output_model_path = resolve_onnx_path(output_model_path, "model_with_beam_search.onnx")
         return model_proto_to_olive_model(combined_model, output_model_path, config, True)

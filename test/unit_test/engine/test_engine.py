@@ -93,6 +93,22 @@ class TestEngine:
 
         assert str(exc_info.value) == f"Search strategy is None but pass {name} has search space"
 
+    def test_default_engine_run(self, tmpdir):
+        # setup
+        model_config = get_pytorch_model_config()
+        engine = Engine({"cache_dir": tmpdir})
+        assert engine.no_search, "Expect no_search to be True by default"
+
+        engine.register(OnnxConversion, name="converter_13", config={"target_opset": 13}, clean_run_cache=True)
+        outputs = engine.run(model_config, output_dir=tmpdir)
+
+        assert outputs
+        for fp_nodes in outputs.values():
+            for node in fp_nodes.nodes.values():
+                assert node.model_config
+                assert node.from_pass == "OnnxConversion"
+                assert node.metrics is None, "Should not evaluate input/output model by default"
+
     @patch("olive.systems.local.LocalSystem")
     def test_run(self, mock_local_system, tmpdir):
         # setup
@@ -101,7 +117,6 @@ class TestEngine:
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
-            "output_dir": tmpdir,
             "output_name": "test",
             "cache_dir": tmpdir,
             "clean_cache": True,

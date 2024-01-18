@@ -11,7 +11,9 @@ from pathlib import Path
 from onnxruntime import __version__ as ort_version
 from packaging import version
 
-from olive.common.config_utils import ParamCategory
+from olive.common.config_utils import ParamCategory, validate_config
+from olive.common.utils import aml_runner_hf_login, copy_dir
+from olive.data.config import DataConfig
 from olive.hardware import AcceleratorSpec
 from olive.model import ModelConfig
 from olive.passes import REGISTRY as PASS_REGISTRY
@@ -43,7 +45,7 @@ def parse_pass_args(pass_type, accelerator_spec, raw_args):
         if param_config.category in (ParamCategory.PATH, ParamCategory.DATA):
             parser.add_argument(f"--pass_{param}", type=str, help=f"pass {param}", required=param_config.required)
 
-    return parser.parse_args(raw_args)
+    return parser.parse_known_args(raw_args)
 
 
 def create_pass(pass_config, pass_args):
@@ -56,7 +58,35 @@ def create_pass(pass_config, pass_args):
     return FullPassConfig.from_json(pass_config).create_pass()
 
 
+def update_data_config(p, extra_args):
+    data_script_map = {}
+    for param, param_config in p._config.items():
+        if param.endswith("data_config") and param_config is not None:
+            data_name = param_config["name"]
+            if data_script_map.get(data_name):
+                user_script, script_dir = data_script_map[data_name]
+            else:
+                data_config_parser = argparse.ArgumentParser("Data user script and script dir parser")
+                data_config_parser.add_argument(f"--{data_name}_user_script", type=str, help=f"{data_name} user script")
+                data_config_parser.add_argument(f"--{data_name}_script_dir", type=str, help=f"{data_name} script dir")
+                data_config_args, extra_args = data_config_parser.parse_known_args(extra_args)
+
+                for key, value in vars(data_config_args).items():
+                    if "user_script" in key:
+                        user_script = value
+                    if "script_dir" in key:
+                        script_dir = value
+
+            param_config["user_script"] = user_script
+            param_config["script_dir"] = script_dir
+            data_script_map[data_name] = (user_script, script_dir)
+            p._config[param] = validate_config(param_config, DataConfig)
+
+
 def main(raw_args=None):
+    # login to hf if HF_LOGIN is set to True
+    aml_runner_hf_login()
+
     input_model_config, pipeline_output, extra_args = get_common_args(raw_args)
     pass_config_arg, extra_args = parse_pass_config_arg(extra_args)
 
@@ -83,18 +113,20 @@ def main(raw_args=None):
                 shutil.copy(old_path, new_path)
             else:
                 new_path.mkdir(parents=True, exist_ok=True)
-                shutil.copytree(old_path, new_path, dirs_exist_ok=True)
+                copy_dir(old_path, new_path, dirs_exist_ok=True)
             input_model_config["config"]["model_path"] = str(new_path)
 
     # pass specific args
     accelerator_spec = AcceleratorSpec(pass_config_arg.pass_accelerator_type, pass_config_arg.pass_execution_provider)
-    pass_args = parse_pass_args(pass_type, accelerator_spec, extra_args)
+    pass_args, extra_args = parse_pass_args(pass_type, accelerator_spec, extra_args)
 
     # load input_model
     input_model = ModelConfig.from_json(input_model_config).create_model()
 
     # load pass
     p = create_pass(pass_config, pass_args)
+
+    update_data_config(p, extra_args)
 
     # output model path
     output_model_path = str(Path(pipeline_output) / "output_model")

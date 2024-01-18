@@ -59,7 +59,13 @@ def get_dataloader_config():
                     {
                         "name": "accuracy",
                         "type": "accuracy",
-                        "sub_types": [{"name": "accuracy_score", "priority": 1}],
+                        "sub_types": [
+                            {
+                                "name": "accuracy_score",
+                                "priority": 1,
+                                "metric_config": {"num_classes": 10, "task": "multiclass"},
+                            }
+                        ],
                         "user_config": {
                             "data_dir": "data",
                             "dataloader_func": create_dataloader,
@@ -121,7 +127,13 @@ def get_data_config():
                     {
                         "name": "accuracy",
                         "type": "accuracy",
-                        "sub_types": [{"name": "accuracy_score", "priority": 1}],
+                        "sub_types": [
+                            {
+                                "name": "accuracy_score",
+                                "priority": 1,
+                                "metric_config": {"num_classes": 10, "task": "multiclass"},
+                            }
+                        ],
                         # reference to data_config defined in global data_configs
                         "data_config": "test_data_config",
                     }

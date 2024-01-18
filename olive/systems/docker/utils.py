@@ -6,18 +6,21 @@ import json
 import logging
 import shutil
 from pathlib import Path
-from typing import List
+from typing import TYPE_CHECKING, List
 
 from olive.cache import get_local_path_from_root
-from olive.evaluator.metric import Metric
-from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import ModelConfig
+from olive.common.utils import copy_dir
+
+if TYPE_CHECKING:
+    from olive.evaluator.metric import Metric
+    from olive.hardware.accelerator import AcceleratorSpec
+    from olive.model import ModelConfig
 
 logger = logging.getLogger(__name__)
 
 
 def create_config_file(
-    tempdir, model_config: ModelConfig, metrics: List[Metric], container_root_path: Path, model_mounts: dict
+    tempdir, model_config: "ModelConfig", metrics: List["Metric"], container_root_path: Path, model_mounts: dict
 ):
     model_json = model_config.to_json(check_object=True)
     for k, v in model_mounts.items():
@@ -35,7 +38,7 @@ def create_config_file(
 
 
 def create_evaluate_command(
-    eval_script_path: str, config_path: str, output_path: str, output_name: str, accelerator: AcceleratorSpec
+    eval_script_path: str, config_path: str, output_path: str, output_name: str, accelerator: "AcceleratorSpec"
 ):
     # no need to pass model_path since it's already updated in config file
     parameters = [
@@ -58,7 +61,7 @@ def create_run_command(run_params: dict):
 
 
 def create_metric_volumes_list(
-    data_root: str, metrics: List[Metric], container_root_path: Path, mount_list: list
+    data_root: str, metrics: List["Metric"], container_root_path: Path, mount_list: list
 ) -> List[str]:
     for metric in metrics:
         metric_path = container_root_path / "metrics" / metric.name
@@ -86,7 +89,7 @@ def create_metric_volumes_list(
     return mount_list
 
 
-def create_model_mount(model_config: ModelConfig, container_root_path: Path):
+def create_model_mount(model_config: "ModelConfig", container_root_path: Path):
     mounts = {}
     mount_strs = []
     resource_paths = model_config.get_resource_paths()
@@ -119,7 +122,7 @@ def create_dev_mount(tempdir: Path, container_root_path: Path):
 
     # copy the whole project folder to tempdir
     project_folder = Path(__file__).resolve().parent.parent.parent
-    shutil.copytree(project_folder, tempdir / "olive", ignore=shutil.ignore_patterns("__pycache__"))
+    copy_dir(project_folder, tempdir / "olive", ignore=shutil.ignore_patterns("__pycache__"))
 
     project_folder_mount_path = str(container_root_path / "olive")
     project_folder_mount_str = f"{tempdir / 'olive'}:{project_folder_mount_path}"

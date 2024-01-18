@@ -38,7 +38,7 @@ good-names = [
 ]
 
 [tool.pylint.main]
-ignore-paths = ["examples/directml/llama_v2/chat_app/**"]
+ignore-paths = ["examples/directml/llm/chat_app/**"]
 
 [tool.pylint.messages_control]
 disable = [
@@ -175,11 +175,12 @@ ban-relative-imports = "all"
 
 [tool.ruff.pep8-naming]
 # Allow Pydantic's `@validator` decorator to trigger class method treatment.
-classmethod-decorators = ["classmethod", "pydantic.validator", "pydantic.root_validator"]
+classmethod-decorators = ["classmethod", "olive.common.pydantic_v1.validator", "olive.common.pydantic_v1.root_validator"]
 
 [tool.ruff.per-file-ignores]
 ".azure_pipelines/**" = ["INP001"]
 "examples/**" = ["INP001"]
 "olive/engine/packaging/sample_code/ONNXModel/python/**" = ["INP001"]
+"test/**" = ["INP001"]
 "scripts/**" = ["INP001", "PTH123"]
-"examples/directml/llama_v2/chat_app/**" = ["TID252"]
+"examples/directml/llm/chat_app/**" = ["TID252"]

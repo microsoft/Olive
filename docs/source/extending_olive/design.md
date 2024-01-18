@@ -47,7 +47,7 @@ An Evaluator is used to evaluate a model on a specific **target** and return val
 
 To initialize an Evaluator, the user must provide a list of **Metrics** and the **target** system.
 
-Olive provides two in-build **Metrics**, accuracy and latency, along with the options of the user to provide their own
+Olive provides three in-build **Metrics**, accuracy, latency(ms) and throughput(tps, token per second), along with the options of the user to provide their own
 **custom** metric.
 
 ## Engine

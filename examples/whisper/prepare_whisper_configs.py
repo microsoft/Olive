@@ -10,6 +10,7 @@ from urllib import request
 
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
+from transformers import __version__ as TransformersVersion
 
 SUPPORTED_WORKFLOWS = {
     ("cpu", "fp32"): ["conversion", "transformers_optimization", "insert_beam_search", "prepost"],
@@ -58,6 +59,15 @@ def get_args(raw_args):
             " Default: False"
         ),
     )
+    parser.add_argument(
+        "--atol",
+        type=float,
+        default=1e-6,
+        help=(
+            "Absolute tolerance for checking float16 conversion. Only for fp16 workflow. For some cases, you can"
+            " increase this value to 1e-5 or 1e-4. Default: 1e-6"
+        ),
+    )
     return parser.parse_args(raw_args)
 
 
@@ -66,6 +76,7 @@ def main(raw_args=None):
 
     # version check
     version_1_16 = version.parse(OrtVersion) >= version.parse("1.16.0")
+    transformers_version_4_36 = version.parse(TransformersVersion) >= version.parse("4.36.0")
 
     # multi-lingual support check
     if args.multilingual and not version_1_16:
@@ -78,6 +89,8 @@ def main(raw_args=None):
 
     # update model name
     template_json["input_model"]["config"]["hf_config"]["model_name"] = model_name
+    if transformers_version_4_36:
+        template_json["input_model"]["config"]["hf_config"]["from_pretrained_args"] = {"attn_implementation": "eager"}
 
     # set dataloader
     template_json["evaluators"]["common_evaluator"]["metrics"][0]["user_config"]["dataloader_func"] = (
@@ -110,6 +123,10 @@ def main(raw_args=None):
         config["passes"] = {}
         for pass_name in workflow:
             pass_config = deepcopy(template_json["passes"][pass_name])
+            if pass_name == "insert_beam_search":
+                pass_config["config"]["fp16"] = precision == "fp16"
+            if pass_name == "mixed_precision":
+                pass_config["config"]["atol"] = args.atol
             if pass_name == "transformers_optimization":
                 pass_config["config"]["use_gpu"] = device == "gpu"
             if pass_name == "prepost":

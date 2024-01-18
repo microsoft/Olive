@@ -20,7 +20,7 @@
                 {
                     "name": "accuracy",
                     "type": "accuracy",
-                    "sub_types": [{"name": "accuracy_score", "priority": 1}],
+                    "sub_types": [{"name": "accuracy_score", "priority": 1, "metric_config": {"task": "multiclass", "num_classes": 1000}}],
                     "user_config":{
                         "post_processing_func": "post_process",
                         "user_script": "user_script.py",
