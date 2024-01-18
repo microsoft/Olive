@@ -24,7 +24,7 @@
         "tensor_parallel": {
             "type": "PyTorchTensorParallel",
             "config": {
-                "user_script": "llama2_tensor_parallel.py",
+                "user_script": "tensor_parallel_llama2.py",
                 "class_name": "LlamaPyTorchTensorParallel",
                 "world_size": 4
             }
