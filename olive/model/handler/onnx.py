@@ -92,7 +92,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):
             provider_options = None
 
         if not execution_providers:
-            execution_providers = self.get_default_execution_providers(device)
+            execution_providers = self._get_default_execution_providers(device)
             provider_options = None
         elif isinstance(execution_providers, (str, tuple)):
             execution_providers = [execution_providers]
@@ -116,18 +116,6 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):
             session.set_tuning_results(tuning_op_result)
         return session
 
-    def get_default_execution_providers(self, device: Device):
-        # return available ep as ort default ep
-        available_providers = AcceleratorLookup.get_execution_providers_for_device(device)
-        eps = []
-        for ep in available_providers:
-            if self.is_valid_ep(self.model_path, ep):
-                eps.append(ep)
-
-        if not eps:
-            eps.append("CPUExecutionProvider")
-        return eps
-
     def get_io_config(self):
         """Get input/output names, shapes, types of the onnx model without creating an ort session.
 
@@ -139,6 +127,18 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):
         # save io_config
         self.io_config = self.get_graph_io_config()
         return self.io_config
+
+    def _get_default_execution_providers(self, device: Device):
+        # return available ep as ort default ep
+        available_providers = AcceleratorLookup.get_execution_providers_for_device(device)
+        eps = []
+        for ep in available_providers:
+            if self.is_valid_ep(self.model_path, ep):
+                eps.append(ep)
+
+        if not eps:
+            eps.append("CPUExecutionProvider")
+        return eps
 
 
 @model_handler_registry("DistributedOnnxModel")
@@ -200,10 +200,6 @@ class DistributedOnnxModelHandler(OliveModelHandler, OnnxEpValidateMixin):
         rank: Optional[int] = 0,
     ):
         raise RuntimeError("DistributedOnnxModel doesn't have a session of its own")
-
-    def get_default_execution_providers(self, device: Device):
-        """Return a list of supported default execution providers."""
-        return ["CPUExecutionProvider"]
 
     def get_default_execution_providers_with_model(self, filepath: str, device: Device):
         # return firstly available ep as ort default ep
