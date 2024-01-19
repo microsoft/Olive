@@ -420,10 +420,11 @@ def get_benchmark(model, data_root, latency_metric, config, test_params=None, io
 
     with tempfile.TemporaryDirectory() as temp_dir:
         if tuning_result_file:
-            tuning_result_file = Path(temp_dir) / tuning_result_file
+            # Only set the tuning_op_result for ROCM. In this case, the tuning_result_file is not None.
             if tuning_result:
                 inference_settings["tuning_op_result"] = tuning_result
-            inference_settings["tuning_result_file"] = str(Path(temp_dir) / tuning_result_file)
+            tuning_result_file = Path(temp_dir) / tuning_result_file
+            inference_settings["tuning_result_file"] = str(tuning_result_file)
 
         # set the session_options for metrics so that the evalute will use them by default
         latency_metric.user_config.io_bind = io_bind
