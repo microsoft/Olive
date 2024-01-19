@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from copy import deepcopy
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 
@@ -77,15 +76,17 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):
         import onnxruntime as ort
 
         # user provided inference_settings > model's inference_settings > default settings
-        inference_settings = inference_settings or self.inference_settings or {}
-        # deep copy to avoid modifying the original settings
-        inference_settings = deepcopy(inference_settings)
+        inference_settings_merged = {}
+        if self.inference_settings:
+            inference_settings_merged.update(self.inference_settings)
+        if inference_settings:
+            inference_settings_merged.update(inference_settings)
 
         # if user doesn't not provide ep list, use default value([ep]). Otherwise, use the user's ep list
         # user provided ep list > eps given by arguments > default eps
-        if inference_settings.get("execution_provider") is not None:
-            execution_providers = inference_settings.get("execution_provider")
-            provider_options = inference_settings.get("provider_options")
+        if inference_settings_merged.get("execution_provider") is not None:
+            execution_providers = inference_settings_merged.get("execution_provider")
+            provider_options = inference_settings_merged.get("provider_options")
         else:
             provider_options = None
 
@@ -104,19 +105,23 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):
             for i, ep in enumerate(execution_providers):
                 if ep == "CUDAExecutionProvider" and not provider_options[i]:
                     provider_options[i] = {"device_id": str(rank)}
-        inference_settings["execution_provider"] = execution_providers
-        inference_settings["provider_options"] = provider_options
-        session = get_ort_inference_session(self.model_path, inference_settings, self.use_ort_extensions)
+        inference_settings_merged["execution_provider"] = execution_providers
+        inference_settings_merged["provider_options"] = provider_options
+        session = get_ort_inference_session(self.model_path, inference_settings_merged, self.use_ort_extensions)
         check_ort_fallback(session, execution_providers)
         return session
 
     def get_default_execution_providers(self, device: Device):
-        # return firstly available ep as ort default ep
+        # return available ep as ort default ep
         available_providers = AcceleratorLookup.get_execution_providers_for_device(device)
+        eps = []
         for ep in available_providers:
             if self.is_valid_ep(self.model_path, ep):
-                return [ep]
-        return ["CPUExecutionProvider"]
+                eps.append(ep)
+
+        if not eps:
+            eps.append("CPUExecutionProvider")
+        return eps
 
     def get_io_config(self):
         """Get input/output names, shapes, types of the onnx model without creating an ort session.

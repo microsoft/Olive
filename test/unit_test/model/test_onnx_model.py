@@ -39,6 +39,161 @@ def test_model_prepare_session(mock_get_available_providers, inference_session_m
     )
 
 
+@pytest.mark.parametrize(
+    "inference_setting, model_inference_settings, execution_providers, merged_inference_settings",
+    [
+        # Non inference_settings cases
+        (
+            None,
+            None,
+            None,
+            {
+                "execution_provider": ["MIGraphXExecutionProvider", "ROCMExecutionProvider", "CPUExecutionProvider"],
+                "provider_options": [{}, {}, {}],
+            },
+        ),
+        (
+            None,
+            None,
+            "ROCMExecutionProvider",
+            {
+                "execution_provider": ["ROCMExecutionProvider"],
+                "provider_options": [{}],
+            },
+        ),
+        (
+            None,
+            None,
+            ["ROCMExecutionProvider", "CPUExecutionProvider"],
+            {
+                "execution_provider": ["ROCMExecutionProvider", "CPUExecutionProvider"],
+                "provider_options": [{}, {}],
+            },
+        ),
+        (
+            None,
+            None,
+            ("ROCMExecutionProvider", {"device_id": 0, "tunable_op_enable": True, "tunable_op_tuning_enable": True}),
+            {
+                "execution_provider": ["ROCMExecutionProvider"],
+                "provider_options": [
+                    {"device_id": "0", "tunable_op_enable": "True", "tunable_op_tuning_enable": "True"}
+                ],
+            },
+        ),
+        # parameter inference_settings cases
+        (
+            {
+                "execution_provider": [("ROCMExecutionProvider", {"device_id": 0})],
+            },
+            None,
+            None,
+            {
+                "execution_provider": ["ROCMExecutionProvider"],
+                "provider_options": [{"device_id": "0"}],
+            },
+        ),
+        (
+            {
+                "execution_provider": ["ROCMExecutionProvider"],
+                "provider_options": [{"device_id": 1}],
+            },
+            None,
+            None,
+            {
+                "execution_provider": ["ROCMExecutionProvider"],
+                "provider_options": [{"device_id": "1"}],
+            },
+        ),
+        # model inference_settings cases
+        (
+            None,
+            {
+                "execution_provider": [("ROCMExecutionProvider", {"device_id": 2})],
+            },
+            None,
+            {
+                "execution_provider": ["ROCMExecutionProvider"],
+                "provider_options": [{"device_id": "2"}],
+            },
+        ),
+        (
+            None,
+            {
+                "execution_provider": ["ROCMExecutionProvider"],
+                "provider_options": [{"device_id": 3}],
+            },
+            None,
+            {
+                "execution_provider": ["ROCMExecutionProvider"],
+                "provider_options": [{"device_id": "3"}],
+            },
+        ),
+        # parameter inference_settings and model inference_settings cases
+        (
+            {
+                "execution_provider": [("ROCMExecutionProvider", {"device_id": 4})],
+            },
+            {
+                "execution_provider": ["MIGraphXExecutionProvider"],
+            },
+            None,
+            {
+                "execution_provider": ["ROCMExecutionProvider"],
+                "provider_options": [{"device_id": "4"}],
+            },
+        ),
+        (
+            {
+                "execution_provider": ["ROCMExecutionProvider"],
+                "provider_options": [{"device_id": 5}],
+            },
+            {
+                "execution_provider": [("MIGraphXExecutionProvider", {})],
+            },
+            None,
+            {
+                "execution_provider": ["ROCMExecutionProvider"],
+                "provider_options": [{"device_id": "5"}],
+            },
+        ),
+    ],
+)
+@patch("onnxruntime.InferenceSession")
+@patch("onnxruntime.get_available_providers")
+def test_model_prepare_session_multiple_inference_settings(
+    mock_get_available_providers,
+    inference_session_mock,
+    inference_setting,
+    model_inference_settings,
+    execution_providers,
+    merged_inference_settings,
+):
+    mock_get_available_providers.return_value = [
+        "MIGraphXExecutionProvider",
+        "ROCMExecutionProvider",
+        "CPUExecutionProvider",
+    ]
+    mock = MagicMock()
+    mock.get_providers.return_value = ["MIGraphXExecutionProvider", "ROCMExecutionProvider", "CPUExecutionProvider"]
+    inference_session_mock.return_value = mock
+
+    model_inference_settings_copy = model_inference_settings.copy() if model_inference_settings else None
+    inference_settings_copy = inference_setting.copy() if inference_setting else None
+    model = get_onnx_model()
+    model.inference_settings = model_inference_settings
+    model.prepare_session(inference_setting, Device.GPU, execution_providers, rank=1)
+    inference_session_mock.assert_called_with(
+        model.model_path,
+        sess_options=ANY,
+        providers=merged_inference_settings["execution_provider"],
+        provider_options=merged_inference_settings["provider_options"],
+    )
+    # assert the inference_settings and model.inference_settings are not changed when calling prepare_session
+    assert model.inference_settings == model_inference_settings_copy
+    assert inference_setting == inference_settings_copy
+
+
 @patch("onnxruntime.InferenceSession")
 @patch("onnxruntime.get_available_providers")
 def test_model_prepare_session_with_unsupported_eps(mock_get_available_providers, inference_session_mock):
