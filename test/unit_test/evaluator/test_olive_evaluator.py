@@ -371,6 +371,58 @@ class TestOliveEvaluator:
         evaluator.evaluate(model, None, [latency_metric], Device.GPU, ["ROCMExecutionProvider"])
         mock.set_tuning_results.assert_called_with(tuning_result)
 
+    @pytest.mark.parametrize(
+        "metric_inference_settings, model_inference_settings, result_keys",
+        [
+            (None, None, None),
+            (
+                None,
+                {
+                    "execution_provider": ["ROCMExecutionProvider"],
+                    "provider_options": [{"tunable_op_enable": True, "tunable_op_tuning_enable": True, "device_id": 0}],
+                },
+                ["execution_provider", "provider_options"],
+            ),
+            (
+                {
+                    "session_options": {
+                        "intra_op_num_threads": 1,
+                        "inter_op_num_threads": 0,
+                        "execution_mode": 0,
+                        "graph_opt_level": 99,
+                    }
+                },
+                None,
+                ["session_options"],
+            ),
+            (
+                {"session_options": {"enable_profiling": True}},
+                {"tuning_op_result": [{"ep": "ROCMExecutionProvider"}], "session_options": {"enable_profiling": False}},
+                ["session_options", "tuning_op_result"],
+            ),
+        ],
+    )
+    def test_evaluator_get_inference_session(self, metric_inference_settings, model_inference_settings, result_keys):
+        metric = get_latency_metric(LatencySubType.AVG)
+        if metric_inference_settings:
+            metric.user_config.inference_settings = {"onnx": metric_inference_settings}
+        model = get_onnx_model()
+        model.inference_settings = model_inference_settings
+        inference_settings = OnnxEvaluator.get_inference_settings(metric, model)
+        if result_keys is None:
+            assert inference_settings == {}
+        else:
+            for key in result_keys:
+                assert key in inference_settings
+                value = None
+                if metric_inference_settings:
+                    value = metric_inference_settings.get(key)
+                if value is None and model_inference_settings:
+                    value = model_inference_settings.get(key)
+                assert inference_settings[key] == value
+            if metric_inference_settings and model_inference_settings:
+                assert inference_settings["session_options"]["enable_profiling"]
+
 
 @pytest.mark.skip(reason="Requires custom onnxruntime build with mpi enabled")
 class TestDistributedOnnxEvaluator:

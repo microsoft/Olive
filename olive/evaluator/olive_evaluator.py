@@ -411,6 +411,22 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             if k in input_names
         }
 
+    @classmethod
+    def get_inference_settings(cls, metric: Metric, model: ONNXModelHandler) -> Dict[str, Any]:
+        # user.config.inference_settings > model.inference_settings > default inference_settings
+        # when user.config.inference_settings is None, the model.inference_settings
+        # will be used in model.prepare_session(..)
+        metric_inference_settings = metric.get_inference_settings(cls.framework.lower())
+        model_infrerence_settings = model.inference_settings
+        if model_infrerence_settings:
+            if metric_inference_settings:
+                model_infrerence_settings.update(metric_inference_settings)
+            return model_infrerence_settings
+        elif metric_inference_settings:
+            return metric_inference_settings
+        else:
+            return {}
+
     def _inference(
         self,
         model: ONNXModelHandler,
@@ -421,7 +437,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         execution_providers: Union[str, List[str]] = None,
     ) -> Tuple[OliveModelOutput, Any]:
         # user.config.inference_settings > model.inference_settings > default inference_settings
-        inference_settings = metric.get_inference_settings(self.framework.lower()) or model.inference_settings or {}
+        inference_settings = self.get_inference_settings(metric, model)
         session = model.prepare_session(
             inference_settings=inference_settings,
             device=device,
@@ -529,7 +545,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
 
         # user.config.inference_settings > model.inference_settings > default inference_settings
-        inference_settings = metric.get_inference_settings(self.framework.lower()) or model.inference_settings or {}
+        inference_settings = self.get_inference_settings(metric, model)
         session = model.prepare_session(
             inference_settings=inference_settings,
             device=device,
