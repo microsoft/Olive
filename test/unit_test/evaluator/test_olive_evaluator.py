@@ -405,7 +405,7 @@ class TestOliveEvaluator:
     def test_evaluator_get_inference_session(self, metric_inference_settings, model_inference_settings, result_keys):
         """Test get_inference_session method in evaluator when both metric and model have inference settings.
 
-        The model.inference_settings will be overriden by the metric.inference_settings.
+        The model.inference_settings will be overridden by the metric.inference_settings.
         """
         metric = get_latency_metric(LatencySubType.AVG)
         if metric_inference_settings:
