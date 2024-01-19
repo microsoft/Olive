@@ -257,11 +257,6 @@ def prepare_io_bindings(
     return io_bind_op
 
 
-def set_tuning_result(session, tuning_op_result):
-    assert isinstance(tuning_op_result, list)
-    session.set_tuning_results(tuning_op_result)
-
-
 def dump_tuning_result(session, tuning_result_path):
     assert tuning_result_path.endswith(".json")
     tuning_result = session.get_tuning_results()

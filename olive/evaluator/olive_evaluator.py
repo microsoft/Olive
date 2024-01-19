@@ -45,13 +45,7 @@ from olive.model import (
     SNPEModelHandler,
 )
 from olive.model.config.io_config import is_io_config_static
-from olive.model.utils.onnx_utils import (
-    bind_input_data,
-    bind_output_data,
-    dump_tuning_result,
-    prepare_io_bindings,
-    set_tuning_result,
-)
+from olive.model.utils.onnx_utils import bind_input_data, bind_output_data, dump_tuning_result, prepare_io_bindings
 from olive.platform_sdk.qualcomm.utils.data_loader import FileListCommonDataLoader, FileListDataLoader
 
 logger = logging.getLogger(__name__)
@@ -444,10 +438,6 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             execution_providers=execution_providers,
         )
 
-        tuning_op_result = inference_settings.get("tuning_op_result")
-        if tuning_op_result:
-            set_tuning_result(session, tuning_op_result)
-
         io_config = model.get_io_config()
 
         preds = []
@@ -551,10 +541,6 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             device=device,
             execution_providers=execution_providers,
         )
-
-        tuning_op_result = inference_settings.get("tuning_op_result")
-        if tuning_op_result:
-            set_tuning_result(session, tuning_op_result)
 
         io_config = model.get_io_config()
 

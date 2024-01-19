@@ -81,12 +81,13 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):
             inference_settings_merged.update(self.inference_settings)
         if inference_settings:
             inference_settings_merged.update(inference_settings)
+        inference_settings = inference_settings_merged
 
         # if user doesn't not provide ep list, use default value([ep]). Otherwise, use the user's ep list
         # user provided ep list > eps given by arguments > default eps
-        if inference_settings_merged.get("execution_provider") is not None:
-            execution_providers = inference_settings_merged.get("execution_provider")
-            provider_options = inference_settings_merged.get("provider_options")
+        if inference_settings.get("execution_provider") is not None:
+            execution_providers = inference_settings.get("execution_provider")
+            provider_options = inference_settings.get("provider_options")
         else:
             provider_options = None
 
@@ -105,10 +106,14 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):
             for i, ep in enumerate(execution_providers):
                 if ep == "CUDAExecutionProvider" and not provider_options[i]:
                     provider_options[i] = {"device_id": str(rank)}
-        inference_settings_merged["execution_provider"] = execution_providers
-        inference_settings_merged["provider_options"] = provider_options
-        session = get_ort_inference_session(self.model_path, inference_settings_merged, self.use_ort_extensions)
+        inference_settings["execution_provider"] = execution_providers
+        inference_settings["provider_options"] = provider_options
+        session = get_ort_inference_session(self.model_path, inference_settings, self.use_ort_extensions)
         check_ort_fallback(session, execution_providers)
+        tuning_op_result = inference_settings.get("tuning_op_result")
+        if tuning_op_result:
+            assert isinstance(tuning_op_result, list)
+            session.set_tuning_results(tuning_op_result)
         return session
 
     def get_default_execution_providers(self, device: Device):
