@@ -61,8 +61,12 @@ def test_optimum_conversion_pass_with_components(components, extra_args, expecte
 
     # assert
     if expected_components is None:
-        assert isinstance(output_model, ONNXModelHandler)
-        assert Path(output_model.model_path).exists()
+        # for latest optimum versions like 1.16.1
+        if isinstance(output_model, ONNXModelHandler):
+            assert Path(output_model.model_path).exists()
+        else:
+            # for older optimum versions like 1.13.2
+            assert isinstance(output_model, CompositeModelHandler)
     else:
         assert isinstance(output_model, CompositeModelHandler)
         component_names = []
