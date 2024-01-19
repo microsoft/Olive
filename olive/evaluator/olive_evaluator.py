@@ -416,16 +416,16 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         # user.config.inference_settings > model.inference_settings > default inference_settings
         # when user.config.inference_settings is None, the model.inference_settings
         # will be used in model.prepare_session(..)
-        metric_inference_settings = metric.get_inference_settings(cls.framework.lower())
+        inference_settings = {}
         model_infrerence_settings = model.inference_settings
         if model_infrerence_settings:
-            if metric_inference_settings:
-                model_infrerence_settings.update(metric_inference_settings)
-            return model_infrerence_settings
-        elif metric_inference_settings:
-            return metric_inference_settings
-        else:
-            return {}
+            inference_settings.update(model_infrerence_settings)
+
+        metric_inference_settings = metric.get_inference_settings(cls.framework.lower())
+        if metric_inference_settings:
+            inference_settings.update(metric_inference_settings)
+
+        return inference_settings
 
     def _inference(
         self,

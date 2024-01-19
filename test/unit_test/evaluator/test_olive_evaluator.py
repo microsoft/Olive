@@ -403,11 +403,15 @@ class TestOliveEvaluator:
         ],
     )
     def test_evaluator_get_inference_session(self, metric_inference_settings, model_inference_settings, result_keys):
+        """Test get_inference_session method in evaluator when both metric and model have inference settings.
+
+        The model.inference_settings will be overriden by the metric.inference_settings.
+        """
         metric = get_latency_metric(LatencySubType.AVG)
         if metric_inference_settings:
-            metric.user_config.inference_settings = {"onnx": metric_inference_settings}
+            metric.user_config.inference_settings = {"onnx": metric_inference_settings.copy()}
         model = get_onnx_model()
-        model.inference_settings = model_inference_settings
+        model.inference_settings = model_inference_settings.copy() if model_inference_settings else None
         inference_settings = OnnxEvaluator.get_inference_settings(metric, model)
         if result_keys is None:
             assert inference_settings == {}
@@ -421,7 +425,11 @@ class TestOliveEvaluator:
                     value = model_inference_settings.get(key)
                 assert inference_settings[key] == value
             if metric_inference_settings and model_inference_settings:
+                # verify the metric inference settings has higher priority
                 assert inference_settings["session_options"]["enable_profiling"]
+                # verify the original inference settings are not changed
+                assert metric.get_inference_settings("onnx") == metric_inference_settings
+                assert model.inference_settings == model_inference_settings
 
 
 @pytest.mark.skip(reason="Requires custom onnxruntime build with mpi enabled")
