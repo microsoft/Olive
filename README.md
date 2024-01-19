@@ -27,6 +27,7 @@ efficiently compose and tune integrated techniques for offering a ready-to-use E
 - [ Nov 2023 ] [Running Olive Optimized Llama2 with Microsoft DirectML on AMD Radeon Graphics](https://community.amd.com/t5/ai/how-to-running-optimized-llama2-with-microsoft-directml-on-amd/ba-p/645190)
 - [ Oct 2023 ] [AMD Microsoft Olive Optimizations for Stable Diffusion Performance Analysis](https://www.pugetsystems.com/labs/articles/amd-microsoft-olive-optimizations-for-stable-diffusion-performance-analysis/)
 - [ Sep 2023 ] [Running Optimized Automatic1111 Stable Diffusion WebUI on AMD GPUs](https://community.amd.com/t5/ai/updated-how-to-running-optimized-automatic1111-stable-diffusion/ba-p/630252)
+- [ Jul 2023 ] [Build accelerated AI apps for NPUs with Olive](https://www.infoworld.com/article/3701452/build-accelerated-ai-apps-for-npus-with-olive.html)
 - [ Jun 2023 ] [Olive: A user-friendly toolchain for hardware-aware model optimization](https://cloudblogs.microsoft.com/opensource/2023/06/26/olive-a-user-friendly-toolchain-for-hardware-aware-model-optimization/)
 - [ May 2023 ] [Optimize DirectML performance with Olive](https://devblogs.microsoft.com/directx/optimize-directml-performance-with-olive/)
 - [ May 2023 ] [Optimize Stable Diffusion Using Olive](https://devblogs.microsoft.com/directx/dml-stable-diffusion/)
