@@ -32,7 +32,7 @@ class DecoderModel(torch.nn.Module):
             normalization_type,
             epsilon,
         )
-        self.lm_head = torch.nn.Linear(hidden_size, vocab_size, bias=False)
+        self.lm_head = torch.nn.Linear(hidden_size, vocab_size)
 
     def forward_common(self, use_cache, tokens, position_ids_increment, attn_mask, cache):
         hidden_states, k_caches, v_caches = self.model(use_cache, tokens, position_ids_increment, attn_mask, cache)
@@ -153,7 +153,7 @@ class LayerNorm(torch.nn.Module):
         super().__init__()
         self.eps = eps
         self.weight = torch.nn.Parameter(torch.ones(dim))
-        self.bias = torch.zeros(dim)
+        self.bias = torch.nn.Parameter(torch.zeros(dim))
 
     def forward(self, hidden_states):
         diff = hidden_states - hidden_states.mean(-1, keepdim=True)
@@ -192,7 +192,7 @@ class TransformerLayer(torch.nn.Module):
             num_key_value_heads,
             scale_type,
         )
-        self.mlp = ProjLayerSiluMatMul(hidden_size, intermediate_size)
+        self.mlp = PhiMLP(hidden_size, intermediate_size)
 
     def forward(
         self,
@@ -288,10 +288,10 @@ class SelfAttention(torch.nn.Module):
         self.head_dim = int(hidden_size / num_heads)
 
         key_value_hidden_size = num_key_value_heads * self.head_dim
-        self.q_proj = torch.nn.Linear(hidden_size, hidden_size, bias=False)
-        self.k_proj = torch.nn.Linear(hidden_size, key_value_hidden_size, bias=False)
-        self.v_proj = torch.nn.Linear(hidden_size, key_value_hidden_size, bias=False)
-        self.o_proj = torch.nn.Linear(hidden_size, hidden_size, bias=False)
+        self.q_proj = torch.nn.Linear(hidden_size, hidden_size)
+        self.k_proj = torch.nn.Linear(hidden_size, key_value_hidden_size)
+        self.v_proj = torch.nn.Linear(hidden_size, key_value_hidden_size)
+        self.o_proj = torch.nn.Linear(hidden_size, hidden_size)
         self.apply_mask = ApplyMask()
         self.rotary_embedding = RotaryEmbedding()
 
@@ -379,3 +379,28 @@ class ProjLayerSiluMatMul(torch.nn.Module):
         w1x = self.gate_proj(x)
 
         return self.down_proj(w1x * torch.sigmoid(w1x) * self.up_proj(x))
+
+import math
+class NewGELUActivation(torch.nn.Module):
+    """
+    Implementation of the GELU activation function currently in Google BERT repo (identical to OpenAI GPT). Also see
+    the Gaussian Error Linear Units paper: https://arxiv.org/abs/1606.08415
+    """
+
+    def forward(self, input):
+        return 0.5 * input * (1.0 + torch.tanh(math.sqrt(2.0 / math.pi) * (input + 0.044715 * torch.pow(input, 3.0))))
+
+class PhiMLP(torch.nn.Module):
+    def __init__(self,
+                hidden_size: int,
+                intermediate_size: int,):
+        super().__init__()
+        self.activation_fn = NewGELUActivation()
+        self.fc1 = torch.nn.Linear(hidden_size, intermediate_size)
+        self.fc2 = torch.nn.Linear(intermediate_size, hidden_size)
+
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        hidden_states = self.fc1(hidden_states)
+        hidden_states = self.activation_fn(hidden_states)
+        hidden_states = self.fc2(hidden_states)
+        return hidden_states

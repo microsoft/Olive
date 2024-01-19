@@ -4,13 +4,13 @@
 # --------------------------------------------------------------------------
 
 decoder_model = None
-normalization_type = None
+normalization_type = "layer_norm"
 state_dict = None
 strict_weights_loading = True
-hidden_size = 4096
-intermediate_size = 11008
+hidden_size = 2560
+intermediate_size = 10240
 num_heads = 32
 num_key_value_heads = 32
 num_layers = 32
-vocab_size = 32000
+vocab_size = 51200
 epsilon = 1e-5

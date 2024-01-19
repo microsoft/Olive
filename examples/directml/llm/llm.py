@@ -21,33 +21,143 @@ from run_llm_io_binding import run_llm_io_binding
 from olive.model import ONNXModelHandler
 from olive.workflows import run as olive_run
 
+import safetensors
 
-def set_config_parameters(repo_id: str, num_layers: Optional[int]):
-    tokenizer = transformers.AutoTokenizer.from_pretrained(repo_id)
+_MODELS = {
+    "microsoft/phi-2": [
+        "https://huggingface.co/microsoft/phi-2/blob/main/model-00001-of-00002.safetensors",
+        "https://huggingface.co/microsoft/phi-2/blob/main/model-00002-of-00002.safetensors",
+    ],
+}
 
-    pipeline = transformers.pipeline(
-        "text-generation", model=repo_id, tokenizer=tokenizer, torch_dtype=torch.float32, device="cpu"
+PHI_MAPPING = {
+    "transformer.embd.wte.weight": "model.embed_tokens.weight",
+    "lm_head.linear": "lm_head",
+    "lm_head.ln": "model.norm",
+    "layers": "model.layers",
+    "transformer": "model",
+    ".h.": ".layers.",
+    "ln": "input_layernorm",
+    "mixer": "self_attn",
+    "Wqkv": "query_key_value",
+    "out_proj": "o_proj",
+}
+
+def map_key(origin_key):
+    for k, v in PHI_MAPPING.items():
+        if k in origin_key:
+            origin_key = origin_key.replace(k, v)
+    return origin_key
+def convert_weights(original_weights, mapping, config):
+    converted_weights = {}
+    original_weights_keys = sorted(original_weights.keys())
+
+    for original_weights_key in original_weights_keys:
+        new_key = original_weights_key
+
+        if "rotary_emb" in new_key:
+            continue
+
+        if "Wqkv" in new_key:
+            if "weight" in new_key:
+                weight = original_weights[new_key]
+                weights_shape = weight.shape
+                weight = (
+                    weight.view(3, config.num_heads, -1, config.hidden_size)
+                    .transpose(0, 1)
+                    .reshape(*weights_shape)
+                )
+                q_proj, k_proj, v_proj = torch.split(weight, [config.hidden_size, config.hidden_size, config.hidden_size])
+                q_proj_key = map_key(new_key.replace("Wqkv", "q_proj"))
+                k_proj_key = map_key(new_key.replace("Wqkv", "k_proj"))
+                v_proj_key = map_key(new_key.replace("Wqkv", "v_proj"))
+                converted_weights[q_proj_key] = q_proj
+                converted_weights[k_proj_key] = k_proj
+                converted_weights[v_proj_key] = v_proj
+
+                original_weights.pop(new_key)
+
+            elif "bias" in new_key:
+                bias = original_weights[new_key]
+                bias_shape = bias.shape
+                bias = bias.view(3, config.num_heads, -1).transpose(0, 1).reshape(*bias_shape)
+                q_proj, k_proj, v_proj = torch.split(bias, [config.hidden_size, config.hidden_size, config.hidden_size])
+                q_proj_key = map_key(new_key.replace("Wqkv", "q_proj"))
+                k_proj_key = map_key(new_key.replace("Wqkv", "k_proj"))
+                v_proj_key = map_key(new_key.replace("Wqkv", "v_proj"))
+                converted_weights[q_proj_key] = q_proj
+                converted_weights[k_proj_key] = k_proj
+                converted_weights[v_proj_key] = v_proj
+
+                original_weights.pop(new_key)
+
+            continue
+
+        new_key = map_key(new_key)
+
+        converted_weights[new_key] = original_weights.pop(original_weights_key)
+
+    return converted_weights
+
+def _download(url: str, root: str):
+    repo_id = f"{url.split('/')[3]}/{url.split('/')[4]}"
+    filename = f"{url.split('/')[-1]}"
+    hf_hub_download(
+        repo_id=repo_id,
+        filename=filename,
+        force_filename=root,
+        local_dir_use_symlinks=False,
     )
 
-    config.hidden_size = pipeline.model.config.hidden_size
-    config.intermediate_size = pipeline.model.config.intermediate_size
-    config.num_heads = pipeline.model.config.num_attention_heads
-    config.num_key_value_heads = pipeline.model.config.num_key_value_heads
-    config.num_layers = num_layers or pipeline.model.config.num_hidden_layers
-    config.vocab_size = pipeline.model.config.vocab_size
+def load_phi2_checkpoint(checkpoint_path):
+    model_checkpoint = {}
+    for model_name, model_url in _MODELS.items():
+        device = "cpu"
 
-    if hasattr(pipeline.model.config, "rms_norm_eps"):
-        config.normalization_type = "rms"
-        config.epsilon = pipeline.model.config.rms_norm_eps
-    elif hasattr(pipeline.model.config, "layer_norm_epsilon"):
-        config.normalization_type = "layer_norm"
-        config.epsilon = pipeline.model.config.layer_norm_epsilon
-    else:
-        raise ValueError("Normalization epsilon value was not found")
+        # for phi-2 the weights are stored in 2 different safetensors file so we need to iterate over that list and download one at a time
+        for model_each_url in model_url:
+            model_path = os.path.join(checkpoint_path, model_name + "_" + model_each_url.split("/")[-1])
+            if not os.path.exists(model_path):
+                print(f"\n{model_name} was not found! Downloading it to {model_path}")
+                _download(url=model_each_url, root=model_path)
 
-    config.normalization_type = "rms" if hasattr(pipeline.model.config, "rms_norm_eps") else "layer_norm"
-    config.strict_weights_loading = config.num_layers == pipeline.model.config.num_hidden_layers
-    config.state_dict = pipeline.model.state_dict()
+            if model_path.endswith("safetensors"):
+                loaded_weights = safetensors.torch.load_file(model_path, device=device)
+            else:
+                loaded_weights = torch.load(model_path, map_location=device)
+            model_checkpoint.update(**loaded_weights)
+    return model_checkpoint
+
+def set_config_parameters(repo_id: str, num_layers: Optional[int]):
+    # tokenizer = transformers.AutoTokenizer.from_pretrained(repo_id)
+
+    # pipeline = transformers.pipeline(
+    #     "text-generation", model=repo_id, tokenizer=tokenizer, torch_dtype=torch.float32, device="cpu"
+    # )
+
+    # config.hidden_size = pipeline.model.config.hidden_size
+    # config.intermediate_size = pipeline.model.config.intermediate_size
+    # config.num_heads = pipeline.model.config.num_attention_heads
+    # config.num_key_value_heads = pipeline.model.config.num_key_value_heads
+    # config.vocab_size = pipeline.model.config.vocab_size
+    # if hasattr(pipeline.model.config, "rms_norm_eps"):
+    #     config.normalization_type = "rms"
+    #     config.epsilon = pipeline.model.config.rms_norm_eps
+    # elif hasattr(pipeline.model.config, "layer_norm_epsilon"):
+    #     config.normalization_type = "layer_norm"
+    #     config.epsilon = pipeline.model.config.layer_norm_epsilon
+    # else:
+    #     raise ValueError("Normalization epsilon value was not found")
+
+    # config.normalization_type = "rms" if hasattr(pipeline.model.config, "rms_norm_eps") else "layer_norm"
+    config.strict_weights_loading = True
+    config.num_layers = num_layers
+
+    checkpoint_path = "C:\\Users\\xianz\\work\\Olive\\examples\\directml\\phi\\checkpoints"
+    model_checkpoint = load_phi2_checkpoint(checkpoint_path)
+    converted_checkpoint = {}
+    converted_checkpoint.update(**convert_weights(model_checkpoint, PHI_MAPPING, config))
+    config.state_dict = converted_checkpoint
 
 
 def optimize(optimized_model_dir: Path, repo_id: str, model_name: str, num_layers: Optional[int]):
