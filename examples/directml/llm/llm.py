@@ -68,6 +68,13 @@ def optimize(optimized_model_dir: Path, repo_id: str, model_name: str, num_layer
         olive_config["passes"]["optimize"]["config"]["num_heads"] = config.num_heads
         olive_config["passes"]["optimize"]["config"]["num_key_value_heads"] = config.num_key_value_heads
 
+        # Some models are too fragile and need layer norm to be performed in fp32 to keep their accuracy.
+        # bfloat16 could fix this, but since DML doesn't support it we need to fall back to fp32.
+        models_that_need_fp32_layer_norm = []
+
+        if model_name in models_that_need_fp32_layer_norm:
+            olive_config["passes"]["optimize"]["config"]["force_fp32_ops"] = "LayerNormalization"
+
         # Fewer than 32 layers can be provided for debugging purposes so we have to remove them from the config
         if config.num_layers < 32:
             model_components = olive_config["input_model"]["config"]["model_components"]
