@@ -75,8 +75,8 @@ class Model(torch.nn.Module):
         self.embed_tokens = torch.nn.Embedding(vocab_size, hidden_size)
 
         self.norm = {
-            "layer_norm": LayerNorm(hidden_size, eps=1e-5),
-            "rms": RMSNorm(hidden_size, eps=1e-5),
+            "layer_norm": torch.nn.LayerNorm(hidden_size, epsilon),
+            "rms": RMSNorm(hidden_size, epsilon),
         }[normalization_type]
 
         self.layers = torch.nn.ModuleList()
@@ -148,20 +148,6 @@ class RMSNorm(torch.nn.Module):
         return self.weight * hidden_states.to(input_dtype)
 
 
-class LayerNorm(torch.nn.Module):
-    def __init__(self, dim: int, eps: float) -> None:
-        super().__init__()
-        self.eps = eps
-        self.weight = torch.nn.Parameter(torch.ones(dim))
-        self.bias = torch.zeros(dim)
-
-    def forward(self, hidden_states):
-        diff = hidden_states - hidden_states.mean(-1, keepdim=True)
-        variance = diff.pow(2).mean(-1, keepdim=True)
-        hidden_states = diff / torch.sqrt(variance + self.eps)
-        return self.weight * hidden_states + self.bias
-
-
 class TransformerLayer(torch.nn.Module):
     def __init__(
         self,
@@ -175,12 +161,12 @@ class TransformerLayer(torch.nn.Module):
     ) -> None:
         super().__init__()
         self.input_layernorm = {
-            "layer_norm": LayerNorm(hidden_size, epsilon),
+            "layer_norm": torch.nn.LayerNorm(hidden_size, epsilon),
             "rms": RMSNorm(hidden_size, epsilon),
         }[normalization_type]
 
         self.post_attention_layernorm = {
-            "layer_norm": LayerNorm(hidden_size, epsilon),
+            "layer_norm": torch.nn.LayerNorm(hidden_size, epsilon),
             "rms": RMSNorm(hidden_size, epsilon),
         }[normalization_type]
 
