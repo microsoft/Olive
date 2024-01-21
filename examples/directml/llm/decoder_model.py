@@ -19,6 +19,7 @@ class DecoderModel(torch.nn.Module):
         scale_type: str,
         normalization_type: str,
         epsilon: float,
+        apply_residual_connection_post_layernorm: bool,
     ) -> None:
         super().__init__()
         self.model = Model(
@@ -31,6 +32,7 @@ class DecoderModel(torch.nn.Module):
             scale_type,
             normalization_type,
             epsilon,
+            apply_residual_connection_post_layernorm,
         )
         self.lm_head = torch.nn.Linear(hidden_size, vocab_size, bias=False)
 
@@ -70,6 +72,7 @@ class Model(torch.nn.Module):
         scale_type: str,
         normalization_type: str,
         epsilon: float,
+        apply_residual_connection_post_layernorm: bool,
     ) -> None:
         super().__init__()
         self.embed_tokens = torch.nn.Embedding(vocab_size, hidden_size)
@@ -89,6 +92,7 @@ class Model(torch.nn.Module):
                 scale_type,
                 normalization_type,
                 epsilon,
+                apply_residual_connection_post_layernorm,
             )
             self.layers.append(layer)
 
@@ -158,17 +162,22 @@ class TransformerLayer(torch.nn.Module):
         scale_type: str,
         normalization_type: str,
         epsilon: float,
+        apply_residual_connection_post_layernorm: bool,
     ) -> None:
         super().__init__()
+
+        self.apply_residual_connection_post_layernorm = apply_residual_connection_post_layernorm
+
         self.input_layernorm = {
             "layer_norm": torch.nn.LayerNorm(hidden_size, epsilon),
             "rms": RMSNorm(hidden_size, epsilon),
         }[normalization_type]
 
-        self.post_attention_layernorm = {
-            "layer_norm": torch.nn.LayerNorm(hidden_size, epsilon),
-            "rms": RMSNorm(hidden_size, epsilon),
-        }[normalization_type]
+        if apply_residual_connection_post_layernorm:
+            self.post_attention_layernorm = {
+                "layer_norm": torch.nn.LayerNorm(hidden_size, epsilon),
+                "rms": RMSNorm(hidden_size, epsilon),
+            }[normalization_type]
 
         self.cos, self.sin = rotary_mat(hidden_size, num_heads, 4096, head_scale=1.0)
 
@@ -191,12 +200,17 @@ class TransformerLayer(torch.nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Dimension of x is [batch_size, seq_len, hidden_size] Dimension of
         # k_cache and v_cache is [batch_size, n_layers, pos, num_heads, head_dim]
+        attn_norm_output = self.input_layernorm(x)
         h, k_out, v_out = self.self_attn(
-            use_cache, self.input_layernorm(x), position_ids, attn_mask, self.cos, self.sin, k_cache, v_cache
+            use_cache, attn_norm_output, position_ids, attn_mask, self.cos, self.sin, k_cache, v_cache
         )
 
         h = x + h
-        return h + self.mlp(self.post_attention_layernorm(h)), k_out, v_out
+
+        if self.apply_residual_connection_post_layernorm:
+            attn_norm_output = self.post_attention_layernorm(h)
+
+        return h + self.mlp(attn_norm_output), k_out, v_out
 
 
 class ApplyMask(torch.nn.Module):
