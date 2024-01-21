@@ -74,7 +74,7 @@ def optimize(optimized_model_dir: Path, repo_id: str, model_name: str, num_layer
         models_that_need_fp32_layer_norm = []
 
         if model_name in models_that_need_fp32_layer_norm:
-            olive_config["passes"]["optimize"]["config"]["force_fp32_ops"] = "LayerNormalization"
+            olive_config["passes"]["optimize"]["config"]["force_fp32_ops"] = ["LayerNormalization"]
 
         # Fewer than 32 layers can be provided for debugging purposes so we have to remove them from the config
         if config.num_layers < 32:
