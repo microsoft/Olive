@@ -10,6 +10,7 @@ import torch
 class DecoderModel(torch.nn.Module):
     def __init__(
         self,
+        model_type: str,
         n_layers: int,
         vocab_size: int,
         hidden_size: int,
@@ -23,6 +24,7 @@ class DecoderModel(torch.nn.Module):
     ) -> None:
         super().__init__()
         self.model = Model(
+            model_type,
             n_layers,
             vocab_size,
             hidden_size,
@@ -63,6 +65,7 @@ class DecoderModel(torch.nn.Module):
 class Model(torch.nn.Module):
     def __init__(
         self,
+        model_type: str,
         n_layers: int,
         vocab_size: int,
         hidden_size: int,
@@ -85,6 +88,7 @@ class Model(torch.nn.Module):
         self.layers = torch.nn.ModuleList()
         for _ in range(n_layers):
             layer = TransformerLayer(
+                model_type,
                 hidden_size,
                 intermediate_size,
                 num_heads,
@@ -155,6 +159,7 @@ class RMSNorm(torch.nn.Module):
 class TransformerLayer(torch.nn.Module):
     def __init__(
         self,
+        model_type: str,
         hidden_size: int,
         intermediate_size: int,
         num_heads: int,
@@ -187,7 +192,7 @@ class TransformerLayer(torch.nn.Module):
             num_key_value_heads,
             scale_type,
         )
-        self.mlp = ProjLayerSiluMatMul(hidden_size, intermediate_size)
+        self.mlp = MLP(model_type, hidden_size, intermediate_size)
 
     def forward(
         self,
@@ -364,9 +369,10 @@ class SelfAttention(torch.nn.Module):
         return self.o_proj(attn), k_cache, v_cache
 
 
-class ProjLayerSiluMatMul(torch.nn.Module):
+class MLP(torch.nn.Module):
     def __init__(
         self,
+        model_type: str,
         hidden_size: int,
         intermediate_size: int,
     ) -> None:

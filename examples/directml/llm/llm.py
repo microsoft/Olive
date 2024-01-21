@@ -35,6 +35,7 @@ def set_config_parameters(repo_id: str, num_layers: Optional[int]):
     config.num_key_value_heads = pipeline.model.config.num_key_value_heads
     config.num_layers = num_layers or pipeline.model.config.num_hidden_layers
     config.vocab_size = pipeline.model.config.vocab_size
+    config.model_type = pipeline.model.config.model_type
     config.apply_residual_connection_post_layernorm = getattr(
         pipeline.model.config, "apply_residual_connection_post_layernorm", True
     )

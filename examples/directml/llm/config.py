@@ -14,4 +14,5 @@ num_key_value_heads = 32
 num_layers = 32
 vocab_size = 32000
 epsilon = 1e-5
+model_type = "llama"
 apply_residual_connection_post_layernorm = True
