@@ -56,6 +56,9 @@ def run_llm_io_binding(
     # Initialize the tokenizer and produce the initial tokens.
     tokenizer = AutoTokenizer.from_pretrained(model_dir)
 
+    if tokenizer.chat_template is None:
+        tokenizer.chat_template = "{% for message in messages %}{{message['content']}}{% endfor %}"
+
     batch_size = len(prompts)
 
     batched_tokens = []
