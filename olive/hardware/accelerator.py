@@ -101,7 +101,7 @@ class AcceleratorLookup:
         assert isinstance(execution_providers, list)
         assert isinstance(available_providers, list)
 
-        return [ep for ep in execution_providers if ep in available_providers]
+        return [ep for ep in available_providers if ep in execution_providers]
 
     @staticmethod
     def infer_accelerators_from_execution_provider(execution_provider: List[str]):
