@@ -71,10 +71,10 @@ def test_ort_perf_tuning_with_customized_configs(mock_run, config):
 @pytest.mark.parametrize("return_baseline", [True, False])
 @patch.object(OnnxEvaluator, "evaluate")
 @patch("onnxruntime.get_available_providers")
-def test_perf_tuning_with_provider_options(mock_get_available_providers, mock_evaluate, caplog, return_baseline):
+def test_perf_tuning_with_provider_options(get_available_providers_mock, evaluate_mock, caplog, return_baseline):
     logger = logging.getLogger("olive")
     logger.propagate = True
-    mock_get_available_providers.return_value = [
+    get_available_providers_mock.return_value = [
         "TensorrtExecutionProvider",
         "CUDAExecutionProvider",
         "CPUExecutionProvider",
@@ -102,7 +102,7 @@ def test_perf_tuning_with_provider_options(mock_get_available_providers, mock_ev
         metrics_res[metrics[0].name] = latency_metric
         return flatten_metric_result(metrics_res)
 
-    mock_evaluate.side_effect = mock_evaluate_method
+    evaluate_mock.side_effect = mock_evaluate_method
     execution_providers = [
         (
             "TensorrtExecutionProvider",
@@ -150,11 +150,11 @@ def test_perf_tuning_with_provider_options(mock_get_available_providers, mock_ev
 @pytest.mark.parametrize("force_evaluate", [True, False])
 @patch.object(OnnxEvaluator, "evaluate")
 @patch("onnxruntime.get_available_providers")
-def test_perf_tuning_with_force_evaluate(mock_get_available_providers, mock_evaluate, caplog, force_evaluate):
+def test_perf_tuning_with_force_evaluate(get_available_providers_mock, evaluate_mock, caplog, force_evaluate):
     logger = logging.getLogger("olive")
     logger.propagate = True
 
-    mock_get_available_providers.return_value = [
+    get_available_providers_mock.return_value = [
         "TensorrtExecutionProvider",
         "CUDAExecutionProvider",
         "CPUExecutionProvider",
@@ -178,7 +178,7 @@ def test_perf_tuning_with_force_evaluate(mock_get_available_providers, mock_eval
         metrics_res[metrics[0].name] = latency_metric
         return flatten_metric_result(metrics_res)
 
-    mock_evaluate.side_effect = mock_evaluate_method
+    evaluate_mock.side_effect = mock_evaluate_method
     execution_providers = [
         "CUDAExecutionProvider",
         "CPUExecutionProvider",
@@ -230,8 +230,8 @@ def test_ort_perf_tuning_pass_with_dynamic_shapes(mock_get_io_config, tmp_path):
 
 
 @patch("olive.passes.onnx.perf_tuning.threads_num_binary_search")
-def test_ort_perf_tuning_pass_with_import_error(mock_threads_num_binary_search, tmp_path):
-    mock_threads_num_binary_search.side_effect = ModuleNotFoundError("test")
+def test_ort_perf_tuning_pass_with_import_error(threads_num_binary_search_mock, tmp_path):
+    threads_num_binary_search_mock.side_effect = ModuleNotFoundError("test")
 
     input_model = get_onnx_model()
     p = create_pass_from_dict(OrtPerfTuning, {}, disable_search=True)
@@ -287,7 +287,7 @@ def test_generate_test_name():
 
 @patch("onnxruntime.InferenceSession")
 @patch("onnxruntime.get_available_providers")
-def test_rocm_tuning_enable(mock_get_available_providers, inference_session_mock, tmp_path):
+def test_rocm_tuning_enable(get_available_providers_mock, inference_session_mock, tmp_path):
     tuning_result = [
         {
             "ep": "ROCMExecutionProvider",
@@ -319,7 +319,7 @@ def test_rocm_tuning_enable(mock_get_available_providers, inference_session_mock
     mock.get_tuning_results.return_value = tuning_result
     inference_session_mock.return_value = mock
 
-    mock_get_available_providers.return_value = [
+    get_available_providers_mock.return_value = [
         "MIGraphXExecutionProvider",
         "ROCMExecutionProvider",
         "CPUExecutionProvider",

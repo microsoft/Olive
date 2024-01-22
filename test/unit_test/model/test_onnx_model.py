@@ -9,8 +9,8 @@ from olive.hardware.accelerator import Device
 
 @patch("onnxruntime.InferenceSession")
 @patch("onnxruntime.get_available_providers")
-def test_model_prepare_session(mock_get_available_providers, inference_session_mock):
-    mock_get_available_providers.return_value = [
+def test_model_prepare_session(get_available_providers_mock, inference_session_mock):
+    get_available_providers_mock.return_value = [
         "MIGraphXExecutionProvider",
         "ROCMExecutionProvider",
         "CPUExecutionProvider",
@@ -162,14 +162,14 @@ def test_model_prepare_session(mock_get_available_providers, inference_session_m
 @patch("onnxruntime.InferenceSession")
 @patch("onnxruntime.get_available_providers")
 def test_model_prepare_session_multiple_inference_settings(
-    mock_get_available_providers,
+    get_available_providers_mock,
     inference_session_mock,
     inference_setting,
     model_inference_settings,
     execution_providers,
     merged_inference_settings,
 ):
-    mock_get_available_providers.return_value = [
+    get_available_providers_mock.return_value = [
         "MIGraphXExecutionProvider",
         "ROCMExecutionProvider",
         "CPUExecutionProvider",
@@ -196,8 +196,8 @@ def test_model_prepare_session_multiple_inference_settings(
 
 @patch("onnxruntime.InferenceSession")
 @patch("onnxruntime.get_available_providers")
-def test_model_prepare_session_with_unsupported_eps(mock_get_available_providers, inference_session_mock):
-    mock_get_available_providers.return_value = [
+def test_model_prepare_session_with_unsupported_eps(get_available_providers_mock, inference_session_mock):
+    get_available_providers_mock.return_value = [
         "TensorrtExecutionProvider",
         "CUDAExecutionProvider",
         "CPUExecutionProvider",
@@ -238,8 +238,8 @@ def test_model_prepare_session_with_unsupported_eps(mock_get_available_providers
 
 @patch("onnxruntime.InferenceSession")
 @patch("onnxruntime.get_available_providers")
-def test_distributed_rank_prepare_session(mock_get_available_providers, inference_session_mock):
-    mock_get_available_providers.return_value = [
+def test_distributed_rank_prepare_session(get_available_providers_mock, inference_session_mock):
+    get_available_providers_mock.return_value = [
         "TensorrtExecutionProvider",
         "CUDAExecutionProvider",
         "CPUExecutionProvider",

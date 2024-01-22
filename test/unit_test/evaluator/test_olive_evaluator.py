@@ -204,8 +204,8 @@ class TestOliveEvaluator:
         ],
     )
     @patch("onnxruntime.get_available_providers")
-    def test_evaluate_latency_with_unsupported_ep(self, mock_get_available_providers, execution_providers):
-        mock_get_available_providers.return_value = ["CPUExecutionProvider"]
+    def test_evaluate_latency_with_unsupported_ep(self, get_available_providers_mock, execution_providers):
+        get_available_providers_mock.return_value = ["CPUExecutionProvider"]
         model = get_onnx_model()
         evaluator = OnnxEvaluator()
         latency_metric = get_latency_metric(LatencySubType.AVG)
@@ -329,8 +329,7 @@ class TestOliveEvaluator:
         )
 
     @patch("onnxruntime.InferenceSession")
-    @patch("onnxruntime.get_available_providers")
-    def test_evaluate_latency_with_tunable_op(self, mock_get_available_providers, inference_session_mock):
+    def test_evaluate_latency_with_tunable_op(self, inference_session_mock):
         tuning_result = [
             {
                 "ep": "ROCMExecutionProvider",

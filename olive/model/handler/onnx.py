@@ -83,8 +83,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):
             inference_settings_merged.update(inference_settings)
         inference_settings = inference_settings_merged
 
-        # if user doesn't not provide ep list, use default value([ep]). Otherwise, use the user's ep list
-        # user provided ep list > eps given by arguments > default eps
+        # user provided eps in inference_settings > eps given by arguments > default eps
         if inference_settings.get("execution_provider") is not None:
             execution_providers = inference_settings.get("execution_provider")
             provider_options = inference_settings.get("provider_options")
