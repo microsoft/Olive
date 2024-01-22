@@ -1,3 +1,3 @@
 diffusers
-pillow
 opencv-python
+pillow
