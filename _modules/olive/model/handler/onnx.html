@@ -134,7 +134,6 @@
 <span class="c1"># Licensed under the MIT License.</span>
 <span class="c1"># --------------------------------------------------------------------------</span>
 <span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 
@@ -208,12 +207,14 @@
         <span class="kn">import</span> <span class="nn">onnxruntime</span> <span class="k">as</span> <span class="nn">ort</span>
 
         <span class="c1"># user provided inference_settings &gt; model&#39;s inference_settings &gt; default settings</span>
-        <span class="n">inference_settings</span> <span class="o">=</span> <span class="n">inference_settings</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">inference_settings</span> <span class="ow">or</span> <span class="p">{}</span>
-        <span class="c1"># deep copy to avoid modifying the original settings</span>
-        <span class="n">inference_settings</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">inference_settings</span><span class="p">)</span>
+        <span class="n">inference_settings_merged</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">inference_settings</span><span class="p">:</span>
+            <span class="n">inference_settings_merged</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">inference_settings</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">inference_settings</span><span class="p">:</span>
+            <span class="n">inference_settings_merged</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">inference_settings</span><span class="p">)</span>
+        <span class="n">inference_settings</span> <span class="o">=</span> <span class="n">inference_settings_merged</span>
 
-        <span class="c1"># if user doesn&#39;t not provide ep list, use default value([ep]). Otherwise, use the user&#39;s ep list</span>
-        <span class="c1"># user provided ep list &gt; eps given by arguments &gt; default eps</span>
+        <span class="c1"># user provided eps in inference_settings &gt; eps given by arguments &gt; default eps</span>
         <span class="k">if</span> <span class="n">inference_settings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;execution_provider&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">execution_providers</span> <span class="o">=</span> <span class="n">inference_settings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;execution_provider&quot;</span><span class="p">)</span>
             <span class="n">provider_options</span> <span class="o">=</span> <span class="n">inference_settings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;provider_options&quot;</span><span class="p">)</span>
@@ -221,7 +222,7 @@
             <span class="n">provider_options</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">execution_providers</span><span class="p">:</span>
-            <span class="n">execution_providers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_default_execution_providers</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">execution_providers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_default_execution_providers</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
             <span class="n">provider_options</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">execution_providers</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
             <span class="n">execution_providers</span> <span class="o">=</span> <span class="p">[</span><span class="n">execution_providers</span><span class="p">]</span>
@@ -239,15 +240,11 @@
         <span class="n">inference_settings</span><span class="p">[</span><span class="s2">&quot;provider_options&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">provider_options</span>
         <span class="n">session</span> <span class="o">=</span> <span class="n">get_ort_inference_session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="n">inference_settings</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_ort_extensions</span><span class="p">)</span>
         <span class="n">check_ort_fallback</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="n">execution_providers</span><span class="p">)</span>
+        <span class="n">tuning_op_result</span> <span class="o">=</span> <span class="n">inference_settings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;tuning_op_result&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">tuning_op_result</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tuning_op_result</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span>
+            <span class="n">session</span><span class="o">.</span><span class="n">set_tuning_results</span><span class="p">(</span><span class="n">tuning_op_result</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">session</span>
-
-    <span class="k">def</span> <span class="nf">get_default_execution_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
-        <span class="c1"># return firstly available ep as ort default ep</span>
-        <span class="n">available_providers</span> <span class="o">=</span> <span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">get_execution_providers_for_device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">available_providers</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_valid_ep</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="n">ep</span><span class="p">):</span>
-                <span class="k">return</span> <span class="p">[</span><span class="n">ep</span><span class="p">]</span>
-        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="nf">get_io_config</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get input/output names, shapes, types of the onnx model without creating an ort session.</span>
@@ -259,7 +256,19 @@
 
         <span class="c1"># save io_config</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_graph_io_config</span><span class="p">()</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span>
+
+    <span class="k">def</span> <span class="nf">_get_default_execution_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
+        <span class="c1"># return available ep as ort default ep</span>
+        <span class="n">available_providers</span> <span class="o">=</span> <span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">get_execution_providers_for_device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">available_providers</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_valid_ep</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="n">ep</span><span class="p">):</span>
+                <span class="n">eps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ep</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">eps</span><span class="p">:</span>
+            <span class="n">eps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">eps</span></div>
 
 
 <div class="viewcode-block" id="DistributedOnnxModelHandler"><a class="viewcode-back" href="../../../../api/models.html#olive.model.DistributedOnnxModelHandler">[docs]</a><span class="nd">@model_handler_registry</span><span class="p">(</span><span class="s2">&quot;DistributedOnnxModel&quot;</span><span class="p">)</span>
@@ -321,10 +330,6 @@
         <span class="n">rank</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;DistributedOnnxModel doesn&#39;t have a session of its own&quot;</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">get_default_execution_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a list of supported default execution providers.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="nf">get_default_execution_providers_with_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
         <span class="c1"># return firstly available ep as ort default ep</span>
