@@ -5,6 +5,7 @@
 
 import argparse
 import logging
+import os
 import platform
 import shutil
 from importlib import resources
@@ -78,6 +79,7 @@ def eval(args):  # noqa: A001  #pylint: disable=redefined-builtin
 
 if __name__ == "__main__":
     # create args for py_version
+    os.environ["PIP_EXTRA_ARGS"] = "--no-cache-dir"
     parser = argparse.ArgumentParser("Olive Qualcomm SDK: Configure")
     parser.add_argument(
         "--py_version",
