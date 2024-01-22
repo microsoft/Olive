@@ -41,10 +41,11 @@ from olive.model import (
     ONNXModelHandler,
     OpenVINOModelHandler,
     PyTorchModelHandler,
+    QNNModelHandler,
     SNPEModelHandler,
 )
 from olive.model.config.io_config import is_io_config_static
-from olive.model.utils.onnx_utils import bind_input_data, bind_output_data, prepare_io_bindings
+from olive.model.utils.onnx_utils import bind_input_data, bind_output_data, dump_tuning_result, prepare_io_bindings
 from olive.platform_sdk.qualcomm.utils.data_loader import FileListCommonDataLoader, FileListDataLoader
 
 logger = logging.getLogger(__name__)
@@ -404,6 +405,22 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             if k in input_names
         }
 
+    @classmethod
+    def get_inference_settings(cls, metric: Metric, model: ONNXModelHandler) -> Dict[str, Any]:
+        # user.config.inference_settings > model.inference_settings > default inference_settings
+        # when user.config.inference_settings is None, the model.inference_settings
+        # will be used in model.prepare_session(..)
+        inference_settings = {}
+        model_infrerence_settings = model.inference_settings
+        if model_infrerence_settings:
+            inference_settings.update(model_infrerence_settings)
+
+        metric_inference_settings = metric.get_inference_settings(cls.framework.lower())
+        if metric_inference_settings:
+            inference_settings.update(metric_inference_settings)
+
+        return inference_settings
+
     def _inference(
         self,
         model: ONNXModelHandler,
@@ -414,7 +431,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         execution_providers: Union[str, List[str]] = None,
     ) -> Tuple[OliveModelOutput, Any]:
         # user.config.inference_settings > model.inference_settings > default inference_settings
-        inference_settings = metric.get_inference_settings(self.framework.lower()) or model.inference_settings or {}
+        inference_settings = self.get_inference_settings(metric, model)
         session = model.prepare_session(
             inference_settings=inference_settings,
             device=device,
@@ -488,6 +505,10 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             logits = torch.cat(logits, dim=0)
         else:
             logits = {k: torch.cat(logits[k], dim=0) for k in output_names}
+
+        tuning_result_file = inference_settings.get("tuning_result_file")
+        if tuning_result_file:
+            dump_tuning_result(session, tuning_result_file)
         return OliveModelOutput(preds=preds, logits=logits), targets
 
     def _evaluate_onnx_accuracy(
@@ -514,12 +535,13 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
 
         # user.config.inference_settings > model.inference_settings > default inference_settings
-        inference_settings = metric.get_inference_settings(self.framework.lower()) or model.inference_settings or {}
+        inference_settings = self.get_inference_settings(metric, model)
         session = model.prepare_session(
             inference_settings=inference_settings,
             device=device,
             execution_providers=execution_providers,
         )
+
         io_config = model.get_io_config()
 
         input_data, _ = next(iter(dataloader))
@@ -560,6 +582,9 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
                 latencies.append(time.perf_counter() - t)
             time.sleep(sleep_num)
 
+        tuning_result_file = inference_settings.get("tuning_result_file")
+        if tuning_result_file:
+            dump_tuning_result(session, tuning_result_file)
         return latencies
 
     @staticmethod
@@ -1038,6 +1063,79 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
             session.infer(input_data)
             latencies.append(time.perf_counter() - t)
         return latencies
+
+
+class QNNEvaluator(OliveEvaluator, framework=Framework.QNN):
+    def __init__(self):
+        super().__init__()
+
+    def _inference(
+        self,
+        model: QNNModelHandler,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ) -> Tuple[OliveModelOutput, Any]:
+        dataloader = self._prepare_dataloader(dataloader, model)
+        session = model.prepare_session(
+            inference_settings=metric.get_inference_settings(self.framework.lower()), device=device
+        )
+
+        preds = []
+        targets = []
+        logits = []
+        for data_dir, input_list, labels in dataloader:
+            result = session(input_list, data_dir).get("result")
+            if post_func:
+                outputs = post_func(result)
+            else:
+                raise ValueError("Post processing function is required for QNN model")
+            preds.extend(outputs.tolist())
+            targets.extend(labels.tolist())
+            logits.extend(result.tolist())
+        return OliveModelOutput(preds=preds, logits=logits), targets
+
+    def _evaluate_accuracy(
+        self,
+        model: QNNModelHandler,
+        data_root: str,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ) -> MetricResult:
+        inference_output, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
+        return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
+
+    def _evaluate_raw_latency(
+        self,
+        model: QNNModelHandler,
+        data_root: str,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ):
+        dataloader = self._prepare_dataloader(dataloader, model)
+        warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
+        session = model.prepare_session(
+            inference_settings=metric.get_inference_settings(self.framework.lower()), device=device
+        )
+
+        data_dir, input_data, _ = next(iter(dataloader))
+        # for qnn-net-run only keep 20 logs
+        total_runs = min(warmup_num + repeat_test_num, 20)
+        results = session(input_data, data_dir, runs=total_runs, sleep=sleep_num)
+        return results["latencies"]["net_run"][warmup_num:]
+
+    def _prepare_dataloader(self, dataloader: Dataset, model: QNNModelHandler) -> FileListDataLoader:
+        if isinstance(dataloader, FileListDataLoader):
+            return dataloader
+        return FileListCommonDataLoader(dataloader, model.io_config)
 
 
 class OliveEvaluatorFactory:

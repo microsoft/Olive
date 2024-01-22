@@ -47,7 +47,7 @@ class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin, CompositeM
         self.resource_paths: Dict[str, str] = {}
 
         # Only update the resource_paths when the resource_key is model_path.
-        # All othercase will be handled by subclass.
+        # All other case will be handled by subclass.
         if len(self.resource_keys) == 1 and self.resource_keys[0] == "model_path":
             self.add_resources(locals())
 

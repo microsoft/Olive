@@ -204,8 +204,8 @@ class TestOliveEvaluator:
         ],
     )
     @patch("onnxruntime.get_available_providers")
-    def test_evaluate_latency_with_unsupported_ep(self, mock_get_available_providers, execution_providers):
-        mock_get_available_providers.return_value = ["CPUExecutionProvider"]
+    def test_evaluate_latency_with_unsupported_ep(self, get_available_providers_mock, execution_providers):
+        get_available_providers_mock.return_value = ["CPUExecutionProvider"]
         model = get_onnx_model()
         evaluator = OnnxEvaluator()
         latency_metric = get_latency_metric(LatencySubType.AVG)
@@ -327,6 +327,108 @@ class TestOliveEvaluator:
         evaluate_func.assert_called_once_with(
             "model", "data_dir", "batch_size", "device", "execution_providers", **(evaluate_func_kwargs or {})
         )
+
+    @patch("onnxruntime.InferenceSession")
+    def test_evaluate_latency_with_tunable_op(self, inference_session_mock):
+        tuning_result = [
+            {
+                "ep": "ROCMExecutionProvider",
+                "results": {
+                    "onnxruntime::rocm::tunable::blas::internal::GemmTunableOp<__half, ck::tensor_layout::gemm::RowMajor, ck::tensor_layout::gemm::RowMajor>": {  # noqa: E501
+                        "NN_992_4096_4096": 300,
+                        "NN_992_4096_11008": 664,
+                        "NN_984_4096_4096": 1295,
+                    },
+                    "onnxruntime::contrib::rocm::SkipLayerNormTunableOp<__half, float, __half, true>": {
+                        "4096_4620288": 20,
+                        "4096_13697024": 39,
+                        "4096_16744448": 39,
+                    },
+                },
+                "validators": {
+                    "ORT_VERSION": "1.17.0",
+                    "ORT_GIT_COMMIT": "",
+                    "ORT_BUILD_CONFIG": "USE_CK=1|USE_ROCBLAS_EXTENSION_API=1|USE_HIPBLASLT=1|",
+                    "HIP_VERSION": "50731921",
+                    "ROCBLAS_VERSION": "3.1.0.b80e4220-dirty",
+                    "DEVICE_MODEL": "AMD Instinct MI250X/MI250",
+                },
+            }
+        ]
+
+        mock = MagicMock()
+        mock.get_providers.return_value = ["ROCMExecutionProvider"]
+        mock.get_tuning_results.return_value = tuning_result
+        inference_session_mock.return_value = mock
+
+        # setup
+        model = get_onnx_model()
+        model.inference_settings = {}
+        model.inference_settings["tuning_op_result"] = tuning_result
+        evaluator = OnnxEvaluator()
+        latency_metric = get_latency_metric(LatencySubType.AVG)
+        evaluator.evaluate(model, None, [latency_metric], Device.GPU, ["ROCMExecutionProvider"])
+        mock.set_tuning_results.assert_called_with(tuning_result)
+
+    @pytest.mark.parametrize(
+        "metric_inference_settings, model_inference_settings, result_keys",
+        [
+            (None, None, None),
+            (
+                None,
+                {
+                    "execution_provider": ["ROCMExecutionProvider"],
+                    "provider_options": [{"tunable_op_enable": True, "tunable_op_tuning_enable": True, "device_id": 0}],
+                },
+                ["execution_provider", "provider_options"],
+            ),
+            (
+                {
+                    "session_options": {
+                        "intra_op_num_threads": 1,
+                        "inter_op_num_threads": 0,
+                        "execution_mode": 0,
+                        "graph_opt_level": 99,
+                    }
+                },
+                None,
+                ["session_options"],
+            ),
+            (
+                {"session_options": {"enable_profiling": True}},
+                {"tuning_op_result": [{"ep": "ROCMExecutionProvider"}], "session_options": {"enable_profiling": False}},
+                ["session_options", "tuning_op_result"],
+            ),
+        ],
+    )
+    def test_evaluator_get_inference_session(self, metric_inference_settings, model_inference_settings, result_keys):
+        """Test get_inference_session method in evaluator when both metric and model have inference settings.
+
+        The model.inference_settings will be overridden by the metric.inference_settings.
+        """
+        metric = get_latency_metric(LatencySubType.AVG)
+        if metric_inference_settings:
+            metric.user_config.inference_settings = {"onnx": metric_inference_settings.copy()}
+        model = get_onnx_model()
+        model.inference_settings = model_inference_settings.copy() if model_inference_settings else None
+        inference_settings = OnnxEvaluator.get_inference_settings(metric, model)
+        if result_keys is None:
+            assert inference_settings == {}
+        else:
+            for key in result_keys:
+                assert key in inference_settings
+                value = None
+                if metric_inference_settings:
+                    value = metric_inference_settings.get(key)
+                if value is None and model_inference_settings:
+                    value = model_inference_settings.get(key)
+                assert inference_settings[key] == value
+            if metric_inference_settings and model_inference_settings:
+                # verify the metric inference settings has higher priority
+                assert inference_settings["session_options"]["enable_profiling"]
+                # verify the original inference settings are not changed
+                assert metric.get_inference_settings("onnx") == metric_inference_settings
+                assert model.inference_settings == model_inference_settings
 
 
 @pytest.mark.skip(reason="Requires custom onnxruntime build with mpi enabled")

@@ -5,8 +5,11 @@
 
 import copy
 import itertools
+import json
 import logging
+import tempfile
 import time
+from pathlib import Path
 from typing import Any, Callable, Dict, Union
 
 from olive.data.config import DataConfig
@@ -116,8 +119,11 @@ def tune_onnx_model(perf_tuning_pass_ep, model, data_root, config):
     # TODO(myguo): from the time being, the baseline evaluation doesn't enable enable_cuda_graph.
     # do we need enable it?
     io_bind = config.io_bind
-    pretuning_inference_result = get_benchmark(model, data_root, latency_metric, config, io_bind=io_bind)
+    pretuning_inference_result = get_benchmark(
+        model, data_root, latency_metric, config, io_bind=io_bind, tuning_result=None
+    )
 
+    tuning_op_result = pretuning_inference_result.get("tuning_op_result")
     tuning_results = []
     for provider, execution_mode, opt_level in generate_tuning_combos(config):
         provider, options = populate_provider_options(provider, config)  # noqa: PLW2901
@@ -149,7 +155,9 @@ def tune_onnx_model(perf_tuning_pass_ep, model, data_root, config):
         if not valid_config(tuning_combo, config):
             continue
         logger.info("Run tuning for: %s", list(zip(tuning_item, tuning_combo)))
-        tuning_results.extend(threads_num_tuning(model, data_root, latency_metric, config, *tuning_combo))
+        tuning_results.extend(
+            threads_num_tuning(model, data_root, latency_metric, config, *tuning_combo, tuning_op_result)
+        )
 
     for tuning_result in tuning_results:
         logger.debug("Tuning result for %s: %s", tuning_result["test_name"], tuning_result["latency_ms"])
@@ -163,6 +171,7 @@ def tune_onnx_model(perf_tuning_pass_ep, model, data_root, config):
         "execution_provider": best_result["execution_provider"],
         "provider_options": best_result["provider_options"],
         "io_bind": best_result["io_bind"],
+        "tuning_op_result": best_result.get("tuning_op_result"),
     }
     session_options = best_result.get("session_options")
     if session_options is not None:
@@ -190,7 +199,9 @@ def populate_provider_options(execution_provider, config):
     return provider, provider_options
 
 
-def threads_num_tuning(model, data_root, latency_metric, config, providers, execution_mode, ort_opt_level, io_bind):
+def threads_num_tuning(
+    model, data_root, latency_metric, config, providers, execution_mode, ort_opt_level, io_bind, tuning_op_result
+):
     tuning_results = []
     provider, options = providers
 
@@ -214,7 +225,7 @@ def threads_num_tuning(model, data_root, latency_metric, config, providers, exec
                 if intra is not None:
                     test_params["session_options"]["intra_op_num_threads"] = intra
                 tuning_result = threads_num_binary_search(
-                    model, data_root, latency_metric, config, test_params, io_bind
+                    model, data_root, latency_metric, config, test_params, io_bind, tuning_op_result
                 )
                 tuning_results.extend(tuning_result)
     except EXCEPTIONS_TO_RAISE:
@@ -229,7 +240,7 @@ def threads_num_tuning(model, data_root, latency_metric, config, providers, exec
     return tuning_results
 
 
-def threads_num_binary_search(model, data_root, latency_metric, config, test_params, io_bind):
+def threads_num_binary_search(model, data_root, latency_metric, config, test_params, io_bind, tuning_op_result):
     """Binary search based benchmark for inter_op_num_threads and intra_op_num_threads."""
     import onnxruntime as ort
     import psutil
@@ -251,14 +262,14 @@ def threads_num_binary_search(model, data_root, latency_metric, config, test_par
         and test_params["session_options"].get("intra_op_num_threads") is not None
     ):
         # If user specify both inter_op_num_threads and intra_op_num_threads, we will not do tuning
-        test_result = get_benchmark(model, data_root, latency_metric, config, test_params, io_bind)
+        test_result = get_benchmark(model, data_root, latency_metric, config, test_params, io_bind, tuning_op_result)
         return [test_result]
 
     tuning_results = []
 
     def benchmark_with_threads_num(threads_name, threads_num):
         test_params["session_options"][threads_name] = threads_num
-        test_result = get_benchmark(model, data_root, latency_metric, config, test_params, io_bind)
+        test_result = get_benchmark(model, data_root, latency_metric, config, test_params, io_bind, tuning_op_result)
         tuning_results.append(test_result)
         return test_result["latency_ms"]
 
@@ -350,12 +361,56 @@ def generate_test_name(test_params, io_bind):
     return "-".join(f"{str(i)}" for i in name_list)
 
 
-def get_benchmark(model, data_root, latency_metric, config, test_params=None, io_bind=False):
+def enable_rocm_op_tuning(inference_settings, input_tuning_result, tuning_result_output_dir):
+    execution_providers = inference_settings["execution_provider"]
+    provider_options = inference_settings["provider_options"]
+
+    def set_rocm_provider_options(provider_options):
+        # Please refer to the following links for the config or ROCMExecutionProvider
+        # https://github.com/microsoft/onnxruntime/blob/71657d1eb8b0a24a4b6584d9e904506a0b4e1521/onnxruntime/core/providers/rocm/rocm_execution_provider_info.cc#L24C1-L25
+        provider_options["tunable_op_enable"] = True
+        provider_options["tunable_op_tuning_enable"] = True
+        if "device_id" not in provider_options:
+            provider_options["device_id"] = 0
+
+        return provider_options
+
+    def find_tuning_op_result_by_ep(tuning_result, ep):
+        for tuning_op_result in tuning_result:
+            if tuning_op_result["ep"] == ep:
+                return tuning_op_result
+        return None
+
+    assert input_tuning_result is None or isinstance(input_tuning_result, list), "tuning_result should be a list"
+
+    tuning_result_file_name = None
+    tuning_op_result = []
+    for i, ep in enumerate(execution_providers):
+        if ep == "ROCMExecutionProvider":
+            set_rocm_provider_options(provider_options[i])
+            tuning_result_file_name = "tuning_result.json"
+        if input_tuning_result:
+            op_result = find_tuning_op_result_by_ep(input_tuning_result, ep)
+            if op_result:
+                tuning_op_result.append(op_result)
+
+    inference_settings["provider_options"] = provider_options
+    if tuning_result_file_name:
+        tuning_result_file = Path(tuning_result_output_dir) / tuning_result_file_name
+        inference_settings["tuning_result_file"] = str(tuning_result_file)
+
+        # Only set the tuning_op_result for ROCM. In this case, the tuning_result_file is not None.
+        if tuning_op_result:
+            inference_settings["tuning_op_result"] = tuning_op_result
+
+
+def get_benchmark(model, data_root, latency_metric, config, test_params=None, io_bind=False, tuning_result=None):
     import onnxruntime as ort
 
     from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
 
     # prepare the inference_settings for metrics.
+    tuning_result_file = None
     if test_params:
         assert "provider_options" in test_params, "provider_options should be in test_params"
         inference_settings = test_params
@@ -373,29 +428,40 @@ def get_benchmark(model, data_root, latency_metric, config, test_params=None, io
             inference_settings["session_options"] = {}
         inference_settings["session_options"]["enable_profiling"] = True
 
-    # set the session_options for metrics so that the evalute will use them by default
-    latency_metric.user_config.io_bind = io_bind
-    latency_metric.user_config.inference_settings = {"onnx": inference_settings}
+    with tempfile.TemporaryDirectory() as temp_dir:
+        enable_rocm_op_tuning(inference_settings, tuning_result, temp_dir)
+        # set the session_options for metrics so that the evalute will use them by default
+        latency_metric.user_config.io_bind = io_bind
+        latency_metric.user_config.inference_settings = {"onnx": inference_settings}
 
-    session_name = generate_test_name(test_params, io_bind)
-    logger.debug(f"Run benchmark for: {session_name}")
-    evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
-    joint_key = joint_metric_key(latency_metric.name, latency_metric.sub_types[0].name)
-    start_time = time.perf_counter()
-    # We deliberately set the execution_providers to None so that the evaluator will use the one in inference_settings
-    latency_ms = evaluator.evaluate(model, data_root, [latency_metric], config.device, None)[joint_key].value
-    end_time = time.perf_counter()
-    logger.debug(f"It takes {(end_time - start_time):.5f} seconds to benchmark for: {session_name}")
+        session_name = generate_test_name(test_params, io_bind)
+        logger.debug(f"Run benchmark for: {session_name}")
+        evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
+        joint_key = joint_metric_key(latency_metric.name, latency_metric.sub_types[0].name)
+        start_time = time.perf_counter()
+        # We deliberately set the execution_providers to None so that the evaluator will
+        # use the one in inference_settings
+        latency_ms = evaluator.evaluate(model, data_root, [latency_metric], config.device, None)[joint_key].value
+        end_time = time.perf_counter()
+        logger.debug(f"It takes {(end_time - start_time):.5f} seconds to benchmark for: {session_name}")
 
-    session_options = inference_settings.get("session_options")
-    return {
-        "test_name": session_name,
-        "io_bind": io_bind,
-        "latency_ms": latency_ms,
-        "execution_provider": inference_settings["execution_provider"],
-        "provider_options": inference_settings["provider_options"],
-        "session_options": session_options if session_options else {},
-    }
+        session_options = inference_settings.get("session_options")
+
+        tuning_op_result = None
+        tuning_result_file = inference_settings.get("tuning_result_file")
+        if tuning_result_file:
+            with Path(tuning_result_file).open() as f:
+                tuning_op_result = json.load(f)
+
+        return {
+            "test_name": session_name,
+            "io_bind": io_bind,
+            "latency_ms": latency_ms,
+            "execution_provider": inference_settings["execution_provider"],
+            "provider_options": inference_settings["provider_options"],
+            "session_options": session_options if session_options else {},
+            "tuning_op_result": tuning_op_result,
+        }
 
 
 def parse_tuning_result(*tuning_results):

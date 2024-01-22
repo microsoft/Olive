@@ -8,6 +8,8 @@ import numpy as np
 from onnxruntime.quantization.calibrate import CalibrationDataReader
 from torch.utils.data import DataLoader, Dataset
 
+from olive.platform_sdk.qualcomm.utils.data_loader import FileListProcessedDataLoader
+
 
 class MobileNetDataset(Dataset):
     def __init__(self, data_dir: str):
@@ -47,6 +49,14 @@ class MobileNetCalibrationDataReader(CalibrationDataReader):
 
     def rewind(self):
         self.iter = None
+
+
+def qnn_data_loader(data_dir: str, batch_size: int, *args, **kwargs):
+    input_list_file = "eval/input_order.txt"
+    annotation_file = "eval/labels.npy"
+    return FileListProcessedDataLoader(
+        data_dir, batch_size=batch_size, input_list_file=input_list_file, annotations_file=annotation_file
+    )
 
 
 def evaluation_dataloader(data_dir, batch_size, *args, **kwargs):

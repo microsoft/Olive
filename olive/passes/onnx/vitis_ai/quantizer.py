@@ -317,17 +317,18 @@ class VitisQOpQuantizer(ONNXQuantizer):
             self.reduce_range and reduce_range,
             method=PowerOfTwoMethod.NonOverflow,
         )
+        if is_ort_version_below_1_17():
+            scale_qType = onnx_proto.TensorProto.FLOAT
+            weight_qType = onnx.mapping.TENSOR_TYPE_TO_NP_TYPE[qType]
+        else:
+            scale_qType = onnx.helper.np_dtype_to_tensor_dtype(scale.dtype)
+            weight_qType = onnx.helper.tensor_dtype_to_np_dtype(qType)
 
-        scale_initializer = onnx.helper.make_tensor(
-            scale_name, onnx.helper.np_dtype_to_tensor_dtype(scale.dtype), [], [float(scale)]
-        )
+        scale_initializer = onnx.helper.make_tensor(scale_name, scale_qType, [], [float(scale)])
         zero_initializer = onnx.helper.make_tensor(zp_name, qType, [], [int(zero_point)])
         self.model.initializer().extend([scale_initializer, zero_initializer])
-
         if not keep_float_weight:
-            q_weight_data = np.asarray(q_weight_data, dtype=onnx.helper.tensor_dtype_to_np_dtype(qType)).reshape(
-                weight.dims
-            )
+            q_weight_data = np.asarray(q_weight_data, dtype=weight_qType).reshape(weight.dims)
             q_weight_initializer = onnx.numpy_helper.from_array(q_weight_data, q_weight_name)
             self.model.initializer().extend([q_weight_initializer])
 

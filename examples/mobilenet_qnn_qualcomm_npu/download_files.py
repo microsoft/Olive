@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+
 import shutil
 import tarfile
 import tempfile
@@ -51,7 +52,6 @@ def download_model():
 
     with tarfile.open(mobilenet_archive_path) as tar_ref:
         tar_ref.extractall(stage_dir)
-
     original_model_path = stage_dir / mobilenet_name / f"{mobilenet_name}.onnx"
     model_path = models_dir / f"{mobilenet_name}.onnx"
     if model_path.exists():
@@ -82,13 +82,24 @@ def download_eval_data():
         shutil.rmtree(data_path)
     data_path.mkdir(parents=True, exist_ok=True)
 
+    input_data_path = data_dir / "input"
+    input_data_path.mkdir(parents=True, exist_ok=True)
+    input_order = []
     # preprocess images
     inputs = []
     for jpeg in jpegs[:20]:
+        input_file_name = (input_data_path / jpeg.name).with_suffix(".raw")
         out = preprocess_image(jpeg)
+        # reshape to NHWC from NCHW as QNN converter will do this
+        # with this transpose, the shape is (1, 224, 224, 3). Otherwise, it is (1, 3, 224, 224)
+        single_out_file = out.transpose(1, 2, 0)
+        single_out_file.tofile(input_file_name)
+        input_order.append(input_file_name)
         inputs.append(out)
     inputs = np.stack(inputs)
     np.save(data_path / "data.npy", inputs)
+    with (data_path / "input_order.txt").open("w") as f:
+        f.write("\n".join([str(x) for x in input_order]) + "\n")
 
     # create labels file
     labels = np.arange(0, 20)

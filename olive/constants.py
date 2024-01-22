@@ -10,6 +10,7 @@ class Framework(str, Enum):
 
     ONNX = "ONNX"
     PYTORCH = "PyTorch"
+    QNN = "QNN"
     TENSORFLOW = "TensorFlow"
     SNPE = "SNPE"
     OPENVINO = "OpenVINO"
@@ -26,5 +27,8 @@ class ModelFileFormat(str, Enum):
     TENSORFLOW_PROTOBUF = "TensorFlow.Protobuf"
     TENSORFLOW_SAVED_MODEL = "TensorFlow.SavedModel"
     SNPE_DLC = "SNPE.DLC"
+    QNN_CPP = "QNN.CPP"
+    QNN_LIB = "QNN.LIB"
+    QNN_SERIALIZED_BIN = "QNN.SERIALIZED.BIN"
     OPENVINO_IR = "OpenVINO.IR"
     COMPOSITE_MODEL = "Composite"
