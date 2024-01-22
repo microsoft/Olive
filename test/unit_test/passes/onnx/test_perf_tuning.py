@@ -3,10 +3,12 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import math
 import re
 from test.unit_test.utils import create_dataloader, get_onnx_model
 from unittest.mock import MagicMock, patch
 
+import psutil
 import pytest
 
 from olive.evaluator.metric import flatten_metric_result
@@ -313,17 +315,18 @@ def test_rocm_tuning_enable(mock_get_available_providers, inference_session_mock
     ]
 
     mock = MagicMock()
-    mock.get_providers.return_value = ["ROCMExecutionProvider"]
+    mock.get_providers.return_value = ["MIGraphXExecutionProvider", "ROCMExecutionProvider"]
     mock.get_tuning_results.return_value = tuning_result
     inference_session_mock.return_value = mock
 
     mock_get_available_providers.return_value = [
+        "MIGraphXExecutionProvider",
         "ROCMExecutionProvider",
         "CPUExecutionProvider",
     ]
 
     config = {
-        "providers_list": ["ROCMExecutionProvider"],
+        "providers_list": ["MIGraphXExecutionProvider", "ROCMExecutionProvider"],
         "device": "gpu",
     }
 
@@ -341,3 +344,7 @@ def test_rocm_tuning_enable(mock_get_available_providers, inference_session_mock
     result = p.run(input_model, None, output_folder)
     tuning_result_ret = result.inference_settings["tuning_op_result"]
     assert tuning_result_ret == tuning_result
+    set_tuning_result_binary_search_count_per_iteration = int(math.log2(psutil.cpu_count())) + 1
+    set_tuning_result_count = 2 * set_tuning_result_binary_search_count_per_iteration + 1
+    assert mock.set_tuning_results.call_count == set_tuning_result_count
+    assert mock.get_tuning_results.call_count == set_tuning_result_count + 1

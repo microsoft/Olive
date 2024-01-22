@@ -180,18 +180,6 @@ def tune_onnx_model(perf_tuning_pass_ep, model, data_root, config):
     return optimized_model
 
 
-def enable_rocm_op_tuning(provider, provider_options):
-    assert provider == "ROCMExecutionProvider", "provider should be ROCMExecutionProvider"
-    # Please refer to the following links for the config or ROCMExecutionProvider
-    # https://github.com/microsoft/onnxruntime/blob/71657d1eb8b0a24a4b6584d9e904506a0b4e1521/onnxruntime/core/providers/rocm/rocm_execution_provider_info.cc#L24C1-L25
-    provider_options["tunable_op_enable"] = True
-    provider_options["tunable_op_tuning_enable"] = True
-    if "device_id" not in provider_options:
-        provider_options["device_id"] = 0
-
-    return provider_options
-
-
 def populate_provider_options(execution_provider, config):
     if isinstance(execution_provider, (tuple, list)):
         assert len(execution_provider) == 2, "execution_provider should be a tuple with execution provider and options"
@@ -207,8 +195,6 @@ def populate_provider_options(execution_provider, config):
         provider_options["trt_fp16_enable"] = config.trt_fp16_enable
     elif provider == "CUDAExecutionProvider":
         provider_options["enable_cuda_graph"] = config.enable_cuda_graph
-    elif provider == "ROCMExecutionProvider":
-        provider_options = enable_rocm_op_tuning(provider, provider_options)
 
     return provider, provider_options
 
@@ -375,6 +361,50 @@ def generate_test_name(test_params, io_bind):
     return "-".join(f"{str(i)}" for i in name_list)
 
 
+def enable_rocm_op_tuning(inference_settings, tuning_result, tmp_dir):
+    execution_providers = inference_settings["execution_provider"]
+    provider_options = inference_settings["provider_options"]
+
+    def set_rocm_provider_options(provider, provider_options):
+        # Please refer to the following links for the config or ROCMExecutionProvider
+        # https://github.com/microsoft/onnxruntime/blob/71657d1eb8b0a24a4b6584d9e904506a0b4e1521/onnxruntime/core/providers/rocm/rocm_execution_provider_info.cc#L24C1-L25
+        provider_options["tunable_op_enable"] = True
+        provider_options["tunable_op_tuning_enable"] = True
+        if "device_id" not in provider_options:
+            provider_options["device_id"] = 0
+
+        return provider_options
+
+    def find_tuning_op_result_by_ep(tuning_result, ep):
+        for tuning_op_result in tuning_result:
+            if tuning_op_result["ep"] == ep:
+                return tuning_op_result
+        return None
+
+    assert tuning_result is None or isinstance(tuning_result, list), "tuning_result should be a list"
+
+    tuning_result_file_name = None
+    tuning_op_result = []
+    for i, ep in enumerate(execution_providers):
+        if ep == "ROCMExecutionProvider":
+            rocm_options = set_rocm_provider_options(ep, provider_options[i])
+            provider_options[i] = rocm_options
+            tuning_result_file_name = "tuning_result.json"
+        if tuning_result:
+            op_result = find_tuning_op_result_by_ep(tuning_result, ep)
+            if op_result:
+                tuning_op_result.append(op_result)
+
+    inference_settings["provider_options"] = provider_options
+    if tuning_result_file_name:
+        tuning_result_file = Path(tmp_dir) / tuning_result_file_name
+        inference_settings["tuning_result_file"] = str(tuning_result_file)
+
+        # Only set the tuning_op_result for ROCM. In this case, the tuning_result_file is not None.
+        if tuning_op_result:
+            inference_settings["tuning_op_result"] = tuning_op_result
+
+
 def get_benchmark(model, data_root, latency_metric, config, test_params=None, io_bind=False, tuning_result=None):
     import onnxruntime as ort
 
@@ -385,31 +415,12 @@ def get_benchmark(model, data_root, latency_metric, config, test_params=None, io
     if test_params:
         assert "provider_options" in test_params, "provider_options should be in test_params"
         inference_settings = test_params
-        execution_providers = inference_settings["execution_provider"]
-        if execution_providers[0] == "ROCMExecutionProvider":
-            tuning_result_file = "tuning_result.json"
-        if tuning_result:
-            assert isinstance(tuning_result, list), "tuning_result should be a list"
-            tuning_op_result = None
-            for ep_result in tuning_result:
-                # find the tuning result for the associated execution provider
-                if ep_result["ep"] == execution_providers[0]:
-                    tuning_op_result = [ep_result]
-                    break
-            tuning_result = tuning_op_result
     else:
         inference_settings = copy.deepcopy(model.inference_settings) if model.inference_settings else {}
         # put the execution_provider and provider_options in inference_settings for baseline evaluation
         execution_providers, provider_options = check_and_normalize_provider_args(
             config.providers_list, None, ort.get_available_providers()
         )
-        for i, ep in enumerate(execution_providers):
-            if ep == "ROCMExecutionProvider":
-                rocm_options = enable_rocm_op_tuning(ep, provider_options[i])
-                provider_options[i] = rocm_options
-                tuning_result_file = "tuning_result_baseline.json"
-                break
-
         inference_settings["execution_provider"] = execution_providers
         inference_settings["provider_options"] = provider_options
 
@@ -419,13 +430,7 @@ def get_benchmark(model, data_root, latency_metric, config, test_params=None, io
         inference_settings["session_options"]["enable_profiling"] = True
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        if tuning_result_file:
-            # Only set the tuning_op_result for ROCM. In this case, the tuning_result_file is not None.
-            if tuning_result:
-                inference_settings["tuning_op_result"] = tuning_result
-            tuning_result_file = Path(temp_dir) / tuning_result_file
-            inference_settings["tuning_result_file"] = str(tuning_result_file)
-
+        enable_rocm_op_tuning(inference_settings, tuning_result, temp_dir)
         # set the session_options for metrics so that the evalute will use them by default
         latency_metric.user_config.io_bind = io_bind
         latency_metric.user_config.inference_settings = {"onnx": inference_settings}
@@ -444,8 +449,9 @@ def get_benchmark(model, data_root, latency_metric, config, test_params=None, io
         session_options = inference_settings.get("session_options")
 
         tuning_op_result = None
+        tuning_result_file = inference_settings.get("tuning_result_file")
         if tuning_result_file:
-            with tuning_result_file.open() as f:
+            with Path(tuning_result_file).open() as f:
                 tuning_op_result = json.load(f)
 
         return {
