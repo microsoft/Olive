@@ -361,11 +361,11 @@ def generate_test_name(test_params, io_bind):
     return "-".join(f"{str(i)}" for i in name_list)
 
 
-def enable_rocm_op_tuning(inference_settings, tuning_result, tmp_dir):
+def enable_rocm_op_tuning(inference_settings, input_tuning_result, tuning_result_output_dir):
     execution_providers = inference_settings["execution_provider"]
     provider_options = inference_settings["provider_options"]
 
-    def set_rocm_provider_options(provider, provider_options):
+    def set_rocm_provider_options(provider_options):
         # Please refer to the following links for the config or ROCMExecutionProvider
         # https://github.com/microsoft/onnxruntime/blob/71657d1eb8b0a24a4b6584d9e904506a0b4e1521/onnxruntime/core/providers/rocm/rocm_execution_provider_info.cc#L24C1-L25
         provider_options["tunable_op_enable"] = True
@@ -381,23 +381,22 @@ def enable_rocm_op_tuning(inference_settings, tuning_result, tmp_dir):
                 return tuning_op_result
         return None
 
-    assert tuning_result is None or isinstance(tuning_result, list), "tuning_result should be a list"
+    assert input_tuning_result is None or isinstance(input_tuning_result, list), "tuning_result should be a list"
 
     tuning_result_file_name = None
     tuning_op_result = []
     for i, ep in enumerate(execution_providers):
         if ep == "ROCMExecutionProvider":
-            rocm_options = set_rocm_provider_options(ep, provider_options[i])
-            provider_options[i] = rocm_options
+            set_rocm_provider_options(provider_options[i])
             tuning_result_file_name = "tuning_result.json"
-        if tuning_result:
-            op_result = find_tuning_op_result_by_ep(tuning_result, ep)
+        if input_tuning_result:
+            op_result = find_tuning_op_result_by_ep(input_tuning_result, ep)
             if op_result:
                 tuning_op_result.append(op_result)
 
     inference_settings["provider_options"] = provider_options
     if tuning_result_file_name:
-        tuning_result_file = Path(tmp_dir) / tuning_result_file_name
+        tuning_result_file = Path(tuning_result_output_dir) / tuning_result_file_name
         inference_settings["tuning_result_file"] = str(tuning_result_file)
 
         # Only set the tuning_op_result for ROCM. In this case, the tuning_result_file is not None.
