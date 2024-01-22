@@ -150,10 +150,10 @@ def set_config_parameters(repo_id: str, num_layers: Optional[int]):
     #     raise ValueError("Normalization epsilon value was not found")
 
     # config.normalization_type = "rms" if hasattr(pipeline.model.config, "rms_norm_eps") else "layer_norm"
-    config.strict_weights_loading = True
+    config.strict_weights_loading = False
     config.num_layers = num_layers
 
-    checkpoint_path = "C:\\Users\\xianz\\work\\Olive\\examples\\directml\\phi\\checkpoints"
+    checkpoint_path = "C:\\Users\\xianz\\work\\Olive\\examples\\directml\\llm"
     model_checkpoint = load_phi2_checkpoint(checkpoint_path)
     converted_checkpoint = {}
     converted_checkpoint.update(**convert_weights(model_checkpoint, PHI_MAPPING, config))

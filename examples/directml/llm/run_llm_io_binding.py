@@ -51,9 +51,13 @@ def run_llm_io_binding(
     binding_device = "dml"
 
     # Initialize the tokenizer and produce the initial tokens.
-    tokenizer = AutoTokenizer.from_pretrained(model_dir)
-    tokens = tokenizer.apply_chat_template([{"role": "user", "content": prompt}], return_tensors="np")
-    tokens = np.asarray(tokens, dtype=np.int64)
+    tokenizer = AutoTokenizer.from_pretrained("microsoft/phi-2", trust_remote_code=True)
+    inputs = tokenizer('''def print_prime(n):
+       """
+       Print all primes between 1 and n
+       """''', return_tensors="pt", return_attention_mask=False)
+    # tokens = tokenizer.apply_chat_template([{"role": "user", "content": prompt}], return_tensors="np")
+    tokens = inputs["input_ids"].numpy().astype(np.int64)
     tokens = onnxruntime.OrtValue.ortvalue_from_numpy(tokens, binding_device)
     tokens_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, 1), np.int64, binding_device)
 
@@ -116,12 +120,12 @@ def run_llm_io_binding(
         if not ignore_eos and output_tokens[-1] == tokenizer.eos_token_id:
             break
 
-        if idx == 0:
-            logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
-                (1, 1, tokenizer.vocab_size), data_type, binding_device
-            )
-            llm_io_binding.bind_cpu_input("use_cache_branch", np.ones([1], dtype=np.bool_))
-            llm_io_binding.bind_ortvalue_output("logits", logits)
+        # if idx == 0:
+        #     logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
+        #         (1, 1, logits.size), data_type, binding_device
+        #     )
+        #     llm_io_binding.bind_cpu_input("use_cache_branch", np.ones([1], dtype=np.bool_))
+        #     llm_io_binding.bind_ortvalue_output("logits", logits)
 
         past_seq_len = seq_len
         seq_len += 1
@@ -131,11 +135,11 @@ def run_llm_io_binding(
     tokens_per_second = idx / duration
 
     # Only print the tokens/s when ignore_eos is provided for benchmarking purposes
-    if ignore_eos:
-        print(f"Execution took {duration:0.4f} seconds (generated {tokens_per_second:0.2f} tokens per second)")
+    # if ignore_eos:
+    print(f"Execution took {duration:0.4f} seconds (generated {tokens_per_second:0.2f} tokens per second)")
 
-    output_str = tokenizer.decode(output_tokens, skip_special_tokens=True)
-
+    print (output_tokens)
+    output_str = tokenizer.batch_decode(output_tokens)[0]
     print(output_str)
 
 
