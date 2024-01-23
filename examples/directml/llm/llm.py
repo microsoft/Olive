@@ -153,7 +153,7 @@ def set_config_parameters(repo_id: str, num_layers: Optional[int]):
     config.strict_weights_loading = False
     config.num_layers = num_layers
 
-    checkpoint_path = "C:\\Users\\xianz\\work\\Olive\\examples\\directml\\llm"
+    checkpoint_path = "C:\\Users\\xianz\\work\\Olive\\examples\\directml\\phi\\checkpoints"
     model_checkpoint = load_phi2_checkpoint(checkpoint_path)
     converted_checkpoint = {}
     converted_checkpoint.update(**convert_weights(model_checkpoint, PHI_MAPPING, config))

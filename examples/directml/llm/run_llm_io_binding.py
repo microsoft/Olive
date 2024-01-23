@@ -58,6 +58,7 @@ def run_llm_io_binding(
        """''', return_tensors="pt", return_attention_mask=False)
     # tokens = tokenizer.apply_chat_template([{"role": "user", "content": prompt}], return_tensors="np")
     tokens = inputs["input_ids"].numpy().astype(np.int64)
+    print (tokens)
     tokens = onnxruntime.OrtValue.ortvalue_from_numpy(tokens, binding_device)
     tokens_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, 1), np.int64, binding_device)
 
@@ -120,12 +121,12 @@ def run_llm_io_binding(
         if not ignore_eos and output_tokens[-1] == tokenizer.eos_token_id:
             break
 
-        # if idx == 0:
-        #     logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
-        #         (1, 1, logits.size), data_type, binding_device
-        #     )
-        #     llm_io_binding.bind_cpu_input("use_cache_branch", np.ones([1], dtype=np.bool_))
-        #     llm_io_binding.bind_ortvalue_output("logits", logits)
+        if idx == 0:
+            logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
+                (1, 1, logits.size), data_type, binding_device
+            )
+            llm_io_binding.bind_cpu_input("use_cache_branch", np.ones([1], dtype=np.bool_))
+            llm_io_binding.bind_ortvalue_output("logits", logits)
 
         past_seq_len = seq_len
         seq_len += 1

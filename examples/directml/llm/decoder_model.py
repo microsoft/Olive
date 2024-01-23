@@ -32,7 +32,7 @@ class DecoderModel(torch.nn.Module):
             normalization_type,
             epsilon,
         )
-        self.lm_head = torch.nn.Linear(hidden_size, vocab_size, bias=False)
+        self.lm_head = torch.nn.Linear(hidden_size, vocab_size)
 
     def forward_common(self, use_cache, tokens, position_ids_increment, attn_mask, cache):
         hidden_states, k_caches, v_caches = self.model(use_cache, tokens, position_ids_increment, attn_mask, cache)
@@ -153,7 +153,7 @@ class LayerNorm(torch.nn.Module):
         super().__init__()
         self.eps = eps
         self.weight = torch.nn.Parameter(torch.ones(dim))
-        self.bias = torch.zeros(dim)
+        self.bias = torch.nn.Parameter(torch.zeros(dim))
 
     def forward(self, hidden_states):
         diff = hidden_states - hidden_states.mean(-1, keepdim=True)
@@ -179,10 +179,10 @@ class TransformerLayer(torch.nn.Module):
             "rms": RMSNorm(hidden_size, epsilon),
         }[normalization_type]
 
-        self.post_attention_layernorm = {
-            "layer_norm": LayerNorm(hidden_size, epsilon),
-            "rms": RMSNorm(hidden_size, epsilon),
-        }[normalization_type]
+        # self.post_attention_layernorm = {
+        #     "layer_norm": LayerNorm(hidden_size, epsilon),
+        #     "rms": RMSNorm(hidden_size, epsilon),
+        # }[normalization_type]
 
         self.cos, self.sin = rotary_mat(hidden_size, num_heads, 4096, head_scale=1.0)
 
@@ -210,7 +210,7 @@ class TransformerLayer(torch.nn.Module):
         )
 
         h = x + h
-        return h + self.mlp(self.post_attention_layernorm(h)), k_out, v_out
+        return h + self.mlp(h), k_out, v_out
 
 
 class ApplyMask(torch.nn.Module):
@@ -288,10 +288,10 @@ class SelfAttention(torch.nn.Module):
         self.head_dim = int(hidden_size / num_heads)
 
         key_value_hidden_size = num_key_value_heads * self.head_dim
-        self.q_proj = torch.nn.Linear(hidden_size, hidden_size, bias=False)
-        self.k_proj = torch.nn.Linear(hidden_size, key_value_hidden_size, bias=False)
-        self.v_proj = torch.nn.Linear(hidden_size, key_value_hidden_size, bias=False)
-        self.o_proj = torch.nn.Linear(hidden_size, hidden_size, bias=False)
+        self.q_proj = torch.nn.Linear(hidden_size, hidden_size)
+        self.k_proj = torch.nn.Linear(hidden_size, key_value_hidden_size)
+        self.v_proj = torch.nn.Linear(hidden_size, key_value_hidden_size)
+        self.o_proj = torch.nn.Linear(hidden_size, hidden_size)
         self.apply_mask = ApplyMask()
         self.rotary_embedding = RotaryEmbedding()
 
@@ -371,9 +371,9 @@ class ProjLayerSiluMatMul(torch.nn.Module):
         intermediate_size: int,
     ) -> None:
         super().__init__()
-        self.gate_proj = torch.nn.Linear(hidden_size, intermediate_size, bias=False)
-        self.down_proj = torch.nn.Linear(intermediate_size, hidden_size, bias=False)
-        self.up_proj = torch.nn.Linear(hidden_size, intermediate_size, bias=False)
+        self.gate_proj = torch.nn.Linear(hidden_size, intermediate_size)
+        self.down_proj = torch.nn.Linear(intermediate_size, hidden_size)
+        self.up_proj = torch.nn.Linear(hidden_size, intermediate_size)
 
     def forward(self, x):
         w1x = self.gate_proj(x)
