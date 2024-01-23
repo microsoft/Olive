@@ -31,6 +31,11 @@ class OrtTransformersOptimization(Pass):
     """
 
     @staticmethod
+    def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
+        """Override this method to return False by using the accelerator spec information."""
+        return False
+
+    @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         from onnxruntime.transformers.fusion_options import FusionOptions
 
@@ -222,6 +227,15 @@ class OrtTransformersOptimization(Pass):
         optimization_options = config["optimization_options"]
         if optimization_options:
             self._set_fusion_options(run_config)
+
+        if run_config["use_gpu"]:
+            from onnxruntime import __version__ as OrtVersion
+            from packaging import version
+
+            if version.parse(OrtVersion) >= version.parse("1.17.0"):
+                run_config["provider"] = self.accelerator_spec.execution_provider.replace(
+                    "ExecutionProvider", ""
+                ).lower()
 
         optimizer = transformers_optimizer.optimize_model(input=model.model_path, **run_config)
 

@@ -4,11 +4,13 @@
 # --------------------------------------------------------------------------
 from copy import deepcopy
 from test.unit_test.utils import get_onnx_model
+from unittest.mock import patch
 
 import pytest
 from onnxruntime.transformers.fusion_options import FusionOptions
 
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR, DEFAULT_GPU_TRT_ACCELERATOR
+from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.passes.onnx import OrtTransformersOptimization
 from olive.passes.onnx.common import get_external_data_config
 
@@ -90,3 +92,20 @@ def test_transformer_optimization_invalid_model_type(tmp_path):
 
         # execute
         p.run(input_model, None, output_folder)
+
+
+@patch("onnxruntime.transformers.optimizer.optimize_model")
+@patch("olive.passes.onnx.transformer_optimization.model_proto_to_olive_model")
+@patch("onnxruntime.__version__", "1.17.0")
+def test_optimization_with_provider(mock_proto_to_model, mock_optimize_model, tmp_path):
+    input_model = get_onnx_model()
+    config = {"model_type": "bert", "use_gpu": True}
+
+    dml_ep = AcceleratorSpec(accelerator_type=Device.GPU, execution_provider="DmlExecutionProvider")
+    config = OrtTransformersOptimization.generate_search_space(dml_ep, config, disable_search=True)
+    p = OrtTransformersOptimization(dml_ep, config, True)
+    output_folder = str(tmp_path / "onnx")
+
+    # execute
+    p.run(input_model, None, output_folder)
+    assert mock_optimize_model.call_args.kwargs["provider"] == "dml"
