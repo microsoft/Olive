@@ -30,10 +30,8 @@ def download_qnn_sdk(target_path=None):
         target_path = Path().resolve() / "qnn_sdk"
     target_path.mkdir(parents=True, exist_ok=True)
     if platform.system() == "Windows":
-        import zipfile
-
-        with zipfile.ZipFile(download_path, "r") as zip_ref:
-            zip_ref.extractall(target_path)
+        cmd = f"powershell Expand-Archive -Path {download_path} -DestinationPath {str(target_path)}"
+        run_subprocess(cmd=cmd, check=True)
     elif platform.system() == "Linux":
         run_subprocess(cmd=f"unzip {download_path} -d {str(target_path)}", check=True)
     return target_path
