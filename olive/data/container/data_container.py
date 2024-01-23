@@ -31,7 +31,8 @@ class DataContainer(BaseModel):
         """Run load dataset."""
         params_config = self.config.load_dataset_params
         data_dir = params_config.get("data_dir")
-        data_dir = create_resource_path(data_dir).get_path()
+        if data_dir:
+            data_dir = create_resource_path(data_dir).get_path()
         data_dir = get_local_path_from_root(data_root_path, data_dir)
         if data_dir:
             params_config["data_dir"] = data_dir
