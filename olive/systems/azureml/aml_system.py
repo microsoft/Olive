@@ -193,9 +193,6 @@ class AzureMLSystem(OliveSystem):
             return None
         asset_type = get_asset_type_from_resource_path(model_resource_path)
 
-        if model_resource_path.type == ResourceType.AzureMLDatastore:
-            asset_type = AssetTypes.URI_FILE if model_resource_path.is_file() else AssetTypes.URI_FOLDER
-
         if model_resource_path.type in AZUREML_RESOURCE_TYPES:
             # ensure that the model is in the same workspace as the system
             model_workspace_config = model_resource_path.get_aml_client_config().get_workspace_config()

@@ -10,6 +10,7 @@ from olive.data.component.dataloader import default_calibration_dataloader
 from olive.data.config import DataConfig, DefaultDataComponentCombos
 from olive.data.constants import DataContainerType, DefaultDataContainer
 from olive.data.registry import Registry
+from olive.resource_path import create_resource_path
 
 
 @Registry.register(DataContainerType.DATA_CONTAINER, name=DefaultDataContainer.DATA_CONTAINER.value)
@@ -30,6 +31,7 @@ class DataContainer(BaseModel):
         """Run load dataset."""
         params_config = self.config.load_dataset_params
         data_dir = params_config.get("data_dir")
+        data_dir = create_resource_path(data_dir).get_path()
         data_dir = get_local_path_from_root(data_root_path, data_dir)
         if data_dir:
             params_config["data_dir"] = data_dir
