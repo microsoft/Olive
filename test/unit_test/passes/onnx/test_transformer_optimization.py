@@ -3,9 +3,10 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import shutil
 from copy import deepcopy
-from test.unit_test.utils import get_onnx_model
-from unittest.mock import patch
+from test.unit_test.utils import ONNX_MODEL_PATH, get_onnx_model
+from unittest.mock import MagicMock, patch
 
 import pytest
 from onnxruntime.transformers.fusion_options import FusionOptions
@@ -60,8 +61,8 @@ def test_ort_transformer_optimization_pass(tmp_path):
     "accelerator_spec", [DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR, DEFAULT_GPU_TRT_ACCELERATOR]
 )
 def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, tmp_path, caplog):
-    from onnxruntime import __version__ as OrtVersion
-    from packaging import version
+    import onnxruntime as ort
+    from onnxruntime.transformers.onnx_model import OnnxModel
 
     logger = logging.getLogger("olive")
     logger.propagate = True
@@ -88,16 +89,39 @@ def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, tmp_path, caplog):
                 "TensorRT has its own float16 implementation, please avoid to use float16 in transformers "
                 "optimization. Suggest to set 'trt_fp16_enable' as True in OrtPerfTuning."
             ) in caplog.text
-        else:
-            if version.parse(OrtVersion) >= version.parse("1.17.0"):
-                assert (
-                    "Transformers optimization is skipped since TensorrtExecutionProvider is not in available "
-                    "execution providers: "
-                ) in caplog.text
 
     if not is_pruned:
-        output_folder = str(tmp_path / "onnx")
-        p.run(input_model, None, output_folder)
+        inference_session_mock_call_count = 0
+
+        def inference_session_init(
+            self,
+            path_or_bytes,
+            sess_options=None,
+            providers=None,
+            provider_options=None,
+            **kwargs,
+        ):
+            nonlocal inference_session_mock_call_count
+            inference_session_mock_call_count += 1
+            shutil.copyfile(ONNX_MODEL_PATH, sess_options.optimized_model_filepath)
+
+        with patch("onnxruntime.transformers.optimizer.optimize_by_fusion") as optimize_by_fusion_mock, patch.object(
+            ort.InferenceSession, "__init__", new=inference_session_init
+        ):
+            optimize_by_fusion_mock.return_value = OnnxModel(input_model.load_model())
+            output_folder = str(tmp_path / "onnx")
+            p.run(input_model, None, output_folder)
+            optimize_by_fusion_mock.assert_called()
+
+        if accelerator_spec.execution_provider == "TensorrtExecutionProvider":
+            if accelerator_spec.execution_provider not in ort.get_available_providers():
+                if use_gpu:
+                    # for TensorRT EP, the graph optmization will be skipped but the fusion will be applied.
+                    assert "There is no gpu for onnxruntime to do optimization." in caplog.text
+                    assert inference_session_mock_call_count == 0
+                else:
+                    # for cpu graph optimization, the graph optimization will always be run. So there is not need check
+                    assert inference_session_mock_call_count > 0
 
 
 def test_transformer_optimization_invalid_model_type(tmp_path):
@@ -115,6 +139,7 @@ def test_transformer_optimization_invalid_model_type(tmp_path):
 
 @patch("onnxruntime.transformers.optimizer.optimize_model")
 @patch("olive.passes.onnx.transformer_optimization.model_proto_to_olive_model")
+@patch("onnxruntime.get_available_providers", MagicMock(return_value=["DmlExecutionProvider"]))
 @patch("onnxruntime.__version__", "1.17.0")
 def test_optimization_with_provider(mock_proto_to_model, mock_optimize_model, tmp_path):
     input_model = get_onnx_model()

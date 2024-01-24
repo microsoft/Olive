@@ -169,17 +169,6 @@ class OrtTransformersOptimization(Pass):
                     "Ignore this search point because the issue https://github.com/microsoft/onnxruntime/issues/17254"
                 )
             return False
-        if version.parse(OrtVersion) >= version.parse("1.17.0"):
-            import onnxruntime as ort
-
-            # TODO(myguo): remove the following hacking code after ORT fix the AttributeError when creating session
-            # with TensorrtExecutionProvider if ORT doesn't support TensorRT.
-            if self.accelerator_spec.execution_provider not in ort.get_available_providers():
-                logger.warning(
-                    f"Transformers optimization is skipped since {self.accelerator_spec.execution_provider} is not "
-                    f"in available execution providers: {ort.get_available_providers()}"
-                )
-                return False
         return True
 
     @staticmethod
@@ -243,10 +232,19 @@ class OrtTransformersOptimization(Pass):
             self._set_fusion_options(run_config)
 
         if run_config["use_gpu"]:
-            from onnxruntime import __version__ as OrtVersion
+            import onnxruntime as ort
             from packaging import version
 
-            if version.parse(OrtVersion) >= version.parse("1.17.0"):
+            if (
+                version.parse(ort.__version__) >= version.parse("1.17.0")
+                and self.accelerator_spec.execution_provider in ort.get_available_providers()
+            ):
+                # from the time being, if ORT doesn't have TensorRT EP, the create inference session would fail
+                # with AttributeError, which complains:
+                # module 'onnxruntime.capi._pybind_state' has no attribute 'register_tensorrt_plugins_as_custom_ops'
+                # Therefore, when user_gpu is True and op_level > 0, we need ensure the EP is available in ORT
+                # by checking the accleerator_spec.execution_provider is in ort.get_available_providers()
+                # if we want to apply transformers graph optimization.
                 run_config["provider"] = self.accelerator_spec.execution_provider.replace(
                     "ExecutionProvider", ""
                 ).lower()
