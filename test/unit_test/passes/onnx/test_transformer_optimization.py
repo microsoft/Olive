@@ -60,9 +60,11 @@ def test_ort_transformer_optimization_pass(tmp_path):
 @pytest.mark.parametrize(
     "accelerator_spec", [DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR, DEFAULT_GPU_TRT_ACCELERATOR]
 )
-def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, tmp_path, caplog):
+@pytest.mark.parametrize("mock_inferece_session", [True, False])
+def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, mock_inferece_session, tmp_path, caplog):
     import onnxruntime as ort
     from onnxruntime.transformers.onnx_model import OnnxModel
+    from packaging import version
 
     logger = logging.getLogger("olive")
     logger.propagate = True
@@ -105,22 +107,32 @@ def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, tmp_path, caplog):
             inference_session_mock_call_count += 1
             shutil.copyfile(ONNX_MODEL_PATH, sess_options.optimized_model_filepath)
 
-        with patch("onnxruntime.transformers.optimizer.optimize_by_fusion") as optimize_by_fusion_mock, patch.object(
-            ort.InferenceSession, "__init__", new=inference_session_init
-        ):
+        with patch("onnxruntime.transformers.optimizer.optimize_by_fusion") as optimize_by_fusion_mock:
             optimize_by_fusion_mock.return_value = OnnxModel(input_model.load_model())
             output_folder = str(tmp_path / "onnx")
-            p.run(input_model, None, output_folder)
+            if mock_inferece_session:
+                with patch.object(ort.InferenceSession, "__init__", new=inference_session_init):
+                    p.run(input_model, None, output_folder)
+            else:
+                p.run(input_model, None, output_folder)
             optimize_by_fusion_mock.assert_called()
 
         if accelerator_spec.execution_provider == "TensorrtExecutionProvider":
             if accelerator_spec.execution_provider not in ort.get_available_providers():
                 if use_gpu:
-                    # for TensorRT EP, the graph optmization will be skipped but the fusion will be applied.
-                    assert "There is no gpu for onnxruntime to do optimization." in caplog.text
-                    assert inference_session_mock_call_count == 0
+                    # the use_gpu will be ignored by optimize_model, please refef to the following links for more info.
+                    # https://github.com/microsoft/onnxruntime/blob/v1.15.1/onnxruntime/python/tools/transformers/optimizer.py#L280
+                    if version.parse(ort.__version__) >= version.parse("1.16.0"):
+                        # for TensorRT EP, the graph optmization will be skipped but the fusion will be applied.
+                        assert "There is no gpu for onnxruntime to do optimization." in caplog.text
+                        if mock_inferece_session:
+                            assert inference_session_mock_call_count == 0
                 else:
                     # for cpu graph optimization, the graph optimization will always be run. So there is not need check
+                    if mock_inferece_session:
+                        assert inference_session_mock_call_count > 0
+            else:
+                if mock_inferece_session:
                     assert inference_session_mock_call_count > 0
 
 
