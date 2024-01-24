@@ -379,9 +379,13 @@ class MLP(torch.nn.Module):
         super().__init__()
         self.gate_proj = torch.nn.Linear(hidden_size, intermediate_size, bias=False)
         self.down_proj = torch.nn.Linear(intermediate_size, hidden_size, bias=False)
-        self.up_proj = torch.nn.Linear(hidden_size, intermediate_size, bias=False)
+        if (model_type == "falcon"):
+            self.act = torch.nn.GELU()
+        else:
+            self.up_proj = torch.nn.Linear(hidden_size, intermediate_size, bias=False)
 
     def forward(self, x):
         w1x = self.gate_proj(x)
-
-        return self.down_proj(w1x * torch.sigmoid(w1x) * self.up_proj(x))
+        
+        return self.down_proj(w1x * self.act(w1x))
+        #return self.down_proj(w1x * torch.sigmoid(w1x) * self.up_proj(x))

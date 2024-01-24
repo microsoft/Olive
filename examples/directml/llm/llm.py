@@ -76,7 +76,7 @@ def optimize(optimized_model_dir: Path, repo_id: str, model_name: str, num_layer
 
         # Some models are too fragile and need layer norm to be performed in fp32 to keep their accuracy.
         # bfloat16 could fix this, but since DML doesn't support it we need to fall back to fp32.
-        models_that_need_fp32_layer_norm = []
+        models_that_need_fp32_layer_norm = ["tiiuae_falcon-7b-instruct"]
 
         if model_name in models_that_need_fp32_layer_norm:
             olive_config["passes"]["optimize"]["config"]["force_fp32_ops"] = ["LayerNormalization"]
