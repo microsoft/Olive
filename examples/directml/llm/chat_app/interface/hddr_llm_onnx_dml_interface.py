@@ -48,6 +48,9 @@ class LLMOnnxDmlInterface(BaseLLMInterface):
         # Initialize the tokenizer and produce the initial tokens.
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_dir)
 
+        if self.tokenizer.chat_template is None:
+            self.tokenizer.chat_template = "{% for message in messages %}{{message['content']}}{% endfor %}"
+
         # Create the I/O bindings
         self.llm_io_binding = self.llm_session.io_binding()
 

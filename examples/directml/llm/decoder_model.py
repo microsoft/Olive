@@ -10,6 +10,7 @@ import torch
 class DecoderModel(torch.nn.Module):
     def __init__(
         self,
+        model_type: str,
         n_layers: int,
         vocab_size: int,
         hidden_size: int,
@@ -19,9 +20,11 @@ class DecoderModel(torch.nn.Module):
         scale_type: str,
         normalization_type: str,
         epsilon: float,
+        apply_residual_connection_post_layernorm: bool,
     ) -> None:
         super().__init__()
         self.model = Model(
+            model_type,
             n_layers,
             vocab_size,
             hidden_size,
@@ -31,6 +34,7 @@ class DecoderModel(torch.nn.Module):
             scale_type,
             normalization_type,
             epsilon,
+            apply_residual_connection_post_layernorm,
         )
         self.lm_head = torch.nn.Linear(hidden_size, vocab_size, bias=False)
 
@@ -61,6 +65,7 @@ class DecoderModel(torch.nn.Module):
 class Model(torch.nn.Module):
     def __init__(
         self,
+        model_type: str,
         n_layers: int,
         vocab_size: int,
         hidden_size: int,
@@ -70,18 +75,20 @@ class Model(torch.nn.Module):
         scale_type: str,
         normalization_type: str,
         epsilon: float,
+        apply_residual_connection_post_layernorm: bool,
     ) -> None:
         super().__init__()
         self.embed_tokens = torch.nn.Embedding(vocab_size, hidden_size)
 
         self.norm = {
-            "layer_norm": LayerNorm(hidden_size, eps=1e-5),
-            "rms": RMSNorm(hidden_size, eps=1e-5),
+            "layer_norm": torch.nn.LayerNorm(hidden_size, epsilon),
+            "rms": RMSNorm(hidden_size, epsilon),
         }[normalization_type]
 
         self.layers = torch.nn.ModuleList()
         for _ in range(n_layers):
             layer = TransformerLayer(
+                model_type,
                 hidden_size,
                 intermediate_size,
                 num_heads,
@@ -89,6 +96,7 @@ class Model(torch.nn.Module):
                 scale_type,
                 normalization_type,
                 epsilon,
+                apply_residual_connection_post_layernorm,
             )
             self.layers.append(layer)
 
@@ -148,23 +156,10 @@ class RMSNorm(torch.nn.Module):
         return self.weight * hidden_states.to(input_dtype)
 
 
-class LayerNorm(torch.nn.Module):
-    def __init__(self, dim: int, eps: float) -> None:
-        super().__init__()
-        self.eps = eps
-        self.weight = torch.nn.Parameter(torch.ones(dim))
-        self.bias = torch.zeros(dim)
-
-    def forward(self, hidden_states):
-        diff = hidden_states - hidden_states.mean(-1, keepdim=True)
-        variance = diff.pow(2).mean(-1, keepdim=True)
-        hidden_states = diff / torch.sqrt(variance + self.eps)
-        return self.weight * hidden_states + self.bias
-
-
 class TransformerLayer(torch.nn.Module):
     def __init__(
         self,
+        model_type: str,
         hidden_size: int,
         intermediate_size: int,
         num_heads: int,
@@ -172,17 +167,22 @@ class TransformerLayer(torch.nn.Module):
         scale_type: str,
         normalization_type: str,
         epsilon: float,
+        apply_residual_connection_post_layernorm: bool,
     ) -> None:
         super().__init__()
+
+        self.apply_residual_connection_post_layernorm = apply_residual_connection_post_layernorm
+
         self.input_layernorm = {
-            "layer_norm": LayerNorm(hidden_size, epsilon),
+            "layer_norm": torch.nn.LayerNorm(hidden_size, epsilon),
             "rms": RMSNorm(hidden_size, epsilon),
         }[normalization_type]
 
-        self.post_attention_layernorm = {
-            "layer_norm": LayerNorm(hidden_size, epsilon),
-            "rms": RMSNorm(hidden_size, epsilon),
-        }[normalization_type]
+        if apply_residual_connection_post_layernorm:
+            self.post_attention_layernorm = {
+                "layer_norm": torch.nn.LayerNorm(hidden_size, epsilon),
+                "rms": RMSNorm(hidden_size, epsilon),
+            }[normalization_type]
 
         self.cos, self.sin = rotary_mat(hidden_size, num_heads, 4096, head_scale=1.0)
 
@@ -192,7 +192,7 @@ class TransformerLayer(torch.nn.Module):
             num_key_value_heads,
             scale_type,
         )
-        self.mlp = ProjLayerSiluMatMul(hidden_size, intermediate_size)
+        self.mlp = MLP(model_type, hidden_size, intermediate_size)
 
     def forward(
         self,
@@ -205,12 +205,17 @@ class TransformerLayer(torch.nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Dimension of x is [batch_size, seq_len, hidden_size] Dimension of
         # k_cache and v_cache is [batch_size, n_layers, pos, num_heads, head_dim]
+        attn_norm_output = self.input_layernorm(x)
         h, k_out, v_out = self.self_attn(
-            use_cache, self.input_layernorm(x), position_ids, attn_mask, self.cos, self.sin, k_cache, v_cache
+            use_cache, attn_norm_output, position_ids, attn_mask, self.cos, self.sin, k_cache, v_cache
         )
 
         h = x + h
-        return h + self.mlp(self.post_attention_layernorm(h)), k_out, v_out
+
+        if self.apply_residual_connection_post_layernorm:
+            attn_norm_output = self.post_attention_layernorm(h)
+
+        return h + self.mlp(attn_norm_output), k_out, v_out
 
 
 class ApplyMask(torch.nn.Module):
@@ -364,9 +369,10 @@ class SelfAttention(torch.nn.Module):
         return self.o_proj(attn), k_cache, v_cache
 
 
-class ProjLayerSiluMatMul(torch.nn.Module):
+class MLP(torch.nn.Module):
     def __init__(
         self,
+        model_type: str,
         hidden_size: int,
         intermediate_size: int,
     ) -> None:
