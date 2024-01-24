@@ -175,6 +175,10 @@ class OrtTransformersOptimization(Pass):
             # TODO(myguo): remove the following hacking code after ORT fix the AttributeError when creating session
             # with TensorrtExecutionProvider if ORT doesn't support TensorRT.
             if self.accelerator_spec.execution_provider not in ort.get_available_providers():
+                logger.warning(
+                    f"Transformers optimization is skipped since {self.accelerator_spec.execution_provider} is not "
+                    f"in available execution providers: {ort.get_available_providers()}"
+                )
                 return False
         return True
 

@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 from copy import deepcopy
 from test.unit_test.utils import get_onnx_model
 from unittest.mock import patch
@@ -58,23 +59,41 @@ def test_ort_transformer_optimization_pass(tmp_path):
 @pytest.mark.parametrize(
     "accelerator_spec", [DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR, DEFAULT_GPU_TRT_ACCELERATOR]
 )
-def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, tmp_path):
+def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, tmp_path, caplog):
+    from onnxruntime import __version__ as OrtVersion
+    from packaging import version
+
+    logger = logging.getLogger("olive")
+    logger.propagate = True
+
     input_model = get_onnx_model()
     config = {"model_type": "bert", "use_gpu": use_gpu, "float16": fp16}
     config = OrtTransformersOptimization.generate_search_space(accelerator_spec, config, disable_search=True)
     p = OrtTransformersOptimization(accelerator_spec, config, True)
     is_pruned = not p.validate_search_point(config, accelerator_spec)
     if accelerator_spec.execution_provider == "CPUExecutionProvider":
-        if use_gpu:
-            assert is_pruned, "CPUExecutionProvider does not support GPU inference, please avoid to use use_gpu."
-        if fp16:
-            assert is_pruned, "CPUExecutionProvider does not support float16 very well, please avoid to use float16."
+        if fp16 and use_gpu:
+            assert is_pruned
+            assert (
+                "CPUExecutionProvider does not support float16 very well, please avoid to use float16." in caplog.text
+            )
+        elif use_gpu:
+            assert is_pruned
+            assert "CPUExecutionProvider does not support GPU inference, please avoid to use use_gpu." in caplog.text
 
-    if fp16 and accelerator_spec.execution_provider == "TensorrtExecutionProvider":
-        assert is_pruned, (
-            "TensorRT has its own float16 implementation, please avoid to use float16 in transformers "
-            "optimization. Suggest to set 'trt_fp16_enable' as True in OrtPerfTuning."
-        )
+    if accelerator_spec.execution_provider == "TensorrtExecutionProvider":
+        if fp16:
+            assert is_pruned
+            assert (
+                "TensorRT has its own float16 implementation, please avoid to use float16 in transformers "
+                "optimization. Suggest to set 'trt_fp16_enable' as True in OrtPerfTuning."
+            ) in caplog.text
+        else:
+            if version.parse(OrtVersion) >= version.parse("1.17.0"):
+                assert (
+                    "Transformers optimization is skipped since TensorrtExecutionProvider is not in available "
+                    "execution providers: "
+                ) in caplog.text
 
     if not is_pruned:
         output_folder = str(tmp_path / "onnx")
