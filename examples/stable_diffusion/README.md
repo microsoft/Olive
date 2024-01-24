@@ -5,7 +5,7 @@ This folder contains sample use cases of Olive with ONNX Runtime and OpenVINO to
 - Stable Diffusion XL: [Stable Diffusion XL Base](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0), [Stable Diffusion XL Refiner](https://huggingface.co/stabilityai/stable-diffusion-xl-refiner-1.0)
 
 
-## Stable Diffusion and Stable Diffusion XL Optimization with ONNX Runtime and OpenVINO
+## Stable Diffusion and Stable Diffusion XL Optimization with ONNX Runtime
 
 
 Stable Diffusion comprises multiple PyTorch models tied together into a *pipeline*.
