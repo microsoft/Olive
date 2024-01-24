@@ -233,9 +233,17 @@ class OrtTransformersOptimization(Pass):
             from packaging import version
 
             if version.parse(OrtVersion) >= version.parse("1.17.0"):
-                run_config["provider"] = self.accelerator_spec.execution_provider.replace(
-                    "ExecutionProvider", ""
-                ).lower()
+                import onnxruntime as ort
+
+                # TODO(myguo): remove the following hacking code after ORT fix the AttributeError when creating session
+                # with TensorrtExecutionProvider if ORT doesn't support TensorRT.
+                if (
+                    self.accelerator_spec.execution_provider != "TensorrtExecutionProvider"
+                    or "TensorrtExecutionProvider" in ort.get_available_providers()
+                ):
+                    run_config["provider"] = self.accelerator_spec.execution_provider.replace(
+                        "ExecutionProvider", ""
+                    ).lower()
 
         optimizer = transformers_optimizer.optimize_model(input=model.model_path, **run_config)
 
