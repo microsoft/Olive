@@ -6,7 +6,7 @@
 import logging
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
-from typing import DefaultDict, Dict, List, NamedTuple
+from typing import DefaultDict, Dict, List, NamedTuple, Optional
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
 from olive.evaluator.metric import MetricResult
@@ -88,13 +88,15 @@ class Footprint:
             self.nodes[_model_id] = FootprintNode(**kwargs)
         self._resolve_metrics()
 
-    def create_footprints_by_model_ids(self, model_ids):
+    def create_footprints_by_model_ids(self, model_ids) -> "Footprint":
         nodes = OrderedDict()
         for model_id in model_ids:
+            # if model_id is not in self.nodes, KeyError will be raised
             nodes[model_id] = deepcopy(self.nodes[model_id])
         return Footprint(nodes=nodes, objective_dict=deepcopy(self.objective_dict))
 
-    def create_pareto_frontier(self, output_model_num: int = None):
+    def create_pareto_frontier(self, output_model_num: int = None) -> Optional["Footprint"]:
+        self._mark_pareto_frontier()
         if output_model_num is None or len(self.nodes) <= output_model_num:
             logger.info(f"Output all {len(self.nodes)} models")
             return self._create_pareto_frontier_from_nodes(self.nodes)
@@ -109,9 +111,11 @@ class Footprint:
     def plot_pareto_frontier_to_image(self, index=None, save_path=None, is_show=False):
         self._plot_pareto_frontier(index, save_path, is_show, "image")
 
-    def _create_pareto_frontier_from_nodes(self, nodes: Dict):
-        self._mark_pareto_frontier()
+    def _create_pareto_frontier_from_nodes(self, nodes: Dict) -> Optional["Footprint"]:
         rls = {k: v for k, v in nodes.items() if v.is_pareto_frontier}
+        if not rls:
+            logger.warning("There is no pareto frontier points.")
+            return None
         for v in rls.values():
             logger.info(f"pareto frontier points: {v.model_id} \n{v.metrics.value}")
 
@@ -120,7 +124,7 @@ class Footprint:
             nodes=deepcopy(rls), objective_dict=deepcopy(self.objective_dict), is_marked_pareto_frontier=True
         )
 
-    def summarize_run_history(self):
+    def summarize_run_history(self) -> List[RunHistory]:
         """Summarize the run history of a model.
 
         The summarization includes the columns of model_id, parent_model_id, from_pass, duration, metrics
@@ -142,7 +146,7 @@ class Footprint:
             rls.append(run_history)
         return rls
 
-    def trace_back_run_history(self, model_id):
+    def trace_back_run_history(self, model_id) -> Dict[str, Dict]:
         """Trace back the run history of a model.
 
         The trace order: model_id -> parent_model_id1 -> parent_model_id2 -> ...
@@ -244,12 +248,19 @@ class Footprint:
                     )
             self.nodes[k].metrics.if_goals_met = all(if_goals_met)
 
-    def _get_candidates(self):
-        return {
+    def _get_candidates(self) -> Dict[str, FootprintNode]:
+        candidates = {
             k: v
             for k, v in self.nodes.items()
             if v.metrics and v.parent_model_id is not None and v.metrics.if_goals_met
         }
+        if not candidates:
+            logger.warning(
+                "There is no expected candidates. Please check: "
+                "1. if the metric goal is too strict; "
+                "2. if pass config is set correctly."
+            )
+        return candidates
 
     def _mark_pareto_frontier(self):
         if self.is_marked_pareto_frontier:
@@ -301,7 +312,7 @@ class Footprint:
         )
         return sorted_footprint_node_list[:k]
 
-    def _get_metrics_name_by_indices(self, indices):
+    def _get_metrics_name_by_indices(self, indices) -> List[str]:
         """Get the first available metrics names by index."""
         for v in self.nodes.values():
             if v.metrics:

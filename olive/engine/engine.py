@@ -534,6 +534,8 @@ class Engine:
 
     def create_pareto_frontier_footprints(self, accelerator_spec, output_model_num, output_dir, prefix_output_name):
         pf_footprints = self.footprints[accelerator_spec].create_pareto_frontier(output_model_num)
+        if not pf_footprints:
+            return None
         pf_footprints.to_file(output_dir / f"{prefix_output_name}pareto_frontier_footprints.json")
 
         if self._config.plot_pareto_frontier:
