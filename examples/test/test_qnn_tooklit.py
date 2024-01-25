@@ -4,10 +4,8 @@
 # --------------------------------------------------------------------------
 import os
 import platform
-import tempfile
 from pathlib import Path
 
-import pytest
 from utils import check_output, download_azure_blob
 
 from olive.common.utils import retry_func, run_subprocess
@@ -37,18 +35,14 @@ def download_qnn_sdk(target_path=None):
     return target_path
 
 
-@pytest.fixture(scope="module", autouse=True)
 def setup():
     """Setups any state specific to the execution of the given module."""
-    tmp_dir = tempfile.TemporaryDirectory()
-    tmp_path = Path(tmp_dir.name)
     cur_dir = Path(__file__).resolve().parent.parent
     example_dir = cur_dir / "mobilenet_qnn_qualcomm_npu"
     os.chdir(example_dir)
 
     # prepare model and data
     # retry since it fails randomly
-    os.environ["QNN_SDK_ROOT"] = str(download_qnn_sdk(tmp_path) / "opt" / "qcom" / "aistack")
     run_subprocess(cmd="python -m olive.platform_sdk.qualcomm.configure --py_version 3.8 --sdk qnn", check=True)
     # install dependencies
     python_cmd = ""
@@ -63,12 +57,13 @@ def setup():
     run_subprocess(cmd=" ".join(install_cmd), check=True)
     retry_func(run_subprocess, kwargs={"cmd": "python download_files.py", "check": True})
     retry_func(run_subprocess, kwargs={"cmd": "python prepare_config.py --use_raw_qnn_sdk", "check": True})
-    yield
-    os.chdir(cur_dir)
 
 
-def test_mobilenet_qnn():
+def test_mobilenet_qnn(tmp_path):
     from olive.workflows import run as olive_run
+
+    os.environ["QNN_SDK_ROOT"] = str(download_qnn_sdk(tmp_path) / "opt" / "qcom" / "aistack")
+    setup()
 
     footprint = olive_run("raw_qnn_sdk_config.json")
     check_output(footprint)
