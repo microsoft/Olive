@@ -52,7 +52,7 @@ class TestFootprint:
         for v in unmet_goals_nodes.values():
             v.metrics.if_goals_met = False
         new_fp = Footprint(nodes=unmet_goals_nodes)
-        assert not new_fp.create_pareto_frontier()
+        assert new_fp.create_pareto_frontier() is None
 
     def test_trace_back_run_history(self):
         for model_id in self.fp.nodes:
