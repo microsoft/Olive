@@ -581,8 +581,7 @@ class TestEngine:
                 actual_res = engine.run(
                     onnx_model_config, [DEFAULT_CPU_ACCELERATOR], data_root=None, output_dir=output_dir
                 )
-                pf = actual_res[DEFAULT_CPU_ACCELERATOR]
-                assert not pf.nodes, "Expect empty dict when quantization fails"
+                assert not actual_res, "Expect empty dict when quantization fails"
         else:
             options = {
                 "cache_dir": tmpdir,
