@@ -45,7 +45,7 @@ jobs:
 
     - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
       displayName: Add conda to PATH
-      condition: eq(variables['exampleFolder'], 'mobilenet_qnn_qualcomm_npu')
+      condition: and(eq(parameters.name, 'Windows_CI'), eq(variables['exampleFolder'], 'mobilenet_qnn_qualcomm_npu'))
 
     - task: AzureCLI@1
       inputs:
