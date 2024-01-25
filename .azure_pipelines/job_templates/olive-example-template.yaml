@@ -43,10 +43,6 @@ jobs:
       displayName: Set exampleRequirements
       condition: eq(variables['exampleRequirements'], '')
 
-    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
-      displayName: Add conda to PATH
-      condition: and(eq('${{ parameters.windows }}', true), eq(variables['exampleFolder'], 'mobilenet_qnn_qualcomm_npu'))
-
     - task: AzureCLI@1
       inputs:
         azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
