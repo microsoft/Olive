@@ -156,7 +156,7 @@ class AzureMLSystem(OliveSystem):
         ml_client = self.azureml_client_config.create_client()
         point = point or {}
         config = the_pass.config_at_search_point(point)
-        data_params = self._create_data_script_inputs_and_args(the_pass)
+        data_params = self._create_data_script_inputs_and_args(data_root, the_pass)
         pass_config = the_pass.to_json(check_object=True)
         pass_config["config"].update(the_pass.serialize_config(config, check_object=True))
 
@@ -413,7 +413,7 @@ class AzureMLSystem(OliveSystem):
 
         return pass_runner_pipeline()
 
-    def _create_data_script_inputs_and_args(self, the_pass: "Pass") -> DataParams:
+    def _create_data_script_inputs_and_args(self, data_root, the_pass: "Pass") -> DataParams:
         data_inputs = {}
         data_args = {}
         data_name_set = set()
@@ -421,6 +421,15 @@ class AzureMLSystem(OliveSystem):
         def update_dicts(name, key, script_attr, input_type):
             data_inputs.update({f"{name}_{key}": Input(type=input_type, optional=True)})
             data_args.update({f"{name}_{key}": Input(type=input_type, path=getattr(script_attr, key))})
+
+        def update_data_path(data_config, key, data_inputs, data_args, asset_type):
+            if data_config.params_config.get(key):
+                data_path_resource_path = create_resource_path(data_config.params_config[key])
+                data_path_resource_path = normalize_data_path(data_root, data_path_resource_path)
+                if data_path_resource_path:
+                    data_path_resource_path = self._create_args_from_resource_path(data_path_resource_path)
+                    data_inputs.update({f"{data_config.name}_{key}": Input(type=asset_type, optional=True)})
+                    data_args.update({f"{data_config.name}_{key}": data_path_resource_path})
 
         for param, param_config in the_pass._config.items():
             if param.endswith("data_config") and param_config is not None:
@@ -431,6 +440,9 @@ class AzureMLSystem(OliveSystem):
                         update_dicts(data_config.name, "user_script", data_config, AssetTypes.URI_FILE)
                     if data_config.script_dir:
                         update_dicts(data_config.name, "script_dir", data_config, AssetTypes.URI_FOLDER)
+                    update_data_path(data_config, "data_dir", data_inputs, data_args, AssetTypes.URI_FOLDER)
+                    update_data_path(data_config, "data_files", data_inputs, data_args, AssetTypes.URI_FILE)
+
         logger.debug(f"Data inputs for pass: {data_inputs}, data args for pass: {data_args}")
         return DataParams(data_inputs, data_args)
 

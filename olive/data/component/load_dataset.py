@@ -2,9 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-
-from pathlib import Path
-
 from olive.data.component.dataset import DummyDataset, RawDataset
 from olive.data.registry import Registry
 
@@ -34,7 +31,6 @@ def huggingface_dataset(data_dir, data_name=None, subset=None, split="validation
     from datasets import load_dataset
 
     assert data_name is not None, "Please specify the data name"
-    data_files = str(Path(data_dir)) if data_dir and Path(data_dir).is_file() else data_files
     return load_dataset(path=data_name, name=subset, data_dir=data_dir, split=split, data_files=data_files, **kwargs)
 
 

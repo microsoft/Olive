@@ -30,12 +30,8 @@ class DataContainer(BaseModel):
     def load_dataset(self, data_root_path: Optional[str] = None):
         """Run load dataset."""
         params_config = self.config.load_dataset_params
-        data_dir = params_config.get("data_dir")
-        if data_dir:
-            data_dir = create_resource_path(data_dir).get_path()
-        data_dir = get_local_path_from_root(data_root_path, data_dir)
-        if data_dir:
-            params_config["data_dir"] = data_dir
+        self._update_params_config(params_config, data_root_path, "data_dir")
+        self._update_params_config(params_config, data_root_path, "data_files")
         return self.config.load_dataset(**params_config)
 
     def pre_process(self, dataset):
@@ -71,3 +67,11 @@ class DataContainer(BaseModel):
 
     def update_component(self):
         return None
+
+    def _update_params_config(self, params_config, data_root_path, key):
+        param = params_config.get(key)
+        if param:
+            param = create_resource_path(param).get_path()
+        param = get_local_path_from_root(data_root_path, param)
+        if param:
+            params_config[key] = param
