@@ -35,7 +35,7 @@ def download_qnn_sdk(target_path=None):
     return target_path
 
 
-def setup():
+def setup_resource():
     """Setups any state specific to the execution of the given module."""
     cur_dir = Path(__file__).resolve().parent.parent
     example_dir = cur_dir / "mobilenet_qnn_qualcomm_npu"
@@ -63,7 +63,7 @@ def test_mobilenet_qnn(tmp_path):
     from olive.workflows import run as olive_run
 
     os.environ["QNN_SDK_ROOT"] = str(download_qnn_sdk(tmp_path) / "opt" / "qcom" / "aistack")
-    setup()
+    setup_resource()
 
     footprint = olive_run("raw_qnn_sdk_config.json")
     check_output(footprint)
