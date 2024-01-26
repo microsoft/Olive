@@ -72,6 +72,5 @@ class DataContainer(BaseModel):
         param = params_config.get(key)
         if param:
             param = create_resource_path(param).get_path()
-        param = get_local_path_from_root(data_root_path, param)
-        if param:
+            param = get_local_path_from_root(data_root_path, param)
             params_config[key] = param
