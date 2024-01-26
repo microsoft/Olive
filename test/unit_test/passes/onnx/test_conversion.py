@@ -166,7 +166,7 @@ def test_onnx_conversion_with_past_key_values(mock_onnx_export, tmp_path, io_con
 
     def mock_onnx_export_func(*args, **kwargs):
         nonlocal dummy_inputs
-        model, dummy_inputs, output_path = args
+        _, dummy_inputs, output_path = args
         shutil.copyfile(ONNX_MODEL_PATH, output_path)
 
     output_folder = tmp_path / "onnx"
@@ -181,4 +181,4 @@ def test_onnx_conversion_with_past_key_values(mock_onnx_export, tmp_path, io_con
     # setup
     p = create_pass_from_dict(OnnxConversion, {}, disable_search=True)
     _ = p.run(input_model, None, str(output_folder))
-    assert "past_key_values" in dummy_inputs
+    assert "past_key_values" in dummy_inputs  # pylint: disable=unsupported-membership-test

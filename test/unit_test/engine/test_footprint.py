@@ -11,7 +11,7 @@ import pytest
 
 from olive.engine.footprint import Footprint
 
-# pylint: disable=attribute-defined-outside-init
+# pylint: disable=attribute-defined-outside-init, protected-access
 
 
 class TestFootprint:

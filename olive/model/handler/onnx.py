@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 @model_handler_registry("ONNXModel")
-class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):
+class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):  # pylint: disable=too-many-ancestors
     """ONNX model handler.
 
     Besides the model loading functionalities, the model handler also provider the onnx graph functionality by mixin

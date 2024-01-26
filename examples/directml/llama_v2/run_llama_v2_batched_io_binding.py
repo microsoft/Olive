@@ -9,6 +9,8 @@ import numpy as np
 import onnxruntime
 from sentencepiece import SentencePieceProcessor
 
+# pylint: disable=consider-using-enumerate, protected-access
+
 
 class Tokenizer:
     def __init__(self, model_path: str):

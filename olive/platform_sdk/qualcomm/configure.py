@@ -16,6 +16,8 @@ from olive.platform_sdk.qualcomm.constants import SDKTargetDevice
 from olive.platform_sdk.qualcomm.qnn.env import QNNSDKEnv
 from olive.platform_sdk.qualcomm.snpe.env import SNPESDKEnv
 
+# pylint: disable=redefined-outer-name
+
 logger = logging.getLogger(__name__)
 
 script_name = "create_python_env.sh" if platform.system() == "Linux" else "create_python_env.ps1"

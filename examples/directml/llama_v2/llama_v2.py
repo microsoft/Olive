@@ -18,6 +18,8 @@ from run_llama_v2_io_binding import run_llama_v2_io_binding
 from olive.model import ONNXModelHandler
 from olive.workflows import run as olive_run
 
+# pylint: disable=redefined-outer-name
+
 
 def optimize(optimized_model_dir: Path, model_type: str):
     script_dir = Path(__file__).resolve().parent

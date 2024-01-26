@@ -38,7 +38,11 @@ good-names = [
 ]
 
 [tool.pylint.main]
-ignore-paths = ["examples/directml/llama_v2/chat_app/**"]
+# https://github.com/pylint-dev/pylint/issues/3242#issuecomment-776482259
+# Please don't use ** for the pattern. It will cause pylint to crash.
+# the crash error message would like:
+# re.error: multiple repeat at position 41
+ignore-paths = [".*/examples/directml/llama_v2/chat_app/.*"]
 
 [tool.pylint.messages_control]
 disable = [
