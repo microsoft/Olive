@@ -379,9 +379,9 @@ class MLP(torch.nn.Module):
         super().__init__()
         self.gate_proj = torch.nn.Linear(hidden_size, intermediate_size, bias=False)
         self.down_proj = torch.nn.Linear(intermediate_size, hidden_size, bias=False)
+        self.model_type = model_type
         if model_type == "falcon":
             self.act = torch.nn.GELU()
-            self.model_type = model_type
         else:
             self.up_proj = torch.nn.Linear(hidden_size, intermediate_size, bias=False)
 
