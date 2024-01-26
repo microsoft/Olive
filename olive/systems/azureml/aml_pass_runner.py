@@ -84,13 +84,12 @@ def update_data_config(p, extra_args):
                 data_files = parse_data_item(data_name, "data_files", extra_args)
                 data_map[data_name] = (user_script, script_dir, data_dir, data_files)
 
-            param_config.update(
-                {
-                    "user_script": user_script,
-                    "script_dir": script_dir,
-                    "params_config": {"data_dir": data_dir, "data_files": data_files},
-                }
-            )
+            param_config["user_script"] = user_script
+            param_config["script_dir"] = script_dir
+            if param_config.get("params_config"):
+                param_config["params_config"]["data_dir"] = data_dir
+                param_config["params_config"]["data_files"] = data_files
+
             p._config[param] = validate_config(param_config, DataConfig)
 
 
