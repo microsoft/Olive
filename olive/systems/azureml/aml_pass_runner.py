@@ -72,7 +72,7 @@ def parse_data_item(data_name, item, extra_args):
 
 def update_data_config(p, extra_args):
     data_map = {}
-    for param, param_config in p._config.items():
+    for param, param_config in p._config.items(): # pylint: disable=protected-access
         if param.endswith("data_config") and param_config is not None:
             data_name = param_config["name"]
             if data_map.get(data_name):
