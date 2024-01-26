@@ -919,7 +919,7 @@ class LoftQ(QLoRA):
                 description="Number of LoftQ iterations.",
             ),
         }
-        config.update(QLoRABase._default_config(accelerator_spec))  # pylint: disable=protected-acces
+        config.update(QLoRABase._default_config(accelerator_spec))  # pylint: disable=protected-access
         return config
 
     @classmethod
