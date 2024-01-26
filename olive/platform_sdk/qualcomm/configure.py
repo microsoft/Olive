@@ -28,12 +28,15 @@ def dev(args):
     else:
         sdk_env = QNNSDKEnv()
     sdk_arch = sdk_env.target_arch
-    if sdk_arch != SDKTargetDevice.x86_64_linux:
+    if sdk_arch not in (SDKTargetDevice.x86_64_linux, SDKTargetDevice.x86_64_windows):
         return
 
     logger.info(f"Configuring {args.sdk} for {sdk_arch} with python{args.py_version}...")
     with resources.path(resource_path, script_name) as create_python_env_path:
-        cmd = f"bash {create_python_env_path} -v {args.py_version} --sdk {args.sdk}"
+        if platform.system() == "Linux":
+            cmd = f"bash {create_python_env_path} -v {args.py_version} --sdk {args.sdk}"
+        elif platform.system() == "Windows":
+            cmd = f"powershell {create_python_env_path} {args.py_version} {args.sdk}"
         run_subprocess(cmd, check=True)
     logger.info("Done")
 
