@@ -174,9 +174,9 @@
 
 
 <div class="viewcode-block" id="PythonEnvironmentTargetUserConfig"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.system_config.PythonEnvironmentTargetUserConfig">[docs]</a><span class="k">class</span> <span class="nc">PythonEnvironmentTargetUserConfig</span><span class="p">(</span><span class="n">TargetUserConfig</span><span class="p">):</span>
-    <span class="n">python_environment_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span>
-        <span class="n">Path</span><span class="p">,</span> <span class="nb">str</span>
-    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># path to the python environment, e.g. /home/user/anaconda3/envs/myenv, /home/user/.virtualenvs/myenv</span>
+    <span class="n">python_environment_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="kc">None</span>  <span class="c1"># path to the python environment, e.g. /home/user/anaconda3/envs/myenv, /home/user/.virtualenvs/myenv</span>
+    <span class="p">)</span>
     <span class="n">environment_variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># os.environ will be updated with these variables</span>
     <span class="n">prepend_to_path</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># paths to prepend to os.environ[&quot;PATH&quot;]</span>
     <span class="n">olive_managed_env</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># if True, the environment will be created and managed by Olive</span>
