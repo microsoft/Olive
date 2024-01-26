@@ -303,9 +303,11 @@ class Footprint:
         sorted_footprint_node_list = sorted(
             footprint_node_list,
             key=lambda x: tuple(
-                x.metrics.value[metric].value
-                if x.metrics.cmp_direction[metric] == 1
-                else -x.metrics.value[metric].value
+                (
+                    x.metrics.value[metric].value
+                    if x.metrics.cmp_direction[metric] == 1
+                    else -x.metrics.value[metric].value
+                )
                 for metric in self.objective_dict
             ),
             reverse=True,
