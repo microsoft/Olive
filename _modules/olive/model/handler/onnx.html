@@ -153,7 +153,7 @@
 
 
 <div class="viewcode-block" id="ONNXModelHandler"><a class="viewcode-back" href="../../../../api/models.html#olive.model.ONNXModelHandler">[docs]</a><span class="nd">@model_handler_registry</span><span class="p">(</span><span class="s2">&quot;ONNXModel&quot;</span><span class="p">)</span>
-<span class="k">class</span> <span class="nc">ONNXModelHandler</span><span class="p">(</span><span class="n">OliveModelHandler</span><span class="p">,</span> <span class="n">OnnxEpValidateMixin</span><span class="p">,</span> <span class="n">OnnxGraphMixin</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">ONNXModelHandler</span><span class="p">(</span><span class="n">OliveModelHandler</span><span class="p">,</span> <span class="n">OnnxEpValidateMixin</span><span class="p">,</span> <span class="n">OnnxGraphMixin</span><span class="p">):</span>  <span class="c1"># pylint: disable=too-many-ancestors</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;ONNX model handler.</span>
 
 <span class="sd">    Besides the model loading functionalities, the model handler also provider the onnx graph functionality by mixin</span>

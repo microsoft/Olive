@@ -159,7 +159,7 @@
 
 
 <div class="viewcode-block" id="PyTorchModelHandler"><a class="viewcode-back" href="../../../../api/models.html#olive.model.PyTorchModelHandler">[docs]</a><span class="nd">@model_handler_registry</span><span class="p">(</span><span class="s2">&quot;PyTorchModel&quot;</span><span class="p">)</span>
-<span class="k">class</span> <span class="nc">PyTorchModelHandler</span><span class="p">(</span><span class="n">OliveModelHandler</span><span class="p">,</span> <span class="n">HfConfigMixin</span><span class="p">,</span> <span class="n">DummyInputsMixin</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">PyTorchModelHandler</span><span class="p">(</span><span class="n">OliveModelHandler</span><span class="p">,</span> <span class="n">HfConfigMixin</span><span class="p">,</span> <span class="n">DummyInputsMixin</span><span class="p">):</span>  <span class="c1"># pylint: disable=too-many-ancestors</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;PyTorch model handler.</span>
 
 <span class="sd">    Besides the model loading for PyTorch model, the model handler also provides the following functionalities:</span>
