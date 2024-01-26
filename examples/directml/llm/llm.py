@@ -66,28 +66,26 @@ def convert_weights(original_weights, mapping, config):
                     weight.view(3, config.num_heads, -1, config.hidden_size)
                     .transpose(0, 1)
                     .reshape(*weights_shape)
-                )
-                q_proj, k_proj, v_proj = torch.split(weight, [config.hidden_size, config.hidden_size, config.hidden_size])
+                ).view(config.num_heads, 3, -1)
                 q_proj_key = map_key(new_key.replace("Wqkv", "q_proj"))
                 k_proj_key = map_key(new_key.replace("Wqkv", "k_proj"))
                 v_proj_key = map_key(new_key.replace("Wqkv", "v_proj"))
-                converted_weights[q_proj_key] = q_proj
-                converted_weights[k_proj_key] = k_proj
-                converted_weights[v_proj_key] = v_proj
+                converted_weights[q_proj_key] = weight[:, 0, ...].reshape(2560, 2560)
+                converted_weights[k_proj_key] = weight[:, 1, ...].reshape(2560, 2560)
+                converted_weights[v_proj_key] = weight[:, 2, ...].reshape(2560, 2560)
 
                 original_weights.pop(new_key)
 
             elif "bias" in new_key:
                 bias = original_weights[new_key]
                 bias_shape = bias.shape
-                bias = bias.view(3, config.num_heads, -1).transpose(0, 1).reshape(*bias_shape)
-                q_proj, k_proj, v_proj = torch.split(bias, [config.hidden_size, config.hidden_size, config.hidden_size])
+                bias = bias.view(3, config.num_heads, -1).transpose(0, 1).reshape(*bias_shape).view(config.num_heads, 3, -1)
                 q_proj_key = map_key(new_key.replace("Wqkv", "q_proj"))
                 k_proj_key = map_key(new_key.replace("Wqkv", "k_proj"))
                 v_proj_key = map_key(new_key.replace("Wqkv", "v_proj"))
-                converted_weights[q_proj_key] = q_proj
-                converted_weights[k_proj_key] = k_proj
-                converted_weights[v_proj_key] = v_proj
+                converted_weights[q_proj_key] = bias[..., 0, :].reshape(2560)
+                converted_weights[k_proj_key] = bias[..., 1, :].reshape(2560)
+                converted_weights[v_proj_key] = bias[..., 2, :].reshape(2560)
 
                 original_weights.pop(new_key)
 
@@ -113,7 +111,6 @@ def load_phi2_checkpoint(checkpoint_path):
     model_checkpoint = {}
     for model_name, model_url in _MODELS.items():
         device = "cpu"
-
         # for phi-2 the weights are stored in 2 different safetensors file so we need to iterate over that list and download one at a time
         for model_each_url in model_url:
             model_path = os.path.join(checkpoint_path, model_name + "_" + model_each_url.split("/")[-1])
@@ -150,8 +147,9 @@ def set_config_parameters(repo_id: str, num_layers: Optional[int]):
     #     raise ValueError("Normalization epsilon value was not found")
 
     # config.normalization_type = "rms" if hasattr(pipeline.model.config, "rms_norm_eps") else "layer_norm"
-    config.strict_weights_loading = False
-    config.num_layers = num_layers
+
+    # config.num_layers = num_layers
+    config.strict_weights_loading = config.num_layers == 32
 
     checkpoint_path = "C:\\Users\\xianz\\work\\Olive\\examples\\directml\\phi\\checkpoints"
     model_checkpoint = load_phi2_checkpoint(checkpoint_path)
@@ -174,6 +172,13 @@ def optimize(optimized_model_dir: Path, repo_id: str, model_name: str, num_layer
         olive_config["passes"]["optimize"]["config"]["hidden_size"] = config.hidden_size
         olive_config["passes"]["optimize"]["config"]["num_heads"] = config.num_heads
         olive_config["passes"]["optimize"]["config"]["num_key_value_heads"] = config.num_key_value_heads
+
+        # Some models are too fragile and need layer norm to be performed in fp32 to keep their accuracy.
+        # bfloat16 could fix this, but since DML doesn't support it we need to fall back to fp32.
+        models_that_need_fp32_layer_norm = []
+
+        if model_name in models_that_need_fp32_layer_norm:
+            olive_config["passes"]["optimize"]["config"]["force_fp32_ops"] = ["LayerNormalization"]
 
         # Fewer than 32 layers can be provided for debugging purposes so we have to remove them from the config
         if config.num_layers < 32:
@@ -274,6 +279,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--max_gen_len", default=256, type=int, help="The maximum number of tokens that can be included in an answer"
     )
+    parser.add_argument("--device", type=str, choices=["dml", "cuda"], default="dml")
     parser.add_argument(
         "--model_type",
         default="llama-2-7b-chat",
@@ -314,5 +320,6 @@ if __name__ == "__main__":
                     args.prompt,
                     args.max_seq_len,
                     args.max_gen_len,
+                    args.device,
                     args.device_id,
                 )

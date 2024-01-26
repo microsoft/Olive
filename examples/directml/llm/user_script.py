@@ -35,6 +35,7 @@ def get_or_create_decoder_model():
     # very difficult.
     if config.decoder_model is None:
         config.decoder_model = DecoderModel(
+            config.model_type,
             config.num_layers,
             config.vocab_size,
             config.hidden_size,
@@ -44,6 +45,7 @@ def get_or_create_decoder_model():
             scale_type,
             config.normalization_type,
             config.epsilon,
+            config.apply_residual_connection_post_layernorm,
         )
         config.decoder_model.eval()
         config.decoder_model.load_state_dict(config.state_dict, strict=config.strict_weights_loading)

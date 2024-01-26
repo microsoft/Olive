@@ -14,3 +14,7 @@ num_key_value_heads = 32
 num_layers = 32
 vocab_size = 51200
 epsilon = 1e-5
+partial_rotary_factor=0.4
+resid_pdrop = 0.1
+model_type = "phi2"
+apply_residual_connection_post_layernorm = False

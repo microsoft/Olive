@@ -13,6 +13,7 @@ top_directory = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__
 optimized_directory = os.path.join(top_directory, "models", "optimized")
 available_models = {}
 interface = None
+binding_device = "dml"
 
 
 def change_model_listener(new_model_name):
@@ -27,6 +28,7 @@ def change_model_listener(new_model_name):
     d = available_models[new_model_name]
     interface = LLMOnnxDmlInterface(
         model_dir=d["model_dir"],
+        device=binding_device,
     )
     interface.initialize()
 
@@ -49,7 +51,10 @@ def interface_retry(*args):
     yield from res
 
 
-def launch_chat_app(expose_locally: bool = False):
+def launch_chat_app(expose_locally: bool = False, device: str = "dml"):
+    global binding_device
+    binding_device = device
+
     for model_name in os.listdir(optimized_directory):
         available_models[model_name] = {"model_dir": os.path.join(optimized_directory, model_name)}
 
@@ -189,5 +194,6 @@ def launch_chat_app(expose_locally: bool = False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--expose_locally", action="store_true")
+    parser.add_argument("--device", type=str, choices=["dml", "cuda"], default="dml")
     args = parser.parse_args()
-    launch_chat_app(args.expose_locally)
+    launch_chat_app(args.expose_locally, args.device)

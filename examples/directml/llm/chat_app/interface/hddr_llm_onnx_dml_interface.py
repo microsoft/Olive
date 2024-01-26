@@ -9,27 +9,26 @@ from transformers import AutoTokenizer
 
 
 class LLMOnnxDmlInterface(BaseLLMInterface):
-    def __init__(self, model_dir=""):
+    def __init__(self, model_dir="", device="dml"):
         super().__init__()
 
         self.model_dir = model_dir
-        self.total_count = 0
+        self.device = device
 
     def initialize(self):
         # Create the ONNX sessions
 
-        providers = [
-            (
-                "DmlExecutionProvider",
-                {
-                    "disable_metacommands": True,
-                    "enable_dynamic_graph_fusion": True,
-                },
-            )
-        ]
+        execution_provider = {
+            "dml": "DmlExecutionProvider",
+            "cuda": "CUDAExecutionProvider",
+        }[self.device]
 
+        providers = [execution_provider]
+
+        max_seq_len = 2048
         llm_session_options = onnxruntime.SessionOptions()
         llm_session_options.add_free_dimension_override_by_name("batch_size", 1)
+        llm_session_options.add_free_dimension_override_by_name("max_seq_len", max_seq_len)
         llm_session_options.add_free_dimension_override_by_name("seq_len_increment", 1)
 
         self.llm_session = onnxruntime.InferenceSession(
@@ -39,7 +38,6 @@ class LLMOnnxDmlInterface(BaseLLMInterface):
         )
 
         self.data_type = np.float16
-        max_seq_len = 2048
         self.num_layers = 0
         for inputs_meta in self.llm_session._inputs_meta:
             if inputs_meta.name.startswith("cache.") and inputs_meta.name.endswith(".key"):
@@ -50,13 +48,14 @@ class LLMOnnxDmlInterface(BaseLLMInterface):
         # Initialize the tokenizer and produce the initial tokens.
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_dir)
 
-        self.binding_device = "dml"
+        if self.tokenizer.chat_template is None:
+            self.tokenizer.chat_template = "{% for message in messages %}{{message['content']}}{% endfor %}"
 
         # Create the I/O bindings
         self.llm_io_binding = self.llm_session.io_binding()
 
         # Initialize the buffers
-        self.tokens_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, 1), np.int64, self.binding_device)
+        self.tokens_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, 1), np.int64, self.device)
 
         # Create the K and V caches.
         cache_shape = (1, num_key_value_heads, max_seq_len, head_dim)
@@ -65,8 +64,8 @@ class LLMOnnxDmlInterface(BaseLLMInterface):
         self.v_caches = []
 
         for _ in range(self.num_layers):
-            self.k_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, self.binding_device))
-            self.v_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, self.binding_device))
+            self.k_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, self.device))
+            self.v_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, self.device))
 
         self.initial_prompt = [
             {"role": "user", "content": "Hey there I am a human that would like to have a conversation with you."},
@@ -106,14 +105,16 @@ class LLMOnnxDmlInterface(BaseLLMInterface):
         generated_tokens = []
 
         tokens = np.asarray(input_ids, dtype=np.int64)
-        tokens = onnxruntime.OrtValue.ortvalue_from_numpy(tokens, self.binding_device)
+        tokens = onnxruntime.OrtValue.ortvalue_from_numpy(tokens, self.device)
 
         seq_len = tokens.shape()[1]
         past_seq_len = 0
 
         # Bind the main model's inputs/outputs
         self.llm_io_binding.bind_cpu_input("use_cache_branch", np.zeros([1], dtype=np.bool_))
-        self.llm_io_binding.bind_output("logits", "cpu")
+        self.llm_io_binding.bind_output("logits", self.device)
+        self.llm_io_binding.bind_ortvalue_input("tokens", tokens)
+        self.llm_io_binding.bind_ortvalue_input("tokens_increment", self.tokens_increment)
 
         for i in range(max_length):
             if i == 0:
@@ -126,10 +127,6 @@ class LLMOnnxDmlInterface(BaseLLMInterface):
             seqlens_k = np.array(past_seq_len, dtype=np.int32, ndmin=1)
             self.llm_io_binding.bind_cpu_input("seqlens_k", seqlens_k)
 
-            # Bind the inputs/outputs of the LLM
-            self.llm_io_binding.bind_ortvalue_input("tokens", tokens)
-            self.llm_io_binding.bind_ortvalue_input("tokens_increment", self.tokens_increment)
-
             for layer_idx in range(self.num_layers):
                 self.llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.key", self.k_caches[layer_idx])
                 self.llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.value", self.v_caches[layer_idx])
@@ -138,7 +135,6 @@ class LLMOnnxDmlInterface(BaseLLMInterface):
 
             # Run the LLM
             self.llm_session.run_with_iobinding(self.llm_io_binding)
-            self.llm_io_binding.synchronize_outputs()
 
             # Decide the next token using your preferred sampling strategy.
             logits = self.llm_io_binding.get_outputs()[0].numpy()[:, -1, :]
@@ -146,7 +142,7 @@ class LLMOnnxDmlInterface(BaseLLMInterface):
             generated_tokens.append(next_token.item())
 
             # Set the token for the next iteration
-            self.tokens_increment = onnxruntime.OrtValue.ortvalue_from_numpy(next_token, self.binding_device)
+            self.llm_io_binding.bind_cpu_input("tokens_increment", next_token)
 
             if i % token_printing_step == 0:
                 yield tokenizer.decode(generated_tokens, skip_special_tokens=True)
@@ -155,14 +151,9 @@ class LLMOnnxDmlInterface(BaseLLMInterface):
                 yield tokenizer.decode(generated_tokens, skip_special_tokens=True)
                 return
 
-            self.llm_io_binding.bind_ortvalue_input("tokens_increment", self.tokens_increment)
-
             if i == 0:
-                logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
-                    (1, 1, self.tokenizer.vocab_size), self.data_type, self.binding_device
-                )
                 self.llm_io_binding.bind_cpu_input("use_cache_branch", np.ones([1], dtype=np.bool_))
-                self.llm_io_binding.bind_ortvalue_output("logits", logits)
+                self.llm_io_binding.bind_output("logits", self.device)
 
             past_seq_len = seq_len
             seq_len += 1
@@ -187,10 +178,6 @@ class LLMOnnxDmlInterface(BaseLLMInterface):
             return
 
         input_ids = inputs[:, -max_context_length_tokens:]
-
-        # global total_count
-        self.total_count += 1
-        print(self.total_count)
 
         x = input_ids
 

@@ -6,10 +6,26 @@
 import numpy as np
 import torch
 
+import config
+
+tensor_names = {}
+def save_tensors(input_tensor, tensor_name):
+    import os
+    path = "C:\\Users\\xianz\\work\\Olive\\examples\\directml\\llm\\phi2_tensors"
+    if tensor_name in tensor_names.keys():
+        tensor_names[tensor_name] += 1
+    else:
+        tensor_names[tensor_name] = 0
+
+    idx = tensor_names[tensor_name]
+
+    tensor_path = os.path.join(path, f'{tensor_name}_{idx}.pt')
+    torch.save(input_tensor, tensor_path)
 
 class DecoderModel(torch.nn.Module):
     def __init__(
         self,
+        model_type: str,
         n_layers: int,
         vocab_size: int,
         hidden_size: int,
@@ -19,9 +35,11 @@ class DecoderModel(torch.nn.Module):
         scale_type: str,
         normalization_type: str,
         epsilon: float,
+        apply_residual_connection_post_layernorm: bool,
     ) -> None:
         super().__init__()
         self.model = Model(
+            model_type,
             n_layers,
             vocab_size,
             hidden_size,
@@ -31,6 +49,7 @@ class DecoderModel(torch.nn.Module):
             scale_type,
             normalization_type,
             epsilon,
+            apply_residual_connection_post_layernorm,
         )
         self.lm_head = torch.nn.Linear(hidden_size, vocab_size)
 
@@ -61,6 +80,7 @@ class DecoderModel(torch.nn.Module):
 class Model(torch.nn.Module):
     def __init__(
         self,
+        model_type: str,
         n_layers: int,
         vocab_size: int,
         hidden_size: int,
@@ -70,18 +90,20 @@ class Model(torch.nn.Module):
         scale_type: str,
         normalization_type: str,
         epsilon: float,
+        apply_residual_connection_post_layernorm: bool,
     ) -> None:
         super().__init__()
         self.embed_tokens = torch.nn.Embedding(vocab_size, hidden_size)
 
         self.norm = {
-            "layer_norm": LayerNorm(hidden_size, eps=1e-5),
-            "rms": RMSNorm(hidden_size, eps=1e-5),
+            "layer_norm": torch.nn.LayerNorm(hidden_size, epsilon),
+            "rms": RMSNorm(hidden_size, epsilon),
         }[normalization_type]
 
         self.layers = torch.nn.ModuleList()
         for _ in range(n_layers):
             layer = TransformerLayer(
+                model_type,
                 hidden_size,
                 intermediate_size,
                 num_heads,
@@ -89,6 +111,7 @@ class Model(torch.nn.Module):
                 scale_type,
                 normalization_type,
                 epsilon,
+                apply_residual_connection_post_layernorm,
             )
             self.layers.append(layer)
 
@@ -148,23 +171,10 @@ class RMSNorm(torch.nn.Module):
         return self.weight * hidden_states.to(input_dtype)
 
 
-class LayerNorm(torch.nn.Module):
-    def __init__(self, dim: int, eps: float) -> None:
-        super().__init__()
-        self.eps = eps
-        self.weight = torch.nn.Parameter(torch.ones(dim))
-        self.bias = torch.nn.Parameter(torch.zeros(dim))
-
-    def forward(self, hidden_states):
-        diff = hidden_states - hidden_states.mean(-1, keepdim=True)
-        variance = diff.pow(2).mean(-1, keepdim=True)
-        hidden_states = diff / torch.sqrt(variance + self.eps)
-        return self.weight * hidden_states + self.bias
-
-
 class TransformerLayer(torch.nn.Module):
     def __init__(
         self,
+        model_type: str,
         hidden_size: int,
         intermediate_size: int,
         num_heads: int,
@@ -172,19 +182,25 @@ class TransformerLayer(torch.nn.Module):
         scale_type: str,
         normalization_type: str,
         epsilon: float,
+        apply_residual_connection_post_layernorm: bool,
     ) -> None:
         super().__init__()
+
+        self.apply_residual_connection_post_layernorm = apply_residual_connection_post_layernorm
+
         self.input_layernorm = {
-            "layer_norm": LayerNorm(hidden_size, epsilon),
+            "layer_norm": torch.nn.LayerNorm(hidden_size, epsilon),
             "rms": RMSNorm(hidden_size, epsilon),
         }[normalization_type]
 
-        # self.post_attention_layernorm = {
-        #     "layer_norm": LayerNorm(hidden_size, epsilon),
-        #     "rms": RMSNorm(hidden_size, epsilon),
-        # }[normalization_type]
+        if apply_residual_connection_post_layernorm:
+            self.post_attention_layernorm = {
+                "layer_norm": torch.nn.LayerNorm(hidden_size, epsilon),
+                "rms": RMSNorm(hidden_size, epsilon),
+            }[normalization_type]
 
-        self.cos, self.sin = rotary_mat(hidden_size, num_heads, 4096, head_scale=1.0)
+        self.cos, self.sin = rotary_mat(hidden_size, num_heads, 2048, head_scale=config.partial_rotary_factor)
+        # self.cos, self.sin = rotary_mat(hidden_size, num_heads, 4096, head_scale=1.0)
 
         self.self_attn = SelfAttention(
             hidden_size,
@@ -192,6 +208,7 @@ class TransformerLayer(torch.nn.Module):
             num_key_value_heads,
             scale_type,
         )
+        self.resid_dropout = torch.nn.Dropout(config.resid_pdrop)
         self.mlp = PhiMLP(hidden_size, intermediate_size)
 
     def forward(
@@ -205,12 +222,22 @@ class TransformerLayer(torch.nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Dimension of x is [batch_size, seq_len, hidden_size] Dimension of
         # k_cache and v_cache is [batch_size, n_layers, pos, num_heads, head_dim]
-        h, k_out, v_out = self.self_attn(
-            use_cache, self.input_layernorm(x), position_ids, attn_mask, self.cos, self.sin, k_cache, v_cache
+        hidden_states = self.input_layernorm(x)
+        attn_outputs, k_out, v_out = self.self_attn(
+            use_cache, hidden_states, position_ids, attn_mask, self.cos, self.sin, k_cache, v_cache
         )
 
-        h = x + h
-        return h + self.mlp(h), k_out, v_out
+        # save_tensors(attn_outputs, "attn_outputs")
+        # attn_outputs = self.resid_dropout(attn_outputs)
+
+        hidden_mlp = self.mlp(hidden_states)
+        # feed_forward_hidden_states = self.resid_dropout(hidden_mlp)
+        hidden_states = attn_outputs + hidden_mlp + x
+
+        # if self.apply_residual_connection_post_layernorm:
+        #     attn_norm_output = self.post_attention_layernorm(h)
+        # save_tensors(hidden_states, "hidden_states")
+        return hidden_states, k_out, v_out
 
 
 class ApplyMask(torch.nn.Module):
@@ -223,14 +250,14 @@ class ApplyMask(torch.nn.Module):
         # The mask contains 1's for values that should stay intact, and 0's for values that should get added to -10000
         expanded_mask = attn_mask[:, None, None, :].expand(-1, 1, seq_len, -1).to(dtype)
         inverted_mask = 1.0 - expanded_mask
-        mask_score = inverted_mask.masked_fill(inverted_mask.to(torch.bool), -10000.0)
+        mask_score = inverted_mask.masked_fill(inverted_mask.to(torch.bool), torch.finfo(torch.float16).min)
 
         if not use_cache:
             batch_size, max_seq_len = attn_mask.size()
             causal_mask = torch.tril(torch.ones((batch_size, 1, max_seq_len, max_seq_len)))
             causal_mask = causal_mask[:, :, -seq_len:, :]
             inverted_causal_mask = 1.0 - causal_mask
-            mask_score += inverted_causal_mask.masked_fill(inverted_causal_mask.to(torch.bool), -10000.0)
+            mask_score += inverted_causal_mask.masked_fill(inverted_causal_mask.to(torch.bool), torch.finfo(torch.float16).min)
 
         mask_score = mask_score.expand(-1, num_heads, -1, -1)
 
@@ -275,7 +302,6 @@ def broadcast_key_value(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor
     hidden_states = hidden_states[:, :, None, :, :].expand(batch, num_key_value_heads, n_rep, slen, head_dim)
     return hidden_states.reshape(batch, num_key_value_heads * n_rep, slen, head_dim)
 
-
 class SelfAttention(torch.nn.Module):
     def __init__(
         self,
@@ -286,7 +312,7 @@ class SelfAttention(torch.nn.Module):
     ) -> None:
         super().__init__()
         self.head_dim = int(hidden_size / num_heads)
-
+        self.partial_dim = int(config.partial_rotary_factor * self.head_dim)
         key_value_hidden_size = num_key_value_heads * self.head_dim
         self.q_proj = torch.nn.Linear(hidden_size, hidden_size)
         self.k_proj = torch.nn.Linear(hidden_size, key_value_hidden_size)
@@ -330,9 +356,24 @@ class SelfAttention(torch.nn.Module):
         value = torch.reshape(value, [batch_size, seq_len, self.num_key_value_heads, self.head_dim]).transpose(1, 2)
 
         # Apply rotary positional embedding
-        query = self.rotary_embedding(query, cos, sin, position_ids)
-        key = self.rotary_embedding(key, cos, sin, position_ids)
+        # Partial rotary embedding
+        query_rot, query_pass = (
+            query[..., : self.partial_dim],
+            query[..., self.partial_dim:],
+        )
+        key_rot, key_pass = (
+            key[..., : self.partial_dim],
+            key[..., self.partial_dim:],
+        )
 
+        query_rot = self.rotary_embedding(query_rot, cos, sin, position_ids)
+        key_rot = self.rotary_embedding(key_rot, cos, sin, position_ids)
+
+        query = torch.cat((query_rot, query_pass), dim=-1)
+        key = torch.cat((key_rot, key_pass), dim=-1)
+
+        # save_tensors(query, "query")
+        # save_tensors(key, "key")
         # Append new entries to the end of k, v cache
         k_cache = torch.cat((k_cache, key), dim=2)
         v_cache = torch.cat((v_cache, value), dim=2)
@@ -349,13 +390,16 @@ class SelfAttention(torch.nn.Module):
         key = key.permute([0, 1, 3, 2])
 
         # Calculate attention scores
-        score = torch.matmul(query, key) / self.scale
+        score = torch.matmul(query.to(torch.float32), key.to(torch.float32)) / self.scale
 
+        # save_tensors(score, "score")
         # Apply the mask
         score = self.apply_mask(use_cache, score, attn_mask, seq_len, self.num_heads)
 
         # Calculate attention values
-        prob = torch.nn.functional.softmax(score, dim=-1)
+        prob = torch.nn.functional.softmax(score, dim=-1).to(query.dtype)
+        # save_tensors(prob, "score_softmax")
+
         attn = torch.matmul(prob, value)
 
         # Merge attention heads
@@ -364,9 +408,10 @@ class SelfAttention(torch.nn.Module):
         return self.o_proj(attn), k_cache, v_cache
 
 
-class ProjLayerSiluMatMul(torch.nn.Module):
+class MLP(torch.nn.Module):
     def __init__(
         self,
+        model_type: str,
         hidden_size: int,
         intermediate_size: int,
     ) -> None:
