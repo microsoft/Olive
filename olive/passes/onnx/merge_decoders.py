@@ -19,6 +19,8 @@ from onnx import GraphProto, ModelProto, NodeProto, OperatorSetIdProto, TensorPr
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
+# pylint: disable=consider-using-enumerate
+
 logger = logging.getLogger(__name__)
 
 

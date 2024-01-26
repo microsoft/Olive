@@ -32,6 +32,8 @@ def onnx_qnn_config():
 
 
 def raw_qnn_config():
+    # pylint: disable=redefined-outer-name
+
     with Path("./raw_qnn_sdk_template.json").open("r") as f:
         raw_qnn_config = json.load(f)
 

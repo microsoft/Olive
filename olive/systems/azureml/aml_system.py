@@ -431,7 +431,7 @@ class AzureMLSystem(OliveSystem):
                     data_inputs.update({f"{data_config.name}_{key}": Input(type=asset_type, optional=True)})
                     data_args.update({f"{data_config.name}_{key}": data_path_resource_path})
 
-        for param, param_config in the_pass._config.items():
+        for param, param_config in the_pass._config.items(): # pylint: disable=protected-access
             if param.endswith("data_config") and param_config is not None:
                 data_config = validate_config(param_config, DataConfig)
                 if data_config.name not in data_name_set:

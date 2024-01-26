@@ -64,7 +64,6 @@ is_formatter = true
 [[linter]]
 code = 'BLACK-ISORT'
 include_patterns = [
-  '**/*.py'
 ]
 exclude_patterns = [
 ]

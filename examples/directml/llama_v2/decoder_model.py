@@ -6,6 +6,8 @@
 import numpy as np
 import torch
 
+# pylint: disable=abstract-method, not-callable, unsubscriptable-object
+
 
 class DecoderModel(torch.nn.Module):
     def __init__(

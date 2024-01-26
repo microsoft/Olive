@@ -467,7 +467,7 @@ class OnnxConversion(Pass):
             # save the model to the output path
             model_proto_to_olive_model(ranked_onnx_modelproto, output_filepath, pass_config)
         finally:
-            restore_tensor_parallel_layers(restore_args)
+            restore_tensor_parallel_layers(restore_args)  # pylint: disable=used-before-assignment
 
         return 1  # Return 1 for success.
 

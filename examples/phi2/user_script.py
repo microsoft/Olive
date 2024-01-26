@@ -13,6 +13,8 @@ from olive.constants import Framework
 if TYPE_CHECKING:
     from transformers import PhiConfig
 
+# pylint: disable=broad-exception-raised, redefined-outer-name
+
 model_id = "microsoft/phi-2"
 config: "PhiConfig" = AutoConfig.from_pretrained(model_id, trust_remote_code=True)
 

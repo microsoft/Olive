@@ -5,7 +5,7 @@ This folder contains sample use cases of Olive with ONNX Runtime and OpenVINO to
 - Stable Diffusion XL: [Stable Diffusion XL Base](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0), [Stable Diffusion XL Refiner](https://huggingface.co/stabilityai/stable-diffusion-xl-refiner-1.0)
 
 
-## Stable Diffusion and Stable Diffusion XL Optimization with ONNX Runtime and OpenVINO
+## Stable Diffusion and Stable Diffusion XL Optimization with ONNX Runtime
 
 
 Stable Diffusion comprises multiple PyTorch models tied together into a *pipeline*.
@@ -49,7 +49,7 @@ So, cd into the corresponding DirectML example folder from the root of the clone
 
 **_Stable Diffusion_**
 ```bash
-cd examples/directml/stable_diffusion
+cd examples/stable_diffusion
 ```
 
 **_Stable Diffusion XL_**
@@ -127,7 +127,7 @@ git clone https://github.com/microsoft/olive
 
 Once you've installed Olive, install the requirements for this sample matching the version of the library you are using:
 ```
-cd olive/examples/directml/stable_diffusion
+cd olive/examples/stable_diffusion
 pip install -r requirements-ov.txt
 ```
 

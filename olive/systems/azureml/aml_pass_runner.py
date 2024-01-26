@@ -90,7 +90,7 @@ def update_data_config(p, extra_args):
                 param_config["params_config"]["data_dir"] = data_dir
                 param_config["params_config"]["data_files"] = data_files
 
-            p._config[param] = validate_config(param_config, DataConfig)
+            p._config[param] = validate_config(param_config, DataConfig) # pylint: disable=protected-access
 
 
 def main(raw_args=None):

@@ -413,7 +413,7 @@ class TestOliveEvaluator:
         model.inference_settings = model_inference_settings.copy() if model_inference_settings else None
         inference_settings = OnnxEvaluator.get_inference_settings(metric, model)
         if result_keys is None:
-            assert inference_settings == {}
+            assert inference_settings == {}  # pylint: disable=use-implicit-booleaness-not-comparison
         else:
             for key in result_keys:
                 assert key in inference_settings

@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pytest
 import torch
-from torchvision.datasets import CIFAR10
 
 from olive.data.config import DataConfig
 from olive.data.registry import Registry
@@ -142,6 +141,7 @@ def get_openvino_model(tmp_path):
 
 @Registry.register_dataset()
 def cifar10_dataset(data_dir):
+    from torchvision.datasets import CIFAR10
     from torchvision.transforms import ToTensor
 
     return CIFAR10(root=data_dir, train=False, transform=ToTensor(), download=True)
