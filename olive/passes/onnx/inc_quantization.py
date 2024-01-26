@@ -26,6 +26,8 @@ from olive.passes.pass_config import ParamCategory, PassConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional
 
+# pylint: disable=protected-access
+
 logger = logging.getLogger(__name__)
 
 _inc_quantization_config = {

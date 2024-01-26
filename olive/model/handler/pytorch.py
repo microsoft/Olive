@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 @model_handler_registry("PyTorchModel")
-class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
+class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  # pylint: disable=too-many-ancestors
     """PyTorch model handler.
 
     Besides the model loading for PyTorch model, the model handler also provides the following functionalities:

@@ -83,7 +83,7 @@ def run_llama_v2_io_binding(
     n_heads = 32
     n_layers = 0
 
-    for inputs_meta in llm_session._inputs_meta:
+    for inputs_meta in llm_session._inputs_meta:  # pylint: disable=protected-access
         if inputs_meta.name.startswith("past_key_values.") and inputs_meta.name.endswith(".key"):
             n_layers += 1
 

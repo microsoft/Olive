@@ -15,6 +15,8 @@ import torch.nn.functional as F
 from olive.passes.pytorch.tensor_parallel import TensorParallel
 from olive.passes.pytorch.tensor_parallel_layers import TensorParallelColumnLinear, TensorParallelRowLinear
 
+# pylint: disable=not-callable
+
 logger = logging.getLogger(__name__)
 
 

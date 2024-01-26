@@ -42,6 +42,8 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_PAD_TOKEN = "[PAD]"
 
+# pylint: disable=unused-import
+
 
 # ruff: noqa: B010
 # creating a Config class since transformers.TrainingArguments is a dataclass
@@ -917,7 +919,7 @@ class LoftQ(QLoRA):
                 description="Number of LoftQ iterations.",
             ),
         }
-        config.update(QLoRABase._default_config(accelerator_spec))
+        config.update(QLoRABase._default_config(accelerator_spec))  # pylint: disable=protected-acces
         return config
 
     @classmethod

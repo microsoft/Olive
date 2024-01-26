@@ -10,6 +10,8 @@ from pathlib import Path
 
 import pytest
 
+# pylint: disable=redefined-outer-name
+
 
 class DependencySetupEnvBuilder(venv.EnvBuilder):
     def post_setup(self, context) -> None:
