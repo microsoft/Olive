@@ -14,10 +14,14 @@ optimized_directory = os.path.join(top_directory, "models", "optimized")
 available_models = {}
 interface = None
 binding_device = "dml"
+show_image_upload = False
 
 
 def change_model_listener(new_model_name):
     global interface
+    global show_image_upload
+
+    show_image_upload = False
 
     # if a model exists - shut it down before trying to create the new one
     if interface is not None:
@@ -31,6 +35,9 @@ def change_model_listener(new_model_name):
         device=binding_device,
     )
     interface.initialize()
+
+    if "llava" in d["model_dir"]:
+        show_image_upload = True
 
     return new_model_name
 
@@ -83,6 +90,7 @@ def launch_chat_app(expose_locally: bool = False, device: str = "dml"):
                     )
                     retry_button = gr.Button("🔄 Regenerate")
                     delete_last_button = gr.Button("🗑️ Remove Last Turn")
+            reset_args = {"fn": reset_textbox, "inputs": [], "outputs": [user_input, status_display]}
             with gr.Column(), gr.Column(min_width=50, scale=1), gr.Tab(label="Parameter Setting"):
                 gr.Markdown("# Model")
                 model_name = gr.Dropdown(
@@ -117,6 +125,15 @@ def launch_chat_app(expose_locally: bool = False, device: str = "dml"):
                     interactive=True,
                     label="Token Printing Step",
                 )
+
+                if show_image_upload:
+                    image = gr.Image(type="pil")
+                    image.change(
+                        reset_state,
+                        outputs=[chatbot, history, status_display],
+                        show_progress=True,
+                    )
+                    image.change(**reset_args)
         gr.Markdown(description)
 
         predict_args = {
@@ -128,6 +145,7 @@ def launch_chat_app(expose_locally: bool = False, device: str = "dml"):
                 max_length_tokens,
                 max_context_length_tokens,
                 token_printing_step,
+                image,
             ],
             "outputs": [chatbot, history, status_display],
             "show_progress": True,
@@ -144,8 +162,6 @@ def launch_chat_app(expose_locally: bool = False, device: str = "dml"):
             "outputs": [chatbot, history, status_display],
             "show_progress": True,
         }
-
-        reset_args = {"fn": reset_textbox, "inputs": [], "outputs": [user_input, status_display]}
 
         # Chatbot
         transfer_input_args = {
