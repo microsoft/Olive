@@ -279,7 +279,7 @@ def _package_onnxruntime_packages(tempdir, pf_footprint: "Footprint"):
             run_subprocess(download_command)
 
         # Download CPP && CS onnxruntime package
-        lang_list = ["cpp", "cs"]
+        lang_list = ("cpp", "cs")
         for language in lang_list:
             ort_download_path = tempdir / "ONNXRuntimePackages" / language
             ort_download_path.mkdir(parents=True, exist_ok=True)
