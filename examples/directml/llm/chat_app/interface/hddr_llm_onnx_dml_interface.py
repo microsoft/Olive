@@ -51,6 +51,7 @@ class LLMOnnxDmlInterface(BaseLLMInterface):
             self.processor = AutoProcessor.from_pretrained(self.model_dir)
             self.tokenizer = self.processor.tokenizer
         else:
+            self.processor = None
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_dir)
 
         if self.tokenizer.chat_template is None:
@@ -107,7 +108,7 @@ class LLMOnnxDmlInterface(BaseLLMInterface):
             prompt.append({"role": "user", "content": dialogue[0]})
             prompt.append({"role": "assistant", "content": dialogue[1]})
 
-        if self.processor is not None:
+        if self.processor is not None and image is not None:
             processed_inputs = self.processor(text=text, images=image, return_tensors="np")
             pixel_values = processed_inputs["pixel_values"].astype(np.float16)
             prompt.append({"role": "user", "content": text})
