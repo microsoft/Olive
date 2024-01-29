@@ -164,12 +164,12 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span></div>
 
 
-<span class="n">LOCAL_RESOURCE_TYPES</span> <span class="o">=</span> <span class="p">[</span><span class="n">ResourceType</span><span class="o">.</span><span class="n">LocalFile</span><span class="p">,</span> <span class="n">ResourceType</span><span class="o">.</span><span class="n">LocalFolder</span><span class="p">]</span>
-<span class="n">AZUREML_RESOURCE_TYPES</span> <span class="o">=</span> <span class="p">[</span>
+<span class="n">LOCAL_RESOURCE_TYPES</span> <span class="o">=</span> <span class="p">(</span><span class="n">ResourceType</span><span class="o">.</span><span class="n">LocalFile</span><span class="p">,</span> <span class="n">ResourceType</span><span class="o">.</span><span class="n">LocalFolder</span><span class="p">)</span>
+<span class="n">AZUREML_RESOURCE_TYPES</span> <span class="o">=</span> <span class="p">(</span>
     <span class="n">ResourceType</span><span class="o">.</span><span class="n">AzureMLModel</span><span class="p">,</span>
     <span class="n">ResourceType</span><span class="o">.</span><span class="n">AzureMLDatastore</span><span class="p">,</span>
     <span class="n">ResourceType</span><span class="o">.</span><span class="n">AzureMLJobOutput</span><span class="p">,</span>
-<span class="p">]</span>
+<span class="p">)</span>
 
 
 <span class="k">class</span> <span class="nc">ResourcePath</span><span class="p">(</span><span class="n">AutoConfigClass</span><span class="p">):</span>
