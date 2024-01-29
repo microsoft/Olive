@@ -48,14 +48,14 @@ def set_config_parameters(repo_id: str, num_layers: Optional[int]):
     )
 
     if repo_id == "tiiuae/falcon-7b-instruct":
-        config.intermediate_size = llm_model.model.config.hidden_size * 4
+        config.intermediate_size = llm_model.config.hidden_size * 4
     else:
-        config.intermediate_size = llm_model.model.config.intermediate_size     
+        config.intermediate_size = llm_model.config.intermediate_size     
 
-    if hasattr(llm_model.model.config, "multi_query") and llm_model.model.config.multi_query:
+    if hasattr(llm_model.config, "multi_query") and llm_model.config.multi_query:
         config.num_key_value_heads = 1
     else:
-        config.num_key_value_heads = llm_model.model.config.num_key_value_heads
+        config.num_key_value_heads = llm_model.config.num_key_value_heads
         
     if hasattr(llm_model.config, "rms_norm_eps"):
         config.normalization_type = "rms"
