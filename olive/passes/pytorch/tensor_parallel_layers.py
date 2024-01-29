@@ -13,6 +13,8 @@ import torch.distributed as dist
 import torch.nn.functional as F
 from torch import nn
 
+# pylint: disable=unsubscriptable-object
+
 
 class AllReduce(torch.autograd.Function):  # pylint: disable=abstract-method
     @staticmethod

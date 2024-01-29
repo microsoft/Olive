@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_VALID_EXECUTION_ORDERS = ["joint", "pass-by-pass"]
+_VALID_EXECUTION_ORDERS = ("joint", "pass-by-pass")
 
 # pylint: disable=attribute-defined-outside-init
 

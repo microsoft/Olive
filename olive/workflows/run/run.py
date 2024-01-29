@@ -258,7 +258,7 @@ def check_local_ort_installation(package_name: str):
         "There are one or more onnxruntime packages installed in your environment!",
         "The setup process is stopped to avoid potential conflicts. Please run the following commands manually:",
     ]
-    uninstall_command = f"{sys.sys.executable} -m pip uninstall -y " + " ".join(local_ort_packages)
+    uninstall_command = f"{sys.executable} -m pip uninstall -y " + " ".join(local_ort_packages)
     messages.append(f"Uninstall all existing onnxruntime packages: '{uninstall_command}'")
     messages.append(f"Install {package_name}: '{sys.executable} -m pip install {package_name}'")
     messages.append(

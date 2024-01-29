@@ -354,9 +354,11 @@ class TestAzureMLSystem:
         metric_type = f"{metric.type}-{sub_type_name}"
         model_inputs = {
             "model_config": Input(type=AssetTypes.URI_FILE),
-            "model_model_path": Input(type=AssetTypes.CUSTOM_MODEL, optional=True)
-            if model_resource_type == ResourceType.AzureMLModel
-            else Input(type=AssetTypes.URI_FILE, optional=True),
+            "model_model_path": (
+                Input(type=AssetTypes.CUSTOM_MODEL, optional=True)
+                if model_resource_type == ResourceType.AzureMLModel
+                else Input(type=AssetTypes.URI_FILE, optional=True)
+            ),
         }
         metric_inputs = {
             "metric_config": Input(type=AssetTypes.URI_FILE),
