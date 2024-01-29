@@ -17,7 +17,7 @@ FAILED_CONFIG = "failed-config"
 # pass search-point was pruned due to invalid config
 INVALID_CONFIG = "invalid-config"
 # list of all pruned configs
-PRUNED_CONFIGS = [FAILED_CONFIG, INVALID_CONFIG]
+PRUNED_CONFIGS = (FAILED_CONFIG, INVALID_CONFIG)
 
 
 class EngineConfig(ConfigBase):
