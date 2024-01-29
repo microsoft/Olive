@@ -17,6 +17,7 @@ import transformers
 from chat_app.app import launch_chat_app
 from huggingface_hub import hf_hub_download
 from run_llm_io_binding import run_llm_io_binding
+from run_vision_llm_io_binding import run_vision_llm_io_binding
 
 from olive.model import ONNXModelHandler
 from olive.workflows import run as olive_run
@@ -25,41 +26,49 @@ from olive.workflows import run as olive_run
 def set_config_parameters(repo_id: str, num_layers: Optional[int]):
     tokenizer = transformers.AutoTokenizer.from_pretrained(repo_id)
 
-    pipeline = transformers.pipeline(
-        "text-generation", model=repo_id, tokenizer=tokenizer, torch_dtype=torch.float32, device="cpu"
-    )
+    if repo_id == "llava-hf/llava-1.5-7b-hf":
+        hugggingface_model = transformers.LlavaForConditionalGeneration.from_pretrained(repo_id)
+        llm_model = hugggingface_model.language_model
+        main_model = hugggingface_model
+    else:
+        pipeline = transformers.pipeline(
+            "text-generation", model=repo_id, tokenizer=tokenizer, torch_dtype=torch.float32, device="cpu"
+        )
+        llm_model = pipeline.model
+        main_model = pipeline.model
+        config.state_dict = pipeline.model.state_dict()
 
-    config.hidden_size = pipeline.model.config.hidden_size
-    config.num_heads = pipeline.model.config.num_attention_heads
-    config.num_layers = num_layers or pipeline.model.config.num_hidden_layers
-    config.vocab_size = pipeline.model.config.vocab_size
-    config.model_type = pipeline.model.config.model_type
+    config.hidden_size = llm_model.config.hidden_size
+    config.num_heads = llm_model.config.num_attention_heads
+    config.num_layers = num_layers or llm_model.config.num_hidden_layers
+    config.vocab_size = llm_model.config.vocab_size
+    config.model_type = main_model.config.model_type
     config.apply_residual_connection_post_layernorm = getattr(
-        pipeline.model.config, "apply_residual_connection_post_layernorm", True
+        llm_model.config, "apply_residual_connection_post_layernorm", True
     )
 
     if repo_id == "tiiuae/falcon-7b-instruct":
-        config.intermediate_size = pipeline.model.config.hidden_size * 4
+        config.intermediate_size = llm_model.model.config.hidden_size * 4
     else:
-        config.intermediate_size = pipeline.model.config.intermediate_size     
+        config.intermediate_size = llm_model.model.config.intermediate_size     
 
-    if hasattr(pipeline.model.config, "multi_query") and pipeline.model.config.multi_query:
+    if hasattr(llm_model.model.config, "multi_query") and llm_model.model.config.multi_query:
         config.num_key_value_heads = 1
     else:
-        config.num_key_value_heads = pipeline.model.config.num_key_value_heads
+        config.num_key_value_heads = llm_model.model.config.num_key_value_heads
         
-    if hasattr(pipeline.model.config, "rms_norm_eps"):
+    if hasattr(llm_model.config, "rms_norm_eps"):
         config.normalization_type = "rms"
-        config.epsilon = pipeline.model.config.rms_norm_eps
-    elif hasattr(pipeline.model.config, "layer_norm_epsilon"):
+        config.epsilon = llm_model.config.rms_norm_eps
+    elif hasattr(llm_model.config, "layer_norm_epsilon"):
         config.normalization_type = "layer_norm"
-        config.epsilon = pipeline.model.config.layer_norm_epsilon
+        config.epsilon = llm_model.config.layer_norm_epsilon
     else:
         raise ValueError("Normalization epsilon value was not found")
 
-    config.normalization_type = "rms" if hasattr(pipeline.model.config, "rms_norm_eps") else "layer_norm"
-    config.strict_weights_loading = config.num_layers == pipeline.model.config.num_hidden_layers
-    config.state_dict = pipeline.model.state_dict()
+    config.normalization_type = "rms" if hasattr(llm_model.config, "rms_norm_eps") else "layer_norm"
+    config.strict_weights_loading = config.num_layers == llm_model.config.num_hidden_layers
+    config.state_dict = main_model.state_dict()
 
 
 def optimize(optimized_model_dir: Path, repo_id: str, model_name: str, num_layers: Optional[int]):
@@ -79,37 +88,53 @@ def optimize(optimized_model_dir: Path, repo_id: str, model_name: str, num_layer
 
         # Some models are too fragile and need layer norm to be performed in fp32 to keep their accuracy.
         # bfloat16 could fix this, but since DML doesn't support it we need to fall back to fp32.
-        models_that_need_fp32_layer_norm = ["tiiuae_falcon-7b-instruct"]
-
+        models_that_need_fp32_layer_norm = ["llava-hf_llava-1.5-7b-hf", "tiiuae_falcon-7b-instruct"]
+        models_that_need_fp32_mha = ["llava-hf_llava-1.5-7b-hf"]
         if model_name in models_that_need_fp32_layer_norm:
-            olive_config["passes"]["optimize"]["config"]["force_fp32_ops"] = ["LayerNormalization"]
+            olive_config["passes"]["optimize"]["config"]["force_fp32_ops"] = [
+                "SimplifiedLayerNormalization",
+                "LayerNormalization",
+            ]
 
-        # Fewer than 32 layers can be provided for debugging purposes so we have to remove them from the config
-        if config.num_layers < 32:
-            model_components = olive_config["input_model"]["config"]["model_components"]
-            for model_component in model_components:
-                layer_range = range(config.num_layers, 32)
+        if model_name in models_that_need_fp32_mha:
+            olive_config["passes"]["optimize"]["config"]["force_fp32_ops"] = ["MultiHeadAttention"]
 
-                # Remove the extra inputs
-                key_inputs_to_remove = {f"cache.{idx}.key" for idx in layer_range}
-                value_inputs_to_remove = {f"cache.{idx}.value" for idx in layer_range}
-                input_names = model_component["config"]["io_config"]["input_names"]
-                input_names = [x for x in input_names if x not in key_inputs_to_remove]
-                input_names = [x for x in input_names if x not in value_inputs_to_remove]
-                model_component["config"]["io_config"]["input_names"] = input_names
+        if repo_id == "llava-hf/llava-1.5-7b-hf":
+            olive_config["passes"]["optimize"]["config"]["replace_attn_mask_input_with_seq_len"] = False
 
-                # Remove the extra outputs
-                key_output_to_remove = {f"cache_out.{idx}.key" for idx in layer_range}
-                value_output_to_remove = {f"cache_out.{idx}.value" for idx in layer_range}
-                output_names = model_component["config"]["io_config"]["output_names"]
-                output_names = [x for x in output_names if x not in key_output_to_remove]
-                output_names = [x for x in output_names if x not in value_output_to_remove]
-                model_component["config"]["io_config"]["output_names"] = output_names
+        # Set the input names and dynamic axes
+        model_components = olive_config["input_model"]["config"]["model_components"]
 
-                # Remove the dynamic axes
-                for idx in layer_range:
-                    del model_component["config"]["io_config"]["dynamic_axes"][f"cache.{idx}.key"]
-                    del model_component["config"]["io_config"]["dynamic_axes"][f"cache.{idx}.value"]
+        if repo_id != "llava-hf/llava-1.5-7b-hf":
+            model_components[0]["config"]["io_config"]["input_names"].append("position_ids")
+            model_components[1]["config"]["io_config"]["input_names"].append("position_ids_increment")
+
+        model_components[0]["config"]["io_config"]["input_names"].append("attention_mask")
+        model_components[1]["config"]["io_config"]["input_names"].append("attention_mask")
+
+        if repo_id == "llava-hf/llava-1.5-7b-hf":
+            model_components[0]["config"]["io_config"]["input_names"].append("pixel_values")
+            model_components[0]["config"]["io_config"]["dynamic_axes"]["pixel_values"] = {
+                "0": "batch_size",
+                "1": "channel_count",
+                "2": "image_size",
+                "3": "image_size",
+            }
+
+        for model_component in model_components:
+            for layer_idx in range(config.num_layers):
+                model_component["config"]["io_config"]["input_names"].append(f"cache.{layer_idx}.key")
+                model_component["config"]["io_config"]["input_names"].append(f"cache.{layer_idx}.value")
+                model_component["config"]["io_config"]["output_names"].append(f"cache_out.{layer_idx}.key")
+                model_component["config"]["io_config"]["output_names"].append(f"cache_out.{layer_idx}.value")
+                model_component["config"]["io_config"]["dynamic_axes"][f"cache.{layer_idx}.key"] = {
+                    "0": "batch_size",
+                    "2": "max_seq_len",
+                }
+                model_component["config"]["io_config"]["dynamic_axes"][f"cache.{layer_idx}.value"] = {
+                    "0": "batch_size",
+                    "2": "max_seq_len",
+                }
 
         olive_run(olive_config)
 
@@ -165,6 +190,12 @@ def optimize(optimized_model_dir: Path, repo_id: str, model_name: str, num_layer
     dst_tokenizer_config_path = dst_path.parents[0] / "tokenizer_config.json"
     shutil.copyfile(src_tokenizer_config_path, dst_tokenizer_config_path)
 
+    # Copy the preprocessor config file
+    if config.model_type == "llava":
+        src_preprocessor_config_path = hf_hub_download(repo_id=repo_id, filename="preprocessor_config.json")
+        dst_preprocessor_config_path = dst_path.parents[0] / "preprocessor_config.json"
+        shutil.copyfile(src_preprocessor_config_path, dst_preprocessor_config_path)
+
     print(f"The optimized pipeline is located here: {optimized_model_dir}")
 
 
@@ -187,7 +218,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_type",
         default="llama-2-7b-chat",
-        choices=["llama-2-7b-chat", "mistral-7b-chat", "falcon"],
+        choices=["llama-2-7b-chat", "mistral-7b-chat", "llava-7b", "falcon"],
         help="Which model to convert.",
         type=str,
     )
@@ -207,6 +238,7 @@ if __name__ == "__main__":
         "llama-2-7b-chat": "meta-llama/Llama-2-7b-chat-hf",
         "mistral-7b-chat": "mistralai/Mistral-7B-Instruct-v0.1",
         "falcon": "tiiuae/falcon-7b-instruct",
+        "llava-7b": "llava-hf/llava-1.5-7b-hf",
     }[args.model_type]
 
     model_name = repo_id.replace("/", "_")
@@ -220,11 +252,23 @@ if __name__ == "__main__":
         else:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                run_llm_io_binding(
-                    optimized_model_dir / model_name,
-                    args.prompt,
-                    args.max_seq_len,
-                    args.max_gen_len,
-                    args.device,
-                    args.device_id,
-                )
+
+                if repo_id == "llava-hf/llava-1.5-7b-hf":
+                    run_vision_llm_io_binding(
+                        optimized_model_dir / model_name,
+                        "What is in this image?",
+                        "placeholder.png",
+                        args.max_seq_len,
+                        args.max_gen_len,
+                        args.device,
+                        args.device_id,
+                    )
+                else:
+                    run_llm_io_binding(
+                        optimized_model_dir / model_name,
+                        args.prompt,
+                        args.max_seq_len,
+                        args.max_gen_len,
+                        args.device,
+                        args.device_id,
+                    )

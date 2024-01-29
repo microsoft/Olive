@@ -32,7 +32,21 @@ def change_model_listener(new_model_name):
     )
     interface.initialize()
 
-    return new_model_name
+    return [
+        new_model_name,
+        gr.update(visible="llava" in new_model_name),
+        [],
+        [],
+        gr.update(value=""),
+        "",
+    ]
+
+
+def change_image_visibility(new_model_name):
+    if "llava" in new_model_name:
+        return gr.update(visible=True)
+
+    return gr.update(visible=False)
 
 
 gr.Chatbot.postprocess = postprocess
@@ -83,6 +97,7 @@ def launch_chat_app(expose_locally: bool = False, device: str = "dml"):
                     )
                     retry_button = gr.Button("🔄 Regenerate")
                     delete_last_button = gr.Button("🗑️ Remove Last Turn")
+            reset_args = {"fn": reset_textbox, "inputs": [], "outputs": [user_input, status_display]}
             with gr.Column(), gr.Column(min_width=50, scale=1), gr.Tab(label="Parameter Setting"):
                 gr.Markdown("# Model")
                 model_name = gr.Dropdown(
@@ -91,8 +106,6 @@ def launch_chat_app(expose_locally: bool = False, device: str = "dml"):
                     show_label=False,  # default="Empty STUB",
                     value=next(iter(available_models.keys())),
                 )
-                model_name.change(change_model_listener, inputs=[model_name], outputs=[model_name])
-
                 max_length_tokens = gr.Slider(
                     minimum=0,
                     maximum=512,
@@ -117,6 +130,20 @@ def launch_chat_app(expose_locally: bool = False, device: str = "dml"):
                     interactive=True,
                     label="Token Printing Step",
                 )
+
+                image = gr.Image(type="pil", visible=False)
+                image.change(
+                    reset_state,
+                    outputs=[chatbot, history, status_display],
+                    show_progress=True,
+                )
+                image.change(**reset_args)
+
+                model_name.change(
+                    change_model_listener,
+                    inputs=[model_name],
+                    outputs=[model_name, image, chatbot, history, user_input, status_display],
+                )
         gr.Markdown(description)
 
         predict_args = {
@@ -128,6 +155,7 @@ def launch_chat_app(expose_locally: bool = False, device: str = "dml"):
                 max_length_tokens,
                 max_context_length_tokens,
                 token_printing_step,
+                image,
             ],
             "outputs": [chatbot, history, status_display],
             "show_progress": True,
@@ -144,8 +172,6 @@ def launch_chat_app(expose_locally: bool = False, device: str = "dml"):
             "outputs": [chatbot, history, status_display],
             "show_progress": True,
         }
-
-        reset_args = {"fn": reset_textbox, "inputs": [], "outputs": [user_input, status_display]}
 
         # Chatbot
         transfer_input_args = {
@@ -181,7 +207,7 @@ def launch_chat_app(expose_locally: bool = False, device: str = "dml"):
             cancels=[predict_event1, predict_event2, predict_event3],
         )
 
-        demo.load(change_model_listener, inputs=[model_name], outputs=model_name)
+        demo.load(change_model_listener, inputs=[model_name], outputs=[model_name, image])
 
     demo.title = "LLM Chat UI"
 

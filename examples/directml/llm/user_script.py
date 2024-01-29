@@ -9,6 +9,8 @@ import gc
 import config
 import torch
 from decoder_model import DecoderModel
+from llava_model import LlavaModel
+from transformers import AutoConfig
 
 
 # Helper latency-only dataloader that creates random tensors with no label
@@ -54,19 +56,23 @@ def get_or_create_decoder_model():
     # Not doing so would result identical weights having different names in both models, which makes merging them
     # very difficult.
     if config.decoder_model is None:
-        config.decoder_model = DecoderModel(
-            config.model_type,
-            config.num_layers,
-            config.vocab_size,
-            config.hidden_size,
-            config.intermediate_size,
-            config.num_heads,
-            config.num_key_value_heads,
-            scale_type,
-            config.normalization_type,
-            config.epsilon,
-            config.apply_residual_connection_post_layernorm,
-        )
+        if config.model_type == "llava":
+            llava_config = AutoConfig.from_pretrained("llava-hf/llava-1.5-7b-hf")
+            config.decoder_model = LlavaModel(llava_config)
+        else:
+            config.decoder_model = DecoderModel(
+                config.model_type,
+                config.num_layers,
+                config.vocab_size,
+                config.hidden_size,
+                config.intermediate_size,
+                config.num_heads,
+                config.num_key_value_heads,
+                scale_type,
+                config.normalization_type,
+                config.epsilon,
+                config.apply_residual_connection_post_layernorm,
+            )
         config.decoder_model.eval()
 
         if config.model_type == "falcon":
@@ -191,15 +197,13 @@ def load_decoder_model(model_path):
 
 def decoder_inputs(model):
     batch_size = 2
-    past_seq_len = 246
+    past_seq_len = 0
     seq_len = 10
     max_seq_len = past_seq_len + seq_len
     head_size = config.hidden_size // config.num_heads
 
-    return {
-        "tokens": torch.zeros((batch_size, seq_len), dtype=torch.int64),
-        "position_ids": torch.zeros((batch_size, seq_len), dtype=torch.int64),
-        "attn_mask": torch.zeros((batch_size, max_seq_len), dtype=torch.int32),
+    inputs = {
+        "attention_mask": torch.zeros((batch_size, max_seq_len), dtype=torch.int64),
         "cache": [
             {
                 "key": torch.rand(
@@ -212,6 +216,21 @@ def decoder_inputs(model):
             for _ in range(config.num_layers)
         ],
     }
+
+    if config.model_type == "llava":
+        channel_count = 3
+        image_size = 336
+        inputs["pixel_values"] = torch.zeros((batch_size, channel_count, image_size, image_size), dtype=torch.float32)
+
+        # 32000 is the value for the image token and needs to be be there for the model to be successfully generated
+        inputs["tokens"] = torch.nn.functional.pad(
+            torch.zeros((batch_size, seq_len - 1), dtype=torch.int64), (0, 1), value=32000
+        )
+    else:
+        inputs["position_ids"] = torch.zeros((batch_size, seq_len), dtype=torch.int64)
+        inputs["tokens"] = torch.zeros((batch_size, seq_len), dtype=torch.int64)
+
+    return inputs
 
 
 # -----------------------------------------------------------------------------
@@ -231,10 +250,10 @@ def decoder_with_past_inputs(model):
     seq_len = 1
     max_seq_len = past_seq_len + seq_len
     head_size = config.hidden_size // config.num_heads
-    return {
+
+    inputs = {
         "tokens_increment": torch.zeros((batch_size, seq_len), dtype=torch.int64),
-        "position_ids_increment": torch.zeros((batch_size, seq_len), dtype=torch.int64),
-        "attn_mask": torch.zeros((batch_size, max_seq_len), dtype=torch.int32),
+        "attention_mask": torch.zeros((batch_size, max_seq_len), dtype=torch.int64),
         "cache": [
             {
                 "key": torch.rand(
@@ -248,6 +267,11 @@ def decoder_with_past_inputs(model):
         ],
     }
 
+    if config.model_type != "llava":
+        inputs["position_ids_increment"] = torch.zeros((batch_size, seq_len), dtype=torch.int64)
+
+    return inputs
+
 
 # -----------------------------------------------------------------------------
 # MERGED DECODERS
@@ -256,17 +280,26 @@ def decoder_with_past_inputs(model):
 
 def merged_decoders_inputs(model):
     batch_size = 2
-    max_seq_len = 256
     head_size = config.hidden_size // config.num_heads
-    seq_len = 10
     past_seq_len = 246
+    seq_len = 10
+    max_seq_len = past_seq_len + seq_len
 
     inputs = {
         "tokens": torch.zeros((batch_size, seq_len), dtype=torch.int64),
-        "position_ids": torch.zeros((batch_size, seq_len), dtype=torch.int64),
-        "seqlens_k": torch.ones((batch_size,), dtype=torch.int32) * past_seq_len,
-        "total_seq_len": torch.ones((1,), dtype=torch.int32) * max_seq_len,
     }
+
+    if config.model_type == "llava":
+        channel_count = 3
+        image_size = 336
+
+        inputs["attention_mask"] = torch.zeros((batch_size, max_seq_len), dtype=torch.int64)
+        inputs["pixel_values"] = torch.zeros((batch_size, channel_count, image_size, image_size), dtype=torch.float32)
+    else:
+        inputs["position_ids"] = torch.zeros((batch_size, seq_len), dtype=torch.int64)
+        inputs["seqlens_k"] = torch.ones((batch_size,), dtype=torch.int32) * past_seq_len
+        inputs["total_seq_len"] = torch.ones((1,), dtype=torch.int32) * max_seq_len
+        inputs["position_ids_increment"] = torch.zeros((batch_size, 1), dtype=torch.int64)
 
     for layer_idx in range(config.num_layers):
         inputs[f"cache.{layer_idx}.key"] = torch.rand(
@@ -277,7 +310,6 @@ def merged_decoders_inputs(model):
         )
 
     inputs["tokens_increment"] = torch.zeros((batch_size, 1), dtype=torch.int64)
-    inputs["position_ids_increment"] = torch.zeros((batch_size, 1), dtype=torch.int64)
     inputs["use_cache_branch"] = torch.ones((1,), dtype=torch.bool)
 
     return inputs
