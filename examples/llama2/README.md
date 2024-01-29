@@ -82,5 +82,6 @@ Run the following command to execute the workflow:
 python -m olive.workflows.run --config lamma2_qlora.json
 ```
 
-## TODO
-- [ ] Add generation example of the optimized model.
+# License
+Please see the [LICENSE](./LICENSE) file for more details. Also please follow the [user policy](./USE-POLICY-META-LLAMA-2.md) of the model provider. Besides, please refer to the [Responsible
+Use Guide](https://ai.meta.com/static-resource/responsible-use-guide/) for more details on how to use the model responsibly.
