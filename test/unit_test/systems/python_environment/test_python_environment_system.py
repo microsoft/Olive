@@ -167,6 +167,10 @@ class TestPythonEnvironmentSystem:
         with output_path.open("rb") as f:
             assert pickle.load(f) == ["CPUExecutionProvider"]
 
+    def test_is_valid_ep(self):
+        model = get_onnx_model()
+        assert self.system.is_valid_ep("CPUExecutionProvider", model)
+
     @pytest.mark.parametrize("valid", [True, False])
     @patch("olive.systems.python_environment.is_valid_ep.get_ort_inference_session")
     def test_is_valid_ep_script(self, mock_get_session, tmp_path, valid):
