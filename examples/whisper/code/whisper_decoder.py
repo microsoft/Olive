@@ -114,6 +114,7 @@ class WhisperDecoderInputs:
 
         Returns:
             WhisperDecoderInputs: dummy inputs for decoder
+
         """
         num_attention_heads: int = config.encoder_attention_heads
         num_layers: int = config.decoder_layers  # + config.encoder_layers
