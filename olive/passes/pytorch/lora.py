@@ -976,7 +976,6 @@ class LoftQ(QLoRA):
             pytorch_model, new_model_handler.hf_config.task, config, quantized_modules, use_loftq=True
         )
         # change adapter config since we don't want to apply loftq again
-        pytorch_model.peft_config["default"].base_model_name_or_path = "../model"
         pytorch_model.peft_config["default"].init_lora_weights = True
 
         output_model_path = Path(output_model_path)
