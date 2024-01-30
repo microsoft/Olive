@@ -129,6 +129,7 @@ class OrtMixedPrecision(Pass):
                                            Default to false.
             min_positive_val (float, optional): minimal positive value. Defaults to 1e-7.
             max_finite_val (float, optional): maximal finite value. Defaults to 1e4.
+
         """
         from onnxruntime.transformers.float16 import convert_float_to_float16
         from onnxruntime.transformers.shape_infer_helper import SymbolicShapeInferenceHelper

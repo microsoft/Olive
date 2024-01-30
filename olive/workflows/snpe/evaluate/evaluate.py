@@ -26,6 +26,7 @@ def evaluate(model: str, config: Union[str, Dict], data: str, input_list_file: O
         config (str): Either the path of json config file or an already loaded json file as a `dict`.
         data (str): Path to the evaluation data.
         input_list_file (str, optional): Name of input list file. Optional if it is 'input_list.txt'.
+
     """
     data_dir = Path(data).resolve()
     if isinstance(config, str):
