@@ -139,6 +139,7 @@ def retry_func(func, args=None, kwargs=None, max_tries=3, delay=5, backoff=2, ex
         backoff: Backoff multiplier e.g. value of 2 will double the delay each retry.
         exceptions: Exceptions to catch. If None, catch all exceptions. Can be a single exception or a tuple
             of exceptions.
+
     """
     args = args or []
     kwargs = kwargs or {}

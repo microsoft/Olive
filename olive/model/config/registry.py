@@ -13,6 +13,7 @@ def model_handler_registry(model_type):
 
     Returns:
         cls: The class of register.
+
     """
 
     def decorator_model_class(cls):
