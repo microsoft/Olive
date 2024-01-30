@@ -23,9 +23,7 @@ from olive.model import ONNXModelHandler
 from olive.workflows import run as olive_run
 
 
-def set_config_parameters(repo_id: str, num_layers: Optional[int]):
-    tokenizer = transformers.AutoTokenizer.from_pretrained(repo_id)
-
+def set_config_parameters(tokenizer: transformers.AutoTokenizer, repo_id: str, num_layers: Optional[int]):
     if repo_id == "llava-hf/llava-1.5-7b-hf":
         hugggingface_model = transformers.LlavaForConditionalGeneration.from_pretrained(repo_id)
         llm_model = hugggingface_model.language_model
@@ -66,7 +64,8 @@ def set_config_parameters(repo_id: str, num_layers: Optional[int]):
 def optimize(optimized_model_dir: Path, repo_id: str, model_name: str, num_layers: Optional[int]):
     print(f"\nOptimizing {repo_id}")
 
-    set_config_parameters(repo_id, num_layers)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(repo_id)
+    set_config_parameters(tokenizer, repo_id, num_layers)
 
     script_dir = Path(__file__).resolve().parent
     model_info = {}
@@ -173,15 +172,8 @@ def optimize(optimized_model_dir: Path, repo_id: str, model_name: str, num_layer
         dst_weights_path = dst_path.with_suffix(".onnx.data")
         shutil.copyfile(src_weights_path, dst_weights_path)
 
-    # Copy the tokenizer file
-    src_tokenizer_path = hf_hub_download(repo_id=repo_id, filename="tokenizer.json")
-    dst_tokenizer_path = dst_path.parents[0] / "tokenizer.json"
-    shutil.copyfile(src_tokenizer_path, dst_tokenizer_path)
-
-    # Copy the tokenizer config file
-    src_tokenizer_config_path = hf_hub_download(repo_id=repo_id, filename="tokenizer_config.json")
-    dst_tokenizer_config_path = dst_path.parents[0] / "tokenizer_config.json"
-    shutil.copyfile(src_tokenizer_config_path, dst_tokenizer_config_path)
+    # Copy the tokenizer files
+    tokenizer.save_pretrained(dst_path.parents[0])
 
     # Copy the preprocessor config file
     if config.model_type == "llava":
@@ -211,7 +203,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_type",
         default="llama-2-7b-chat",
-        choices=["llama-2-7b-chat", "mistral-7b-chat", "codellama-7b-chat", "llava-7b"],
+        choices=["llama-2-7b-chat", "mistral-7b-chat", "mistral-7b-openorca", "codellama-7b-chat", "llava-7b"],
         help="Which model to convert.",
         type=str,
     )
@@ -230,6 +222,7 @@ if __name__ == "__main__":
     repo_id = {
         "llama-2-7b-chat": "meta-llama/Llama-2-7b-chat-hf",
         "mistral-7b-chat": "mistralai/Mistral-7B-Instruct-v0.1",
+        "mistral-7b-openorca": "Open-Orca/Mistral-7B-OpenOrca",
         "codellama-7b-chat": "codellama/CodeLlama-7b-Instruct-hf",
         "llava-7b": "llava-hf/llava-1.5-7b-hf",
     }[args.model_type]
