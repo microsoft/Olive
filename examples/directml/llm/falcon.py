@@ -74,6 +74,4 @@ def convert_falcon_weights():
     new_dict["model.embed_tokens.weight"] = config.state_dict["transformer.word_embeddings.weight"].to(torch.float16)
 
     new_dict["lm_head.weight"] = config.state_dict["lm_head.weight"].to(torch.float16)
-
-    torch.save(new_dict, "weights.pth")
     return new_dict

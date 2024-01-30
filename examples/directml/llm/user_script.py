@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 
 import gc
+
 import config
 import torch
 from decoder_model import DecoderModel
