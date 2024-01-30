@@ -23,6 +23,7 @@ def text_classification_post_process(output_data, **kwargs):
 
     Returns:
         object: Post-processed data.
+
     """
     if isinstance(output_data, transformers.modeling_outputs.SequenceClassifierOutput):
         _, preds = torch.max(output_data.logits, dim=1)
@@ -42,6 +43,7 @@ def ner_post_process(output_data, **kwargs):
 
     Returns:
         object: Post-processed data.
+
     """
     if isinstance(output_data, transformers.modeling_outputs.TokenClassifierOutput):
         logits = output_data.logits
@@ -60,6 +62,7 @@ def text_generation_post_process(output_data, **kwargs):
 
     Returns:
         object: Post-processed data.
+
     """
     if isinstance(output_data, transformers.modeling_outputs.ModelOutput):
         preds = output_data.logits

@@ -35,6 +35,7 @@ class PassConfigParam(ConfigParam):
         values. Must be the same type as the parameter or a ConditionalDefault SearchParameter.
     searchable_values: default searchable values for the parameter. This value is used if search is enabled.
         Must be a Categorical or Conditional SearchParameter.
+
     """
 
     searchable_values: SearchParameter = None

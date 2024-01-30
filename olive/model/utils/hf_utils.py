@@ -82,6 +82,7 @@ def patched_supported_features_mapping(*supported_features: str, onnx_config_cls
 
     Returns:
         The dictionary mapping a feature to an OnnxConfig constructor.
+
     """
     if onnx_config_cls is None:
         raise ValueError("A OnnxConfig class must be provided")
