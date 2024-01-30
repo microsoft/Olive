@@ -169,6 +169,7 @@ def _create_name_sharing_dict(
 
         suffix (`str`, defaults to `""`):
             Suffix to append to common name
+
     """
     name_sharing_dict: Dict[Tuple[str, int], str] = {}
     used_common_names: Dict[str, int] = {}
@@ -347,6 +348,7 @@ def merge_decoders(
             specified by 'external_data_name'. If false, save each tensor to a file named with the tensor name.
         check_model (`bool`):
             Check model after merging.
+
     """
     if isinstance(decoder, (str, Path)):
         decoder = onnx.load(Path(decoder).as_posix())
