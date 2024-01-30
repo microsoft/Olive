@@ -3,15 +3,13 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from collections import OrderedDict
 import gc
-
 import config
 import torch
 from decoder_model import DecoderModel
+from falcon import convert_falcon_weights
 from llava_model import LlavaModel
 from transformers import AutoConfig
-from falcon import convert_falcon_weights
 
 
 # Helper latency-only dataloader that creates random tensors with no label
@@ -28,6 +26,7 @@ class RandomDataLoader:
 # -----------------------------------------------------------------------------
 # DECODER
 # -----------------------------------------------------------------------------
+
 
 def get_or_create_decoder_model():
     scale_type = "SquareRootHeadDim"
@@ -60,7 +59,7 @@ def get_or_create_decoder_model():
             new_dict = convert_falcon_weights()
             config.decoder_model.load_state_dict(new_dict, strict=config.strict_weights_loading)
         else:
-            config.decoder_model.load_state_dict(config.state_dict, strict=config.strict_weights_loading)    
+            config.decoder_model.load_state_dict(config.state_dict, strict=config.strict_weights_loading)
         decoder_model = config.decoder_model
 
         # Release the memory since we don't need it anymore

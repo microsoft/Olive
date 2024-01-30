@@ -47,7 +47,7 @@ def set_config_parameters(repo_id: str, num_layers: Optional[int]):
         llm_model.config, "apply_residual_connection_post_layernorm", True
     )
 
-    if hasattr(llm_model.config, "intermediate_size"):     
+    if hasattr(llm_model.config, "intermediate_size"):
         config.intermediate_size = llm_model.config.intermediate_size
     else:
         config.intermediate_size = llm_model.config.hidden_size * 4
