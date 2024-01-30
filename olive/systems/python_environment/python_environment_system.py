@@ -126,11 +126,9 @@ class PythonEnvironmentSystem(OliveSystem):
                 with point_json_path.open("w") as f:
                     point = point or {}
                     json.dump(point, f, indent=4)
-                command.append("--point_json_path")
-                command.append(str(point_json_path))
+                command.extend(["--point_json_path", str(point_json_path)])
             if data_root:
-                command.append("--data_root")
-                command.append(str(data_root))
+                command.extend(["--data_root", str(data_root)])
 
             run_subprocess(command, env=self.environ, check=True)
 
@@ -295,9 +293,7 @@ class PythonEnvironmentSystem(OliveSystem):
                 str(sleep_num),
             ]
             if metric.user_config.io_bind:
-                command.append("--io_bind")
-                command.append("--device")
-                command.append(self.device)
+                command.extend(["--io_bind", "--device", str(self.device)])
             run_subprocess(command, env=self.environ, check=True)
 
             # load output
