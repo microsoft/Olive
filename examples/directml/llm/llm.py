@@ -47,16 +47,16 @@ def set_config_parameters(repo_id: str, num_layers: Optional[int]):
         llm_model.config, "apply_residual_connection_post_layernorm", True
     )
 
-    if repo_id == "tiiuae/falcon-7b-instruct":
-        config.intermediate_size = llm_model.config.hidden_size * 4
+    if hasattr(llm_model.config, "intermediate_size"):     
+        config.intermediate_size = llm_model.config.intermediate_size
     else:
-        config.intermediate_size = llm_model.config.intermediate_size     
+        config.intermediate_size = llm_model.config.hidden_size * 4
 
     if hasattr(llm_model.config, "multi_query") and llm_model.config.multi_query:
         config.num_key_value_heads = 1
     else:
         config.num_key_value_heads = llm_model.config.num_key_value_heads
-        
+
     if hasattr(llm_model.config, "rms_norm_eps"):
         config.normalization_type = "rms"
         config.epsilon = llm_model.config.rms_norm_eps
@@ -218,7 +218,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_type",
         default="llama-2-7b-chat",
-        choices=["llama-2-7b-chat", "mistral-7b-chat", "llava-7b", "falcon"],
+        choices=["llama-2-7b-chat", "mistral-7b-chat", "llava-7b", "falcon-7b-chat"],
         help="Which model to convert.",
         type=str,
     )
@@ -237,7 +237,7 @@ if __name__ == "__main__":
     repo_id = {
         "llama-2-7b-chat": "meta-llama/Llama-2-7b-chat-hf",
         "mistral-7b-chat": "mistralai/Mistral-7B-Instruct-v0.1",
-        "falcon": "tiiuae/falcon-7b-instruct",
+        "falcon-7b-chat": "tiiuae/falcon-7b-instruct",
         "llava-7b": "llava-hf/llava-1.5-7b-hf",
     }[args.model_type]
 
