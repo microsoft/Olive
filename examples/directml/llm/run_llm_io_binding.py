@@ -55,9 +55,6 @@ def run_llm_io_binding(
     # Initialize the tokenizer and produce the initial tokens.
     tokenizer = AutoTokenizer.from_pretrained(model_dir)
 
-    if tokenizer.chat_template is None:
-        tokenizer.chat_template = "{% for message in messages %}{{message['content']}}{% endfor %}"
-
     tokens = tokenizer.apply_chat_template([{"role": "user", "content": prompt}], return_tensors="np")
     tokens = np.asarray(tokens, dtype=np.int64)
     tokens = onnxruntime.OrtValue.ortvalue_from_numpy(tokens, device)

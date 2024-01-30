@@ -218,7 +218,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_type",
         default="llama-2-7b-chat",
-        choices=["llama-2-7b-chat", "mistral-7b-chat", "falcon-7b-chat", "llava-7b"],
+        choices=["llama-2-7b-chat", "mistral-7b-chat", "falcon-7b-chat", "codellama-7b-chat", "llava-7b"],
         help="Which model to convert.",
         type=str,
     )
@@ -238,6 +238,7 @@ if __name__ == "__main__":
         "llama-2-7b-chat": "meta-llama/Llama-2-7b-chat-hf",
         "mistral-7b-chat": "mistralai/Mistral-7B-Instruct-v0.1",
         "falcon-7b-chat": "tiiuae/falcon-7b-instruct",
+        "codellama-7b-chat": "codellama/CodeLlama-7b-Instruct-hf",
         "llava-7b": "llava-hf/llava-1.5-7b-hf",
     }[args.model_type]
 
