@@ -210,7 +210,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_type",
         default="llama-2-7b-chat",
-        choices=["llama-2-7b-chat", "mistral-7b-chat", "falcon-7b-chat", "mistral-7b-openorca", "codellama-7b-chat", "llava-7b"],
+        choices=[
+            "llama-2-7b-chat",
+            "mistral-7b-chat",
+            "falcon-7b-chat",
+            "mistral-7b-openorca",
+            "codellama-7b-chat",
+            "llava-7b",
+        ],
         help="Which model to convert.",
         type=str,
     )
