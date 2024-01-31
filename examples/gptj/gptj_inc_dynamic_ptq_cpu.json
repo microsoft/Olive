@@ -38,7 +38,6 @@
         },
         "quantization": {
             "type": "IncDynamicQuantization",
-            "disable_search": true,
             "config": {
                 "save_as_external_data": true,
                 "all_tensors_to_one_file": true
@@ -47,10 +46,6 @@
     },
     "engine": {
         "log_severity_level": 0,
-        "search_strategy": {
-            "execution_order": "joint",
-            "search_algorithm": "exhaustive"
-        },
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
         "output_dir": "models/gptj_inc_dynamic_ptq_cpu"

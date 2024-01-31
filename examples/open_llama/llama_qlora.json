@@ -60,7 +60,6 @@
     },
     "engine": {
         "log_severity_level": 0,
-        "search_strategy": false,
         "evaluate_input_model": false,
         "target": {
             "type": "LocalSystem",

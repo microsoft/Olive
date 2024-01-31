@@ -44,7 +44,6 @@
         },
         "optimize": {
             "type": "OrtTransformersOptimization",
-            "disable_search": true,
             "config": {
                 "model_type": "gpt_neox",
                 "float16": true,

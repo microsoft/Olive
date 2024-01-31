@@ -74,7 +74,6 @@
         },
         "quantization": {
             "type": "IncStaticQuantization",
-            "disable_search": true,
             "config": {
                 "user_script": "user_script.py",
                 "approach": "weight_only",
@@ -114,7 +113,6 @@
         ]
     ],
     "engine": {
-        "search_strategy": false,
         "evaluate_input_model": false,
         "evaluator": "common_evaluator",
         "target": "local_system",

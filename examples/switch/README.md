@@ -11,12 +11,12 @@ Refer to the instructions in the [examples README](../README.md) to clone the re
 ### Pip requirements
 Install the necessary python packages:
 ```
-python -m pip install -r requirements.txt
+python -m olive.workflows.run --config examples/switch/config.json --setup
 ```
 
 ## Run the config to distribute the model
 ```bash
-python -m olive.workflows.run --config examples/switch/config.json --setup
+python -m olive.workflows.run --config examples/switch/config.json
 ```
 
 ## Test the generated models
