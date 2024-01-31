@@ -237,18 +237,26 @@
                 <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">pass_config</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
 
             <span class="c1"># run pass</span>
-            <span class="n">command</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;python </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">pass_path</span><span class="si">}</span><span class="s2"> --model_json_path </span><span class="si">{</span><span class="n">model_json_path</span><span class="si">}</span><span class="s2"> --pass_json_path </span><span class="si">{</span><span class="n">pass_json_path</span><span class="si">}</span><span class="s2">&quot;</span>
-                <span class="sa">f</span><span class="s2">&quot; --output_model_path </span><span class="si">{</span><span class="n">output_model_path</span><span class="si">}</span><span class="s2"> --output_model_json_path </span><span class="si">{</span><span class="n">output_model_json_path</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="p">)</span>
+            <span class="n">command</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="s2">&quot;python&quot;</span><span class="p">,</span>
+                <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pass_path</span><span class="p">),</span>
+                <span class="s2">&quot;--model_json_path&quot;</span><span class="p">,</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">model_json_path</span><span class="p">),</span>
+                <span class="s2">&quot;--pass_json_path&quot;</span><span class="p">,</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">pass_json_path</span><span class="p">),</span>
+                <span class="s2">&quot;--output_model_path&quot;</span><span class="p">,</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">output_model_path</span><span class="p">),</span>
+                <span class="s2">&quot;--output_model_json_path&quot;</span><span class="p">,</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">output_model_json_path</span><span class="p">),</span>
+            <span class="p">]</span>
             <span class="k">if</span> <span class="n">point</span><span class="p">:</span>
                 <span class="n">point_json_path</span> <span class="o">=</span> <span class="n">tmp_dir_path</span> <span class="o">/</span> <span class="s2">&quot;point.json&quot;</span>
                 <span class="k">with</span> <span class="n">point_json_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                     <span class="n">point</span> <span class="o">=</span> <span class="n">point</span> <span class="ow">or</span> <span class="p">{}</span>
                     <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
-                <span class="n">command</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot; --point_json_path </span><span class="si">{</span><span class="n">point_json_path</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="n">command</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s2">&quot;--point_json_path&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">point_json_path</span><span class="p">)])</span>
             <span class="k">if</span> <span class="n">data_root</span><span class="p">:</span>
-                <span class="n">command</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot; --data_root </span><span class="si">{</span><span class="n">data_root</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="n">command</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s2">&quot;--data_root&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">data_root</span><span class="p">)])</span>
 
             <span class="n">run_subprocess</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">env</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
@@ -315,11 +323,22 @@
                 <span class="n">num_batches</span> <span class="o">+=</span> <span class="mi">1</span>
 
             <span class="c1"># run inference</span>
-            <span class="n">command</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;python </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">inference_path</span><span class="si">}</span><span class="s2"> --type </span><span class="si">{</span><span class="n">metric</span><span class="o">.</span><span class="n">type</span><span class="si">}</span><span class="s2"> --model_path&quot;</span>
-                <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="n">model_path</span><span class="si">}</span><span class="s2"> --inference_settings_path </span><span class="si">{</span><span class="n">inference_settings_path</span><span class="si">}</span><span class="s2"> --input_dir&quot;</span>
-                <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">input_dir</span><span class="si">}</span><span class="s2"> --num_batches </span><span class="si">{</span><span class="n">num_batches</span><span class="si">}</span><span class="s2"> --output_dir  </span><span class="si">{</span><span class="n">output_dir</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="p">)</span>
+            <span class="n">command</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="s2">&quot;python&quot;</span><span class="p">,</span>
+                <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">inference_path</span><span class="p">),</span>
+                <span class="s2">&quot;--type&quot;</span><span class="p">,</span>
+                <span class="n">metric</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+                <span class="s2">&quot;--model_path&quot;</span><span class="p">,</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">model_path</span><span class="p">),</span>
+                <span class="s2">&quot;--inference_settings_path&quot;</span><span class="p">,</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">inference_settings_path</span><span class="p">),</span>
+                <span class="s2">&quot;--input_dir&quot;</span><span class="p">,</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">input_dir</span><span class="p">),</span>
+                <span class="s2">&quot;--num_batches&quot;</span><span class="p">,</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">num_batches</span><span class="p">),</span>
+                <span class="s2">&quot;--output_dir&quot;</span><span class="p">,</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">output_dir</span><span class="p">),</span>
+            <span class="p">]</span>
             <span class="n">run_subprocess</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">env</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
             <span class="c1"># load output</span>
@@ -381,14 +400,28 @@
             <span class="n">np</span><span class="o">.</span><span class="n">savez</span><span class="p">(</span><span class="n">input_dir</span> <span class="o">/</span> <span class="s2">&quot;input.npz&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">input_dict</span><span class="p">)</span>
 
             <span class="c1"># run inference</span>
-            <span class="n">command</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;python </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">inference_path</span><span class="si">}</span><span class="s2"> --type </span><span class="si">{</span><span class="n">metric</span><span class="o">.</span><span class="n">type</span><span class="si">}</span><span class="s2"> --model_path&quot;</span>
-                <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="n">model_path</span><span class="si">}</span><span class="s2"> --inference_settings_path </span><span class="si">{</span><span class="n">inference_settings_path</span><span class="si">}</span><span class="s2"> --input_dir&quot;</span>
-                <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">input_dir</span><span class="si">}</span><span class="s2"> --output_dir  </span><span class="si">{</span><span class="n">output_dir</span><span class="si">}</span><span class="s2"> --warmup_num </span><span class="si">{</span><span class="n">warmup_num</span><span class="si">}</span><span class="s2"> --repeat_test_num&quot;</span>
-                <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">repeat_test_num</span><span class="si">}</span><span class="s2"> --sleep_num </span><span class="si">{</span><span class="n">sleep_num</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="p">)</span>
+            <span class="n">command</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="s2">&quot;python&quot;</span><span class="p">,</span>
+                <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">inference_path</span><span class="p">),</span>
+                <span class="s2">&quot;--type&quot;</span><span class="p">,</span>
+                <span class="n">metric</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
+                <span class="s2">&quot;--model_path&quot;</span><span class="p">,</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">model_path</span><span class="p">),</span>
+                <span class="s2">&quot;--inference_settings_path&quot;</span><span class="p">,</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">inference_settings_path</span><span class="p">),</span>
+                <span class="s2">&quot;--input_dir&quot;</span><span class="p">,</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">input_dir</span><span class="p">),</span>
+                <span class="s2">&quot;--output_dir&quot;</span><span class="p">,</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">output_dir</span><span class="p">),</span>
+                <span class="s2">&quot;--warmup_num&quot;</span><span class="p">,</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">warmup_num</span><span class="p">),</span>
+                <span class="s2">&quot;--repeat_test_num&quot;</span><span class="p">,</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">repeat_test_num</span><span class="p">),</span>
+                <span class="s2">&quot;--sleep_num&quot;</span><span class="p">,</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">sleep_num</span><span class="p">),</span>
+            <span class="p">]</span>
             <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">io_bind</span><span class="p">:</span>
-                <span class="n">command</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot; --io_bind --device </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="n">command</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s2">&quot;--io_bind&quot;</span><span class="p">,</span> <span class="s2">&quot;--device&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)])</span>
             <span class="n">run_subprocess</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">env</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
             <span class="c1"># load output</span>
@@ -451,18 +484,16 @@
             <span class="n">is_valid_ep_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span> <span class="o">/</span> <span class="s2">&quot;is_valid_ep.py&quot;</span>
             <span class="n">output_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">temp_dir</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span> <span class="o">/</span> <span class="s2">&quot;result.pb&quot;</span>
             <span class="n">run_subprocess</span><span class="p">(</span>
-                <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-                    <span class="p">[</span>
-                        <span class="s2">&quot;python&quot;</span><span class="p">,</span>
-                        <span class="nb">str</span><span class="p">(</span><span class="n">is_valid_ep_path</span><span class="p">),</span>
-                        <span class="s2">&quot;--model_path&quot;</span><span class="p">,</span>
-                        <span class="nb">str</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">model_path</span><span class="p">),</span>
-                        <span class="s2">&quot;--ep&quot;</span><span class="p">,</span>
-                        <span class="n">ep</span><span class="p">,</span>
-                        <span class="s2">&quot;--output_path&quot;</span><span class="p">,</span>
-                        <span class="nb">str</span><span class="p">(</span><span class="n">output_path</span><span class="p">),</span>
-                    <span class="p">]</span>
-                <span class="p">),</span>
+                <span class="p">[</span>
+                    <span class="s2">&quot;python&quot;</span><span class="p">,</span>
+                    <span class="nb">str</span><span class="p">(</span><span class="n">is_valid_ep_path</span><span class="p">),</span>
+                    <span class="s2">&quot;--model_path&quot;</span><span class="p">,</span>
+                    <span class="nb">str</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">model_path</span><span class="p">),</span>
+                    <span class="s2">&quot;--ep&quot;</span><span class="p">,</span>
+                    <span class="n">ep</span><span class="p">,</span>
+                    <span class="s2">&quot;--output_path&quot;</span><span class="p">,</span>
+                    <span class="nb">str</span><span class="p">(</span><span class="n">output_path</span><span class="p">),</span>
+                <span class="p">],</span>
                 <span class="n">env</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">,</span>
                 <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="p">)</span>
