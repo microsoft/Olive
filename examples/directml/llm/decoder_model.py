@@ -222,22 +222,17 @@ class TransformerLayer(torch.nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Dimension of x is [batch_size, seq_len, hidden_size] Dimension of
         # k_cache and v_cache is [batch_size, n_layers, pos, num_heads, head_dim]
-        hidden_states = self.input_layernorm(x)
-        attn_outputs, k_out, v_out = self.self_attn(
-            use_cache, hidden_states, position_ids, attn_mask, self.cos, self.sin, k_cache, v_cache
+        attn_norm_output = self.input_layernorm(x)
+        h, k_out, v_out = self.self_attn(
+            use_cache, attn_norm_output, position_ids, attn_mask, self.cos, self.sin, k_cache, v_cache
         )
 
-        # save_tensors(attn_outputs, "attn_outputs")
-        # attn_outputs = self.resid_dropout(attn_outputs)
+        h = x + h
 
-        hidden_mlp = self.mlp(hidden_states)
-        # feed_forward_hidden_states = self.resid_dropout(hidden_mlp)
-        hidden_states = attn_outputs + hidden_mlp + x
+        if self.apply_residual_connection_post_layernorm:
+            attn_norm_output = self.post_attention_layernorm(h)
 
-        # if self.apply_residual_connection_post_layernorm:
-        #     attn_norm_output = self.post_attention_layernorm(h)
-        # save_tensors(hidden_states, "hidden_states")
-        return hidden_states, k_out, v_out
+        return h + self.mlp(attn_norm_output), k_out, v_out
 
 
 class ApplyMask(torch.nn.Module):

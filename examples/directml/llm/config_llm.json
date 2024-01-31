@@ -502,7 +502,10 @@
                     "enable_packed_qkv": true,
                     "enable_packed_kv": true,
                     "enable_bias_add": false
-                }
+                },
+                "force_fp32_nodes": [
+                    "GroupQueryAttention_0"
+                ]
             }
         },
         "merge": {

@@ -12,7 +12,7 @@ def run_llm_io_binding(
     model_dir: str,
     prompt: str,
     max_seq_len: int = 2048,
-    max_gen_len: int = 256,
+    max_gen_len: int = 50,
     device: str = "dml",
     device_id: int = 0,
     ignore_eos: bool = False,
@@ -38,12 +38,35 @@ def run_llm_io_binding(
     llm_session_options.add_free_dimension_override_by_name("batch_size", 1)
     llm_session_options.add_free_dimension_override_by_name("max_seq_len", max_seq_len)
     llm_session_options.add_free_dimension_override_by_name("seq_len_increment", 1)
-    llm_session = onnxruntime.InferenceSession(
-        os.path.join(model_dir, "decoder_model_merged.onnx"),
-        sess_options=llm_session_options,
-        providers=providers,
-    )
 
+    # add all nodes of the model as outputs
+
+    # import onnx
+    # model = onnx.load(os.path.join(model_dir, "decoder_model_merged.onnx"))
+    # model.graph.output.extend([onnx.ValueInfoProto(name="/model/layers.0/self_attn/Concat_4_output_0")])
+    # outputs = [x.name for x in model.graph.node[0].attribute[0].g.node]
+    # for node in model.graph.node[0].attribute[0].g.node:
+    #     print (node.name)
+    #     for output in node.output:
+    #         if output == "/model/layers.0/self_attn/Concat_4_output_0":
+    #             model.graph.node[0].attribute[0].g.output.extend([onnx.ValueInfoProto(name=output)])
+    #
+    # outputs = [x.name for x in model.graph.node[0].attribute[1].g.node]
+    # print (outputs)
+    # for node in model.graph.node[0].attribute[1].g.node:
+    #     print (node.name)
+    #     for output in node.output:
+    #         if output == "/model/layers.0/self_attn/Concat_4_output_0":
+    #             model.graph.node[0].attribute[1].g.output.extend([onnx.ValueInfoProto(name=output)])
+    #             model.graph.output.extend([onnx.ValueInfoProto(name=output)])
+
+    # onnx.save(model, os.path.join(model_dir, "decoder_model_modified.onnx"))
+
+    llm_session = onnxruntime.InferenceSession(
+            os.path.join(model_dir, "decoder_model_merged.onnx"),
+            sess_options=llm_session_options,
+            providers=providers,
+        )
     data_type = np.float16
     num_layers = 0
     for inputs_meta in llm_session._inputs_meta:
@@ -55,12 +78,20 @@ def run_llm_io_binding(
     # Initialize the tokenizer and produce the initial tokens.
     tokenizer = AutoTokenizer.from_pretrained(model_dir)
 
-    if tokenizer.chat_template is None:
-        tokenizer.chat_template = "{% for message in messages %}{{message['content']}}{% endfor %}"
+    # if tokenizer.chat_template is None:
+    #     tokenizer.chat_template = "{% for message in messages %}{{message['content']}}{% endfor %}"
 
-    tokens = tokenizer.apply_chat_template([{"role": "user", "content": prompt}], return_tensors="np")
-    tokens = np.asarray(tokens, dtype=np.int64)
-    print (tokens)
+    print (model_dir)
+    # tokenizer = AutoTokenizer.from_pretrained("microsoft/phi-2", trust_remote_code=True)
+    print (tokenizer.eos_token_id)
+
+    inputs = tokenizer('''def print_prime(n):
+        """
+        Print all primes between 1 and n
+        """''', return_tensors="pt", return_attention_mask=False)["input_ids"]
+
+    print (inputs)
+    tokens = inputs.numpy()
     tokens = onnxruntime.OrtValue.ortvalue_from_numpy(tokens, device)
     tokens_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, 1), np.int64, device)
 
@@ -100,6 +131,7 @@ def run_llm_io_binding(
         seqlens_k = np.array(past_seq_len, dtype=np.int32, ndmin=1)
         llm_io_binding.bind_cpu_input("seqlens_k", seqlens_k)
 
+
         for layer_idx in range(num_layers):
             llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.key", k_caches[layer_idx])
             llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.value", v_caches[layer_idx])
@@ -111,7 +143,20 @@ def run_llm_io_binding(
 
         # Decide the next token using your preferred sampling strategy.
         logits = llm_io_binding.get_outputs()[0].numpy()[:, -1, :]
+
         print (logits)
+        if(np.isnan(logits).any()):
+            print (idx)
+            print (logits)
+
+        for layer_idx in range(num_layers):
+            print (f"cache.{layer_idx}.key")
+            print (k_caches[layer_idx].numpy().shape)
+            print (k_caches[layer_idx].numpy()[:, :, :seq_len-1, :])
+            print (f"cache.{layer_idx}.value")
+            print (v_caches[layer_idx].numpy().shape)
+            print (v_caches[layer_idx].numpy()[:, :, :seq_len-1, :])
+
         next_token = np.argmax(logits, axis=-1, keepdims=True)
         output_tokens.append(next_token.item())
 
@@ -146,7 +191,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--prompt", type=str, default="What is the lightest element?")
     parser.add_argument("--max_seq_len", type=int, default=2048)
-    parser.add_argument("--max_gen_len", type=int, default=256)
+    parser.add_argument("--max_gen_len", type=int, default=50)
     parser.add_argument("--ignore_eos", action="store_true")
     parser.add_argument("--device", type=str, choices=["dml", "cuda"], default="dml")
     parser.add_argument("--device_id", type=int, default=0)

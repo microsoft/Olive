@@ -175,10 +175,7 @@ def optimize(optimized_model_dir: Path, repo_id: str, model_name: str, num_layer
 
         # Some models are too fragile and need layer norm to be performed in fp32 to keep their accuracy.
         # bfloat16 could fix this, but since DML doesn't support it we need to fall back to fp32.
-        models_that_need_fp32_layer_norm = []
-
-        if model_name in models_that_need_fp32_layer_norm:
-            olive_config["passes"]["optimize"]["config"]["force_fp32_ops"] = ["LayerNormalization"]
+        olive_config["passes"]["optimize"]["config"]["force_fp32_ops"] = ["MultiHeadAttention"]
 
         # Fewer than 32 layers can be provided for debugging purposes so we have to remove them from the config
         if config.num_layers < 32:
@@ -277,13 +274,13 @@ if __name__ == "__main__":
     parser.add_argument("--max_seq_len", default=2048, type=int, help="The size of the cache")
     parser.add_argument("--device_id", default=0, type=int, help="GPU device to use during inference")
     parser.add_argument(
-        "--max_gen_len", default=256, type=int, help="The maximum number of tokens that can be included in an answer"
+        "--max_gen_len", default=50, type=int, help="The maximum number of tokens that can be included in an answer"
     )
     parser.add_argument("--device", type=str, choices=["dml", "cuda"], default="dml")
     parser.add_argument(
         "--model_type",
-        default="llama-2-7b-chat",
-        choices=["llama-2-7b-chat", "mistral-7b-chat"],
+        default="phi-2",
+        choices=["llama-2-7b-chat", "mistral-7b-chat", "phi-2"],
         help="Which model to convert.",
         type=str,
     )
@@ -302,10 +299,10 @@ if __name__ == "__main__":
     repo_id = {
         "llama-2-7b-chat": "meta-llama/Llama-2-7b-chat-hf",
         "mistral-7b-chat": "mistralai/Mistral-7B-Instruct-v0.1",
+        "phi-2": "microsoft/phi-2",
     }[args.model_type]
 
     model_name = repo_id.replace("/", "_")
-
     if args.optimize or not (optimized_model_dir / model_name).exists():
         optimize(optimized_model_dir, repo_id, model_name, args.num_layers)
 
