@@ -135,7 +135,6 @@
         },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
-            "disable_search": true,
             "config": {
                 "save_as_external_data": true,
                 "all_tensors_to_one_file": true,
@@ -153,7 +152,6 @@
     },
     "engine": {
         "log_severity_level": 0,
-        "search_strategy": false,
         "evaluator": "common_evaluator",
         "host": "aml",
         "target": "aml",

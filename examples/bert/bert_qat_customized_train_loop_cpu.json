@@ -61,8 +61,7 @@
             "type": "ONNXModelOptimizer"
         },
         "transformers_optimization": {
-            "type": "OrtTransformersOptimization",
-            "disable_search": true
+            "type": "OrtTransformersOptimization"
         },
         "perf_tuning": {
             "type": "OrtPerfTuning",

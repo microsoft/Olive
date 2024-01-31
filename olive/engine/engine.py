@@ -313,6 +313,7 @@ class Engine:
         # hash the input model
         input_model_id = self._init_input_model(input_model_config)
         self.footprints[accelerator_spec].record(model_id=input_model_id)
+        prefix_output_name = self._get_prefix_output_name(output_name, accelerator_spec)
 
         try:
             if evaluate_input_model and not self.evaluator_config:
@@ -321,9 +322,6 @@ class Engine:
                     " evaluation."
                 )
             elif evaluate_input_model:
-                prefix_output_name = (
-                    f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}"
-                )
                 results = self._evaluate_model(
                     input_model_config, input_model_id, data_root, self.evaluator_config, accelerator_spec
                 )
@@ -338,7 +336,7 @@ class Engine:
                     return results
 
             if self.no_search:
-                return self.run_no_search(
+                output_footprint = self.run_no_search(
                     input_model_config,
                     input_model_id,
                     data_root,
@@ -347,7 +345,7 @@ class Engine:
                     output_name,
                 )
             else:
-                return self.run_search(
+                output_footprint = self.run_search(
                     input_model_config,
                     input_model_id,
                     data_root,
@@ -360,6 +358,9 @@ class Engine:
         except Exception as e:
             logger.warning(f"Failed to run Olive on {accelerator_spec}: {e}", exc_info=True)
             return None
+
+        self.footprints[accelerator_spec].to_file(output_dir / f"{prefix_output_name}footprints.json")
+        return output_footprint
 
     def setup_passes(self, accelerator_spec: "AcceleratorSpec"):
         # clean the passes
@@ -431,14 +432,7 @@ class Engine:
             # output dir with pass flow
             output_dir_with_pf = Path(output_dir) / "-".join(pass_flow)
 
-            final_output_name = pass_output_names[-1]
-            if output_name:
-                # override the output name of the last pass
-                logger.debug("Engine output_name is provided. Will ignore output_name for final pass")
-                final_output_name = f"{output_name}_{accelerator_spec}"
-            elif not final_output_name:
-                # use the default output name
-                final_output_name = f"{accelerator_spec}"
+            final_output_name = self._get_prefix_output_name(output_name, accelerator_spec, pass_output_names[-1])
             pass_output_names[-1] = final_output_name
 
             output_model_json = None
@@ -478,7 +472,7 @@ class Engine:
         output_name: str = None,
     ):
         """Run all the registered Olive passes in search model where search strategy is not None."""
-        prefix_output_name = f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}_"
+        prefix_output_name = self._get_prefix_output_name(output_name, accelerator_spec)
 
         # get objective_dict
         evaluator_config = self.evaluator_for_pass(list(self.passes.keys())[-1])
@@ -528,8 +522,6 @@ class Engine:
             time_diff = time.time() - start_time
             self.search_strategy.check_exit_criteria(iter_num, time_diff, signal)
 
-        self.footprints[accelerator_spec].to_file(output_dir / f"{prefix_output_name}footprints.json")
-
         return self.create_pareto_frontier_footprints(
             accelerator_spec, output_model_num, output_dir, prefix_output_name
         )
@@ -538,11 +530,11 @@ class Engine:
         pf_footprints = self.footprints[accelerator_spec].create_pareto_frontier(output_model_num)
         if not pf_footprints:
             return None
-        pf_footprints.to_file(output_dir / f"{prefix_output_name}pareto_frontier_footprints.json")
+        pf_footprints.to_file(output_dir / f"{prefix_output_name}_pareto_frontier_footprints.json")
 
         if self._config.plot_pareto_frontier:
             pf_footprints.plot_pareto_frontier_to_html(
-                save_path=output_dir / f"{prefix_output_name}pareto_frontier_footprints_chart.html"
+                save_path=output_dir / f"{prefix_output_name}_pareto_frontier_footprints_chart.html"
             )
 
         return pf_footprints
@@ -1030,6 +1022,13 @@ class Engine:
             ),
         )
         return signal
+
+    def _get_prefix_output_name(self, output_name: str, accelerator_spec: "AcceleratorSpec", prefix_output_name=None):
+        if output_name:
+            return f"{output_name}_{accelerator_spec}"
+        elif not prefix_output_name:
+            return f"{accelerator_spec}"
+        return prefix_output_name
 
     @contextmanager
     def create_managed_environment(self, accelerator_spec):
