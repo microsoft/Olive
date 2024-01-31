@@ -164,7 +164,7 @@ def model_proto_to_olive_model(
         "convert_attribute",
     ]
     has_external_data = model_proto_to_file(
-        model_proto, output_model_path, **{k: external_data_config[k] for k in config_keys}
+        model_proto, output_model_path, **{k: external_data_config[k] for k in config_keys if k in external_data_config}
     )
     if has_external_data:
         model_path = LocalFolder({"path": Path(output_model_path).parent})
