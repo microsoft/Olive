@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Acceleration on CPU &mdash; Olive  documentation</title>
+  <title>Examples &mdash; Olive  documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=fa44fd50" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
       <link rel="stylesheet" type="text/css" href="_static/autodoc_pydantic.css" />
@@ -64,10 +64,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
 <ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Acceleration on CPU</a></li>
-<li class="toctree-l1"><a class="reference internal" href="#acceleration-on-gpu">Acceleration on GPU</a></li>
-<li class="toctree-l1"><a class="reference internal" href="#acceleration-on-npu">Acceleration on NPU</a></li>
-<li class="toctree-l1"><a class="reference internal" href="#acceleration-on-dpu">Acceleration on DPU</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Examples</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
 <ul>
@@ -120,7 +117,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Acceleration on CPU</li>
+      <li class="breadcrumb-item active">Examples</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/examples.md.txt" rel="nofollow"> View page source</a>
       </li>
@@ -130,28 +127,124 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="acceleration-on-cpu">
-<h1>Acceleration on CPU<a class="headerlink" href="#acceleration-on-cpu" title="Permalink to this heading">¶</a></h1>
-<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/whisper">Whisper optimization with PTQ and pre/post processing</a></p>
-<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/bert#bert-optimization-with-intel-neural-compressor-ptq-on-cpu">BERT optimization with Intel® Neural Compressor Post Training Quantization</a></p>
-<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/bert#bert-optimization-with-qat-customized-training-loop-on-cpu">BERT optimization with QAT Customized Training Loop</a></p>
-<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-qat-default-training-loop-on-cpu">ResNet optimization with QAT Default Training Loop</a></p>
-<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-qat-pytorch-lightning-module-on-cpu">ResNet optimization with QAT PyTorch Lightning Module</a></p>
-</section>
-<section id="acceleration-on-gpu">
-<h1>Acceleration on GPU<a class="headerlink" href="#acceleration-on-gpu" title="Permalink to this heading">¶</a></h1>
-<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/bert/#bert-optimization-with-cudatensorrt">Bert optimization with CUDA/TensorRT</a></p>
-<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/directml/squeezenet">SqueezeNet latency optimization with DirectML</a></p>
-<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/directml/stable_diffusion">Stable Diffusion optimization with DirectML</a></p>
-<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/directml/dolly_v2">Dolly V2 optimization with DirectML</a></p>
-</section>
-<section id="acceleration-on-npu">
-<h1>Acceleration on NPU<a class="headerlink" href="#acceleration-on-npu" title="Permalink to this heading">¶</a></h1>
-<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/snpe/inception_snpe_qualcomm_npu">Inception model optimization on Qualcomm NPU</a></p>
-</section>
-<section id="acceleration-on-dpu">
-<h1>Acceleration on DPU<a class="headerlink" href="#acceleration-on-dpu" title="Permalink to this heading">¶</a></h1>
-<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-vitis-ai-ptq-on-amd-dpu">ResNet optimization with Vitis-AI Post Training Quantization for AMD DPU</a></p>
+  <section id="examples">
+<h1>Examples<a class="headerlink" href="#examples" title="Permalink to this heading">¶</a></h1>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Scenario</p></th>
+<th class="head"><p>Model</p></th>
+<th class="head"><p>Hardware Targeted Optimization</p></th>
+<th class="head"><p>Examples</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>NLP</p></td>
+<td><p>llama2</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">CPU</span></code>: with ORT optimizations for optimized FP32 ONNX model<br><code class="docutils literal notranslate"><span class="pre">CPU</span></code>: with ORT optimizations for optimized INT8 ONNX model<br><code class="docutils literal notranslate"><span class="pre">CPU</span></code>: with ORT optimizations for optimized INT4 ONNX model<br><code class="docutils literal notranslate"><span class="pre">GPU</span></code>: with ORT optimizations for optimized FP16 ONNX model<br><code class="docutils literal notranslate"><span class="pre">GPU</span></code>: with ORT optimizations for optimized INT4 ONNX model<br><code class="docutils literal notranslate"><span class="pre">GPU</span></code>: with QLoRA for model fine tune and ORT optimizations for optimized INT4 ONNX model<br><code class="docutils literal notranslate"><span class="pre">AzureML</span> <span class="pre">compute</span></code>: with AzureML compute to fine tune and optimize for your local GPUs</p></td>
+<td><p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/llama2">Link</a></p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p>mistral</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">CPU</span></code>: With Optimum conversion and ORT optimizations and Inc static quantization for optimized INT8 ONNX model</p></td>
+<td><p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/mistral">Link</a></p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>open llama</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">GPU</span></code>: With Optimum conversion and merging and ORT optimizations for optimized ONNX model <br><code class="docutils literal notranslate"><span class="pre">GPU</span></code>: With SparseGPT and TorchTRT conversion for an optimized PyTorch model with sparsity<br><code class="docutils literal notranslate"><span class="pre">GPU</span></code>: With PyTorch LoRA/QLoRA/LoftQ for model fine tune<br><code class="docutils literal notranslate"><span class="pre">GPU</span></code>: With ORT QLoRA for model fine tune<br><code class="docutils literal notranslate"><span class="pre">AzureML</span> <span class="pre">compute</span></code>: With Optimum conversion and merging and ORT optimizations in AzureML<br><code class="docutils literal notranslate"><span class="pre">CPU</span></code>: With Optimum conversion and merging and ORT optimizations and Intel® Neural Compressor 4-bits weight-only quantization for optimized INT4 ONNX model</p></td>
+<td><p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/open_llama">Link</a></p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p>phi</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">GPU</span></code>: With PyTorch QLoRA for model fine tune</p></td>
+<td><p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/phi">Link</a></p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>phi2</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">CPU</span></code>: with ORT optimizations</p></td>
+<td><p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/phi2">Link</a></p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p>falcon</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">GPU</span></code>: with ORT optimizations for optimized FP16 ONNX model</p></td>
+<td><p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/falcon">Link</a></p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>red pajama</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">CPU</span></code>: With Optimum conversion and merging and ORT optimizations for a single optimized ONNX model</p></td>
+<td><p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/red_pajama">Link</a></p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p>switch transformer</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">GPU</span></code>: With ORT MOE for distributed inferencing with MoE models</p></td>
+<td><p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/switch">Link</a></p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>bert</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">CPU</span></code>: with ORT optimizations and quantization for optimized INT8 ONNX model<br><code class="docutils literal notranslate"><span class="pre">CPU</span></code>: with ORT optimizations and Intel® Neural Compressor quantization for optimized INT8 ONNX model<br><code class="docutils literal notranslate"><span class="pre">CPU</span></code>: With PyTorch QAT Customized Training Loop and ORT optimizations for optimized ONNX INT8 model<br><code class="docutils literal notranslate"><span class="pre">GPU</span></code>: with ORT optimizations for CUDA EP<br><code class="docutils literal notranslate"><span class="pre">GPU</span></code>: with ORT optimizations for TRT EP</p></td>
+<td><p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/bert">Link</a></p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p>deberta</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">GPU</span></code>: Optimize Azureml Registry Model with ORT optimizations and quantization</p></td>
+<td><p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/deberta">Link</a></p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>dolly_v2</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">GPU</span></code>: With Optimum conversion and merging and ORT optimizations with DirectML EP</p></td>
+<td><p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/directml/dolly_v2">Link</a></p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p>gptj</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">CPU</span></code>: with Intel® Neural Compressor static/dynamic quantization for INT8 ONNX model</p></td>
+<td><p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/gptj">Link</a></p></td>
+</tr>
+<tr class="row-even"><td><p>Audio</p></td>
+<td><p>whisper</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">CPU</span></code>: with ORT optimizations for all-in-one ONNX model in FP32<br><code class="docutils literal notranslate"><span class="pre">CPU</span></code>: with ORT optimizations for all-in-one ONNX model in INT8<br><code class="docutils literal notranslate"><span class="pre">CPU</span></code>: with ORT optimizations and Intel® Neural Compressor Dynamic Quantization for all-in-one ONNX model in INT8<br><code class="docutils literal notranslate"><span class="pre">GPU</span></code>: with ORT optimizations for all-in-one ONNX model in FP32<br><code class="docutils literal notranslate"><span class="pre">GPU</span></code>: with ORT optimizations for all-in-one ONNX model in FP16<br><code class="docutils literal notranslate"><span class="pre">GPU</span></code>: with ORT optimizations for all-in-one ONNX model in INT8</p></td>
+<td><p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/whisper">Link</a></p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p>Audio Spectrogram Transformer</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">CPU</span></code>: with ORT optimizations and quantization for optimized INT8 ONNX model</p></td>
+<td><p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/AST">Link</a></p></td>
+</tr>
+<tr class="row-even"><td><p>Vision</p></td>
+<td><p>stable diffusion and stable diffusion XL</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">GPU</span></code>: With ORT optimization for DirectML EP<br><code class="docutils literal notranslate"><span class="pre">GPU</span></code>: With ORT optimization for CUDA EP<br><code class="docutils literal notranslate"><span class="pre">Intel</span> <span class="pre">CPU</span></code>: With OpenVINO toolkit</p></td>
+<td><p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/stable_diffusion">Link</a></p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p>squeezenet</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">GPU</span></code>: With ORT optimizations with DirectML EP</p></td>
+<td><p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/directml/squeezenet">Link</a></p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>mobilenet</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Qualcomm</span> <span class="pre">NPU</span></code>: With ORT static QDQ quantization for ORT QNN EP</p></td>
+<td><p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/mobilenet">Link</a></p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p>resnet</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">CPU</span></code>: With ORT static/dynamic Quantization for ONNX INT8 model<br><code class="docutils literal notranslate"><span class="pre">CPU</span></code>: With PyTorch QAT Default Training Loop and ORT optimizations for ONNX INT8 model<br><code class="docutils literal notranslate"><span class="pre">CPU</span></code>: With PyTorch QAT Lightning Module and ORT optimizations for ONNX INT8 model<br><code class="docutils literal notranslate"><span class="pre">AMD</span> <span class="pre">DPU</span></code>: With AMD Vitis-AI Quantization<br><code class="docutils literal notranslate"><span class="pre">Intel</span> <span class="pre">GPU</span></code>: With ORT optimizations with multiple EPs</p></td>
+<td><p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/resnet">Link</a></p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>VGG</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Qualcomm</span> <span class="pre">NPU</span></code>: With SNPE toolkit</p></td>
+<td><p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/vgg">Link</a></p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p>inception</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Qualcomm</span> <span class="pre">NPU</span></code>: With SNPE toolkit</p></td>
+<td><p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/inception">Link</a></p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>super resolution</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">CPU</span></code>: With ORT pre/post processing integration for a single ONNX model</p></td>
+<td><p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/super_resolution">Link</a></p></td>
+</tr>
+</tbody>
+</table>
 </section>
 
 

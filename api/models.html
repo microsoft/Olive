@@ -64,10 +64,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../examples.html">Acceleration on CPU</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples.html#acceleration-on-gpu">Acceleration on GPU</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples.html#acceleration-on-npu">Acceleration on NPU</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples.html#acceleration-on-dpu">Acceleration on DPU</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
 <ul>
@@ -178,9 +175,11 @@
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">olive.model.</span></span><span class="sig-name descname"><span class="pre">ModelConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/olive/model/config/model_config.html#ModelConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.model.ModelConfig" title="Permalink to this definition">¶</a></dt>
 <dd><p>Input model config which will be used to create the model handler.</p>
 <p>For example, the config looks like for llama2:
-“input_model”:{</p>
+.. code-block:: json</p>
 <blockquote>
-<div><p>“type”: “CompositePyTorchModel”,
+<div><dl>
+<dt>{</dt><dd><dl>
+<dt>“input_model”: {</dt><dd><p>“type”: “CompositePyTorchModel”,
 “config”: {</p>
 <blockquote>
 <div><p>“model_path”: “llama_v2”,
@@ -205,7 +204,7 @@
 </div></blockquote>
 <p>}</p>
 </div></blockquote>
-<p>}
+<p>},
 “model_loader”: “load_decoder_model”,
 “dummy_inputs_func”: “decoder_inputs”</p>
 </div></blockquote>
@@ -243,6 +242,13 @@
 </div></blockquote>
 <p>]</p>
 </div></blockquote>
+<p>}</p>
+</dd>
+</dl>
+<p>}</p>
+</dd>
+</dl>
+<p>}</p>
 </div></blockquote>
 </dd></dl>
 

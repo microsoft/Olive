@@ -62,10 +62,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../../examples.html">Acceleration on CPU</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../examples.html#acceleration-on-gpu">Acceleration on GPU</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../examples.html#acceleration-on-npu">Acceleration on NPU</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../examples.html#acceleration-on-dpu">Acceleration on DPU</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples.html">Examples</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
 <ul>
@@ -143,50 +140,78 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Input model config which will be used to create the model handler.</span>
 
 <span class="sd">    For example, the config looks like for llama2:</span>
-<span class="sd">    &quot;input_model&quot;:{</span>
-<span class="sd">        &quot;type&quot;: &quot;CompositePyTorchModel&quot;,</span>
-<span class="sd">        &quot;config&quot;: {</span>
-<span class="sd">            &quot;model_path&quot;: &quot;llama_v2&quot;,</span>
-<span class="sd">            &quot;model_components&quot;: [</span>
-<span class="sd">                {</span>
-<span class="sd">                    &quot;name&quot;: &quot;decoder_model&quot;,</span>
-<span class="sd">                    &quot;type&quot;: &quot;PyTorchModel&quot;,</span>
-<span class="sd">                    &quot;config&quot;: {</span>
-<span class="sd">                        &quot;model_script&quot;: &quot;user_script.py&quot;,</span>
-<span class="sd">                        &quot;io_config&quot;: {</span>
-<span class="sd">                            &quot;input_names&quot;: [&quot;tokens&quot;, &quot;position_ids&quot;, &quot;attn_mask&quot;, ...],</span>
-<span class="sd">                            &quot;output_names&quot;: [&quot;logits&quot;, &quot;attn_mask_out&quot;, ...],</span>
-<span class="sd">                            &quot;dynamic_axes&quot;: {</span>
-<span class="sd">                                &quot;tokens&quot;: { &quot;0&quot;: &quot;batch_size&quot;, &quot;1&quot;: &quot;seq_len&quot; },</span>
-<span class="sd">                                &quot;position_ids&quot;: { &quot;0&quot;: &quot;batch_size&quot;, &quot;1&quot;: &quot;seq_len&quot; },</span>
-<span class="sd">                                &quot;attn_mask&quot;: { &quot;0&quot;: &quot;batch_size&quot;, &quot;1&quot;: &quot;max_seq_len&quot; },</span>
-<span class="sd">                                ...</span>
+<span class="sd">    .. code-block:: json</span>
+
+<span class="sd">        {</span>
+<span class="sd">            &quot;input_model&quot;: {</span>
+<span class="sd">                &quot;type&quot;: &quot;CompositePyTorchModel&quot;,</span>
+<span class="sd">                &quot;config&quot;: {</span>
+
+<span class="sd">                    &quot;model_path&quot;: &quot;llama_v2&quot;,</span>
+<span class="sd">                    &quot;model_components&quot;: [</span>
+
+<span class="sd">                        {</span>
+<span class="sd">                            &quot;name&quot;: &quot;decoder_model&quot;,</span>
+<span class="sd">                            &quot;type&quot;: &quot;PyTorchModel&quot;,</span>
+<span class="sd">                            &quot;config&quot;: {</span>
+
+<span class="sd">                                &quot;model_script&quot;: &quot;user_script.py&quot;,</span>
+<span class="sd">                                &quot;io_config&quot;: {</span>
+
+<span class="sd">                                    &quot;input_names&quot;: [&quot;tokens&quot;, &quot;position_ids&quot;, &quot;attn_mask&quot;, ...],</span>
+<span class="sd">                                    &quot;output_names&quot;: [&quot;logits&quot;, &quot;attn_mask_out&quot;, ...],</span>
+<span class="sd">                                    &quot;dynamic_axes&quot;: {</span>
+
+<span class="sd">                                        &quot;tokens&quot;: { &quot;0&quot;: &quot;batch_size&quot;, &quot;1&quot;: &quot;seq_len&quot; },</span>
+<span class="sd">                                        &quot;position_ids&quot;: { &quot;0&quot;: &quot;batch_size&quot;, &quot;1&quot;: &quot;seq_len&quot; },</span>
+<span class="sd">                                        &quot;attn_mask&quot;: { &quot;0&quot;: &quot;batch_size&quot;, &quot;1&quot;: &quot;max_seq_len&quot; },</span>
+<span class="sd">                                        ...</span>
+
+<span class="sd">                                    }</span>
+
+<span class="sd">                                },</span>
+<span class="sd">                                &quot;model_loader&quot;: &quot;load_decoder_model&quot;,</span>
+<span class="sd">                                &quot;dummy_inputs_func&quot;: &quot;decoder_inputs&quot;</span>
+
 <span class="sd">                            }</span>
-<span class="sd">                        }</span>
-<span class="sd">                        &quot;model_loader&quot;: &quot;load_decoder_model&quot;,</span>
-<span class="sd">                        &quot;dummy_inputs_func&quot;: &quot;decoder_inputs&quot;</span>
-<span class="sd">                    }</span>
-<span class="sd">                },</span>
-<span class="sd">                {</span>
-<span class="sd">                    &quot;name&quot;: &quot;decoder_with_past_model&quot;,</span>
-<span class="sd">                    &quot;type&quot;: &quot;PyTorchModel&quot;,</span>
-<span class="sd">                    &quot;config&quot;: {</span>
-<span class="sd">                        &quot;model_script&quot;: &quot;user_script.py&quot;,</span>
-<span class="sd">                        &quot;io_config&quot;: {</span>
-<span class="sd">                            &quot;input_names&quot;: [&quot;tokens_increment&quot;, &quot;position_ids_increment&quot;, &quot;attn_mask&quot;, ...],</span>
-<span class="sd">                            &quot;output_names&quot;: [&quot;logits&quot;, &quot;attn_mask_out&quot;, ...],</span>
-<span class="sd">                            &quot;dynamic_axes&quot;: {</span>
-<span class="sd">                                &quot;tokens_increment&quot;: { &quot;0&quot;: &quot;batch_size&quot;, &quot;1&quot;: &quot;seq_len_increment&quot; },</span>
-<span class="sd">                                &quot;position_ids_increment&quot;: { &quot;0&quot;: &quot;batch_size&quot;, &quot;1&quot;: &quot;seq_len_increment&quot; },</span>
-<span class="sd">                                &quot;attn_mask&quot;: { &quot;0&quot;: &quot;batch_size&quot;, &quot;1&quot;: &quot;max_seq_len&quot; },</span>
-<span class="sd">                                ...</span>
-<span class="sd">                            }</span>
+
 <span class="sd">                        },</span>
-<span class="sd">                        &quot;model_loader&quot;: &quot;load_decoder_with_past_model&quot;,</span>
-<span class="sd">                        &quot;dummy_inputs_func&quot;: &quot;decoder_with_past_inputs&quot;</span>
-<span class="sd">                    }</span>
+<span class="sd">                        {</span>
+
+<span class="sd">                            &quot;name&quot;: &quot;decoder_with_past_model&quot;,</span>
+<span class="sd">                            &quot;type&quot;: &quot;PyTorchModel&quot;,</span>
+<span class="sd">                            &quot;config&quot;: {</span>
+
+<span class="sd">                                &quot;model_script&quot;: &quot;user_script.py&quot;,</span>
+<span class="sd">                                &quot;io_config&quot;: {</span>
+
+<span class="sd">                                    &quot;input_names&quot;: [&quot;tokens_increment&quot;, &quot;position_ids_increment&quot;, &quot;attn_mask&quot;, ...],</span>
+<span class="sd">                                    &quot;output_names&quot;: [&quot;logits&quot;, &quot;attn_mask_out&quot;, ...],</span>
+<span class="sd">                                    &quot;dynamic_axes&quot;: {</span>
+
+<span class="sd">                                        &quot;tokens_increment&quot;: { &quot;0&quot;: &quot;batch_size&quot;, &quot;1&quot;: &quot;seq_len_increment&quot; },</span>
+<span class="sd">                                        &quot;position_ids_increment&quot;: { &quot;0&quot;: &quot;batch_size&quot;, &quot;1&quot;: &quot;seq_len_increment&quot; },</span>
+<span class="sd">                                        &quot;attn_mask&quot;: { &quot;0&quot;: &quot;batch_size&quot;, &quot;1&quot;: &quot;max_seq_len&quot; },</span>
+<span class="sd">                                        ...</span>
+
+<span class="sd">                                    }</span>
+
+<span class="sd">                                },</span>
+<span class="sd">                                &quot;model_loader&quot;: &quot;load_decoder_with_past_model&quot;,</span>
+<span class="sd">                                &quot;dummy_inputs_func&quot;: &quot;decoder_with_past_inputs&quot;</span>
+
+<span class="sd">                            }</span>
+
+<span class="sd">                        }</span>
+
+<span class="sd">                    ]</span>
+
 <span class="sd">                }</span>
-<span class="sd">            ]</span>
+
+<span class="sd">            }</span>
+
+<span class="sd">        }</span>
+
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="nb">type</span><span class="p">:</span> <span class="nb">str</span>

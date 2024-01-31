@@ -65,10 +65,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../examples.html">Acceleration on CPU</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples.html#acceleration-on-gpu">Acceleration on GPU</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples.html#acceleration-on-npu">Acceleration on NPU</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples.html#acceleration-on-dpu">Acceleration on DPU</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
 <ul>
@@ -341,7 +338,7 @@ Convert the raw data config to the data container.</p>
 <dl class="simple">
 <dt>each component can be customized by the following fields:</dt><dd><ul class="simple">
 <li><p><cite>name</cite>: the name of the component.</p></li>
-<li><p><cite>type</cite>: the type name of the available component type. Besides the above available type in above table, user can also define their own component type in <cite>user_script</cite> with the way Olive does for <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/data/component/load_dataset.py#L26">huggingface_dataset</a>. In this way, they need to provide <cite>user_script</cite> and <cite>script_dir</cite>. There is an <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/snpe/inception_snpe_qualcomm_npu/user_script.py#L9">example</a> with customized component type.</p></li>
+<li><p><cite>type</cite>: the type name of the available component type. Besides the above available type in above table, user can also define their own component type in <cite>user_script</cite> with the way Olive does for <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/data/component/load_dataset.py#L26">huggingface_dataset</a>. In this way, they need to provide <cite>user_script</cite> and <cite>script_dir</cite>. There is an <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/inception/user_script.py#L9">example</a> with customized component type.</p></li>
 <li><p><cite>params</cite>: the dictionary of component function parameters. The key is the parameter name for given component type and the value is the parameter value.</p></li>
 </ul>
 </dd>
@@ -529,8 +526,8 @@ Convert the raw data config to the data container.</p>
 <dt>More examples:</dt><dd><ol class="arabic simple">
 <li><dl class="simple">
 <dt>inception_post_process:</dt><dd><ul class="simple">
-<li><p>user_script <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/snpe/inception_snpe_qualcomm_npu/user_script.py#L8-L10">https://github.com/microsoft/Olive/blob/main/examples/snpe/inception_snpe_qualcomm_npu/user_script.py#L8-L10</a></p></li>
-<li><p>json_config <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/snpe/inception_snpe_qualcomm_npu/inception_config.json#L14-L16">https://github.com/microsoft/Olive/blob/main/examples/snpe/inception_snpe_qualcomm_npu/inception_config.json#L14-L16</a></p></li>
+<li><p>user_script <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/inception/user_script.py#L8-L10">https://github.com/microsoft/Olive/blob/main/examples/inception/user_script.py#L8-L10</a></p></li>
+<li><p>json_config <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/inception/inception_config.json#L14-L16">https://github.com/microsoft/Olive/blob/main/examples/inception/inception_config.json#L14-L16</a></p></li>
 </ul>
 </dd>
 </dl>
