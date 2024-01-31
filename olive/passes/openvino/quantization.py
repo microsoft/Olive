@@ -66,7 +66,7 @@ class DropTypeEnum(str, Enum):
 class OpenVINOQuantizationBase(Pass):
     """Post-training quantization for OpenVINO model.
 
-    Please refer to https://docs.openvino.ai/2023.2/ptq_introduction.html for more details.
+    Please refer to https://docs.openvino.ai/2023.3/ptq_introduction.html for more details.
     """
 
     _requires_user_script = True
