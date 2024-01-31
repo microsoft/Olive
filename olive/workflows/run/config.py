@@ -17,6 +17,7 @@ from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
 from olive.passes import FullPassConfig, Pass
+from olive.passes.pass_config import PassParamDefault
 from olive.resource_path import AZUREML_RESOURCE_TYPES
 from olive.systems.system_config import SystemConfig
 
@@ -207,12 +208,17 @@ class RunConfig(ConfigBase):
         if "engine" not in values:
             raise ValueError("Invalid engine")
 
+        disable_search = v.get("disable_search")
         if not values["engine"].search_strategy:
-            # disable search if search_strategy is None/False/{}, user cannot override
-            disable_search = True
+            if disable_search is False:
+                raise ValueError("You cannot set disable_search is False if search strategy is None/False/{}")
+            # disable search if search_strategy is None/False/{}, user cannot override it.
+            # If user explicitly set, raise error when disable_search is False and search_strategy is None/False/{}
+            if disable_search is None:
+                disable_search = True
         else:
             # disable search if user explicitly set disable_search to True
-            disable_search = v.get("disable_search", False)
+            disable_search = disable_search or False
 
         v["disable_search"] = disable_search
         pass_cls = Pass.registry.get(v["type"].lower(), None)
@@ -220,7 +226,10 @@ class RunConfig(ConfigBase):
             if not v.get("config"):
                 return v
 
+            searchable_configs = set()
             for param_name in v["config"]:
+                if v["config"][param_name] == PassParamDefault.SEARCHABLE_VALUES:
+                    searchable_configs.add(param_name)
                 if param_name.endswith("data_config"):
                     # we won't auto insert the input model data config for pass
                     # user must explicitly set the data config to INPUT_MODEL_DATA_CONFIG if needed
@@ -231,6 +240,13 @@ class RunConfig(ConfigBase):
                 if _have_aml_client(data_dir_config, values):
                     data_dir_config["config"]["azureml_client"] = values["azureml_client"]
                 v["config"]["data_dir"] = data_dir_config
+
+            if disable_search and searchable_configs:
+                raise ValueError(
+                    f"You cannot disable search for {v['type']} and"
+                    f" set {searchable_configs} to SEARCHABLE_VALUES at the same time."
+                    " Please remove SEARCHABLE_VALUES or enable search(needs search strategy configs)."
+                )
         return v
 
 
