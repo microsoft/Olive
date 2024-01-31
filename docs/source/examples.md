@@ -17,7 +17,7 @@
 ||Audio Spectrogram Transformer|`CPU`: with ORT optimizations and quantization for optimized INT8 ONNX model|[Link](https://github.com/microsoft/Olive/tree/main/examples/AST)
 |Vision|stable diffusion and stable diffusion XL|`GPU`: With ORT optimization for DirectML EP<br>`GPU`: With ORT optimization for CUDA EP<br>`Intel CPU`: With OpenVINO toolkit|[Link](https://github.com/microsoft/Olive/tree/main/examples/stable_diffusion)
 ||squeezenet|`GPU`: With ORT optimizations with DirectML EP|[Link](https://github.com/microsoft/Olive/tree/main/examples/directml/squeezenet)
-||mobilenet|`Qualcomm NPU`: With ORT static QDQ quantization for ORT QNN EP |[Link](https://github.com/microsoft/Olive/tree/main/examples/mobilenet) 
+||mobilenet|`Qualcomm NPU`: With ORT static QDQ quantization for ORT QNN EP |[Link](https://github.com/microsoft/Olive/tree/main/examples/mobilenet)
 ||resnet|`CPU`: With ORT static/dynamic Quantization for ONNX INT8 model<br>`CPU`: With PyTorch QAT Default Training Loop and ORT optimizations for ONNX INT8 model<br>`CPU`: With PyTorch QAT Lightning Module and ORT optimizations for ONNX INT8 model<br>`AMD DPU`: With AMD Vitis-AI Quantization<br>`Multiple HWs`: With ORT optimizations with multiple EPs|[Link](https://github.com/microsoft/Olive/tree/main/examples/resnet)
 ||VGG|`Qualcomm NPU`: With SNPE toolkit|[Link](https://github.com/microsoft/Olive/tree/main/examples/vgg)
 ||inception|`Qualcomm NPU`: With SNPE toolkit|[Link](https://github.com/microsoft/Olive/tree/main/examples/snpe/inception)

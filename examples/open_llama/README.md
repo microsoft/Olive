@@ -23,7 +23,7 @@ Fine-tune optimization workflows
 Go to [How to run](#prerequisites)
 
 ## Inference Optimization Workflows
-Note that these examples config uses [openlm-research/open_llama_3b](https://huggingface.co/openlm-research/open_llama_3b) for demonstration purpose. 
+Note that these examples config uses [openlm-research/open_llama_3b](https://huggingface.co/openlm-research/open_llama_3b) for demonstration purpose.
 
 ### Convert, Optimize and Merge Open LLaMA Model for GPUs
 This workflow also demonstrates how to use:
@@ -223,10 +223,10 @@ The relevant config file is [llama_qlora.json](llama_qlora.json). It corresponds
 
 Requirements file: [requirements-lora.txt](requirements-lora.txt)
 
-### Fine-tune Open Llama Model on a code generation dataset 
+### Fine-tune Open Llama Model on a code generation dataset
 - **With LoRA**. This workflow fine-tunes Open LLaMA model using [LoRA](https://arxiv.org/abs/2106.09685) to generate code given a prompt. The relevant config file is [open_llama_lora_tinycodes.json](open_llama_lora_tinycodes.json). 
 - **With QLoRA**. This workflow fine-tunes Open LLaMA model using [QLoRA](https://arxiv.org/abs/2305.14314) to generate code given a prompt. The relevant config file is [open_llama_qlora_tinycodes.json](open_llama_qlora_tinycodes.json).
-- **With LoftQ**. This workflow fine-tunes Open LLaMA model using [LoftQ](https://arxiv.org/abs/2310.08659) to generate code given a prompt. The relevant config file is [open_llama_loftq_tinycodes.json](open_llama_loftq_tinycodes.json). 
+- **With LoftQ**. This workflow fine-tunes Open LLaMA model using [LoftQ](https://arxiv.org/abs/2310.08659) to generate code given a prompt. The relevant config file is [open_llama_loftq_tinycodes.json](open_llama_loftq_tinycodes.json).
 
 Requirements file: [requirements-lora.txt](requirements-lora.txt)
 

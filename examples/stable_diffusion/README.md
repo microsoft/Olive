@@ -10,10 +10,9 @@ The ONNX Runtime optimization sample will convert each PyTorch model to ONNX, an
 
 The OpenVINO optimization sample will convert each PyTorch model to OpenVINO IR model by `OpenVINOConversion` pass, and create an `OpenVINOStableDiffusionPipeline` for inference.
 
-- ONNX Runtime with 
+- ONNX Runtime with
     - [CUDA EP](#stable-diffusion-and-stable-diffusion-xl-optimization-with-onnx-runtime-cuda-ep)
-    - DirectML EP: go to examples [Stable Diffusion](../directml/stable_diffusion/README.md), [Stable Diffusion XL](../directml/stable_diffusion_xl/README.md)
-     
+    - DirectML EP: go to examples [Stable Diffusion](../directml/stable_diffusion/README.md), [Stable Diffusion XL](../directml/stable_diffusion_xl/README.md) 
 - [OpenVINO](#stable-diffusion-optimization-with-openvino)
 
 ## Stable Diffusion and Stable Diffusion XL Optimization with ONNX Runtime CUDA EP
