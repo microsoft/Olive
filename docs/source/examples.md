@@ -22,4 +22,3 @@
 ||VGG|`Qualcomm NPU`: With SNPE toolkit|[Link](https://github.com/microsoft/Olive/tree/main/examples/vgg)
 ||inception|`Qualcomm NPU`: With SNPE toolkit|[Link](https://github.com/microsoft/Olive/tree/main/examples/snpe/inception)
 ||super resolution|`CPU`: With ORT pre/post processing integration for a single ONNX model|[Link](https://github.com/microsoft/Olive/tree/main/examples/super_resolution)
-
