@@ -82,7 +82,7 @@ You can add `PackagingConfig` to Engine configurations. e.g.:
 }
 ```
 
-#### Models rank JSON file
+### Models rank JSON file
 A file that contains a JSON list for ranked model info across all accelerators, e.g.:
 ```
 [

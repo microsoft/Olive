@@ -1,7 +1,7 @@
 # -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
-# Example modified from: https://docs.openvino.ai/2023.2/notebooks/225-stable-diffusion-text-to-image-with-output.html
+# Example modified from: https://docs.openvino.ai/2023.3/notebooks/225-stable-diffusion-text-to-image-with-output.html
 # --------------------------------------------------------------------------
 import inspect
 import json
