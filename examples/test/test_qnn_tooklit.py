@@ -38,7 +38,7 @@ def download_qnn_sdk(target_path=None):
 def setup_resource():
     """Setups any state specific to the execution of the given module."""
     cur_dir = Path(__file__).resolve().parent.parent
-    example_dir = cur_dir / "mobilenet_qnn_qualcomm_npu"
+    example_dir = cur_dir / "mobilenet"
     os.chdir(example_dir)
 
     # prepare model and data

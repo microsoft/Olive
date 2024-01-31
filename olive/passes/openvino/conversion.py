@@ -52,7 +52,7 @@ class OpenVINOConversion(Pass):
                     "Extra configurations for OpenVINO model conversion. extra_config can be set by "
                     "passing a dictionary where key is the parameter name, and the value is the parameter value. "
                     "Please check Conversion Parameters documentation for more details: "
-                    "https://docs.openvino.ai/2023.2/openvino_docs_OV_Converter_UG_Conversion_Options.html"
+                    "https://docs.openvino.ai/2023.3/openvino_docs_OV_Converter_UG_Conversion_Options.html"
                 ),
             ),
             "output_model": PassConfigParam(

@@ -1,3 +1,4 @@
+# Examples
 
 |Scenario| Model|Hardware Targeted Optimization|Examples|
 |---|-----------|-----------|-----------|
@@ -17,8 +18,8 @@
 ||Audio Spectrogram Transformer|`CPU`: with ORT optimizations and quantization for optimized INT8 ONNX model|[Link](https://github.com/microsoft/Olive/tree/main/examples/AST)
 |Vision|stable diffusion and stable diffusion XL|`GPU`: With ORT optimization for DirectML EP<br>`GPU`: With ORT optimization for CUDA EP<br>`Intel CPU`: With OpenVINO toolkit|[Link](https://github.com/microsoft/Olive/tree/main/examples/stable_diffusion)
 ||squeezenet|`GPU`: With ORT optimizations with DirectML EP|[Link](https://github.com/microsoft/Olive/tree/main/examples/directml/squeezenet)
-||mobilenet|`Qualcomm NPU`: With ORT static QDQ quantization for ORT QNN EP |[Link](https://github.com/microsoft/Olive/tree/main/examples/mobilenet)
+||mobilenet|`Qualcomm NPU`: With ORT static QDQ quantization for ORT QNN EP |[Link](https://github.com/microsoft/Olive/tree/main/examples/mobilenet_qnn_qualcomm_npu)
 ||resnet|`CPU`: With ORT static/dynamic Quantization for ONNX INT8 model<br>`CPU`: With PyTorch QAT Default Training Loop and ORT optimizations for ONNX INT8 model<br>`CPU`: With PyTorch QAT Lightning Module and ORT optimizations for ONNX INT8 model<br>`AMD DPU`: With AMD Vitis-AI Quantization<br>`Intel GPU`: With ORT optimizations with multiple EPs|[Link](https://github.com/microsoft/Olive/tree/main/examples/resnet)
-||VGG|`Qualcomm NPU`: With SNPE toolkit|[Link](https://github.com/microsoft/Olive/tree/main/examples/vgg)
-||inception|`Qualcomm NPU`: With SNPE toolkit|[Link](https://github.com/microsoft/Olive/tree/main/examples/snpe/inception)
+||VGG|`Qualcomm NPU`: With SNPE toolkit|[Link](https://github.com/microsoft/Olive/tree/main/examples/snpe/vgg_snpe_qualcomm_npu)
+||inception|`Qualcomm NPU`: With SNPE toolkit|[Link](https://github.com/microsoft/Olive/tree/main/examples/snpe/inception_snpe_qualcomm_npu)
 ||super resolution|`CPU`: With ORT pre/post processing integration for a single ONNX model|[Link](https://github.com/microsoft/Olive/tree/main/examples/super_resolution)
