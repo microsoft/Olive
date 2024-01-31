@@ -1,3 +1,8 @@
+# phi2 optimization with Olive
+This folder contains an example of phi2 optimization with Olive workflow.
+
+- CPU: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> Quantized Onnx Model -> ONNX Runtime performance tuning*
+
 ## Prerequisites
 * einops
 

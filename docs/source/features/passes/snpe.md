@@ -69,5 +69,5 @@ Please refer to [SNPEQuantization](snpe_quantization) for more details about the
 }
 ```
 
-Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/snpe/inception_snpe_qualcomm_npu/user_script.py)
+Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/inception/user_script.py)
 for an example implementation of `"user_script.py"` and `"create_quant_dataloader"`.

@@ -1,6 +1,14 @@
 # BERT Optimization
 This folder contains examples of BERT optimization using different workflows.
 
+- CPU: [Optimization with PTQ for model from HF/AML](#bert-optimization-with-ptq-on-cpu)
+- CPU: [Optimization with Intel® Neural Compressor PTQ](#bert-optimization-with-intel®-neural-compressor-ptq-on-cpu)
+- CPU: [Optimization with QAT Customized Training Loop](#bert-optimization-with-qat-customized-training-loop-on-cpu)
+- GPU: [Optimization with CUDA/TensorRT](#bert-optimization-with-cudatensorrt-on-gpu)
+
+Go to [How to run](#how-to-run)
+
+
 ## Optimization Workflows
 ### BERT optimization with PTQ on CPU
 This workflow performs BERT optimization on CPU with ONNX Runtime PTQ. It performs the optimization pipeline:
@@ -83,7 +91,7 @@ This workflow performs BERT optimization on CPU with QAT Customized Training Loo
 
 Config file: [bert_qat_customized_train_loop_cpu.json](bert_qat_customized_train_loop_cpu.json)
 
-### BERT optimization with CUDA/TensorRT
+### BERT optimization with CUDA/TensorRT on GPU
 This workflow performs BERT optimization on GPU with CUDA/TensorRT. It performs the optimization pipeline:
 1. CUDA: `CUDAExecutionProvider`
     - *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model with fp16 -> ONNX Runtime performance tuning*
