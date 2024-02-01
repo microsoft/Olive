@@ -108,6 +108,7 @@
             "execution_order": "joint",
             "search_algorithm": "exhaustive"
         },
+        "log_severity_level": 0,
         "evaluator": "common_evaluator",
         "evaluate_input_model": false,
         "host": "local_system",

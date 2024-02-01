@@ -54,6 +54,9 @@ jobs:
       bert_ptq_cpu:
         exampleFolder: bert
         exampleName: bert_ptq_cpu
+      bert_ptq_cpu_docker:
+        exampleFolder: bert
+        exampleName: bert_ptq_cpu_docker
       resnet_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_ptq_cpu
