@@ -105,7 +105,7 @@ jobs:
         exampleFolder: whisper
         exampleName: whisper
       mobilenet_qnn_toolkit:
-        exampleFolder: mobilenet_qnn_qualcomm_npu
+        exampleFolder: mobilenet
         exampleName: qnn_tooklit
 
 # # Windows examples test
@@ -131,7 +131,7 @@ jobs:
         exampleFolder: whisper
         exampleName: whisper
       mobilenet_qnn_toolkit:
-        exampleFolder: mobilenet_qnn_qualcomm_npu
+        exampleFolder: mobilenet
         exampleName: qnn_tooklit
 
 # Linux GPU examples testing.

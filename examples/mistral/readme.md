@@ -1,3 +1,7 @@
+An example of mistral model optimization using olive workflows.
+
+- CPU: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> Intel® Neural Compressor 4 bit Quantized Onnx Model*
+
 ## Prerequisites
 * transformers>=4.34.99
 * optimum

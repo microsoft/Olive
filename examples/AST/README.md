@@ -1,6 +1,8 @@
 # AST Optimization
 This folder contains examples of AST(Audio Spectrogram Transformer) optimization using olive workflows.
 
+- CPU: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> Quantized Onnx Model -> ONNX Runtime performance tuning*
+
 - Model: https://huggingface.co/MIT/ast-finetuned-speech-commands-v2
 - Dataset: https://huggingface.co/datasets/speech_commands
 

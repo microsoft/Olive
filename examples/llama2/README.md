@@ -1,8 +1,14 @@
 # Llama2 optimization
-This folder contains sample use cases of Olive to optimize a [Llama2](https://huggingface.co/meta-llama/Llama-2-7b-hf)
+Sample use cases of Olive to optimize a [Llama2](https://huggingface.co/meta-llama/Llama-2-7b-hf)
+
+- [Inference Optimization with ONNX Runtime tools for CPUs and GPUs](#inference-optimize-using-onnx-runtime-tools)
+- [Inference Optimization with ONNX Runtime DirectML for GPUs](#inference-optimization-with-onnnx-runtime-with-directml)
+- [With QLoRa fine-tune and ONNX Runtime Inference Optimizations](#fine-tune-on-a-code-generation-dataset-using-qlora-and-optimize-using-onnx-runtime-tools)
+- [Notebook of using AzureML compute to fine tune and optimize for your local GPUs](https://github.com/microsoft/Olive/tree/main/examples/llama2/notebook)
+- [How to run](#prerequisites)
 
 ## Optimization Workflows
-### Optimize using ONNX Runtime Tools
+### Inference optimization using ONNX Runtime Tools
 Performs optimization pipeline:
 - CPU, FP32: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model fp32*
 - CPU, INT8: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model fp32 -> Onnx Dynamic Quantization*
@@ -13,6 +19,9 @@ Performs optimization pipeline:
 **Note:** Group Query Attention is optional and can be enabled by passing `--use_gqa` flag to the script. It is only supported for GPU.
 
 Requirements file: [requirements.txt](requirements.txt)
+
+### Inference optimization with ONNNX Runtime with DirectML
+For Llama2 inference with DirectML on GPUs, pls refer to this [example](https://github.com/microsoft/Olive/tree/main/examples/directml/llama_v2).
 
 ### Fine-tune on a code generation dataset using QLoRA and optimize using ONNX Runtime Tools
 This workflow fine-tunes Open LLaMA model using [QLoRA](https://arxiv.org/abs/2305.14314) to generate code given a prompt. The fine-tuned model is then optimized using ONNX Runtime Tools.
@@ -82,5 +91,6 @@ Run the following command to execute the workflow:
 python -m olive.workflows.run --config lamma2_qlora.json
 ```
 
-## TODO
-- [ ] Add generation example of the optimized model.
+# License
+Please see the [LICENSE](./LICENSE) file for more details. Also please follow the [user policy](./USE-POLICY-META-LLAMA-2.md) of the model provider. Besides, please refer to the [Responsible
+Use Guide](https://ai.meta.com/static-resource/responsible-use-guide/) for more details on how to use the model responsibly.

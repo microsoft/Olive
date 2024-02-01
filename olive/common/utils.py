@@ -21,8 +21,10 @@ logger = logging.getLogger(__name__)
 def run_subprocess(cmd, env=None, cwd=None, check=False):  # pragma: no cover
     logger.debug(f"Running command: {cmd} with env: {env}")
 
+    assert isinstance(cmd, (str, list)), f"cmd must be a string or a list, got {type(cmd)}."
     windows = platform.system() == "Windows"
-    cmd = shlex.split(cmd, posix=not windows)
+    if isinstance(cmd, str):
+        cmd = shlex.split(cmd, posix=not windows)
     if windows:
         path = env.get("PATH") if env else None
         cmd_exe = shutil.which(cmd[0], path=path)
@@ -139,6 +141,7 @@ def retry_func(func, args=None, kwargs=None, max_tries=3, delay=5, backoff=2, ex
         backoff: Backoff multiplier e.g. value of 2 will double the delay each retry.
         exceptions: Exceptions to catch. If None, catch all exceptions. Can be a single exception or a tuple
             of exceptions.
+
     """
     args = args or []
     kwargs = kwargs or {}

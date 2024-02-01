@@ -211,6 +211,7 @@ class Engine:
 
         Args:
             pass_flows: a list of pass names, each pass name is a string.
+
         """
         if not pass_flows:
             self.pass_flows = [list(self.pass_config.keys())] if self.pass_config else []
@@ -250,6 +251,7 @@ class Engine:
 
             if search strategy is not None, run the search strategy to find candidate models.
             Return footprint/zip(packaging_config) of candidate models and evaluation results.
+
         """
         if not accelerator_specs:
             raise ValueError("No accelerator specified")

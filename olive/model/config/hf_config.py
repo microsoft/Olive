@@ -138,7 +138,7 @@ class HfFromPretrainedArgs(ConfigWithExtraArgs):
         """Return all args in a dict with types expected by `from_pretrained`."""
         loading_args = {}
         # copy args that can be directly copied
-        direct_copy_args = ["device_map", "max_memory"]
+        direct_copy_args = ("device_map", "max_memory")
         for arg in direct_copy_args:
             if getattr(self, arg):
                 loading_args[arg] = deepcopy(getattr(self, arg))

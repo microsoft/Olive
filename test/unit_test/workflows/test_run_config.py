@@ -239,3 +239,44 @@ class TestDataConfigValidation:
             assert pass_data_config is None
         else:
             assert isinstance(pass_data_config, DataConfig) and pass_data_config.name == data_config_str
+
+
+class TestPassConfigValidation:
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.template = {
+            "input_model": {
+                "type": "OnnxModel",
+                "config": {"hf_config": {"model_name": "dummy_model"}},
+            },
+            "passes": {"tuning": {"type": "IncQuantization", "config": {}}},
+            "engine": {"evaluate_input_model": False},
+        }
+
+    @pytest.mark.parametrize(
+        "search_strategy,disable_search,approach,is_valid",
+        [
+            (None, None, None, True),
+            (None, None, "SEARCHABLE_VALUES", False),
+            (None, False, "SEARCHABLE_VALUES", False),
+            (None, None, "dummy_approach", True),
+            (None, True, "dummy_approach", True),
+            (
+                {"execution_order": "joint", "search_algorithm": "exhaustive"},
+                None,
+                "SEARCHABLE_VALUES",
+                True,
+            ),
+        ],
+    )
+    def test_pass_config_(self, search_strategy, disable_search, approach, is_valid):
+        config_dict = self.template.copy()
+        config_dict["engine"]["search_strategy"] = search_strategy
+        config_dict["passes"]["tuning"]["disable_search"] = disable_search
+        config_dict["passes"]["tuning"]["config"] = {"approach": approach}
+        if not is_valid:
+            with pytest.raises(ValueError):
+                RunConfig.parse_obj(config_dict)
+        else:
+            config = RunConfig.parse_obj(config_dict)
+            assert config.passes["tuning"].config["approach"] == approach

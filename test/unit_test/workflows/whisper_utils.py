@@ -301,6 +301,7 @@ class WhisperDecoderInputs:
 
         Returns:
             WhisperDecoderInputs: dummy inputs for decoder
+
         """
         num_attention_heads: int = config.encoder_attention_heads
         num_layers: int = config.decoder_layers  # + config.encoder_layers
@@ -392,6 +393,7 @@ class WhisperEncoderInputs:
 
         Returns:
             WhisperEncoderInputs: dummy inputs for encoder
+
         """
         input_features = torch.randn(
             size=(batch_size, feature_size, sequence_length),
@@ -519,6 +521,7 @@ class PastKeyValuesHelper:
 
         Returns:
             past_tuples: present key and values grouped by layer.
+
         """
         past_tuples = ()
         half_idx = len(past_key_values) // 2
@@ -551,6 +554,7 @@ class PastKeyValuesHelper:
         Returns:
             present_self (Tuple[torch.Tensor]): present key and values from self attention
             present_cross (Tuple[torch.Tensor]): present key and values from cross attention
+
         """
         present_self: List[torch.Tensor] = []
         present_cross: List[torch.Tensor] = []
@@ -574,6 +578,7 @@ class PastKeyValuesHelper:
 
         Returns:
             names (List[string]): input names
+
         """
         names = []
         num_layers = len(past_key_values) // 4 if encoder else len(past_key_values)

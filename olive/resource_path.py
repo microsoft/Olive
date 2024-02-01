@@ -33,12 +33,12 @@ class ResourceType(str, Enum):
         return self.value
 
 
-LOCAL_RESOURCE_TYPES = [ResourceType.LocalFile, ResourceType.LocalFolder]
-AZUREML_RESOURCE_TYPES = [
+LOCAL_RESOURCE_TYPES = (ResourceType.LocalFile, ResourceType.LocalFolder)
+AZUREML_RESOURCE_TYPES = (
     ResourceType.AzureMLModel,
     ResourceType.AzureMLDatastore,
     ResourceType.AzureMLJobOutput,
-]
+)
 
 
 class ResourcePath(AutoConfigClass):
