@@ -58,12 +58,14 @@ class LLMOnnxDmlInterface(BaseLLMInterface):
             self.tokenizer.chat_template = (
                 "{% for message in messages %}"
                 "{% if message['role'] == 'user' %}"
-                "USER: {{message['content']}} ASSISTANT:"
+                "{{ ' ' }}"
                 "{% endif %}"
-                "{% if message['role'] == 'assistant' %}"
-                "{{message['content']}}"
+                "{{ message['content'] }}"
+                "{% if not loop.last %}"
+                "{{ '  ' }}"
                 "{% endif %}"
                 "{% endfor %}"
+                "{{ eos_token }}"
             )
 
         # Create the I/O bindings
