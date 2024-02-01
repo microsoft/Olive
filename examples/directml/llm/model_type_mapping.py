@@ -9,7 +9,7 @@ def get_supported_lvlm_models():
     return ["llava-7b"]
 
 def get_supported_llm_models():
-    return ["llama-2-7b-chat", "llama-2-7b-chat-uncensored", "mistral-7b-chat", "mistral-7b-openorca", "codellama-7b-chat", "orca-mini-7b", "vicuna-7b-v1.5", "deepseek-coder-7b-instruct-v1.5", "wizard-vicuna-7b-uncensored", "dolphin-2.6-mistral-7b", "zephyr-7b-beta", "openhermes-2.5-mistral-7b", "noushermes-llama-2-7b", "openchat-7b-3.5", "neural-chat-7b-v3.1", "tinyllama-1.1b-chat-v0.6"]
+    return ["llama-2-7b-chat", "mistral-7b-chat", "falcon-7b-chat", "llama-2-7b-chat-uncensored", "mistral-7b-openorca", "codellama-7b-chat", "orca-mini-7b", "vicuna-7b-v1.5", "deepseek-coder-7b-instruct-v1.5", "wizard-vicuna-7b-uncensored", "dolphin-2.6-mistral-7b", "zephyr-7b-beta", "openhermes-2.5-mistral-7b", "noushermes-llama-2-7b", "openchat-7b-3.5", "neural-chat-7b-v3.1", "tinyllama-1.1b-chat-v0.6"]
 
 def get_all_supported_models():
     return get_supported_lvlm_models() + get_supported_llm_models()
@@ -17,8 +17,9 @@ def get_all_supported_models():
 def get_model_repo_id(model_type: str):
     return {
         "llama-2-7b-chat": "meta-llama/Llama-2-7b-chat-hf",
-        "llama-2-7b-chat-uncensored": "georgesung/llama2_7b_chat_uncensored",
         "mistral-7b-chat": "mistralai/Mistral-7B-Instruct-v0.1",
+        "falcon-7b-chat": "tiiuae/falcon-7b-instruct",
+        "llama-2-7b-chat-uncensored": "georgesung/llama2_7b_chat_uncensored",
         "mistral-7b-openorca": "Open-Orca/Mistral-7B-OpenOrca",
         "codellama-7b-chat": "codellama/CodeLlama-7b-Instruct-hf",
         "llava-7b": "llava-hf/llava-1.5-7b-hf",

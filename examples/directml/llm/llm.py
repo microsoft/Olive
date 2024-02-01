@@ -38,15 +38,23 @@ def set_config_parameters(tokenizer: transformers.AutoTokenizer, repo_id: str, n
         config.state_dict = pipeline.model.state_dict()
 
     config.hidden_size = llm_model.config.hidden_size
-    config.intermediate_size = llm_model.config.intermediate_size
     config.num_heads = llm_model.config.num_attention_heads
-    config.num_key_value_heads = llm_model.config.num_key_value_heads
     config.num_layers = num_layers or llm_model.config.num_hidden_layers
     config.vocab_size = llm_model.config.vocab_size
     config.model_type = main_model.config.model_type
     config.apply_residual_connection_post_layernorm = getattr(
         llm_model.config, "apply_residual_connection_post_layernorm", True
     )
+
+    if hasattr(llm_model.config, "intermediate_size"):
+        config.intermediate_size = llm_model.config.intermediate_size
+    else:
+        config.intermediate_size = llm_model.config.hidden_size * 4
+
+    if hasattr(llm_model.config, "multi_query") and llm_model.config.multi_query:
+        config.num_key_value_heads = 1
+    else:
+        config.num_key_value_heads = llm_model.config.num_key_value_heads
 
     if hasattr(llm_model.config, "rms_norm_eps"):
         config.normalization_type = "rms"
@@ -80,9 +88,8 @@ def optimize(model_dir: Path, repo_id: str, model_name: str, num_layers: Optiona
 
         # Some models are too fragile and need layer norm to be performed in fp32 to keep their accuracy.
         # bfloat16 could fix this, but since DML doesn't support it we need to fall back to fp32.
-        models_that_need_fp32_layer_norm = ["llava-hf_llava-1.5-7b-hf"]
+        models_that_need_fp32_layer_norm = ["llava-hf_llava-1.5-7b-hf", "tiiuae_falcon-7b-instruct"]
         models_that_need_fp32_mha = ["llava-hf_llava-1.5-7b-hf"]
-
         if model_name in models_that_need_fp32_layer_norm:
             olive_config["passes"]["optimize"]["config"]["force_fp32_ops"] = [
                 "SimplifiedLayerNormalization",
