@@ -2,8 +2,11 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 from pathlib import Path
 from typing import Dict, Union
+
+logger = logging.getLogger(__name__)
 
 
 def get_ort_inference_session(
@@ -19,6 +22,7 @@ def get_ort_inference_session(
 
         sess_options.register_custom_ops_library(get_library_path())
 
+    logger.debug(f"inference_settings: {inference_settings}")
     # execution provider
     execution_provider = inference_settings.get("execution_provider")
 
