@@ -359,7 +359,7 @@ class Engine:
             logger.warning(f"Failed to run Olive on {accelerator_spec}: {e}", exc_info=True)
             return None
 
-        self.footprints[accelerator_spec].to_file(output_dir / f"{prefix_output_name}footprints.json")
+        self.footprints[accelerator_spec].to_file(output_dir / f"{prefix_output_name}_footprints.json")
         return output_footprint
 
     def setup_passes(self, accelerator_spec: "AcceleratorSpec"):
