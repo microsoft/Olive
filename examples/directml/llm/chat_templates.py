@@ -113,6 +113,19 @@ NEURALCHAT_CHAT_TEMPLATE = """
 {% endfor %}
 """
 
+FALCON_CHAT_TEMPLATE = """
+{% for message in messages %}
+{% if message['role'] == 'user' %}
+{{ ' ' }}
+{% endif %}
+{{ message['content'] }}
+{% if not loop.last %}
+{{ '  ' }}
+{% endif %}
+{% endfor %}
+{{ eos_token }}
+"""
+
 def get_chat_template(model_type: str):
     return {
         "llama-2-7b-chat-uncensored": LLAMA_2_CHAT_UNCENSORED_CHAT_TEMPLATE,
@@ -125,4 +138,5 @@ def get_chat_template(model_type: str):
         "openchat-7b-3.5": OPENCHAT_CHAT_TEMPLATE,
         "neural-chat-7b-v3.1": NEURALCHAT_CHAT_TEMPLATE,
         "tinyllama-1.1b-chat-v0.6": ZEPHYR_CHAT_TEMPLATE,
+        "falcon-7b-chat": FALCON_CHAT_TEMPLATE,
     }.get(model_type, None)

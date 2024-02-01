@@ -9,7 +9,25 @@ def get_supported_lvlm_models():
     return ["llava-7b"]
 
 def get_supported_llm_models():
-    return ["llama-2-7b-chat", "mistral-7b-chat", "falcon-7b-chat", "llama-2-7b-chat-uncensored", "mistral-7b-openorca", "codellama-7b-chat", "orca-mini-7b", "vicuna-7b-v1.5", "deepseek-coder-7b-instruct-v1.5", "wizard-vicuna-7b-uncensored", "dolphin-2.6-mistral-7b", "zephyr-7b-beta", "openhermes-2.5-mistral-7b", "noushermes-llama-2-7b", "openchat-7b-3.5", "neural-chat-7b-v3.1", "tinyllama-1.1b-chat-v0.6"]
+    return [
+        "llama-2-7b-chat",
+        "mistral-7b-chat",
+        "falcon-7b-chat",
+        "llama-2-7b-chat-uncensored",
+        "mistral-7b-openorca",
+        "codellama-7b-chat",
+        "orca-mini-7b",
+        "vicuna-7b-v1.5",
+        "deepseek-coder-7b-instruct-v1.5",
+        "wizard-vicuna-7b-uncensored",
+        "dolphin-2.6-mistral-7b",
+        "zephyr-7b-beta",
+        "openhermes-2.5-mistral-7b",
+        "noushermes-llama-2-7b",
+        "openchat-7b-3.5",
+        "neural-chat-7b-v3.1",
+        "tinyllama-1.1b-chat-v0.6",
+    ]
 
 def get_all_supported_models():
     return get_supported_lvlm_models() + get_supported_llm_models()
