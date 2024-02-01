@@ -697,6 +697,7 @@ class Engine:
         try:
             with model_json_path.open("w") as f:
                 json.dump(model_json, f, indent=4)
+            logger.debug(f"Cached model {model_id} to {model_json_path}")
         except Exception as e:
             logger.error(f"Failed to cache model: {e}", exc_info=True)
 
@@ -779,6 +780,7 @@ class Engine:
         try:
             with run_json_path.open("w") as f:
                 json.dump(run_json, f, indent=4)
+            logger.debug(f"Cached run for {input_model_id}->{output_model_id} into {run_json_path}")
         except Exception as e:
             logger.error(f"Failed to cache run: {e}", exc_info=True)
 
@@ -856,7 +858,7 @@ class Engine:
 
         # check whether the config is valid
         if not p.validate_search_point(pass_search_point, accelerator_spec, with_fixed_value=True):
-            logger.debug("Invalid search point, prune")
+            logger.warning("Invalid search point, prune")
             output_model_config = INVALID_CONFIG
             # no need to record in footprint since there was no run and thus no valid/failed model
             # invalid configs are also not cached since the same config can be valid for other accelerator specs
@@ -884,6 +886,7 @@ class Engine:
                     start_time=run_cache.get("run_start_time", 0),
                     end_time=run_cache.get("run_end_time", 0),
                 )
+                logger.info(f"Loaded model from cache: {output_model_id}")
                 return output_model_config, output_model_id
 
         # new model id
@@ -928,6 +931,8 @@ class Engine:
                 raise  # rethrow the exception if no search is performed
 
         run_end_time = datetime.now().timestamp()
+        logger.info(f"Pass {pass_id}:{pass_name} finished in {run_end_time - run_start_time} seconds")
+
         # cache model
         self._cache_model(output_model_config, output_model_id)
 
