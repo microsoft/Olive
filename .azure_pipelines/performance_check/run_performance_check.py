@@ -225,15 +225,15 @@ def run_perf_comparison(cur_dir, model_name, device, model_root_path, test_num):
                 )
                 olive_config["evaluators"]["common_evaluator"]["metrics"].append(accuracy_metric)
                 olive_config["evaluators"]["common_evaluator"]["metrics"].append(latency_metric)
-                olive_config["evaluators"]["common_evaluator"]["metrics"][0][
-                    "data_config"
-                ] = huggingface_data_config_template(
-                    hf_model_config["model_name"], hf_model_config["task"], **hf_model_config["dataset"]
+                olive_config["evaluators"]["common_evaluator"]["metrics"][0]["data_config"] = (
+                    huggingface_data_config_template(
+                        hf_model_config["model_name"], hf_model_config["task"], **hf_model_config["dataset"]
+                    )
                 )
-                olive_config["evaluators"]["common_evaluator"]["metrics"][1][
-                    "data_config"
-                ] = huggingface_data_config_template(
-                    hf_model_config["model_name"], hf_model_config["task"], **hf_model_config["dataset"]
+                olive_config["evaluators"]["common_evaluator"]["metrics"][1]["data_config"] = (
+                    huggingface_data_config_template(
+                        hf_model_config["model_name"], hf_model_config["task"], **hf_model_config["dataset"]
+                    )
                 )
 
             run_with_config(optimized_model, olive_config, metric_res)
