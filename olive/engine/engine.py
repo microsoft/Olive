@@ -359,7 +359,9 @@ class Engine:
             logger.warning(f"Failed to run Olive on {accelerator_spec}: {e}", exc_info=True)
             return None
 
-        self.footprints[accelerator_spec].to_file(output_dir / f"{prefix_output_name}_footprints.json")
+        output_fp_path = output_dir / f"{prefix_output_name}_footprints.json"
+        logger.info(f"Save footprint to {output_fp_path}")
+        self.footprints[accelerator_spec].to_file(output_fp_path)
         return output_footprint
 
     def setup_passes(self, accelerator_spec: "AcceleratorSpec"):
@@ -432,8 +434,10 @@ class Engine:
             # output dir with pass flow
             output_dir_with_pf = Path(output_dir) / "-".join(pass_flow)
 
-            final_output_name = self._get_prefix_output_name(output_name, accelerator_spec, pass_output_names[-1])
-            pass_output_names[-1] = final_output_name
+            if not pass_output_names[-1] or output_name:
+                # if the last pass does not have output name, use the prefix output name
+                pass_output_names[-1] = self._get_prefix_output_name(output_name, accelerator_spec)
+            final_output_name = pass_output_names[-1]
 
             output_model_json = None
             for pass_output_name, pass_output_model_id in zip(pass_output_names, model_ids):
@@ -1023,12 +1027,8 @@ class Engine:
         )
         return signal
 
-    def _get_prefix_output_name(self, output_name: str, accelerator_spec: "AcceleratorSpec", prefix_output_name=None):
-        if output_name:
-            return f"{output_name}_{accelerator_spec}"
-        elif not prefix_output_name:
-            return f"{accelerator_spec}"
-        return prefix_output_name
+    def _get_prefix_output_name(self, output_name: str, accelerator_spec: "AcceleratorSpec"):
+        return f"{output_name}_{accelerator_spec}" if output_name else str(accelerator_spec)
 
     @contextmanager
     def create_managed_environment(self, accelerator_spec):
