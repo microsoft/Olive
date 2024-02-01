@@ -10,6 +10,7 @@ import shutil
 import warnings
 from pathlib import Path
 from typing import Optional
+from model_type_mapping import get_model_repo_id, get_all_supported_models, get_model_dir, get_model_name, get_supported_lvlm_models
 
 import config
 import torch
@@ -61,7 +62,7 @@ def set_config_parameters(tokenizer: transformers.AutoTokenizer, repo_id: str, n
     config.state_dict = main_model.state_dict()
 
 
-def optimize(optimized_model_dir: Path, repo_id: str, model_name: str, num_layers: Optional[int]):
+def optimize(model_dir: Path, repo_id: str, model_name: str, num_layers: Optional[int]):
     print(f"\nOptimizing {repo_id}")
 
     tokenizer = transformers.AutoTokenizer.from_pretrained(repo_id)
@@ -162,7 +163,7 @@ def optimize(optimized_model_dir: Path, repo_id: str, model_name: str, num_layer
 
     # Copy the ONNX models
     src_path = model_info[model_name]["optimized"]["path"]
-    dst_path = optimized_model_dir / model_name / src_path.name
+    dst_path = model_dir / src_path.name
     os.makedirs(os.path.dirname(dst_path), exist_ok=True)
     shutil.copyfile(src_path, dst_path)
 
@@ -181,7 +182,7 @@ def optimize(optimized_model_dir: Path, repo_id: str, model_name: str, num_layer
         dst_preprocessor_config_path = dst_path.parents[0] / "preprocessor_config.json"
         shutil.copyfile(src_preprocessor_config_path, dst_preprocessor_config_path)
 
-    print(f"The optimized pipeline is located here: {optimized_model_dir}")
+    print(f"The optimized pipeline is located here: {model_dir}")
 
 
 if __name__ == "__main__":
@@ -202,9 +203,9 @@ if __name__ == "__main__":
     parser.add_argument("--device", type=str, choices=["dml", "cuda"], default="dml")
     parser.add_argument(
         "--model_type",
-        default="llama-2-7b-chat",
-        choices=["llama-2-7b-chat", "mistral-7b-chat", "mistral-7b-openorca", "codellama-7b-chat", "llava-7b"],
+        choices=get_all_supported_models(),
         help="Which model to convert.",
+        required=True,
         type=str,
     )
     parser.add_argument(
@@ -216,21 +217,12 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    script_dir = Path(__file__).resolve().parent
-    optimized_model_dir = script_dir / "models" / "optimized"
+    model_name = get_model_name(args.model_type)
+    model_dir = get_model_dir(args.model_type)
+    repo_id = get_model_repo_id(args.model_type)
 
-    repo_id = {
-        "llama-2-7b-chat": "meta-llama/Llama-2-7b-chat-hf",
-        "mistral-7b-chat": "mistralai/Mistral-7B-Instruct-v0.1",
-        "mistral-7b-openorca": "Open-Orca/Mistral-7B-OpenOrca",
-        "codellama-7b-chat": "codellama/CodeLlama-7b-Instruct-hf",
-        "llava-7b": "llava-hf/llava-1.5-7b-hf",
-    }[args.model_type]
-
-    model_name = repo_id.replace("/", "_")
-
-    if args.optimize or not (optimized_model_dir / model_name).exists():
-        optimize(optimized_model_dir, repo_id, model_name, args.num_layers)
+    if args.optimize or not (model_dir).exists():
+        optimize(model_dir, repo_id, model_name, args.num_layers)
 
     if not args.optimize:
         if args.interactive:
@@ -239,9 +231,9 @@ if __name__ == "__main__":
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
 
-                if repo_id == "llava-hf/llava-1.5-7b-hf":
+                if args.model_type in get_supported_lvlm_models():
                     run_vision_llm_io_binding(
-                        optimized_model_dir / model_name,
+                        args.model_type,
                         "What is in this image?",
                         "placeholder.png",
                         args.max_seq_len,
@@ -251,7 +243,7 @@ if __name__ == "__main__":
                     )
                 else:
                     run_llm_io_binding(
-                        optimized_model_dir / model_name,
+                        args.model_type,
                         args.prompt,
                         args.max_seq_len,
                         args.max_gen_len,

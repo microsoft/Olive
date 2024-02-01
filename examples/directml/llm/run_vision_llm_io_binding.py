@@ -1,3 +1,8 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
+
 # This program will run the ONNX version of the LLM.
 import argparse
 import os
@@ -7,10 +12,12 @@ import numpy as np
 import onnxruntime
 from PIL import Image
 from transformers import AutoProcessor
+from chat_templates import get_chat_template
+from model_type_mapping import get_supported_lvlm_models, get_model_dir
 
 
 def run_vision_llm_io_binding(
-    model_dir: str,
+    model_type: str,
     prompt: str,
     image_path: str,
     max_seq_len: int = 2048,
@@ -36,6 +43,7 @@ def run_vision_llm_io_binding(
         )
     ]
 
+    model_dir = get_model_dir(model_type)
     llm_session_options = onnxruntime.SessionOptions()
     llm_session_options.add_free_dimension_override_by_name("batch_size", 1)
     llm_session_options.add_free_dimension_override_by_name("attention_mask_sequence_length", max_seq_len)
@@ -156,15 +164,16 @@ if __name__ == "__main__":
     parser.add_argument("--device", type=str, choices=["dml", "cuda"], default="dml")
     parser.add_argument("--device_id", type=int, default=0)
     parser.add_argument(
-        "--model_dir",
-        type=str,
+        "--model_type",
+        choices=get_supported_lvlm_models(),
+        help="Which model to run.",
         required=True,
-        help="Path to the folder containing the decoder_model_merged.onnx file",
+        type=str,
     )
 
     args = parser.parse_args()
     run_vision_llm_io_binding(
-        args.model_dir,
+        args.model_type,
         args.prompt,
         args.image,
         args.max_seq_len,
