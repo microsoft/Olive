@@ -111,7 +111,7 @@ jobs:
 
 - template: job_templates/olive-example-template.yaml
   parameters:
-    name: Linux_CI_ORT_1.16
+    name: Linux_CI_ORT_116
     pool: $(OLIVE_POOL_UBUNTU2004)
     onnxruntime: onnxruntime==1.16.3
     examples:
