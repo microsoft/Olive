@@ -313,7 +313,7 @@ class Engine:
         # hash the input model
         input_model_id = self._init_input_model(input_model_config)
         self.footprints[accelerator_spec].record(model_id=input_model_id)
-        prefix_output_name = self._get_prefix_output_name(output_name, accelerator_spec)
+        prefix_output_name = Engine._get_prefix_output_name(output_name, accelerator_spec)
 
         try:
             if evaluate_input_model and not self.evaluator_config:
@@ -436,7 +436,7 @@ class Engine:
 
             if not pass_output_names[-1] or output_name:
                 # if the last pass does not have output name, use the prefix output name
-                pass_output_names[-1] = self._get_prefix_output_name(output_name, accelerator_spec)
+                pass_output_names[-1] = Engine._get_prefix_output_name(output_name, accelerator_spec)
             final_output_name = pass_output_names[-1]
 
             output_model_json = None
@@ -476,7 +476,7 @@ class Engine:
         output_name: str = None,
     ):
         """Run all the registered Olive passes in search model where search strategy is not None."""
-        prefix_output_name = self._get_prefix_output_name(output_name, accelerator_spec)
+        prefix_output_name = Engine._get_prefix_output_name(output_name, accelerator_spec)
 
         # get objective_dict
         evaluator_config = self.evaluator_for_pass(list(self.passes.keys())[-1])
@@ -1032,7 +1032,8 @@ class Engine:
         )
         return signal
 
-    def _get_prefix_output_name(self, output_name: str, accelerator_spec: "AcceleratorSpec"):
+    @staticmethod
+    def _get_prefix_output_name(output_name: str, accelerator_spec: "AcceleratorSpec"):
         return f"{output_name}_{accelerator_spec}" if output_name else str(accelerator_spec)
 
     @contextmanager
