@@ -49,7 +49,6 @@ def get_ort_inference_session(
         sess_options.graph_optimization_level = ort.GraphOptimizationLevel(graph_optimization_level)
     if extra_session_config:
         for key, value in extra_session_config.items():
-            logger.info(f"extra_session_config: {key}={value}")
             sess_options.add_session_config_entry(key, value)
 
     if isinstance(execution_provider, str):

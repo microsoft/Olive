@@ -26,18 +26,7 @@
                     "sub_types": [
                         {"name": "accuracy", "priority": 1, "goal": {"type": "max-degradation", "value": 0.05}},
                         {"name": "f1"}
-                    ],
-                    "user_config":{
-                        "inference_settings" : {
-                            "onnx": {
-                                "session_options": {
-                                    "extra_session_config": {
-                                        "session.allow_released_opsets_only": "0"
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    ]
                 },
                 {
                     "name": "latency",
@@ -46,18 +35,7 @@
                         {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 0.1}},
                         {"name": "max"},
                         {"name": "min"}
-                    ],
-                    "user_config":{
-                        "inference_settings" : {
-                            "onnx": {
-                                "session_options": {
-                                    "extra_session_config": {
-                                        "session.allow_released_opsets_only": "0"
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    ]
                 },
                 {
                     "name": "throughput",
@@ -66,18 +44,7 @@
                         {"name": "avg"},
                         {"name": "max"},
                         {"name": "min"}
-                    ],
-                    "user_config":{
-                        "inference_settings" : {
-                            "onnx": {
-                                "session_options": {
-                                    "extra_session_config": {
-                                        "session.allow_released_opsets_only": "0"
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    ]
                 }
             ]
         }
