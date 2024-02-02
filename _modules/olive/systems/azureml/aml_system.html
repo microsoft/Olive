@@ -284,7 +284,7 @@
         <span class="n">ml_client</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">create_client</span><span class="p">()</span>
         <span class="n">point</span> <span class="o">=</span> <span class="n">point</span> <span class="ow">or</span> <span class="p">{}</span>
         <span class="n">config</span> <span class="o">=</span> <span class="n">the_pass</span><span class="o">.</span><span class="n">config_at_search_point</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
-        <span class="n">data_params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_data_script_inputs_and_args</span><span class="p">(</span><span class="n">the_pass</span><span class="p">)</span>
+        <span class="n">data_params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_data_script_inputs_and_args</span><span class="p">(</span><span class="n">data_root</span><span class="p">,</span> <span class="n">the_pass</span><span class="p">)</span>
         <span class="n">pass_config</span> <span class="o">=</span> <span class="n">the_pass</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">pass_config</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">the_pass</span><span class="o">.</span><span class="n">serialize_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
 
@@ -315,18 +315,15 @@
         <span class="k">return</span> <span class="n">inputs</span>
 
     <span class="k">def</span> <span class="nf">_create_args_from_resource_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rp</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span><span class="p">):</span>
-        <span class="n">model_resource_path</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="n">rp</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">model_resource_path</span><span class="p">:</span>
+        <span class="n">resource_path</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="n">rp</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">resource_path</span><span class="p">:</span>
             <span class="c1"># no argument for this resource, placeholder for optional input</span>
             <span class="k">return</span> <span class="kc">None</span>
-        <span class="n">asset_type</span> <span class="o">=</span> <span class="n">get_asset_type_from_resource_path</span><span class="p">(</span><span class="n">model_resource_path</span><span class="p">)</span>
+        <span class="n">asset_type</span> <span class="o">=</span> <span class="n">get_asset_type_from_resource_path</span><span class="p">(</span><span class="n">resource_path</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">model_resource_path</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">ResourceType</span><span class="o">.</span><span class="n">AzureMLDatastore</span><span class="p">:</span>
-            <span class="n">asset_type</span> <span class="o">=</span> <span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span> <span class="k">if</span> <span class="n">model_resource_path</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span> <span class="k">else</span> <span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FOLDER</span>
-
-        <span class="k">if</span> <span class="n">model_resource_path</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="n">AZUREML_RESOURCE_TYPES</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">resource_path</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="n">AZUREML_RESOURCE_TYPES</span><span class="p">:</span>
             <span class="c1"># ensure that the model is in the same workspace as the system</span>
-            <span class="n">model_workspace_config</span> <span class="o">=</span> <span class="n">model_resource_path</span><span class="o">.</span><span class="n">get_aml_client_config</span><span class="p">()</span><span class="o">.</span><span class="n">get_workspace_config</span><span class="p">()</span>
+            <span class="n">model_workspace_config</span> <span class="o">=</span> <span class="n">resource_path</span><span class="o">.</span><span class="n">get_aml_client_config</span><span class="p">()</span><span class="o">.</span><span class="n">get_workspace_config</span><span class="p">()</span>
             <span class="n">system_workspace_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">get_workspace_config</span><span class="p">()</span>
             <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">model_workspace_config</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">model_workspace_config</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">!=</span> <span class="n">system_workspace_config</span><span class="p">[</span><span class="n">key</span><span class="p">]:</span>
@@ -336,18 +333,18 @@
                         <span class="s2">&quot;the system workspace.&quot;</span>
                     <span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">model_resource_path</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">ResourceType</span><span class="o">.</span><span class="n">AzureMLJobOutput</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">resource_path</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">ResourceType</span><span class="o">.</span><span class="n">AzureMLJobOutput</span><span class="p">:</span>
             <span class="c1"># there is no direct way to use the output of a job as input to another job</span>
             <span class="c1"># so we create a dummy aml model and use it as input</span>
             <span class="n">ml_client</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">create_client</span><span class="p">()</span>
 
             <span class="c1"># create aml model</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Creating aml model for job output </span><span class="si">{</span><span class="n">model_resource_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Creating aml model for job output </span><span class="si">{</span><span class="n">resource_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="n">aml_model</span> <span class="o">=</span> <span class="n">retry_func</span><span class="p">(</span>
                 <span class="n">ml_client</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">create_or_update</span><span class="p">,</span>
                 <span class="p">[</span>
                     <span class="n">Model</span><span class="p">(</span>
-                        <span class="n">path</span><span class="o">=</span><span class="n">model_resource_path</span><span class="o">.</span><span class="n">get_path</span><span class="p">(),</span>
+                        <span class="n">path</span><span class="o">=</span><span class="n">resource_path</span><span class="o">.</span><span class="n">get_path</span><span class="p">(),</span>
                         <span class="n">name</span><span class="o">=</span><span class="s2">&quot;olive-backend-model&quot;</span><span class="p">,</span>
                         <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Model created by Olive backend. Ignore this model.&quot;</span><span class="p">,</span>
                         <span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">CUSTOM_MODEL</span><span class="p">,</span>
@@ -357,7 +354,7 @@
                 <span class="n">delay</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">operation_retry_interval</span><span class="p">,</span>
                 <span class="n">exceptions</span><span class="o">=</span><span class="n">ServiceResponseError</span><span class="p">,</span>
             <span class="p">)</span>
-            <span class="n">model_resource_path</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span>
+            <span class="n">resource_path</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span>
                 <span class="n">AzureMLModel</span><span class="p">(</span>
                     <span class="p">{</span>
                         <span class="s2">&quot;azureml_client&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="p">,</span>
@@ -367,8 +364,8 @@
                 <span class="p">)</span>
             <span class="p">)</span>
         <span class="c1"># we keep the model path as a string in the config file</span>
-        <span class="k">if</span> <span class="n">model_resource_path</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="n">ResourceType</span><span class="o">.</span><span class="n">StringName</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">asset_type</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">model_resource_path</span><span class="o">.</span><span class="n">get_path</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">resource_path</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="n">ResourceType</span><span class="o">.</span><span class="n">StringName</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">asset_type</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">resource_path</span><span class="o">.</span><span class="n">get_path</span><span class="p">())</span>
 
         <span class="k">return</span> <span class="kc">None</span>
 
@@ -544,7 +541,7 @@
 
         <span class="k">return</span> <span class="n">pass_runner_pipeline</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">_create_data_script_inputs_and_args</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">the_pass</span><span class="p">:</span> <span class="s2">&quot;Pass&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataParams</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">_create_data_script_inputs_and_args</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">the_pass</span><span class="p">:</span> <span class="s2">&quot;Pass&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataParams</span><span class="p">:</span>
         <span class="n">data_inputs</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">data_args</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">data_name_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
@@ -552,6 +549,15 @@
         <span class="k">def</span> <span class="nf">update_dicts</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">script_attr</span><span class="p">,</span> <span class="n">input_type</span><span class="p">):</span>
             <span class="n">data_inputs</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">input_type</span><span class="p">,</span> <span class="n">optional</span><span class="o">=</span><span class="kc">True</span><span class="p">)})</span>
             <span class="n">data_args</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">input_type</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">script_attr</span><span class="p">,</span> <span class="n">key</span><span class="p">))})</span>
+
+        <span class="k">def</span> <span class="nf">update_data_path</span><span class="p">(</span><span class="n">data_config</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">data_inputs</span><span class="p">,</span> <span class="n">data_args</span><span class="p">,</span> <span class="n">asset_type</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">data_config</span><span class="o">.</span><span class="n">params_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">):</span>
+                <span class="n">data_path_resource_path</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="n">data_config</span><span class="o">.</span><span class="n">params_config</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+                <span class="n">data_path_resource_path</span> <span class="o">=</span> <span class="n">normalize_data_path</span><span class="p">(</span><span class="n">data_root</span><span class="p">,</span> <span class="n">data_path_resource_path</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">data_path_resource_path</span><span class="p">:</span>
+                    <span class="n">data_path_resource_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_args_from_resource_path</span><span class="p">(</span><span class="n">data_path_resource_path</span><span class="p">)</span>
+                    <span class="n">data_inputs</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">data_config</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">asset_type</span><span class="p">,</span> <span class="n">optional</span><span class="o">=</span><span class="kc">True</span><span class="p">)})</span>
+                    <span class="n">data_args</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">data_config</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="n">data_path_resource_path</span><span class="p">})</span>
 
         <span class="k">for</span> <span class="n">param</span><span class="p">,</span> <span class="n">param_config</span> <span class="ow">in</span> <span class="n">the_pass</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>  <span class="c1"># pylint: disable=protected-access</span>
             <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;data_config&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">param_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -562,6 +568,9 @@
                         <span class="n">update_dicts</span><span class="p">(</span><span class="n">data_config</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;user_script&quot;</span><span class="p">,</span> <span class="n">data_config</span><span class="p">,</span> <span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">)</span>
                     <span class="k">if</span> <span class="n">data_config</span><span class="o">.</span><span class="n">script_dir</span><span class="p">:</span>
                         <span class="n">update_dicts</span><span class="p">(</span><span class="n">data_config</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;script_dir&quot;</span><span class="p">,</span> <span class="n">data_config</span><span class="p">,</span> <span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FOLDER</span><span class="p">)</span>
+                    <span class="n">update_data_path</span><span class="p">(</span><span class="n">data_config</span><span class="p">,</span> <span class="s2">&quot;data_dir&quot;</span><span class="p">,</span> <span class="n">data_inputs</span><span class="p">,</span> <span class="n">data_args</span><span class="p">,</span> <span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FOLDER</span><span class="p">)</span>
+                    <span class="n">update_data_path</span><span class="p">(</span><span class="n">data_config</span><span class="p">,</span> <span class="s2">&quot;data_files&quot;</span><span class="p">,</span> <span class="n">data_inputs</span><span class="p">,</span> <span class="n">data_args</span><span class="p">,</span> <span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">)</span>
+
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Data inputs for pass: </span><span class="si">{</span><span class="n">data_inputs</span><span class="si">}</span><span class="s2">, data args for pass: </span><span class="si">{</span><span class="n">data_args</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">DataParams</span><span class="p">(</span><span class="n">data_inputs</span><span class="p">,</span> <span class="n">data_args</span><span class="p">)</span>
 
