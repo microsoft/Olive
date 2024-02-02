@@ -26,8 +26,6 @@ def setup():
     os.chdir(cur_dir)
 
 
-@pytest.mark.parametrize("search_algorithm", ["exhaustive"])
-@pytest.mark.parametrize("execution_order", ["pass-by-pass"])
 @pytest.mark.parametrize("system", ["local_system", "aml_system"])
 @pytest.mark.parametrize("olive_json", ["resnet_vitis_ai_ptq_cpu.json"])
 def test_resnet(search_algorithm, execution_order, system, olive_json):
