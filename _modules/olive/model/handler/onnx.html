@@ -258,10 +258,7 @@
     <span class="k">def</span> <span class="nf">_get_default_execution_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
         <span class="c1"># return available ep as ort default ep</span>
         <span class="n">available_providers</span> <span class="o">=</span> <span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">get_execution_providers_for_device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
-        <span class="n">eps</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">available_providers</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_valid_ep</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="n">ep</span><span class="p">):</span>
-                <span class="n">eps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ep</span><span class="p">)</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="p">[</span><span class="n">ep</span> <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">available_providers</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_valid_ep</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="n">ep</span><span class="p">)]</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">eps</span><span class="p">:</span>
             <span class="n">eps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">)</span>
