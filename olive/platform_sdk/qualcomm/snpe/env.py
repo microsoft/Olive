@@ -28,7 +28,7 @@ class SNPESDKEnv(SDKEnv):
                 if not Path(python_env_bin_path).exists():
                     raise FileNotFoundError(
                         f"Path {python_env_bin_path} does not exist. Please run"
-                        " 'python -m olive.platform_sdk.qualcomm.snpe.configure --py_version 3.8'"
+                        " 'python -m olive.platform_sdk.qualcomm.configure --py_version 3.8 --sdk snpe'"
                         " to add the missing file."
                     )
                 env["LD_LIBRARY_PATH"] += delimiter + python_env_lib_path
@@ -39,7 +39,7 @@ class SNPESDKEnv(SDKEnv):
                 if not Path(bin_path).exists():
                     raise FileNotFoundError(
                         f"Path {bin_path} does not exist. Please run"
-                        " 'python -m olive.platform_sdk.qualcomm.snpe.configure' to add the"
+                        " 'python -m olive.platform_sdk.qualcomm.configure --py_version 3.8 --sdk snpe' to add the"
                         " missing folder"
                     )
         return env
