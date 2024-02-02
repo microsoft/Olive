@@ -122,6 +122,10 @@ def _package_candidate_models(
         use_ort_extensions = pf_footprint.get_use_ort_extensions(model_id)
         if use_ort_extensions:
             inference_config["use_ort_extensions"] = True
+        # Add custom op lib name to inference config if needed
+        custom_op_lib = pf_footprint.get_custom_op_lib(model_id)
+        if custom_op_lib:
+            inference_config["custom_op_lib"] = custom_op_lib
 
         with inference_config_path.open("w") as f:
             json.dump(inference_config, f)

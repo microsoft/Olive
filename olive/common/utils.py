@@ -344,3 +344,15 @@ def set_tempdir(tempdir: str = None):
     # setting as string to be safe
     logger.debug("Setting tempdir to %s from %s", tempdir, tempfile.tempdir)
     tempfile.tempdir = str(tempdir)
+
+
+def onnx_dtype_to_np_dtype(dtype: str) -> str:
+    try:
+        from onnx.helper import tensor_dtype_to_np_dtype
+    except ImportError:
+        from onnx.mapping import TENSOR_TYPE_TO_NP_TYPE
+
+        def tensor_dtype_to_np_dtype(tensor_type):
+            return TENSOR_TYPE_TO_NP_TYPE[tensor_type]
+
+    return str(tensor_dtype_to_np_dtype(dtype))

@@ -32,6 +32,7 @@ def get_ort_inference_session(
     inference_settings: Dict[str, Any],
     use_ort_extensions: bool = False,
     device_id: Optional[int] = None,
+    custom_op_lib_path: Union[Path, str] = None,
 ):
     """Get an ONNXRuntime inference session.
 
@@ -43,6 +44,7 @@ def get_ort_inference_session(
         provider_options: list, optional. List of provider options for the execution providers.
     :param use_ort_extensions: Whether to use onnxruntime-extensions. Default is False.
     :param device_id: Optional device id to use for CUDA or DML execution providers.
+    :param custom_op_lib_path: Optional path to a custom op library to register.
     """
     import onnxruntime as ort
 
@@ -52,6 +54,9 @@ def get_ort_inference_session(
         from onnxruntime_extensions import get_library_path
 
         sess_options.register_custom_ops_library(get_library_path())
+    if custom_op_lib_path:
+        logger.debug(f"Registering custom op library: {custom_op_lib_path}")
+        sess_options.register_custom_ops_library(str(custom_op_lib_path))
 
     logger.debug("inference_settings: %s", inference_settings)
 
