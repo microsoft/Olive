@@ -156,7 +156,7 @@ class AzureMLSystem(OliveSystem):
         ml_client = self.azureml_client_config.create_client()
         point = point or {}
         config = the_pass.config_at_search_point(point)
-        data_params = self._create_data_script_inputs_and_args(the_pass)
+        data_params = self._create_data_script_inputs_and_args(data_root, the_pass)
         pass_config = the_pass.to_json(check_object=True)
         pass_config["config"].update(the_pass.serialize_config(config, check_object=True))
 
@@ -187,18 +187,15 @@ class AzureMLSystem(OliveSystem):
         return inputs
 
     def _create_args_from_resource_path(self, rp: OLIVE_RESOURCE_ANNOTATIONS):
-        model_resource_path = create_resource_path(rp)
-        if not model_resource_path:
+        resource_path = create_resource_path(rp)
+        if not resource_path:
             # no argument for this resource, placeholder for optional input
             return None
-        asset_type = get_asset_type_from_resource_path(model_resource_path)
+        asset_type = get_asset_type_from_resource_path(resource_path)
 
-        if model_resource_path.type == ResourceType.AzureMLDatastore:
-            asset_type = AssetTypes.URI_FILE if model_resource_path.is_file() else AssetTypes.URI_FOLDER
-
-        if model_resource_path.type in AZUREML_RESOURCE_TYPES:
+        if resource_path.type in AZUREML_RESOURCE_TYPES:
             # ensure that the model is in the same workspace as the system
-            model_workspace_config = model_resource_path.get_aml_client_config().get_workspace_config()
+            model_workspace_config = resource_path.get_aml_client_config().get_workspace_config()
             system_workspace_config = self.azureml_client_config.get_workspace_config()
             for key in model_workspace_config:
                 if model_workspace_config[key] != system_workspace_config[key]:
@@ -208,18 +205,18 @@ class AzureMLSystem(OliveSystem):
                         "the system workspace."
                     )
 
-        if model_resource_path.type == ResourceType.AzureMLJobOutput:
+        if resource_path.type == ResourceType.AzureMLJobOutput:
             # there is no direct way to use the output of a job as input to another job
             # so we create a dummy aml model and use it as input
             ml_client = self.azureml_client_config.create_client()
 
             # create aml model
-            logger.debug(f"Creating aml model for job output {model_resource_path}")
+            logger.debug(f"Creating aml model for job output {resource_path}")
             aml_model = retry_func(
                 ml_client.models.create_or_update,
                 [
                     Model(
-                        path=model_resource_path.get_path(),
+                        path=resource_path.get_path(),
                         name="olive-backend-model",
                         description="Model created by Olive backend. Ignore this model.",
                         type=AssetTypes.CUSTOM_MODEL,
@@ -229,7 +226,7 @@ class AzureMLSystem(OliveSystem):
                 delay=self.azureml_client_config.operation_retry_interval,
                 exceptions=ServiceResponseError,
             )
-            model_resource_path = create_resource_path(
+            resource_path = create_resource_path(
                 AzureMLModel(
                     {
                         "azureml_client": self.azureml_client_config,
@@ -239,8 +236,8 @@ class AzureMLSystem(OliveSystem):
                 )
             )
         # we keep the model path as a string in the config file
-        if model_resource_path.type != ResourceType.StringName:
-            return Input(type=asset_type, path=model_resource_path.get_path())
+        if resource_path.type != ResourceType.StringName:
+            return Input(type=asset_type, path=resource_path.get_path())
 
         return None
 
@@ -416,7 +413,7 @@ class AzureMLSystem(OliveSystem):
 
         return pass_runner_pipeline()
 
-    def _create_data_script_inputs_and_args(self, the_pass: "Pass") -> DataParams:
+    def _create_data_script_inputs_and_args(self, data_root, the_pass: "Pass") -> DataParams:
         data_inputs = {}
         data_args = {}
         data_name_set = set()
@@ -424,6 +421,15 @@ class AzureMLSystem(OliveSystem):
         def update_dicts(name, key, script_attr, input_type):
             data_inputs.update({f"{name}_{key}": Input(type=input_type, optional=True)})
             data_args.update({f"{name}_{key}": Input(type=input_type, path=getattr(script_attr, key))})
+
+        def update_data_path(data_config, key, data_inputs, data_args, asset_type):
+            if data_config.params_config.get(key):
+                data_path_resource_path = create_resource_path(data_config.params_config[key])
+                data_path_resource_path = normalize_data_path(data_root, data_path_resource_path)
+                if data_path_resource_path:
+                    data_path_resource_path = self._create_args_from_resource_path(data_path_resource_path)
+                    data_inputs.update({f"{data_config.name}_{key}": Input(type=asset_type, optional=True)})
+                    data_args.update({f"{data_config.name}_{key}": data_path_resource_path})
 
         for param, param_config in the_pass._config.items():  # pylint: disable=protected-access
             if param.endswith("data_config") and param_config is not None:
@@ -434,6 +440,9 @@ class AzureMLSystem(OliveSystem):
                         update_dicts(data_config.name, "user_script", data_config, AssetTypes.URI_FILE)
                     if data_config.script_dir:
                         update_dicts(data_config.name, "script_dir", data_config, AssetTypes.URI_FOLDER)
+                    update_data_path(data_config, "data_dir", data_inputs, data_args, AssetTypes.URI_FOLDER)
+                    update_data_path(data_config, "data_files", data_inputs, data_args, AssetTypes.URI_FILE)
+
         logger.debug(f"Data inputs for pass: {data_inputs}, data args for pass: {data_args}")
         return DataParams(data_inputs, data_args)
 

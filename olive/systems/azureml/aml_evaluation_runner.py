@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
 
 def parse_metric_args(raw_args):
+    # TODO(xiaoyu): add support for metric datafiles if needed.
     parser = argparse.ArgumentParser("Metric config")
 
     parser.add_argument("--metric_config", type=str, help="pass config", required=True)

@@ -274,11 +274,14 @@ class TestAzureMLSystem:
         # setup
         script_dir_path = Path(__file__).absolute().parent / "script_dir"
         user_script_path = script_dir_path / "user_script.py"
+        data_dir_path = Path(__file__).absolute().parent / "data_dir"
+        data_files_path = data_dir_path / "datafile.json"
         data_config = DataConfig(
             type="HuggingfaceContainer",
             name="data_name",
             user_script=str(user_script_path),
             script_dir=str(script_dir_path),
+            params_config={"data_dir": data_dir_path, "data_files": data_files_path},
         )
         pass_config = {"data_config": data_config}
         the_pass = MagicMock()
@@ -286,14 +289,18 @@ class TestAzureMLSystem:
         expected_data_inputs = {
             "data_name_user_script": Input(type=AssetTypes.URI_FILE, optional=True),
             "data_name_script_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
+            "data_name_data_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
+            "data_name_data_files": Input(type=AssetTypes.URI_FILE, optional=True),
         }
         expected_data_args = {
             "data_name_user_script": Input(type=AssetTypes.URI_FILE, path=str(user_script_path)),
             "data_name_script_dir": Input(type=AssetTypes.URI_FOLDER, path=str(script_dir_path)),
+            "data_name_data_dir": Input(type=AssetTypes.URI_FOLDER, path=str(data_dir_path)),
+            "data_name_data_files": Input(type=AssetTypes.URI_FILE, path=str(data_files_path)),
         }
 
         # execute
-        actual_data_params = self.system._create_data_script_inputs_and_args(the_pass)
+        actual_data_params = self.system._create_data_script_inputs_and_args(None, the_pass)
 
         # assert
         assert actual_data_params.data_inputs == expected_data_inputs
