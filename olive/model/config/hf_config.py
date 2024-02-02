@@ -244,9 +244,8 @@ class HfConfig(ConfigBase):
 
     @validator("model_class", always=True)
     def task_or_model_class_required(cls, v, values):
-        if values["model_name"]:
-            if not v and not values.get("task", None):
-                raise ValueError("Either task or model_class must be specified")
+        if values["model_name"] and not v and not values.get("task", None):
+            raise ValueError("Either task or model_class must be specified")
         return v
 
     def get_loading_args_from_pretrained(self) -> Dict[str, Any]:

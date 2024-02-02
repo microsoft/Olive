@@ -37,12 +37,7 @@ class DirectedGraph:
         visited = set()
         rec_stack = set()
 
-        for v in self.vertices:
-            if v not in visited:
-                if self._is_cyclic_util(v, visited, rec_stack):
-                    return True
-
-        return False
+        return any(v not in visited and self._is_cyclic_util(v, visited, rec_stack) for v in self.vertices)
 
     def _topological_sort_util(self, v: str, visited: Set[str], order: List[str]):
         visited.add(v)

@@ -314,8 +314,7 @@ class AzureMLSystem(OliveSystem):
             else:
                 parameters.append(f"--{param} ${{{{inputs.{param}}}}}")
         outputs = outputs or {}
-        for param in outputs:
-            parameters.append(f"--{param} ${{{{outputs.{param}}}}}")
+        parameters.extend([f"--{param} ${{{{outputs.{param}}}}}" for param in outputs])
 
         cmd_line = f"python {script_name} {' '.join(parameters)}"
         return command(

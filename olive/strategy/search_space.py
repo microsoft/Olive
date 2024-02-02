@@ -26,8 +26,7 @@ class SearchSpace:
         full_iter_order = []
         for space_name, space_item in search_space.items():
             iter_order = order_search_parameters(space_item)
-            for param_name in iter_order:
-                full_iter_order.append((space_name, param_name))
+            full_iter_order.extend([(space_name, param_name) for param_name in iter_order])
         return full_iter_order
 
     def set_seed(self, seed: int):
