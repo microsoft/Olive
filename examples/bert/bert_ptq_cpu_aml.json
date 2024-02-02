@@ -80,7 +80,6 @@
         }
     },
     "engine": {
-        "search_strategy": false,
         "execution_providers": ["CPUExecutionProvider"],
         "evaluator": "common_evaluator",
         "cache_dir": "cache",

@@ -49,7 +49,6 @@
         },
         "optimize": {
             "type": "OrtTransformersOptimization",
-            "disable_search": true,
             "config": {
                 "model_type": "vae",
                 "opt_level": 0,
@@ -85,7 +84,6 @@
         },
         "optimize_cuda": {
             "type": "OrtTransformersOptimization",
-            "disable_search": true,
             "config": {
                 "model_type": "vae",
                 "opt_level": 0,
@@ -99,10 +97,6 @@
         ["convert", "optimize"]
     ],
     "engine": {
-        "search_strategy": {
-            "execution_order": "joint",
-            "search_algorithm": "exhaustive"
-        },
         "evaluator": "common_evaluator",
         "evaluate_input_model": false,
         "host": "local_system",

@@ -44,14 +44,12 @@
         },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
-            "disable_search": true,
             "config": {
                 "float16": true
             }
         }
     },
     "engine": {
-        "search_strategy": false,
         "evaluator": "common_evaluator",
         "execution_providers": ["CUDAExecutionProvider"],
         "cache_dir": "cache",

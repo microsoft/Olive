@@ -59,14 +59,6 @@
         }
     },
     "engine": {
-        "search_strategy": {
-            "execution_order": "joint",
-            "search_algorithm": "tpe",
-            "search_algorithm_config": {
-                "num_samples": 3,
-                "seed": 0
-            }
-        },
         "evaluator": "common_evaluator",
         "execution_providers": ["TensorrtExecutionProvider"],
         "clean_cache": true,

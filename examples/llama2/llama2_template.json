@@ -128,7 +128,6 @@
         },
         "transformers_optimization_fp16": {
             "type": "OrtTransformersOptimization",
-            "disable_search": true,
             "evaluator": "gqa_evaluator",
             "config": {
                 "save_as_external_data": true,
@@ -143,7 +142,6 @@
         },
         "transformers_optimization_fp32": {
             "type": "OrtTransformersOptimization",
-            "disable_search": true,
             "config": {
                 "save_as_external_data": true,
                 "all_tensors_to_one_file": true,
@@ -157,7 +155,6 @@
         },
         "onnx_dynamic_quant_int8": {
             "type": "OnnxDynamicQuantization",
-            "disable_search": true,
             "config": {
                 "save_as_external_data": true,
                 "all_tensors_to_one_file": true,
@@ -172,7 +169,6 @@
         },
         "blockwise_quant_int4": {
             "type": "OnnxMatMul4Quantizer",
-            "disable_search": true,
             "evaluator": "gqa_evaluator",
             "config": {
                 "save_as_external_data": true,
@@ -183,14 +179,6 @@
         }
     },
     "engine": {
-        "search_strategy": {
-            "execution_order": "pass-by-pass",
-            "search_algorithm": "tpe",
-            "search_algorithm_config": {
-                "num_samples": 3,
-                "seed": 0
-            }
-        },
         "evaluator": "merged_evaluator",
         "cache_dir": "cache",
         "output_dir": "<output_dir_placeholder>"
