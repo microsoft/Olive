@@ -32,13 +32,11 @@ class ModelOptimizer:
         self.onnx_model = TransformersOnnxModel(self.model)
         self.graph = self.onnx_model.graph()
 
-        node_idx = 0
         self.node_name2module = {}
 
-        for node in self.graph.node:
+        for node_idx, node in enumerate(self.graph.node):
             if node.name == "":
                 node.name = str(node.op_type) + str(node_idx)
-            node_idx += 1
             self.node_name2module[node.name] = [node, node_idx]
 
     def optimize(self):
