@@ -304,7 +304,12 @@ class TestAzureMLSystem:
 
         # assert
         assert actual_data_params.data_inputs == expected_data_inputs
-        assert actual_data_params.data_args == expected_data_args
+        # assert actual_data_params.data_args == expected_data_args
+        # I deliberately use the Path.__eq__ to compare path since sometimes in Windows, the path root
+        # will be changed to uppercase, which will cause the test to fail.
+        for k, v in actual_data_params.data_args.items():
+            assert v.type == expected_data_args[k].type
+            assert Path(v.path) == Path(expected_data_args[k].path)
 
     def test__create_metric_args(self):
         # setup
@@ -439,8 +444,7 @@ class TestAzureMLSystem:
             else:
                 parameters.append(f"--{param} ${{{{inputs.{param}}}}}")
         outputs = outputs or {}
-        for param in outputs:
-            parameters.append(f"--{param} ${{{{outputs.{param}}}}}")
+        parameters.extend([f"--{param} ${{{{outputs.{param}}}}}" for param in outputs])
 
         return f"python {script_name} {' '.join(parameters)}"
 

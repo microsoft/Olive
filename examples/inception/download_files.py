@@ -52,7 +52,7 @@ def download_model():
     model_path = models_dir / "inception_v3.pb"
     if model_path.exists():
         model_path.unlink()
-    Path(stage_dir / inception_v3_archive_file.strip(".tar.gz")).rename(model_path)
+    Path(stage_dir / inception_v3_archive_file[: -len(".tar.gz")]).rename(model_path)
 
 
 def download_data():
