@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from olive.passes.onnx.append_pre_post_processing_ops import AppendPrePostProcessingOps
+from olive.passes.onnx.auto_fusion import AutoFusion
 from olive.passes.onnx.bnb_quantization import OnnxBnb4Quantization
 from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion
 from olive.passes.onnx.float16_conversion import OnnxFloatToFloat16
@@ -25,6 +26,7 @@ from olive.passes.onnx.vitis_ai_quantization import VitisAIQuantization
 
 __all__ = [
     "AppendPrePostProcessingOps",
+    "AutoFusion",
     "OnnxConversion",
     "OnnxOpVersionConversion",
     "OnnxBnb4Quantization",

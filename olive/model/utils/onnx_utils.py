@@ -76,6 +76,22 @@ def get_onnx_file_path(model_path: str, onnx_file_name: Optional[str] = None) ->
         raise ValueError(f"No .onnx file found in the model folder {model_path}.")
 
 
+def get_custom_op_lib_path(model_dir: str, custom_op_lib: str) -> Optional[str]:
+    """Get the full path to the custom op library.
+
+    If custom_op_lib is specified, it is assumed to be a file in the model_dir and the full path is returned.
+    """
+    if custom_op_lib:
+        model_dir = Path(model_dir)
+        assert model_dir.is_dir(), f"Model path {model_dir} is not a directory."
+        custom_op_lib_path = model_dir / custom_op_lib
+        assert (
+            custom_op_lib_path.exists()
+        ), f"Custom op lib {custom_op_lib} does not exist in model path directory {model_dir}."
+        return str(custom_op_lib_path)
+    return None
+
+
 def check_and_normalize_provider_args(
     providers: Sequence[Union[str, Tuple[str, Dict[Any, Any]]]],
     provider_options: Sequence[Dict[Any, Any]],
@@ -111,9 +127,8 @@ def check_and_normalize_provider_args(
     def set_provider_options(name, options):
         if name not in available_provider_names:
             logger.warning(
-                "Specified provider '%s' is not in available provider names.Available providers: '%s'",
-                name,
-                ", ".join(available_provider_names),
+                f"Specified provider '{name}' is not in available provider names. Available providers:"
+                f" '{', '.join(available_provider_names)}'."
             )
 
         if name in provider_name_to_options:

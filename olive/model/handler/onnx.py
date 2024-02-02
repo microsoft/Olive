@@ -15,7 +15,12 @@ from olive.hardware.accelerator import AcceleratorLookup, Device
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
 from olive.model.handler.mixin import OnnxEpValidateMixin, OnnxGraphMixin
-from olive.model.utils.onnx_utils import check_and_normalize_provider_args, check_ort_fallback, get_onnx_file_path
+from olive.model.utils.onnx_utils import (
+    check_and_normalize_provider_args,
+    check_ort_fallback,
+    get_custom_op_lib_path,
+    get_onnx_file_path,
+)
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 logger = logging.getLogger(__name__)
@@ -31,7 +36,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
     the mixin class OnnxGraphMixin is used to support onnx graph operations.
     """
 
-    json_config_keys: Tuple[str, ...] = ("onnx_file_name", "inference_settings", "use_ort_extensions")
+    json_config_keys: Tuple[str, ...] = ("onnx_file_name", "inference_settings", "use_ort_extensions", "custom_op_lib")
 
     def __init__(
         self,
@@ -40,6 +45,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
         model_attributes: Optional[Dict[str, Any]] = None,
+        custom_op_lib: Optional[str] = None,
     ):
         super().__init__(
             framework=Framework.ONNX,
@@ -50,6 +56,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
         self.inference_settings = inference_settings
         self.use_ort_extensions = use_ort_extensions
         self.onnx_file_name = onnx_file_name
+        self.custom_op_lib = custom_op_lib
 
         self.io_config = None
         self.graph = None
@@ -57,11 +64,18 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
 
         # check for onnx file name since it will do validation
         _ = self.model_path
+        # check for custom op lib path since it will do validation
+        _ = self.custom_op_lib_path
 
     @property
     def model_path(self) -> str:
         model_path = super().model_path
         return get_onnx_file_path(model_path, self.onnx_file_name) if model_path else None
+
+    @property
+    def custom_op_lib_path(self) -> Optional[str]:
+        model_path = super().model_path
+        return get_custom_op_lib_path(model_path, self.custom_op_lib) if model_path else None
 
     def load_model(self, rank: int = None) -> ModelProto:
         return onnx.load(self.model_path)
@@ -107,7 +121,9 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
                     provider_options[i] = {"device_id": str(rank)}
         inference_settings["execution_provider"] = execution_providers
         inference_settings["provider_options"] = provider_options
-        session = get_ort_inference_session(self.model_path, inference_settings, self.use_ort_extensions)
+        session = get_ort_inference_session(
+            self.model_path, inference_settings, self.use_ort_extensions, self.custom_op_lib_path
+        )
         check_ort_fallback(session, execution_providers)
         tuning_op_result = inference_settings.get("tuning_op_result")
         if tuning_op_result:

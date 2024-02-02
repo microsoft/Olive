@@ -10,7 +10,10 @@ logger = logging.getLogger(__name__)
 
 
 def get_ort_inference_session(
-    model_path: Union[Path, str], inference_settings: Dict[str, any], use_ort_extensions: bool = False
+    model_path: Union[Path, str],
+    inference_settings: Dict[str, any],
+    use_ort_extensions: bool = False,
+    custom_op_lib_path: Union[Path, str] = None,
 ):
     """Get an ONNXRuntime inference session."""
     import onnxruntime as ort
@@ -21,6 +24,9 @@ def get_ort_inference_session(
         from onnxruntime_extensions import get_library_path
 
         sess_options.register_custom_ops_library(get_library_path())
+    if custom_op_lib_path:
+        logger.debug(f"Registering custom op library: {custom_op_lib_path}")
+        sess_options.register_custom_ops_library(str(custom_op_lib_path))
 
     logger.debug(f"inference_settings: {inference_settings}")
     # execution provider
