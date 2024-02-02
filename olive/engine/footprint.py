@@ -209,6 +209,9 @@ class Footprint:
     def get_use_ort_extensions(self, model_id):
         return self.get_model_config(model_id).get("use_ort_extensions", False)
 
+    def get_custom_op_lib(self, model_id):
+        return self.get_model_config(model_id).get("custom_op_lib", None)
+
     def get_input_node(self):
         return next(v for _, v in self.nodes.items() if v.parent_model_id is None)
 

@@ -316,3 +316,15 @@ def copy_dir(src_dir, dst_dir, ignore=None, **kwargs):
                 f"Received shutil.Error '{e}' but all required file names exist in destination directory. "
                 "Assuming all files were copied successfully and continuing."
             )
+
+
+def onnx_dtype_to_np_dtype(dtype: str) -> str:
+    try:
+        from onnx.helper import tensor_dtype_to_np_dtype
+    except ImportError:
+        from onnx.mapping import TENSOR_TYPE_TO_NP_TYPE
+
+        def tensor_dtype_to_np_dtype(tensor_type):
+            return TENSOR_TYPE_TO_NP_TYPE[tensor_type]
+
+    return str(tensor_dtype_to_np_dtype(dtype))

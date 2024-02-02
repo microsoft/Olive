@@ -17,6 +17,7 @@ def run():
         session_options = inference_settings.get("session_options")
         execution_provider = inference_settings.get("execution_provider")
         use_ort_extensions = inference_settings.get("use_ort_extensions")
+        custom_op_lib = inference_settings.get("custom_op_lib")
 
         # Onnxruntime inference session options
         sess_options = onnxruntime.SessionOptions()
@@ -24,6 +25,8 @@ def run():
             from onnxruntime_extensions import get_library_path
 
             sess_options.register_custom_ops_library(get_library_path())
+        if custom_op_lib:
+            sess_options.register_custom_ops_library(custom_op_lib)
 
         _update_sess_options(sess_options, session_options)
         session = onnxruntime.InferenceSession("model.onnx", sess_options, providers=execution_provider)
