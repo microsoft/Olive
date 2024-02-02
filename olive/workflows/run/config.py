@@ -119,7 +119,7 @@ class RunConfig(ConfigBase):
             # won't override if value was set to False explicitly
             # will keep as list of keys for future extension
             for key in ["trust_remote_code"]:
-                if hf_config.get("from_pretrained_args", {}).get(key, None) and params_config.get(key, None) is None:
+                if hf_config.get("from_pretrained_args", {}).get(key) and params_config.get(key) is None:
                     params_config[key] = hf_config["from_pretrained_args"][key]
             v[INPUT_MODEL_DATA_CONFIG] = {
                 "name": INPUT_MODEL_DATA_CONFIG,
