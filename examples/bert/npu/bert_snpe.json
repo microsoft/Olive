@@ -4,15 +4,7 @@
         "config": {
             "hf_config": {
                 "model_name": "Intel/bert-base-uncased-mrpc",
-                "task": "text-classification",
-                "hf_config": {
-                    "data_name":"glue",
-                    "subset": "mrpc",
-                    "split": "validation",
-                    "input_cols": ["sentence1", "sentence2"],
-                    "label_cols": ["label"],
-                    "batch_size": 1
-                }
+                "task": "text-classification"
             },
             "io_config": {
                 "input_names": ["input_ids", "attention_mask", "token_type_ids"],
