@@ -57,7 +57,6 @@
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Quick Tour</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#information-needed-to-accelerate-a-model">Information needed to accelerate a model</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#input-model">Input Model</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#performance-requirement">Performance Requirement</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#passes-to-apply">Passes to apply</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#olive-engine">Olive Engine</a></li>
 </ul>
@@ -205,24 +204,6 @@ olive_run(&quot;my_model_acceleration_description.json&quot;)
 </div>
 <p>It is possible to provide additional information such as dataset you want to use. You could also directly select HuggingFace model and task. See <a class="reference internal" href="options.html#input-model-information"><span class="std std-ref">Input Model configuration</span></a> for more information.</p>
 </section>
-<section id="performance-requirement">
-<h3>Performance Requirement<a class="headerlink" href="#performance-requirement" title="Permalink to this heading">¶</a></h3>
-<p>Let’s assume you want to optimize for latency and provide the following information to the Olive evaluator, which is responsible to measure the performance metric.</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="w">    </span><span class="nt">&quot;evaluators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;my_evaluator&quot;</span><span class="p">:{</span>
-<span class="w">            </span><span class="nt">&quot;metrics&quot;</span><span class="p">:[</span>
-<span class="w">                </span><span class="p">{</span>
-<span class="w">                    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_latency_metric&quot;</span><span class="p">,</span>
-<span class="w">                    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;latency&quot;</span><span class="p">,</span>
-<span class="w">                    </span><span class="nt">&quot;sub_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;avg&quot;</span><span class="p">}]</span>
-<span class="w">                </span><span class="p">}</span>
-<span class="w">            </span><span class="p">]</span>
-<span class="w">        </span><span class="p">}</span>
-<span class="w">    </span><span class="p">},</span>
-</pre></div>
-</div>
-<p>You can also specify accuracy requirements. See <a class="reference internal" href="options.html#evaluators-information"><span class="std std-ref">Evaluator</span></a> for more information.</p>
-</section>
 <section id="passes-to-apply">
 <h3>Passes to apply<a class="headerlink" href="#passes-to-apply" title="Permalink to this heading">¶</a></h3>
 <p>Olive can apply various transformations and optimizations, also known as passes, on the input model to produce the accelerated output model. See <a class="reference internal" href="options.html#passes-information"><span class="std std-ref">Passes</span></a> for the full list of passes supported by Olive.</p>
@@ -245,8 +226,7 @@ olive_run(&quot;my_model_acceleration_description.json&quot;)
 <h3>Olive Engine<a class="headerlink" href="#olive-engine" title="Permalink to this heading">¶</a></h3>
 <p>Finally, you can select Olive features such as which performance metrics you want to use in this run, verbosity level etc.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="w">    </span><span class="nt">&quot;engine&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;log_severity_level&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;evaluator&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_evaluator&quot;</span>
+<span class="w">        </span><span class="nt">&quot;log_severity_level&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
 <span class="w">    </span><span class="p">}</span>
 </pre></div>
 </div>
@@ -265,17 +245,6 @@ olive_run(&quot;my_model_acceleration_description.json&quot;)
 <span class="w">            </span><span class="p">}</span>
 <span class="w">        </span><span class="p">}</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;evaluators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;my_evaluator&quot;</span><span class="p">:{</span>
-<span class="w">            </span><span class="nt">&quot;metrics&quot;</span><span class="p">:[</span>
-<span class="w">                </span><span class="p">{</span>
-<span class="w">                    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_latency_metric&quot;</span><span class="p">,</span>
-<span class="w">                    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;latency&quot;</span><span class="p">,</span>
-<span class="w">                    </span><span class="nt">&quot;sub_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;avg&quot;</span><span class="p">}]</span>
-<span class="w">                </span><span class="p">}</span>
-<span class="w">            </span><span class="p">]</span>
-<span class="w">        </span><span class="p">}</span>
-<span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="nt">&quot;passes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;onnx_conversion&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxConversion&quot;</span><span class="p">,</span>
@@ -288,8 +257,7 @@ olive_run(&quot;my_model_acceleration_description.json&quot;)
 <span class="w">        </span><span class="p">},</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="nt">&quot;engine&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;log_severity_level&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;evaluator&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;common_evaluator&quot;</span>
+<span class="w">        </span><span class="nt">&quot;log_severity_level&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
