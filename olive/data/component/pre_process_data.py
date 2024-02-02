@@ -84,6 +84,7 @@ def huggingface_pre_process(
             *[examples[input_col] for input_col in input_cols],
             padding=kwargs.get("padding", True),
             truncation=kwargs.get("truncation", True),
+            max_length=kwargs.get("max_length"),
             is_split_into_words=kwargs.get("is_split_into_words", False),
             add_special_tokens=kwargs.get("add_special_tokens", True),
         )

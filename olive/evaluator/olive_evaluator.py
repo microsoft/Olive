@@ -955,10 +955,10 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
                 outputs = post_func(result)
             else:
                 raise ValueError("Post processing function is required for SNPE model")
-            preds.extend(outputs.tolist())
-            targets.extend(labels.tolist())
-            lg = result["results"].get("logits")
-            logits.extend(lg.to_list() if lg else [])
+            preds.extend(outputs.flatten().tolist())
+            targets.extend(labels.flatten().tolist())
+            # only when return_numpy_results is True, the result is a dict with "logits" key
+            logits.extend(result["results"].get("logits", np.array([])).tolist())
         return OliveModelOutput(preds=preds, logits=logits), targets
 
     def _evaluate_accuracy(
