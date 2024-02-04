@@ -137,13 +137,13 @@ def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, mock_inferece_sessio
 
 def test_transformer_optimization_invalid_model_type(tmp_path):
     input_model = get_onnx_model()
-    with pytest.raises(ValueError):
-        config = {"model_type": None}
+    config = {"model_type": None}
 
-        config = OrtTransformersOptimization.generate_search_space(DEFAULT_CPU_ACCELERATOR, config, disable_search=True)
-        p = OrtTransformersOptimization(DEFAULT_CPU_ACCELERATOR, config, True)
-        output_folder = str(tmp_path / "onnx")
+    config = OrtTransformersOptimization.generate_search_space(DEFAULT_CPU_ACCELERATOR, config, disable_search=True)
+    p = OrtTransformersOptimization(DEFAULT_CPU_ACCELERATOR, config, True)
+    output_folder = str(tmp_path / "onnx")
 
+    with pytest.raises(ValueError):  # noqa: PT011
         # execute
         p.run(input_model, None, output_folder)
 

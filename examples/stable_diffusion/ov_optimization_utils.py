@@ -24,6 +24,8 @@ from transformers import CLIPTokenizer
 
 OV_OPTIMIZED_MODEL_INFO = "ov_optimized_model_info.json"
 
+# ruff: noqa: T201
+
 
 def scale_fit_to_window(dst_width: int, dst_height: int, image_width: int, image_height: int):
     """Preprocessing helper function for calculating image size.

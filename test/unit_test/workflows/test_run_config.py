@@ -52,11 +52,11 @@ class TestRunConfig:
             user_script_config = json.load(f)
 
         user_script_config.pop("azureml_client")
-        with pytest.raises(ValueError) as e:
+        with pytest.raises(ValueError) as e:  # noqa: PT011
             RunConfig.parse_obj(user_script_config)
         assert "AzureML client config is required for AzureML system" in str(e.value)
 
-    @pytest.fixture
+    @pytest.fixture()
     def mock_aml_credentials(self):
         # we need to mock all the credentials because the default credential will get tokens from all of them
         self.mocked_env_credentials = patch("azure.identity._credentials.default.EnvironmentCredential").start()
@@ -169,7 +169,7 @@ class TestDataConfigValidation:
         }
 
     @pytest.mark.parametrize(
-        "model_name,task,expected_model_name,expected_task",
+        ("model_name", "task", "expected_model_name", "expected_task"),
         [
             ("dummy_model2", "dummy_task2", "dummy_model2", "dummy_task2"),  # no auto insert
             ("dummy_model2", None, "dummy_model2", "dummy_task"),  # auto insert task
@@ -191,7 +191,7 @@ class TestDataConfigValidation:
 
     # works similarly for trust_remote_args
     @pytest.mark.parametrize(
-        "has_loading_args,trust_remote_code,data_config_trust_remote_code,expected_trust_remote_code",
+        ("has_loading_args", "trust_remote_code", "data_config_trust_remote_code", "expected_trust_remote_code"),
         [
             (False, None, None, None),
             (False, None, True, True),
@@ -238,7 +238,8 @@ class TestDataConfigValidation:
         if data_config_str is None:
             assert pass_data_config is None
         else:
-            assert isinstance(pass_data_config, DataConfig) and pass_data_config.name == data_config_str
+            assert isinstance(pass_data_config, DataConfig)
+            assert pass_data_config.name == data_config_str
 
 
 class TestPassConfigValidation:
@@ -254,7 +255,7 @@ class TestPassConfigValidation:
         }
 
     @pytest.mark.parametrize(
-        "search_strategy,disable_search,approach,is_valid",
+        ("search_strategy", "disable_search", "approach", "is_valid"),
         [
             (None, None, None, True),
             (None, None, "SEARCHABLE_VALUES", False),
@@ -275,7 +276,7 @@ class TestPassConfigValidation:
         config_dict["passes"]["tuning"]["disable_search"] = disable_search
         config_dict["passes"]["tuning"]["config"] = {"approach": approach}
         if not is_valid:
-            with pytest.raises(ValueError):
+            with pytest.raises(ValueError):  # noqa: PT011
                 RunConfig.parse_obj(config_dict)
         else:
             config = RunConfig.parse_obj(config_dict)

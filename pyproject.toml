@@ -95,17 +95,23 @@ select = [
   "D", # flake8-docstrings,
   "E", # pycodestyle
   "F", # Pyflakes
+  "FLY", # flake8-flynt
+  "G", # flake8-logging-format
   "ICN", # flake8-import-conventions
   "INP", # flake8-no-pep420
+  "INT", # flake8-gettext
   "ISC", # flake8-implicit-str-concat
+  "LOG", # flake8-logging
   "N", # pep8-naming
   "NPY", # numpy
   "PD", # flake8-pandas
   "PERF", # Perflint
+  "PGH", # pygrep-hooks
   "PIE", # flake8-pie
   "PLC", # pylint conventions
   "PLE", # pylint errors
   "PLW", # pylint warnings
+  "PT", # flake8-pytest
   "PTH", # flake8-use-pathlib
   "PYI", # flake8-pyi
   "Q", # flake8-quotes
@@ -114,12 +120,14 @@ select = [
   "RUF", # Ruff-specific rules
   "SIM", # flake8-simplify
   "T10", # flake8-debugger
+  "T20", # flake8-print
   "TCH", # flake8-type-checking
   "TD", # flake8-todo
   "TID", # flake8-tidy-imports
+  "TRY", # tryceratops
   "UP", # pyupgrade
   "W", # pycodestyle
-  "YTT" # flake8-2020
+  "YTT", # flake8-2020,
 ]
 # NOTE: Refrain from growing the ignore list unless for exceptional cases.
 # Always include a comment to explain why.
@@ -159,7 +167,14 @@ ignore = [
   "SIM108", # We don't encourage ternary operators
   "TD003", # Ignore TODO links
   "UP032", # Ignore string format calls
-  "UP038" # Ignore old isinstance hints
+  "UP038", # Ignore old isinstance hints
+  "TRY002", # Ignore create custom exception
+  "TRY003", # Ignore check message not defined in the exception class
+  "TRY300", # Ignore check if return in try block
+  "TRY004", # Ignore prefer TypeError over ValueError
+  "PT004", # Ignore pytest fixture name
+  "PT019", # Ignore pytest fixture name
+  "G004", # Ignore f-string logging
 ]
 ignore-init-module-imports = true
 unfixable = [
@@ -181,4 +196,4 @@ classmethod-decorators = ["classmethod", "olive.common.pydantic_v1.validator", "
 "olive/engine/packaging/sample_code/ONNXModel/python/**" = ["INP001"]
 "test/**" = ["INP001"]
 "scripts/**" = ["INP001", "PTH123"]
-"examples/directml/llama_v2/chat_app/**" = ["TID252", "UP006"]
+"examples/directml/llama_v2/chat_app/**" = ["TID252", "UP006", "T201"]

@@ -126,7 +126,7 @@ def clean_env_fixture():
 
 
 @pytest.mark.usefixtures("clean_env", "mock_torch_ort")
-@pytest.mark.parametrize("value,expected_value", [(None, "16"), (-1, None), (16, "16"), (15, "15"), (17, "17")])
+@pytest.mark.parametrize(("value", "expected_value"), [(None, "16"), (-1, None), (16, "16"), (15, "15"), (17, "17")])
 @patch("olive.passes.pytorch.lora.LoRA.train_and_save_new_model")
 @patch("optimum.onnxruntime.utils.is_onnxruntime_training_available", return_value=True)
 @patch("onnxruntime.__version__", "1.17.0")

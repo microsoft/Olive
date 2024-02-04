@@ -10,6 +10,7 @@ import onnxruntime
 from sentencepiece import SentencePieceProcessor
 
 # pylint: disable=consider-using-enumerate, protected-access
+# ruff: noqa: T201
 
 
 class Tokenizer:

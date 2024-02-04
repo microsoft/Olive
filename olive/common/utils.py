@@ -38,7 +38,7 @@ def run_subprocess(cmd, env=None, cwd=None, check=False):  # pragma: no cover
             f"Stdout: {e.stdout.decode('utf-8')}",
             f"Env: {env}",
         ]
-        logger.error("\n".join(err_msg))
+        logger.error("\n".join(err_msg))  # noqa: TRY400
         raise
     returncode = out.returncode
     stdout = out.stdout.decode("utf-8")
@@ -153,11 +153,11 @@ def retry_func(func, args=None, kwargs=None, max_tries=3, delay=5, backoff=2, ex
             out = func(*args, **kwargs)
             logger.debug("Succeeded.")
             return out
-        except exceptions as e:
+        except exceptions:
             num_tries += 1
             if num_tries == max_tries:
-                logger.error(f"Failed with error: {e}", exc_info=True)
-                raise e
+                logger.exception("The operation failed after the maximum number of retries.")
+                raise
             logger.debug(f"Failed. Retrying in {sleep_time} seconds...")
             time.sleep(sleep_time)
             sleep_time *= backoff

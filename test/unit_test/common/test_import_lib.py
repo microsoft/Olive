@@ -88,7 +88,7 @@ def test_import_user_module_script_dir_exception():
     script_dir = "script_dir"
 
     # execute
-    with pytest.raises(ValueError) as errinfo:
+    with pytest.raises(ValueError) as errinfo:  # noqa: PT011
         import_user_module(user_script, script_dir)
 
     # assert
@@ -101,7 +101,7 @@ def test_import_user_module_user_script_exception():
     user_script = "user_script"
 
     # execute
-    with pytest.raises(ValueError) as errinfo:
+    with pytest.raises(ValueError) as errinfo:  # noqa: PT011
         import_user_module(user_script)
 
     # assert

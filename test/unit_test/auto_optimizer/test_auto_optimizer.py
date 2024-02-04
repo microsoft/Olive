@@ -33,7 +33,7 @@ class TestAutoOptimizer:
         self.data_configs = {"__input_model_data_config__": get_glue_huggingface_data_config()}
 
     @pytest.mark.parametrize(
-        "accelerator_spec, auto_optimizer_config, expected_cuda_fp16, expected_trt_fp16",
+        ("accelerator_spec", "auto_optimizer_config", "expected_cuda_fp16", "expected_trt_fp16"),
         [
             (
                 # running on gpu-cuda, enable cuda fp16, disable trt fp16
@@ -70,7 +70,7 @@ class TestAutoOptimizer:
         assert pass_config[perf_opt_name]["config"]["trt_fp16_enable"] == expected_trt_fp16
 
     @pytest.mark.parametrize(
-        "metrics_configs, accelerator_spec, auto_optimizer_config, expected_pass_flows",
+        ("metrics_configs", "accelerator_spec", "auto_optimizer_config", "expected_pass_flows"),
         [
             (
                 [{"args": [AccuracySubType.ACCURACY_SCORE], "kwargs": {"goal_type": "max-degradation"}}],

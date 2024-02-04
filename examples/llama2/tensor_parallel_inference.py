@@ -13,6 +13,8 @@ import onnxruntime
 import torch
 from transformers import LlamaConfig, LlamaForCausalLM, LlamaTokenizer
 
+# ruff: noqa: T201, T203
+
 
 def _run_pytorch(model, inputs):
     return model(**inputs)

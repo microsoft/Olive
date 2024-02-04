@@ -413,13 +413,13 @@ class PythonEnvironmentSystem(OliveSystem):
 
         try:
             shutil.rmtree(vitual_env_path)
-            logger.info("Virtual environment '{}' removed.".format(vitual_env_path))
+            logger.info("Virtual environment '%s' removed.", vitual_env_path)
         except FileNotFoundError:
             pass
 
         if platform.system() == "Linux":
             try:
                 shutil.rmtree(self.environ["TMPDIR"])
-                logger.info("Temporary directory '{}' removed.".format(self.environ["TMPDIR"]))
+                logger.info("Temporary directory '%s' removed.", self.environ["TMPDIR"])
             except FileNotFoundError:
                 pass

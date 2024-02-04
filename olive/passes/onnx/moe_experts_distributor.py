@@ -309,7 +309,7 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
                 path.append(node)
 
                 if self.debug:
-                    pprint.pprint([n.name for n in path])
+                    pprint.pprint([n.name for n in path])  # noqa: T203
 
                 div_node = path[5]
                 div_node_oname = div_node.output[0]

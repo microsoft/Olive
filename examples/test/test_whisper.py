@@ -50,5 +50,4 @@ def test_whisper(device_precision):
     from test_transcription import main as test_transcription
 
     transcription = test_transcription(["--config", config_file])
-    print(transcription)
     assert len(transcription) > 0

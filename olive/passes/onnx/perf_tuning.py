@@ -231,10 +231,9 @@ def threads_num_tuning(
     except EXCEPTIONS_TO_RAISE:
         raise
     except Exception:
-        logger.error(
+        logger.exception(
             "Optimization failed for tuning combo %s",
             (providers, execution_mode, ort_opt_level, io_bind),
-            exc_info=True,
         )
 
     return tuning_results

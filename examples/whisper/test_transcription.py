@@ -18,8 +18,10 @@ from olive.model import ONNXModelHandler
 
 sys.path.append(str(Path(__file__).parent / "code"))
 
-# pylint: disable=wrong-import-position, wrong-import-order
 from whisper_dataset import WhisperDataset
+
+# pylint: disable=wrong-import-position, wrong-import-order
+# ruff: noqa: T201
 
 
 def get_args(raw_args):

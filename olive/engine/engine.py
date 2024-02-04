@@ -694,8 +694,8 @@ class Engine:
             with model_json_path.open("w") as f:
                 json.dump(model_json, f, indent=4)
             logger.debug(f"Cached model {model_id} to {model_json_path}")
-        except Exception as e:
-            logger.error(f"Failed to cache model: {e}", exc_info=True)
+        except Exception:
+            logger.exception("Failed to cache model")
 
     def _load_model(self, model_id: str) -> Union[ModelConfig, str]:
         """Load the model from the cache directory."""
@@ -703,8 +703,8 @@ class Engine:
         try:
             with model_json_path.open() as f:
                 model_json = json.load(f)
-        except Exception as e:
-            logger.error(f"Failed to load model: {e}", exc_info=True)
+        except Exception:
+            logger.exception("Failed to load model.")
             return None
 
         if model_json == {}:
@@ -777,8 +777,8 @@ class Engine:
             with run_json_path.open("w") as f:
                 json.dump(run_json, f, indent=4)
             logger.debug(f"Cached run for {input_model_id}->{output_model_id} into {run_json_path}")
-        except Exception as e:
-            logger.error(f"Failed to cache run: {e}", exc_info=True)
+        except Exception:
+            logger.exception("Failed to cache run")
 
     def _load_run(self, input_model_id: str, pass_name: int, pass_config: dict, accelerator_spec: "AcceleratorSpec"):
         """Load the run from the cache directory."""
@@ -789,8 +789,8 @@ class Engine:
             try:
                 with run_json_path.open() as f:
                     run_json = json.load(f)
-            except Exception as e:
-                logger.error(f"Failed to load run: {e}", exc_info=True)
+            except Exception:
+                logger.exception("Failed to load run")
                 run_json = {}
         return run_json
 
@@ -911,8 +911,8 @@ class Engine:
         run_start_time = datetime.now().timestamp()
         try:
             output_model_config = host.run_pass(p, input_model_config, data_root, output_model_path, pass_search_point)
-        except OlivePassError as e:
-            logger.error(f"Pass run_pass failed: {e}", exc_info=True)
+        except OlivePassError:
+            logger.exception("Pass run_pass failed")
             output_model_config = FAILED_CONFIG
         except EXCEPTIONS_TO_RAISE:
             # Don't catch these errors since most of time, it is caused by the user errors and need not retry.
@@ -922,7 +922,7 @@ class Engine:
             # TODO(jambayk): from the time being, we need to catch all exceptions to make the
             #      search process robust. We need rethrow the exception only when
             #      it is not pass specific. For example, for olive bugs and user errors
-            logger.error("Pass run failed.", exc_info=True)
+            logger.exception("Pass run failed.")
             if self.no_search:
                 raise  # rethrow the exception if no search is performed
 
@@ -963,8 +963,8 @@ class Engine:
         try:
             with evaluation_json_path.open("w") as f:
                 json.dump(evaluation_json, f, indent=4)
-        except Exception as e:
-            logger.error(f"Failed to cache evaluation: {e}", exc_info=True)
+        except Exception:
+            logger.exception("Failed to cache evaluation")
 
     def _load_evaluation(self, model_id: str):
         """Load the evaluation from the cache directory."""
@@ -975,8 +975,8 @@ class Engine:
                     evaluation_json = json.load(f)
                 signal = evaluation_json["signal"]
                 signal = MetricResult(**signal)
-            except Exception as e:
-                logger.error(f"Failed to load evaluation: {e}", exc_info=True)
+            except Exception:
+                logger.exception("Failed to load evaluation")
                 signal = None
             return signal
         else:

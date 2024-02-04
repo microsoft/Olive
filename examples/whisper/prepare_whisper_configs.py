@@ -104,7 +104,7 @@ def main(raw_args=None):
         if args.enable_timestamps:
             raise ValueError("Enabling timestamps is only supported in ORT >= 1.16.0")
     if "large-v3" in args.model_name and args.enable_timestamps:
-        print(
+        print(  # noqa: T201
             "WARNING: Model has large-v3 in the name. openai/whisper-large-v3 doesn't support enabling timestamps so"
             " this might not work as expected."
         )

@@ -718,7 +718,7 @@ def test_aml_system_no_keyvault_name_raise_valueerror(mock_env):
     )
 
     # assert
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError):  # noqa: PT011
         AzureMLSystem(mock_azureml_client_config, "dummy", docker_config, hf_token=True)
 
 

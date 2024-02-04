@@ -24,6 +24,8 @@ from tabulate import tabulate
 from olive.data.template import huggingface_data_config_template
 from olive.workflows import run as olive_run
 
+# ruff: noqa: T201
+
 MODEL_NAME_MAP = {
     "bert": "Intel/bert-base-uncased-mrpc",
     "deberta": "microsoft/deberta-base-mnli",

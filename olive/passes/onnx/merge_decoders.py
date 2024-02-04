@@ -418,6 +418,6 @@ def merge_decoders(
                 if "No Op registered for" in str(e):
                     pass
                 else:
-                    raise e
+                    raise
 
     return merged_model
