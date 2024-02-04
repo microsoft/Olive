@@ -541,14 +541,14 @@
 
         <span class="k">try</span><span class="p">:</span>
             <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">vitual_env_path</span><span class="p">)</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Virtual environment &#39;</span><span class="si">{}</span><span class="s2">&#39; removed.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">vitual_env_path</span><span class="p">))</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Virtual environment &#39;</span><span class="si">%s</span><span class="s2">&#39; removed.&quot;</span><span class="p">,</span> <span class="n">vitual_env_path</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
             <span class="k">pass</span>
 
         <span class="k">if</span> <span class="n">platform</span><span class="o">.</span><span class="n">system</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;Linux&quot;</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;TMPDIR&quot;</span><span class="p">])</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Temporary directory &#39;</span><span class="si">{}</span><span class="s2">&#39; removed.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;TMPDIR&quot;</span><span class="p">]))</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Temporary directory &#39;</span><span class="si">%s</span><span class="s2">&#39; removed.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;TMPDIR&quot;</span><span class="p">])</span>
             <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
                 <span class="k">pass</span></div>
 </pre></div>
