@@ -127,7 +127,7 @@ select = [
   "TRY", # tryceratops
   "UP", # pyupgrade
   "W", # pycodestyle
-  "YTT", # flake8-2020,
+  "YTT" # flake8-2020,
 ]
 # NOTE: Refrain from growing the ignore list unless for exceptional cases.
 # Always include a comment to explain why.
@@ -174,7 +174,7 @@ ignore = [
   "TRY004", # Ignore prefer TypeError over ValueError
   "PT004", # Ignore pytest fixture name
   "PT019", # Ignore pytest fixture name
-  "G004", # Ignore f-string logging
+  "G004" # Ignore f-string logging
 ]
 ignore-init-module-imports = true
 unfixable = [
