@@ -45,18 +45,6 @@
             "components": {
                 "post_process_data": {
                     "type": "snpe_post_process"
-                },
-                "dataloader": {
-                    "name": "huggingface_dataloader",
-                    "type": "huggingface_data_to_raw_dataloader",
-                    "params": {
-                        "io_config": {
-                            "input_names": ["input_ids", "attention_mask", "token_type_ids"],
-                            "input_types": ["int64", "int64", "int64"],
-                            "input_shapes": [[2, 128], [2, 128], [2, 128]],
-                            "output_names": ["logits"]
-                        }
-                    }
                 }
             },
             "params_config": {

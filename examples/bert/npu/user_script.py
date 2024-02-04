@@ -1,12 +1,4 @@
-from olive.data.component.dataloader import default_dataloader
 from olive.data.registry import Registry
-from olive.platform_sdk.qualcomm.utils.data_loader import FileListCommonDataLoader
-
-
-@Registry.register_dataloader()
-def huggingface_data_to_raw_dataloader(dataset, batch_size, io_config, **kwargs):
-    data_loader = default_dataloader(dataset, batch_size=batch_size, **kwargs)
-    return FileListCommonDataLoader(data_loader, batch_size=batch_size, io_config=io_config, **kwargs)
 
 
 @Registry.register_post_process()
