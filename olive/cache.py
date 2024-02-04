@@ -78,8 +78,8 @@ def _delete_run(run_id: str, cache_dir: Union[str, Path] = ".olive-cache"):
         # output model and children
         output_model_number = run_data["output_model_id"].split("_")[0]
         _delete_model(output_model_number, cache_dir)
-    except Exception as e:
-        logger.exception(e)
+    except Exception:
+        logger.exception("delete model failed.")
     finally:
         run_json.unlink()
 

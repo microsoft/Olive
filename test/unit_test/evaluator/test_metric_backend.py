@@ -58,7 +58,7 @@ class TestMetricBackend:
     ]
 
     @pytest.mark.parametrize(
-        "model_config_func,metric_func,expected_res",
+        ("model_config_func", "metric_func", "expected_res"),
         HF_ACCURACY_TEST_CASE,
     )
     def test_evaluate_backend(self, model_config_func, metric_func, expected_res):

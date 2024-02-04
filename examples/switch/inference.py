@@ -11,6 +11,8 @@ import sys
 import numpy as np
 import onnxruntime
 
+# ruff: noqa: T201, T203
+
 
 def _run_non_distributed(filepath):
     session = onnxruntime.InferenceSession(filepath, providers=["CPUExecutionProvider", "CUDAExecutionProvider"])

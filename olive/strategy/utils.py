@@ -16,7 +16,8 @@ class DirectedGraph:
             self.add_edge(v1, v2)
 
     def add_edge(self, v1: str, v2: str):
-        assert v1 in self.vertices and v2 in self.vertices
+        assert v1 in self.vertices
+        assert v2 in self.vertices
         self.graph[v1].append(v2)
 
     def _is_cyclic_util(self, v: str, visited: Set[str], rec_stack: Set[str]):

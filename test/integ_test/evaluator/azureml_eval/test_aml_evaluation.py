@@ -39,7 +39,7 @@ class TestAMLEvaluation:
     ]
 
     @pytest.mark.parametrize(
-        "model_type,model_path_func,metric_func,expected_res",
+        ("model_type", "model_path_func", "metric_func", "expected_res"),
         EVALUATION_TEST_CASE,
     )
     def test_evaluate_model(self, model_type, model_path_func, metric_func, expected_res):

@@ -195,12 +195,14 @@ def test_perf_tuning_with_force_evaluate(get_available_providers_mock, evaluate_
     if force_evaluate:
         assert "execution_provider" in result.inference_settings
         acutal_eps = result.inference_settings["execution_provider"]
-        assert len(acutal_eps) == 1 and acutal_eps[0] == "CUDAExecutionProvider"
+        assert len(acutal_eps) == 1
+        assert acutal_eps[0] == "CUDAExecutionProvider"
         assert re.search("Best result:.*cuda", caplog.text)
     else:
         assert "execution_provider" in result.inference_settings
         acutal_eps = result.inference_settings["execution_provider"]
-        assert len(acutal_eps) == 1 and acutal_eps[0] == "CPUExecutionProvider"
+        assert len(acutal_eps) == 1
+        assert acutal_eps[0] == "CPUExecutionProvider"
         assert re.search("Best result: .*cpu", caplog.text)
         assert (
             "Ignore perf tuning for EP CUDAExecutionProvider since current pass EP is CPUExecutionProvider"

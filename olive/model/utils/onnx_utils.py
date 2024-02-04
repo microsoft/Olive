@@ -111,12 +111,13 @@ def check_and_normalize_provider_args(
     def set_provider_options(name, options):
         if name not in available_provider_names:
             logger.warning(
-                "Specified provider '{}' is not in available provider names."
-                "Available providers: '{}'".format(name, ", ".join(available_provider_names))
+                "Specified provider '%s' is not in available provider names.Available providers: '%s'",
+                name,
+                ", ".join(available_provider_names),
             )
 
         if name in provider_name_to_options:
-            logger.warning(f"Duplicate provider '{name}' encountered, ignoring.")
+            logger.warning("Duplicate provider '%s' encountered, ignoring.", name)
             return
 
         normalized_options = {str(key): str(value) for key, value in options.items()}

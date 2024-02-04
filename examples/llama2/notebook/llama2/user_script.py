@@ -233,7 +233,7 @@ class RandomDataLoader:
 
 def _dataloader_func(**kwargs):
     """Return dataloader for both prompt generation and token generation with/without GQA + FP16."""
-    print(f"data loader kwargs: {kwargs}")
+    print(f"data loader kwargs: {kwargs}")  # noqa: T201
     batch_size = kwargs["batch_size"]
     model_id = kwargs["model_id"]
     seq_length = kwargs["seq_length"]

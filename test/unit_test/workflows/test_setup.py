@@ -64,10 +64,7 @@ def test_dependency_setup(tmp_path, config_json):
 
     if result.returncode != 0:
         pytest.fail(result.stdout.decode())
-    else:
-        print(result.stdout.decode())
 
     outputs = subprocess.check_output([python_path, "-Im", "pip", "list"])
     outputs = outputs.decode()
-    print(outputs)
     assert ort_extra in outputs

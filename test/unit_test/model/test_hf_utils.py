@@ -31,7 +31,7 @@ def test_load_hf_model_from_model_class():
 
 
 @pytest.mark.parametrize(
-    "model_name,task,feature",
+    ("model_name", "task", "feature"),
     [
         ("Intel/bert-base-uncased-mrpc", "text-classification", "default"),
         ("facebook/opt-125m", "text-generation", "default"),
@@ -44,7 +44,7 @@ def test_get_onnx_config(model_name, task, feature):
 
 class TestHFFromPretrainedArgs:
     @pytest.mark.parametrize(
-        "inputs,inner,output",
+        ("inputs", "inner", "output"),
         [
             ("auto", "auto", "auto"),
             (torch.float32, "float32", torch.float32),
@@ -58,7 +58,7 @@ class TestHFFromPretrainedArgs:
         assert args.get_torch_dtype() == output
 
     @pytest.mark.parametrize(
-        "inputs,inner",
+        ("inputs", "inner"),
         [
             ("auto", "auto"),
             (1, 1),
@@ -75,7 +75,7 @@ class TestHFFromPretrainedArgs:
         assert args.device_map == {"": inner}
 
     @pytest.mark.parametrize(
-        "quantization_method,quantization_config,valid",
+        ("quantization_method", "quantization_config", "valid"),
         [
             ("bitsandbyte", None, False),
             (None, None, True),

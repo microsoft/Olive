@@ -74,7 +74,7 @@ class DockerSystem(OliveSystem):
                         logger.info(f"Image {local_docker_config.image_name} build successfully.")
                         _print_docker_logs(build_logs, logging.DEBUG)
                     except BuildError as e:
-                        logger.error(f"Image build failed with error: {e}")
+                        logger.exception("Image build failed with error")
                         _print_docker_logs(e.build_log, logging.ERROR)
                         raise
                 elif local_docker_config.requirements_file_path:
@@ -98,7 +98,7 @@ class DockerSystem(OliveSystem):
                             logger.info(f"Image {local_docker_config.image_name} build successfully.")
                             _print_docker_logs(build_logs, logging.DEBUG)
                         except BuildError as e:
-                            logger.error(f"Image build failed with error: {e}")
+                            logger.exception("Image build failed with error.")
                             _print_docker_logs(e.build_log, logging.ERROR)
                             raise
 

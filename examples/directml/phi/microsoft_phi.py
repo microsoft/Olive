@@ -11,6 +11,8 @@ import onnxruntime as ort
 
 from olive.workflows import run as olive_run
 
+# ruff: noqa: T201
+
 
 def optimize(model_name: str, optimized_model_des: Path):
     ort.set_default_logger_severity(4)
