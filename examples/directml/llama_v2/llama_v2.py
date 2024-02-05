@@ -19,6 +19,7 @@ from olive.model import ONNXModelHandler
 from olive.workflows import run as olive_run
 
 # pylint: disable=redefined-outer-name
+# ruff: noqa: T201
 
 
 def optimize(optimized_model_dir: Path, model_type: str):

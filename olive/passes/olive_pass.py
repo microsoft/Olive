@@ -259,9 +259,12 @@ class Pass(ABC):
             if isinstance(value, SearchParameter):
                 search_space[key] = value
             else:
-                if default_config[key].category == ParamCategory.PATH and value is not None:
-                    if not isinstance(value, ResourcePath):
-                        value = str(Path(value).resolve())
+                if (
+                    default_config[key].category == ParamCategory.PATH
+                    and value is not None
+                    and not isinstance(value, ResourcePath)
+                ):
+                    value = str(Path(value).resolve())
                 fixed_params[key] = value
         assert not cyclic_search_space(search_space), "Search space is cyclic."
         # TODO(jambayk): better error message, e.g. which parameters are invalid, how they are invalid

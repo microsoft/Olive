@@ -28,7 +28,7 @@ def test_optimum_conversion_pass(extra_args, tmp_path):
 
 
 @pytest.mark.parametrize(
-    "components,extra_args,expected_components",
+    ("components", "extra_args", "expected_components"),
     [
         (None, None, None),  # latest model can be used for both prompt processing and token generation
         (
@@ -77,7 +77,7 @@ def test_optimum_conversion_pass_with_components(components, extra_args, expecte
 
 
 @pytest.mark.parametrize(
-    "config,is_valid",
+    ("config", "is_valid"),
     [
         ({"fp16": True}, False),
         ({"fp16": True, "device": "cpu"}, False),

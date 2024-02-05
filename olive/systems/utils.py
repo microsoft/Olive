@@ -97,7 +97,7 @@ def create_new_system(origin_system, accelerator):
             venv_path = Path(tempfile.TemporaryDirectory(prefix="olive_python_env_").name)
 
         venv.create(venv_path, with_pip=True, system_site_packages=True)
-        logger.info("Virtual environment '{}' created.".format(venv_path))
+        logger.info("Virtual environment '%s' created.", venv_path)
 
         if platform.system() == "Windows":
             python_environment_path = f"{venv_path}/Scripts"

@@ -57,7 +57,7 @@ class PileDataloader:
                 trainenc = self.dataset[i]
                 if trainenc["input_ids"].shape[0] > self.seq_len:
                     break
-                print(f"{trainenc['input_ids'].shape[0]} is less than {self.seq_len}")
+                print(f"{trainenc['input_ids'].shape[0]} is less than {self.seq_len}")  # noqa: T201
             i = random.randint(0, trainenc["input_ids"].shape[0] - self.seq_len - 1)
             j = i + self.seq_len
             inp = trainenc["input_ids"][i:j].unsqueeze(0)

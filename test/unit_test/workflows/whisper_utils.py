@@ -1,20 +1,21 @@
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
 from transformers import AutoConfig, AutoProcessor, WhisperConfig, file_utils
 
-from olive.model.handler.pytorch import PyTorchModelHandler
+if TYPE_CHECKING:
+    from olive.model.handler.pytorch import PyTorchModelHandler
 
 
-def get_decoder(olive_model: PyTorchModelHandler):
+def get_decoder(olive_model: "PyTorchModelHandler"):
     # model is WhisperForConditionalGeneration
     model = olive_model.load_model()
     return WhisperDecoder(model, model.config)
 
 
-def get_dec_io_config(olive_model: PyTorchModelHandler):
+def get_dec_io_config(olive_model: "PyTorchModelHandler"):
     # Fix past disappearing bug - duplicate first past entry
     # input_list.insert(2, input_list[2])
     config = olive_model.get_hf_model_config()
@@ -56,7 +57,7 @@ def get_dec_io_config(olive_model: PyTorchModelHandler):
     }
 
 
-def decoder_dummy_inputs(olive_model: PyTorchModelHandler):
+def decoder_dummy_inputs(olive_model: "PyTorchModelHandler"):
     inputs = WhisperDecoderInputs.create_dummy(
         olive_model.get_hf_model_config(),
         batch_size=2,
@@ -68,7 +69,7 @@ def decoder_dummy_inputs(olive_model: PyTorchModelHandler):
     return tuple(inputs.to_list())
 
 
-def get_encdec_io_config(olive_model: PyTorchModelHandler):
+def get_encdec_io_config(olive_model: "PyTorchModelHandler"):
     # model is WhisperEncoderDecoderInit
     model = olive_model.load_model()
     use_decoder_input_ids = True
@@ -141,7 +142,7 @@ def get_encdec_io_config(olive_model: PyTorchModelHandler):
     }
 
 
-def get_encoder_decoder_init(olive_model: PyTorchModelHandler):
+def get_encoder_decoder_init(olive_model: "PyTorchModelHandler"):
     # model is WhisperForConditionalGeneration
     model = olive_model.load_model()
     return WhisperEncoderDecoderInit(
@@ -152,7 +153,7 @@ def get_encoder_decoder_init(olive_model: PyTorchModelHandler):
     )
 
 
-def encoder_decoder_init_dummy_inputs(olive_model: PyTorchModelHandler):
+def encoder_decoder_init_dummy_inputs(olive_model: "PyTorchModelHandler"):
     inputs = WhisperEncoderDecoderInitInputs.create_dummy(
         olive_model.get_hf_model_config(),
         batch_size=2,
@@ -338,10 +339,10 @@ class WhisperDecoderInputs:
 
             past = []
             for _ in range(2 * num_layers):
-                past.append(torch.rand(self_attention_past_shape, dtype=float_type, device=device))
+                past.append(torch.rand(self_attention_past_shape, dtype=float_type, device=device))  # noqa: PERF401
 
             for _ in range(2 * num_layers):
-                past.append(torch.rand(cross_attention_past_shape, dtype=float_type, device=device))
+                past.append(torch.rand(cross_attention_past_shape, dtype=float_type, device=device))  # noqa: PERF401
         else:
             past = None
 

@@ -55,7 +55,8 @@ def get_ort_inference_session(
         execution_provider = [execution_provider]
     else:
         # execution providers should be list[str]
-        assert isinstance(execution_provider, list) and all(isinstance(ep, str) for ep in execution_provider)
+        assert isinstance(execution_provider, list)
+        assert all(isinstance(ep, str) for ep in execution_provider)
 
     for idx, ep in enumerate(execution_provider):
         if ep == "QNNExecutionProvider":

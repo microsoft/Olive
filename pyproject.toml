@@ -95,17 +95,23 @@ select = [
   "D", # flake8-docstrings,
   "E", # pycodestyle
   "F", # Pyflakes
+  "FLY", # flake8-flynt
+  "G", # flake8-logging-format
   "ICN", # flake8-import-conventions
   "INP", # flake8-no-pep420
+  "INT", # flake8-gettext
   "ISC", # flake8-implicit-str-concat
+  "LOG", # flake8-logging
   "N", # pep8-naming
   "NPY", # numpy
   "PD", # flake8-pandas
   "PERF", # Perflint
+  "PGH", # pygrep-hooks
   "PIE", # flake8-pie
   "PLC", # pylint conventions
   "PLE", # pylint errors
   "PLW", # pylint warnings
+  "PT", # flake8-pytest
   "PTH", # flake8-use-pathlib
   "PYI", # flake8-pyi
   "Q", # flake8-quotes
@@ -114,17 +120,18 @@ select = [
   "RUF", # Ruff-specific rules
   "SIM", # flake8-simplify
   "T10", # flake8-debugger
+  "T20", # flake8-print
   "TCH", # flake8-type-checking
   "TD", # flake8-todo
   "TID", # flake8-tidy-imports
+  "TRY", # tryceratops
   "UP", # pyupgrade
   "W", # pycodestyle
-  "YTT" # flake8-2020
+  "YTT" # flake8-2020,
 ]
 # NOTE: Refrain from growing the ignore list unless for exceptional cases.
 # Always include a comment to explain why.
 ignore = [
-  "B005", # removesuffix is only available in Python 3.9
   "B028", # FIXME: Add stacklevel to warnings
   "B905", # keep using less than Python 3.10. The strict is added in Python 3.10
   "D100", # Ignore missing docstring in public module
@@ -137,12 +144,15 @@ ignore = [
   "D107", # Ignore missing docstring in __init__
   "D406", # Ignore new line after section name
   "D407", # Ignore dashed-underline-after-section
+  "G004", # Ignore f-string logging
   "N803", # Argument casing
   "N812", # Allow import torch.nn.functional as F
   "N999", # Module names
   "NPY002", # np.random.Generator may not always fit our use cases
   "PERF203", # "try-except-in-loop" only affects Python <3.11, and the improvement is minor; can have false positives
-  "PERF401", # List comprehensions are not always readable
+  "PLW0603", # TODO: temp disable global variable check
+  "PT004", # Ignore pytest fixture name
+  "PT019", # Ignore pytest fixture name
   "PTH100", # We still support os.path.abspath
   "PTH103", # We still support os.makedirs
   "PTH106", # We still support os.rmdir
@@ -151,22 +161,19 @@ ignore = [
   "PTH118", # We still need support os.path.join
   "PTH119", # We still need support os.path.basename
   "PTH120", # We still need support os.path.dirname
-  "PLW0603", # TODO: temp disable global variable check
   "RET505", # We prefer if/else clauses explicitly
   "RET506", # We prefer if/else clauses explicitly
   "RET507", # We prefer if/else clauses explicitly
   "RUF010", # keeping using str type explicitly
   "RUF013", # Ignore Optional type hints warning since it is available in Python 3.10
-  "SIM102", # We don't prefer always combining if branches
   "SIM105", # We don't prefer use context.suppress
   "SIM108", # We don't encourage ternary operators
-  "SIM114", # Don't combine if branches for debugability
-  "SIM116", # Don't use dict lookup to replace if-else
   "TD003", # Ignore TODO links
-  "UP006", # Ignore old typing hints
-  "UP007", # Ignore old Union hints
+  "TRY002", # Ignore create custom exception
+  "TRY003", # Ignore check message not defined in the exception class
+  "TRY004", # Ignore prefer TypeError over ValueError
+  "TRY300", # Ignore check if return in try block
   "UP032", # Ignore string format calls
-  "UP035", # Ignore List/Dict typing import
   "UP038" # Ignore old isinstance hints
 ]
 ignore-init-module-imports = true
@@ -189,4 +196,4 @@ classmethod-decorators = ["classmethod", "olive.common.pydantic_v1.validator", "
 "olive/engine/packaging/sample_code/ONNXModel/python/**" = ["INP001"]
 "test/**" = ["INP001"]
 "scripts/**" = ["INP001", "PTH123"]
-"examples/directml/llama_v2/chat_app/**" = ["TID252"]
+"examples/directml/llama_v2/chat_app/**" = ["TID252", "UP006", "T201"]

@@ -15,7 +15,7 @@ from test.unit_test.utils import (
     get_throughput_metric,
 )
 from types import FunctionType
-from typing import ClassVar
+from typing import ClassVar, List
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -36,7 +36,7 @@ from olive.systems.local import LocalSystem
 
 
 class TestOliveEvaluator:
-    ACCURACY_TEST_CASE: ClassVar[list] = [
+    ACCURACY_TEST_CASE: ClassVar[List] = [
         (
             PyTorchEvaluator(),
             get_pytorch_model,
@@ -110,7 +110,7 @@ class TestOliveEvaluator:
     ]
 
     @pytest.mark.parametrize(
-        "evaluator,model_loader,metric_func,acc_subtype,expected_res",
+        ("evaluator", "model_loader", "metric_func", "acc_subtype", "expected_res"),
         ACCURACY_TEST_CASE,
     )
     def test_evaluate_accuracy(self, evaluator, model_loader, metric_func, acc_subtype, expected_res):
@@ -128,7 +128,7 @@ class TestOliveEvaluator:
             for sub_type in metric.sub_types:
                 assert expected_res == actual_res.get_value(metric.name, sub_type.name)
 
-    LATENCY_TEST_CASE: ClassVar[list] = [
+    LATENCY_TEST_CASE: ClassVar[List] = [
         (
             PyTorchEvaluator(),
             get_pytorch_model,
@@ -155,7 +155,7 @@ class TestOliveEvaluator:
     ]
 
     @pytest.mark.parametrize(
-        "evaluator,model_loader,metric_func,expected_res",
+        ("evaluator", "model_loader", "metric_func", "expected_res"),
         LATENCY_TEST_CASE,
     )
     def test_evaluate_latency(self, evaluator, model_loader, metric_func, expected_res):
@@ -184,7 +184,7 @@ class TestOliveEvaluator:
         evaluator.evaluate(model, None, [latency_metric], Device.CPU, execution_providers)
 
     @pytest.mark.parametrize(
-        "execution_providers,exception_type",
+        ("execution_providers", "exception_type"),
         [(("CPUExecutionProvider", {}, {}), ValueError), (("CPUExecutionProvider",), ValueError)],
     )
     def test_evaluate_latency_with_wrong_ep(self, execution_providers, exception_type):
@@ -215,7 +215,7 @@ class TestOliveEvaluator:
         ):
             evaluator.evaluate(model, None, [latency_metric], Device.CPU, execution_providers)
 
-    THROUGHPUT_TEST_CASE: ClassVar[list] = [
+    THROUGHPUT_TEST_CASE: ClassVar[List] = [
         (
             PyTorchEvaluator(),
             get_pytorch_model,
@@ -242,7 +242,7 @@ class TestOliveEvaluator:
     ]
 
     @pytest.mark.parametrize(
-        "evaluator,model_loader,metric_func,expected_res",
+        ("evaluator", "model_loader", "metric_func", "expected_res"),
         THROUGHPUT_TEST_CASE,
     )
     def test_evaluate_throughput(self, evaluator, model_loader, metric_func, expected_res):
@@ -255,7 +255,7 @@ class TestOliveEvaluator:
         for sub_type in metric.sub_types:
             assert expected_res > actual_res.get_value(metric.name, sub_type.name)
 
-    CUSTOM_TEST_CASE: ClassVar[list] = [
+    CUSTOM_TEST_CASE: ClassVar[List] = [
         (PyTorchEvaluator(), get_pytorch_model, get_custom_metric, 0.382715310),
         (OnnxEvaluator(), get_onnx_model, get_custom_metric, 0.382715310),
         (SNPEEvaluator(), get_mock_snpe_model, get_custom_metric, 0.382715310),
@@ -263,7 +263,7 @@ class TestOliveEvaluator:
     ]
 
     @pytest.mark.parametrize(
-        "evaluator,model_loader,metric_func,expected_res",
+        ("evaluator", "model_loader", "metric_func", "expected_res"),
         CUSTOM_TEST_CASE,
     )
     def test_evaluate_custom(self, evaluator, model_loader, metric_func, expected_res):
@@ -371,7 +371,7 @@ class TestOliveEvaluator:
         mock.set_tuning_results.assert_called_with(tuning_result)
 
     @pytest.mark.parametrize(
-        "metric_inference_settings, model_inference_settings, result_keys",
+        ("metric_inference_settings", "model_inference_settings", "result_keys"),
         [
             (None, None, None),
             (
@@ -460,7 +460,7 @@ class TestDistributedOnnxEvaluator:
 
 class TestOliveEvaluatorConfig:
     @pytest.mark.parametrize(
-        "priorities, has_exception", [((1, 2), False), ((1, 1), True), ((2, 1), False), ((1, 0), True)]
+        ("priorities", "has_exception"), [((1, 2), False), ((1, 1), True), ((2, 1), False), ((1, 0), True)]
     )
     def test_priority(self, priorities, has_exception):
         metric_config = [
@@ -498,7 +498,7 @@ class TestOliveEvaluatorConfig:
             OliveEvaluatorConfig(metrics=metric_config)
 
     @pytest.mark.parametrize(
-        "metric_args, is_accuracy_drop_tolerance",
+        ("metric_args", "is_accuracy_drop_tolerance"),
         [
             ([{"args": [AccuracySubType.ACCURACY_SCORE], "kwargs": {}}], False),
             ([{"args": [AccuracySubType.ACCURACY_SCORE], "kwargs": {"goal_type": "min-improvement"}}], False),

@@ -24,7 +24,7 @@ from olive.passes.onnx.conversion import OnnxConversion
 
 @patch("onnx.external_data_helper.sys.getsizeof")
 @pytest.mark.parametrize(
-    "save_as_external_data, mocked_size_value",
+    ("save_as_external_data", "mocked_size_value"),
     [(True, 2048), (False, 100)],
 )
 def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, mocked_size_value, tmp_path):

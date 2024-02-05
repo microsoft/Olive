@@ -127,9 +127,9 @@ def dependency_setup(config):
 
     if remote_packages:
         logger.info(
-            "Please make sure the following packages are installed in {} environment: {}".format(
-                config.engine.host.type, remote_packages
-            )
+            "Please make sure the following packages are installed in %s environment: %s",
+            config.engine.host.type,
+            remote_packages,
         )
 
 

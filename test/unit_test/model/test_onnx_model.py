@@ -40,7 +40,7 @@ def test_model_prepare_session(get_available_providers_mock, inference_session_m
 
 
 @pytest.mark.parametrize(
-    "inference_setting, model_inference_settings, execution_providers, merged_inference_settings",
+    ("inference_setting", "model_inference_settings", "execution_providers", "merged_inference_settings"),
     [
         # Non inference_settings cases
         (
@@ -231,9 +231,9 @@ def test_model_prepare_session_with_unsupported_eps(get_available_providers_mock
     ):
         # The inference session ep priority is lower than specified by argument in DLIS scenarios
         _ = model.prepare_session(inference_settings, Device.GPU, execution_providers, rank=1)
-        inference_session_mock.assert_called_once_with(
-            model.model_path, sess_options=ANY, providers=["MIGraphXExecutionProvider"], provider_options=[{}]
-        )
+    inference_session_mock.assert_called_once_with(
+        model.model_path, sess_options=ANY, providers=["MIGraphXExecutionProvider"], provider_options=[{}]
+    )
 
 
 @patch("onnxruntime.InferenceSession")

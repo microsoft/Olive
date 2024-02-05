@@ -24,6 +24,7 @@ from olive.model import ONNXModelHandler
 from olive.workflows import run as olive_run
 
 # pylint: disable=redefined-outer-name
+# ruff: noqa: T201
 
 
 def run_inference_loop(
@@ -379,7 +380,8 @@ def optimize(
                 elif footprint["from_pass"] == "OrtTransformersOptimization":
                     optimizer_footprint = footprint
 
-            assert conversion_footprint and optimizer_footprint
+            assert conversion_footprint
+            assert optimizer_footprint
 
             unoptimized_olive_model = ONNXModelHandler(**conversion_footprint["model_config"]["config"])
             optimized_olive_model = ONNXModelHandler(**optimizer_footprint["model_config"]["config"])

@@ -89,7 +89,7 @@ class TestEngine:
 
         # execute
         engine.register(OnnxDynamicQuantization)
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(ValueError) as exc_info:  # noqa: PT011
             engine.run(model_config, [DEFAULT_CPU_ACCELERATOR])
 
         assert str(exc_info.value) == f"Search strategy is None but pass {name} has search space"
@@ -423,7 +423,7 @@ class TestEngine:
         with patch.object(Path, "glob"):
             Path.glob.return_value = [Path("cache") / "output" / "435d_0.json"]
 
-            with pytest.raises(ValueError) as exc_info:
+            with pytest.raises(ValueError) as exc_info:  # noqa: PT011
                 engine.initialize()
             assert str(exc_info.value) == "invalid literal for int() with base 10: '435d'"
 
@@ -548,7 +548,7 @@ class TestEngine:
             model_config = get_pytorch_model_config()
             # execute
             output_dir = Path(tmpdir)
-            with pytest.raises(ValueError):
+            with pytest.raises(ValueError):  # noqa: PT011
                 engine.run(model_config, [DEFAULT_CPU_ACCELERATOR], output_dir=output_dir)
 
     @pytest.mark.parametrize("is_search", [True, False])

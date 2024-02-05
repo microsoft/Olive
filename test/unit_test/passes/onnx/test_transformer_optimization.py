@@ -84,13 +84,12 @@ def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, mock_inferece_sessio
             assert is_pruned
             assert "CPUExecutionProvider does not support GPU inference, please avoid to use use_gpu." in caplog.text
 
-    if accelerator_spec.execution_provider == "TensorrtExecutionProvider":
-        if fp16:
-            assert is_pruned
-            assert (
-                "TensorRT has its own float16 implementation, please avoid to use float16 in transformers "
-                "optimization. Suggest to set 'trt_fp16_enable' as True in OrtPerfTuning."
-            ) in caplog.text
+    if accelerator_spec.execution_provider == "TensorrtExecutionProvider" and fp16:
+        assert is_pruned
+        assert (
+            "TensorRT has its own float16 implementation, please avoid to use float16 in transformers "
+            "optimization. Suggest to set 'trt_fp16_enable' as True in OrtPerfTuning."
+        ) in caplog.text
 
     if not is_pruned:
         inference_session_mock_call_count = 0
@@ -138,13 +137,13 @@ def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, mock_inferece_sessio
 
 def test_transformer_optimization_invalid_model_type(tmp_path):
     input_model = get_onnx_model()
-    with pytest.raises(ValueError):
-        config = {"model_type": None}
+    config = {"model_type": None}
 
-        config = OrtTransformersOptimization.generate_search_space(DEFAULT_CPU_ACCELERATOR, config, disable_search=True)
-        p = OrtTransformersOptimization(DEFAULT_CPU_ACCELERATOR, config, True)
-        output_folder = str(tmp_path / "onnx")
+    config = OrtTransformersOptimization.generate_search_space(DEFAULT_CPU_ACCELERATOR, config, disable_search=True)
+    p = OrtTransformersOptimization(DEFAULT_CPU_ACCELERATOR, config, True)
+    output_folder = str(tmp_path / "onnx")
 
+    with pytest.raises(ValueError):  # noqa: PT011
         # execute
         p.run(input_model, None, output_folder)
 

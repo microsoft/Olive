@@ -154,7 +154,7 @@ def get_dummy_inputs_llama2(_):
 
 
 @pytest.mark.parametrize(
-    "io_config_func, dummy_inputs_func",
+    ("io_config_func", "dummy_inputs_func"),
     [
         (get_io_config_llama2, get_dummy_inputs_llama2),
         (get_io_config_phi2, get_dummy_inputs_phi2),

@@ -23,7 +23,7 @@ file_path = str(Path(__file__).resolve().parent)
 sys.path.append(file_path)
 
 # pylint: disable=redefined-outer-name
-# ruff: noqa: TID252
+# ruff: noqa: TID252, T201
 
 
 def save_image(result, batch_size, provider, num_images, images_saved, image_callback=None):

@@ -24,6 +24,8 @@ from transformers import CLIPTokenizer
 
 OV_OPTIMIZED_MODEL_INFO = "ov_optimized_model_info.json"
 
+# ruff: noqa: T201
+
 
 def scale_fit_to_window(dst_width: int, dst_height: int, image_width: int, image_height: int):
     """Preprocessing helper function for calculating image size.
@@ -368,11 +370,10 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
         """
         latents_shape = (batch_size * num_images_per_prompt, 4, height // 8, width // 8)
         noise = np.random.randn(*latents_shape).astype(np.float32)
-        if image is None:
+        if image is None and isinstance(self.scheduler, LMSDiscreteScheduler):
             # if you use LMSDiscreteScheduler, let's make sure latents are multiplied by sigmas
-            if isinstance(self.scheduler, LMSDiscreteScheduler):
-                noise = noise * self.scheduler.sigmas[0].numpy()
-                return noise, {}
+            noise = noise * self.scheduler.sigmas[0].numpy()
+            return noise, {}
         input_image, meta = preprocess(image)
         latents = self.vae_encoder(input_image)[self._vae_e_output] * 0.18215
         latents = self.scheduler.add_noise(torch.from_numpy(latents), torch.from_numpy(noise), latent_timestep).numpy()
