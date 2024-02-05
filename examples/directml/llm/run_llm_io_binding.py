@@ -90,7 +90,6 @@ def run_llm_io_binding(
         Print all primes between 1 and n
         """''', return_tensors="pt", return_attention_mask=False)["input_ids"]
 
-    print (inputs)
     tokens = inputs.numpy()
     tokens = onnxruntime.OrtValue.ortvalue_from_numpy(tokens, device)
     tokens_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, 1), np.int64, device)
@@ -144,18 +143,19 @@ def run_llm_io_binding(
         # Decide the next token using your preferred sampling strategy.
         logits = llm_io_binding.get_outputs()[0].numpy()[:, -1, :]
 
-        print (logits)
+        # print (logits)
         if(np.isnan(logits).any()):
             print (idx)
             print (logits)
+            exit()
 
-        for layer_idx in range(num_layers):
-            print (f"cache.{layer_idx}.key")
-            print (k_caches[layer_idx].numpy().shape)
-            print (k_caches[layer_idx].numpy()[:, :, :seq_len-1, :])
-            print (f"cache.{layer_idx}.value")
-            print (v_caches[layer_idx].numpy().shape)
-            print (v_caches[layer_idx].numpy()[:, :, :seq_len-1, :])
+        # for layer_idx in range(num_layers):
+        #     print (f"cache.{layer_idx}.key")
+        #     print (k_caches[layer_idx].numpy().shape)
+        #     print (k_caches[layer_idx].numpy()[:, :, seq_len-1, :])
+        #     print (f"cache.{layer_idx}.value")
+        #     print (v_caches[layer_idx].numpy().shape)
+        #     print (v_caches[layer_idx].numpy()[:, :, seq_len-1, :])
 
         next_token = np.argmax(logits, axis=-1, keepdims=True)
         output_tokens.append(next_token.item())
@@ -182,7 +182,6 @@ def run_llm_io_binding(
     # if ignore_eos:
     print(f"Execution took {duration:0.4f} seconds (generated {tokens_per_second:0.2f} tokens per second)")
 
-    print (output_tokens)
     output_str = tokenizer.decode(output_tokens, skip_special_tokens=True)
     print(output_str)
 

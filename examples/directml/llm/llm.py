@@ -175,7 +175,7 @@ def optimize(optimized_model_dir: Path, repo_id: str, model_name: str, num_layer
 
         # Some models are too fragile and need layer norm to be performed in fp32 to keep their accuracy.
         # bfloat16 could fix this, but since DML doesn't support it we need to fall back to fp32.
-        olive_config["passes"]["optimize"]["config"]["force_fp32_ops"] = ["MultiHeadAttention"]
+        olive_config["passes"]["optimize"]["config"]["force_fp32_ops"] = ["LayerNormalization", "MultiHeadAttention"]
 
         # Fewer than 32 layers can be provided for debugging purposes so we have to remove them from the config
         if config.num_layers < 32:
@@ -274,7 +274,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_seq_len", default=2048, type=int, help="The size of the cache")
     parser.add_argument("--device_id", default=0, type=int, help="GPU device to use during inference")
     parser.add_argument(
-        "--max_gen_len", default=50, type=int, help="The maximum number of tokens that can be included in an answer"
+        "--max_gen_len", default=200, type=int, help="The maximum number of tokens that can be included in an answer"
     )
     parser.add_argument("--device", type=str, choices=["dml", "cuda"], default="dml")
     parser.add_argument(
