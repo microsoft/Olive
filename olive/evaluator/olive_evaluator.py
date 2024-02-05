@@ -942,23 +942,34 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         execution_providers: Union[str, List[str]] = None,
     ) -> Tuple[OliveModelOutput, Any]:
         dataloader = self._prepare_dataloader(dataloader, model)
-        session = model.prepare_session(
-            inference_settings=metric.get_inference_settings(self.framework.lower()), device=device
-        )
+        inference_settings = metric.get_inference_settings(self.framework.lower())
+        # for accuracy evaluation, the `return_numpy_results` is required to be True
+        # but for model inference, it is not required to be True.
+        # We just set it to True for simple evaluation.
+        inference_settings["return_numpy_results"] = True
+
+        session = model.prepare_session(inference_settings=inference_settings, device=device)
 
         preds = []
         targets = []
         logits = []
         for data_dir, input_list, labels in dataloader:
             result = session(input_list, data_dir)
-            if post_func:
-                outputs = post_func(result)
-            else:
-                raise ValueError("Post processing function is required for SNPE model")
-            preds.extend(outputs.flatten().tolist())
-            targets.extend(labels.flatten().tolist())
-            # only when return_numpy_results is True, the result is a dict with "logits" key
-            logits.extend(result["results"].get("logits", np.array([])).tolist())
+            # as the SNPE inference will return a list of outputs which is beyond the model output shape
+            # we need to squeeze the fist dimensions of output to get right accuracy metrics
+            for idx, output in enumerate(result.get("results")):
+                post_output = output
+                if post_func:
+                    post_output = post_func(output)
+                else:
+                    raise ValueError("Post processing function is required for SNPE model")
+                preds.extend(post_output.tolist())
+                if isinstance(labels[idx], list):
+                    targets.extend(labels[idx])
+                else:
+                    targets.append(labels[idx])
+                # only when return_numpy_results is True, the result is a dict with "logits" key
+                logits.extend(output.get("logits", np.array([])).tolist())
         return OliveModelOutput(preds=preds, logits=logits), targets
 
     def _evaluate_accuracy(
@@ -998,7 +1009,9 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
     def _prepare_dataloader(self, dataloader: Dataset, model: SNPEModelHandler) -> FileListDataLoader:
         if isinstance(dataloader, FileListDataLoader):
             return dataloader
-        return FileListCommonDataLoader(dataloader, model.io_config)
+        # batch_size=1 guarantees that the dataloader returns one input at a time. And the input has
+        # the same batch_size in original dataloader.
+        return FileListCommonDataLoader(dataloader, model.io_config, batch_size=1)
 
 
 class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
@@ -1087,14 +1100,19 @@ class QNNEvaluator(OliveEvaluator, framework=Framework.QNN):
         targets = []
         logits = []
         for data_dir, input_list, labels in dataloader:
-            result = session(input_list, data_dir).get("result")
-            if post_func:
-                outputs = post_func(result)
-            else:
-                raise ValueError("Post processing function is required for QNN model")
-            preds.extend(outputs.tolist())
-            targets.extend(labels.tolist())
-            logits.extend(result.tolist())
+            result = session(input_list, data_dir)
+            for idx, output in enumerate(result.get("result")):
+                post_output = output
+                if post_func:
+                    post_output = post_func(output)
+                else:
+                    raise ValueError("Post processing function is required for QNN model")
+                preds.extend(post_output.tolist())
+                if isinstance(labels[idx], list):
+                    targets.extend(labels[idx])
+                else:
+                    targets.append(labels[idx])
+                logits.extend(output.tolist())
         return OliveModelOutput(preds=preds, logits=logits), targets
 
     def _evaluate_accuracy(
@@ -1135,7 +1153,9 @@ class QNNEvaluator(OliveEvaluator, framework=Framework.QNN):
     def _prepare_dataloader(self, dataloader: Dataset, model: QNNModelHandler) -> FileListDataLoader:
         if isinstance(dataloader, FileListDataLoader):
             return dataloader
-        return FileListCommonDataLoader(dataloader, model.io_config)
+        # batch_size=1 guarantees that the dataloader returns one input at a time. And the input has
+        # the same batch_size in original dataloader.
+        return FileListCommonDataLoader(dataloader, model.io_config, batch_size=1)
 
 
 class OliveEvaluatorFactory:

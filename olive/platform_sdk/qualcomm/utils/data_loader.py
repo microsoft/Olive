@@ -323,7 +323,7 @@ class FileListCommonDataLoader(FileListDataLoader):
                 input_file_path = input_dir_path / input_file_name
                 data.tofile(input_file_path)
 
-            annotations.append(annotation)
+            annotations.append(annotation.tolist())
 
         annotations = None if annotations[0] is None else np.array(annotations)
 

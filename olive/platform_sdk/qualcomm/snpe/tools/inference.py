@@ -268,7 +268,6 @@ def snpe_net_run(
         for output_name in output_names:
             results[output_name].sort(key=lambda x: x[0])
             results[output_name] = [x[1] for x in results[output_name]]
-            results[output_name] = np.stack(results[output_name])
 
     if workspace is not None:
         # sort the result files by the input id
@@ -303,7 +302,7 @@ def snpe_net_run(
 
     output_dict = {"latencies": latencies}
     if return_numpy_results:
-        output_dict["results"] = results
+        output_dict["results"] = [{k: v} for k, vs in results.items() for v in vs]
     if output_dir is not None:
         output_dict["output_dir"] = str(output_dir)
         output_dict["result_files"] = result_files
