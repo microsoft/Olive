@@ -74,7 +74,6 @@ jobs:
         scriptLocation: 'inlineScript'
         inlineScript: |
           python -m pip install pytest
-          python -m pip install azure-storage-blob
           python -m pip install -r $(Build.SourcesDirectory)/test/$(requirements_file)
 
           coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml $(Build.SourcesDirectory)/test/$(testType)
