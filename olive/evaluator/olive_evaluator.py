@@ -1007,11 +1007,11 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         return results["latencies"]["total_inference_time"][warmup_num:]
 
     def _prepare_dataloader(
-        self, dataloader: Dataset, model: SNPEModelHandler, file_list_batch_size=None
+        self, dataloader: Dataset, model: SNPEModelHandler, file_chunk_size=None
     ) -> FileListDataLoader:
         if isinstance(dataloader, FileListDataLoader):
             return dataloader
-        return FileListCommonDataLoader(dataloader, model.io_config, batch_size=file_list_batch_size)
+        return FileListCommonDataLoader(dataloader, model.io_config, batch_size=file_chunk_size)
 
 
 class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
@@ -1151,11 +1151,11 @@ class QNNEvaluator(OliveEvaluator, framework=Framework.QNN):
         return results["latencies"]["net_run"][warmup_num:]
 
     def _prepare_dataloader(
-        self, dataloader: Dataset, model: QNNModelHandler, file_list_batch_size=None
+        self, dataloader: Dataset, model: QNNModelHandler, file_chunk_size=None
     ) -> FileListDataLoader:
         if isinstance(dataloader, FileListDataLoader):
             return dataloader
-        return FileListCommonDataLoader(dataloader, model.io_config, batch_size=file_list_batch_size)
+        return FileListCommonDataLoader(dataloader, model.io_config, batch_size=file_chunk_size)
 
 
 class OliveEvaluatorFactory:
