@@ -7,4 +7,4 @@ from olive.data.registry import Registry
 
 @Registry.register_post_process()
 def inception_post_process(output):
-    return output["results"]["InceptionV3/Predictions/Reshape_1:0"].squeeze(1).argmax(axis=1)
+    return output["InceptionV3/Predictions/Reshape_1:0"].argmax(axis=1)
