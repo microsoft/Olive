@@ -68,5 +68,9 @@ def post_process(output):
     return output.argmax(axis=1)
 
 
+def qnn_sdk_post_process(output):
+    return np.array([output.argmax(axis=-1)])
+
+
 def mobilenet_calibration_reader(data_dir, batch_size, *args, **kwargs):
     return MobileNetCalibrationDataReader(data_dir, batch_size=batch_size)
