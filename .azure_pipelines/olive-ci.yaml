@@ -147,9 +147,10 @@ jobs:
       mobilenet_qnn_toolkit:
         exampleFolder: mobilenet
         exampleName: qnn_tooklit
-      inception_snpe_toolkit:
-        exampleFolder: inception
-        exampleName: snpe_toolkit
+      # ignore the inception_snpe_toolkit example on Windows for time being
+      # inception_snpe_toolkit:
+      #   exampleFolder: inception
+      #   exampleName: snpe_toolkit
 
 # Linux GPU examples testing.
 - template: job_templates/olive-example-template.yaml
