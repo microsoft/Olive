@@ -302,7 +302,7 @@ def snpe_net_run(
 
     output_dict = {"latencies": latencies}
     if return_numpy_results:
-        output_dict["results"] = [{k: v} for k, vs in results.items() for v in vs]
+        output_dict["results"] = [{k: v[i] for k, v in results.items()} for i in range(len(results[output_names[0]]))]
     if output_dir is not None:
         output_dict["output_dir"] = str(output_dir)
         output_dict["result_files"] = result_files
