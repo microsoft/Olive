@@ -21,6 +21,7 @@ class FileListDataLoader(ABC):
     """Abstraction for logical "FileListDataLoader", it contains data path and related metadata."""
 
     def __init__(self, config: dict, batch_size: int = None):
+        # TODO(anyone): try to add file_chunk_size to distinguish the concept of batch_size and file_chunk_size
         """:param config: data loader specific config."""
         self.config = config
         self.batch_size = batch_size
