@@ -33,6 +33,8 @@ class TestPyTorchMLflowModel(unittest.TestCase):
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.architecture)
         self.input_text = "Today was an amazing day."
         self.hf_conf = {
+            # this is `task_type` and not `task` since it's an input to aml_mlflow.hftransformers.save_model
+            # which expects `task_type` as the key
             "task_type": self.task,
         }
 

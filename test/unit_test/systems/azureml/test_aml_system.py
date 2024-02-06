@@ -557,7 +557,7 @@ class TestAzureMLSystem:
                     "model_name": "Intel/bert-base-uncased-mrpc",
                     "split": "validation",
                     "subset": "mrpc",
-                    "task_type": "text-classification",
+                    "task": "text-classification",
                 },
                 "type": "HuggingfaceContainer",
             },
