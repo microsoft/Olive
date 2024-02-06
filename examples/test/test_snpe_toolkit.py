@@ -11,8 +11,8 @@ from utils import check_output, download_azure_blob
 from olive.common.utils import retry_func, run_subprocess
 
 
-def download_qnn_sdk(target_path=None):
-    """Download the qnn sdk."""
+def download_snpe_sdk(target_path=None):
+    """Download the snpe sdk."""
     blob, download_path = "", ""
     if platform.system() == "Windows":
         blob, download_path = "snpe_sdk_windows.zip", "snpe_sdk_windows.zip"
@@ -52,16 +52,16 @@ def setup_resource():
         python_cmd = str(Path(os.environ["SNPE_ROOT"]) / "olive-pyenv" / "bin" / "python")
     install_cmd = [
         python_cmd,
-        str(Path(os.environ["QNN_SDK_ROOT"]) / "bin" / "check-python-dependency"),
+        str(Path(os.environ["SNPE_ROOT"]) / "bin" / "check-python-dependency"),
     ]
     run_subprocess(cmd=" ".join(install_cmd), check=True)
     retry_func(run_subprocess, kwargs={"cmd": "python download_files.py", "check": True})
 
 
-def test_mobilenet_qnn(tmp_path):
+def test_inception_snpe(tmp_path):
     from olive.workflows import run as olive_run
 
-    os.environ["SNPE_ROOT"] = str(download_qnn_sdk(tmp_path))
+    os.environ["SNPE_ROOT"] = str(download_snpe_sdk(tmp_path))
     setup_resource()
 
     footprint = olive_run("inception_config.json")
