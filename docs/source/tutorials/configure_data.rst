@@ -92,7 +92,7 @@ Convert the huggingface data config to the data container.
                 "type": "HuggingfaceContainer",
                 "params_config": {
                     "model_name": "Intel/bert-base-uncased-mrpc",
-                    "task_type": "text-classification",
+                    "task": "text-classification",
                     "batch_size": 1,
                     "data_name": "glue",
                     "input_cols": ["sentence1", "sentence2"],
@@ -112,7 +112,7 @@ Convert the huggingface data config to the data container.
                 type="HuggingfaceContainer",
                 params_config={
                     "model_name": "Intel/bert-base-uncased-mrpc",
-                    "task_type": "text-classification",
+                    "task": "text-classification",
                     "batch_size": 1,
                     "data_name": "glue",
                     "input_cols": ["sentence1", "sentence2"],
