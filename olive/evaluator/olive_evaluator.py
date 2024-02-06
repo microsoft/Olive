@@ -995,7 +995,7 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
-        dataloader = self._prepare_dataloader(dataloader, model)
+        dataloader = self._prepare_dataloader(dataloader, model, 1)
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
         session = model.prepare_session(
             inference_settings=metric.get_inference_settings(self.framework.lower()), device=device
@@ -1006,12 +1006,12 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         results = session(input_data, data_dir, runs=total_runs, sleep=sleep_num)
         return results["latencies"]["total_inference_time"][warmup_num:]
 
-    def _prepare_dataloader(self, dataloader: Dataset, model: SNPEModelHandler) -> FileListDataLoader:
+    def _prepare_dataloader(
+        self, dataloader: Dataset, model: SNPEModelHandler, file_list_batch_size=None
+    ) -> FileListDataLoader:
         if isinstance(dataloader, FileListDataLoader):
             return dataloader
-        # batch_size=1 guarantees that the dataloader returns one input at a time. And the input has
-        # the same batch_size in original dataloader.
-        return FileListCommonDataLoader(dataloader, model.io_config, batch_size=1)
+        return FileListCommonDataLoader(dataloader, model.io_config, batch_size=file_list_batch_size)
 
 
 class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
@@ -1138,7 +1138,7 @@ class QNNEvaluator(OliveEvaluator, framework=Framework.QNN):
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ):
-        dataloader = self._prepare_dataloader(dataloader, model)
+        dataloader = self._prepare_dataloader(dataloader, model, 1)
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
         session = model.prepare_session(
             inference_settings=metric.get_inference_settings(self.framework.lower()), device=device
@@ -1150,12 +1150,12 @@ class QNNEvaluator(OliveEvaluator, framework=Framework.QNN):
         results = session(input_data, data_dir, runs=total_runs, sleep=sleep_num)
         return results["latencies"]["net_run"][warmup_num:]
 
-    def _prepare_dataloader(self, dataloader: Dataset, model: QNNModelHandler) -> FileListDataLoader:
+    def _prepare_dataloader(
+        self, dataloader: Dataset, model: QNNModelHandler, file_list_batch_size=None
+    ) -> FileListDataLoader:
         if isinstance(dataloader, FileListDataLoader):
             return dataloader
-        # batch_size=1 guarantees that the dataloader returns one input at a time. And the input has
-        # the same batch_size in original dataloader.
-        return FileListCommonDataLoader(dataloader, model.io_config, batch_size=1)
+        return FileListCommonDataLoader(dataloader, model.io_config, batch_size=file_list_batch_size)
 
 
 class OliveEvaluatorFactory:
