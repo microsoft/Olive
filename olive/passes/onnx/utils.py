@@ -20,6 +20,15 @@ from olive.passes.onnx.auto_fusion_utils.utils import NP_DTYPE_REVERSE_MAP
 if TYPE_CHECKING:
     from onnx import ModelProto
 
+NP_DTYPE_REVERSE_MAP = {
+    "float32": "fp32",
+    "float16": "fp16",
+    "int32": "int32",
+    "int64": "int64",
+    "bool": "bool",
+    # bfloat16 is not supported in numpy
+    # "bfloat16": "bf16",
+}
 
 class SpecialInput(str, Enum):
     """Special inputs for ONNX nodes."""

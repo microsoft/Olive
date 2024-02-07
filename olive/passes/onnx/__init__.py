@@ -22,6 +22,7 @@ from olive.passes.onnx.quantization import (
     OnnxStaticQuantization,
 )
 from olive.passes.onnx.transformer_optimization import OrtTransformersOptimization
+from olive.passes.onnx.utils import OnnxDAG
 from olive.passes.onnx.vitis_ai_quantization import VitisAIQuantization
 
 __all__ = [
@@ -47,4 +48,5 @@ __all__ = [
     "VitisAIQuantization",
     "OptimumConversion",
     "OptimumMerging",
+    "OnnxDAG",
 ]

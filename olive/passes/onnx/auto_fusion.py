@@ -15,8 +15,9 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.auto_fusion_utils import DOMAIN, Builder, Fusion, OnnxDAG
+from olive.passes.onnx.auto_fusion_utils import DOMAIN, Builder, Fusion
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
+from olive.passes.onnx.utils import OnnxDAG
 from olive.passes.pass_config import PassConfigParam
 
 logger = logging.getLogger(__name__)
