@@ -14,9 +14,6 @@ from olive.passes.pass_config import PassConfigParam
 class QNNPreprocess(Pass):
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        assert (
-            accelerator_spec.execution_provider == "QNNExecutionProvider"
-        ), "QNNPreprocess only supports QNNExecutionProvider"
         return {
             "fuse_layernorm": PassConfigParam(
                 type_=bool,
@@ -40,11 +37,12 @@ class QNNPreprocess(Pass):
         from onnxruntime import __version__ as OrtVersion
         from packaging import version
 
-        if version.parse(OrtVersion) < version.parse("1.18.0"):
-            raise RuntimeError("QNNPreprocess only supports ONNXRuntime version 1.18.0 or later")
+        if version.parse(OrtVersion) < version.parse("1.17.0"):
+            raise RuntimeError("QNNPreprocess only supports ONNXRuntime version 1.17.0 or later")
 
         from onnxruntime.quantization.execution_providers.qnn import qnn_preprocess_model
 
-        qnn_preprocess_model(model.model_path, output_model_path, **config)
-
+        modified = qnn_preprocess_model(model.model_path, output_model_path, **config)
+        if not modified:
+            return model
         return ONNXModelHandler(output_model_path)
