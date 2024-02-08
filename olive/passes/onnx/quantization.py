@@ -394,6 +394,12 @@ class OnnxQuantization(Pass):
                     "extra_options": extra_options,
                 }
             )
+
+        # remove keys not needed for quantization
+        for key in to_delete:
+            if key in run_config:
+                del run_config[key]
+
         # for ORT version < 1.16.0, set optimize_model to False
         # always set it to False since it is not recommended and is removed in ORT 1.16.0
         # user needs to call pre-process to optimize the model, we already have pre-process option
@@ -442,7 +448,7 @@ class OnnxQuantization(Pass):
                 # remove the calibration_data_reader from run_config
                 run_config.pop("calibration_data_reader", None)
 
-            for key in (*to_delete, "calibration_data_reader", "use_external_data_format"):
+            for key in ("calibration_data_reader", "use_external_data_format"):
                 if key in run_config:
                     del run_config[key]
             try:
