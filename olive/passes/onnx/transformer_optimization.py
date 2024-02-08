@@ -193,7 +193,6 @@ class OrtTransformersOptimization(Pass):
             if attn_op_type == "Attention":
                 fusion_options.set_attention_op_type(AttentionOpType.Attention)
             elif attn_op_type == "MultiHeadAttention":
-                print("set type to mha")
                 fusion_options.set_attention_op_type(AttentionOpType.MultiHeadAttention)
             elif attn_op_type == "GroupQueryAttention":
                 fusion_options.set_attention_op_type(AttentionOpType.GroupQueryAttention)
@@ -256,10 +255,7 @@ class OrtTransformersOptimization(Pass):
         optimization_options = config["optimization_options"]
 
         if optimization_options:
-            print("setting fusion options")
             self._set_fusion_options(run_config)
-
-        print(run_config["optimization_options"].attention_op_type)
 
         if run_config["use_gpu"]:
             import onnxruntime as ort

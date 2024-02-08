@@ -180,6 +180,38 @@ class OnnxConversion(Pass):
         if isinstance(pytorch_model, torch.jit.RecursiveScriptModule):
             pytorch_model = TraceModelWrapper(pytorch_model)
 
+        # get input and output names, and dynamic axes
+        assert (
+            io_config is not None
+        ), "Cannot get io_config for the model. Please specify io_config or hf_config for the model"
+        io_config = validate_config(io_config, IoConfig)
+        input_names = io_config.input_names
+        output_names = io_config.output_names
+        dynamic_axes = io_config.dynamic_axes
+
+        # some dummy inputs might not be used in the model, so we need to remove them
+        # this can happen when we are using an hf dataset to generate dummy inputs
+        # only handle dict for now since we cannot get the name of the input from a list/tuple
+        if isinstance(dummy_inputs, dict):
+            dummy_input_keys = set(dummy_inputs.keys())
+
+            # handle dummy inputs for model with past, which has past_key_values
+            # match input names in `past_key_values.(hidden_layer_num).(key|value)` pattern(llama2 case)
+            # or `past_key_values.(hidden_layer_num)` pattern (phi2 case)
+            for name, dm_input in dummy_inputs.items():
+                if name == "past_key_values" and isinstance(dm_input, list):
+                    key_value_names = [f"{name}.{idx}" for idx in range(len(dm_input))]
+                    if all(
+                        any(key_value_name in input_name for input_name in input_names)
+                        for key_value_name in key_value_names
+                    ):
+                        dummy_input_keys.discard(name)
+
+            unused_keys = dummy_input_keys - set(input_names)
+
+            if unused_keys:
+                logger.debug(f"Removing unused dummy inputs: {unused_keys}")
+
         onnx_model = None
         if config["use_dynamo_exporter"]:
             torch_version = torch.__version__
@@ -192,33 +224,12 @@ class OnnxConversion(Pass):
             from torch._dynamo import config
             config.capture_scalar_outputs = True
 
-            ############################################################################################################
             io_config = validate_config(io_config, IoConfig)
             input_names = io_config.input_names
             if isinstance(dummy_inputs, dict):
-                dummy_input_keys = set(dummy_inputs.keys())
-
-                # handle dummy inputs for model with past, which has past_key_values
-                # match input names in `past_key_values.(hidden_layer_num).(key|value)` pattern(llama2 case)
-                # or `past_key_values.(hidden_layer_num)` pattern (phi2 case)
-                for name, dm_input in dummy_inputs.items():
-                    if name == "past_key_values" and isinstance(dm_input, list):
-                        key_value_names = [f"{name}.{idx}" for idx in range(len(dm_input))]
-                        if all(
-                            any(key_value_name in input_name for input_name in input_names)
-                            for key_value_name in key_value_names
-                        ):
-                            dummy_input_keys.discard(name)
-
-                unused_keys = dummy_input_keys - set(input_names)
-
-                if unused_keys:
-                    logger.debug(f"Removing unused dummy inputs: {unused_keys}")
                 for key in unused_keys:
                     dummy_inputs[key] = None
-            ############################################################################################################
 
-            #dry run
             pytorch_model(*dummy_inputs.values())
 
             exported = dynamo_export(
@@ -229,38 +240,7 @@ class OnnxConversion(Pass):
             onnx_model = exported.model_proto
         else:
             # Standard ONNX export
-
-            # get input and output names, and dynamic axes
-            assert (
-                io_config is not None
-            ), "Cannot get io_config for the model. Please specify io_config or hf_config for the model"
-            io_config = validate_config(io_config, IoConfig)
-            input_names = io_config.input_names
-            output_names = io_config.output_names
-            dynamic_axes = io_config.dynamic_axes
-
-            # some dummy inputs might not be used in the model, so we need to remove them
-            # this can happen when we are using an hf dataset to generate dummy inputs
-            # only handle dict for now since we cannot get the name of the input from a list/tuple
             if isinstance(dummy_inputs, dict):
-                dummy_input_keys = set(dummy_inputs.keys())
-
-                # handle dummy inputs for model with past, which has past_key_values
-                # match input names in `past_key_values.(hidden_layer_num).(key|value)` pattern(llama2 case)
-                # or `past_key_values.(hidden_layer_num)` pattern (phi2 case)
-                for name, dm_input in dummy_inputs.items():
-                    if name == "past_key_values" and isinstance(dm_input, list):
-                        key_value_names = [f"{name}.{idx}" for idx in range(len(dm_input))]
-                        if all(
-                            any(key_value_name in input_name for input_name in input_names)
-                            for key_value_name in key_value_names
-                        ):
-                            dummy_input_keys.discard(name)
-
-                unused_keys = dummy_input_keys - set(input_names)
-
-                if unused_keys:
-                    logger.debug(f"Removing unused dummy inputs: {unused_keys}")
                 for key in unused_keys:
                     del dummy_inputs[key]
 
