@@ -224,7 +224,6 @@ class OnnxConversion(Pass):
             from torch._dynamo import config
             config.capture_scalar_outputs = True
 
-            io_config = validate_config(io_config, IoConfig)
             input_names = io_config.input_names
             if isinstance(dummy_inputs, dict):
                 for key in unused_keys:
@@ -232,12 +231,18 @@ class OnnxConversion(Pass):
 
             pytorch_model(*dummy_inputs.values())
 
-            exported = dynamo_export(
-                pytorch_model,
-                *dummy_inputs.values(),
-                export_options=torch.onnx.ExportOptions(dynamic_shapes=True),
-            )
-            onnx_model = exported.model_proto
+            with tempfile.TemporaryDirectory(dir=tempdir, prefix="olive_tmp") as tmp_dir:
+                tmp_dir_path = Path(tmp_dir)
+                tmp_model_path = resolve_onnx_path(tmp_dir_path)
+
+                dynamo_export(
+                    pytorch_model,
+                    *dummy_inputs.values(),
+                    export_options=torch.onnx.ExportOptions(dynamic_shapes=True),
+                ).save(tmp_model_path)
+                onnx.checker.check_model(tmp_model_path)
+                onnx.shape_inference.infer_shapes_path(tmp_model_path)
+                onnx_model = onnx.load(tmp_model_path)
         else:
             # Standard ONNX export
             if isinstance(dummy_inputs, dict):
