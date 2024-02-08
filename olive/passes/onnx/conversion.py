@@ -182,18 +182,48 @@ class OnnxConversion(Pass):
 
         onnx_model = None
         if config["use_dynamo_exporter"]:
-            # available since torch==2.1.0
             torch_version = torch.__version__
-            if version.parse(torch_version) < version.parse("2.1.0"):
+            if version.parse(torch_version) < version.parse("2.2.0"):
                 raise ImportError(
                     f"torch.onnx.dynamo_export is not available for torch version {torch_version}. "
-                    "Please upgrade your torch version to 2.1.0 or above."
+                    "Please upgrade your torch version to 2.2.0 or above."
                 )
             from torch.onnx import dynamo_export
+            from torch._dynamo import config
+            config.capture_scalar_outputs = True
+
+            ############################################################################################################
+            io_config = validate_config(io_config, IoConfig)
+            input_names = io_config.input_names
+            if isinstance(dummy_inputs, dict):
+                dummy_input_keys = set(dummy_inputs.keys())
+
+                # handle dummy inputs for model with past, which has past_key_values
+                # match input names in `past_key_values.(hidden_layer_num).(key|value)` pattern(llama2 case)
+                # or `past_key_values.(hidden_layer_num)` pattern (phi2 case)
+                for name, dm_input in dummy_inputs.items():
+                    if name == "past_key_values" and isinstance(dm_input, list):
+                        key_value_names = [f"{name}.{idx}" for idx in range(len(dm_input))]
+                        if all(
+                            any(key_value_name in input_name for input_name in input_names)
+                            for key_value_name in key_value_names
+                        ):
+                            dummy_input_keys.discard(name)
+
+                unused_keys = dummy_input_keys - set(input_names)
+
+                if unused_keys:
+                    logger.debug(f"Removing unused dummy inputs: {unused_keys}")
+                for key in unused_keys:
+                    dummy_inputs[key] = None
+            ############################################################################################################
+
+            #dry run
+            pytorch_model(*dummy_inputs.values())
 
             exported = dynamo_export(
                 pytorch_model,
-                *dummy_inputs,
+                *dummy_inputs.values(),
                 export_options=torch.onnx.ExportOptions(dynamic_shapes=True),
             )
             onnx_model = exported.model_proto
@@ -377,7 +407,7 @@ class OnnxConversion(Pass):
 
         # get dummy inputs
         dummy_inputs = model.get_dummy_inputs()
-        io_config = None if config["use_dynamo_exporter"] else model.get_io_config()
+        io_config = model.get_io_config()
 
         converted_onnx_model = OnnxConversion._export_pytorch_model(
             pytorch_model, dummy_inputs, io_config, config, device, torch_dtype, tempfile.tempdir

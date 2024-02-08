@@ -127,6 +127,14 @@ class OrtTransformersOptimization(Pass):
             "input_int32": PassConfigParam(
                 type_=bool, default_value=False, description="Whether int32 tensors will be used as input."
             ),
+            "attention_op_type": PassConfigParam(
+                type_=str,
+                default_value=None,
+                description=(
+                    "Attention op type for dynamo exported onnx model including 'Attention', 'MultiHeadAttention', "
+                    "'GroupQueryAttention' and 'PagedAttention'"
+                ),
+            ),
         }
         config.update(get_external_data_config())
         return config
@@ -177,6 +185,23 @@ class OrtTransformersOptimization(Pass):
 
         fusion_options = FusionOptions(run_config["model_type"])
         fusion_options.__dict__.update(run_config["optimization_options"])
+
+        attn_op_type = run_config["optimization_options"]["attention_op_type"]
+
+        if attn_op_type:
+            from onnxruntime.transformers.fusion_options import AttentionOpType
+            if attn_op_type == "Attention":
+                fusion_options.set_attention_op_type(AttentionOpType.Attention)
+            elif attn_op_type == "MultiHeadAttention":
+                print("set type to mha")
+                fusion_options.set_attention_op_type(AttentionOpType.MultiHeadAttention)
+            elif attn_op_type == "GroupQueryAttention":
+                fusion_options.set_attention_op_type(AttentionOpType.GroupQueryAttention)
+            elif attn_op_type == "PagedAttention":
+                fusion_options.set_attention_op_type(AttentionOpType.PagedAttention)
+            else:
+                raise ValueError(f"Unsupported attention op type: {attn_op_type}")
+
         run_config["optimization_options"] = fusion_options
 
     def _run_for_config(
@@ -194,6 +219,7 @@ class OrtTransformersOptimization(Pass):
             "force_fp16_inputs",
             "use_gqa",
             "input_int32",
+            "attention_op_type",
         ]
         keys_to_remove += get_external_data_config()
         for key in keys_to_remove:
@@ -228,8 +254,12 @@ class OrtTransformersOptimization(Pass):
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
         optimization_options = config["optimization_options"]
+
         if optimization_options:
+            print("setting fusion options")
             self._set_fusion_options(run_config)
+
+        print(run_config["optimization_options"].attention_op_type)
 
         if run_config["use_gpu"]:
             import onnxruntime as ort

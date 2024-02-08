@@ -53,20 +53,11 @@
         }
     },
     "passes": {
-        "convert_optimum": {
-            "type": "OptimumConversion",
-            "config": {
-                "target_opset": 17,
-                "extra_args": {
-                    "legacy": false,
-                    "no_post_process": true
-                }
-            }
-        },
         "convert": {
             "type": "OnnxConversion",
             "config": {
-                "target_opset": 17,
+                "use_dynamo_exporter": true,
+                "target_opset": 18,
                 "save_as_external_data": true,
                 "all_tensors_to_one_file": true
             }
@@ -74,13 +65,14 @@
         "optimize": {
             "type": "OrtTransformersOptimization",
             "config": {
-                "model_type": "gpt2",
+                "model_type": "phi",
                 "use_gpu": false,
-                "keep_io_types": true,
+                "keep_io_types": false,
                 "num_heads": 32,
                 "hidden_size": 2560,
+                "opt_level": 0,
                 "optimization_options": {
-                    "use_multi_head_attention": false
+                    "attention_op_type": "MultiHeadAttention"
                 },
                 "save_as_external_data": true,
                 "all_tensors_to_one_file": true
