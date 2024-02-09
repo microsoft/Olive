@@ -48,9 +48,19 @@ class LLMOnnxDmlInterface(BaseLLMInterface):
         # Initialize the tokenizer and produce the initial tokens.
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_dir)
 
-        if self.tokenizer.chat_template is None:
-            self.tokenizer.chat_template = "{% for message in messages %}{{message['content']}}{% endfor %}"
+        # if self.tokenizer.chat_template is None:
+        #     self.tokenizer.chat_template = "{% for message in messages %}{{message['content']}}{% endfor %}"
 
+        self.tokenizer.chat_template = (
+            "{% for message in messages %}"
+            "{% if message['role'] == 'user' %}"
+            "Human: {{ message['content'] }}\nAI:"
+            "{% endif %}"
+            "{% if message['role'] == 'assistant' %}"
+            "{{ message['content'] }}\n"
+            "{% endif %}"
+            "{% endfor %}"
+        )
         # Create the I/O bindings
         self.llm_io_binding = self.llm_session.io_binding()
 
@@ -72,8 +82,6 @@ class LLMOnnxDmlInterface(BaseLLMInterface):
             {"role": "assistant", "content": "Sure, I am happy to answer most questions."},
             {"role": "user", "content": "Great, I insist that we take turns."},
             {"role": "assistant", "content": "I agree, we should take turns."},
-            {"role": "user", "content": "Great, can we also keep answers short?"},
-            {"role": "assistant", "content": "Yes, short answers are usually best."},
         ]
 
     def shutdown(self):
