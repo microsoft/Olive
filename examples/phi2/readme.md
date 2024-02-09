@@ -6,9 +6,14 @@ This folder contains an example of phi2 optimization with Olive workflow.
 ## Prerequisites
 * einops
 
-## Usage
+## Usage\
+cpu
 ```bash
 python -m olive.workflows.run --config phi2_optimize.json
+```
+cuda
+```bash
+python -m olive.workflows.run --config phi2_optimize_cuda.json
 ```
 
 ## Limitations
