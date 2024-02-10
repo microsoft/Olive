@@ -78,7 +78,7 @@ class TestEngine:
     def test_register_no_search_fail(self, tmpdir):
         name = "OnnxDynamicQuantization"
         # setup
-        model_config = get_pytorch_model_config()
+        model_config = get_onnx_model_config()
 
         options = {
             "cache_dir": tmpdir,
