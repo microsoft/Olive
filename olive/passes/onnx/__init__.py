@@ -14,6 +14,7 @@ from olive.passes.onnx.moe_experts_distributor import MoEExpertsDistributor
 from olive.passes.onnx.optimum_conversion import OptimumConversion
 from olive.passes.onnx.optimum_merging import OptimumMerging
 from olive.passes.onnx.perf_tuning import OrtPerfTuning
+from olive.passes.onnx.qnn_preprocess import QNNPreprocess
 from olive.passes.onnx.quantization import (
     OnnxDynamicQuantization,
     OnnxMatMul4Quantizer,
@@ -40,6 +41,7 @@ __all__ = [
     "OrtTransformersOptimization",
     "OnnxModelOptimizer",
     "OnnxFloatToFloat16",
+    "QNNPreprocess",
     "InsertBeamSearch",
     "OrtMixedPrecision",
     "VitisAIQuantization",
