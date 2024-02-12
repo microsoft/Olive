@@ -228,6 +228,9 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 Please refer to [OnnxQuantization](onnx_quantization), [OnnxDynamicQuantization](onnx_dynamic_quantization) and
 [OnnxStaticQuantization](onnx_static_quantization) for more details about the passes and their config parameters.
 
+**Note:** If target execution provider is QNN EP, the model might need to be preprocessed before quantization. Please refer to [QnnPreprocess](qnn_preprocess) for more details about the pass and its config parameters.
+This preprocessing step fuses operators unsupported by QNN EP and inserts necessary operators to make the model compatible with QNN EP.
+
 ### Quantize with Intel® Neural Compressor
 In addition to the default onnxruntime quantization tool, Olive also integrates [Intel® Neural Compressor](https://github.com/intel/neural-compressor).
 

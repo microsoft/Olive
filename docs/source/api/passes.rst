@@ -48,6 +48,12 @@ OrtMixedPrecision
 --------------------
 .. autoconfigclass:: olive.passes.OrtMixedPrecision
 
+.. _qnn_preprocess:
+
+QNNPreprocess
+--------------
+.. autoconfigclass:: olive.passes.QNNPreprocess
+
 .. _onnx_dynamic_quantization:
 
 OnnxDynamicQuantization
@@ -83,6 +89,12 @@ IncStaticQuantization
 IncQuantization
 ----------------
 .. autoconfigclass:: olive.passes.IncQuantization
+
+.. _vitis_ai_quantization:
+
+VitisAIQuantization
+--------------------
+.. autoconfigclass:: olive.passes.VitisAIQuantization
 
 .. _append_pre_post_processing:
 
@@ -157,6 +169,24 @@ SNPEtoONNXConversion
 --------------------
 .. autoconfigclass:: olive.passes.SNPEtoONNXConversion
 
+.. _qnn_conversion:
+
+QNNConversion
+--------------
+.. autoconfigclass:: olive.passes.QNNConversion
+
+.. _qnn_model_lib_generator:
+
+QNNModelLibGenerator
+--------------------
+.. autoconfigclass:: olive.passes.QNNModelLibGenerator
+
+.. _qnn_context_binary_generator:
+
+QNNContextBinaryGenerator
+-------------------------
+.. autoconfigclass:: olive.passes.QNNContextBinaryGenerator
+
 .. _sparsegpt:
 
 SparseGPT
@@ -168,12 +198,6 @@ SparseGPT
 TorchTRTConversion
 --------------------
 .. autoconfigclass:: olive.passes.TorchTRTConversion
-
-.. _vitis_ai_quantization:
-
-VitisAIQuantization
---------------------
-.. autoconfigclass:: olive.passes.VitisAIQuantization
 
 .. _optimum_conversion:
 

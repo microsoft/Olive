@@ -17,6 +17,12 @@ from olive.platform_sdk.qualcomm.runner import QNNSDKRunner
 
 
 class QNNConversion(Pass):
+    """Convert ONNX, TensorFlow, or PyTorch model to QNN C++ model.
+
+    Quantize the model if `--input_list` is provided as extra_args.
+    Uses qnn-[framework]-converter tool from the QNN SDK.
+    """
+
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {

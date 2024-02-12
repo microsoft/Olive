@@ -1,10 +1,13 @@
 from test.unit_test.utils import get_onnx_model, get_pytorch_model_dummy_input
 
 import pytest
+from onnxruntime import __version__ as OrtVersion
 from onnxruntime.quantization.calibrate import CalibrationDataReader
+from packaging import version
 
+from olive.hardware.accelerator import AcceleratorSpec
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx import OnnxQuantization
+from olive.passes.onnx import OnnxQuantization, OnnxStaticQuantization
 
 
 class DummyCalibrationDataReader(CalibrationDataReader):
@@ -45,5 +48,26 @@ def test_quantization(calibrate_method, tmp_path):
         "quant_preprocess": True,
     }
     p = create_pass_from_dict(OnnxQuantization, config, disable_search=True)
+    out = p.run(input_model, None, tmp_path)
+    assert out is not None
+
+
+@pytest.mark.skipif(
+    version.parse(OrtVersion) < version.parse("1.17.0"),
+    reason="qnn quantization is only supported in onnxruntime>=1.17.0",
+)
+def test_qnn_quantization(tmp_path):
+    input_model = get_onnx_model()
+    config = {
+        "quant_format": "QDQ",
+        "dataloader_func": dummpy_dataloader_func,
+        "weight_type": "QUInt8",
+        "activation_type": "QUInt16",
+    }
+    accelerator_spec = AcceleratorSpec(
+        accelerator_type="NPU",
+        execution_provider="QNNExecutionProvider",
+    )
+    p = create_pass_from_dict(OnnxStaticQuantization, config, disable_search=True, accelerator_spec=accelerator_spec)
     out = p.run(input_model, None, tmp_path)
     assert out is not None
