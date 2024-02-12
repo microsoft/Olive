@@ -217,6 +217,14 @@ _static_optional_config = {
             https://onnxruntime.ai/docs/performance/quantization.html for more details on data type selection
         """,
     ),
+    "prepare_qnn_config": PassConfigParam(
+        type_=bool,
+        default_value=False,
+        description="""
+            Whether to generate a suitable quantization config for the input model.
+            Should be set to True if model is targeted for QNN EP.
+        """,
+    ),
 }
 
 
@@ -358,9 +366,8 @@ class OnnxQuantization(Pass):
                 model = ONNXModelHandler(LocalFile({"path": preprocessed_temp_model_path}))
 
         # whether to prepare qnn config
-        prepare_qnn_config = run_config.get("if_prepare_qnn_config", False)
-        if prepare_qnn_config and version.parse(OrtVersion) < version.parse("1.17.0"):
-            raise OlivePassError("if_prepare_qnn_config is only supported for onnxruntime-qnn>=1.17.0")
+        if run_config["prepare_qnn_config"] and version.parse(OrtVersion) < version.parse("1.17.0"):
+            raise OlivePassError("prepare_qnn_config is only supported for onnxruntime-qnn>=1.17.0")
 
         # keys not needed for quantization
         to_delete = [
@@ -369,7 +376,7 @@ class OnnxQuantization(Pass):
             "user_script",
             "quant_preprocess",
             "data_config",
-            "if_prepare_qnn_config",
+            "prepare_qnn_config",
         ]
         to_delete += list(get_external_data_config().keys())
 
@@ -429,7 +436,7 @@ class OnnxQuantization(Pass):
                 data_config = validate_config(config["data_config"], DataConfig)
                 dataloader = data_config.to_data_container().create_calibration_dataloader(data_root)
 
-            if prepare_qnn_config:
+            if config["prepare_qnn_config"]:
                 import inspect
 
                 from onnxruntime.quantization.execution_providers.qnn import get_qnn_qdq_config
@@ -559,13 +566,9 @@ class OnnxStaticQuantization(OnnxQuantization):
             # Recently Int16/Uint16 is added into onnx runtime quantization only in QDQ mode.
             # for QNN EP integration, we give this workaround to support Int16/Uint16 in QDQ mode.
             # TODO(jiapli): remove this workaround once figure out the Int16/UInt16 in latest quantization
-            config["activation_type"].searchable_values = Categorical(["QInt8", "QUInt8", "QUint16", "QInt16"])
-            config["weight_type"].searchable_values = Categorical(["QInt8", "QUInt8", "QUint16", "QInt16"])
-            config["if_prepare_qnn_config"] = PassConfigParam(
-                type_=bool,
-                default_value=True,
-                description="Whether to use QNN preprocess for static quantization.",
-            )
+            config["activation_type"].searchable_values = Categorical(["QInt8", "QUInt8", "QUInt16", "QInt16"])
+            config["weight_type"].searchable_values = Categorical(["QInt8", "QUInt8", "QUInt16", "QInt16"])
+            config["prepare_qnn_config"].default_value = True
         return config
 
 
