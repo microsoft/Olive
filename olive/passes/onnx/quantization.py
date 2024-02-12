@@ -366,7 +366,7 @@ class OnnxQuantization(Pass):
                 model = ONNXModelHandler(LocalFile({"path": preprocessed_temp_model_path}))
 
         # whether to prepare qnn config
-        if run_config["prepare_qnn_config"] and version.parse(OrtVersion) < version.parse("1.17.0"):
+        if run_config.get("prepare_qnn_config", False) and version.parse(OrtVersion) < version.parse("1.17.0"):
             raise OlivePassError("prepare_qnn_config is only supported for onnxruntime-qnn>=1.17.0")
 
         # keys not needed for quantization
