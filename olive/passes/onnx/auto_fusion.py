@@ -34,6 +34,11 @@ class AutoFusion(Pass):
                 default_value=10,
                 description="Minumum number of occurance of a fusion pattern to be considered for fusion.",
             ),
+            "constant_overrides": PassConfigParam(
+                type_=Dict[str, Dict[str, int]],
+                default_value=None,
+                description="Override default constants for the custom op builder. Dict of op type to constants.",
+            ),
         }
         config.update(get_external_data_config())
         return config
@@ -106,7 +111,7 @@ class AutoFusion(Pass):
         custom_op_lib = None
         with tempfile.TemporaryDirectory() as temp_dir:
             logger.info("Building custom op library...")
-            builder = Builder([f for f, _ in fusions], temp_dir)
+            builder = Builder([f for f, _ in fusions], temp_dir, constant_overrides=config["constant_overrides"])
             lib_path = builder.build()
 
             Path(output_model_path).parent.mkdir(parents=True, exist_ok=True)

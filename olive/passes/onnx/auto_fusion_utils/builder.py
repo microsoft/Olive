@@ -19,7 +19,13 @@ logger = logging.getLogger(__name__)
 
 
 class Builder:
-    def __init__(self, fusions: List[Fusion], out_dir: Union[str, Path], lib_name: str = "libcustom_op"):
+    def __init__(
+        self,
+        fusions: List[Fusion],
+        out_dir: Union[str, Path],
+        lib_name: str = "libcustom_op",
+        constant_overrides: dict = None,
+    ):
         self.fusions = fusions
         self.out_dir = Path(out_dir).resolve()
         self.out_dir.mkdir(parents=True, exist_ok=True)
@@ -40,9 +46,9 @@ class Builder:
             "MatMul": {
                 "num_stages": 5,
                 "num_warps": 2,
-                "BLOCK_SIZE_M": 32,
-                "BLOCK_SIZE_N": 64,
-                "BLOCK_SIZE_K": 32,
+                "BLOCK_SIZE_M": 16,
+                "BLOCK_SIZE_N": 16,
+                "BLOCK_SIZE_K": 16,
                 "GROUP_SIZE_M": 8,
             },
             "Elementwise": {
@@ -51,6 +57,10 @@ class Builder:
                 "BLOCK_SIZE": 128,
             },
         }
+        if constant_overrides:
+            for op, constants in constant_overrides.items():
+                self.constants[op].update(constants)
+        logger.info(f"Builder constants: {self.constants}")
 
     def prepare_triton_kernels(self):
         for fusion in self.fusions:
