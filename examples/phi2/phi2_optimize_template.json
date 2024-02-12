@@ -15,11 +15,19 @@
         }
     },
     "systems": {
-        "local_system": {
+        "local_system_cpu": {
             "type": "LocalSystem",
             "config": {
                 "accelerators": [
                     "cpu"
+                ]
+            }
+        },
+        "local_system_gpu": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    "gpu"
                 ]
             }
         }
@@ -62,7 +70,7 @@
                 "all_tensors_to_one_file": true
             }
         },
-        "optimize": {
+        "optimize_cpu": {
             "type": "OrtTransformersOptimization",
             "config": {
                 "model_type": "phi",
@@ -78,6 +86,32 @@
                 "all_tensors_to_one_file": true
             }
         },
+        "optimize_cuda": {
+            "type": "OrtTransformersOptimization",
+            "config": {
+                "model_type": "phi",
+                "use_gpu": true,
+                "keep_io_types": false,
+                "num_heads": 32,
+                "hidden_size": 2560,
+                "opt_level": 0,
+                "optimization_options": {
+                    "attention_op_type": "GroupQueryAttention"
+                },
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true,
+                "float16": true
+            }
+        },
+        "blockwise_quant_int4": {
+            "type": "OnnxMatMul4Quantizer",
+            "config": {
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true,
+                "block_size": 16,
+                "is_symmetric": true
+            }
+        },
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {
@@ -88,17 +122,10 @@
             }
         }
     },
-    "pass_flows": [
-        [
-            "convert",
-            "optimize",
-            "perf_tuning"
-        ]
-    ],
     "engine": {
         "evaluate_input_model": true,
         "evaluator": "common_evaluator",
-        "target": "local_system",
+        "target": "local_system_cpu",
         "cache_dir": "cache",
         "output_name": "phi2",
         "output_dir": "phi2",

@@ -5,16 +5,25 @@ This folder contains an example of phi2 optimization with Olive workflow.
 
 ## Prerequisites
 * einops
+* Pytorch>=2.2.0 and ORT nightly. Refer to https://github.com/microsoft/onnxruntime/tree/main/onnxruntime/python/tools/transformers/models/phi2#prerequisites
 
 ## Usage\
-cpu
+cpu_fp32
 ```bash
-python -m olive.workflows.run --config phi2_optimize.json
+python phi2.py --cpu_fp32
 ```
-cuda
+cpu_int4
 ```bash
-python -m olive.workflows.run --config phi2_optimize_cuda.json
+python phi2.py --cpu_int4
+```
+cuda_fp16
+```bash
+python phi2.py --cuda_fp16
+```
+cuda_int4
+```bash
+python phi2.py --cuda_int4
 ```
 
 ## Limitations
-when https://github.com/huggingface/optimum/issues/1642 is fixed, we need turn on the post_process by changing `no_post_process` to False in the config file.
+TorchDynamo-based ONNX Exporter only supports Linux.
