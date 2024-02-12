@@ -111,6 +111,9 @@ void {custom_op_name}(
   std::copy(a_shape.begin(), a_shape.end() - 1, y_shape.begin());
   y_shape.back() = N;
 
+  // print the shapes
+  // std::cout << "{custom_op_name} shapes: M=" << M << ", N=" << N << ", K=" << K << std::endl;
+
   // validate shapes of fused inputs
   {input_shape_validation}
 
@@ -150,6 +153,9 @@ void {custom_op_name}(
   // true because we only support limited one-directional broadcasting
   auto y_shape = a.Shape();
 
+  // print the shapes
+  // std::cout << "{custom_op_name} shapes: a_numel=" << a.NumberOfElement() << std::endl;
+
   // validate shapes of other inputs
   {input_shape_validation}
 
@@ -176,7 +182,8 @@ INPUT_PARAM = "const Ort::Custom::Tensor<{cpp_dtype}>& {input_name}"
 
 ATTR_PARAM = "{attr_cpp_dtype} {attr_name}"
 
-INPUT_SHAPE_VALIDATION = "ValidateElementwiseShapes(y_shape, {input_name}.Shape());"
+INPUT_SHAPE_VALIDATION = """ValidateElementwiseShapes(y_shape, {input_name}.Shape());
+  // std::cout << "{input_name}_numel=" << {input_name}.NumberOfElement() << std::endl;"""
 
 INPUT_ARG = "reinterpret_cast<CUdeviceptr>({input_name}.DataRaw())"
 
