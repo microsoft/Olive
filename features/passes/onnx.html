@@ -114,6 +114,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="openvino.html">OpenVINO</a></li>
 <li class="toctree-l2"><a class="reference internal" href="snpe.html">SNPE</a></li>
+<li class="toctree-l2"><a class="reference internal" href="qnn.html">QNN</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
@@ -405,6 +406,8 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <code class="docutils literal notranslate"><span class="pre">OnnxStaticQuantization</span></code> respectively.</p>
 <p>Please refer to <a class="reference internal" href="../../api/passes.html#onnx-quantization"><span class="std std-ref">OnnxQuantization</span></a>, <a class="reference internal" href="../../api/passes.html#onnx-dynamic-quantization"><span class="std std-ref">OnnxDynamicQuantization</span></a> and
 <a class="reference internal" href="../../api/passes.html#onnx-static-quantization"><span class="std std-ref">OnnxStaticQuantization</span></a> for more details about the passes and their config parameters.</p>
+<p><strong>Note:</strong> If target execution provider is QNN EP, the model might need to be preprocessed before quantization. Please refer to <a class="reference internal" href="../../api/passes.html#qnn-preprocess"><span class="std std-ref">QnnPreprocess</span></a> for more details about the pass and its config parameters.
+This preprocessing step fuses operators unsupported by QNN EP and inserts necessary operators to make the model compatible with QNN EP.</p>
 </section>
 <section id="quantize-with-intel-neural-compressor">
 <h3>Quantize with Intel® Neural Compressor<a class="headerlink" href="#quantize-with-intel-neural-compressor" title="Permalink to this heading">¶</a></h3>

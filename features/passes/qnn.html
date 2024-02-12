@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SNPE &mdash; Olive  documentation</title>
+  <title>QNN &mdash; Olive  documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
       <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css" />
@@ -25,8 +25,8 @@
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="QNN" href="qnn.html" />
-    <link rel="prev" title="OpenVINO" href="openvino.html" /> 
+    <link rel="next" title="Huggingface Model Optimization" href="../huggingface_model_optimization.html" />
+    <link rel="prev" title="SNPE" href="snpe.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -72,23 +72,27 @@
 <li class="toctree-l2"><a class="reference internal" href="pytorch.html">PyTorch</a></li>
 <li class="toctree-l2"><a class="reference internal" href="onnx.html">ONNX</a></li>
 <li class="toctree-l2"><a class="reference internal" href="openvino.html">OpenVINO</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">SNPE</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="snpe.html">SNPE</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">QNN</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#prerequisites">Prerequisites</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#download-and-unzip-snpe-sdk">Download and unzip SNPE SDK</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#configure-olive-snpe">Configure Olive SNPE</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#download-and-unzip-qnn-sdk">Download and unzip QNN SDK</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#configure-olive-qnn">Configure Olive QNN</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#model-conversion">Model Conversion</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#model-conversion-quantization">Model Conversion/Quantization</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#example-configuration">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#post-training-quantization-ptq">Post Training Quantization (PTQ)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#model-library-generation">Model Library Generation</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id1">Example Configuration</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#context-binary-generation">Context Binary Generation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id2">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="qnn.html">QNN</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
@@ -140,9 +144,9 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
-      <li class="breadcrumb-item active">SNPE</li>
+      <li class="breadcrumb-item active">QNN</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../../_sources/features/passes/snpe.md.txt" rel="nofollow"> View page source</a>
+            <a href="../../_sources/features/passes/qnn.md.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -150,74 +154,80 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="snpe">
-<h1>SNPE<a class="headerlink" href="#snpe" title="Permalink to this heading">¶</a></h1>
-<p>The Snapdragon Neural Processing Engine (SNPE) is a Qualcomm Snapdragon software accelerated runtime for the execution of
-deep neural networks.</p>
-<p>Olive provides tools to convert models from different frameworks such as ONNX and TensorFlow to SNPE Deep Learning Container
-(DLC) file and quantize them to 8 bit fixed point for running on the Hexagon DSP. Olive uses the development tools available
-in the <a class="reference external" href="https://developer.qualcomm.com/sites/default/files/docs/snpe/index.html">Snapdragon Neural Processing Engine SDK</a> also known as
-<a class="reference external" href="https://developer.qualcomm.com/software/qualcomm-neural-processing-sdk">Qualcomm Neural Processing SDK for AI</a>.</p>
+  <section id="qnn">
+<h1>QNN<a class="headerlink" href="#qnn" title="Permalink to this heading">¶</a></h1>
+<p>Qualcomm AI Engine Direct is a Qualcomm Technologies Inc. software architure for AI/ML use cases on Qualcomm chipsets and AI acceleration cores.</p>
+<p>Olive provides tools to convert models from different frameworks such as ONNX, TensorFlow, and PyTorch to QNN model formats and quantize them to 8 bit fixed point for running on NPU cores.
+Olive uses the development tools available in the <a class="reference external" href="https://developer.qualcomm.com/software/qualcomm-ai-engine-direct-sdk">Qualcomm AI Engine Direct SDK</a> (QNN SDK).</p>
 <section id="prerequisites">
 <h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this heading">¶</a></h2>
-<section id="download-and-unzip-snpe-sdk">
-<h3>Download and unzip SNPE SDK<a class="headerlink" href="#download-and-unzip-snpe-sdk" title="Permalink to this heading">¶</a></h3>
-<p>Download the SNPE SDK zip following <a class="reference external" href="https://developer.qualcomm.com/software/qualcomm-neural-processing-sdk">instructions from Qualcomm</a>.</p>
-<p>We test it with SNPE v2.18.0.240101.</p>
-<p>Unzip the file and set the unzipped directory path as environment variable <code class="docutils literal notranslate"><span class="pre">SNPE_ROOT</span></code>.</p>
+<section id="download-and-unzip-qnn-sdk">
+<h3>Download and unzip QNN SDK<a class="headerlink" href="#download-and-unzip-qnn-sdk" title="Permalink to this heading">¶</a></h3>
+<p>Download the QNN SDK and unzip the file.</p>
+<p>Set the environment variable QNN_SDK_ROOT as <qnn-sdk-unzipped-path>.</p>
 </section>
-<section id="configure-olive-snpe">
-<h3>Configure Olive SNPE<a class="headerlink" href="#configure-olive-snpe" title="Permalink to this heading">¶</a></h3>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># in general, python 3.8 is recommended</span>
-python<span class="w"> </span>-m<span class="w"> </span>olive.platform_sdk.qualcomm.configure<span class="w"> </span>--py_version<span class="w"> </span><span class="m">3</span>.8<span class="w"> </span>--sdk<span class="w"> </span>snpe
-<span class="c1"># only when the tensorflow 1.15.0 is needed, use python 3.6</span>
-python<span class="w"> </span>-m<span class="w"> </span>olive.platform_sdk.qualcomm.configure<span class="w"> </span>--py_version<span class="w"> </span><span class="m">3</span>.6<span class="w"> </span>--sdk<span class="w"> </span>snpe
+<section id="configure-olive-qnn">
+<h3>Configure Olive QNN<a class="headerlink" href="#configure-olive-qnn" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">olive</span><span class="o">.</span><span class="n">platform_sdk</span><span class="o">.</span><span class="n">qualcomm</span><span class="o">.</span><span class="n">configure</span> <span class="o">--</span><span class="n">py_version</span> <span class="mf">3.8</span> <span class="o">--</span><span class="n">sdk</span> <span class="n">qnn</span>
 </pre></div>
 </div>
 </section>
 </section>
-<section id="model-conversion">
-<h2>Model Conversion<a class="headerlink" href="#model-conversion" title="Permalink to this heading">¶</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">SNPEConversion</span></code> converts ONNX or TensorFlow models to SNPE DLC. The DLC file can be loaded into the SNPE runtime for inference
-using one of the Snapdragon accelerated compute cores.</p>
-<p>Please refer to <a class="reference internal" href="../../api/passes.html#snpe-conversion"><span class="std std-ref">SNPEConversion</span></a> for more details about the pass and its config parameters.</p>
+<section id="model-conversion-quantization">
+<h2>Model Conversion/Quantization<a class="headerlink" href="#model-conversion-quantization" title="Permalink to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">QNNConversion</span></code> converts ONNX, TensorFlow, or PyTorch models to QNN C++ model. Optionally, it can also quantize the model if a calibration dataset is provided using the <code class="docutils literal notranslate"><span class="pre">--input_list</span></code> in the extra_args parameter.</p>
+<p>The C++ model must be compiled into a model library for the desired target using the <code class="docutils literal notranslate"><span class="pre">QNNModelLibGenerator</span></code> pass for inference on the target device.</p>
+<p>Please refer to <a class="reference internal" href="../../api/passes.html#qnn-conversion"><span class="std std-ref">QNNConversion</span></a> for more details about the pass and its config parameters.</p>
 <section id="example-configuration">
 <h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Permalink to this heading">¶</a></h3>
+<p><strong>Conversion</strong></p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SNPEConversion&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QNNConversion&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Conversion and Quantization</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QNNConversion&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;input_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">],</span>
-<span class="w">        </span><span class="nt">&quot;input_shapes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">299</span><span class="p">,</span><span class="w"> </span><span class="mi">299</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">]],</span>
-<span class="w">        </span><span class="nt">&quot;output_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;InceptionV3/Predictions/Reshape_1&quot;</span><span class="p">],</span>
-<span class="w">        </span><span class="nt">&quot;output_shapes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">1001</span><span class="p">]],</span>
+<span class="w">        </span><span class="nt">&quot;extra_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;--input_list &lt;input_list.txt&gt;&quot;</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 </section>
 </section>
-<section id="post-training-quantization-ptq">
-<h2>Post Training Quantization (PTQ)<a class="headerlink" href="#post-training-quantization-ptq" title="Permalink to this heading">¶</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">SNPEQuantization</span></code> quantizes the DLC file. Quantized DLC files use fixed point representations of network parameters,
-generally 8 bit weights and 8 or 32bit biases. Please refer to the
-<a class="reference external" href="https://developer.qualcomm.com/sites/default/files/docs/snpe/quantized_models.html">corresponding documentation</a> for more
-details.</p>
-<p>Please refer to <a class="reference internal" href="../../api/passes.html#snpe-quantization"><span class="std std-ref">SNPEQuantization</span></a> for more details about the pass and its config parameters.</p>
+<section id="model-library-generation">
+<h2>Model Library Generation<a class="headerlink" href="#model-library-generation" title="Permalink to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">QNNModelLibGenerator</span></code> compiles the QNN C++ model into a model library for the desired target. The model library can be used for inference on the target device.</p>
+<p>Please refer to <a class="reference internal" href="../../api/passes.html#qnn-model-lib-generator"><span class="std std-ref">QNNModelLibGenerator</span></a> for more details about the pass and its config parameters.</p>
 <section id="id1">
 <h3>Example Configuration<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SNPEQuantization&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w">  </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data_dir&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;create_quant_dataloader&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;enable_htp&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QNNModelLibGenerator&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;lib_targets&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;x86_64-linux-clang&quot;</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
-<p>Check out <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/inception/user_script.py">this file</a>
-for an example implementation of <code class="docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;create_quant_dataloader&quot;</span></code>.</p>
+</section>
+</section>
+<section id="context-binary-generation">
+<h2>Context Binary Generation<a class="headerlink" href="#context-binary-generation" title="Permalink to this heading">¶</a></h2>
+<p>A QNN Context provides execution environment for graphs and operations. Context content can be cached into a binary form which later can be used for faster context/graph loading.
+<code class="docutils literal notranslate"><span class="pre">QNNContextBinaryGenerator</span></code> generated the context binary from a compiled model library using a specific backend.</p>
+<p>Please refer to <a class="reference internal" href="../../api/passes.html#qnn-context-binary-generator"><span class="std std-ref">QNNContextBinaryGenerator</span></a> for more details about the pass and its config parameters.</p>
+<section id="id2">
+<h3>Example Configuration<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QNNContextBinaryGenerator&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;backend&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;QNN_BACKEND.so&gt;&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
 </section>
 </section>
 </section>
@@ -226,8 +236,8 @@ for an example implementation of <code class="docutils literal notranslate"><spa
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="openvino.html" class="btn btn-neutral float-left" title="OpenVINO" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="qnn.html" class="btn btn-neutral float-right" title="QNN" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="snpe.html" class="btn btn-neutral float-left" title="SNPE" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../huggingface_model_optimization.html" class="btn btn-neutral float-right" title="Huggingface Model Optimization" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
