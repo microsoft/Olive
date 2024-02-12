@@ -138,7 +138,9 @@ class AcceleratorLookup:
         return None
 
 
-def create_accelerators(target: "OliveSystem", execution_providers):
+def create_accelerators(
+    target: "OliveSystem", execution_providers: List[str] = None, skip_supported_eps_check: bool = True
+) -> List[AcceleratorSpec]:
     from olive.systems.common import SystemType
 
     if not execution_providers:
@@ -176,7 +178,9 @@ def create_accelerators(target: "OliveSystem", execution_providers):
         device = Device(accelerator.lower())
         if target.olive_managed_env:
             available_eps = AcceleratorLookup.get_managed_supported_execution_providers(device)
-        elif target.system_type in (SystemType.Local, SystemType.PythonEnvironment):
+        elif target.system_type in (SystemType.Local, SystemType.PythonEnvironment) and not skip_supported_eps_check:
+            # don't need to check the supported execution providers if there is no evaluation
+            # target is only used for evaluation
             available_eps = target.get_supported_execution_providers()
         elif target.system_type == SystemType.Docker:
             # TODO(myguo): do we need allow docker system support other execution providers?

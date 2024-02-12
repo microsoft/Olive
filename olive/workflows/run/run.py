@@ -153,7 +153,12 @@ def run_engine(config: RunConfig, data_root: str = None):
         config.engine.azureml_client_config = config.azureml_client
 
     engine = config.engine.create_engine()
-    accelerator_specs = create_accelerators(engine.target, config.engine.execution_providers)
+    no_evaluation = engine.evaluator_config is None and all(
+        pass_config.evaluator is None for pass_config in config.passes.values()
+    )
+    accelerator_specs = create_accelerators(
+        engine.target, config.engine.execution_providers, skip_supported_eps_check=no_evaluation
+    )
 
     pass_list = []
     acc_list = []

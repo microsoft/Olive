@@ -15,15 +15,13 @@
                 "user_script": "user_script.py",
                 "dataloader_func": "mobilenet_calibration_reader",
                 "data_dir": "data/eval",
-                "quant_preprocess": false,
                 "activation_type": "QUInt16",
-                "weight_type": "QUInt8",
-                "prepare_qnn_config": true
+                "weight_type": "QUInt8"
             }
         }
     },
     "engine": {
-        "execution_providers": ["CPUExecutionProvider"],
+        "execution_providers": ["QNNExecutionProvider"],
         "cache_dir": "cache",
         "output_dir": "models"
     }

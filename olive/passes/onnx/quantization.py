@@ -569,6 +569,7 @@ class OnnxStaticQuantization(OnnxQuantization):
             config["activation_type"].searchable_values = Categorical(["QInt8", "QUInt8", "QUInt16", "QInt16"])
             config["weight_type"].searchable_values = Categorical(["QInt8", "QUInt8", "QUInt16", "QInt16"])
             config["prepare_qnn_config"].default_value = True
+            config["quant_preprocess"].default_value = False
         return config
 
 

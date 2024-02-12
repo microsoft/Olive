@@ -2,8 +2,6 @@
 This folder contains a sample use case of Olive to optimize a MobileNet model for Qualcomm NPU (QNN Execution Provider)
 using static QDQ quantization.
 
-
-
 ## Prerequisites
 ### Clone the repository and install Olive
 
@@ -18,13 +16,13 @@ python -m pip install "onnxruntime>=1.17.0"
 ```
 
 ### Pip requirements
-Install the necessary python packages in your x64 python Olive environment:
+Install the necessary python packages:
 ```
 python -m pip install -r requirements.txt
 ```
 
 ### Download data and model
-To download the necessary data and model files using your x64 python Olive environment:
+To download the necessary data and model files:
 ```
 python download_files.py
 ```
@@ -42,4 +40,4 @@ olive_run("mobilenet_qnn_ptq.json")
 
 **Note:**
 - This sample currently only quantizes the model for QNN Execution Provider. It does not include evaluation of the quantized model on the NPU. Evaluation support will be added in the future.
-- We use cpu ep during the quantization process since it does not require inference using QNN EP. QNN EP is only available for Windows ARM64 python but the dev dependencies are not all available for ARM64 python yet.
+- We use onnxruntime cpu packge during the quantization process since it does not require inference using QNN EP. onnxruntime-qnn is only available for Windows ARM64 python but the dev dependencies are not all available for ARM64 python yet.
