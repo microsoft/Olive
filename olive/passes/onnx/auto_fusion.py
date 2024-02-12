@@ -58,6 +58,7 @@ class AutoFusion(Pass):
                 max_valid_len, dtype = self.check_shapes_and_types(dag, node_names)
                 # only consider chains equal to or longer than 2
                 for i in range(2, max_valid_len + 1):
+                    # for i in range(1, min(2, max_valid_len + 1)):
                     fusable_chains[(dtype, tuple(node_types[:i]))].append((dag_idx, node_names[:i]))
 
         # only consider chains that occur more than min_occurrence times
@@ -79,7 +80,13 @@ class AutoFusion(Pass):
         # fuse chains
         fusions = []
         for dtype, chain_type in ordered_chain_types:
+            # if chain_type[0] != "MatMul":
+            #     continue
             # if chain_type[0] == "MatMul":
+            #     continue
+            # if chain_type[0] != "Sigmoid":
+            #     continue
+            # if chain_type != ('MatMul', 'Mul'):
             #     continue
             fusion = Fusion(dtype, chain_type[0], list(chain_type[1:]))
             num_fused = 0
@@ -230,6 +237,9 @@ class AutoFusion(Pass):
             # check if the shapes are broadcastable
 
             if node_idx == 0:
+                if dag.get_op_type(name) == "MatMul" and len(dag.get_input_shapes(name)[1]) != 2:
+                    # second input of matmul must be 2D
+                    break
                 # skip base node
                 max_valid_len += 1
                 continue
