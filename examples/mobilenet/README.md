@@ -40,4 +40,4 @@ olive_run("mobilenet_qnn_ptq.json")
 
 **Note:**
 - This sample currently only quantizes the model for QNN Execution Provider. It does not include evaluation of the quantized model on the NPU. Evaluation support will be added in the future.
-- We use onnxruntime cpu packge during the quantization process since it does not require inference using QNN EP. onnxruntime-qnn is only available for Windows ARM64 python but the dev dependencies are not all available for ARM64 python yet.
+- We use onnxruntime cpu package during the quantization process since it does not require inference using QNN EP. onnxruntime-qnn is only available for Windows ARM64 python but the dev dependencies are not all available for ARM64 python yet.
