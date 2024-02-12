@@ -52,9 +52,9 @@ class Builder:
                 "GROUP_SIZE_M": 8,
             },
             "Elementwise": {
-                "num_stages": 5,
-                "num_warps": 4,
-                "BLOCK_SIZE": 128,
+                "num_stages": 1,
+                "num_warps": 8,
+                "BLOCK_SIZE": 1024,
             },
         }
         if constant_overrides:

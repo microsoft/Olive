@@ -201,6 +201,10 @@ class OnnxDAG:
         # add the new node
         self.add_node(new_node_proto)
 
+    def get_op_type(self, node_name: str) -> str:
+        """Get the op type of a node."""
+        return self.nodes[node_name].op_type
+
     def get_input_shapes(self, node_name: str) -> List:
         """Get the input shapes of a node."""
         return [self.ios[i].shape for i in self.nodes[node_name].inputs]
