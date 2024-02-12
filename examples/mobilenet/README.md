@@ -30,8 +30,6 @@ python download_files.py
 ```
 
 ## Run sample using config
-In your x64 python Olive environment:
-
 ```
 python -m olive.workflows.run --config mobilenet_qnn_ptq.json
 ```
