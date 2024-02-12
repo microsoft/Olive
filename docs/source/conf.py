@@ -93,6 +93,7 @@ linkcheck_anchors = False
 linkcheck_ignore = [
     # TODO(trajep): remove this when the issue is fixed
     r"https://developer.qualcomm.com/*",
+    r"https://docs.qualcomm.com/*",
     # TODO(jambayk): remove this when the issue is fixed
     r"https://www.intel.com/*",
 ]

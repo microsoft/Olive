@@ -6,11 +6,11 @@
 import logging
 import platform
 from pathlib import Path
-from typing import Any, Callable, Dict, Union
+from typing import Any, Callable, Dict
 
 from olive.constants import ModelFileFormat
 from olive.hardware import AcceleratorSpec
-from olive.model import ONNXModelHandler, PyTorchModelHandler, QNNModelHandler, TensorFlowModelHandler
+from olive.model import QNNModelHandler
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import PassConfigParam
 from olive.passes.qnn.common import get_env_config
@@ -20,6 +20,11 @@ logger = logging.getLogger(__name__)
 
 
 class QNNModelLibGenerator(Pass):
+    """Compile QNN C++ model source code into QNN model library for a specific target.
+
+    Uses qnn-model-lib-generator tool from the QNN SDK.
+    """
+
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
@@ -48,7 +53,7 @@ class QNNModelLibGenerator(Pass):
 
     def _run_for_config(
         self,
-        model: Union[TensorFlowModelHandler, PyTorchModelHandler, ONNXModelHandler],
+        model: QNNModelHandler,
         data_root: str,
         config: Dict[str, Any],
         output_model_path: str,
