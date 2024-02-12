@@ -220,8 +220,9 @@ class OnnxConversion(Pass):
                     f"torch.onnx.dynamo_export is not available for torch version {torch_version}. "
                     "Please upgrade your torch version to 2.2.0 or above."
                 )
-            from torch.onnx import dynamo_export
             from torch._dynamo import config
+            from torch.onnx import dynamo_export
+
             config.capture_scalar_outputs = True
 
             input_names = io_config.input_names

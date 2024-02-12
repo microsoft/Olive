@@ -190,6 +190,7 @@ class OrtTransformersOptimization(Pass):
 
         if attn_op_type:
             from onnxruntime.transformers.fusion_options import AttentionOpType
+
             if attn_op_type == "Attention":
                 fusion_options.set_attention_op_type(AttentionOpType.Attention)
             elif attn_op_type == "MultiHeadAttention":

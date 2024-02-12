@@ -5,8 +5,6 @@
 
 import argparse
 import json
-import tempfile
-from pathlib import Path
 
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
@@ -43,7 +41,6 @@ def main(raw_args=None):
 
     # add pass flows
     model_type = str(args.model_type)
-    print(SUPPORTED_WORKFLOWS[model_type])
     template_json["pass_flows"] = SUPPORTED_WORKFLOWS[model_type]
     # remove unused passes
     used_passes = {pass_name for pass_flow in SUPPORTED_WORKFLOWS[model_type] for pass_name in pass_flow}

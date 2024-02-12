@@ -71,7 +71,6 @@ def get_ort_inference_session(
     provider_options = inference_settings.get("provider_options")
 
     # create session
-    print(str(model_path))
     return ort.InferenceSession(
         str(model_path), sess_options=sess_options, providers=execution_provider, provider_options=provider_options
     )
