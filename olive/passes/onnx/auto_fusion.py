@@ -15,8 +15,9 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.auto_fusion_utils import DOMAIN, Builder, Fusion, OnnxDAG
+from olive.passes.onnx.auto_fusion_utils import DOMAIN, NP_DTYPE_REVERSE_MAP, Builder, Fusion
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
+from olive.passes.onnx.utils import OnnxDAG
 from olive.passes.pass_config import PassConfigParam
 
 logger = logging.getLogger(__name__)
@@ -66,7 +67,9 @@ class AutoFusion(Pass):
             key=lambda x: (x[1][0] == "MatMul", len(fusable_chains[x]), len(x[1])),
             reverse=True,
         )
-        logger.debug("Fusion candidates: \n" + "\n".join(f"{k}: {len(fusable_chains[k])}" for k in ordered_chain_types))
+        logger.debug(
+            "Fusion candidates: \n%s", "\n".join(f"{k}: {len(fusable_chains[k])}" for k in ordered_chain_types)
+        )
 
         # fuse chains
         fusions = []
@@ -85,8 +88,8 @@ class AutoFusion(Pass):
             if num_fused > 0:
                 fusions.append((fusion, num_fused))
         logger.info(
-            "Fusions: \n"
-            + "\n".join(f"{(f.dtype, (f.base_op, *f.fused_ops))}: {num_fused}" for f, num_fused in fusions)
+            "Fusions: \n%s",
+            "\n".join(f"{(f.dtype, (f.base_op, *f.fused_ops))}: {num_fused}" for f, num_fused in fusions),
         )
         for dag in dags:
             dag.update()
@@ -209,6 +212,7 @@ class AutoFusion(Pass):
         """
         # base node is the first node in the chain
         base = node_names[0]
+        # this is np dtype
         dtype = dag.get_input_dtypes(base)[0]
         a_shape = dag.get_output_shapes(base)[0]
 
@@ -247,4 +251,4 @@ class AutoFusion(Pass):
 
             max_valid_len += 1
 
-        return max_valid_len, dtype
+        return max_valid_len, NP_DTYPE_REVERSE_MAP[dtype]

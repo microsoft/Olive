@@ -15,7 +15,6 @@ from onnx.shape_inference import infer_shapes_path
 from olive.common.config_utils import ConfigBase
 from olive.common.pydantic_v1 import Field
 from olive.common.utils import onnx_dtype_to_np_dtype
-from olive.passes.onnx.auto_fusion_utils.utils import NP_DTYPE_REVERSE_MAP
 
 if TYPE_CHECKING:
     from onnx import ModelProto
@@ -79,7 +78,7 @@ class OnnxDAG:
             # TODO(jambayk): add support for different types
             # refer to https://github.com/lutzroeder/netron/blob/main/source/onnx.js#L1424
             tensor_type = io.type.sequence_type.elem_type.tensor_type
-        data_type = NP_DTYPE_REVERSE_MAP[onnx_dtype_to_np_dtype(tensor_type.elem_type)]
+        data_type = onnx_dtype_to_np_dtype(tensor_type.elem_type)
         shape = [dim.dim_param if dim.dim_param else dim.dim_value for dim in tensor_type.shape.dim]
         return {
             "dtype": data_type,
@@ -108,7 +107,7 @@ class OnnxDAG:
             ios[initializer.name] = OnnxIO(
                 proto=initializer,
                 source=SpecialInput.INITIALIZER,
-                dtype=NP_DTYPE_REVERSE_MAP[onnx_dtype_to_np_dtype(initializer.data_type)],
+                dtype=onnx_dtype_to_np_dtype(initializer.data_type),
                 shape=list(initializer.dims),
             )
         for vi in graph.value_info:
@@ -130,8 +129,6 @@ class OnnxDAG:
         nodes[name] = onnx_node
 
         for i in node_proto.input:
-            if i == "":
-                print(node_proto)
             ios[i].destination.append(name)
             parent = ios[i].source
             if parent not in [SpecialInput.INPUT, SpecialInput.INITIALIZER]:
@@ -159,14 +156,9 @@ class OnnxDAG:
 
         node = self.nodes.pop(node_name)
         for i in node.inputs:
-            # print("here", i, self.ios[i])
             self.ios[i].destination.remove(node_name)
             parent = self.ios[i].source
             if parent not in [SpecialInput.INPUT, SpecialInput.INITIALIZER]:
-                if not self.connections[parent]:
-                    print(node_name, parent)
-                # print(node_name, parent)
-                # print(self.connections[parent])
                 self.connections[parent].remove(node_name)
 
         for o in node.outputs:

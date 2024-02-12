@@ -115,9 +115,7 @@ class Builder:
         shutil.copytree(Path(__file__).parent / "codegen" / "custom_op_src", self.sub_dirs["csrc"], dirs_exist_ok=True)
 
         # write fusion op implementation
-        custom_ops_data = []
-        for fusion in self.fusions:
-            custom_ops_data.append(fusion.get_custom_op())
+        custom_ops_data = [fusion.get_custom_op() for fusion in self.fusions]
         custom_ops_file = self.sub_dirs["csrc"] / "fusion_ops.cc"
         with custom_ops_file.open("w") as f:
             f.write(join_custom_ops(custom_ops_data))
