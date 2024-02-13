@@ -186,8 +186,6 @@ class OnnxConversion(Pass):
         ), "Cannot get io_config for the model. Please specify io_config or hf_config for the model"
         io_config = validate_config(io_config, IoConfig)
         input_names = io_config.input_names
-        output_names = io_config.output_names
-        dynamic_axes = io_config.dynamic_axes
 
         # some dummy inputs might not be used in the model, so we need to remove them
         # this can happen when we are using an hf dataset to generate dummy inputs
@@ -249,6 +247,9 @@ class OnnxConversion(Pass):
             if isinstance(dummy_inputs, dict):
                 for key in unused_keys:
                     del dummy_inputs[key]
+
+            output_names = io_config.output_names
+            dynamic_axes = io_config.dynamic_axes
 
             # there might be multiple files created during export, so we need to track the dir
             # if there are other processes writing to the same dir, we might end up deleting files created by

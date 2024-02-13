@@ -18,6 +18,10 @@ SUPPORTED_WORKFLOWS = {
     "cuda_int4": [["convert", "optimize_cuda", "blockwise_quant_int4", "perf_tuning"]],
 }
 
+DEVICE_TO_EP = {
+    "cpu": "CPUExecutionProvider",
+    "gpu": "CUDAExecutionProvider",
+}
 
 def get_args(raw_args):
     parser = argparse.ArgumentParser(description="Phi2 optimization")
@@ -50,7 +54,10 @@ def main(raw_args=None):
             continue
 
     if "cuda" in model_type:
-        template_json["engine"]["target"] = "local_system_gpu"
+        template_json["engine"]["execution_providers"] = ["CUDAExecutionProvider"]
+    if "cpu" in model_type:
+        template_json["engine"]["execution_providers"] = ["CPUExecutionProvider"]
+    
 
     olive_run(template_json)  # pylint: disable=not-callable
 
