@@ -23,6 +23,7 @@ DEVICE_TO_EP = {
     "gpu": "CUDAExecutionProvider",
 }
 
+
 def get_args(raw_args):
     parser = argparse.ArgumentParser(description="Phi2 optimization")
 
@@ -57,7 +58,6 @@ def main(raw_args=None):
         template_json["engine"]["execution_providers"] = ["CUDAExecutionProvider"]
     if "cpu" in model_type:
         template_json["engine"]["execution_providers"] = ["CPUExecutionProvider"]
-    
 
     olive_run(template_json)  # pylint: disable=not-callable
 
