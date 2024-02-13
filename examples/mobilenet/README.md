@@ -1,46 +1,43 @@
 # MobileNet optimization with QDQ Quantization on Qualcomm NPU
 This folder contains a sample use case of Olive to optimize a MobileNet model for Qualcomm NPU (QNN Execution Provider)
-using static QDQ quantization tuner.
+using static QDQ quantization.
 
 ## Prerequisites
-### Download and unzip QNN SDK
-Download the QNN SDK and unzip the file.
+### Clone the repository and install Olive
 
-Set the environment variable `QNN_LIB_PATH` as `<qnn-sdk-unzipped-path>\target\aarch64-windows-msvc\lib`
+Refer to the instructions in the [examples README](../README.md) to clone the repository and install Olive.
 
-### Create an arm64 python environment with onnxruntime-qnn
-Olive is not supported on arm64 version of python so we require the onnxruntime-qnn package to be installed in a separate arm64 environment. This environment can be a [python virtual env](https://docs.python.org/3/library/venv.html).
+### Install onnxruntime
+This example requires onnxruntime>=1.17.0. Please install the latest version of onnxruntime:
 
-Set the path to the directory with arm64 python executable as environment variable `QNN_ENV_PATH`
-
-For example if you used a python venv located at `C:\qnn\qnn-venv`, then `QNN_ENV_PATH` is `C:\qnn\qnn-venv\Scripts`
-
-### Prepare workflow config json
-```
-python prepare_config.py
+For CPU:
+```bash
+python -m pip install "onnxruntime>=1.17.0"
 ```
 
 ### Pip requirements
-Install the necessary python packages in your x64 python Olive environment:
+Install the necessary python packages:
 ```
 python -m pip install -r requirements.txt
 ```
 
 ### Download data and model
-To download the necessary data and model files using your x64 python Olive environment:
+To download the necessary data and model files:
 ```
 python download_files.py
 ```
 
 ## Run sample using config
-In your x64 python Olive environment:
-
 ```
-python -m olive.workflows.run --config mobilenet_config.json
+python -m olive.workflows.run --config mobilenet_qnn_ptq.json
 ```
 
 or run simply with python code:
 ```python
 from olive.workflows import run as olive_run
-olive_run("mobilenet_config.json")
+olive_run("mobilenet_qnn_ptq.json")
 ```
+
+**Note:**
+- This sample currently only quantizes the model for QNN Execution Provider. It does not include evaluation of the quantized model on the NPU. Evaluation support will be added in the future.
+- We use onnxruntime cpu package during the quantization process since it does not require inference using QNN EP. onnxruntime-qnn is only available for Windows ARM64 python but the dev dependencies are not all available for ARM64 python yet.
