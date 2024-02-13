@@ -127,14 +127,6 @@ class OrtTransformersOptimization(Pass):
             "input_int32": PassConfigParam(
                 type_=bool, default_value=False, description="Whether int32 tensors will be used as input."
             ),
-            "attention_op_type": PassConfigParam(
-                type_=str,
-                default_value=None,
-                description=(
-                    "Attention op type for dynamo exported onnx model including 'Attention', 'MultiHeadAttention', "
-                    "'GroupQueryAttention' and 'PagedAttention'"
-                ),
-            ),
         }
         config.update(get_external_data_config())
         return config
@@ -186,7 +178,7 @@ class OrtTransformersOptimization(Pass):
         fusion_options = FusionOptions(run_config["model_type"])
         fusion_options.__dict__.update(run_config["optimization_options"])
 
-        attn_op_type = run_config["optimization_options"]["attention_op_type"]
+        attn_op_type = run_config["optimization_options"].get("attention_op_type")
 
         if attn_op_type:
             from onnxruntime.transformers.fusion_options import AttentionOpType
@@ -219,7 +211,6 @@ class OrtTransformersOptimization(Pass):
             "force_fp16_inputs",
             "use_gqa",
             "input_int32",
-            "attention_op_type",
         ]
         keys_to_remove += get_external_data_config()
         for key in keys_to_remove:
