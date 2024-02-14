@@ -44,11 +44,11 @@ class Builder:
         # TODO(jambayk): Consider tuning these constants
         self.constants = {
             "MatMul": {
-                "num_stages": 5,
-                "num_warps": 2,
-                "BLOCK_SIZE_M": 16,
-                "BLOCK_SIZE_N": 16,
-                "BLOCK_SIZE_K": 16,
+                "num_stages": 4,
+                "num_warps": 4,
+                "BLOCK_SIZE_M": 32,
+                "BLOCK_SIZE_N": 64,
+                "BLOCK_SIZE_K": 32,
                 "GROUP_SIZE_M": 8,
             },
             "Elementwise": {
@@ -125,7 +125,7 @@ class Builder:
         shutil.copytree(Path(__file__).parent / "codegen" / "custom_op_src", self.sub_dirs["csrc"], dirs_exist_ok=True)
 
         # write fusion op implementation
-        custom_ops_data = [fusion.get_custom_op() for fusion in self.fusions]
+        custom_ops_data = [fusion.get_custom_op(self.constants) for fusion in self.fusions]
         custom_ops_file = self.sub_dirs["csrc"] / "fusion_ops.cc"
         with custom_ops_file.open("w") as f:
             f.write(join_custom_ops(custom_ops_data))

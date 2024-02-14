@@ -55,7 +55,7 @@ def get_op_args(op: str, op_idx: int, cpp_dtype: str) -> Dict:
     return template_args
 
 
-def create_custom_op(base_op: str, fused_ops: List[str], dtype: str) -> Tuple[str, str]:
+def create_custom_op(base_op: str, fused_ops: List[str], dtype: str, constants: Dict) -> Tuple[str, str]:
     """Create the custom op for the fused op.
 
     Returns the custom op name and code.
@@ -94,6 +94,8 @@ def create_custom_op(base_op: str, fused_ops: List[str], dtype: str) -> Tuple[st
         "numel_args": join_params(numel_args, default=default_comment),
         "attr_args": join_params(attr_args, default=default_comment),
     }
+    for constant_group in constants.values():
+        template_args.update(constant_group)
 
     return {
         "op_name": custom_op_name,

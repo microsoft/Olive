@@ -98,6 +98,8 @@ void {custom_op_name}(
   int64_t M = std::accumulate(a_shape.begin(), a_shape.end() - 1, 1, std::multiplies<int64_t>());
   // last dimension
   int64_t K = a_shape.back();
+  bool EVEN_K = K % {BLOCK_SIZE_K} == 0;
+  // std::cout << "K=" << K << ", BLOCK_SIZE_K=" << {BLOCK_SIZE_K} << ", EVEN_K=" << EVEN_K << std::endl;
 
   // currently, we will only support 2D tensors for b
   // shape of b: K X N
@@ -127,7 +129,7 @@ void {custom_op_name}(
       reinterpret_cast<CUdeviceptr>(b.DataRaw()),
       {input_args}
       reinterpret_cast<CUdeviceptr>(y_raw),
-      M, N, K,
+      M, N, K, EVEN_K,
       {numel_args}
       {attr_args}
       0);

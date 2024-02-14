@@ -77,6 +77,7 @@ def {kernel_name}(
     M,
     N,
     K,
+    EVEN_K,
     # number of elements for other tensors
     {numel_params}
     # attributes for fused operations
@@ -93,57 +94,53 @@ def {kernel_name}(
     Matmul can be fused with elementwise operations such as bias addition, activation, etc.
     \"\"\"
     # -----------------------------------------------------------
-    # Map program ids `pid` to the block of Y it should compute.
-    # This is done in a grouped ordering to promote L2 data reuse.
-    pid = tl.program_id(axis=0)
-    num_pid_m = tl.cdiv(M, BLOCK_SIZE_M)
-    num_pid_n = tl.cdiv(N, BLOCK_SIZE_N)
-    num_pid_in_group = GROUP_SIZE_M * num_pid_n
-    group_id = pid // num_pid_in_group
-    first_pid_m = group_id * GROUP_SIZE_M
-    group_size_m = min(num_pid_m - first_pid_m, GROUP_SIZE_M)
-    pid_m = first_pid_m + (pid % group_size_m)
-    pid_n = (pid % num_pid_in_group) // group_size_m
+    # matrix multiplication
+    pid = tl.program_id(0)
+    pid_z = tl.program_id(1)
+    grid_m = tl.cdiv(M, BLOCK_SIZE_M)
+    grid_n = tl.cdiv(N, BLOCK_SIZE_N)
 
-    # ----------------------------------------------------------
-    # Create pointers for the first blocks of A and B.
-    # We will advance this pointer as we move in the K direction
-    # and accumulate
-    # `a_ptrs` is a block of [BLOCK_SIZE_M, BLOCK_SIZE_K] pointers
-    # `b_ptrs` is a block of [BLOCK_SIZE_K, BLOCK_SIZE_N] pointers
-    # See above `Pointer Arithmetic` section for details
-    offs_am = (pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)) % M
-    offs_bn = (pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)) % N
-    offs_k = tl.arange(0, BLOCK_SIZE_K)
-    a_ptrs = a_ptr + (offs_am[:, None] * K + offs_k[None, :])
-    b_ptrs = b_ptr + (offs_k[:, None] * N + offs_bn[None, :])
+    # re-order program ID for better L2 performance
+    width = GROUP_SIZE_M * grid_n
+    group_id = pid // width
+    group_size = min(grid_m - group_id * GROUP_SIZE_M, GROUP_SIZE_M)
+    pid_m = group_id * GROUP_SIZE_M + (pid % group_size)
+    pid_n = (pid % width) // (group_size)
 
-    # -----------------------------------------------------------
-    # Iterate to compute a block of the Y matrix.
-    # We accumulate into a `[BLOCK_SIZE_M, BLOCK_SIZE_N]` block
-    # of fp32 values for higher accuracy.
-    # `accumulator` will be converted back to fp16 after the loop.
-    accumulator = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=tl.float32)
+    # do matrix multiplication
+    rm = pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)
+    rn = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
+    ram = tl.max_contiguous(tl.multiple_of(rm % M, BLOCK_SIZE_M), BLOCK_SIZE_M)
+    rbn = tl.max_contiguous(tl.multiple_of(rn % N, BLOCK_SIZE_N), BLOCK_SIZE_N)
+    rk = pid_z * BLOCK_SIZE_K + tl.arange(0, BLOCK_SIZE_K)
+
+    # pointers
+    a_ptr = a_ptr + (ram[:, None] * K + rk[None, :])
+    b_ptr = b_ptr + (rk[:, None] * N + rbn[None, :])
+    acc = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=tl.float32)
     for k in range(0, tl.cdiv(K, BLOCK_SIZE_K)):
-        # Load the next block of A and B, generate a mask by checking the K dimension.
-        # If it is out of bounds, set it to 0.
-        a = tl.load(a_ptrs, mask=offs_k[None, :] < K - k * BLOCK_SIZE_K, other=0.0)
-        b = tl.load(b_ptrs, mask=offs_k[:, None] < K - k * BLOCK_SIZE_K, other=0.0)
-        # We accumulate along the K dimension.
-        accumulator += tl.dot(a, b)
-        # Advance the ptrs to the next K block.
-        a_ptrs += BLOCK_SIZE_K
-        b_ptrs += BLOCK_SIZE_K * N
+        if EVEN_K:
+            a = tl.load(a_ptr)
+            b = tl.load(b_ptr)
+        else:
+            k_remaining = K - k * BLOCK_SIZE_K
+            _0 = tl.zeros((1, 1), dtype=tl.float32)
+            a = tl.load(a_ptr, mask=rk[None, :] < k_remaining, other=_0)
+            b = tl.load(b_ptr, mask=rk[:, None] < k_remaining, other=_0)
+
+        acc += tl.dot(a, b)
+        a_ptr += BLOCK_SIZE_K
+        b_ptr += BLOCK_SIZE_K * N
 
     # will keep y as fp32 since many triton ops only support fp32/fp64
-    y = accumulator
+    y = acc
 
     # -----------------------------------------------------------
     # Indices for the output matrix
-    offs_ym = pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)
-    offs_yn = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
-    y_idxs = offs_ym[:, None] * N + offs_yn[None, :]
-    y_mask = (offs_ym[:, None] < M) & (offs_yn[None, :] < N)
+    rm = pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)
+    rn = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
+    y_idxs = rm[:, None] * N + rn[None, :]
+    y_mask = (rm < M)[:, None] & (rn < N)[None, :]
 
     # -----------------------------------------------------------
     # Fusion with other operations
@@ -157,7 +154,7 @@ def {kernel_name}(
 """
 
 MATMUL_SIGNATURE = (
-    "*{dtype}, *{dtype}, {ptr_dtypes}*{dtype}, i32, i32, i32, {numel_dtypes}{attr_dtypes}{{BLOCK_SIZE_M}},"
+    "*{dtype}, *{dtype}, {ptr_dtypes}*{dtype}, i32, i32, i32, i32, {numel_dtypes}{attr_dtypes}{{BLOCK_SIZE_M}},"
     " {{BLOCK_SIZE_N}}, {{BLOCK_SIZE_K}}, {{GROUP_SIZE_M}}"
 )
 
