@@ -5,7 +5,9 @@ This folder contains an example of phi2 optimization with Olive workflow.
 
 ## Prerequisites
 * einops
-* Pytorch>=2.2.0 and ORT nightly. Refer to https://github.com/microsoft/onnxruntime/tree/main/onnxruntime/python/tools/transformers/models/phi2#prerequisites
+* Pytorch>=2.2.0 \
+  _The [official website](https://pytorch.org/) offers packages compatible with CUDA 11.8 and 12.1. Please select the appropriate version according to your needs._
+* [ONNXRuntime nightly package](https://onnxruntime.ai/docs/install/#inference-install-table-for-all-languages)
 
 ## Usage
 cpu_fp32
