@@ -44,11 +44,11 @@ class Builder:
         # TODO(jambayk): Consider tuning these constants
         self.constants = {
             "MatMul": {
-                "num_stages": 5,
-                "num_warps": 2,
-                "BLOCK_SIZE_M": 16,
-                "BLOCK_SIZE_N": 16,
-                "BLOCK_SIZE_K": 16,
+                "num_stages": 4,
+                "num_warps": 4,
+                "BLOCK_SIZE_M": 32,
+                "BLOCK_SIZE_N": 64,
+                "BLOCK_SIZE_K": 32,
                 "GROUP_SIZE_M": 8,
             },
             "Elementwise": {

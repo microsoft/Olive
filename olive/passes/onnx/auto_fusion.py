@@ -57,7 +57,7 @@ class AutoFusion(Pass):
             for node_names, node_types in chains.values():
                 max_valid_len, dtype = self.check_shapes_and_types(dag, node_names)
                 # only consider chains equal to or longer than 2
-                for i in range(2, max_valid_len + 1):
+                for i in range(1, max_valid_len + 1):
                     # for i in range(1, min(2, max_valid_len + 1)):
                     fusable_chains[(dtype, tuple(node_types[:i]))].append((dag_idx, node_names[:i]))
 
@@ -88,6 +88,8 @@ class AutoFusion(Pass):
             #     continue
             # if chain_type != ('MatMul', 'Mul'):
             #     continue
+            if chain_type != ("MatMul", "Add"):
+                continue
             fusion = Fusion(dtype, chain_type[0], list(chain_type[1:]))
             num_fused = 0
             for dag_idx, node_names in fusable_chains[(dtype, chain_type)]:
