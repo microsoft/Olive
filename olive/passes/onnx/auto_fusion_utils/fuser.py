@@ -48,8 +48,8 @@ class Fusion:
     def get_custom_op_name(self):
         return create_custom_op_name([self.base_op, *self.fused_ops], self.dtype)
 
-    def get_custom_op(self, constants: Dict) -> Dict:
-        return create_custom_op(self.base_op, self.fused_ops, self.dtype, constants)
+    def get_custom_op(self) -> Dict:
+        return create_custom_op(self.base_op, self.fused_ops, self.dtype)
 
     def fuse_nodes(self, nodes: List[NodeProto]) -> NodeProto:
         """Fuse nodes into a single node.
