@@ -121,7 +121,6 @@ void {custom_op_name}(
   auto y_raw = y.Allocate(y_shape);
 
   // call the kernel
-  load_{kernel_name}();
   CUresult ret = {kernel_name}(
       cuda_ctx.cuda_stream,
       reinterpret_cast<CUdeviceptr>(a.DataRaw()),
@@ -133,7 +132,6 @@ void {custom_op_name}(
       {attr_args}
       0);
   CUSTOM_ENFORCE(ret == CUDA_SUCCESS, "{kernel_name}_default failed");
-  unload_{kernel_name}();
 }}
 """
 
@@ -163,7 +161,6 @@ void {custom_op_name}(
   auto y_raw = y.Allocate(y_shape);
 
   // call the kernel
-  load_{kernel_name}();
   CUresult ret = {kernel_name}(
       cuda_ctx.cuda_stream,
       reinterpret_cast<CUdeviceptr>(a.DataRaw()),
@@ -174,7 +171,6 @@ void {custom_op_name}(
       {attr_args}
       0);
   CUSTOM_ENFORCE(ret == CUDA_SUCCESS, "{kernel_name} failed");
-  unload_{kernel_name}();
 }}
 """
 
