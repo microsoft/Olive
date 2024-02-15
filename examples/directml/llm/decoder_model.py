@@ -8,20 +8,6 @@ import torch
 
 import config
 
-tensor_names = {}
-def save_tensors(input_tensor, tensor_name):
-    import os
-    path = "C:\\Users\\xianz\\work\\Olive\\examples\\directml\\llm\\phi2_tensors"
-    if tensor_name in tensor_names.keys():
-        tensor_names[tensor_name] += 1
-    else:
-        tensor_names[tensor_name] = 0
-
-    idx = tensor_names[tensor_name]
-
-    tensor_path = os.path.join(path, f'{tensor_name}_{idx}.pt')
-    torch.save(input_tensor, tensor_path)
-
 class DecoderModel(torch.nn.Module):
     def __init__(
         self,
@@ -36,8 +22,10 @@ class DecoderModel(torch.nn.Module):
         normalization_type: str,
         epsilon: float,
         apply_residual_connection_post_layernorm: bool,
+        use_embeddings: bool = False,
     ) -> None:
         super().__init__()
+        self.use_embeddings = use_embeddings
         self.model = Model(
             model_type,
             n_layers,
@@ -50,11 +38,14 @@ class DecoderModel(torch.nn.Module):
             normalization_type,
             epsilon,
             apply_residual_connection_post_layernorm,
+            use_embeddings,
         )
         self.lm_head = torch.nn.Linear(hidden_size, vocab_size)
 
-    def forward_common(self, use_cache, tokens, position_ids_increment, attn_mask, cache):
-        hidden_states, k_caches, v_caches = self.model(use_cache, tokens, position_ids_increment, attn_mask, cache)
+    def forward_common(self, use_cache, tokens_or_embeddings, position_ids_increment, attention_mask, cache):
+        hidden_states, k_caches, v_caches = self.model(
+            use_cache, tokens_or_embeddings, position_ids_increment, attention_mask, cache
+        )
         logits = self.lm_head(hidden_states)
 
         return_values = [logits]
@@ -65,16 +56,30 @@ class DecoderModel(torch.nn.Module):
 
         return return_values
 
-    def forward_no_cache(self, tokens, position_ids, attn_mask, cache):
+    def forward_no_cache_tokens(self, tokens, position_ids, attention_mask, cache):
         use_cache = False
-        return self.forward_common(use_cache, tokens, position_ids, attn_mask, cache)
+        return self.forward_common(use_cache, tokens, position_ids, attention_mask, cache)
 
-    def forward_use_cache(self, tokens_increment, position_ids_increment, attn_mask, cache):
+    def forward_no_cache_embeddings(self, embeddings, position_ids, attention_mask, cache):
+        use_cache = False
+        return self.forward_common(use_cache, embeddings, position_ids, attention_mask, cache)
+
+    def forward_use_cache_tokens(self, tokens_increment, position_ids_increment, attention_mask, cache):
         use_cache = True
-        return self.forward_common(use_cache, tokens_increment, position_ids_increment, attn_mask, cache)
+        return self.forward_common(use_cache, tokens_increment, position_ids_increment, attention_mask, cache)
+
+    def forward_use_cache_embeddings(self, embeddings_increment, position_ids_increment, attention_mask, cache):
+        use_cache = True
+        return self.forward_common(use_cache, embeddings_increment, position_ids_increment, attention_mask, cache)
 
     def set_use_cache(self, use_cache):
-        self.forward = self.forward_use_cache if use_cache else self.forward_no_cache
+        if self.use_embeddings:
+            self.forward = self.forward_use_cache_embeddings if use_cache else self.forward_no_cache_embeddings
+        else:
+            self.forward = self.forward_use_cache_tokens if use_cache else self.forward_no_cache_tokens
+
+    def get_embeddings(self):
+        return self.model.embed_tokens
 
 
 class Model(torch.nn.Module):
@@ -91,8 +96,10 @@ class Model(torch.nn.Module):
         normalization_type: str,
         epsilon: float,
         apply_residual_connection_post_layernorm: bool,
+        use_embeddings: bool,
     ) -> None:
         super().__init__()
+        self.use_embeddings = use_embeddings
         self.embed_tokens = torch.nn.Embedding(vocab_size, hidden_size)
 
         self.norm = {
@@ -115,17 +122,17 @@ class Model(torch.nn.Module):
             )
             self.layers.append(layer)
 
-    def forward(self, use_cache, tokens, position_ids, attn_mask, cache):
+    def forward(self, use_cache, tokens_or_embeddings, position_ids, attention_mask, cache):
         k_caches = []
         v_caches = []
 
-        x = self.embed_tokens(tokens)
+        x = tokens_or_embeddings if self.use_embeddings else self.embed_tokens(tokens_or_embeddings)
 
         for layer_idx, layer in enumerate(self.layers):
             k_cache = cache[layer_idx]["key"].clone().detach()
             v_cache = cache[layer_idx]["value"].clone().detach()
 
-            x, k_cache, v_cache = layer(use_cache, x, position_ids, attn_mask, k_cache, v_cache)
+            x, k_cache, v_cache = layer(use_cache, x, position_ids, attention_mask, k_cache, v_cache)
 
             k_caches.append(k_cache)
             v_caches.append(v_cache)
@@ -199,8 +206,7 @@ class TransformerLayer(torch.nn.Module):
                 "rms": RMSNorm(hidden_size, epsilon),
             }[normalization_type]
 
-        self.cos, self.sin = rotary_mat(hidden_size, num_heads, 2048, head_scale=config.partial_rotary_factor)
-        # self.cos, self.sin = rotary_mat(hidden_size, num_heads, 4096, head_scale=1.0)
+        self.cos, self.sin = rotary_mat(hidden_size, num_heads, config.max_position_embeddings, head_scale=config.partial_rotary_factor)
 
         self.self_attn = SelfAttention(
             hidden_size,
@@ -208,15 +214,18 @@ class TransformerLayer(torch.nn.Module):
             num_key_value_heads,
             scale_type,
         )
-        self.resid_dropout = torch.nn.Dropout(config.resid_pdrop)
-        self.mlp = PhiMLP(hidden_size, intermediate_size)
+
+        if model_type == "phi-2":
+            self.mlp = PhiMLP(hidden_size, intermediate_size)
+        else:
+            self.mlp = MLP(model_type, hidden_size, intermediate_size)
 
     def forward(
         self,
         use_cache: bool,
         x: torch.Tensor,
         position_ids: torch.Tensor,
-        attn_mask: torch.Tensor,
+        attention_mask: torch.Tensor,
         k_cache: torch.Tensor,
         v_cache: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -224,7 +233,7 @@ class TransformerLayer(torch.nn.Module):
         # k_cache and v_cache is [batch_size, n_layers, pos, num_heads, head_dim]
         attn_norm_output = self.input_layernorm(x)
         h, k_out, v_out = self.self_attn(
-            use_cache, attn_norm_output, position_ids, attn_mask, self.cos, self.sin, k_cache, v_cache
+            use_cache, attn_norm_output, position_ids, attention_mask, self.cos, self.sin, k_cache, v_cache
         )
 
         h = x + h
@@ -241,16 +250,15 @@ class ApplyMask(torch.nn.Module):
     ) -> None:
         super().__init__()
 
-    def forward(self, use_cache, score, attn_mask, seq_len, num_heads, dtype=torch.float32):
+    def forward(self, use_cache, score, attention_mask, seq_len, num_heads, dtype=torch.float32):
         # The mask contains 1's for values that should stay intact, and 0's for values that should get added to -10000
-        expanded_mask = attn_mask[:, None, None, :].expand(-1, 1, seq_len, -1).to(dtype)
+        expanded_mask = attention_mask[:, None, None, :].expand(-1, 1, seq_len, -1).to(dtype)
         inverted_mask = 1.0 - expanded_mask
         mask_score = inverted_mask.masked_fill(inverted_mask.to(torch.bool), torch.finfo(torch.float16).min)
 
         if not use_cache:
-            batch_size, max_seq_len = attn_mask.size()
-            causal_mask = torch.tril(torch.ones((batch_size, 1, max_seq_len, max_seq_len)))
-            causal_mask = causal_mask[:, :, -seq_len:, :]
+            batch_size, max_seq_len = attention_mask.size()
+            causal_mask = torch.tril(torch.ones((batch_size, 1, seq_len, max_seq_len)), diagonal=max_seq_len - seq_len)
             inverted_causal_mask = 1.0 - causal_mask
             mask_score += inverted_causal_mask.masked_fill(inverted_causal_mask.to(torch.bool), torch.finfo(torch.float16).min)
 
@@ -332,7 +340,7 @@ class SelfAttention(torch.nn.Module):
         use_cache: bool,
         x: torch.Tensor,
         position_ids: torch.Tensor,
-        attn_mask: torch.Tensor,
+        attention_mask: torch.Tensor,
         cos: torch.Tensor,
         sin: torch.Tensor,
         k_cache: torch.Tensor,
@@ -350,25 +358,29 @@ class SelfAttention(torch.nn.Module):
         key = torch.reshape(key, [batch_size, seq_len, self.num_key_value_heads, self.head_dim]).transpose(1, 2)
         value = torch.reshape(value, [batch_size, seq_len, self.num_key_value_heads, self.head_dim]).transpose(1, 2)
 
+        # Partial rotary embedding for phi-2
+        if config.partial_rotary_factor != 1.0:
+            query_rot, query_pass = (
+                query[..., : self.partial_dim],
+                query[..., self.partial_dim:],
+            )
+            key_rot, key_pass = (
+                key[..., : self.partial_dim],
+                key[..., self.partial_dim:],
+            )
+
+            query_rot = self.rotary_embedding(query_rot, cos, sin, position_ids)
+            key_rot = self.rotary_embedding(key_rot, cos, sin, position_ids)
+
+            query = torch.cat((query_rot, query_pass), dim=-1)
+            key = torch.cat((key_rot, key_pass), dim=-1)
+        
+        
         # Apply rotary positional embedding
-        # Partial rotary embedding
-        query_rot, query_pass = (
-            query[..., : self.partial_dim],
-            query[..., self.partial_dim:],
-        )
-        key_rot, key_pass = (
-            key[..., : self.partial_dim],
-            key[..., self.partial_dim:],
-        )
+        else:
+            query = self.rotary_embedding(query, cos, sin, position_ids)
+            key = self.rotary_embedding(key, cos, sin, position_ids)
 
-        query_rot = self.rotary_embedding(query_rot, cos, sin, position_ids)
-        key_rot = self.rotary_embedding(key_rot, cos, sin, position_ids)
-
-        query = torch.cat((query_rot, query_pass), dim=-1)
-        key = torch.cat((key_rot, key_pass), dim=-1)
-
-        # save_tensors(query, "query")
-        # save_tensors(key, "key")
         # Append new entries to the end of k, v cache
         k_cache = torch.cat((k_cache, key), dim=2)
         v_cache = torch.cat((v_cache, value), dim=2)
@@ -387,13 +399,11 @@ class SelfAttention(torch.nn.Module):
         # Calculate attention scores
         score = torch.matmul(query.to(torch.float32), key.to(torch.float32)) / self.scale
 
-        # save_tensors(score, "score")
         # Apply the mask
-        score = self.apply_mask(use_cache, score, attn_mask, seq_len, self.num_heads)
+        score = self.apply_mask(use_cache, score, attention_mask, seq_len, self.num_heads)
 
         # Calculate attention values
         prob = torch.nn.functional.softmax(score, dim=-1).to(query.dtype)
-        # save_tensors(prob, "score_softmax")
 
         attn = torch.matmul(prob, value)
 
@@ -411,9 +421,13 @@ class MLP(torch.nn.Module):
         intermediate_size: int,
     ) -> None:
         super().__init__()
-        self.gate_proj = torch.nn.Linear(hidden_size, intermediate_size)
-        self.down_proj = torch.nn.Linear(intermediate_size, hidden_size)
-        self.up_proj = torch.nn.Linear(hidden_size, intermediate_size)
+        self.gate_proj = torch.nn.Linear(hidden_size, intermediate_size, bias=False)
+        self.down_proj = torch.nn.Linear(intermediate_size, hidden_size, bias=False)
+        self.model_type = model_type
+        if model_type == "falcon":
+            self.act = torch.nn.GELU()
+        else:
+            self.up_proj = torch.nn.Linear(hidden_size, intermediate_size, bias=False)
 
     def forward(self, x):
         w1x = self.gate_proj(x)
