@@ -180,59 +180,76 @@ class OnnxConversion(Pass):
         if isinstance(pytorch_model, torch.jit.RecursiveScriptModule):
             pytorch_model = TraceModelWrapper(pytorch_model)
 
+        # get input and output names, and dynamic axes
+        assert (
+            io_config is not None
+        ), "Cannot get io_config for the model. Please specify io_config or hf_config for the model"
+        io_config = validate_config(io_config, IoConfig)
+        input_names = io_config.input_names
+
+        # some dummy inputs might not be used in the model, so we need to remove them
+        # this can happen when we are using an hf dataset to generate dummy inputs
+        # only handle dict for now since we cannot get the name of the input from a list/tuple
+        if isinstance(dummy_inputs, dict):
+            dummy_input_keys = set(dummy_inputs.keys())
+
+            # handle dummy inputs for model with past, which has past_key_values
+            # match input names in `past_key_values.(hidden_layer_num).(key|value)` pattern(llama2 case)
+            # or `past_key_values.(hidden_layer_num)` pattern (phi2 case)
+            for name, dm_input in dummy_inputs.items():
+                if name == "past_key_values" and isinstance(dm_input, list):
+                    key_value_names = [f"{name}.{idx}" for idx in range(len(dm_input))]
+                    if all(
+                        any(key_value_name in input_name for input_name in input_names)
+                        for key_value_name in key_value_names
+                    ):
+                        dummy_input_keys.discard(name)
+
+            unused_keys = dummy_input_keys - set(input_names)
+
+            if unused_keys:
+                logger.debug(f"Removing unused dummy inputs: {unused_keys}")
+
         onnx_model = None
         if config["use_dynamo_exporter"]:
-            # available since torch==2.1.0
             torch_version = torch.__version__
-            if version.parse(torch_version) < version.parse("2.1.0"):
+            if version.parse(torch_version) < version.parse("2.2.0"):
                 raise ImportError(
                     f"torch.onnx.dynamo_export is not available for torch version {torch_version}. "
-                    "Please upgrade your torch version to 2.1.0 or above."
+                    "Please upgrade your torch version to 2.2.0 or above."
                 )
+            from torch._dynamo import config
             from torch.onnx import dynamo_export
 
-            exported = dynamo_export(
-                pytorch_model,
-                *dummy_inputs,
-                export_options=torch.onnx.ExportOptions(dynamic_shapes=True),
-            )
-            onnx_model = exported.model_proto
+            config.capture_scalar_outputs = True
+
+            input_names = io_config.input_names
+            if isinstance(dummy_inputs, dict):
+                for key in unused_keys:
+                    dummy_inputs[key] = None
+
+            pytorch_model(*dummy_inputs.values())
+
+            with tempfile.TemporaryDirectory(dir=tempdir, prefix="olive_tmp") as tmp_dir:
+                tmp_dir_path = Path(tmp_dir)
+                tmp_model_path = resolve_onnx_path(tmp_dir_path)
+
+                dynamo_export(
+                    pytorch_model,
+                    *dummy_inputs.values(),
+                    export_options=torch.onnx.ExportOptions(dynamic_shapes=True),
+                ).save(tmp_model_path)
+                onnx.checker.check_model(tmp_model_path)
+                onnx.shape_inference.infer_shapes_path(tmp_model_path)
+                onnx_model = onnx.load(tmp_model_path)
         else:
             # Standard ONNX export
-
-            # get input and output names, and dynamic axes
-            assert (
-                io_config is not None
-            ), "Cannot get io_config for the model. Please specify io_config or hf_config for the model"
-            io_config = validate_config(io_config, IoConfig)
-            input_names = io_config.input_names
-            output_names = io_config.output_names
-            dynamic_axes = io_config.dynamic_axes
-
-            # some dummy inputs might not be used in the model, so we need to remove them
-            # this can happen when we are using an hf dataset to generate dummy inputs
-            # only handle dict for now since we cannot get the name of the input from a list/tuple
             if isinstance(dummy_inputs, dict):
-                dummy_input_keys = set(dummy_inputs.keys())
-
-                # handle dummy inputs for model with past, which has past_key_values
-                # match input names in `past_key_values.(hidden_layer_num).(key|value)` pattern(llama2 case)
-                # or `past_key_values.(hidden_layer_num)` pattern (phi2 case)
-                for name, dm_input in dummy_inputs.items():
-                    if name == "past_key_values" and isinstance(dm_input, list):
-                        key_value_names = [f"{name}.{idx}" for idx in range(len(dm_input))]
-                        if all(
-                            any(key_value_name in input_name for input_name in input_names)
-                            for key_value_name in key_value_names
-                        ):
-                            dummy_input_keys.discard(name)
-
-                unused_keys = dummy_input_keys - set(input_names)
-
-                if unused_keys:
-                    logger.debug(f"Removing unused dummy inputs: {unused_keys}")
                 for key in unused_keys:
                     del dummy_inputs[key]
+
+            output_names = io_config.output_names
+            dynamic_axes = io_config.dynamic_axes
 
             # there might be multiple files created during export, so we need to track the dir
             # if there are other processes writing to the same dir, we might end up deleting files created by
@@ -377,7 +394,7 @@ class OnnxConversion(Pass):
 
         # get dummy inputs
         dummy_inputs = model.get_dummy_inputs()
-        io_config = None if config["use_dynamo_exporter"] else model.get_io_config()
+        io_config = model.get_io_config()
 
         converted_onnx_model = OnnxConversion._export_pytorch_model(
             pytorch_model, dummy_inputs, io_config, config, device, torch_dtype, tempfile.tempdir

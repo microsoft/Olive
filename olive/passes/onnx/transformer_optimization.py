@@ -177,6 +177,23 @@ class OrtTransformersOptimization(Pass):
 
         fusion_options = FusionOptions(run_config["model_type"])
         fusion_options.__dict__.update(run_config["optimization_options"])
+
+        attn_op_type = run_config["optimization_options"].get("attention_op_type")
+
+        if attn_op_type:
+            from onnxruntime.transformers.fusion_options import AttentionOpType
+
+            if attn_op_type == "Attention":
+                fusion_options.set_attention_op_type(AttentionOpType.Attention)
+            elif attn_op_type == "MultiHeadAttention":
+                fusion_options.set_attention_op_type(AttentionOpType.MultiHeadAttention)
+            elif attn_op_type == "GroupQueryAttention":
+                fusion_options.set_attention_op_type(AttentionOpType.GroupQueryAttention)
+            elif attn_op_type == "PagedAttention":
+                fusion_options.set_attention_op_type(AttentionOpType.PagedAttention)
+            else:
+                raise ValueError(f"Unsupported attention op type: {attn_op_type}")
+
         run_config["optimization_options"] = fusion_options
 
     def _run_for_config(
@@ -228,6 +245,7 @@ class OrtTransformersOptimization(Pass):
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
         optimization_options = config["optimization_options"]
+
         if optimization_options:
             self._set_fusion_options(run_config)
 
