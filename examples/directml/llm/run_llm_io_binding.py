@@ -78,17 +78,11 @@ def run_llm_io_binding(
     # Initialize the tokenizer and produce the initial tokens.
     tokenizer = AutoTokenizer.from_pretrained(model_dir)
 
-    # if tokenizer.chat_template is None:
-    #     tokenizer.chat_template = "{% for message in messages %}{{message['content']}}{% endfor %}"
+    if tokenizer.chat_template is None:
+        tokenizer.chat_template = "{% for message in messages %}{{message['content']}}{% endfor %}"
 
-    print (model_dir)
-    # tokenizer = AutoTokenizer.from_pretrained("microsoft/phi-2", trust_remote_code=True)
-    print (tokenizer.eos_token_id)
 
-    inputs = tokenizer('''def print_prime(n):
-        """
-        Print all primes between 1 and n
-        """''', return_tensors="pt", return_attention_mask=False)["input_ids"]
+    inputs = tokenizer('''write a extremely long story starting with once upon a time''', return_tensors="pt", return_attention_mask=False)["input_ids"]
 
     tokens = inputs.numpy()
     tokens = onnxruntime.OrtValue.ortvalue_from_numpy(tokens, device)
@@ -143,20 +137,6 @@ def run_llm_io_binding(
         # Decide the next token using your preferred sampling strategy.
         logits = llm_io_binding.get_outputs()[0].numpy()[:, -1, :]
 
-        # print (logits)
-        if(np.isnan(logits).any()):
-            print (idx)
-            print (logits)
-            exit()
-
-        # for layer_idx in range(num_layers):
-        #     print (f"cache.{layer_idx}.key")
-        #     print (k_caches[layer_idx].numpy().shape)
-        #     print (k_caches[layer_idx].numpy()[:, :, seq_len-1, :])
-        #     print (f"cache.{layer_idx}.value")
-        #     print (v_caches[layer_idx].numpy().shape)
-        #     print (v_caches[layer_idx].numpy()[:, :, seq_len-1, :])
-
         next_token = np.argmax(logits, axis=-1, keepdims=True)
         output_tokens.append(next_token.item())
 
@@ -173,17 +153,20 @@ def run_llm_io_binding(
 
         past_seq_len = seq_len
         seq_len += 1
+        next_word = tokenizer.decode(output_tokens[-1], skip_special_tokens=True)
+        print(f'{next_word}', end='')
 
     after_time = time.perf_counter()
     duration = after_time - before_time
-    tokens_per_second = idx / duration
+    tokens_per_second = len(output_tokens) / duration
 
     # Only print the tokens/s when ignore_eos is provided for benchmarking purposes
     # if ignore_eos:
-    print(f"Execution took {duration:0.4f} seconds (generated {tokens_per_second:0.2f} tokens per second)")
+    print ()
+    print(f"Generated {len(output_tokens):0.0f} tokens in: {duration:0.4f} seconds (generated {tokens_per_second:0.2f} tokens per second)")
 
     output_str = tokenizer.decode(output_tokens, skip_special_tokens=True)
-    print(output_str)
+    # print(output_str)
 
 
 if __name__ == "__main__":
