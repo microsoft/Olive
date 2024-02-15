@@ -48,7 +48,17 @@ class AutoFusion(Pass):
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
-        onnx_model, dags = OnnxDAG.from_model_path(model.model_path)
+        # TODO(jambayk): Add useless cast removal to OnnxDAG
+        from onnxruntime.transformers.onnx_model import OnnxModel
+
+        onnx_model = onnx.load(model.model_path)
+        ort_onnx_model = OnnxModel(onnx_model)
+
+        # remove useless casts
+        ort_onnx_model.remove_useless_cast_nodes()
+
+        # get dags
+        onnx_model, dags = OnnxDAG.from_model(ort_onnx_model.model)
 
         # get fusable chains
         fusable_chains = defaultdict(list)
@@ -57,7 +67,7 @@ class AutoFusion(Pass):
             for node_names, node_types in chains.values():
                 max_valid_len, dtype = self.check_shapes_and_types(dag, node_names)
                 # only consider chains equal to or longer than 2
-                for i in range(1, max_valid_len + 1):
+                for i in range(2, max_valid_len + 1):
                     # for i in range(1, min(2, max_valid_len + 1)):
                     fusable_chains[(dtype, tuple(node_types[:i]))].append((dag_idx, node_names[:i]))
 
@@ -88,8 +98,8 @@ class AutoFusion(Pass):
             #     continue
             # if chain_type != ('MatMul', 'Mul'):
             #     continue
-            if chain_type != ("MatMul", "Add"):
-                continue
+            # if chain_type != ("MatMul", "Add"):
+            #     continue
             fusion = Fusion(dtype, chain_type[0], list(chain_type[1:]))
             num_fused = 0
             for dag_idx, node_names in fusable_chains[(dtype, chain_type)]:
@@ -239,9 +249,22 @@ class AutoFusion(Pass):
             # check if the shapes are broadcastable
 
             if node_idx == 0:
-                if dag.get_op_type(name) == "MatMul" and len(dag.get_input_shapes(name)[1]) != 2:
+                op_type = dag.get_op_type(name)
+                input_shapes = dag.get_input_shapes(name)
+
+                if op_type == "MatMul" and len(dag.get_input_shapes(name)[1]) != 2:
                     # second input of matmul must be 2D
                     break
+                if (
+                    op_type != "MatMul"
+                    and len(input_shapes) == 2
+                    and not cls.is_broadcastable(input_shapes[0], input_shapes[1])
+                ):
+                    #  Binary elementwise operators need the second input to be broadcastable
+                    # TODO(jambayk): Add support for multidimensional broadcasting
+                    # or reorder inputs for commutative ops
+                    break
+
                 # skip base node
                 max_valid_len += 1
                 continue

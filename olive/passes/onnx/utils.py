@@ -230,14 +230,8 @@ class OnnxDAG:
         return [self.nodes[name].proto for name in node_names]
 
     @classmethod
-    def from_model_path(cls, model_path: Union[str, Path]) -> Tuple["ModelProto", List["OnnxDAG"]]:
-        """Load an ONNX model with shape inference and create a DAG for each graph."""
-        with tempfile.NamedTemporaryFile(dir=Path(model_path).parent) as tmpfile:
-            shape_infer_model_path = tmpfile.name
-            # infer_shapes_path can be used for model >2GB, and infer_shapes cannot.
-            infer_shapes_path(model_path, shape_infer_model_path)
-            model = onnx.load(shape_infer_model_path)
-
+    def process_model(cls, model: "ModelProto") -> List["OnnxDAG"]:
+        """Create a DAG for each graph in the model."""
         dags = []
         graph_queue = [model.graph]
         while graph_queue:
@@ -252,7 +246,33 @@ class OnnxDAG:
                         for g in attr.graphs:
                             assert isinstance(g, GraphProto)
                             graph_queue.append(g)
-        return model, dags
+
+        return dags
+
+    @classmethod
+    def from_model_path(cls, model_path: Union[str, Path]) -> Tuple["ModelProto", List["OnnxDAG"]]:
+        """Load an ONNX model with shape inference and create a DAG for each graph."""
+        with tempfile.NamedTemporaryFile(dir=Path(model_path).parent) as tmpfile:
+            shape_infer_model_path = tmpfile.name
+            # infer_shapes_path can be used for model >2GB, and infer_shapes cannot.
+            infer_shapes_path(model_path, shape_infer_model_path)
+            model = onnx.load(shape_infer_model_path)
+
+        return model, cls.process_model(model)
+
+    @classmethod
+    def from_model(cls, model: "ModelProto", do_shape_infer: bool = True) -> Tuple["ModelProto", List["OnnxDAG"]]:
+        """Create a DAG for each graph in the model."""
+        if do_shape_infer:
+            # shape infer needs file path for model >2GB
+            # so always save the model to a temporary file to avoid memory issues
+            with tempfile.TemporaryDirectory() as tmpdir:
+                model_path = Path(tmpdir) / "model.onnx"
+                onnx.save(model, model_path, save_as_external_data=True, location="model.onnx.data")
+
+                return cls.from_model_path(model_path)
+
+        return model, cls.process_model(model)
 
     def _topological_sort_util(self, v: str, visited: Set[str], order: List[str]):
         # keep track of the nodes to visit
