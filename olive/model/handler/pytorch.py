@@ -138,8 +138,8 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
             model = self.load_hf_model(self.model_path)
         elif self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
             model = torch.load(self.model_path)
-        elif self.model_file_format == ModelFileFormat.PYTORCH_SPLICE_GPT_MODEL:
-            model = self._load_splicegpt_model()
+        elif self.model_file_format == ModelFileFormat.PYTORCH_SLICE_GPT_MODEL:
+            model = self._load_slicegpt_model()
         elif self.model_file_format == ModelFileFormat.PYTORCH_STATE_DICT:
             raise ValueError("Please use customized model loader to load state dict of model.")
         else:
@@ -225,9 +225,9 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
             loaded_model.eval()
             return loaded_model
 
-    def _load_splicegpt_model(self):
+    def _load_slicegpt_model(self):
         logger.info(f"Loading SpliceGPT model from {self.model_path}")
-        from splicgpt.hf_utils import get_model_and_tokenizer as lsm
+        from TransformerCompression.slicgpt.hf_utils import load_sliced_model as lsm
         loaded_model, _ = lsm(self.model_path)
         return loaded_model
 
