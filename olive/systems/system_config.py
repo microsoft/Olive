@@ -35,6 +35,7 @@ class AzureMLTargetUserConfig(TargetUserConfig):
     aml_compute: str
     aml_docker_config: AzureMLDockerConfig = None
     aml_environment_config: AzureMLEnvironmentConfig = None
+    tags: Dict = None
     resources: Dict = None
     instance_count: int = 1
     is_dev: bool = False

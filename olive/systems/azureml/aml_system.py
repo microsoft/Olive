@@ -83,6 +83,7 @@ class AzureMLSystem(OliveSystem):
         aml_compute: str,
         aml_docker_config: Union[Dict[str, Any], AzureMLDockerConfig] = None,
         aml_environment_config: Union[Dict[str, Any], AzureMLEnvironmentConfig] = None,
+        tags: Dict = None,
         resources: Dict = None,
         instance_count: int = 1,
         is_dev: bool = False,
@@ -93,6 +94,7 @@ class AzureMLSystem(OliveSystem):
     ):
         super().__init__(accelerators, olive_managed_env=olive_managed_env, hf_token=hf_token)
         self.instance_count = instance_count
+        self.tags = tags or {}
         self.resources = resources
         self.is_dev = is_dev
         self.requirements_file = requirements_file
@@ -457,6 +459,7 @@ class AzureMLSystem(OliveSystem):
         """Run a pipeline job and return the path to named-outputs."""
         # submit job
         logger.debug("Submitting pipeline")
+        tags = {**self.tags, **(tags or {})}
         job = retry_func(
             ml_client.jobs.create_or_update,
             [pipeline_job],
