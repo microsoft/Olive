@@ -29,26 +29,6 @@ class SliceGPT(Pass):
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "sparsity": PassConfigParam(
-                type_=Union[float, List[int]],
-                description=(
-                    "Target sparsity. This can be a float or a list of two integers. Float is the target sparsity per"
-                    " layer. List [n,m] applies semi-structured (n:m) sparsity patterns. Refer to"
-                    " https://developer.nvidia.com/blog/accelerating-inference-with-sparsity-using-ampere-and-tensorrt/"
-                    " for more details on 2:4 sparsity pattern."
-                ),
-            ),
-            "blocksize": PassConfigParam(
-                type_=int, default_value=128, description="Blocksize to use for adaptive mask selection."
-            ),
-            "percdamp": PassConfigParam(
-                type_=float,
-                default_value=0.01,
-                description="Percentage of the average Hessian diagonal to use for dampening. Must be in [0,1].",
-            ),
-            "min_layer": PassConfigParam(
-                type_=int, default_value=None, description="Prune all layers with id >= min_layer."
-            ),
-            "sparsity": PassConfigParam(
                 type_=float, default_value=0.0, 
                 description="A measure of how much slicing is applied (in the range [0, 1))"
             ),
