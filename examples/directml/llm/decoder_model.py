@@ -40,7 +40,7 @@ class DecoderModel(torch.nn.Module):
             apply_residual_connection_post_layernorm,
             use_embeddings,
         )
-        self.lm_head = torch.nn.Linear(hidden_size, vocab_size)
+        self.lm_head = torch.nn.Linear(hidden_size, vocab_size, bias=model_type=='phi-2')
 
     def forward_common(self, use_cache, tokens_or_embeddings, position_ids_increment, attention_mask, cache):
         hidden_states, k_caches, v_caches = self.model(
@@ -317,10 +317,10 @@ class SelfAttention(torch.nn.Module):
         self.head_dim = int(hidden_size / num_heads)
         self.partial_dim = int(config.partial_rotary_factor * self.head_dim)
         key_value_hidden_size = num_key_value_heads * self.head_dim
-        self.q_proj = torch.nn.Linear(hidden_size, hidden_size)
-        self.k_proj = torch.nn.Linear(hidden_size, key_value_hidden_size)
-        self.v_proj = torch.nn.Linear(hidden_size, key_value_hidden_size)
-        self.o_proj = torch.nn.Linear(hidden_size, hidden_size)
+        self.q_proj = torch.nn.Linear(hidden_size, hidden_size, bias = config.partial_rotary_factor!=1.0)
+        self.k_proj = torch.nn.Linear(hidden_size, key_value_hidden_size, bias = config.partial_rotary_factor!=1.0)
+        self.v_proj = torch.nn.Linear(hidden_size, key_value_hidden_size, bias = config.partial_rotary_factor!=1.0)
+        self.o_proj = torch.nn.Linear(hidden_size, hidden_size, bias = config.partial_rotary_factor!=1.0)
         self.apply_mask = ApplyMask()
         self.rotary_embedding = RotaryEmbedding()
 
