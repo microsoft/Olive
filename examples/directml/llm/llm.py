@@ -35,14 +35,14 @@ _MODELS = {
 PHI_MAPPING = {
     "transformer.embd.wte.weight": "model.embed_tokens.weight",
     "lm_head.linear": "lm_head",
-    "lm_head.ln": "model.norm",
-    "layers": "model.layers",
+    "final_layernorm": "norm",
+    # "layers": "model.layers",
     "transformer": "model",
     ".h.": ".layers.",
     "ln": "input_layernorm",
     "mixer": "self_attn",
     "Wqkv": "query_key_value",
-    "out_proj": "o_proj",
+    "dense": "o_proj",
 }
 
 def map_key(origin_key):
@@ -145,7 +145,7 @@ def set_config_parameters(tokenizer: transformers.AutoTokenizer, repo_id: str, n
     config.num_layers = num_layers or llm_model.config.num_hidden_layers
     config.vocab_size = llm_model.config.vocab_size
     config.model_type = main_model.config.model_type
-    config.apply_residual_connection_post_layernorm = getattr(
+    config.apply_residual_connection_post_layernorm = False if repo_id=="microsoft/phi-2" else getattr(
         llm_model.config, "apply_residual_connection_post_layernorm", True
     )
 
@@ -205,8 +205,9 @@ def optimize(model_dir: Path, repo_id: str, model_name: str, num_layers: Optiona
 
         # Some models are too fragile and need layer norm to be performed in fp32 to keep their accuracy.
         # bfloat16 could fix this, but since DML doesn't support it we need to fall back to fp32.
-        models_that_need_fp32_layer_norm = ["llava-hf_llava-1.5-7b-hf", "tiiuae_falcon-7b-instruct", "phi-2"]
-        models_that_need_fp32_mha = ["llava-hf_llava-1.5-7b-hf", "phi-2"]
+        print (model_name)
+        models_that_need_fp32_layer_norm = ["llava-hf_llava-1.5-7b-hf", "tiiuae_falcon-7b-instruct", "microsoft_phi-2"]
+        models_that_need_fp32_mha = ["llava-hf_llava-1.5-7b-hf", "microsoft_phi-2"]
         if model_name in models_that_need_fp32_layer_norm:
             olive_config["passes"]["optimize"]["config"]["force_fp32_ops"] = [
                 "SimplifiedLayerNormalization",
@@ -214,7 +215,7 @@ def optimize(model_dir: Path, repo_id: str, model_name: str, num_layers: Optiona
             ]
 
         if model_name in models_that_need_fp32_mha:
-            olive_config["passes"]["optimize"]["config"]["force_fp32_ops"] = ["MultiHeadAttention"]
+            olive_config["passes"]["optimize"]["config"]["force_fp32_ops"].extend(["MultiHeadAttention"])
 
         if repo_id == "llava-hf/llava-1.5-7b-hf":
             olive_config["passes"]["optimize"]["config"]["replace_attn_mask_input_with_seq_len"] = False

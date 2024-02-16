@@ -40,7 +40,7 @@ class DecoderModel(torch.nn.Module):
             apply_residual_connection_post_layernorm,
             use_embeddings,
         )
-        self.lm_head = torch.nn.Linear(hidden_size, vocab_size, bias=model_type=='phi-2')
+        self.lm_head = torch.nn.Linear(hidden_size, vocab_size, bias=config.partial_rotary_factor!=1.0)
 
     def forward_common(self, use_cache, tokens_or_embeddings, position_ids_increment, attention_mask, cache):
         hidden_states, k_caches, v_caches = self.model(
@@ -215,7 +215,7 @@ class TransformerLayer(torch.nn.Module):
             scale_type,
         )
 
-        if model_type == "phi-2":
+        if config.partial_rotary_factor != 1.0:
             self.mlp = PhiMLP(hidden_size, intermediate_size)
         else:
             self.mlp = MLP(model_type, hidden_size, intermediate_size)
