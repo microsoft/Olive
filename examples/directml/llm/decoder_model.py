@@ -432,7 +432,10 @@ class MLP(torch.nn.Module):
     def forward(self, x):
         w1x = self.gate_proj(x)
 
-        return self.down_proj(w1x * torch.sigmoid(w1x) * self.up_proj(x))
+        if self.model_type == "falcon":
+            return self.down_proj(self.act(w1x))
+        else:
+            return self.down_proj(w1x * torch.sigmoid(w1x) * self.up_proj(x))
 
 import math
 class NewGELUActivation(torch.nn.Module):

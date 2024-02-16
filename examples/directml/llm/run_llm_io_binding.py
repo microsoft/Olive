@@ -19,7 +19,7 @@ def run_llm_io_binding(
     model_type: str,
     prompt: str,
     max_seq_len: int = 2048,
-    max_gen_len: int = 50,
+    max_gen_len: int = 256,
     device: str = "dml",
     device_id: int = 0,
     ignore_eos: bool = False,
@@ -48,10 +48,10 @@ def run_llm_io_binding(
     llm_session_options.add_free_dimension_override_by_name("seq_len_increment", 1)
 
     llm_session = onnxruntime.InferenceSession(
-            os.path.join(model_dir, "decoder_model_merged.onnx"),
-            sess_options=llm_session_options,
-            providers=providers,
-        )
+        os.path.join(model_dir, "decoder_model_merged.onnx"),
+        sess_options=llm_session_options,
+        providers=providers,
+    )
     data_type = np.float16
     num_layers = 0
     for inputs_meta in llm_session._inputs_meta:
@@ -68,11 +68,6 @@ def run_llm_io_binding(
     tokens = np.asarray(tokens, dtype=np.int64)
     tokens = onnxruntime.OrtValue.ortvalue_from_numpy(tokens, device)
     tokens_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, 1), np.int64, device)
-
-    # inputs = tokenizer(prompt, return_tensors="pt", return_attention_mask=False)["input_ids"]
-    # tokens = inputs.numpy()
-    # tokens = onnxruntime.OrtValue.ortvalue_from_numpy(tokens, device)
-    # tokens_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, 1), np.int64, device)
 
     past_seq_len = 0
     seq_len = tokens.shape()[1]
@@ -121,7 +116,6 @@ def run_llm_io_binding(
 
         # Decide the next token using your preferred sampling strategy.
         logits = llm_io_binding.get_outputs()[0].numpy()[:, -1, :]
-
         next_token = np.argmax(logits, axis=-1, keepdims=True)
         output_tokens.append(next_token.item())
 
@@ -138,20 +132,18 @@ def run_llm_io_binding(
 
         past_seq_len = seq_len
         seq_len += 1
-        next_word = tokenizer.decode(output_tokens[-1], skip_special_tokens=True)
-        print(f'{next_word}', end='')
 
     after_time = time.perf_counter()
     duration = after_time - before_time
-    tokens_per_second = len(output_tokens) / duration
+    tokens_per_second = idx / duration
 
     # Only print the tokens/s when ignore_eos is provided for benchmarking purposes
-    # if ignore_eos:
-    print ()
-    print(f"Generated {len(output_tokens):0.0f} tokens in: {duration:0.4f} seconds (generated {tokens_per_second:0.2f} tokens per second)")
+    if ignore_eos:
+        print(f"Execution took {duration:0.4f} seconds (generated {tokens_per_second:0.2f} tokens per second)")
 
     output_str = tokenizer.decode(output_tokens, skip_special_tokens=True)
-    # print(output_str)
+    
+    print(output_str)
 
 
 if __name__ == "__main__":

@@ -323,7 +323,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_seq_len", default=2048, type=int, help="The size of the cache")
     parser.add_argument("--device_id", default=0, type=int, help="GPU device to use during inference")
     parser.add_argument(
-        "--max_gen_len", default=200, type=int, help="The maximum number of tokens that can be included in an answer"
+        "--max_gen_len", default=256, type=int, help="The maximum number of tokens that can be included in an answer"
     )
     parser.add_argument("--device", type=str, choices=["dml", "cuda"], default="dml")
     parser.add_argument(
