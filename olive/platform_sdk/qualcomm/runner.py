@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 import time
+from pathlib import Path
 
 from olive.common.utils import run_subprocess
 from olive.platform_sdk.qualcomm.qnn.env import QNNSDKEnv
@@ -34,6 +35,19 @@ class SDKRunner:
             self.sdk_env = QNNSDKEnv(use_dev_tools=self.use_dev_tools)
 
     def run(self, cmd: str, use_olive_env: bool = True):
+        import platform
+
+        if platform.system() == "Windows" and cmd.startswith(("snpe-", "qnn-")):
+            logger.debug(f"Resolving command {cmd} on Windows.")
+            cmd_path = Path(self.sdk_env.sdk_root_path) / "bin" / self.sdk_env.target_arch
+            cmd_name = cmd.split(" ")[0]
+            if (cmd_path / cmd_name).exists():
+                cmd = str(cmd_path / cmd_name) + cmd[len(cmd_name) :]
+                with (cmd_path / cmd_name).open("r") as f:
+                    first_line = f.readline()
+                    if "python" in first_line:
+                        cmd = f"python {cmd}"
+
         env = self.sdk_env.env if use_olive_env else None
         for run in range(self.runs):
             run_log_msg = "" if self.runs == 1 else f" (run {run + 1}/{self.runs})"

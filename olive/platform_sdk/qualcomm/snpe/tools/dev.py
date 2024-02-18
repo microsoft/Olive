@@ -38,8 +38,9 @@ def get_dlc_io_config(dlc_path: str, input_names: List[str], output_names: List[
     input_names: list of input names of source model.
     output_names: list of output names of source model.
     """
-    tmp_csv = tempfile.NamedTemporaryFile(suffix=".csv")  # pylint: disable=consider-using-with
-    dlc_info = get_dlc_info(dlc_path, csv_path=tmp_csv.name)
+    tmp_folder = tempfile.TemporaryDirectory()
+    tmp_csv = Path(tmp_folder.name) / "dlc_info.csv"
+    dlc_info = get_dlc_info(dlc_path, csv_path=str(tmp_csv))
 
     # add the :0 suffix to the input/output names if present in the DLC
     # SNPE adds this suffix to the input/output names in the DLC if the source model is TensorFlow
@@ -49,7 +50,7 @@ def get_dlc_io_config(dlc_path: str, input_names: List[str], output_names: List[
 
     input_dims = {}
     output_dims = {}
-    with Path(tmp_csv.name).open() as f:
+    with tmp_csv.open() as f:
         out = csv.reader(f)
         for row in out:
             if len(row) == 8:
@@ -66,7 +67,8 @@ def get_dlc_io_config(dlc_path: str, input_names: List[str], output_names: List[
                 # input name in this format for versions 2.x
                 if name in input_names:
                     input_dims[name] = list(map(int, shape.split(",")))
-    tmp_csv.close()
+
+    tmp_folder.cleanup()
 
     return {
         "input_names": input_names,

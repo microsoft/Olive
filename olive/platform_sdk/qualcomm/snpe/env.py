@@ -17,23 +17,30 @@ class SNPESDKEnv(SDKEnv):
 
     @property
     def env(self):
+        os_env = os.environ.copy()
         env = super().env
         target_arch = self.target_arch
         sdk_root_path = self.sdk_root_path
         delimiter = os.path.pathsep
-        python_env_bin_path = str(Path(f"{sdk_root_path}/olive-pyenv/bin"))
-        python_env_lib_path = str(Path(f"{sdk_root_path}/olive-pyenv/lib"))
-        if platform.system() == "Linux":
-            if self.use_dev_tools:
-                if not Path(python_env_bin_path).exists():
-                    raise FileNotFoundError(
-                        f"Path {python_env_bin_path} does not exist. Please run"
-                        " 'python -m olive.platform_sdk.qualcomm.configure --py_version 3.8 --sdk snpe'"
-                        " to add the missing file."
-                    )
-                env["LD_LIBRARY_PATH"] += delimiter + python_env_lib_path
-                env["PATH"] = python_env_bin_path + delimiter + env["PATH"]
-        elif platform.system() == "Windows" and target_arch == SDKTargetDevice.arm64x_windows:
+        python_env_parent_folder = "" if platform.system() == "Windows" else "bin"
+        python_env_bin_path = str(Path(f"{sdk_root_path}/olive-pyenv/{python_env_parent_folder}"))
+
+        env["PATH"] += delimiter + os.environ["PATH"]
+        if self.use_dev_tools:
+            if not Path(python_env_bin_path).exists():
+                raise FileNotFoundError(
+                    f"Path {python_env_bin_path} does not exist. Please run"
+                    " 'python -m olive.platform_sdk.qualcomm.configure --py_version 3.8 --sdk snpe'"
+                    " to add the missing file."
+                )
+
+            env["PATH"] = python_env_bin_path + delimiter + env["PATH"]
+
+        if platform.system() == "Windows":
+            os_env.update(env)
+            env = os_env
+
+        if platform.system() == "Windows" and target_arch == SDKTargetDevice.arm64x_windows:
             bin_path = str(Path(f"{sdk_root_path}/olive-arm-win"))
             if not Path(bin_path).exists():
                 raise FileNotFoundError(

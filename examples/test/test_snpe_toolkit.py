@@ -57,6 +57,8 @@ def setup_resource():
     run_subprocess(cmd=" ".join(install_cmd), check=True)
     retry_func(run_subprocess, kwargs={"cmd": "python download_files.py", "check": True})
 
+    run_subprocess(cmd="python prepare_config.py", check=True)
+
 
 def test_inception_snpe(tmp_path):
     from olive.workflows import run as olive_run
