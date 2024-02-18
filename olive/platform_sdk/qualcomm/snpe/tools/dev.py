@@ -38,6 +38,7 @@ def get_dlc_io_config(dlc_path: str, input_names: List[str], output_names: List[
     input_names: list of input names of source model.
     output_names: list of output names of source model.
     """
+    # ruff: noqa: R1732
     tmp_folder = tempfile.TemporaryDirectory()
     tmp_csv = Path(tmp_folder.name) / "dlc_info.csv"
     dlc_info = get_dlc_info(dlc_path, csv_path=str(tmp_csv))

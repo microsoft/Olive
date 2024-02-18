@@ -55,16 +55,19 @@ def test_run_snpe_command():
         if platform.system() == "Linux":
             env = {
                 "LD_LIBRARY_PATH": "/snpe/lib/x86_64-linux-clang",
-                "PATH": "/snpe/bin/x86_64-linux-clang:/usr/bin",
+                "PATH": f"/snpe/bin/x86_64-linux-clang:/usr/bin:{os.environ['PATH']}",
                 "PYTHONPATH": "/snpe/lib/python",
                 "SDK_ROOT": "/snpe",
             }
         else:
             env = {
-                "PATH": "C:\\snpe\\bin\\x86_64-windows-msvc;C:\\snpe\\lib\\x86_64-windows-msvc",
+                "PATH": f"C:\\snpe\\bin\\x86_64-windows-msvc;C:\\snpe\\lib\\x86_64-windows-msvc;{os.environ['PATH']}",
                 "SDK_ROOT": "C:\\snpe",
                 "PYTHONPATH": "C:\\snpe\\lib\\python",
             }
+            os_env = os.environ.copy()
+            os_env.update(env)
+            env = os_env
 
         mock_run_subprocess.assert_called_once_with(
             "snpe-net-run --container xxxx".split(),
