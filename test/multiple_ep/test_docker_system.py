@@ -26,8 +26,8 @@ class TestOliveManagedDockerSystem:
 
         # use the olive managed Docker system as the test environment
         self.system_config = SystemConfig(
-            system_type="Docker",
-            target_user_config=DockerTargetUserConfig(
+            type="Docker",
+            config=DockerTargetUserConfig(
                 accelerators=["cpu"],
                 olive_managed_env=True,
                 is_dev=True,

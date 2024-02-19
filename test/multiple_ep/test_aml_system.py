@@ -32,8 +32,8 @@ class TestOliveAzureMLSystem:
         azureml_client_config = AzureMLClientConfig(**get_olive_workspace_config())
 
         self.system_config = SystemConfig(
-            system_type="AzureML",
-            target_user_config=AzureMLTargetUserConfig(
+            type="AzureML",
+            config=AzureMLTargetUserConfig(
                 azureml_client_config=azureml_client_config,
                 aml_compute=aml_compute,
                 accelerators=["cpu"],

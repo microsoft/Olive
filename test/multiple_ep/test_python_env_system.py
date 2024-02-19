@@ -28,8 +28,8 @@ class TestOliveManagedPythonEnvironmentSystem:
     def test_run_pass_evaluate_windows(self, tmpdir):
         # use the olive managed python environment as the test environment
         self.system_config = SystemConfig(
-            system_type="PythonEnvironment",
-            target_user_config=PythonEnvironmentTargetUserConfig(
+            type="PythonEnvironment",
+            config=PythonEnvironmentTargetUserConfig(
                 accelerators=["gpu"],
                 olive_managed_env=True,
             ),
@@ -59,8 +59,8 @@ class TestOliveManagedPythonEnvironmentSystem:
     def test_run_pass_evaluate_linux(self, tmpdir):
         # use the olive managed python environment as the test environment
         self.system_config = SystemConfig(
-            system_type="PythonEnvironment",
-            target_user_config=PythonEnvironmentTargetUserConfig(
+            type="PythonEnvironment",
+            config=PythonEnvironmentTargetUserConfig(
                 accelerators=["cpu"],
                 olive_managed_env=True,
             ),
