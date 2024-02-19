@@ -17,7 +17,6 @@ class SNPESDKEnv(SDKEnv):
 
     @property
     def env(self):
-        os_env = os.environ.copy()
         env = super().env
         target_arch = self.target_arch
         sdk_root_path = self.sdk_root_path
@@ -37,6 +36,7 @@ class SNPESDKEnv(SDKEnv):
             env["PATH"] = python_env_bin_path + delimiter + env["PATH"]
 
         if platform.system() == "Windows":
+            os_env = os.environ.copy()
             os_env.update(env)
             env = os_env
             if target_arch == SDKTargetDevice.arm64x_windows:

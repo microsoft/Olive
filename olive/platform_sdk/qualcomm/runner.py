@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-import platform
 import time
 from pathlib import Path
 
@@ -36,6 +35,8 @@ class SDKRunner:
             self.sdk_env = QNNSDKEnv(use_dev_tools=self.use_dev_tools)
 
     def _resolve_cmd(self, cmd: str):
+        import platform
+
         if platform.system() == "Windows" and cmd.startswith(("snpe-", "qnn-")):
             logger.debug(f"Resolving command {cmd} on Windows.")
             cmd_path = Path(self.sdk_env.sdk_root_path) / "bin" / self.sdk_env.target_arch
