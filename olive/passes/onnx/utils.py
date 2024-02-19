@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 import tempfile
 from collections import defaultdict
 from enum import Enum
@@ -18,6 +19,8 @@ from olive.common.utils import onnx_dtype_to_np_dtype
 
 if TYPE_CHECKING:
     from onnx import ModelProto
+
+logger = logging.getLogger(__name__)
 
 
 class SpecialInput(str, Enum):
@@ -190,10 +193,13 @@ class OnnxDAG:
         """
         self.process_node(node_proto, self.nodes, self.ios, self.connections, graph_idx)
 
-    def remove_node(self, node_name: str):
+    def remove_node(self, node_name: str, check_no_consumers: bool = False):
         """Remove a node from the graph."""
         if node_name not in self.nodes:
             raise ValueError(f"Node {node_name} does not exist in the graph.")
+
+        if check_no_consumers and self.connections[node_name]:
+            raise ValueError(f"Node {node_name} has consumers.")
 
         node = self.nodes.pop(node_name)
         for i in node.inputs:
@@ -245,6 +251,39 @@ class OnnxDAG:
         # add the new node
         self.add_node(new_node_proto, graph_idx)
 
+    def replace_node_input(self, node_name: str, old_input: str, new_input: str):
+        """Replace an input of a node."""
+        if node_name not in self.nodes:
+            raise ValueError(f"Node {node_name} does not exist in the graph.")
+        if old_input not in self.nodes[node_name].inputs:
+            raise ValueError(f"Input {old_input} does not exist in node {node_name}.")
+        if new_input not in self.ios:
+            raise ValueError(f"Input {new_input} does not exist in the graph.")
+
+        node = self.nodes[node_name]
+        # update the node object and proto
+        node.inputs[node.inputs.index(old_input)] = new_input
+        proto_updated = False
+        for i in range(len(node.inputs)):
+            if node.proto.input[i] == old_input:
+                node.proto.input[i] = new_input
+                proto_updated = True
+        if not proto_updated:
+            raise ValueError(f"Input {old_input} does not exist in node {node_name} proto.")
+
+        # update the ios
+        self.ios[old_input].destination.remove(node_name)
+        self.ios[new_input].destination.append(node_name)
+
+        # update the connections
+        old_parent = self.ios[old_input].source
+        if old_parent not in [SpecialInput.INPUT, SpecialInput.INITIALIZER]:
+            self.connections[old_parent].remove(node_name)
+
+        new_parent = self.ios[new_input].source
+        if new_parent not in [SpecialInput.INPUT, SpecialInput.INITIALIZER]:
+            self.connections[new_parent].append(node_name)
+
     def get_op_type(self, node_name: str) -> str:
         """Get the op type of a node."""
         return self.nodes[node_name].op_type
@@ -273,30 +312,13 @@ class OnnxDAG:
 
         return [self.nodes[name].proto for name in node_names]
 
-    @classmethod
-    def from_model_path(cls, model_path: Union[str, Path]) -> "OnnxDAG":
-        """Load an ONNX model with shape inference and create an DAG."""
-        with tempfile.NamedTemporaryFile(dir=Path(model_path).parent) as tmpfile:
-            shape_infer_model_path = tmpfile.name
-            # infer_shapes_path can be used for model >2GB, and infer_shapes cannot.
-            infer_shapes_path(model_path, shape_infer_model_path)
-            model = onnx.load(shape_infer_model_path)
+    def get_model_inputs(self) -> List[str]:
+        """Get the model inputs."""
+        return [i for i, io in self.ios.items() if io.source == SpecialInput.INPUT]
 
-        return cls(model)
-
-    @classmethod
-    def from_model(cls, model: "ModelProto", do_shape_infer: bool = True) -> "OnnxDAG":
-        """Create a DAG for the model."""
-        if do_shape_infer:
-            # shape infer needs file path for model >2GB
-            # so always save the model to a temporary file to avoid memory issues
-            with tempfile.TemporaryDirectory() as tmpdir:
-                model_path = Path(tmpdir) / "model.onnx"
-                onnx.save(model, model_path, save_as_external_data=True, location="model.onnx.data")
-
-                return cls.from_model_path(model_path)
-
-        return cls(model)
+    def get_model_outputs(self) -> List[str]:
+        """Get the model outputs."""
+        return [o for o, io in self.ios.items() if SpecialOutput.OUTPUT in io.destination]
 
     def _topological_sort_util(self, v: str, visited: Set[str], order: List[str]):
         # keep track of the nodes to visit
@@ -354,3 +376,52 @@ class OnnxDAG:
             graph.node.extend(nodes)
             graph.ClearField("value_info")
             graph.value_info.extend(value_info)
+
+    def remove_redundant_cast_nodes(self):
+        """Remove redundant cast nodes from the graph."""
+        model_outputs = self.get_model_outputs()
+        removed_count = 0
+        for node_name in list(self.nodes):
+            node = self.nodes[node_name]
+            if node.op_type != "Cast":
+                continue
+
+            if self.get_input_dtypes(node_name) != self.get_output_dtypes(node_name):
+                continue
+
+            if node.outputs[0] in model_outputs:
+                # we don't want to remove the cast node if it's an output
+                # TODO(jambayk): handle this
+                continue
+
+            for destination in list(self.ios[node.outputs[0]].destination):
+                self.replace_node_input(destination, node.outputs[0], node.inputs[0])
+
+            self.remove_node(node_name, check_no_consumers=True)
+            removed_count += 1
+        logger.info(f"Removed {removed_count} redundant cast nodes.")
+
+    @classmethod
+    def from_model_path(cls, model_path: Union[str, Path]) -> "OnnxDAG":
+        """Load an ONNX model with shape inference and create an DAG."""
+        with tempfile.NamedTemporaryFile(dir=Path(model_path).parent) as tmpfile:
+            shape_infer_model_path = tmpfile.name
+            # infer_shapes_path can be used for model >2GB, and infer_shapes cannot.
+            infer_shapes_path(model_path, shape_infer_model_path)
+            model = onnx.load(shape_infer_model_path)
+
+        return cls(model)
+
+    @classmethod
+    def from_model(cls, model: "ModelProto", do_shape_infer: bool = True) -> "OnnxDAG":
+        """Create a DAG for the model."""
+        if do_shape_infer:
+            # shape infer needs file path for model >2GB
+            # so always save the model to a temporary file to avoid memory issues
+            with tempfile.TemporaryDirectory() as tmpdir:
+                model_path = Path(tmpdir) / "model.onnx"
+                onnx.save(model, model_path, save_as_external_data=True, location="model.onnx.data")
+
+                return cls.from_model_path(model_path)
+
+        return cls(model)

@@ -48,16 +48,10 @@ class AutoFusion(Pass):
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
-        # TODO(jambayk): Add useless cast removal to OnnxDAG
-        from onnxruntime.transformers.onnx_model import OnnxModel
-
-        ort_onnx_model = OnnxModel(onnx.load(model.model_path))
-
-        # remove useless casts
-        ort_onnx_model.remove_useless_cast_nodes()
-
         # get dag
-        dag = OnnxDAG.from_model(ort_onnx_model.model)
+        dag = OnnxDAG.from_model_path(model.model_path)
+        # remove useless nodes
+        dag.remove_redundant_cast_nodes()
 
         # get fusable chains
         fusable_chains = defaultdict(list)
@@ -70,7 +64,7 @@ class AutoFusion(Pass):
                 fusable_chains[(dtype, tuple(node_types[:i]))].append(node_names[:i])
 
         # only consider chains that occur more than min_occurrence times
-        for node_types in list(fusable_chains.keys()):
+        for node_types in list(fusable_chains):
             if len(fusable_chains[node_types]) < config["min_occurrence"]:
                 del fusable_chains[node_types]
 
