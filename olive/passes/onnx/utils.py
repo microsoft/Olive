@@ -6,7 +6,7 @@ import tempfile
 from collections import defaultdict
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Set, Tuple, Union
+from typing import TYPE_CHECKING, Dict, List, Set, Union
 
 import onnx
 from onnx import AttributeProto, GraphProto, NodeProto, TensorProto, ValueInfoProto
@@ -39,7 +39,11 @@ class OnnxNode(ConfigBase):
     op_type: str
     inputs: List[str]
     outputs: List[str]
+    graph_idx: int
     proto: NodeProto  # reference to the node in the model graph
+
+    def __str__(self):
+        return f"{self.op_type}({', '.join(self.inputs)} -> {', '.join(self.outputs)})"
 
 
 class OnnxIO(ConfigBase):
@@ -52,22 +56,47 @@ class OnnxIO(ConfigBase):
     shape: List = None
     source: str = None
     destination: List[str] = Field(default_factory=list)
+    graph_idx: int
     proto: Union[ValueInfoProto, TensorProto]
+
+    def __str__(self):
+        return f"{self.proto.name}({self.dtype}, {self.shape})"
 
 
 class OnnxDAG:
-    """ONNX graph as a directed acyclic graph (DAG)."""
+    """ONNX model as a directed acyclic graph (DAG)."""
 
-    def __init__(self, graph: GraphProto):
-        self.proto = graph
+    def __init__(self, model: "ModelProto"):
+        self.model = model
+        self.graphs = self.get_all_graphs(model)
         self.nodes = {}
         self.ios = {}
         self.connections = defaultdict(list)
 
-        # traverse the graph and populate nodes, ios, and connections
-        self.process_io(graph, self.ios)
-        for node in graph.node:
-            self.process_node(node, self.nodes, self.ios, self.connections)
+        # traverse the graphs and populate nodes, ios, and connections
+        for idx, graph in enumerate(self.graphs):
+            self.process_io(graph, self.ios, idx)
+            for node in graph.node:
+                self.process_node(node, self.nodes, self.ios, self.connections, idx)
+
+    @staticmethod
+    def get_all_graphs(model: "ModelProto"):
+        """Get all graphs in the model."""
+        all_graphs = []
+        graph_queue = [model.graph]
+        while graph_queue:
+            graph = graph_queue.pop(0)
+            all_graphs.append(graph)
+            for node in graph.node:
+                for attr in node.attribute:
+                    if attr.type == AttributeProto.AttributeType.GRAPH:
+                        assert isinstance(attr.g, GraphProto)
+                        graph_queue.append(attr.g)
+                    if attr.type == AttributeProto.AttributeType.GRAPHS:
+                        for g in attr.graphs:
+                            assert isinstance(g, GraphProto)
+                            graph_queue.append(g)
+        return all_graphs
 
     @staticmethod
     def _get_io_type_shape(io: ValueInfoProto) -> Dict:
@@ -86,7 +115,7 @@ class OnnxDAG:
         }
 
     @classmethod
-    def process_io(cls, graph: GraphProto, ios: Dict[str, OnnxIO]):
+    def process_io(cls, graph: GraphProto, ios: Dict[str, OnnxIO], graph_idx: int):
         """Process inputs, outputs, initializers, and value_info.
 
         This will populate ios. Should be called before adding nodes.
@@ -95,36 +124,48 @@ class OnnxDAG:
             ios[i.name] = OnnxIO(
                 proto=i,
                 source=SpecialInput.INPUT,
+                graph_idx=graph_idx,
                 **cls._get_io_type_shape(i),
             )
         for o in graph.output:
             ios[o.name] = OnnxIO(
                 proto=o,
                 destination=[SpecialOutput.OUTPUT],
+                graph_idx=graph_idx,
                 **cls._get_io_type_shape(o),
             )
         for initializer in graph.initializer:
             ios[initializer.name] = OnnxIO(
                 proto=initializer,
                 source=SpecialInput.INITIALIZER,
+                graph_idx=graph_idx,
                 dtype=onnx_dtype_to_np_dtype(initializer.data_type),
                 shape=list(initializer.dims),
             )
         for vi in graph.value_info:
             ios[vi.name] = OnnxIO(
                 proto=vi,
+                graph_idx=graph_idx,
                 **cls._get_io_type_shape(vi),
             )
         return ios
 
     @staticmethod
     def process_node(
-        node_proto: NodeProto, nodes: Dict[str, OnnxNode], ios: Dict[str, OnnxIO], connections: Dict[str, List[str]]
+        node_proto: NodeProto,
+        nodes: Dict[str, OnnxNode],
+        ios: Dict[str, OnnxIO],
+        connections: Dict[str, List[str]],
+        graph_idx: int,
     ):
         """Process a node and populate the nodes and connections attributes."""
         name = node_proto.name
         onnx_node = OnnxNode(
-            proto=node_proto, op_type=node_proto.op_type, inputs=list(node_proto.input), outputs=list(node_proto.output)
+            proto=node_proto,
+            op_type=node_proto.op_type,
+            inputs=list(node_proto.input),
+            outputs=list(node_proto.output),
+            graph_idx=graph_idx,
         )
         nodes[name] = onnx_node
 
@@ -142,12 +183,12 @@ class OnnxDAG:
                 if destination != SpecialOutput.OUTPUT and destination not in connections[name]:
                     connections[name].append(destination)
 
-    def add_node(self, node_proto: NodeProto):
+    def add_node(self, node_proto: NodeProto, graph_idx: int):
         """Add a node to the graph.
 
         This adds the node to the `nodes` attribute and connects them using the `ios` attribute.
         """
-        self.process_node(node_proto, self.nodes, self.ios, self.connections)
+        self.process_node(node_proto, self.nodes, self.ios, self.connections, graph_idx)
 
     def remove_node(self, node_name: str):
         """Remove a node from the graph."""
@@ -170,6 +211,7 @@ class OnnxDAG:
         """Replace a chain of nodes in the graph with a new node."""
         inputs = []
         outputs = []
+        graph_idx = self.nodes[old_node_names[0]].graph_idx
         for idx, node in enumerate(old_node_names):
             # get the inputs and outputs of the chain
             inputs.extend(
@@ -187,6 +229,8 @@ class OnnxDAG:
                 raise ValueError(f"Node {node} is not connected to exactly one node.")
             if self.connections[node][0] != old_node_names[idx + 1]:
                 raise ValueError(f"Node {node} is not connected to the next node in the chain.")
+            if self.nodes[node].graph_idx != graph_idx:
+                raise ValueError(f"Node {node} is not in the same graph as the other nodes.")
 
         # check that the inputs and outputs match
         if set(inputs) != set(new_node_proto.input):
@@ -199,7 +243,7 @@ class OnnxDAG:
             self.remove_node(node)
 
         # add the new node
-        self.add_node(new_node_proto)
+        self.add_node(new_node_proto, graph_idx)
 
     def get_op_type(self, node_name: str) -> str:
         """Get the op type of a node."""
@@ -230,39 +274,19 @@ class OnnxDAG:
         return [self.nodes[name].proto for name in node_names]
 
     @classmethod
-    def process_model(cls, model: "ModelProto") -> List["OnnxDAG"]:
-        """Create a DAG for each graph in the model."""
-        dags = []
-        graph_queue = [model.graph]
-        while graph_queue:
-            graph = graph_queue.pop(0)
-            dags.append(cls(graph))
-            for node in graph.node:
-                for attr in node.attribute:
-                    if attr.type == AttributeProto.AttributeType.GRAPH:
-                        assert isinstance(attr.g, GraphProto)
-                        graph_queue.append(attr.g)
-                    if attr.type == AttributeProto.AttributeType.GRAPHS:
-                        for g in attr.graphs:
-                            assert isinstance(g, GraphProto)
-                            graph_queue.append(g)
-
-        return dags
-
-    @classmethod
-    def from_model_path(cls, model_path: Union[str, Path]) -> Tuple["ModelProto", List["OnnxDAG"]]:
-        """Load an ONNX model with shape inference and create a DAG for each graph."""
+    def from_model_path(cls, model_path: Union[str, Path]) -> "OnnxDAG":
+        """Load an ONNX model with shape inference and create an DAG."""
         with tempfile.NamedTemporaryFile(dir=Path(model_path).parent) as tmpfile:
             shape_infer_model_path = tmpfile.name
             # infer_shapes_path can be used for model >2GB, and infer_shapes cannot.
             infer_shapes_path(model_path, shape_infer_model_path)
             model = onnx.load(shape_infer_model_path)
 
-        return model, cls.process_model(model)
+        return cls(model)
 
     @classmethod
-    def from_model(cls, model: "ModelProto", do_shape_infer: bool = True) -> Tuple["ModelProto", List["OnnxDAG"]]:
-        """Create a DAG for each graph in the model."""
+    def from_model(cls, model: "ModelProto", do_shape_infer: bool = True) -> "OnnxDAG":
+        """Create a DAG for the model."""
         if do_shape_infer:
             # shape infer needs file path for model >2GB
             # so always save the model to a temporary file to avoid memory issues
@@ -272,7 +296,7 @@ class OnnxDAG:
 
                 return cls.from_model_path(model_path)
 
-        return model, cls.process_model(model)
+        return cls(model)
 
     def _topological_sort_util(self, v: str, visited: Set[str], order: List[str]):
         # keep track of the nodes to visit
@@ -306,22 +330,27 @@ class OnnxDAG:
         """Update the graph proto with the latest nodes and connections."""
         node_order = self.topological_sort()
 
-        nodes = [self.nodes[name].proto for name in node_order]
-        # assume inputs, outputs and initializers have not changed
-        value_info = []
-        for io in self.ios.values():
-            if io.source in [None, SpecialInput.INPUT, SpecialInput.INITIALIZER]:
-                # skip inputs, initializers
-                # skip if parent node is removed
-                continue
-            if not io.destination or SpecialOutput.OUTPUT in io.destination:
-                # skip output
-                # skip if destination nodes are removed
-                continue
-            value_info.append(io.proto)
+        for idx, graph in enumerate(self.graphs):
+            # update the nodes in the graph proto
+            nodes = [self.nodes[name].proto for name in node_order if self.nodes[name].graph_idx == idx]
 
-        # update the graph proto
-        self.proto.ClearField("node")
-        self.proto.node.extend(nodes)
-        self.proto.ClearField("value_info")
-        self.proto.value_info.extend(value_info)
+            # assume inputs, outputs and initializers have not changed
+            value_info = []
+            for io in self.ios.values():
+                if io.graph_idx != idx:
+                    continue
+                if io.source in [None, SpecialInput.INPUT, SpecialInput.INITIALIZER]:
+                    # skip inputs, initializers
+                    # skip if parent node is removed
+                    continue
+                if not io.destination or SpecialOutput.OUTPUT in io.destination:
+                    # skip output
+                    # skip if destination nodes are removed
+                    continue
+                value_info.append(io.proto)
+
+            # update the graph proto
+            graph.ClearField("node")
+            graph.node.extend(nodes)
+            graph.ClearField("value_info")
+            graph.value_info.extend(value_info)

@@ -51,25 +51,23 @@ class AutoFusion(Pass):
         # TODO(jambayk): Add useless cast removal to OnnxDAG
         from onnxruntime.transformers.onnx_model import OnnxModel
 
-        onnx_model = onnx.load(model.model_path)
-        ort_onnx_model = OnnxModel(onnx_model)
+        ort_onnx_model = OnnxModel(onnx.load(model.model_path))
 
         # remove useless casts
         ort_onnx_model.remove_useless_cast_nodes()
 
-        # get dags
-        onnx_model, dags = OnnxDAG.from_model(ort_onnx_model.model)
+        # get dag
+        dag = OnnxDAG.from_model(ort_onnx_model.model)
 
         # get fusable chains
         fusable_chains = defaultdict(list)
-        for dag_idx, dag in enumerate(dags):
-            chains = self.get_fusable_chains(dag)
-            for node_names, node_types in chains.values():
-                max_valid_len, dtype = self.check_shapes_and_types(dag, node_names)
-                # only consider chains equal to or longer than 2
-                for i in range(2, max_valid_len + 1):
-                    # for i in range(1, min(2, max_valid_len + 1)):
-                    fusable_chains[(dtype, tuple(node_types[:i]))].append((dag_idx, node_names[:i]))
+        chains = self.get_fusable_chains(dag)
+        for node_names, node_types in chains.values():
+            max_valid_len, dtype = self.check_shapes_and_types(dag, node_names)
+            # only consider chains equal to or longer than 2
+            for i in range(2, max_valid_len + 1):
+                # for i in range(1, min(2, max_valid_len + 1)):
+                fusable_chains[(dtype, tuple(node_types[:i]))].append(node_names[:i])
 
         # only consider chains that occur more than min_occurrence times
         for node_types in list(fusable_chains.keys()):
@@ -102,12 +100,12 @@ class AutoFusion(Pass):
             #     continue
             fusion = Fusion(dtype, chain_type[0], list(chain_type[1:]))
             num_fused = 0
-            for dag_idx, node_names in fusable_chains[(dtype, chain_type)]:
-                node_protos = dags[dag_idx].get_node_protos(node_names)
+            for node_names in fusable_chains[(dtype, chain_type)]:
+                node_protos = dag.get_node_protos(node_names)
                 if not node_protos:
                     continue
                 fused_node = fusion.fuse_nodes(node_protos)
-                dags[dag_idx].replace_nodes(node_names, fused_node)
+                dag.replace_nodes(node_names, fused_node)
                 num_fused += 1
             if num_fused > 0:
                 fusions.append((fusion, num_fused))
@@ -115,11 +113,10 @@ class AutoFusion(Pass):
             "Fusions: \n%s",
             "\n".join(f"{(f.dtype, (f.base_op, *f.fused_ops))}: {num_fused}" for f, num_fused in fusions),
         )
-        for dag in dags:
-            dag.update()
+        dag.update()
 
         # update opset of model
-        opset_import = onnx_model.opset_import
+        opset_import = dag.model.opset_import
         has_custom_domain = False
         for opset in opset_import:
             if opset.domain == DOMAIN:
@@ -138,7 +135,7 @@ class AutoFusion(Pass):
             custom_op_lib = Path(lib_path).name
 
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(onnx_model, output_model_path, config, custom_op_lib=custom_op_lib)
+        return model_proto_to_olive_model(dag.model, output_model_path, config, custom_op_lib=custom_op_lib)
 
     @classmethod
     def _get_fusable_chains_util(
