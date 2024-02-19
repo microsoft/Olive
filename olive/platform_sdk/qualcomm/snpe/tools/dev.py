@@ -38,37 +38,35 @@ def get_dlc_io_config(dlc_path: str, input_names: List[str], output_names: List[
     input_names: list of input names of source model.
     output_names: list of output names of source model.
     """
-    tmp_folder = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
-    tmp_csv = Path(tmp_folder.name) / "dlc_info.csv"
-    dlc_info = get_dlc_info(dlc_path, csv_path=str(tmp_csv))
+    with tempfile.TemporaryDirectory() as tmp_folder:
+        tmp_csv = Path(tmp_folder) / "dlc_info.csv"
+        dlc_info = get_dlc_info(dlc_path, csv_path=str(tmp_csv))
 
-    # add the :0 suffix to the input/output names if present in the DLC
-    # SNPE adds this suffix to the input/output names in the DLC if the source model is TensorFlow
-    if f"{input_names[0]}:0" in dlc_info:
-        input_names = [f"{name}:0" for name in input_names]
-        output_names = [f"{name}:0" for name in output_names]
+        # add the :0 suffix to the input/output names if present in the DLC
+        # SNPE adds this suffix to the input/output names in the DLC if the source model is TensorFlow
+        if f"{input_names[0]}:0" in dlc_info:
+            input_names = [f"{name}:0" for name in input_names]
+            output_names = [f"{name}:0" for name in output_names]
 
-    input_dims = {}
-    output_dims = {}
-    with tmp_csv.open() as f:
-        out = csv.reader(f)
-        for row in out:
-            if len(row) == 8:
-                _, name, _, input_item, output, shape, _, _ = tuple(row)
-                # version 2.x has 'name type'
-                output = output.split(" ")[0]
-                # input name in this format for versions 1.x
-                if name == input_item and name == output and name and name in input_names:
-                    input_dims[name] = list(map(int, shape.split("x")))
-                elif output in output_names:
-                    output_dims[output] = list(map(int, shape.split("x")))
-            if len(row) == 3:
-                name, shape, _ = tuple(row)
-                # input name in this format for versions 2.x
-                if name in input_names:
-                    input_dims[name] = list(map(int, shape.split(",")))
-
-    tmp_folder.cleanup()
+        input_dims = {}
+        output_dims = {}
+        with tmp_csv.open() as f:
+            out = csv.reader(f)
+            for row in out:
+                if len(row) == 8:
+                    _, name, _, input_item, output, shape, _, _ = tuple(row)
+                    # version 2.x has 'name type'
+                    output = output.split(" ")[0]
+                    # input name in this format for versions 1.x
+                    if name == input_item and name == output and name and name in input_names:
+                        input_dims[name] = list(map(int, shape.split("x")))
+                    elif output in output_names:
+                        output_dims[output] = list(map(int, shape.split("x")))
+                if len(row) == 3:
+                    name, shape, _ = tuple(row)
+                    # input name in this format for versions 2.x
+                    if name in input_names:
+                        input_dims[name] = list(map(int, shape.split(",")))
 
     return {
         "input_names": input_names,

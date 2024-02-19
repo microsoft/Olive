@@ -8,9 +8,8 @@ from pathlib import Path
 
 
 def resolve_windows_config():
-    # pylint: disable=redefined-outer-name
 
-    with Path("vgg_config.json").open("r") as f:
+    with Path("vgg_config.json").open() as f:
         snpe_windows_config = json.load(f)
 
     del snpe_windows_config["passes"]["snpe_quantization"]

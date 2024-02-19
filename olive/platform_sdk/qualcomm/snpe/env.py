@@ -39,13 +39,13 @@ class SNPESDKEnv(SDKEnv):
         if platform.system() == "Windows":
             os_env.update(env)
             env = os_env
+            if target_arch == SDKTargetDevice.arm64x_windows:
+                bin_path = str(Path(f"{sdk_root_path}/olive-arm-win"))
+                if not Path(bin_path).exists():
+                    raise FileNotFoundError(
+                        f"Path {bin_path} does not exist. Please run"
+                        " 'python -m olive.platform_sdk.qualcomm.configure --py_version 3.8 --sdk snpe' to add the"
+                        " missing folder"
+                    )
 
-        if platform.system() == "Windows" and target_arch == SDKTargetDevice.arm64x_windows:
-            bin_path = str(Path(f"{sdk_root_path}/olive-arm-win"))
-            if not Path(bin_path).exists():
-                raise FileNotFoundError(
-                    f"Path {bin_path} does not exist. Please run"
-                    " 'python -m olive.platform_sdk.qualcomm.configure --py_version 3.8 --sdk snpe' to add the"
-                    " missing folder"
-                )
         return env

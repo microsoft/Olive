@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import platform
 import time
 from pathlib import Path
 
@@ -34,19 +35,27 @@ class SDKRunner:
         elif self.platform == "QNN":
             self.sdk_env = QNNSDKEnv(use_dev_tools=self.use_dev_tools)
 
-    def run(self, cmd: str, use_olive_env: bool = True):
-        import platform
-
+    def _resolve_cmd(self, cmd: str):
         if platform.system() == "Windows" and cmd.startswith(("snpe-", "qnn-")):
             logger.debug(f"Resolving command {cmd} on Windows.")
             cmd_path = Path(self.sdk_env.sdk_root_path) / "bin" / self.sdk_env.target_arch
             cmd_name = cmd.split(" ")[0]
             if (cmd_path / cmd_name).exists():
                 cmd = str(cmd_path / cmd_name) + cmd[len(cmd_name) :]
-                with (cmd_path / cmd_name).open("r") as f:
-                    first_line = f.readline()
-                    if "python" in first_line:
-                        cmd = f"python {cmd}"
+                try:
+                    with (cmd_path / cmd_name).open() as f:
+                        first_line = f.readline()
+                        if "python" in first_line:
+                            cmd = f"python {cmd}"
+                except UnicodeDecodeError as e:
+                    logger.warning(
+                        f"Failed to read the first line of {cmd_name}: {e}. Will ignore to wrap it with python."
+                    )
+
+        return cmd
+
+    def run(self, cmd: str, use_olive_env: bool = True):
+        cmd = self._resolve_cmd(cmd)
 
         env = self.sdk_env.env if use_olive_env else None
         for run in range(self.runs):
