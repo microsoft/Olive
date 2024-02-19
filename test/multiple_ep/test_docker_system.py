@@ -10,6 +10,7 @@ from olive.engine import Engine
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import Device
 from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec, create_accelerators
+from olive.logging import set_default_logger_severity
 from olive.model import ModelConfig
 from olive.passes.onnx import OrtPerfTuning
 
@@ -46,6 +47,7 @@ class TestOliveManagedDockerSystem:
         output_dir = tmpdir
 
         metric = get_latency_metric()
+        set_default_logger_severity(0)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         engine = Engine(target_config=self.system_config, evaluator_config=evaluator_config)
         accelerator_specs = create_accelerators(self.system_config, self.execution_providers)

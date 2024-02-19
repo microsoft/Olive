@@ -142,7 +142,7 @@ def create_new_system(system_config, accelerator):
 
         new_system = AzureMLSystem(
             azureml_client_config=system_config.config.azureml_client_config,
-            aml_compute=system_config.config.compute,
+            aml_compute=system_config.config.aml_compute,
             instance_count=system_config.config.instance_count,
             accelerators=[accelerator.accelerator_type],
             aml_docker_config={
