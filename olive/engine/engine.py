@@ -22,8 +22,8 @@ from olive.exception import EXCEPTIONS_TO_RAISE, OlivePassError
 from olive.model import ModelConfig
 from olive.strategy.search_strategy import SearchStrategy
 from olive.systems.common import SystemType
-from olive.systems.local import LocalSystem
 from olive.systems.olive_system import OliveSystem
+from olive.systems.system_config import LocalTargetUserConfig, SystemConfig
 from olive.systems.utils import create_new_system_with_cache
 
 if TYPE_CHECKING:
@@ -45,8 +45,8 @@ class Engine:
         self,
         config: Union[Dict[str, Any], EngineConfig] = None,
         search_strategy: Optional[SearchStrategy] = None,
-        host: Optional[OliveSystem] = None,
-        target: Optional[OliveSystem] = None,
+        host_config: Optional[SystemConfig] = None,
+        target_config: Optional[SystemConfig] = None,
         evaluator_config: Optional["OliveEvaluatorConfig"] = None,
     ):
         self._config = validate_config(config, EngineConfig)
@@ -65,21 +65,23 @@ class Engine:
             self.no_search = True
 
         # default host
-        if host is not None:
-            self.host = host
+        if host_config is not None:
+            self.host_config = host_config
         elif self._config.host is not None:
-            self.host = self._config.host.create_system()
+            self.host_config = self._config.host
         else:
             # host accelerator is not used, so no need to specify it
-            self.host = LocalSystem()
+            self.host_config = SystemConfig(type=SystemType.Local, config=LocalTargetUserConfig())
+        self.host = None
 
         # engine target
-        if target is not None:
-            self.target = target
+        if target_config is not None:
+            self.target_config = target_config
         elif self._config.target is not None:
-            self.target = self._config.target.create_system()
+            self.target_config = self._config.target
         else:
-            self.target = LocalSystem()
+            self.target_config = SystemConfig(type=SystemType.Local, config=LocalTargetUserConfig())
+        self.target = None
 
         # default evaluator
         self.evaluator_config = None
@@ -1038,20 +1040,25 @@ class Engine:
 
     @contextmanager
     def create_managed_environment(self, accelerator_spec):
-        origin_target = self.target
-        origin_host = self.host
-        if origin_target.olive_managed_env:
-            self.target = create_new_system_with_cache(origin_target, accelerator_spec)
-        if origin_host.olive_managed_env:
-            self.host = create_new_system_with_cache(origin_host, accelerator_spec)
+        def create_system(config: "SystemConfig", accelerator_spec):
+            assert config, "System config is not provided"
+            if getattr(config.config, "olive_managed_env", False):
+                return create_new_system_with_cache(config, accelerator_spec)
+            else:
+                return config.create_system()
+
+        def remove_system(system):
+            if system and system.olive_managed_env:
+                system.remove()
+
+        if not self.target or self.target.olive_managed_env:
+            self.target = create_system(self.target_config, accelerator_spec)
+        if not self.host or self.host.olive_managed_env:
+            self.host = create_system(self.host_config, accelerator_spec)
 
         yield
 
-        if origin_host.olive_managed_env:
-            self.host.remove()
-            self.host = origin_host
-        if origin_target.olive_managed_env:
-            self.target.remove()
-            self.target = origin_target
+        remove_system(self.target)
+        remove_system(self.host)
 
         create_new_system_with_cache.cache_clear()

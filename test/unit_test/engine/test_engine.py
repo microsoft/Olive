@@ -11,7 +11,7 @@ from test.unit_test.utils import (
     get_onnxconversion_pass,
     get_pytorch_model_config,
 )
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -24,6 +24,7 @@ from olive.hardware.accelerator import create_accelerators
 from olive.passes.onnx import OnnxConversion, OnnxDynamicQuantization, OnnxStaticQuantization
 from olive.systems.common import SystemType
 from olive.systems.local import LocalSystem
+from olive.systems.system_config import LocalTargetUserConfig, SystemConfig
 
 # pylint: disable=protected-access
 
@@ -136,17 +137,19 @@ class TestEngine:
             for sub_metric in metric.sub_types
         }
         onnx_model_config = get_onnx_model_config()
-        mock_local_system.system_type = SystemType.Local
-        mock_local_system.run_pass.return_value = onnx_model_config
-        mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
-        mock_local_system.get_supported_execution_providers.return_value = [
+        system_object = MagicMock()
+        mock_local_system.return_value = system_object
+        system_object.system_type = SystemType.Local
+        system_object.run_pass.return_value = onnx_model_config
+        system_object.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
+        system_object.get_supported_execution_providers.return_value = [
             "CUDAExecutionProvider",
             "CPUExecutionProvider",
         ]
-        mock_local_system.accelerators = ["CPU"]
-        mock_local_system.olive_managed_env = False
+        system_object.accelerators = ["CPU"]
+        system_object.olive_managed_env = False
 
-        engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
+        engine = Engine(options, evaluator_config=evaluator_config)
         engine.register(OnnxConversion, name="converter_13", config={"target_opset": 13}, clean_run_cache=True)
         engine.register(OnnxConversion, name="converter_14", config={"target_opset": 14}, clean_run_cache=True)
         engine.set_pass_flows([["converter_13"], ["converter_14"]])
@@ -198,14 +201,12 @@ class TestEngine:
                 else:
                     assert getattr(actual_res.nodes[model_id], k) == v
 
-        assert mock_local_system.run_pass.call_count == 2
-        assert mock_local_system.evaluate_model.call_count == 3
-        mock_local_system.evaluate_model.assert_called_with(
-            onnx_model_config.to_json(), None, [metric], accelerator_spec
-        )
+        assert system_object.run_pass.call_count == 2
+        assert system_object.evaluate_model.call_count == 3
+        system_object.evaluate_model.assert_called_with(onnx_model_config.to_json(), None, [metric], accelerator_spec)
 
     @patch("olive.systems.local.LocalSystem")
-    def test_run_no_search(self, mock_local_system, tmpdir):
+    def test_run_no_search(self, mock_local_system_init, tmpdir):
         # setup
         model_config = get_pytorch_model_config()
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
@@ -227,6 +228,8 @@ class TestEngine:
             for sub_metric in metric.sub_types
         }
         onnx_model_config = get_onnx_model_config()
+        mock_local_system = MagicMock()
+        mock_local_system_init.return_value = mock_local_system
         mock_local_system.system_type = SystemType.Local
         mock_local_system.run_pass.return_value = onnx_model_config
         mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
@@ -234,7 +237,7 @@ class TestEngine:
         mock_local_system.get_supported_execution_providers.return_value = ["CPUExecutionProvider"]
         mock_local_system.olive_managed_env = False
 
-        engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
+        engine = Engine(options, evaluator_config=evaluator_config)
         engine.register(OnnxConversion, disable_search=True, clean_run_cache=True)
         engine.set_pass_flows()
         # output model to output_dir
@@ -272,7 +275,6 @@ class TestEngine:
 
         with patch("olive.passes.onnx.conversion.OnnxConversion.run") as mock_run:
             mock_run.side_effect = Exception("test")
-            system = LocalSystem()
             evaluator_config = OliveEvaluatorConfig(metrics=[get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)])
             options = {
                 "cache_dir": tmpdir,
@@ -282,7 +284,7 @@ class TestEngine:
                     "search_algorithm": "random",
                 },
             }
-            engine = Engine(options, evaluator_config=evaluator_config, host=system, target=system)
+            engine = Engine(options, evaluator_config=evaluator_config)
             engine.register(OnnxConversion, clean_run_cache=True)
 
             model_config = get_pytorch_model_config()
@@ -297,7 +299,7 @@ class TestEngine:
             # clean up: tempfile will be deleted automatically
 
     @patch("olive.systems.local.LocalSystem")
-    def test_run_evaluate_input_model(self, mock_local_system, tmpdir):
+    def test_run_evaluate_input_model(self, mock_local_system_init, tmpdir):
         # setup
         model_config = get_pytorch_model_config()
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
@@ -316,14 +318,16 @@ class TestEngine:
             }
             for sub_metric in metric.sub_types
         }
+        mock_local_system = MagicMock()
         mock_local_system.run_pass.return_value = get_onnx_model_config()
         mock_local_system.get_supported_execution_providers.return_value = ["CPUExecutionProvider"]
         mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
         mock_local_system.accelerators = ["CPU"]
         mock_local_system.system_type = SystemType.Local
         mock_local_system.olive_managed_env = False
+        mock_local_system_init.return_value = mock_local_system
 
-        engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
+        engine = Engine(options, evaluator_config=evaluator_config)
         engine.register(OnnxConversion, clean_run_cache=True)
 
         # output model to output_dir
@@ -343,7 +347,7 @@ class TestEngine:
         assert MetricResult.parse_file(result_json_path) == actual_res
 
     @patch("olive.systems.local.LocalSystem")
-    def test_run_no_pass(self, mock_local_system, tmpdir):
+    def test_run_no_pass(self, mock_local_system_init, tmpdir):
         # setup
         model_config = get_pytorch_model_config()
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
@@ -363,13 +367,15 @@ class TestEngine:
             }
             for sub_metric in metric.sub_types
         }
+        mock_local_system = MagicMock()
         mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
         mock_local_system.accelerators = ["CPU"]
         mock_local_system.olive_managed_env = False
         mock_local_system.system_type = SystemType.Local
         mock_local_system.get_supported_execution_providers.return_value = ["CPUExecutionProvider"]
+        mock_local_system_init.return_value = mock_local_system
 
-        engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
+        engine = Engine(options, evaluator_config=evaluator_config)
 
         # output model to output_dir
         output_dir = Path(tmpdir)
@@ -399,7 +405,7 @@ class TestEngine:
             "search_strategy": None,
             "clean_evaluation_cache": True,
         }
-        engine = Engine(options, host=LocalSystem(), target=LocalSystem(), evaluator_config=evaluator_config)
+        engine = Engine(options, evaluator_config=evaluator_config)
         engine.register(OnnxConversion, clean_run_cache=True)
 
         engine.initialize()
@@ -418,7 +424,7 @@ class TestEngine:
             "search_strategy": None,
             "clean_evaluation_cache": True,
         }
-        engine = Engine(options, host=LocalSystem(), target=LocalSystem(), evaluator_config=evaluator_config)
+        engine = Engine(options, evaluator_config=evaluator_config)
         engine.register(OnnxConversion, clean_run_cache=True)
         with patch.object(Path, "glob"):
             Path.glob.return_value = [Path("cache") / "output" / "435d_0.json"]
@@ -429,7 +435,7 @@ class TestEngine:
 
     @patch("olive.systems.local.LocalSystem")
     @patch("onnxruntime.get_available_providers")
-    def test_pass_cache_reuse(self, mock_get_available_providers, mock_local_system, caplog, tmpdir):
+    def test_pass_cache_reuse(self, mock_get_available_providers, mock_local_system_init, caplog, tmpdir):
         logger = logging.getLogger("olive")
         logger.propagate = True
 
@@ -445,6 +451,7 @@ class TestEngine:
             },
             "clean_evaluation_cache": True,
         }
+        mock_local_system = MagicMock()
         mock_local_system.system_type = SystemType.Local
         mock_local_system.accelerators = ["GPU", "CPU"]
         mock_local_system.get_supported_execution_providers.return_value = [
@@ -464,9 +471,16 @@ class TestEngine:
             for sub_metric in metric.sub_types
         }
         mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
+        mock_local_system_init.return_value = mock_local_system
 
-        engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
-        accelerator_specs = create_accelerators(mock_local_system, None)
+        engine = Engine(options, evaluator_config=evaluator_config)
+        system_config = SystemConfig(
+            type=SystemType.Local,
+            config=LocalTargetUserConfig(
+                accelerators=["GPU", "CPU"],
+            ),
+        )
+        accelerator_specs = create_accelerators(system_config, None)
         assert len(accelerator_specs) == 2
         assert "QNNExecutionProvider" in caplog.text
         engine.register(OnnxConversion, clean_run_cache=True)
@@ -479,7 +493,7 @@ class TestEngine:
 
     @patch("olive.systems.local.LocalSystem")
     @patch("onnxruntime.get_available_providers")
-    def test_pass_cache(self, mock_get_available_providers, mock_local_system, tmpdir):
+    def test_pass_cache(self, mock_get_available_providers, mock_local_system_init, tmpdir):
         # setup
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
@@ -492,6 +506,7 @@ class TestEngine:
             },
             "clean_evaluation_cache": True,
         }
+        mock_local_system = MagicMock()
         mock_local_system.system_type = SystemType.Local
         mock_local_system.accelerators = ["GPU", "CPU"]
         mock_local_system.get_supported_execution_providers.return_value = [
@@ -510,9 +525,16 @@ class TestEngine:
             for sub_metric in metric.sub_types
         }
         mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
+        mock_local_system_init.return_value = mock_local_system
 
-        engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
-        accelerator_specs = create_accelerators(mock_local_system, None)
+        engine = Engine(options, evaluator_config=evaluator_config)
+        system_config = SystemConfig(
+            type=SystemType.Local,
+            config=LocalTargetUserConfig(
+                accelerators=["GPU", "CPU"],
+            ),
+        )
+        accelerator_specs = create_accelerators(system_config, None)
         engine.register(OnnxConversion, clean_run_cache=True)
 
         model_config = get_pytorch_model_config()
@@ -533,7 +555,6 @@ class TestEngine:
 
         with patch("olive.passes.onnx.conversion.OnnxConversion.run") as mock_run:
             mock_run.side_effect = ValueError("test")
-            system = LocalSystem()
             evaluator_config = OliveEvaluatorConfig(metrics=[get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)])
             options = {
                 "cache_dir": tmpdir,
@@ -543,7 +564,7 @@ class TestEngine:
                     "search_algorithm": "random",
                 },
             }
-            engine = Engine(options, evaluator_config=evaluator_config, host=system, target=system)
+            engine = Engine(options, evaluator_config=evaluator_config)
             engine.register(OnnxConversion, clean_run_cache=True)
             model_config = get_pytorch_model_config()
             # execute
@@ -600,26 +621,3 @@ class TestEngine:
                     evaluate_input_model=False,
                 )
                 assert not actual_res[DEFAULT_CPU_ACCELERATOR].nodes, "Expect empty dict when quantization fails"
-
-    @patch("olive.systems.local.LocalSystem")
-    @patch("olive.systems.docker.DockerSystem")
-    def test_docker_system(self, mock_docker_system, mock_local_system, tmpdir):
-        mock_docker_system.system_type = SystemType.Docker
-        mock_docker_system.accelerators = None
-        mock_docker_system.olive_managed_env = False
-
-        mock_local_system.system_type = SystemType.Local
-
-        options = {
-            "cache_dir": tmpdir,
-            "clean_cache": True,
-            "search_strategy": None,
-            "clean_evaluation_cache": True,
-        }
-
-        metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
-        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
-
-        engine = Engine(options, host=mock_local_system, target=mock_docker_system, evaluator_config=evaluator_config)
-
-        assert engine.target.system_type == SystemType.Docker

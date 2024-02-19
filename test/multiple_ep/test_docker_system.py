@@ -22,10 +22,17 @@ class TestOliveManagedDockerSystem:
     def setup(self):
         from test.multiple_ep.utils import download_data, download_models, get_onnx_model
 
-        from olive.systems.docker.docker_system import DockerSystem
+        from olive.systems.system_config import DockerTargetUserConfig, SystemConfig
 
         # use the olive managed Docker system as the test environment
-        self.system = DockerSystem(accelerators=["cpu"], olive_managed_env=True, is_dev=True)
+        self.system_config = SystemConfig(
+            system_type="Docker",
+            target_user_config=DockerTargetUserConfig(
+                accelerators=["cpu"],
+                olive_managed_env=True,
+                is_dev=True,
+            ),
+        )
         self.execution_providers = ["CPUExecutionProvider", "OpenVINOExecutionProvider"]
         download_models()
         self.input_model_config = ModelConfig.parse_obj(
@@ -40,8 +47,8 @@ class TestOliveManagedDockerSystem:
 
         metric = get_latency_metric()
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
-        engine = Engine(target=self.system, evaluator_config=evaluator_config)
-        accelerator_specs = create_accelerators(self.system, self.execution_providers)
+        engine = Engine(target_config=self.system_config, evaluator_config=evaluator_config)
+        accelerator_specs = create_accelerators(self.system_config, self.execution_providers)
         engine.register(OrtPerfTuning)
         output = engine.run(self.input_model_config, accelerator_specs, output_dir=output_dir)
         cpu_res = next(iter(output[DEFAULT_CPU_ACCELERATOR].nodes.values()))

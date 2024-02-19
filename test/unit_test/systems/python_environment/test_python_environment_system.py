@@ -311,11 +311,17 @@ class TestPythonEnvironmentSystem:
 
     @patch("olive.systems.utils.create_new_system")
     def test_create_new_system_with_cache(self, mock_create_new_system):
+        from olive.systems.system_config import PythonEnvironmentTargetUserConfig, SystemConfig
         from olive.systems.utils import create_new_system_with_cache
 
-        origin_system = PythonEnvironmentSystem(olive_managed_env=True)
-        create_new_system_with_cache(origin_system, DEFAULT_CPU_ACCELERATOR)
-        create_new_system_with_cache(origin_system, DEFAULT_CPU_ACCELERATOR)
+        system_config = SystemConfig(
+            type="PythonEnvironment",
+            config=PythonEnvironmentTargetUserConfig(
+                olive_managed_env=True,
+            ),
+        )
+        create_new_system_with_cache(system_config, DEFAULT_CPU_ACCELERATOR)
+        create_new_system_with_cache(system_config, DEFAULT_CPU_ACCELERATOR)
         assert mock_create_new_system.call_count == 1
         create_new_system_with_cache.cache_clear()
         assert create_new_system_with_cache.cache_info().currsize == 0
