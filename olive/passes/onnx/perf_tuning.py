@@ -10,7 +10,7 @@ import logging
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Union
 
 from olive.data.config import DataConfig
 from olive.evaluator.metric import LatencySubType, Metric, MetricType, joint_metric_key
@@ -22,6 +22,9 @@ from olive.model.utils.onnx_utils import check_and_normalize_provider_args
 from olive.passes import Pass
 from olive.passes.pass_config import ParamCategory, PassConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
+
+if TYPE_CHECKING:
+    from olive.systems.olive_system import OliveSystem
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +97,7 @@ def valid_config(tuning_combos, config):
     return True
 
 
-def tune_onnx_model(perf_tuning_pass_ep, model, data_root, config):
+def tune_onnx_model(accelerator, target, model, data_root, config):
     latency_user_config = {}
     # which should be the same as the config in the metric
     config_dict = config.dict()
@@ -120,7 +123,7 @@ def tune_onnx_model(perf_tuning_pass_ep, model, data_root, config):
     # do we need enable it?
     io_bind = config.io_bind
     pretuning_inference_result = get_benchmark(
-        model, data_root, latency_metric, config, io_bind=io_bind, tuning_result=None
+        accelerator, target, model, data_root, latency_metric, config, io_bind=io_bind, tuning_result=None
     )
 
     tuning_op_result = pretuning_inference_result.get("tuning_op_result")
@@ -148,15 +151,19 @@ def tune_onnx_model(perf_tuning_pass_ep, model, data_root, config):
         tuning_combo = (([provider], [options]), execution_mode, opt_level, io_bind)
 
         # TODO(myguo): we need disable the following check when we enable cache in perf tuning.
-        if provider != perf_tuning_pass_ep and not config.force_evaluate_other_eps:
-            logger.warning("Ignore perf tuning for EP %s since current pass EP is %s", provider, perf_tuning_pass_ep)
+        if provider != accelerator.execution_provider and not config.force_evaluate_other_eps:
+            logger.warning(
+                "Ignore perf tuning for EP %s since current pass EP is %s", provider, accelerator.execution_provider
+            )
             continue
         tuning_item = ["provider", "execution_mode", "ort_opt_level", "io_bind"]
         if not valid_config(tuning_combo, config):
             continue
         logger.info("Run tuning for: %s", list(zip(tuning_item, tuning_combo)))
         tuning_results.extend(
-            threads_num_tuning(model, data_root, latency_metric, config, *tuning_combo, tuning_op_result)
+            threads_num_tuning(
+                accelerator, target, model, data_root, latency_metric, config, *tuning_combo, tuning_op_result
+            )
         )
 
     for tuning_result in tuning_results:
@@ -200,7 +207,17 @@ def populate_provider_options(execution_provider, config):
 
 
 def threads_num_tuning(
-    model, data_root, latency_metric, config, providers, execution_mode, ort_opt_level, io_bind, tuning_op_result
+    accelerator,
+    target,
+    model,
+    data_root,
+    latency_metric,
+    config,
+    providers,
+    execution_mode,
+    ort_opt_level,
+    io_bind,
+    tuning_op_result,
 ):
     tuning_results = []
     provider, options = providers
@@ -225,7 +242,15 @@ def threads_num_tuning(
                 if intra is not None:
                     test_params["session_options"]["intra_op_num_threads"] = intra
                 tuning_result = threads_num_binary_search(
-                    model, data_root, latency_metric, config, test_params, io_bind, tuning_op_result
+                    accelerator,
+                    target,
+                    model,
+                    data_root,
+                    latency_metric,
+                    config,
+                    test_params,
+                    io_bind,
+                    tuning_op_result,
                 )
                 tuning_results.extend(tuning_result)
     except EXCEPTIONS_TO_RAISE:
@@ -239,7 +264,9 @@ def threads_num_tuning(
     return tuning_results
 
 
-def threads_num_binary_search(model, data_root, latency_metric, config, test_params, io_bind, tuning_op_result):
+def threads_num_binary_search(
+    accelerator, target, model, data_root, latency_metric, config, test_params, io_bind, tuning_op_result
+):
     """Binary search based benchmark for inter_op_num_threads and intra_op_num_threads."""
     import onnxruntime as ort
     import psutil
@@ -261,14 +288,18 @@ def threads_num_binary_search(model, data_root, latency_metric, config, test_par
         and test_params["session_options"].get("intra_op_num_threads") is not None
     ):
         # If user specify both inter_op_num_threads and intra_op_num_threads, we will not do tuning
-        test_result = get_benchmark(model, data_root, latency_metric, config, test_params, io_bind, tuning_op_result)
+        test_result = get_benchmark(
+            accelerator, target, model, data_root, latency_metric, config, test_params, io_bind, tuning_op_result
+        )
         return [test_result]
 
     tuning_results = []
 
     def benchmark_with_threads_num(threads_name, threads_num):
         test_params["session_options"][threads_name] = threads_num
-        test_result = get_benchmark(model, data_root, latency_metric, config, test_params, io_bind, tuning_op_result)
+        test_result = get_benchmark(
+            accelerator, target, model, data_root, latency_metric, config, test_params, io_bind, tuning_op_result
+        )
         tuning_results.append(test_result)
         return test_result["latency_ms"]
 
@@ -403,10 +434,21 @@ def enable_rocm_op_tuning(inference_settings, input_tuning_result, tuning_result
             inference_settings["tuning_op_result"] = tuning_op_result
 
 
-def get_benchmark(model, data_root, latency_metric, config, test_params=None, io_bind=False, tuning_result=None):
+def get_benchmark(
+    accelerator,
+    target: "OliveSystem",
+    model,
+    data_root,
+    latency_metric,
+    config,
+    test_params=None,
+    io_bind=False,
+    tuning_result=None,
+):
     import onnxruntime as ort
 
     from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
+    from olive.model.config.model_config import ModelConfig
 
     # prepare the inference_settings for metrics.
     tuning_result_file = None
@@ -435,13 +477,19 @@ def get_benchmark(model, data_root, latency_metric, config, test_params=None, io
 
         session_name = generate_test_name(test_params, io_bind)
         logger.debug(f"Run benchmark for: {session_name}")
-        evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
         joint_key = joint_metric_key(latency_metric.name, latency_metric.sub_types[0].name)
+
         start_time = time.perf_counter()
-        # We deliberately set the execution_providers to None so that the evaluator will
-        # use the one in inference_settings
-        latency_ms = evaluator.evaluate(model, data_root, [latency_metric], config.device, None)[joint_key].value
+        # TODO(myguo): consider set the ep in accelrator to None for local system
+        if target:
+            model_config = ModelConfig.from_json(model.to_json())
+            metric_result = target.evaluate_model(model_config, data_root, [latency_metric], accelerator)
+        else:
+            evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
+            metric_result = evaluator.evaluate(model, data_root, [latency_metric], config.device, None)
+
         end_time = time.perf_counter()
+        latency_ms = metric_result[joint_key].value
         logger.debug(f"It takes {(end_time - start_time):.5f} seconds to benchmark for: {session_name}")
 
         session_options = inference_settings.get("session_options")
@@ -476,6 +524,15 @@ class OrtPerfTuning(Pass):
     """Optimize ONNX Runtime inference settings."""
 
     _requires_user_script = True
+
+    def __init__(
+        self, accelerator_spec: AcceleratorSpec, config: Dict[str, Any], disable_search: Optional[bool] = False
+    ):
+        super().__init__(accelerator_spec, config, disable_search)
+        self.target = None
+
+    def set_target(self, target: "OliveSystem"):
+        self.target = target
 
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
@@ -579,4 +636,4 @@ class OrtPerfTuning(Pass):
         # TODO(jambayk): decide on whether to ignore the output_model_path
         # if we want to ignore it, we can just return the model
         # otherwise save or symlink the original model to the output_model_path
-        return tune_onnx_model(self.accelerator_spec.execution_provider, model, data_root, config)
+        return tune_onnx_model(self.accelerator_spec, self.target, model, data_root, config)

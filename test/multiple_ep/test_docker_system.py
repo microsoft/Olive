@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 import platform
+from pathlib import Path
 
 import pytest
 
@@ -31,6 +32,7 @@ class TestOliveManagedDockerSystem:
             type="Docker",
             config=DockerTargetUserConfig(
                 accelerators=["cpu"],
+                requirements_file=Path(__file__).parent / "requirements.txt",
                 olive_managed_env=True,
                 is_dev=True,
             ),
