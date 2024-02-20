@@ -64,12 +64,12 @@ class DockerSystem(OliveSystem):
                 build_context_path = tempdir
                 if local_docker_config.build_context_path and local_docker_config.dockerfile:
                     dockerfile = local_docker_config.dockerfile
-                    dockerfile_path = Path(local_docker_config.build_context_path) / dockerfile
+                    shutil.copytree(local_docker_config.build_context_path, build_context_path, dirs_exist_ok=True)
                 else:
                     dockerfile = self.BASE_DOCKERFILE
                     dockerfile_path = Path(__file__).resolve().parent / self.BASE_DOCKERFILE
+                    shutil.copy2(dockerfile_path, build_context_path)
 
-                shutil.copy2(dockerfile_path, build_context_path)
                 if local_docker_config.requirements_file_path:
                     shutil.copyfile(
                         local_docker_config.requirements_file_path, Path(build_context_path) / "requirements.txt"

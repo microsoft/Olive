@@ -37,9 +37,14 @@ class TestDockerSystem:
         assert docker_system.image == mock_image
         mock_docker_client.images.get.assert_called_once_with(docker_config.image_name)
 
+    @patch("olive.systems.docker.docker_system.shutil.copy2")
+    @patch("olive.systems.docker.docker_system.shutil.copytree")
     @patch("olive.systems.docker.docker_system.docker.from_env")
-    def test__init_image_dockerfile_build(self, mock_from_env):
+    @patch("olive.systems.docker.docker_system.tempfile.TemporaryDirectory")
+    def test__init_image_dockerfile_build(self, mock_tempdir, mock_from_env, mock_copytree, mock_copy2, tmpdir):
         # setup
+        mock_tempdir.return_value.__enter__.return_value = tmpdir
+
         import docker
 
         mock_docker_client = MagicMock()
@@ -54,17 +59,19 @@ class TestDockerSystem:
         DockerSystem(docker_config, is_dev=True)
 
         # assert
+        expected_build_context_path = tmpdir
         mock_docker_client.images.build.assert_called_once_with(
-            path=docker_config.build_context_path,
+            path=expected_build_context_path,
             dockerfile=docker_config.dockerfile,
             tag=docker_config.image_name,
             buildargs=docker_config.build_args,
         )
 
     @patch("olive.systems.docker.docker_system.shutil.copy2")
+    @patch("olive.systems.docker.docker_system.shutil.copyfile")
     @patch("olive.systems.docker.docker_system.docker.from_env")
     @patch("olive.systems.docker.docker_system.tempfile.TemporaryDirectory")
-    def test__init_image_requirements_file_build(self, mock_tempdir, mock_from_env, mock_copy, tmpdir):
+    def test__init_image_requirements_file_build(self, mock_tempdir, mock_from_env, mock_copyfile, mock_copy, tmpdir):
         # setup
         import docker
 

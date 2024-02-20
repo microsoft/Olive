@@ -120,7 +120,9 @@ def create_new_system(system_config, accelerator):
         new_system = DockerSystem(
             local_docker_config={
                 "image_name": f"olive_{accelerator.execution_provider[:-17].lower()}",
-                "requirements_file_path": str(system_config.config.requirements_file),
+                "requirements_file_path": (
+                    str(system_config.config.requirements_file) if system_config.config.requirements_file else None
+                ),
                 "dockerfile": dockerfile,
                 "build_context_path": Path(__file__).parent / "docker",
             },
