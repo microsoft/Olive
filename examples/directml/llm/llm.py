@@ -10,13 +10,20 @@ import shutil
 import warnings
 from pathlib import Path
 from typing import Optional
-from model_type_mapping import get_model_repo_id, get_all_supported_models, get_model_dir, get_model_name, get_supported_lvlm_models
 
 import config
 import torch
 import transformers
 from chat_app.app import launch_chat_app
+from custom_passes import create_cache_model, merge_models
 from huggingface_hub import hf_hub_download
+from model_type_mapping import (
+    get_all_supported_models,
+    get_model_dir,
+    get_model_name,
+    get_model_repo_id,
+    get_supported_lvlm_models,
+)
 from run_llm_io_binding import run_llm_io_binding
 from run_vision_llm_io_binding import run_vision_llm_io_binding
 
@@ -65,12 +72,13 @@ def set_config_parameters(tokenizer: transformers.AutoTokenizer, repo_id: str, n
     else:
         raise ValueError("Normalization epsilon value was not found")
 
+    config.model_id = repo_id
     config.normalization_type = "rms" if hasattr(llm_model.config, "rms_norm_eps") else "layer_norm"
     config.strict_weights_loading = config.num_layers == llm_model.config.num_hidden_layers
     config.state_dict = main_model.state_dict()
 
 
-def optimize(model_dir: Path, repo_id: str, model_name: str, num_layers: Optional[int]):
+def optimize(model_dir: Path, repo_id: str, model_name: str, num_layers: Optional[int], quant_strategy: Optional[str]):
     print(f"\nOptimizing {repo_id}")
 
     tokenizer = transformers.AutoTokenizer.from_pretrained(repo_id)
@@ -81,6 +89,27 @@ def optimize(model_dir: Path, repo_id: str, model_name: str, num_layers: Optiona
 
     with Path.open(script_dir / "config_llm.json") as fin:
         olive_config = json.load(fin)
+
+        if quant_strategy == "awq":
+            olive_config["passes"]["quantize"] = {
+                "type": "IncStaticQuantization",
+                "disable_search": True,
+                "config": {
+                    "backend": "onnxrt_cuda_ep",
+                    "approach": "weight_only",
+                    "device": "gpu",
+                    "weight_only_config": {"bits": 4, "algorithm": "AWQ"},
+                    "dataloader_func": "calib_dataloader",
+                    "calibration_sampling_size": [8],
+                    "save_as_external_data": False,
+                    "all_tensors_to_one_file": True,
+                    "user_script": "user_script.py",
+                },
+            }
+        elif quant_strategy is not None:
+            print(f"Unknown quantization strategy {quant_strategy}")
+            exit(1)
+
         olive_config["engine"]["output_name"] = model_name
         olive_config["passes"]["optimize"]["config"]["hidden_size"] = config.hidden_size
         olive_config["passes"]["optimize"]["config"]["num_heads"] = config.num_heads
@@ -103,38 +132,35 @@ def optimize(model_dir: Path, repo_id: str, model_name: str, num_layers: Optiona
             olive_config["passes"]["optimize"]["config"]["replace_attn_mask_input_with_seq_len"] = False
 
         # Set the input names and dynamic axes
-        model_components = olive_config["input_model"]["config"]["model_components"]
+        io_config = olive_config["input_model"]["config"]["io_config"]
 
         if repo_id != "llava-hf/llava-1.5-7b-hf":
-            model_components[0]["config"]["io_config"]["input_names"].append("position_ids")
-            model_components[1]["config"]["io_config"]["input_names"].append("position_ids_increment")
+            io_config["input_names"].append("position_ids")
 
-        model_components[0]["config"]["io_config"]["input_names"].append("attention_mask")
-        model_components[1]["config"]["io_config"]["input_names"].append("attention_mask")
+        io_config["input_names"].append("attention_mask")
 
         if repo_id == "llava-hf/llava-1.5-7b-hf":
-            model_components[0]["config"]["io_config"]["input_names"].append("pixel_values")
-            model_components[0]["config"]["io_config"]["dynamic_axes"]["pixel_values"] = {
+            io_config["input_names"].append("pixel_values")
+            io_config["dynamic_axes"]["pixel_values"] = {
                 "0": "batch_size",
                 "1": "channel_count",
                 "2": "image_size",
                 "3": "image_size",
             }
 
-        for model_component in model_components:
-            for layer_idx in range(config.num_layers):
-                model_component["config"]["io_config"]["input_names"].append(f"cache.{layer_idx}.key")
-                model_component["config"]["io_config"]["input_names"].append(f"cache.{layer_idx}.value")
-                model_component["config"]["io_config"]["output_names"].append(f"cache_out.{layer_idx}.key")
-                model_component["config"]["io_config"]["output_names"].append(f"cache_out.{layer_idx}.value")
-                model_component["config"]["io_config"]["dynamic_axes"][f"cache.{layer_idx}.key"] = {
-                    "0": "batch_size",
-                    "2": "max_seq_len",
-                }
-                model_component["config"]["io_config"]["dynamic_axes"][f"cache.{layer_idx}.value"] = {
-                    "0": "batch_size",
-                    "2": "max_seq_len",
-                }
+        for layer_idx in range(config.num_layers):
+            io_config["input_names"].append(f"cache.{layer_idx}.key")
+            io_config["input_names"].append(f"cache.{layer_idx}.value")
+            io_config["output_names"].append(f"cache_out.{layer_idx}.key")
+            io_config["output_names"].append(f"cache_out.{layer_idx}.value")
+            io_config["dynamic_axes"][f"cache.{layer_idx}.key"] = {
+                "0": "batch_size",
+                "2": "max_seq_len",
+            }
+            io_config["dynamic_axes"][f"cache.{layer_idx}.value"] = {
+                "0": "batch_size",
+                "2": "max_seq_len",
+            }
 
         olive_run(olive_config)
 
@@ -144,40 +170,54 @@ def optimize(model_dir: Path, repo_id: str, model_name: str, num_layers: Optiona
 
             conversion_footprint = None
             optimizer_footprint = None
-            merging_footprint = None
+            quantizer_footprint = None
             for footprint in footprints.values():
                 if footprint["from_pass"] == "OnnxConversion":
                     conversion_footprint = footprint
                 elif footprint["from_pass"] == "OrtTransformersOptimization":
                     optimizer_footprint = footprint
-                elif footprint["from_pass"] == "OptimumMerging":
-                    merging_footprint = footprint
+                elif footprint["from_pass"] == "IncStaticQuantization":
+                    quantizer_footprint = footprint
 
             assert conversion_footprint is not None
             assert optimizer_footprint is not None
-            assert merging_footprint is not None
-            optimized_olive_model = ONNXModelHandler(**merging_footprint["model_config"]["config"])
+
+            if quant_strategy is not None:
+                assert quantizer_footprint is not None
+                optimized_olive_model = ONNXModelHandler(**quantizer_footprint["model_config"]["config"])
+            else:
+                optimized_olive_model = ONNXModelHandler(**optimizer_footprint["model_config"]["config"])
+
+            # Create a copy of the model that will be used for the "cache" pass
+            print("Creating a cache version of the the model...")
+            model_path = optimized_olive_model.model_path
+            model_with_past_path = create_cache_model(model_path)
+
+            # Merge the 2 models together
+            print("Merging the 2 models together...")
+            merged_model_path = merge_models(model_path, model_with_past_path)
+            merged_model_path = Path(merged_model_path)
 
             model_info[model_name] = {
                 "optimized": {
-                    "path": Path(optimized_olive_model.model_path),
+                    "path": merged_model_path,
                 },
             }
 
-            print(f"Optimized Model   : {model_info[model_name]['optimized']['path']}")
+            print(f"Optimized Model   : {merged_model_path}")
 
     print("Copying optimized model...")
 
     # Copy the ONNX models
-    src_path = model_info[model_name]["optimized"]["path"]
+    src_path = merged_model_path
     dst_path = model_dir / src_path.name
     os.makedirs(os.path.dirname(dst_path), exist_ok=True)
     shutil.copyfile(src_path, dst_path)
 
     # Copy the weights
-    src_weights_path = src_path.with_suffix(".onnx.data")
+    src_weights_path = src_path.with_suffix(".onnx_data")
     if src_weights_path.is_file():
-        dst_weights_path = dst_path.with_suffix(".onnx.data")
+        dst_weights_path = dst_path.with_suffix(".onnx_data")
         shutil.copyfile(src_weights_path, dst_weights_path)
 
     # Copy the tokenizer files
@@ -222,6 +262,13 @@ if __name__ == "__main__":
         "purposes.",
         type=int,
     )
+    parser.add_argument(
+        "--quant_strategy",
+        choices=["awq"],
+        help="Which quantization strategy to use.",
+        default=None,
+        type=str,
+    )
     args = parser.parse_args()
 
     model_name = get_model_name(args.model_type)
@@ -229,7 +276,7 @@ if __name__ == "__main__":
     repo_id = get_model_repo_id(args.model_type)
 
     if args.optimize or not (model_dir).exists():
-        optimize(model_dir, repo_id, model_name, args.num_layers)
+        optimize(model_dir, repo_id, model_name, args.num_layers, args.quant_strategy)
 
     if not args.optimize:
         if args.interactive:

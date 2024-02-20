@@ -1,53 +1,23 @@
 {
     "input_model":{
-        "type": "CompositePyTorchModel",
+        "type": "PyTorchModel",
         "config": {
-            "model_components": [
-                {
-                    "name": "decoder_model",
-                    "type": "PyTorchModel",
-                    "config": {
-                        "model_script": "user_script.py",
-                        "io_config": {
-                            "input_names": [
-                                "tokens"
-                            ],
-                            "output_names": [
-                                "logits"
-                            ],
-                            "dynamic_axes": {
-                                "tokens": { "0": "batch_size", "1": "seq_len" },
-                                "position_ids": { "0": "batch_size", "1": "seq_len" },
-                                "attention_mask": { "0": "batch_size", "1": "sequence_length" }
-                            }
-                        },
-                        "model_loader": "load_decoder_model",
-                        "dummy_inputs_func": "decoder_inputs"
-                    }
-                },
-                {
-                    "name": "decoder_with_past_model",
-                    "type": "PyTorchModel",
-                    "config": {
-                        "model_script": "user_script.py",
-                        "io_config": {
-                            "input_names": [
-                                "tokens_increment"
-                            ],
-                            "output_names": [
-                                "logits"
-                            ],
-                            "dynamic_axes": {
-                                "tokens_increment": { "0": "batch_size", "1": "seq_len_increment" },
-                                "position_ids_increment": { "0": "batch_size", "1": "seq_len_increment" },
-                                "attention_mask": { "0": "batch_size", "1": "sequence_length" }
-                            }
-                        },
-                        "model_loader": "load_decoder_with_past_model",
-                        "dummy_inputs_func": "decoder_with_past_inputs"
-                    }
+            "model_loader": "load_decoder_model",
+            "model_script": "user_script.py",
+            "io_config": {
+                "input_names": [
+                    "tokens"
+                ],
+                "output_names": [
+                    "logits"
+                ],
+                "dynamic_axes": {
+                    "tokens": { "0": "batch_size", "1": "seq_len" },
+                    "position_ids": { "0": "batch_size", "1": "seq_len" },
+                    "attention_mask": { "0": "batch_size", "1": "sequence_length" }
                 }
-            ]
+            },
+            "dummy_inputs_func": "decoder_inputs"
         }
     },
     "systems": {
@@ -117,9 +87,6 @@
                     "enable_rotary_embeddings": true
                 }
             }
-        },
-        "merge": {
-            "type": "OptimumMerging"
         }
     },
     "engine": {

@@ -16,3 +16,4 @@ vocab_size = 32000
 epsilon = 1e-5
 model_type = "llama"
 apply_residual_connection_post_layernorm = True
+model_id = "meta-llama/Llama-2-7b-chat-hf"

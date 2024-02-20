@@ -4,13 +4,16 @@
 # --------------------------------------------------------------------------
 
 import gc
+import random
 
 import config
+import numpy as np
 import torch
+from datasets import load_dataset
 from decoder_model import DecoderModel
 from falcon import convert_falcon_weights
 from llava_model import LlavaModel
-from transformers import AutoConfig
+from transformers import AutoConfig, AutoTokenizer
 
 
 # Helper latency-only dataloader that creates random tensors with no label
@@ -38,7 +41,7 @@ def get_or_create_decoder_model():
     # very difficult.
     if config.decoder_model is None:
         if config.model_type == "llava":
-            llava_config = AutoConfig.from_pretrained("llava-hf/llava-1.5-7b-hf")
+            llava_config = AutoConfig.from_pretrained(config.model_id)
             config.decoder_model = LlavaModel(llava_config)
         else:
             config.decoder_model = DecoderModel(
@@ -204,3 +207,70 @@ def merged_decoders_inputs(model):
 
 def merged_decoders_data_loader(data_dir, batch_size, *args, **kwargs):
     return RandomDataLoader(merged_decoders_inputs, batch_size)
+
+
+# -----------------------------------------------------------------------------
+# Quantization calibration
+# -----------------------------------------------------------------------------
+
+
+def tokenize_function(examples):
+    # There's a bug that makes the rust-based fast tokenizer hang randomly (probably due to a deadlock),
+    # so use the "slow" python one instead
+    tokenizer = AutoTokenizer.from_pretrained(config.model_id, use_fast=False)
+    return tokenizer(examples["text"])
+
+
+class PileDataloader:
+    def __init__(self, model_path, batch_size=1, seqlen=2048, max_seq_len=2080, sub_folder="train"):
+        random.seed(0)
+        self.seqlen = seqlen
+        self.max_seq_len = max_seq_len
+        self.batch_size = batch_size
+        self.head_size = config.hidden_size // config.num_heads
+        self.dataset = load_dataset("NeelNanda/pile-10k", split=sub_folder)
+        self.dataset = self.dataset.map(tokenize_function, batched=True)
+        self.dataset.set_format(type="torch", columns=["input_ids", "attention_mask"])
+        self.sess = None
+
+    def __iter__(self):
+        try:
+            while True:
+                # Pick a random sample from the dataset that has at least 2048 tokens
+                sample_index = random.randint(0, len(self.dataset) - 1)
+                sample = self.dataset[sample_index]["input_ids"]
+                while sample.shape[0] <= self.seqlen:
+                    sample_index = random.randint(0, len(self.dataset) - 1)
+                    sample = self.dataset[sample_index]["input_ids"]
+
+                # Randomly pick a subsequence of 2048 tokens in the middle of the dataset
+                token_start = random.randint(0, sample.shape[0] - self.seqlen - 1)
+                token_end = token_start + self.seqlen
+                input_ids = sample[token_start:token_end].unsqueeze(0).cpu().numpy().astype("int64")
+
+                seqlens_k = np.array(0, dtype=np.int32, ndmin=1)
+                initial_position_ids = np.arange(self.seqlen, dtype=np.int64).reshape((1, self.seqlen))
+
+                initial_inputs = {
+                    "tokens": input_ids,
+                    "position_ids": initial_position_ids,
+                    "seqlens_k": seqlens_k,
+                }
+
+                for layer_index in range(config.num_layers):
+                    initial_inputs[f"cache.{layer_index}.key"] = np.zeros(
+                        (1, config.num_key_value_heads, self.max_seq_len, self.head_size), dtype=np.float16
+                    )
+                    initial_inputs[f"cache.{layer_index}.value"] = np.zeros(
+                        (1, config.num_key_value_heads, self.max_seq_len, self.head_size), dtype=np.float16
+                    )
+
+                yield initial_inputs, 0
+
+        except StopIteration:
+            return
+
+
+def calib_dataloader(data_dir, batch_size, *args, **kwargs):
+    model_path = kwargs.pop("model_path")
+    return PileDataloader(model_path, batch_size=batch_size)
