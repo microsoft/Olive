@@ -10,6 +10,7 @@ import tempfile
 from functools import lru_cache
 from pathlib import Path
 
+from olive.common.utils import hash_dir
 from olive.systems.common import SystemType
 
 logger = logging.getLogger(__name__)
@@ -144,13 +145,14 @@ def create_new_system(system_config, accelerator):
             with (build_context_path / "requirements.txt").open("w"):
                 pass
 
+        env_hash = hash_dir(build_context_path)
         new_system = AzureMLSystem(
             azureml_client_config=system_config.config.azureml_client_config,
             aml_compute=system_config.config.aml_compute,
             instance_count=system_config.config.instance_count,
             accelerators=[accelerator.accelerator_type],
             aml_docker_config={
-                "name": "olive-managed-env",
+                "name": f"olive-managed-env-{env_hash}",
                 "dockerfile": dockerfile,
                 "build_context_path": build_context_path,
             },
