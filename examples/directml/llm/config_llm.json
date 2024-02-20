@@ -17,7 +17,7 @@
                     "attention_mask": { "0": "batch_size", "1": "sequence_length" }
                 }
             },
-            "dummy_inputs_func": "decoder_inputs"
+            "dummy_inputs_func": "decoder_torch_inputs"
         }
     },
     "systems": {
@@ -37,7 +37,7 @@
                     "sub_types": [{"name": "avg"}],
                     "user_config": {
                         "user_script": "user_script.py",
-                        "dataloader_func": "merged_decoders_data_loader",
+                        "dataloader_func": "decoder_ort_data_loader",
                         "batch_size": 1
                     }
                 }

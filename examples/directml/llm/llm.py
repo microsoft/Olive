@@ -78,7 +78,14 @@ def set_config_parameters(tokenizer: transformers.AutoTokenizer, repo_id: str, n
     config.state_dict = main_model.state_dict()
 
 
-def optimize(model_dir: Path, repo_id: str, model_name: str, num_layers: Optional[int], quant_strategy: Optional[str]):
+def optimize(
+    model_dir: Path,
+    repo_id: str,
+    model_name: str,
+    device: str,
+    num_layers: Optional[int],
+    quant_strategy: Optional[str],
+):
     print(f"\nOptimizing {repo_id}")
 
     tokenizer = transformers.AutoTokenizer.from_pretrained(repo_id)
@@ -109,6 +116,11 @@ def optimize(model_dir: Path, repo_id: str, model_name: str, num_layers: Optiona
         elif quant_strategy is not None:
             print(f"Unknown quantization strategy {quant_strategy}")
             exit(1)
+
+        olive_config["engine"]["execution_providers"] = {
+            "dml": ["DmlExecutionProvider"],
+            "cuda": ["CUDAExecutionProvider"],
+        }[device]
 
         olive_config["engine"]["output_name"] = model_name
         olive_config["passes"]["optimize"]["config"]["hidden_size"] = config.hidden_size
@@ -164,7 +176,9 @@ def optimize(model_dir: Path, repo_id: str, model_name: str, num_layers: Optiona
 
         olive_run(olive_config)
 
-        footprints_file_path = Path(__file__).resolve().parent / "footprints" / f"{model_name}_gpu-dml_footprints.json"
+        footprints_file_path = (
+            Path(__file__).resolve().parent / "footprints" / f"{model_name}_gpu-{device}_footprints.json"
+        )
         with footprints_file_path.open("r") as footprint_file:
             footprints = json.load(footprint_file)
 
@@ -276,7 +290,7 @@ if __name__ == "__main__":
     repo_id = get_model_repo_id(args.model_type)
 
     if args.optimize or not (model_dir).exists():
-        optimize(model_dir, repo_id, model_name, args.num_layers, args.quant_strategy)
+        optimize(model_dir, repo_id, model_name, args.device, args.num_layers, args.quant_strategy)
 
     if not args.optimize:
         if args.interactive:
