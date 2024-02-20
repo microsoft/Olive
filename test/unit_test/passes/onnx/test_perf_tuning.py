@@ -16,7 +16,7 @@ from olive.evaluator.olive_evaluator import OliveEvaluator, OnnxEvaluator
 from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR, AcceleratorSpec, Device
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx import OrtPerfTuning
-from olive.passes.onnx.perf_tuning import PERFTUNING_BASELINE, generate_test_name
+from olive.passes.onnx.perf_tuning import PERFTUNING_BASELINE, PerfTuningRunner, generate_test_name
 
 
 @pytest.mark.parametrize(
@@ -231,7 +231,7 @@ def test_ort_perf_tuning_pass_with_dynamic_shapes(mock_get_io_config, tmp_path):
     assert "ones() received an invalid combination of arguments" in str(e.value)
 
 
-@patch("olive.passes.onnx.perf_tuning.threads_num_binary_search")
+@patch.object(PerfTuningRunner, "threads_num_binary_search")
 def test_ort_perf_tuning_pass_with_import_error(threads_num_binary_search_mock, tmp_path):
     threads_num_binary_search_mock.side_effect = ModuleNotFoundError("test")
 
