@@ -134,10 +134,17 @@ class AzureMLSystem(OliveSystem):
     def _create_environment(self, docker_config: AzureMLDockerConfig):
         if docker_config.build_context_path:
             return Environment(
-                build=BuildContext(dockerfile_path=docker_config.dockerfile, path=docker_config.build_context_path)
+                name=docker_config.name,
+                version=docker_config.version,
+                build=BuildContext(dockerfile_path=docker_config.dockerfile, path=docker_config.build_context_path),
             )
         if docker_config.base_image:
-            return Environment(image=docker_config.base_image, conda_file=docker_config.conda_file_path)
+            return Environment(
+                name=docker_config.name,
+                version=docker_config.version,
+                image=docker_config.base_image,
+                conda_file=docker_config.conda_file_path,
+            )
         raise ValueError("Please specify DockerConfig.")
 
     def _assert_not_none(self, obj):

@@ -150,6 +150,7 @@ def create_new_system(system_config, accelerator):
             instance_count=system_config.config.instance_count,
             accelerators=[accelerator.accelerator_type],
             aml_docker_config={
+                "name": "olive-managed-env",
                 "dockerfile": dockerfile,
                 "build_context_path": build_context_path,
             },

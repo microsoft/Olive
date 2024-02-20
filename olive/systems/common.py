@@ -22,6 +22,8 @@ class AzureMLDockerConfig(ConfigBase):
     dockerfile: Optional[str] = None
     build_context_path: Optional[Union[Path, str]] = None
     conda_file_path: Optional[Union[Path, str]] = None
+    name: Optional[str] = None
+    version: Optional[str] = None
 
     @validator("dockerfile", "build_context_path", always=True)
     def _validate_one_of_dockerfile_or_base_image(cls, v, values):
