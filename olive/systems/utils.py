@@ -134,12 +134,12 @@ def create_new_system(system_config, accelerator):
 
         dockerfile = provider_dockerfile_mapping.get(accelerator.execution_provider, "Dockerfile.cpu")
         temp_dir = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
-        temp_dir_path = Path(temp_dir.name)
-        shutil.copy2(str(Path(__file__).parent / "docker" / dockerfile), temp_dir_path)
+        build_context_path = Path(temp_dir.name)
+        shutil.copy2(str(Path(__file__).parent / "docker" / dockerfile), build_context_path)
         if system_config.config.requirements_file:
-            shutil.copy2(system_config.config.requirements_file, temp_dir_path)
+            shutil.copyfile(system_config.config.requirements_file, build_context_path / "requirements.txt")
         else:
-            with (temp_dir_path / "requirements.txt").open("w"):
+            with (build_context_path / "requirements.txt").open("w"):
                 pass
 
         new_system = AzureMLSystem(
@@ -149,7 +149,7 @@ def create_new_system(system_config, accelerator):
             accelerators=[accelerator.accelerator_type],
             aml_docker_config={
                 "dockerfile": dockerfile,
-                "build_context_path": temp_dir_path,
+                "build_context_path": build_context_path,
             },
             is_dev=system_config.config.is_dev,
             olive_managed_env=True,

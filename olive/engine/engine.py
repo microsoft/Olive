@@ -267,6 +267,7 @@ class Engine:
         outputs = {}
 
         for accelerator_spec in accelerator_specs:
+            logger.info("Running Olive on accelerator: %s", accelerator_spec)
             with self.create_managed_environment(accelerator_spec):
                 run_result = self.run_accelerator(
                     input_model_config,
@@ -338,6 +339,7 @@ class Engine:
                     return results
 
             if self.no_search:
+                logger.debug("Running Olive in no-search mode ...")
                 output_footprint = self.run_no_search(
                     input_model_config,
                     input_model_id,
@@ -347,6 +349,7 @@ class Engine:
                     output_name,
                 )
             else:
+                logger.debug("Running Olive in search mode ...")
                 output_footprint = self.run_search(
                     input_model_config,
                     input_model_id,
@@ -364,6 +367,7 @@ class Engine:
         output_fp_path = output_dir / f"{prefix_output_name}_footprints.json"
         logger.info(f"Save footprint to {output_fp_path}")
         self.footprints[accelerator_spec].to_file(output_fp_path)
+        logger.debug("run_accelerator done")
         return output_footprint
 
     def setup_passes(self, accelerator_spec: "AcceleratorSpec"):
@@ -829,6 +833,7 @@ class Engine:
                 # skip evaluation if no search and no evaluator
                 signal = None
             else:
+                logger.info("Run model evaluation for the final model...")
                 signal = self._evaluate_model(model_config, model_id, data_root, evaluator_config, accelerator_spec)
             logger.debug(f"Signal: {signal}")
         else:
