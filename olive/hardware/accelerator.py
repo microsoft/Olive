@@ -184,7 +184,7 @@ def create_accelerators(
     is_cpu_available = "cpu" in [accelerator.lower() for accelerator in accelerators]
     for accelerator in accelerators:
         device = Device(accelerator.lower())
-        if getattr(system_config.config, "olive_managed_env", False):
+        if system_config.olive_managed_env:
             available_eps = AcceleratorLookup.get_managed_supported_execution_providers(device)
         elif system_config.type in (SystemType.Local, SystemType.PythonEnvironment) and not skip_supported_eps_check:
             # don't need to check the supported execution providers if there is no evaluation

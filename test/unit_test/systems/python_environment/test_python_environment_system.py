@@ -325,3 +325,16 @@ class TestPythonEnvironmentSystem:
         assert mock_create_new_system.call_count == 1
         create_new_system_with_cache.cache_clear()
         assert create_new_system_with_cache.cache_info().currsize == 0
+
+    def test_create_managed_env(self):
+        from olive.systems.system_config import PythonEnvironmentTargetUserConfig, SystemConfig
+        from olive.systems.utils import create_new_system
+
+        system_config = SystemConfig(
+            type="PythonEnvironment",
+            config=PythonEnvironmentTargetUserConfig(
+                olive_managed_env=True,
+            ),
+        )
+        system = create_new_system(system_config, DEFAULT_CPU_ACCELERATOR)
+        assert system.olive_managed_env

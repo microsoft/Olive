@@ -126,6 +126,7 @@ def create_new_system(system_config, accelerator):
             },
             accelerators=[accelerator.accelerator_type],
             is_dev=system_config.config.is_dev,
+            olive_managed_env=True,
         )
 
     elif system_config.type == SystemType.AzureML:
@@ -150,6 +151,7 @@ def create_new_system(system_config, accelerator):
                 "build_context_path": build_context_path,
             },
             is_dev=system_config.config.is_dev,
+            olive_managed_env=True,
         )
 
     else:

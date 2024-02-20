@@ -1042,24 +1042,24 @@ class Engine:
     def create_managed_environment(self, accelerator_spec):
         def create_system(config: "SystemConfig", accelerator_spec):
             assert config, "System config is not provided"
-            if getattr(config.config, "olive_managed_env", False):
-                logger.debug(f"Creating new system {config.type} with cache {accelerator_spec.execution_provider}")
+            if config.olive_managed_env:
+                logger.debug(f"Creating new system {config.type} with EP {accelerator_spec.execution_provider}")
                 return create_new_system_with_cache(config, accelerator_spec)
             else:
                 return config.create_system()
 
-        def remove_system(system):
-            if system and system.olive_managed_env:
-                system.remove()
-
-        if not self.target or self.target.olive_managed_env:
+        if not self.target:
             self.target = create_system(self.target_config, accelerator_spec)
-        if not self.host or self.host.olive_managed_env:
+        if not self.host:
             self.host = create_system(self.host_config, accelerator_spec)
 
         yield
 
-        remove_system(self.target)
-        remove_system(self.host)
+        if self.target_config.olive_managed_env:
+            self.target.remove()
+            self.target = None
+        if self.host_config.olive_managed_env:
+            self.host.remove()
+            self.host = None
 
         create_new_system_with_cache.cache_clear()

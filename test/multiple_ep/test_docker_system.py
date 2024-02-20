@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 import platform
 
 import pytest
@@ -41,7 +42,10 @@ class TestOliveManagedDockerSystem:
         )
         download_data()
 
-    def test_run_pass_evaluate(self, tmpdir):
+    def test_run_pass_evaluate(self, tmpdir, caplog):
+        logger = logging.getLogger("olive")
+        logger.propagate = True
+
         from test.multiple_ep.utils import get_latency_metric
 
         output_dir = tmpdir
@@ -63,3 +67,5 @@ class TestOliveManagedDockerSystem:
         )
         assert cpu_res.metrics.value.__root__
         assert openvino_res.metrics.value.__root__
+        assert "Creating new system Docker with EP CPUExecutionProvider" in caplog.text
+        assert "Creating new system Docker with EP CPUExecutionProvider" in caplog.text

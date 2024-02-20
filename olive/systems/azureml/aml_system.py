@@ -89,29 +89,26 @@ class AzureMLSystem(OliveSystem):
         is_dev: bool = False,
         accelerators: List[str] = None,
         olive_managed_env: bool = False,
-        requirements_file: Union[Path, str] = None,
         hf_token: bool = None,
+        **kwargs,
     ):
         super().__init__(accelerators, olive_managed_env=olive_managed_env, hf_token=hf_token)
         self.instance_count = instance_count
         self.tags = tags or {}
         self.resources = resources
         self.is_dev = is_dev
-        self.requirements_file = requirements_file
         self.compute = aml_compute
-        azureml_client_config = validate_config(azureml_client_config, AzureMLClientConfig)
-        self.azureml_client_config = azureml_client_config
-        if (aml_docker_config or aml_environment_config) and olive_managed_env:
-            raise ValueError(
-                "Olive managed environment is not supported if aml_docker_config or aml_environment_config is provided."
-            )
+        self.azureml_client_config = validate_config(azureml_client_config, AzureMLClientConfig)
+        if not aml_docker_config and not aml_environment_config:
+            raise ValueError("either aml_docker_config or aml_environment_config should be provided.")
+
         if aml_environment_config:
             aml_environment_config = validate_config(aml_environment_config, AzureMLEnvironmentConfig)
             self.environment = self._get_enironment_from_config(aml_environment_config)
         elif aml_docker_config:
             aml_docker_config = validate_config(aml_docker_config, AzureMLDockerConfig)
             self.environment = self._create_environment(aml_docker_config)
-        self.env_vars = self._get_hf_token_env(azureml_client_config.keyvault_name) if self.hf_token else None
+        self.env_vars = self._get_hf_token_env(self.azureml_client_config.keyvault_name) if self.hf_token else None
 
     def _get_hf_token_env(self, keyvault_name: str):
         if keyvault_name is None:

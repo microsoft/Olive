@@ -123,4 +123,8 @@ class SystemConfig(ConfigBase):
             raise ValueError("azureml_client is required for AzureML system")
         return system_class(**self.config.dict())
 
+    @property
+    def olive_managed_env(self):
+        return getattr(self.config, "olive_managed_env", False)
+
     __hash__ = object.__hash__
