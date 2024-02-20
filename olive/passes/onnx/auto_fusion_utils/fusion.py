@@ -5,12 +5,17 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, List, Optional, Union
 
-import sympy
-
-from olive.passes.onnx.auto_fusion_utils.codegen.ops import get_num_op_inputs, is_elementwise_op
+from olive.passes.onnx.auto_fusion_utils.codegen.ops import is_elementwise_op
 
 if TYPE_CHECKING:
+    import importlib
+
     from olive.passes.onnx.utils import OnnxDAG
+
+    # sympy slows down static type checking
+    sympy = importlib.import_module("sympy")
+else:
+    import sympy
 
 SHAPE_TYPE = List[Union[str, int]]
 
@@ -94,7 +99,10 @@ class FusionBase(ABC):
         self.fused_nodes = []
         self.max_fused_nodes = max_fused_nodes
 
-        self.network = [(base_node, dag.get_input_names(base_node), "output")]
+        self.network = [(base_node, dag.get_input_names(base_node))]
+
+    def __len__(self):
+        return len(self.fused_nodes) + 1
 
     @staticmethod
     @abstractmethod
@@ -138,50 +146,68 @@ class FusionBase(ABC):
         has_multiple_consumers = len(self.dag.get_consumers(self.final_node)) > 1
         return not (exceeded_max_fused_nodes or has_multiple_consumers)
 
+    def is_valid_fusion(self, op_type: str, shape: SHAPE_TYPE) -> bool:
+        if not self.can_fuse_more():
+            # cannot fuse more nodes
+            # final node has multiple consumers
+            return False
+
+        if not is_elementwise_op(op_type):
+            # only elementwise ops are supported currently
+            return False
+
+        if shape and not self.is_broadcastable(
+            self.output_shape, shape, multidirectional=self.support_multidirectional_broadcasting()
+        ):
+            # check if the shapes are broadcastable
+            return False
+
+        return True
+
     def add_fused_node(self, node: str):
-        assert self.can_fuse_more(), "Cannot fuse more nodes"
+        inputs = self.dag.get_input_names(node)
+        assert self.output_name in inputs, "Output of current fusion must be input to the new fusion"
 
-        op_type = self.dag.get_op_type(node)
-        assert is_elementwise_op(op_type), f"Unsupported fused op: {node}"
+        # which input is the output of the current fusion
+        input_idx = inputs.index(self.output_name)
+        shape = None
+        if len(inputs) == 2:
+            # shape of the other input
+            # print(node, input_idx)
+            shape = self.dag.get_input_shapes(node)[1 - input_idx]
 
-        assert self.output_name in self.dag.get_input_names(
-            node
-        ), "Output of previous node must be input to the new node"
-
-        num_inputs = get_num_op_inputs(op_type)
-        assert num_inputs in [1, 2], f"Unsupported number of inputs: {num_inputs}"
-
-        input_idx = self.dag.get_input_names(node).index(self.output_name)
-        if num_inputs == 2:
-            assert self.is_broadcastable(
-                self.output_shape,
-                self.dag.get_input_shapes(node)[1 - input_idx],
-                multidirectional=self.support_multidirectional_broadcasting(),
-            ), "Incompatible shapes for broadcasting"
+        assert self.is_valid_fusion(self.dag.get_op_type(node), shape), f"Invalid fusion: {node}"
 
         self.fused_nodes.append(node)
-        inputs = self.dag.get_input_names(node)
         inputs[input_idx] = "output"
-        self.network.append((node, inputs, "output"))
+        self.network.append((node, inputs))
 
     def concat_fusion(self, fusion: "FusionBase"):
-        assert self.can_fuse_more(), "Cannot fuse more nodes"
+        inputs = fusion.dag.get_input_names(fusion.base_node)
+        assert self.output_name in inputs, "Output of current fusion must be input to the new fusion"
 
-        fusion_base_op_type = fusion.dag.get_op_type(fusion.base_node)
-        assert is_elementwise_op(fusion_base_op_type), f"Unsupported fused op: {fusion.base_node}"
+        assert self.is_valid_fusion(
+            fusion.dag.get_op_type(fusion.base_node), fusion.output_shape
+        ), f"Invalid fusion: {fusion.base_node}"
 
-        assert (
-            self.output_name == fusion.dag.get_input_names(fusion.base_node)[0]
-        ), "Output of current fusion must be input to the new fusion"
+        input_idx = inputs.index(self.output_name)
+        self.fused_nodes.extend([fusion.base_node, *fusion.fused_nodes])
+        inputs[input_idx] = "output"
+        self.network.extend([(fusion.base_node, inputs), *fusion.network[1:]])
 
-        assert self.is_broadcastable(
-            self.output_shape,
-            fusion.output_shape,
-            multidirectional=self.support_multidirectional_broadcasting(),
-        ), "Incompatible shapes for broadcasting"
-
-        for node in [fusion.base_node, *fusion.fused_nodes]:
+    def try_fuse_node(self, node: str) -> bool:
+        try:
             self.add_fused_node(node)
+            return True
+        except AssertionError:
+            return False
+
+    def try_concat_fusion(self, fusion: "FusionBase") -> bool:
+        try:
+            self.concat_fusion(fusion)
+            return True
+        except AssertionError:
+            return False
 
 
 class ElementwiseFusion(FusionBase):
@@ -209,7 +235,7 @@ class MatMulFusion(FusionBase):
         return len(input_shapes[1]) == 2
 
 
-def get_fusion_class(node: str, dag: "OnnxDAG") -> Optional[FusionBase]:
+def get_fusion_class(node: str, dag: "OnnxDAG"):
     if ElementwiseFusion.is_valid_base_op(node, dag):
         return ElementwiseFusion
     if MatMulFusion.is_valid_base_op(node, dag):

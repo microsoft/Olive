@@ -290,15 +290,15 @@ class OnnxDAG:
 
     def get_consumers(self, node_name: str) -> List[str]:
         """Get the consumers of a node."""
-        return self.connections[node_name]
+        return list(self.connections[node_name])
 
     def get_input_names(self, node_name: str) -> List[str]:
         """Get the input names of a node."""
-        return self.nodes[node_name].inputs
+        return list(self.nodes[node_name].inputs)
 
     def get_output_names(self, node_name: str) -> List[str]:
         """Get the output names of a node."""
-        return self.nodes[node_name].outputs
+        return list(self.nodes[node_name].outputs)
 
     def get_input_shapes(self, node_name: str) -> List:
         """Get the input shapes of a node."""
