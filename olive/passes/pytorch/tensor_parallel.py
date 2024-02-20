@@ -8,17 +8,14 @@
 import logging
 import multiprocessing
 from abc import abstractmethod
-from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, Dict
 
 import torch
 
-from olive.common.config_utils import ParamCategory
 from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import DistributedPyTorchModelHandler, PyTorchModelHandler
-from olive.model.config.hf_config import HfConfig, get_model_type_from_hf_config
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 
@@ -53,27 +50,6 @@ class PyTorchTensorParallel(Pass):
         # Note : The default world_size should be the no of gpus (AcceleratorSpec.Device == GPU)
         # in the target OliveSystem
         return {
-            "script_dir": PassConfigParam(
-                type_=str,
-                required=False,
-                category=ParamCategory.PATH,
-                description="Directory containing user script dependencies.",
-            ),
-            "user_script": PassConfigParam(
-                type_=str,
-                required=False,
-                category=ParamCategory.PATH,
-                description=(
-                    "Path to user script. The values for other parameters which were assigned"
-                    " function or object names will be imported from this script."
-                ),
-            ),
-            "class_name": PassConfigParam(
-                type_=str,
-                required=True,
-                category=ParamCategory.OBJECT,
-                description="Class implementing model specific logic",
-            ),
             "world_size": PassConfigParam(
                 type_=int,
                 default=2,
@@ -109,15 +85,9 @@ class PyTorchTensorParallel(Pass):
 
         logger.debug(f"Exporting tensor parallel model for rank: {rank}, {output_filepath}")
 
-        hf_config = HfConfig(**model_config["hf_config"])
-        model_type = get_model_type_from_hf_config(hf_config)
+        from olive.passes.pytorch.tensor_parallel_transformer import TransformerTensorParallel
 
-        if model_type == "llama":
-            from olive.passes.pytorch.tensor_parallel_llama2 import LlamaPyTorchTensorParallel
-
-            impl = LlamaPyTorchTensorParallel(rank, world_size)
-        else:
-            raise ValueError("Unsupported model type '{model_type}' for tensor parallel pass")
+        impl = TransformerTensorParallel(rank, world_size)
 
         # 1. Replace the layers
         impl.replace_layers()
@@ -137,8 +107,9 @@ class PyTorchTensorParallel(Pass):
             impl.load_rank_weights(pytorch_model)
 
             # 5. Save it out for each rank
+            pytorch_model.config.rank = rank
             pytorch_model.config.world_size = world_size
-            pytorch_model.save_pretrained(output_filepath)
+            torch.save(pytorch_model.state_dict(), output_filepath)
         finally:
             # 6. Restore layers that were replaced
             impl.restore_layers()
@@ -154,13 +125,15 @@ class PyTorchTensorParallel(Pass):
         output_model_path = Path(output_model_path)
         output_model_path.mkdir(parents=True, exist_ok=True)
 
+        ranked_model_name_format = DistributedPyTorchModelHandler.DEFAULT_RANKED_MODEL_NAME_FORMAT + ".pt"
+
         model_config = model.to_json()["config"]
         params = [
             (
                 model_config,
                 rank,
                 world_size,
-                output_model_path / DistributedPyTorchModelHandler.DEFAULT_RANKED_MODEL_NAME_FORMAT.format(rank),
+                output_model_path / ranked_model_name_format.format(rank),
             )
             for rank in range(world_size)
         ]
@@ -184,6 +157,4 @@ class PyTorchTensorParallel(Pass):
         model_config["model_path"] = output_model_path
         model_config["model_name_pattern"] = DistributedPyTorchModelHandler.DEFAULT_RANKED_MODEL_NAME_FORMAT
         model_config["num_ranks"] = world_size
-        model_config["model_attributes"] = deepcopy(model.model_attributes)
-        model_config["model_attributes"]["world_size"] = world_size
         return DistributedPyTorchModelHandler(**model_config)
