@@ -92,6 +92,8 @@ class AutoFusion(Pass):
             #     continue
             # if chain_type != ("MatMul", "Add"):
             #     continue
+            if chain_type != ("Add", "Sqrt"):
+                continue
             fusion = Fusion(dtype, chain_type[0], list(chain_type[1:]))
             num_fused = 0
             for node_names in fusable_chains[(dtype, chain_type)]:

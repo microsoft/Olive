@@ -288,6 +288,18 @@ class OnnxDAG:
         """Get the op type of a node."""
         return self.nodes[node_name].op_type
 
+    def get_consumers(self, node_name: str) -> List[str]:
+        """Get the consumers of a node."""
+        return self.connections[node_name]
+
+    def get_input_names(self, node_name: str) -> List[str]:
+        """Get the input names of a node."""
+        return self.nodes[node_name].inputs
+
+    def get_output_names(self, node_name: str) -> List[str]:
+        """Get the output names of a node."""
+        return self.nodes[node_name].outputs
+
     def get_input_shapes(self, node_name: str) -> List:
         """Get the input shapes of a node."""
         return [self.ios[i].shape for i in self.nodes[node_name].inputs]
