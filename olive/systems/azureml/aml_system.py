@@ -109,6 +109,7 @@ class AzureMLSystem(OliveSystem):
             aml_docker_config = validate_config(aml_docker_config, AzureMLDockerConfig)
             self.environment = self._create_environment(aml_docker_config)
         self.env_vars = self._get_hf_token_env(self.azureml_client_config.keyvault_name) if self.hf_token else None
+        self.temp_dirs = []
 
     def _get_hf_token_env(self, keyvault_name: str):
         if keyvault_name is None:
@@ -703,4 +704,8 @@ class AzureMLSystem(OliveSystem):
         return cmd(**args)
 
     def remove(self):
-        logger.info("AzureML system does not need system removal")
+        if self.temp_dirs:
+            logger.info("AzureML system cleanup temp dirs.")
+            for temp_dir in self.temp_dirs:
+                temp_dir.cleanup()
+            self.temp_dirs = []

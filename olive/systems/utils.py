@@ -133,12 +133,13 @@ def create_new_system(system_config, accelerator):
         from olive.systems.azureml import AzureMLSystem
 
         dockerfile = provider_dockerfile_mapping.get(accelerator.execution_provider, "Dockerfile.cpu")
-        build_context_path = Path(__file__).parent / "docker"
-
+        temp_dir = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
+        temp_dir_path = Path(temp_dir.name)
+        shutil.copy2(str(Path(__file__).parent / "docker" / dockerfile), temp_dir_path)
         if system_config.config.requirements_file:
-            shutil.copyfile(system_config.config.requirements_file, build_context_path / "requirements.txt")
+            shutil.copy2(system_config.config.requirements_file, temp_dir_path)
         else:
-            with (build_context_path / "requirements.txt").open("w"):
+            with (temp_dir_path / "requirements.txt").open("w"):
                 pass
 
         new_system = AzureMLSystem(
@@ -148,11 +149,12 @@ def create_new_system(system_config, accelerator):
             accelerators=[accelerator.accelerator_type],
             aml_docker_config={
                 "dockerfile": dockerfile,
-                "build_context_path": build_context_path,
+                "build_context_path": temp_dir_path,
             },
             is_dev=system_config.config.is_dev,
             olive_managed_env=True,
         )
+        new_system.temp_dirs.append(temp_dir)
 
     else:
         raise NotImplementedError(f"System type {system_config.type} is not supported")
