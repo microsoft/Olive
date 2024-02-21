@@ -16,6 +16,7 @@ import pytest
 from azure.ai.ml import Input, Output
 from azure.ai.ml.constants import AssetTypes
 from azure.ai.ml.entities import UserIdentityConfiguration
+from azure.core.exceptions import ResourceNotFoundError
 
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.data.config import DataConfig
@@ -751,7 +752,7 @@ def test_create_managed_env(create_client_mock):
     from olive.systems.utils import create_new_system
 
     ml_client = MagicMock()
-    ml_client.environments.get.return_value = MagicMock()
+    ml_client.environments.get.side_effect = ResourceNotFoundError()
     ml_client.environments.get.__name__ = "get"
     create_client_mock.return_value = ml_client
 
@@ -770,6 +771,11 @@ def test_create_managed_env(create_client_mock):
     )
     system = create_new_system(system_config, DEFAULT_CPU_ACCELERATOR)
     assert system.olive_managed_env
+
+    ml_client = MagicMock()
+    ml_client.environments.get.return_value = MagicMock()
+    ml_client.environments.get.__name__ = "get"
+    create_client_mock.return_value = ml_client
 
     system_config = SystemConfig(
         type="AzureML",

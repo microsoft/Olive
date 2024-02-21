@@ -113,6 +113,7 @@ class Engine:
         if self._config.clean_evaluation_cache:
             cache_utils.clean_evaluation_cache(cache_dir)
 
+        logger.info("Using cache directory: %s", cache_dir)
         self._model_cache_path, self._run_cache_path, self._evaluation_cache_path, _ = cache_utils.get_cache_sub_dirs(
             cache_dir
         )
@@ -890,7 +891,7 @@ class Engine:
                     start_time=run_cache.get("run_start_time", 0),
                     end_time=run_cache.get("run_end_time", 0),
                 )
-                logger.info(f"Loaded model from cache: {output_model_id}")
+                logger.info(f"Loaded model from cache: {output_model_id} from f{self._run_cache_path}")
                 return output_model_config, output_model_id
 
         # new model id

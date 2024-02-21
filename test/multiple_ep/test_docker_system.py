@@ -55,7 +55,10 @@ class TestOliveManagedDockerSystem:
         metric = get_latency_metric()
         set_default_logger_severity(0)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
-        engine = Engine(target_config=self.system_config, evaluator_config=evaluator_config)
+        config = {
+            "cache_dir": "docker_cache",
+        }
+        engine = Engine(config=config, target_config=self.system_config, evaluator_config=evaluator_config)
         accelerator_specs = create_accelerators(self.system_config, self.execution_providers)
         engine.register(OrtPerfTuning)
         output = engine.run(self.input_model_config, accelerator_specs, output_dir=output_dir)
