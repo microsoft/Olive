@@ -284,6 +284,10 @@ class OnnxDAG:
         if new_parent not in [SpecialInput.INPUT, SpecialInput.INITIALIZER]:
             self.connections[new_parent].append(node_name)
 
+    def get_shape(self, io_name: str) -> List:
+        """Get the shape of an input/output."""
+        return list(self.ios[io_name].shape)
+
     def get_op_type(self, node_name: str) -> str:
         """Get the op type of a node."""
         return self.nodes[node_name].op_type

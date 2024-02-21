@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Set, Tuple
 
@@ -10,7 +11,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.auto_fusion_utils import get_fusion_class
+from olive.passes.onnx.auto_fusion_utils import FusionBase, get_fusion_class
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.onnx.utils import OnnxDAG
 from olive.passes.pass_config import PassConfigParam
@@ -24,11 +25,6 @@ class AutoFusion(Pass):
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
-            "min_occurrence": PassConfigParam(
-                type_=int,
-                default_value=10,
-                description="Minumum number of occurance of a fusion pattern to be considered for fusion.",
-            ),
             "constant_overrides": PassConfigParam(
                 type_=Dict[str, Dict[str, int]],
                 default_value=None,
@@ -49,15 +45,36 @@ class AutoFusion(Pass):
         dag.remove_redundant_cast_nodes()
 
         # get fusable chains
-        # chains = self.get_fusable_chains(dag)
+        candidates = self.get_fusion_candidates(dag)
+
+        fused_kernels = {}
+        counter = Counter()
+        for key, fusion in candidates:
+            if not fusion.still_exists():
+                continue
+
+            node_names = fusion.get_node_names()
+            fused_node, kernel_repr = fusion.fuse()
+            dag.replace_nodes(node_names, fused_node)
+
+            # keep track of the fused kernels
+            fused_kernels[key] = kernel_repr
+            counter[key] += 1
+        logger.info(
+            "Fusions: \n%s",
+            "\n".join(
+                f"{[node[0] for node in k_repr['network']]}: {counter[key]}" for key, k_repr in fused_kernels.items()
+            ),
+        )
+        dag.update()
 
         # save the model to the output path and return the model
         custom_op_lib = None
         return model_proto_to_olive_model(dag.model, output_model_path, config, custom_op_lib=custom_op_lib)
 
     @classmethod
-    def _get_fusable_chains_util(
-        cls, dag: OnnxDAG, v: str, visited: Set[str], chains: Dict[str, Tuple[List[str], List[str]]]
+    def _get_fusion_candidates_util(
+        cls, dag: OnnxDAG, v: str, visited: Set[str], chains: Dict[str, List[FusionBase]]
     ) -> None:
         """Find fusable chains from all nodes reachable from v."""
         stack = [v]
@@ -95,7 +112,7 @@ class AutoFusion(Pass):
                     chains[v] = fusions
 
     @classmethod
-    def get_fusable_chains(cls, dag: OnnxDAG) -> Dict[str, Tuple[List[str], List[str]]]:
+    def get_fusion_candidates(cls, dag: OnnxDAG) -> List[Tuple[Tuple, FusionBase]]:
         """Return fusable chains in the graph.
 
         There will be overlap between chains. For example, A -> B -> C and B -> C will both be returned.
@@ -108,5 +125,16 @@ class AutoFusion(Pass):
         chains = {}
         visited = set()
         for v in dag.nodes:
-            cls._get_fusable_chains_util(dag, v, visited, chains)
-        return chains
+            cls._get_fusion_candidates_util(dag, v, visited, chains)
+
+        candidates = defaultdict(list)
+        for fusions in chains.values():
+            for fusion in fusions:
+                fusion_hash = fusion.get_hash()
+                candidates[(fusion_hash, len(fusion))].append((fusion_hash, fusion))
+        candidates = dict(sorted(candidates.items(), key=lambda x: (x[0][1], len(x[1])), reverse=True))
+
+        all_fusions = []
+        for fusions in candidates.values():
+            all_fusions.extend(fusions)
+        return all_fusions
