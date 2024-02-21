@@ -32,6 +32,15 @@ To download the necessary data and model files:
 python download_files.py
 ```
 
+## Prepare the configuration file
+The configuration file `vgg_config.json` contains the parameters for the conversion and quantization.
+But the quantization is only supported for `x64-Linux` platform. To run the optimization on Windows, please remove the `quantization` section from the configuration file.
+
+Or you can just run following command to generate the configuration file:
+```sh
+python prepare_config.py
+```
+
 ## Run sample
 Run the conversion and quantization locally. Only supports `x64-Linux`.
 ```

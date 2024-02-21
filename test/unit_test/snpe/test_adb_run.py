@@ -45,29 +45,35 @@ def test_run_snpe_command():
 
     with patch.object(Path, "exists") as mock_exists, patch.object(Path, "glob") as mock_glob, patch(
         "shutil.which"
-    ) as mock_witch, patch("subprocess.run") as mock_run_subprocess:
+    ) as mock_witch, patch.object(Path, "open") as open_file, patch("subprocess.run") as mock_run_subprocess:
         mock_exists.return_value = True
         mock_glob.return_value = [Path("lib") / target_arch]
         mock_witch.side_effect = lambda x, path: x
+        open_file.return_value.__enter__.return_value.readline.return_value = "python"
         mock_run_subprocess.return_value = CompletedProcess(None, returncode=0, stdout=b"stdout", stderr=b"stderr")
         runner = SDKRunner(platform="SNPE")
         stdout, _ = runner.run(cmd="snpe-net-run --container xxxx")
         if platform.system() == "Linux":
             env = {
                 "LD_LIBRARY_PATH": "/snpe/lib/x86_64-linux-clang",
-                "PATH": "/snpe/bin/x86_64-linux-clang:/usr/bin",
+                "PATH": f"/snpe/bin/x86_64-linux-clang:/usr/bin:{os.environ['PATH']}",
                 "PYTHONPATH": "/snpe/lib/python",
                 "SDK_ROOT": "/snpe",
             }
+            cmd = "snpe-net-run --container xxxx"
         else:
             env = {
-                "PATH": "C:\\snpe\\bin\\x86_64-windows-msvc;C:\\snpe\\lib\\x86_64-windows-msvc",
+                "PATH": f"C:\\snpe\\bin\\x86_64-windows-msvc;C:\\snpe\\lib\\x86_64-windows-msvc;{os.environ['PATH']}",
                 "SDK_ROOT": "C:\\snpe",
                 "PYTHONPATH": "C:\\snpe\\lib\\python",
             }
+            os_env = os.environ.copy()
+            os_env.update(env)
+            env = os_env
+            cmd = "python C:\\snpe\\bin\\x86_64-windows-msvc\\snpe-net-run --container xxxx"
 
         mock_run_subprocess.assert_called_once_with(
-            "snpe-net-run --container xxxx".split(),
+            cmd.split(),
             capture_output=True,
             env=env,
             cwd=None,
