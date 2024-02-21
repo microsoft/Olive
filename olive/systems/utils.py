@@ -146,13 +146,18 @@ def create_new_system(system_config, accelerator):
                 pass
 
         env_hash = hash_dir(build_context_path)
+        name = f"olive-managed-env-{env_hash}"
         new_system = AzureMLSystem(
             azureml_client_config=system_config.config.azureml_client_config,
             aml_compute=system_config.config.aml_compute,
             instance_count=system_config.config.instance_count,
             accelerators=[accelerator.accelerator_type],
+            aml_environment_config={
+                "name": name,
+                "label": "latest",
+            },
             aml_docker_config={
-                "name": f"olive-managed-env-{env_hash}",
+                "name": name,
                 "dockerfile": dockerfile,
                 "build_context_path": build_context_path,
             },

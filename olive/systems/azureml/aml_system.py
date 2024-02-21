@@ -103,9 +103,16 @@ class AzureMLSystem(OliveSystem):
             raise ValueError("either aml_docker_config or aml_environment_config should be provided.")
 
         if aml_environment_config:
+            from azure.core.exceptions import ResourceNotFoundError
+
             aml_environment_config = validate_config(aml_environment_config, AzureMLEnvironmentConfig)
-            self.environment = self._get_enironment_from_config(aml_environment_config)
-        elif aml_docker_config:
+            try:
+                self.environment = self._get_enironment_from_config(aml_environment_config)
+            except ResourceNotFoundError:
+                if not aml_docker_config:
+                    raise
+
+        if aml_docker_config:
             aml_docker_config = validate_config(aml_docker_config, AzureMLDockerConfig)
             self.environment = self._create_environment(aml_docker_config)
         self.env_vars = self._get_hf_token_env(self.azureml_client_config.keyvault_name) if self.hf_token else None
@@ -138,7 +145,7 @@ class AzureMLSystem(OliveSystem):
                 version=docker_config.version,
                 build=BuildContext(dockerfile_path=docker_config.dockerfile, path=docker_config.build_context_path),
             )
-        if docker_config.base_image:
+        elif docker_config.base_image:
             return Environment(
                 name=docker_config.name,
                 version=docker_config.version,

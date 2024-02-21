@@ -922,7 +922,11 @@ class Engine:
 
             # For perf-tuning, we need the model evaluation happens in target even if it is a pass.
             # TODO(myguo): consider more better way to handle System doesn't support run pass like DockerSystem
-            if isinstance(p, OrtPerfTuning) and isinstance(host, LocalSystem):
+            if (
+                isinstance(p, OrtPerfTuning)
+                and isinstance(host, LocalSystem)
+                and not isinstance(self.target, LocalSystem)
+            ):
                 p.set_target(self.target)
 
             output_model_config = host.run_pass(p, input_model_config, data_root, output_model_path, pass_search_point)
