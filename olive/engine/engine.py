@@ -1061,9 +1061,12 @@ class Engine:
         def create_system(config: "SystemConfig", accelerator_spec):
             assert config, "System config is not provided"
             if config.olive_managed_env:
-                logger.debug(f"Creating new system {config.type} with EP {accelerator_spec.execution_provider}")
+                logger.debug(
+                    "Creating olive_managed_env %s with EP %s", config.type, accelerator_spec.execution_provider
+                )
                 return create_new_system_with_cache(config, accelerator_spec)
             else:
+                logger.debug("create native OliveSystem %s", config.type)
                 return config.create_system()
 
         if not self.target:
