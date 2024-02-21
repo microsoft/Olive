@@ -891,7 +891,7 @@ class Engine:
                     start_time=run_cache.get("run_start_time", 0),
                     end_time=run_cache.get("run_end_time", 0),
                 )
-                logger.info(f"Loaded model from cache: {output_model_id} from f{self._run_cache_path}")
+                logger.info(f"Loaded model from cache: {output_model_id} from {self._run_cache_path}")
                 return output_model_config, output_model_id
 
         # new model id

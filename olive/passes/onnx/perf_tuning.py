@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-
 import copy
 import itertools
 import json
@@ -433,8 +432,12 @@ class PerfTuningRunner:
         else:
             inference_settings = copy.deepcopy(model.inference_settings) if model.inference_settings else {}
             # put the execution_provider and provider_options in inference_settings for baseline evaluation
+            if self.target is None:
+                available_eps = ort.get_available_providers()
+            else:
+                available_eps = None
             execution_providers, provider_options = check_and_normalize_provider_args(
-                self.config.providers_list, None, ort.get_available_providers()
+                self.config.providers_list, None, available_eps
             )
             inference_settings["execution_provider"] = execution_providers
             inference_settings["provider_options"] = provider_options
