@@ -102,6 +102,7 @@ class AzureMLSystem(OliveSystem):
         if not aml_docker_config and not aml_environment_config:
             raise ValueError("either aml_docker_config or aml_environment_config should be provided.")
 
+        self.environment = None
         if aml_environment_config:
             from azure.core.exceptions import ResourceNotFoundError
 
@@ -112,7 +113,7 @@ class AzureMLSystem(OliveSystem):
                 if not aml_docker_config:
                     raise
 
-        if aml_docker_config:
+        if self.environment is None and aml_docker_config:
             aml_docker_config = validate_config(aml_docker_config, AzureMLDockerConfig)
             self.environment = self._create_environment(aml_docker_config)
         self.env_vars = self._get_hf_token_env(self.azureml_client_config.keyvault_name) if self.hf_token else None
