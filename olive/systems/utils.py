@@ -118,18 +118,19 @@ def create_new_system(system_config, accelerator):
         from olive.systems.docker import DockerSystem
 
         dockerfile = provider_dockerfile_mapping.get(accelerator.execution_provider, "Dockerfile.cpu")
+        # TODO(myguo): create a temp dir for the build context
         new_system = DockerSystem(
             local_docker_config={
                 "image_name": f"olive_{accelerator.execution_provider[:-17].lower()}",
-                "requirements_file_path": (
-                    str(system_config.config.requirements_file) if system_config.config.requirements_file else None
-                ),
                 "dockerfile": dockerfile,
                 "build_context_path": Path(__file__).parent / "docker",
             },
             accelerators=[accelerator.accelerator_type],
             is_dev=system_config.config.is_dev,
             olive_managed_env=True,
+            requirements_file=(
+                str(system_config.config.requirements_file) if system_config.config.requirements_file else None
+            ),
         )
 
     elif system_config.type == SystemType.AzureML:

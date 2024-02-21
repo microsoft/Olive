@@ -47,19 +47,11 @@ class AzureMLEnvironmentConfig(ConfigBase):
 
 class LocalDockerConfig(ConfigBase):
     image_name: str
-    base_image: Optional[str] = None
-    requirements_file_path: Optional[str] = None
     dockerfile: Optional[str] = None
     build_context_path: Optional[Union[Path, str]] = None
     build_args: Optional[dict] = None
     run_params: Optional[dict] = None
 
-    @validator("build_context_path", "requirements_file_path")
+    @validator("build_context_path")
     def _get_abspath(cls, v):
         return str(Path(v).resolve()) if v else None
-
-    @validator("dockerfile", always=True)
-    def _validate_one_of_dockerfile_or_base_image(cls, v, values):
-        if v is None and values.get("requirements_file_path") is None:
-            raise ValueError("One of build_context_path/dockerfile or requirements_file_path must be provided")
-        return v

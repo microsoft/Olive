@@ -81,13 +81,12 @@ class TestDockerSystem:
         mock_from_env.return_value = mock_docker_client
         docker_config = LocalDockerConfig(
             image_name="image_name",
-            requirements_file_path="requirements_file_path",
         )
         mock_docker_client.images.get.side_effect = docker.errors.ImageNotFound("msg")
         mock_docker_client.images.build.return_value = (MagicMock(), [{"stream": "Successfully built mock_image_id"}])
 
         # execute
-        docker_system = DockerSystem(docker_config, is_dev=True)
+        docker_system = DockerSystem(docker_config, is_dev=True, requirements_file="requirements_file")
 
         # assert
         mock_docker_client.images.build.assert_called_once_with(
