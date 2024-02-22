@@ -117,6 +117,7 @@
         }
     },
     "engine": {
+        "log_severity_level": 0,
         "evaluate_input_model": false,
         "clean_cache": true,
         "evaluator": "common_evaluator",
