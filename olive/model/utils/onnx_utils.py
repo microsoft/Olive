@@ -12,8 +12,24 @@ from typing import Any, Dict, Optional, Sequence, Tuple, Union
 import numpy as np
 
 from olive.exception import OliveEvaluationError
+from olive.model.utils.path_utils import normalize_path_suffix
 
 logger = logging.getLogger(__name__)
+
+
+def resolve_onnx_path(file_or_dir_path: str, model_filename: str = "model.onnx") -> str:
+    """Get the model full path.
+
+    The engine provides output paths to ONNX passes that do not contain .onnx extension
+    (these paths are generally locations in the cache). This function will convert such
+    paths to absolute file paths and also ensure the parent directories exist.
+    If the input path is already an ONNX file it is simply returned. Examples:
+
+    resolve_onnx_path("c:/foo/bar.onnx") -> c:/foo/bar.onnx
+
+    resolve_onnx_path("c:/foo/bar") -> c:/foo/bar/model.onnx
+    """
+    return normalize_path_suffix(file_or_dir_path, model_filename)
 
 
 def get_onnx_file_path(model_path: str, onnx_file_name: Optional[str] = None) -> str:
