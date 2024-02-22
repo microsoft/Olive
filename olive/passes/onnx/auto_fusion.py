@@ -54,11 +54,11 @@ class AutoFusion(Pass):
                 continue
 
             node_names = fusion.get_node_names()
-            fused_node, kernel_repr = fusion.fuse()
+            fused_node, kernel_info = fusion.fuse()
             dag.replace_nodes(node_names, fused_node)
 
             # keep track of the fused kernels
-            fused_kernels[key] = kernel_repr
+            fused_kernels[key] = kernel_info
             counter[key] += 1
         logger.info(
             "Fusions: \n%s",

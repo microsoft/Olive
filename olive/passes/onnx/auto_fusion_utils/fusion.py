@@ -12,50 +12,26 @@ from olive.passes.onnx.auto_fusion_utils.codegen.ops import is_elementwise_op
 from olive.passes.onnx.auto_fusion_utils.utils import DOMAIN
 
 if TYPE_CHECKING:
-    import importlib
-
     from onnx import NodeProto
 
     from olive.passes.onnx.utils import OnnxDAG
-
-    # sympy slows down static type checking
-    sympy = importlib.import_module("sympy")
-else:
-    import sympy
 
 SHAPE_TYPE = List[Union[str, int]]
 
 
 class KernelArgs:
     def __init__(self, output_shape: SHAPE_TYPE):
-        # mapping from actual dim names to symbolic dim names
-        # this will help us cache and reuse the kernel for instances of the same fusion
-        self.dim_map = {}
-
         # output shape of the kernel
         # since there is no reduction, the output shape has the maximum possible dimensions
         self.rank = len(output_shape) or 1
-        self.output_shape = self.standadize_symbolic_dims(output_shape or [1], self.rank)
-        self.output_shape = [
-            sympy.Integer(dim) if isinstance(dim, int) else sympy.Symbol(dim) for dim in self.output_shape
-        ]
-
-        # strides for the output shape
-        self.strides = [sympy.Integer(1)]
-        for i in range(self.rank - 2, -1, -1):
-            self.strides.insert(0, self.strides[0] * self.output_shape[i + 1])
+        self.output_shape = self.normalize_symbolic_dims(output_shape or [1], self.rank)
 
         # mapping from input name to systematic input name
         self.input_map = {}
         self.input_shapes = {}
-        self.input_strides = {}
-
-        # which input do we see the dim first from
-        self.dim_sources = {}
-        self.used_dims = set()
 
     @staticmethod
-    def standadize_symbolic_dims(shape: SHAPE_TYPE, rank: int) -> SHAPE_TYPE:
+    def normalize_symbolic_dims(shape: SHAPE_TYPE, rank: int) -> SHAPE_TYPE:
         new_shape = []
         for idx, dim in enumerate(shape):
             if isinstance(dim, int):
@@ -67,42 +43,12 @@ class KernelArgs:
     def add_input(self, input_name: str, input_shape: SHAPE_TYPE) -> str:
         if input_name in self.input_map:
             # assume shape is the same
-            return None
+            return self.input_map[input_name]
 
         name = f"input_{len(self.input_map)}"
         self.input_map[input_name] = name
-
-        input_shape = self.standadize_symbolic_dims(input_shape or [1], self.rank)
-        shape = []
-        for idx, dim in enumerate(input_shape):
-            if isinstance(dim, int):
-                shape.append(sympy.Integer(dim))
-            else:
-                shape.append(sympy.Symbol(dim))
-                if dim not in self.dim_sources:
-                    self.dim_sources[dim] = (name, idx)
-        self.input_shapes[name] = shape
-
-        strides = []
-        shape = [sympy.Integer(1)] * (self.rank - len(shape)) + shape
-        running_stride = sympy.Integer(1)
-        for i in range(self.rank - 1, -1, -1):
-            if self.output_shape[i] == shape[i]:
-                strides.insert(0, running_stride)
-                running_stride *= shape[i]
-            else:
-                strides.insert(0, sympy.Integer(0))
-        self.input_strides[name] = strides
-
-        if any(val == sympy.Integer(0) for val in strides):
-            for idx, val in enumerate(strides):
-                if val == sympy.Integer(0):
-                    self.used_dims.add(idx)
-
+        self.input_shapes[name] = self.normalize_symbolic_dims(input_shape or [1], self.rank)
         return name
-
-    def unwrap_shape(self, shape) -> SHAPE_TYPE:
-        return [int(val) if isinstance(val, sympy.Integer) else str(val) for val in shape]
 
 
 class FusionBase(ABC):
@@ -146,8 +92,8 @@ class FusionBase(ABC):
     def is_broadcastable(shape1: SHAPE_TYPE, shape2: SHAPE_TYPE, multidirectional: bool = False) -> bool:
         # assume the symbolic dims in same index are the same
         max_len = max(len(shape1), len(shape2))
-        shape1 = KernelArgs.standadize_symbolic_dims(shape1, max_len)
-        shape2 = KernelArgs.standadize_symbolic_dims(shape2, max_len)
+        shape1 = KernelArgs.normalize_symbolic_dims(shape1, max_len)
+        shape2 = KernelArgs.normalize_symbolic_dims(shape2, max_len)
         if multidirectional:
             shape1 = [1] * (max_len - len(shape1)) + shape1
             shape2 = [1] * (max_len - len(shape2)) + shape2
@@ -223,7 +169,7 @@ class FusionBase(ABC):
         except AssertionError:
             return False
 
-    def kernel_repr(self) -> str:
+    def kernel_info(self) -> str:
         kernel_args = KernelArgs(self.output_shape)
 
         network = []
@@ -237,12 +183,12 @@ class FusionBase(ABC):
 
         return {
             "network": network,
-            "shapes": {k: kernel_args.unwrap_shape(v) for k, v in kernel_args.input_shapes.items()},
-            "output_shape": kernel_args.unwrap_shape(kernel_args.output_shape),
+            "shapes": kernel_args.input_shapes,
+            "output_shape": kernel_args.output_shape,
         }
 
     def get_hash(self) -> str:
-        return hash_dict(self.kernel_repr())
+        return hash_dict(self.kernel_info())
 
     def get_op_types(self) -> List[str]:
         return [self.dag.get_op_type(node) for node in [self.base_node, *self.fused_nodes]]
@@ -272,7 +218,7 @@ class FusionBase(ABC):
             name="->".join(node_names),
             domain=DOMAIN,
         )
-        return new_node, self.kernel_repr()
+        return new_node, self.kernel_info()
 
 
 class ElementwiseFusion(FusionBase):
