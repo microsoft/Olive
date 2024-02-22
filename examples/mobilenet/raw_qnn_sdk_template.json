@@ -66,6 +66,7 @@
         ["quantization", "build_model_lib"]
     ],
     "engine": {
+        "log_severity_level": 0,
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
         "output_dir": "models",
