@@ -26,18 +26,21 @@ class TestOliveAzureMLSystem:
         from test.multiple_ep.utils import download_data, download_models, get_onnx_model
 
         from olive.azureml.azureml_client import AzureMLClientConfig
-        from olive.systems.azureml.aml_system import AzureMLSystem
+        from olive.systems.system_config import AzureMLTargetUserConfig, SystemConfig
 
         aml_compute = "cpu-cluster"
         azureml_client_config = AzureMLClientConfig(**get_olive_workspace_config())
 
-        self.system = AzureMLSystem(
-            azureml_client_config=azureml_client_config,
-            aml_compute=aml_compute,
-            accelerators=["cpu"],
-            olive_managed_env=True,
-            requirements_file=Path(__file__).parent / "requirements.txt",
-            is_dev=True,
+        self.system_config = SystemConfig(
+            type="AzureML",
+            config=AzureMLTargetUserConfig(
+                azureml_client_config=azureml_client_config,
+                aml_compute=aml_compute,
+                accelerators=["cpu"],
+                olive_managed_env=True,
+                requirements_file=Path(__file__).parent / "requirements.txt",
+                is_dev=True,
+            ),
         )
 
         self.execution_providers = ["CPUExecutionProvider", "OpenVINOExecutionProvider"]
@@ -54,8 +57,16 @@ class TestOliveAzureMLSystem:
 
         metric = get_latency_metric()
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
-        engine = Engine(target=self.system, host=self.system, evaluator_config=evaluator_config)
-        accelerator_specs = create_accelerators(self.system, self.execution_providers)
+        config = {
+            "cache_dir": "aml_cache",
+        }
+        engine = Engine(
+            config=config,
+            target_config=self.system_config,
+            host_config=self.system_config,
+            evaluator_config=evaluator_config,
+        )
+        accelerator_specs = create_accelerators(self.system_config, self.execution_providers)
         engine.register(OrtPerfTuning)
         output = engine.run(self.input_model_config, accelerator_specs, output_dir=output_dir)
         cpu_res = next(iter(output[DEFAULT_CPU_ACCELERATOR].nodes.values()))

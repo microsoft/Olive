@@ -18,6 +18,8 @@ class TargetUserConfig(ConfigBase):
     accelerators: List[str] = None
     hf_token: bool = None
 
+    __hash__ = object.__hash__
+
 
 class LocalTargetUserConfig(TargetUserConfig):
     pass
@@ -120,3 +122,9 @@ class SystemConfig(ConfigBase):
         if system_class.system_type == SystemType.AzureML and not self.config.azureml_client_config:
             raise ValueError("azureml_client is required for AzureML system")
         return system_class(**self.config.dict())
+
+    @property
+    def olive_managed_env(self):
+        return getattr(self.config, "olive_managed_env", False)
+
+    __hash__ = object.__hash__

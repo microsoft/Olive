@@ -15,7 +15,7 @@ RUN v="8.4.1-1+cuda11.6" &&\
         libnvinfer-dev=${v} libnvonnxparsers-dev=${v} libnvparsers-dev=${v} libnvinfer-plugin-dev=${v} \
         python3-libnvinfer=${v} libnvinfer-samples=${v}
 
-RUN pip install --no-cache-dir pandas plotly psutil datasets transformers onnxruntime-gpu==1.15.1 olive-ai
+RUN pip install --no-cache-dir pandas plotly psutil datasets transformers onnxruntime-gpu olive-ai
 
 ADD requirements.txt requirements.txt
 RUN pip install -r requirements.txt

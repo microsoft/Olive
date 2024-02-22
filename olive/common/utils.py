@@ -78,6 +78,29 @@ def hash_file(filename):  # pragma: no cover
         return hash_io_stream(f)
 
 
+def hash_update_from_file(filename, hash_value):
+    assert Path(filename).is_file()
+    with open(str(filename), "rb") as f:  # noqa: PTH123
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_value.update(chunk)
+    return hash_value
+
+
+def hash_update_from_dir(directory, hash_value):
+    assert Path(directory).is_dir()
+    for path in sorted(Path(directory).iterdir(), key=lambda p: str(p).lower()):
+        hash_value.update(path.name.encode())
+        if path.is_file():
+            hash_value = hash_update_from_file(path, hash_value)
+        elif path.is_dir():
+            hash_value = hash_update_from_dir(path, hash_value)
+    return hash_value
+
+
+def hash_dir(directory):
+    return hash_update_from_dir(directory, hashlib.md5()).hexdigest()
+
+
 def hash_dict(dictionary):  # pragma: no cover
     md5_hash = hashlib.md5()
     encoded_dictionary = json.dumps(dictionary, sort_keys=True).encode()

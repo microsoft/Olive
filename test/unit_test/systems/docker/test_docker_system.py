@@ -12,6 +12,8 @@ from olive.evaluator.metric import AccuracySubType, joint_metric_key
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.systems.common import LocalDockerConfig
 from olive.systems.docker.docker_system import DockerSystem
+from olive.systems.system_config import DockerTargetUserConfig, SystemConfig
+from olive.systems.utils import create_new_system
 
 # pylint: disable=attribute-defined-outside-init
 
@@ -35,9 +37,14 @@ class TestDockerSystem:
         assert docker_system.image == mock_image
         mock_docker_client.images.get.assert_called_once_with(docker_config.image_name)
 
+    @patch("olive.systems.docker.docker_system.shutil.copy2")
+    @patch("olive.systems.docker.docker_system.shutil.copytree")
     @patch("olive.systems.docker.docker_system.docker.from_env")
-    def test__init_image_dockerfile_build(self, mock_from_env):
+    @patch("olive.systems.docker.docker_system.tempfile.TemporaryDirectory")
+    def test__init_image_dockerfile_build(self, mock_tempdir, mock_from_env, mock_copytree, mock_copy2, tmpdir):
         # setup
+        mock_tempdir.return_value.__enter__.return_value = tmpdir
+
         import docker
 
         mock_docker_client = MagicMock()
@@ -52,17 +59,19 @@ class TestDockerSystem:
         DockerSystem(docker_config, is_dev=True)
 
         # assert
+        expected_build_context_path = tmpdir
         mock_docker_client.images.build.assert_called_once_with(
-            path=docker_config.build_context_path,
+            path=expected_build_context_path,
             dockerfile=docker_config.dockerfile,
             tag=docker_config.image_name,
             buildargs=docker_config.build_args,
         )
 
     @patch("olive.systems.docker.docker_system.shutil.copy2")
+    @patch("olive.systems.docker.docker_system.shutil.copyfile")
     @patch("olive.systems.docker.docker_system.docker.from_env")
     @patch("olive.systems.docker.docker_system.tempfile.TemporaryDirectory")
-    def test__init_image_requirements_file_build(self, mock_tempdir, mock_from_env, mock_copy, tmpdir):
+    def test__init_image_requirements_file_build(self, mock_tempdir, mock_from_env, mock_copyfile, mock_copy, tmpdir):
         # setup
         import docker
 
@@ -72,13 +81,12 @@ class TestDockerSystem:
         mock_from_env.return_value = mock_docker_client
         docker_config = LocalDockerConfig(
             image_name="image_name",
-            requirements_file_path="requirements_file_path",
         )
         mock_docker_client.images.get.side_effect = docker.errors.ImageNotFound("msg")
         mock_docker_client.images.build.return_value = (MagicMock(), [{"stream": "Successfully built mock_image_id"}])
 
         # execute
-        docker_system = DockerSystem(docker_config, is_dev=True)
+        docker_system = DockerSystem(docker_config, is_dev=True, requirements_file="requirements_file")
 
         # assert
         mock_docker_client.images.build.assert_called_once_with(
@@ -222,3 +230,23 @@ class TestDockerSystem:
             for sub_type in metric.sub_types:
                 joint_key = joint_metric_key(metric.name, sub_type.name)
                 assert actual_res[joint_key].value == 0.99618
+
+    @patch("olive.systems.docker.docker_system.docker.from_env")
+    def test_managed_env(self, mock_from_env):
+        import docker
+
+        mock_docker_client = MagicMock()
+        mock_from_env.return_value = mock_docker_client
+        mock_docker_client.images.get.side_effect = docker.errors.ImageNotFound("msg")
+        mock_docker_client.images.build.return_value = (MagicMock(), [{"stream": "Successfully built mock_image_id"}])
+
+        system_config = SystemConfig(
+            type="Docker",
+            config=DockerTargetUserConfig(
+                accelerators=["cpu"],
+                olive_managed_env=True,
+                is_dev=True,
+            ),
+        )
+        target = create_new_system(system_config, DEFAULT_CPU_ACCELERATOR)
+        assert target.olive_managed_env

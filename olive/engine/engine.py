@@ -24,6 +24,7 @@ from olive.strategy.search_strategy import SearchStrategy
 from olive.systems.common import SystemType
 from olive.systems.local import LocalSystem
 from olive.systems.olive_system import OliveSystem
+from olive.systems.system_config import LocalTargetUserConfig, SystemConfig
 from olive.systems.utils import create_new_system_with_cache
 
 if TYPE_CHECKING:
@@ -45,8 +46,8 @@ class Engine:
         self,
         config: Union[Dict[str, Any], EngineConfig] = None,
         search_strategy: Optional[SearchStrategy] = None,
-        host: Optional[OliveSystem] = None,
-        target: Optional[OliveSystem] = None,
+        host_config: Optional[SystemConfig] = None,
+        target_config: Optional[SystemConfig] = None,
         evaluator_config: Optional["OliveEvaluatorConfig"] = None,
     ):
         self._config = validate_config(config, EngineConfig)
@@ -65,21 +66,23 @@ class Engine:
             self.no_search = True
 
         # default host
-        if host is not None:
-            self.host = host
+        if host_config is not None:
+            self.host_config = host_config
         elif self._config.host is not None:
-            self.host = self._config.host.create_system()
+            self.host_config = self._config.host
         else:
             # host accelerator is not used, so no need to specify it
-            self.host = LocalSystem()
+            self.host_config = SystemConfig(type=SystemType.Local, config=LocalTargetUserConfig())
+        self.host = None
 
         # engine target
-        if target is not None:
-            self.target = target
+        if target_config is not None:
+            self.target_config = target_config
         elif self._config.target is not None:
-            self.target = self._config.target.create_system()
+            self.target_config = self._config.target
         else:
-            self.target = LocalSystem()
+            self.target_config = SystemConfig(type=SystemType.Local, config=LocalTargetUserConfig())
+        self.target = None
 
         # default evaluator
         self.evaluator_config = None
@@ -110,6 +113,7 @@ class Engine:
         if self._config.clean_evaluation_cache:
             cache_utils.clean_evaluation_cache(cache_dir)
 
+        logger.info("Using cache directory: %s", cache_dir)
         self._model_cache_path, self._run_cache_path, self._evaluation_cache_path, _ = cache_utils.get_cache_sub_dirs(
             cache_dir
         )
@@ -265,6 +269,7 @@ class Engine:
         outputs = {}
 
         for accelerator_spec in accelerator_specs:
+            logger.info("Running Olive on accelerator: %s", accelerator_spec)
             with self.create_managed_environment(accelerator_spec):
                 run_result = self.run_accelerator(
                     input_model_config,
@@ -336,6 +341,7 @@ class Engine:
                     return results
 
             if self.no_search:
+                logger.debug("Running Olive in no-search mode ...")
                 output_footprint = self.run_no_search(
                     input_model_config,
                     input_model_id,
@@ -345,6 +351,7 @@ class Engine:
                     output_name,
                 )
             else:
+                logger.debug("Running Olive in search mode ...")
                 output_footprint = self.run_search(
                     input_model_config,
                     input_model_id,
@@ -362,6 +369,7 @@ class Engine:
         output_fp_path = output_dir / f"{prefix_output_name}_footprints.json"
         logger.info(f"Save footprint to {output_fp_path}")
         self.footprints[accelerator_spec].to_file(output_fp_path)
+        logger.debug("run_accelerator done")
         return output_footprint
 
     def setup_passes(self, accelerator_spec: "AcceleratorSpec"):
@@ -827,6 +835,7 @@ class Engine:
                 # skip evaluation if no search and no evaluator
                 signal = None
             else:
+                logger.info("Run model evaluation for the final model...")
                 signal = self._evaluate_model(model_config, model_id, data_root, evaluator_config, accelerator_spec)
             logger.debug(f"Signal: {signal}")
         else:
@@ -882,7 +891,7 @@ class Engine:
                     start_time=run_cache.get("run_start_time", 0),
                     end_time=run_cache.get("run_end_time", 0),
                 )
-                logger.info(f"Loaded model from cache: {output_model_id}")
+                logger.info(f"Loaded model from cache: {output_model_id} from {self._run_cache_path}")
                 return output_model_config, output_model_id
 
         # new model id
@@ -910,6 +919,17 @@ class Engine:
 
         run_start_time = datetime.now().timestamp()
         try:
+            from olive.passes.onnx.perf_tuning import OrtPerfTuning
+
+            # For perf-tuning, we need the model evaluation happens in target even if it is a pass.
+            # TODO(myguo): consider more better way to handle System doesn't support run pass like DockerSystem
+            if (
+                isinstance(p, OrtPerfTuning)
+                and isinstance(host, LocalSystem)
+                and not isinstance(self.target, LocalSystem)
+            ):
+                p.set_target(self.target)
+
             output_model_config = host.run_pass(p, input_model_config, data_root, output_model_path, pass_search_point)
         except OlivePassError:
             logger.exception("Pass run_pass failed")
@@ -1038,20 +1058,29 @@ class Engine:
 
     @contextmanager
     def create_managed_environment(self, accelerator_spec):
-        origin_target = self.target
-        origin_host = self.host
-        if origin_target.olive_managed_env:
-            self.target = create_new_system_with_cache(origin_target, accelerator_spec)
-        if origin_host.olive_managed_env:
-            self.host = create_new_system_with_cache(origin_host, accelerator_spec)
+        def create_system(config: "SystemConfig", accelerator_spec):
+            assert config, "System config is not provided"
+            if config.olive_managed_env:
+                logger.debug(
+                    "Creating olive_managed_env %s with EP %s", config.type, accelerator_spec.execution_provider
+                )
+                return create_new_system_with_cache(config, accelerator_spec)
+            else:
+                logger.debug("create native OliveSystem %s", config.type)
+                return config.create_system()
+
+        if not self.target:
+            self.target = create_system(self.target_config, accelerator_spec)
+        if not self.host:
+            self.host = create_system(self.host_config, accelerator_spec)
 
         yield
 
-        if origin_host.olive_managed_env:
-            self.host.remove()
-            self.host = origin_host
-        if origin_target.olive_managed_env:
+        if self.target_config.olive_managed_env:
             self.target.remove()
-            self.target = origin_target
+            self.target = None
+        if self.host_config.olive_managed_env:
+            self.host.remove()
+            self.host = None
 
         create_new_system_with_cache.cache_clear()

@@ -157,7 +157,7 @@ def run_engine(config: RunConfig, data_root: str = None):
         pass_config.evaluator is None for pass_config in config.passes.values()
     )
     accelerator_specs = create_accelerators(
-        engine.target, config.engine.execution_providers, skip_supported_eps_check=no_evaluation
+        engine.target_config, config.engine.execution_providers, skip_supported_eps_check=no_evaluation
     )
 
     pass_list = []

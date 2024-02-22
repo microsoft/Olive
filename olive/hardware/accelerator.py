@@ -8,7 +8,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, ClassVar, List, Union
 
 if TYPE_CHECKING:
-    from olive.systems.olive_system import OliveSystem
+    from olive.systems.system_config import SystemConfig
 
 
 logger = logging.getLogger(__name__)
@@ -139,25 +139,32 @@ class AcceleratorLookup:
 
 
 def create_accelerators(
-    target: "OliveSystem", execution_providers: List[str] = None, skip_supported_eps_check: bool = True
+    system_config: "SystemConfig", execution_providers: List[str] = None, skip_supported_eps_check: bool = True
 ) -> List[AcceleratorSpec]:
     from olive.systems.common import SystemType
 
-    if not execution_providers:
-        if target.olive_managed_env:
+    if system_config.olive_managed_env:
+        if not execution_providers:
             raise ValueError("Managed environment requires execution providers to be specified.")
-        elif target.system_type == SystemType.AzureML:
+    else:
+        system_supported_eps = None
+        if system_config.type in (SystemType.Local, SystemType.PythonEnvironment):
+            target = system_config.create_system()
+            system_supported_eps = target.get_supported_execution_providers()
+
+    if not execution_providers:
+        if system_config.type == SystemType.AzureML:
             # verify the AzureML system have specified the execution providers
             # Please note we could not use isinstance(target, AzureMLSystem) since it would import AzureML packages.
             raise ValueError("AzureMLSystem requires execution providers to be specified.")
-        elif target.system_type in (SystemType.Local, SystemType.PythonEnvironment):
-            execution_providers = target.get_supported_execution_providers()
-        elif target.system_type == SystemType.Docker:
+        elif system_config.type == SystemType.Docker:
             # for docker system we default use CPUExecutionProvider
             execution_providers = ["CPUExecutionProvider"]
+        elif system_config.type in (SystemType.Local, SystemType.PythonEnvironment):
+            execution_providers = system_supported_eps
     logger.debug(f"Initial execution providers: {execution_providers}")
 
-    accelerators: List[str] = target.accelerators
+    accelerators: List[str] = system_config.config.accelerators
     if accelerators is None:
         inferred_accelerators = AcceleratorLookup.infer_accelerators_from_execution_provider(execution_providers)
         if not inferred_accelerators:
@@ -176,13 +183,13 @@ def create_accelerators(
     is_cpu_available = "cpu" in [accelerator.lower() for accelerator in accelerators]
     for accelerator in accelerators:
         device = Device(accelerator.lower())
-        if target.olive_managed_env:
+        if system_config.olive_managed_env:
             available_eps = AcceleratorLookup.get_managed_supported_execution_providers(device)
-        elif target.system_type in (SystemType.Local, SystemType.PythonEnvironment) and not skip_supported_eps_check:
+        elif system_config.type in (SystemType.Local, SystemType.PythonEnvironment) and not skip_supported_eps_check:
             # don't need to check the supported execution providers if there is no evaluation
             # target is only used for evaluation
-            available_eps = target.get_supported_execution_providers()
-        elif target.system_type == SystemType.Docker:
+            available_eps = system_supported_eps
+        elif system_config.type == SystemType.Docker:
             # TODO(myguo): do we need allow docker system support other execution providers?
             available_eps = ["CPUExecutionProvider"]
         else:

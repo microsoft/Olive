@@ -109,7 +109,7 @@ def check_and_normalize_provider_args(
     provider_name_to_options = collections.OrderedDict()
 
     def set_provider_options(name, options):
-        if name not in available_provider_names:
+        if available_provider_names and name not in available_provider_names:
             logger.warning(
                 "Specified provider '%s' is not in available provider names.Available providers: '%s'",
                 name,
