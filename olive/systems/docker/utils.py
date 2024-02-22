@@ -19,19 +19,11 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def create_config_file(
-    tempdir, model_config: "ModelConfig", metrics: List["Metric"], container_root_path: Path, model_mounts: dict
-):
-    model_json = model_config.to_json(check_object=True)
-    for k, v in model_mounts.items():
-        model_json["config"][k] = v
-
+def create_config_file(tempdir, config: dict, container_root_path: Path, model_mounts: dict):
     config_file_path = Path(tempdir) / "config.json"
-    data = {"metrics": [k.dict() for k in metrics], "model": model_json}
-
     # the config yaml file saved to local disk
     with config_file_path.open("w") as f:
-        json.dump(data, f)
+        json.dump(config, f)
     config_mount_path = str(container_root_path / "config.json")
     config_file_mount_str = f"{config_file_path}:{config_mount_path}"
     return config_mount_path, config_file_mount_str
@@ -60,9 +52,8 @@ def create_run_command(run_params: dict):
     return run_command_dict
 
 
-def create_metric_volumes_list(
-    data_root: str, metrics: List["Metric"], container_root_path: Path, mount_list: list
-) -> List[str]:
+def create_metric_volumes_list(data_root: str, metrics: List["Metric"], container_root_path: Path) -> List[str]:
+    volume_list = []
     for metric in metrics:
         metric_path = container_root_path / "metrics" / metric.name
         if metric.user_config.user_script:
@@ -70,7 +61,7 @@ def create_metric_volumes_list(
             user_script_name = Path(metric.user_config.user_script).name
             user_script_mount_path = str(metric_path / user_script_name)
 
-            mount_list.append(f"{user_script_path}:{user_script_mount_path}")
+            volume_list.append(f"{user_script_path}:{user_script_mount_path}")
             metric.user_config.user_script = user_script_mount_path
 
         if metric.user_config.script_dir:
@@ -78,15 +69,15 @@ def create_metric_volumes_list(
             script_dir_name = Path(metric.user_config.script_dir).name
             script_dir_mount_path = str(metric_path / script_dir_name)
 
-            mount_list.append(f"{script_dir_path}:{script_dir_mount_path}")
+            volume_list.append(f"{script_dir_path}:{script_dir_mount_path}")
             metric.user_config.script_dir = script_dir_mount_path
 
         if data_root or metric.user_config.data_dir:
             data_dir = get_local_path_from_root(data_root, metric.user_config.data_dir)
-            mount_list.append(f"{data_dir}:{str(metric_path / 'data_dir')}")
+            volume_list.append(f"{data_dir}:{str(metric_path / 'data_dir')}")
             metric.user_config.data_dir = str(metric_path / "data_dir")
 
-    return mount_list
+    return volume_list
 
 
 def create_model_mount(model_config: "ModelConfig", container_root_path: Path):

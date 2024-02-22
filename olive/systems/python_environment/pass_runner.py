@@ -21,7 +21,6 @@ def get_args(raw_args):
 
     parser.add_argument("--model_json_path", type=str, required=True, help="Path to input model json file")
     parser.add_argument("--pass_json_path", type=str, required=True, help="Path to pass json file")
-    parser.add_argument("--point_json_path", type=str, default=None, help="Path to point json file")
     parser.add_argument("--data_root", type=str, default=None, help="Path to data root")
     parser.add_argument("--output_model_path", type=str, required=True, help="Path to output model file")
     parser.add_argument("--output_model_json_path", type=str, required=True, help="Path to output model json file")
@@ -41,13 +40,6 @@ def main(raw_args=None):
     with open(args.pass_json_path) as f:
         pass_json = json.load(f)
 
-    if args.point_json_path:
-        args.point_json_path = Path(args.point_json_path)
-        with open(args.point_json_path) as f:
-            point = json.load(f)
-    else:
-        point = None
-
     if args.data_root:
         args.data_root = Path(args.data_root)
     else:
@@ -57,7 +49,7 @@ def main(raw_args=None):
     the_pass = FullPassConfig.from_json(pass_json).create_pass()
 
     # run pass
-    output_model = the_pass.run(model, args.data_root, args.output_model_path, point)
+    output_model = the_pass.run(model, args.data_root, args.output_model_path)
 
     # save model json
     output_json = output_model.to_json()
