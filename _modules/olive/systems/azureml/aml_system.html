@@ -217,29 +217,35 @@
         <span class="n">is_dev</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">accelerators</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">olive_managed_env</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">requirements_file</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">hf_token</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">accelerators</span><span class="p">,</span> <span class="n">olive_managed_env</span><span class="o">=</span><span class="n">olive_managed_env</span><span class="p">,</span> <span class="n">hf_token</span><span class="o">=</span><span class="n">hf_token</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">instance_count</span> <span class="o">=</span> <span class="n">instance_count</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">tags</span> <span class="o">=</span> <span class="n">tags</span> <span class="ow">or</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">resources</span> <span class="o">=</span> <span class="n">resources</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">is_dev</span> <span class="o">=</span> <span class="n">is_dev</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">requirements_file</span> <span class="o">=</span> <span class="n">requirements_file</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">compute</span> <span class="o">=</span> <span class="n">aml_compute</span>
-        <span class="n">azureml_client_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">azureml_client_config</span><span class="p">,</span> <span class="n">AzureMLClientConfig</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span> <span class="o">=</span> <span class="n">azureml_client_config</span>
-        <span class="k">if</span> <span class="p">(</span><span class="n">aml_docker_config</span> <span class="ow">or</span> <span class="n">aml_environment_config</span><span class="p">)</span> <span class="ow">and</span> <span class="n">olive_managed_env</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Olive managed environment is not supported if aml_docker_config or aml_environment_config is provided.&quot;</span>
-            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">azureml_client_config</span><span class="p">,</span> <span class="n">AzureMLClientConfig</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">aml_docker_config</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">aml_environment_config</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;either aml_docker_config or aml_environment_config should be provided.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">environment</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">aml_environment_config</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">azure.core.exceptions</span> <span class="kn">import</span> <span class="n">ResourceNotFoundError</span>
+
             <span class="n">aml_environment_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">aml_environment_config</span><span class="p">,</span> <span class="n">AzureMLEnvironmentConfig</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">environment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_enironment_from_config</span><span class="p">(</span><span class="n">aml_environment_config</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">aml_docker_config</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">environment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_enironment_from_config</span><span class="p">(</span><span class="n">aml_environment_config</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">ResourceNotFoundError</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">aml_docker_config</span><span class="p">:</span>
+                    <span class="k">raise</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">environment</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">aml_docker_config</span><span class="p">:</span>
             <span class="n">aml_docker_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">aml_docker_config</span><span class="p">,</span> <span class="n">AzureMLDockerConfig</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">environment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_environment</span><span class="p">(</span><span class="n">aml_docker_config</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">env_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_hf_token_env</span><span class="p">(</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">keyvault_name</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_token</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">env_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_hf_token_env</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">keyvault_name</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_token</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">temp_dirs</span> <span class="o">=</span> <span class="p">[]</span>
 
     <span class="k">def</span> <span class="nf">_get_hf_token_env</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyvault_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">keyvault_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -264,10 +270,17 @@
     <span class="k">def</span> <span class="nf">_create_environment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">docker_config</span><span class="p">:</span> <span class="n">AzureMLDockerConfig</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">docker_config</span><span class="o">.</span><span class="n">build_context_path</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">Environment</span><span class="p">(</span>
-                <span class="n">build</span><span class="o">=</span><span class="n">BuildContext</span><span class="p">(</span><span class="n">dockerfile_path</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">dockerfile</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">build_context_path</span><span class="p">)</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">version</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">version</span><span class="p">,</span>
+                <span class="n">build</span><span class="o">=</span><span class="n">BuildContext</span><span class="p">(</span><span class="n">dockerfile_path</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">dockerfile</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">build_context_path</span><span class="p">),</span>
             <span class="p">)</span>
-        <span class="k">if</span> <span class="n">docker_config</span><span class="o">.</span><span class="n">base_image</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">Environment</span><span class="p">(</span><span class="n">image</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">base_image</span><span class="p">,</span> <span class="n">conda_file</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">conda_file_path</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">docker_config</span><span class="o">.</span><span class="n">base_image</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Environment</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">version</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">version</span><span class="p">,</span>
+                <span class="n">image</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">base_image</span><span class="p">,</span>
+                <span class="n">conda_file</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">conda_file_path</span><span class="p">,</span>
+            <span class="p">)</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Please specify DockerConfig.&quot;</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_assert_not_none</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
@@ -834,7 +847,11 @@
         <span class="k">return</span> <span class="n">cmd</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;AzureML system does not need system removal&quot;</span><span class="p">)</span></div>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temp_dirs</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;AzureML system cleanup temp dirs.&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">temp_dir</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">temp_dirs</span><span class="p">:</span>
+                <span class="n">temp_dir</span><span class="o">.</span><span class="n">cleanup</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">temp_dirs</span> <span class="o">=</span> <span class="p">[]</span></div>
 </pre></div>
 
            </div>
