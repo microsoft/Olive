@@ -10,7 +10,7 @@ from pathlib import Path
 from olive.model import ModelConfig
 from olive.passes.olive_pass import FullPassConfig
 
-ort_inference_utils_parent = Path(__file__).resolve().parent.parent.parent / "common"
+ort_inference_utils_parent = Path(__file__).resolve().parent[2] / "common"
 sys.path.append(str(ort_inference_utils_parent))
 
 # ruff: noqa: PTH123

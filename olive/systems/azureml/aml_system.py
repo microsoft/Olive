@@ -371,7 +371,7 @@ class AzureMLSystem(OliveSystem):
                 "Dev mode is only enabled for CI pipeline! "
                 "It will overwrite the Olive package in AML computer with latest code."
             )
-            project_folder = cur_dir.parent.parent
+            project_folder = cur_dir.parents[1]
             copy_dir(project_folder, code_root / "olive", ignore=shutil.ignore_patterns("__pycache__"))
 
         accelerator_info = {
@@ -675,7 +675,7 @@ class AzureMLSystem(OliveSystem):
                 "Dev mode is only enabled for CI pipeline! "
                 "It will overwrite the Olive package in AML computer with latest code."
             )
-            project_folder = cur_dir.parent.parent
+            project_folder = cur_dir.parents[1]
             copy_dir(project_folder, code_root / "olive", ignore=shutil.ignore_patterns("__pycache__"))
 
         # prepare inputs

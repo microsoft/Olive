@@ -112,7 +112,7 @@ def create_dev_mount(tempdir: Path, container_root_path: Path):
     tempdir = Path(tempdir)
 
     # copy the whole project folder to tempdir
-    project_folder = Path(__file__).resolve().parent.parent.parent
+    project_folder = Path(__file__).resolve().parents[2]
     copy_dir(project_folder, tempdir / "olive", ignore=shutil.ignore_patterns("__pycache__"))
 
     project_folder_mount_path = str(container_root_path / "olive")
