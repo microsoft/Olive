@@ -1,5 +1,5 @@
 
-gradio==3.42.0 # Gradio 3.47 breaks the UI and versions between 3.42 and 3.47 haven't been tested
+gradio==4.19.2 # Gradio 3.47 breaks the UI and versions between 3.42 and 3.47 haven't been tested
 markdown
 mdtex2html
 onnxruntime-directml>=1.16.2
