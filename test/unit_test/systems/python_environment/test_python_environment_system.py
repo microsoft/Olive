@@ -15,11 +15,15 @@ import torch
 
 from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricResult, MetricType, joint_metric_key
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
+from olive.passes.olive_pass import create_pass_from_dict
+from olive.passes.onnx.perf_tuning import OrtPerfTuning
 from olive.systems.local import LocalSystem
 from olive.systems.python_environment import PythonEnvironmentSystem
 from olive.systems.python_environment.available_eps import main as available_eps_main
 from olive.systems.python_environment.inference_runner import main as inference_runner_main
 from olive.systems.python_environment.is_valid_ep import main as is_valid_ep_main
+from olive.systems.system_config import PythonEnvironmentTargetUserConfig, SystemConfig
+from olive.systems.utils import create_new_system, create_new_system_with_cache
 
 # pylint: disable=no-value-for-parameter, attribute-defined-outside-init
 
@@ -311,9 +315,6 @@ class TestPythonEnvironmentSystem:
 
     @patch("olive.systems.utils.create_new_system")
     def test_create_new_system_with_cache(self, mock_create_new_system):
-        from olive.systems.system_config import PythonEnvironmentTargetUserConfig, SystemConfig
-        from olive.systems.utils import create_new_system_with_cache
-
         system_config = SystemConfig(
             type="PythonEnvironment",
             config=PythonEnvironmentTargetUserConfig(
@@ -327,9 +328,6 @@ class TestPythonEnvironmentSystem:
         assert create_new_system_with_cache.cache_info().currsize == 0
 
     def test_create_managed_env(self):
-        from olive.systems.system_config import PythonEnvironmentTargetUserConfig, SystemConfig
-        from olive.systems.utils import create_new_system
-
         system_config = SystemConfig(
             type="PythonEnvironment",
             config=PythonEnvironmentTargetUserConfig(
@@ -338,3 +336,18 @@ class TestPythonEnvironmentSystem:
         )
         system = create_new_system(system_config, DEFAULT_CPU_ACCELERATOR)
         assert system.olive_managed_env
+
+    def test_pass_runner(self, tmp_path):
+        system_config = SystemConfig(
+            type="PythonEnvironment",
+            config=PythonEnvironmentTargetUserConfig(),
+        )
+        python_system = system_config.create_system()
+
+        input_model = get_onnx_model()
+        p = create_pass_from_dict(OrtPerfTuning, {}, disable_search=True)
+        output_folder = str(tmp_path / "onnx")
+
+        # execute
+        output_model = python_system.run_pass(p, input_model, None, output_folder)
+        assert output_model is not None
