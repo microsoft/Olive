@@ -37,6 +37,11 @@ class SliceGPT(Pass):
                 default_value="random",
                 description="Final orientation of the sliced weights. Choices are random or pca."
             ),
+            "round_interval": PassConfigParam(
+                type_=int,
+                default_value=8,
+                description="Interval for rounding the weights (the best value may depend on your hardware)",
+            ),
             "data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
                 required=True,
@@ -56,10 +61,12 @@ class SliceGPT(Pass):
             return model_handler
 
         model = model_handler.load_model()
+        original_param_count = sum(int(p.nelement()) for p in model.parameters())
+        logger.info(f'Original model parameters: {original_param_count:,d}')
 
-        from TransformerCompression.slicegpt.hf_utils import get_model_adapter
-        from TransformerCompression.slicegpt import layernorm_fusion, rotate
-        from TransformerCompression.slicegpt.slicing_scheduler import ConstSlicingScheduler
+        from slicegpt.hf_utils import get_model_adapter
+        from slicegpt import layernorm_fusion, rotate
+        from slicegpt.slicing_scheduler import ConstSlicingScheduler
 
         model_adapter = get_model_adapter(model_handler.hf_config.model_name, model)
 
@@ -83,8 +90,12 @@ class SliceGPT(Pass):
 
         # rotate and slice
         rotate.rotate_and_slice(model_adapter, dataloader, schedular, final_orientation=config["final_orientation"])
+        sliced_param_count = sum(int(p.nelement()) for p in model.parameters())
+        sliced_fraction = 1.0 - sliced_param_count / original_param_count
+        logger.info(f'Sliced model parameters: {sliced_param_count:,d} (sliced fraction {sliced_fraction:.4f})')
 
-        # return PyTorchModelHandler with updated model path
+        # return PyTorchModelHandler
+        model.save_pretrained(output_model_path)
         model_config = model.to_json()["config"]
         model_config["model_path"] = output_model_path
         return PyTorchModelHandler(**model_config, model_file_format=ModelFileFormat.PYTORCH_SLICE_GPT_MODEL)

@@ -226,8 +226,8 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
             return loaded_model
 
     def _load_slicegpt_model(self):
-        logger.info(f"Loading SpliceGPT model from {self.model_path}")
-        from TransformerCompression.slicgpt.hf_utils import load_sliced_model as lsm
+        logger.info(f"Loading SliceGPT model from {self.model_path}")
+        from slicgpt.hf_utils import load_sliced_model as lsm
         loaded_model, _ = lsm(self.model_path)
         return loaded_model
 

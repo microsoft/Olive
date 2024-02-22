@@ -1,0 +1,45 @@
+{
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "hf_config": {
+                "model_name": "facebook/opt-125m",
+                "task": "text-generation"
+            }
+        }
+    },
+    "data_configs": {
+        "wikitext2_test": {
+            "name": "wikitext2_test",
+            "type": "HuggingfaceContainer",
+            "params_config": {
+                "data_name": "wikitext",
+                "subset": "wikitext-2-raw-v1",
+                "split": "test",
+                "component_kwargs": {
+                    "pre_process_data": {
+                        "text_cols": ["text"],
+                        "corpus_strategy": "join",
+                        "add_special_tokens": false,
+                        "source_max_len": 2048
+                    }
+                }
+            }
+        }
+    },
+    "passes": {
+        "slice": {
+            "type": "SliceGPT",
+            "config": {
+                "sparsity": 0.4,
+                "data_config": "wikitext2_test"
+            }
+        }
+    },
+    "engine": {
+        "cache_dir": "cache",
+        "output_name": "sliced_opt",
+        "execution_providers": ["CPUExecutionProvider"],
+        "output_dir": "models/opt"
+    }
+}
