@@ -72,7 +72,11 @@ class QNNModelLibGenerator(Pass):
             logger.debug("No model.bin found, using generic qnn_model.so")
             input_model_bin = None
 
+        # lib generator requires the output path to be a directory
         output_model_path = Path(output_model_path).resolve()
+        # for multi-components models, the output path might not exist
+        output_model_path.mkdir(parents=True, exist_ok=True)
+        assert output_model_path.is_dir(), f"Output path {output_model_path} is not a directory"
 
         cmd_list = [
             main_cmd,

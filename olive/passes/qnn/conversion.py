@@ -10,6 +10,7 @@ from typing import Any, Callable, Dict, List, Union
 from olive.constants import ModelFileFormat
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler, PyTorchModelHandler, QNNModelHandler, TensorFlowModelHandler
+from olive.model.utils import resolve_model_path
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import PassConfigParam
 from olive.passes.qnn.common import get_env_config
@@ -108,9 +109,7 @@ class QNNConversion(Pass):
         elif model.io_config:
             out_nodes = model.io_config.output_names
 
-        output_model_path = Path(output_model_path).resolve()
-        if output_model_path.suffix != ".cpp":
-            output_model_path = output_model_path.with_suffix(".cpp")
+        output_model_path = resolve_model_path(output_model_path, "model.cpp")
 
         cmd_list = [
             converter_program,
