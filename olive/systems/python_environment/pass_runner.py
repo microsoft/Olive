@@ -4,14 +4,10 @@
 # --------------------------------------------------------------------------
 import argparse
 import json
-import sys
 from pathlib import Path
 
 from olive.model import ModelConfig
 from olive.passes.olive_pass import FullPassConfig
-
-ort_inference_utils_parent = Path(__file__).resolve().parents[2] / "common"
-sys.path.append(str(ort_inference_utils_parent))
 
 # ruff: noqa: PTH123
 
