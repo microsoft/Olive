@@ -5,6 +5,7 @@
 import argparse
 import json
 import shutil
+import sys
 import tempfile
 from pathlib import Path
 
@@ -19,7 +20,12 @@ from olive.model import ModelConfig
 from olive.passes import REGISTRY as PASS_REGISTRY
 from olive.passes import FullPassConfig
 from olive.resource_path import create_resource_path
-from olive.systems.azureml.utils import get_common_args
+
+cur_dir = Path(__file__).resolve().parent
+sys.path.append(str(cur_dir))
+
+# pylint: disable=wrong-import-position
+from utils import get_common_args  # noqa: E402
 
 
 def parse_pass_config_arg(raw_args):
