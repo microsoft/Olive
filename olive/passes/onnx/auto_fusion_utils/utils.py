@@ -4,7 +4,9 @@
 # --------------------------------------------------------------------------
 import os
 from pathlib import Path
-from typing import List, Union
+from typing import Dict, List, Union
+
+from olive.common.utils import hash_dict
 
 TL_DTYPE_MAP = {
     "fp32": "tl.float32",
@@ -36,6 +38,8 @@ NP_DTYPE_REVERSE_MAP = {
 
 DOMAIN = "olive.auto_fusion"
 
+KERNEL_OUTPUT = "__fusion__output__"
+
 
 def get_env_path(var_name):
     if not os.environ.get(var_name):
@@ -44,14 +48,19 @@ def get_env_path(var_name):
     return Path(os.environ[var_name])
 
 
-def create_triton_kernel_name(ops: List[str], dtype: str) -> str:
+def hash_kernel_info(kernel_info: Dict) -> str:
+    """Hash the kernel info to create a unique name for the custom op."""
+    return hash_dict(kernel_info)[:8]
+
+
+def create_triton_kernel_name(kernel_info: Dict) -> str:
     """Create the name for the triton kernel for the fused op."""
-    return "_".join(["triton", dtype, *[op.lower() for op in ops]])
+    return "_".join(["triton", *kernel_info["ops"], hash_kernel_info(kernel_info)])
 
 
-def create_custom_op_name(ops: List[str], dtype: str) -> str:
+def create_custom_op_name(kernel_info: Dict) -> str:
     """Create the name for the custom op for the fused op."""
-    return "".join(["Triton", dtype.upper(), *ops])
+    return "".join(["Triton", *kernel_info["ops"], "_", hash_kernel_info(kernel_info)])
 
 
 def join_params(params: Union[List, str], joiner: str = ",\n    ", end: str = ",", default: str = "# Not Used") -> str:

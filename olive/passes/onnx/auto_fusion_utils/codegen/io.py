@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import re
-from typing import TYPE_CHECKING, List, Union
+from typing import TYPE_CHECKING, List, Tuple, Union
 
 if TYPE_CHECKING:
     sympy = None
@@ -66,7 +66,7 @@ class KernelIO:
 
         if any(val == sympy.Integer(0) for val in strides):
             for idx, val in enumerate(strides):
-                if val == sympy.Integer(0):
+                if val != sympy.Integer(0):
                     self.used_dims.add(idx)
 
     def get_symbolic_dims(self):
@@ -88,6 +88,9 @@ class KernelIO:
         dim_indices = self.make_sympy_shape([f"y_{idx}_idx" for idx in range(self.rank)])
         expand_opt = create_expand_pow_optimization(6)
         return str(expand_opt(sympy_dot(dim_indices, self.input_strides[input_name])))
+
+    def get_dim_source(self, dim_name: str) -> Tuple[str, int]:
+        return self.dim_sources[dim_name]
 
     @classmethod
     def from_kernel_info(cls, kernel_info) -> "KernelIO":

@@ -7,9 +7,8 @@ from typing import TYPE_CHECKING, Dict, List, Tuple, Union
 
 import onnx
 
-from olive.common.utils import hash_dict
 from olive.passes.onnx.auto_fusion_utils.codegen.ops import is_elementwise_op
-from olive.passes.onnx.auto_fusion_utils.utils import DOMAIN
+from olive.passes.onnx.auto_fusion_utils.utils import DOMAIN, KERNEL_OUTPUT, create_custom_op_name, hash_kernel_info
 
 if TYPE_CHECKING:
     from onnx import NodeProto
@@ -64,13 +63,18 @@ class FusionBase(ABC):
         return len(self.fused_nodes) + 1
 
     @staticmethod
+    def dtype_is_valid(node: str, dag: "OnnxDAG") -> bool:
+        # TODO(jambayk): support more dtypes
+        return all(dtype == "float32" for dtype in dag.get_input_dtypes(node) + dag.get_output_dtypes(node))
+
+    @staticmethod
     @abstractmethod
     def support_multidirectional_broadcasting() -> bool:
         raise NotImplementedError
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def is_valid_base_op(node: str, dag: "OnnxDAG") -> bool:
+    def is_valid_base_op(cls, node: str, dag: "OnnxDAG") -> bool:
         raise NotImplementedError
 
     def still_exists(self) -> bool:
@@ -126,6 +130,8 @@ class FusionBase(ABC):
         return True
 
     def add_fused_node(self, node: str):
+        assert self.dtype_is_valid(node, self.dag), f"Invalid dtype: {node}"
+
         inputs = self.dag.get_input_names(node)
         assert self.output_name in inputs, "Output of current fusion must be input to the new fusion"
 
@@ -139,10 +145,12 @@ class FusionBase(ABC):
         assert self.is_valid_fusion(self.dag.get_op_type(node), shape), f"Invalid fusion: {node}"
 
         self.fused_nodes.append(node)
-        inputs[input_idx] = "__fusion__output__"
+        inputs[input_idx] = KERNEL_OUTPUT
         self.network.append((node, inputs))
 
     def concat_fusion(self, fusion: "FusionBase"):
+        assert self.dtype_is_valid(fusion.base_node, fusion.dag), f"Invalid dtype: {fusion.base_node}"
+
         inputs = fusion.dag.get_input_names(fusion.base_node)
         assert self.output_name in inputs, "Output of current fusion must be input to the new fusion"
 
@@ -152,7 +160,7 @@ class FusionBase(ABC):
 
         input_idx = inputs.index(self.output_name)
         self.fused_nodes.extend([fusion.base_node, *fusion.fused_nodes])
-        inputs[input_idx] = "__fusion__output__"
+        inputs[input_idx] = KERNEL_OUTPUT
         self.network.extend([(fusion.base_node, inputs), *fusion.network[1:]])
 
     def try_fuse_node(self, node: str) -> bool:
@@ -176,19 +184,20 @@ class FusionBase(ABC):
         for node, inputs in self.network:
             op_type = self.dag.get_op_type(node)
             input_names = [
-                (name if name == "__fusion__output__" else kernel_args.add_input(name, self.dag.get_shape(name)))
+                (name if name == KERNEL_OUTPUT else kernel_args.add_input(name, self.dag.get_shape(name)))
                 for name in inputs
             ]
             network.append([op_type, input_names])
 
         return {
+            "ops": self.get_op_types(),
             "network": network,
             "shapes": kernel_args.input_shapes,
             "output_shape": kernel_args.output_shape,
         }
 
     def get_hash(self) -> str:
-        return hash_dict(self.kernel_info())
+        return hash_kernel_info(self.kernel_info())
 
     def get_op_types(self) -> List[str]:
         return [self.dag.get_op_type(node) for node in [self.base_node, *self.fused_nodes]]
@@ -201,24 +210,31 @@ class FusionBase(ABC):
             # no fusion
             return None, None
 
+        seen_inputs = set()
         node_names = []
         inputs = []
         # TODO(jambayk): handle attributes when supported
         for node, node_inputs in self.network:
             node_names.append(node)
-            inputs.extend([input_name for input_name in node_inputs if input_name != "__fusion__output__"])
+            for input_name in node_inputs:
+                if input_name == KERNEL_OUTPUT or input_name in seen_inputs:
+                    continue
+                inputs.append(input_name)
+                seen_inputs.add(input_name)
         # we only have single output fusion for now
         outputs = [self.output_name]
 
+        kernel_info = self.kernel_info()
+
         # create a new node
         new_node = onnx.helper.make_node(
-            f"{''.join(self.get_op_types())}_{self.get_hash()}",
+            create_custom_op_name(kernel_info),
             inputs=inputs,
             outputs=outputs,
             name="->".join(node_names),
             domain=DOMAIN,
         )
-        return new_node, self.kernel_info()
+        return new_node, kernel_info
 
 
 class ElementwiseFusion(FusionBase):
@@ -226,9 +242,9 @@ class ElementwiseFusion(FusionBase):
     def support_multidirectional_broadcasting() -> bool:
         return True
 
-    @staticmethod
-    def is_valid_base_op(node: str, dag: "OnnxDAG") -> bool:
-        return is_elementwise_op(dag.get_op_type(node))
+    @classmethod
+    def is_valid_base_op(cls, node: str, dag: "OnnxDAG") -> bool:
+        return is_elementwise_op(dag.get_op_type(node)) and cls.dtype_is_valid(node, dag)
 
 
 class MatMulFusion(FusionBase):
@@ -236,8 +252,11 @@ class MatMulFusion(FusionBase):
     def support_multidirectional_broadcasting() -> bool:
         return False
 
-    @staticmethod
-    def is_valid_base_op(node: str, dag: "OnnxDAG") -> bool:
+    @classmethod
+    def is_valid_base_op(cls, node: str, dag: "OnnxDAG") -> bool:
+        if not cls.dtype_is_valid(node, dag):
+            return False
+
         if dag.get_op_type(node) != "MatMul":
             return False
 

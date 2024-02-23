@@ -47,11 +47,11 @@ def {kernel_name}(
     tl.store(y_ptr + y_idx, y, mask=y_mask)
 """
 
-ELEMENTWISE_SIGNATURE = "{ptr_dtypes}*{dtype}, i32, {numel_dtypes}{{BLOCK_SIZE}}"
+ELEMENTWISE_SIGNATURE = "{ptr_dtypes}*{dtype}, i32, {shape_dtypes}{{BLOCK_SIZE}}"
 
 ELEMENTWISE_GRID = "((y_numel + {BLOCK_SIZE} - 1) / {BLOCK_SIZE}), 1, 1"
 
-ELEMENTWISE_LOAD = """{i_name}_idx = {idx}
-    {i_name} = tl.load({i_name}_ptr + {i_name}_idx, mask=y_mask, eviction_policy='evict_last')"""
+ELEMENTWISE_LOAD = """{input_name}_idx = {idx}
+    {input_name} = tl.load({input_name}_ptr + {input_name}_idx, mask=y_mask, eviction_policy='evict_last')"""
 
-ELEMENTWISE_LOAD_CONSTANT = """{i_name} = tl.load({i_name}_ptr, eviction_policy='evict_last')"""
+ELEMENTWISE_LOAD_CONSTANT = """{input_name} = tl.load({input_name}_ptr, eviction_policy='evict_last')"""
