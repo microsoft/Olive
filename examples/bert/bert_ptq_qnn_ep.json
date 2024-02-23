@@ -1,0 +1,85 @@
+{
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "hf_config": {
+                "model_name": "Intel/bert-base-uncased-mrpc",
+                "task": "text-classification",
+                "dataset": {
+                    "data_name":"glue",
+                    "subset": "mrpc",
+                    "split": "validation",
+                    "input_cols": ["sentence1", "sentence2"],
+                    "label_cols": ["label"],
+                    "batch_size": 1
+                }
+            }
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics":[
+                {
+                    "name": "accuracy",
+                    "type": "accuracy",
+                    "backend": "huggingface_metrics",
+                    "sub_types": [
+                        {"name": "accuracy", "priority": 1, "goal": {"type": "max-degradation", "value": 0.05}},
+                        {"name": "f1"}
+                    ]
+                },
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_types": [
+                        {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 0.1}},
+                        {"name": "max"},
+                        {"name": "min"}
+                    ]
+                },
+                {
+                    "name": "throughput",
+                    "type": "throughput",
+                    "sub_types": [
+                        {"name": "avg"},
+                        {"name": "max"},
+                        {"name": "min"}
+                    ]
+                }
+            ]
+        }
+    },
+    "passes": {
+        "conversion": {
+            "type": "OnnxConversion"
+        },
+        "transformers_optimization": {
+            "type": "OrtTransformersOptimization"
+        },
+        "qnn_preprocess": {
+            "type": "QnnPreprocess"
+        },
+        "quantization": {
+            "type": "OnnxStaticQuantization",
+            "config": {
+                "prepare_qnn_config": true,
+                "activation_type": "QUInt16",
+                "weight_type": "QUInt8",
+                "calibrate_method": "MinMax",
+                "data_config": "__input_model_data_config__"
+            }
+        },
+        "perf_tuning": {
+            "type": "OrtPerfTuning",
+            "config": {
+                "data_config": "__input_model_data_config__"
+            }
+        }
+    },
+    "engine": {
+        "evaluator": "common_evaluator",
+        "execution_providers": ["QNNExecutionProvider"],
+        "cache_dir": "cache",
+        "output_dir" : "models/bert_ptq_qnn_ep"
+    }
+}
