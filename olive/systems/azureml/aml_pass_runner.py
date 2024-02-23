@@ -19,7 +19,7 @@ from olive.model import ModelConfig
 from olive.passes import REGISTRY as PASS_REGISTRY
 from olive.passes import FullPassConfig
 from olive.resource_path import create_resource_path
-from olive.systems.utils import get_common_args
+from olive.systems.azureml.utils import get_common_args
 
 
 def parse_pass_config_arg(raw_args):

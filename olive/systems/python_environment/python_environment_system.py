@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 import numpy as np
 import torch
 
-from olive.common.utils import get_package_name_from_ep, run_subprocess
+from olive.common.utils import run_subprocess
 from olive.evaluator.metric import (
     Metric,
     MetricResult,
@@ -30,6 +30,7 @@ from olive.model import ModelConfig, ONNXModelHandler
 from olive.systems.common import SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import PythonEnvironmentTargetUserConfig
+from olive.systems.utils import get_package_name_from_ep
 
 if TYPE_CHECKING:
     from olive.passes.olive_pass import Pass

@@ -11,8 +11,8 @@ from olive.common.utils import aml_runner_hf_login
 from olive.evaluator.metric import Metric
 from olive.hardware import AcceleratorSpec
 from olive.model import ModelConfig
+from olive.systems.azureml.utils import get_common_args
 from olive.systems.local import LocalSystem
-from olive.systems.utils import get_common_args
 
 if TYPE_CHECKING:
     from olive.systems.olive_system import OliveSystem

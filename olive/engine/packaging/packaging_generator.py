@@ -16,10 +16,11 @@ from typing import TYPE_CHECKING, Dict, List
 
 import pkg_resources
 
-from olive.common.utils import copy_dir, get_package_name_from_ep, run_subprocess
+from olive.common.utils import copy_dir, run_subprocess
 from olive.engine.packaging.packaging_config import PackagingConfig, PackagingType
 from olive.model import ONNXModelHandler
 from olive.resource_path import ResourceType, create_resource_path
+from olive.systems.utils import get_package_name_from_ep
 
 if TYPE_CHECKING:
     from olive.engine.footprint import Footprint
