@@ -363,10 +363,7 @@ class AzureMLSystem(OliveSystem):
         script_name = "aml_pass_runner.py"
         cur_dir = Path(__file__).resolve().parent
         code_root = tmp_dir / "code"
-        code_files = [
-            cur_dir / script_name,
-            cur_dir / "utils.py",
-        ]
+        code_files = [cur_dir / script_name]
         self.copy_code(code_root, code_files, cur_dir.parents[1])
 
         accelerator_info = {
@@ -662,10 +659,7 @@ class AzureMLSystem(OliveSystem):
         script_name = "aml_evaluation_runner.py"
         cur_dir = Path(__file__).resolve().parent
         code_root = tmp_dir / "code"
-        code_files = [
-            cur_dir / script_name,
-            cur_dir / "utils.py",
-        ]
+        code_files = [cur_dir / script_name]
         self.copy_code(code_root, code_files, cur_dir.parents[1])
 
         # prepare inputs

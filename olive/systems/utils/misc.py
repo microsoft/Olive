@@ -72,7 +72,7 @@ def create_new_system(system_config, accelerator):
             local_docker_config={
                 "image_name": f"olive_{accelerator.execution_provider[:-17].lower()}",
                 "dockerfile": dockerfile,
-                "build_context_path": Path(__file__).parent / "docker",
+                "build_context_path": Path(__file__).parents[1] / "docker",
             },
             accelerators=[accelerator.accelerator_type],
             is_dev=system_config.config.is_dev,
@@ -88,7 +88,7 @@ def create_new_system(system_config, accelerator):
         dockerfile = PROVIDER_DOCKERFILE_MAPPING.get(accelerator.execution_provider, "Dockerfile.cpu")
         temp_dir = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
         build_context_path = Path(temp_dir.name)
-        shutil.copy2(str(Path(__file__).parent / "docker" / dockerfile), build_context_path)
+        shutil.copy2(str(Path(__file__).parents[1] / "docker" / dockerfile), build_context_path)
         if system_config.config.requirements_file:
             shutil.copyfile(system_config.config.requirements_file, build_context_path / "requirements.txt")
         else:

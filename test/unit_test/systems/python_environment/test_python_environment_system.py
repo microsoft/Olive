@@ -313,7 +313,7 @@ class TestPythonEnvironmentSystem:
                 mock.call(io_bind_op) for _ in range(total_num)
             ]
 
-    @patch("olive.systems.utils.create_new_system")
+    @patch("olive.systems.utils.misc.create_new_system")
     def test_create_new_system_with_cache(self, mock_create_new_system):
         system_config = SystemConfig(
             type="PythonEnvironment",

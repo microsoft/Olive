@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import argparse
 import json
-import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -13,15 +12,10 @@ from olive.evaluator.metric import Metric
 from olive.hardware import AcceleratorSpec
 from olive.model import ModelConfig
 from olive.systems.local import LocalSystem
+from olive.systems.utils import get_common_args
 
 if TYPE_CHECKING:
     from olive.systems.olive_system import OliveSystem
-
-cur_dir = Path(__file__).resolve().parent
-sys.path.append(str(cur_dir))
-
-# pylint: disable=wrong-import-order,wrong-import-position
-from utils import get_common_args  # noqa: E402
 
 
 def parse_metric_args(raw_args):
