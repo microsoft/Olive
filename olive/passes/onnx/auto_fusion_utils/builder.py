@@ -11,8 +11,8 @@ from typing import List, Union
 import triton
 
 from olive.common.utils import run_subprocess
-from olive.passes.onnx.auto_fusion_utils.codegen.ort_generator import join_custom_ops
-from olive.passes.onnx.auto_fusion_utils.fuser import Fusion
+from olive.passes.onnx.auto_fusion_utils.codegen.ort_generator import create_custom_op, join_custom_ops
+from olive.passes.onnx.auto_fusion_utils.codegen.triton_generator import create_kernel
 from olive.passes.onnx.auto_fusion_utils.utils import get_env_path
 
 logger = logging.getLogger(__name__)
@@ -21,12 +21,12 @@ logger = logging.getLogger(__name__)
 class Builder:
     def __init__(
         self,
-        fusions: List[Fusion],
+        kernel_infos: List[dict],
         out_dir: Union[str, Path],
         lib_name: str = "libcustom_op",
         constant_overrides: dict = None,
     ):
-        self.fusions = fusions
+        self.kernel_infos = kernel_infos
         self.out_dir = Path(out_dir).resolve()
         self.out_dir.mkdir(parents=True, exist_ok=True)
         self.lib_name = lib_name
@@ -43,18 +43,10 @@ class Builder:
 
         # TODO(jambayk): Consider tuning these constants
         self.constants = {
-            "MatMul": {
-                "num_stages": 5,
-                "num_warps": 2,
-                "BLOCK_SIZE_M": 16,
-                "BLOCK_SIZE_N": 16,
-                "BLOCK_SIZE_K": 16,
-                "GROUP_SIZE_M": 8,
-            },
             "Elementwise": {
                 "num_stages": 1,
                 "num_warps": 8,
-                "BLOCK_SIZE": 1024,
+                "BLOCK_SIZE": 256,
             },
         }
         if constant_overrides:
@@ -63,9 +55,9 @@ class Builder:
         logger.info(f"Builder constants: {self.constants}")
 
     def prepare_triton_kernels(self):
-        for fusion in self.fusions:
+        for kernel_info in self.kernel_infos:
             # code gen kernel
-            kernel_data = fusion.get_triton_kernel()
+            kernel_data = create_kernel(kernel_info)
             # write kernel to file
             kernel_file = self.sub_dirs["python"] / f"{kernel_data['kernel_name']}.py"
             with kernel_file.open("w") as f:
@@ -73,7 +65,7 @@ class Builder:
             # c kernel
             kernel_dir = self.sub_dirs["csrc"] / kernel_data["kernel_name"]
             kernel_dir.mkdir(parents=True, exist_ok=True)
-            constants = self.constants.get(fusion.base_op, self.constants["Elementwise"])
+            constants = self.constants["Elementwise"]
             signature = kernel_data["signature"].format(**constants)
             grid = kernel_data["grid"].format(**constants)
             # aot compile and link
@@ -125,7 +117,7 @@ class Builder:
         shutil.copytree(Path(__file__).parent / "codegen" / "custom_op_src", self.sub_dirs["csrc"], dirs_exist_ok=True)
 
         # write fusion op implementation
-        custom_ops_data = [fusion.get_custom_op() for fusion in self.fusions]
+        custom_ops_data = [create_custom_op(kernel_info) for kernel_info in self.kernel_infos]
         custom_ops_file = self.sub_dirs["csrc"] / "fusion_ops.cc"
         with custom_ops_file.open("w") as f:
             f.write(join_custom_ops(custom_ops_data))

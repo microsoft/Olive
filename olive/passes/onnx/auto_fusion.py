@@ -5,9 +5,9 @@
 import logging
 import shutil
 import tempfile
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Set, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Set, Tuple
 
 import onnx
 
@@ -15,10 +15,12 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.auto_fusion_utils import DOMAIN, NP_DTYPE_REVERSE_MAP, Builder, Fusion
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.onnx.utils import OnnxDAG
 from olive.passes.pass_config import PassConfigParam
+
+if TYPE_CHECKING:
+    from olive.passes.onnx.auto_fusion_utils.fusion import FusionBase
 
 logger = logging.getLogger(__name__)
 
@@ -29,11 +31,6 @@ class AutoFusion(Pass):
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
-            "min_occurrence": PassConfigParam(
-                type_=int,
-                default_value=10,
-                description="Minumum number of occurance of a fusion pattern to be considered for fusion.",
-            ),
             "constant_overrides": PassConfigParam(
                 type_=Dict[str, Dict[str, int]],
                 default_value=None,
@@ -46,68 +43,42 @@ class AutoFusion(Pass):
     def _run_for_config(
         self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
+        from olive.passes.onnx.auto_fusion_utils import DOMAIN, Builder
+
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
-        onnx_model, dags = OnnxDAG.from_model_path(model.model_path)
+        # get dag
+        dag = OnnxDAG.from_model_path(model.model_path)
+        # remove useless nodes
+        dag.remove_redundant_cast_nodes()
 
-        # get fusable chains
-        fusable_chains = defaultdict(list)
-        for dag_idx, dag in enumerate(dags):
-            chains = self.get_fusable_chains(dag)
-            for node_names, node_types in chains.values():
-                max_valid_len, dtype = self.check_shapes_and_types(dag, node_names)
-                # only consider chains equal to or longer than 2
-                for i in range(2, max_valid_len + 1):
-                    # for i in range(1, min(2, max_valid_len + 1)):
-                    fusable_chains[(dtype, tuple(node_types[:i]))].append((dag_idx, node_names[:i]))
+        # get fusable candidates
+        candidates = self.get_fusion_candidates(dag)
 
-        # only consider chains that occur more than min_occurrence times
-        for node_types in list(fusable_chains.keys()):
-            if len(fusable_chains[node_types]) < config["min_occurrence"]:
-                del fusable_chains[node_types]
+        fused_kernels = {}
+        counter = Counter()
+        for key, fusion in candidates:
+            if not fusion.still_exists():
+                continue
+            if fusion.output_shape == [1]:
+                # TODO(jambayk): fix issue with the Sqrt Div kernel with this shape
+                continue
 
-        # order chains by occurrence and length
-        # Matmul chains are given higher priority
-        ordered_chain_types = sorted(
-            fusable_chains.keys(),
-            key=lambda x: (x[1][0] == "MatMul", len(fusable_chains[x]), len(x[1])),
-            reverse=True,
-        )
-        logger.debug(
-            "Fusion candidates: \n%s", "\n".join(f"{k}: {len(fusable_chains[k])}" for k in ordered_chain_types)
-        )
+            node_names = fusion.get_node_names()
+            fused_node, kernel_info = fusion.fuse()
+            dag.replace_nodes(node_names, fused_node)
 
-        # fuse chains
-        fusions = []
-        for dtype, chain_type in ordered_chain_types:
-            # if chain_type[0] != "MatMul":
-            #     continue
-            # if chain_type[0] == "MatMul":
-            #     continue
-            # if chain_type[0] != "Sigmoid":
-            #     continue
-            # if chain_type != ('MatMul', 'Mul'):
-            #     continue
-            fusion = Fusion(dtype, chain_type[0], list(chain_type[1:]))
-            num_fused = 0
-            for dag_idx, node_names in fusable_chains[(dtype, chain_type)]:
-                node_protos = dags[dag_idx].get_node_protos(node_names)
-                if not node_protos:
-                    continue
-                fused_node = fusion.fuse_nodes(node_protos)
-                dags[dag_idx].replace_nodes(node_names, fused_node)
-                num_fused += 1
-            if num_fused > 0:
-                fusions.append((fusion, num_fused))
+            # keep track of the fused kernels
+            fused_kernels[key] = kernel_info
+            counter[key] += 1
         logger.info(
             "Fusions: \n%s",
-            "\n".join(f"{(f.dtype, (f.base_op, *f.fused_ops))}: {num_fused}" for f, num_fused in fusions),
+            "\n".join(f"{k_repr['ops']}: {counter[key]}" for key, k_repr in fused_kernels.items()),
         )
-        for dag in dags:
-            dag.update()
+        dag.update()
 
         # update opset of model
-        opset_import = onnx_model.opset_import
+        opset_import = dag.model.opset_import
         has_custom_domain = False
         for opset in opset_import:
             if opset.domain == DOMAIN:
@@ -118,7 +89,7 @@ class AutoFusion(Pass):
         custom_op_lib = None
         with tempfile.TemporaryDirectory() as temp_dir:
             logger.info("Building custom op library...")
-            builder = Builder([f for f, _ in fusions], temp_dir, constant_overrides=config["constant_overrides"])
+            builder = Builder(list(fused_kernels.values()), temp_dir, constant_overrides=config["constant_overrides"])
             lib_path = builder.build()
 
             Path(output_model_path).parent.mkdir(parents=True, exist_ok=True)
@@ -126,13 +97,15 @@ class AutoFusion(Pass):
             custom_op_lib = Path(lib_path).name
 
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(onnx_model, output_model_path, config, custom_op_lib=custom_op_lib)
+        return model_proto_to_olive_model(dag.model, output_model_path, config, custom_op_lib=custom_op_lib)
 
     @classmethod
-    def _get_fusable_chains_util(
-        cls, dag: OnnxDAG, v: str, visited: Set[str], chains: Dict[str, Tuple[List[str], List[str]]]
+    def _get_fusion_candidates_util(
+        cls, dag: OnnxDAG, v: str, visited: Set[str], candidates_dict: Dict[str, List["FusionBase"]]
     ) -> None:
-        """Find fusable chains from all nodes reachable from v."""
+        """Find fusable candidates from all nodes reachable from v."""
+        from olive.passes.onnx.auto_fusion_utils import get_fusion_class
+
         stack = [v]
 
         while stack:
@@ -145,125 +118,52 @@ class AutoFusion(Pass):
                     stack.append(neighbor)
                     break
             else:
-                node = dag.nodes[v]
-                # check if node can be a base op
-                # we only consider nodes with a single output
-                if not Fusion.is_valid_base_op(node.op_type) or len(dag.connections[v]) != 1:
+                fusion_cls = get_fusion_class(v, dag)
+                if not fusion_cls or not fusion_cls(v, dag).can_fuse_more():
                     continue
 
+                # keep track of all possible fusion starting from v
+                fusions = []
+
+                # try to fuse the node with its child
                 child = dag.connections[v][0]
-                child_node = dag.nodes[child]
-                if not Fusion.is_valid_fused_op(child_node.op_type):
-                    continue
+                fusion = fusion_cls(v, dag)
+                if fusion.try_fuse_node(child):
+                    fusions.append(fusion)
 
-                if child in chains:
-                    chains[v] = ([v, *chains[child][0]], [node.op_type, *chains[child][1]])
-                else:
-                    chains[v] = ([v, child], [node.op_type, child_node.op_type])
+                # try to fuse the node with fusions of its child
+                for child_candidates in candidates_dict.get(child, []):
+                    fusion = fusion_cls(v, dag)
+                    if fusion.try_concat_fusion(child_candidates):
+                        fusions.append(fusion)
+
+                if fusions:
+                    candidates_dict[v] = fusions
 
     @classmethod
-    def get_fusable_chains(cls, dag: OnnxDAG) -> Dict[str, Tuple[List[str], List[str]]]:
-        """Return fusable chains in the graph.
+    def get_fusion_candidates(cls, dag: OnnxDAG) -> List[Tuple[Tuple, "FusionBase"]]:
+        """Return fusable candidates in the graph.
 
-        There will be overlap between chains. For example, A -> B -> C and B -> C will both be returned.
-        A -> B -> C and D -> C is also possible. The priority of the chains during fusion will be determined
+        There will be overlap between candidates. For example, A -> B -> C and B -> C will both be returned.
+        A -> B -> C and D -> C is also possible. The priority of the candidates during fusion will be determined
         by the fusion rules and heuristics.
 
         :param dag: The ONNX graph.
-        :return: A dictionary of fusable chains. Key is the base op and value is a tuple (op_names, op_types).
+        :return: A dictionary of fusable candidates. Key is the base op and value is a tuple (op_names, op_types).
         """
-        chains = {}
+        candidates_dict = {}
         visited = set()
         for v in dag.nodes:
-            cls._get_fusable_chains_util(dag, v, visited, chains)
-        return chains
+            cls._get_fusion_candidates_util(dag, v, visited, candidates_dict)
 
-    @staticmethod
-    def is_broadcastable(a_shape: List[Union[str, int]], b_shape: List[Union[str, int]]) -> bool:
-        """Check if two shapes are broadcastable.
+        candidates = defaultdict(list)
+        for fusions in candidates_dict.values():
+            for fusion in fusions:
+                fusion_hash = fusion.get_hash()
+                candidates[(fusion_hash, len(fusion))].append((fusion_hash, fusion))
+        candidates = dict(sorted(candidates.items(), key=lambda x: (x[0][1], len(x[1])), reverse=True))
 
-        Broadcasting support is currently limited to the following unidirectional constraints:
-            - shape of second input must be a suffix of the shape of the first input
-            - Only leading 1s are allowed in the shape of the second input
-            - Example [2, 3, 4, 5]: [1], [5], [1, 5], [4, 5], ...
-
-        :param a_shape: The shape of the first input.
-        :param b_shape: The shape of the second input.
-        :return: True if the shapes are broadcastable, False otherwise.
-        """
-        if len(b_shape) > len(a_shape):
-            return False
-
-        leading_ones = True
-        mismatched_dims = False
-        for a, b in zip(a_shape[-len(b_shape) :], b_shape):
-            if leading_ones and b == 1:
-                continue
-            leading_ones = False
-            if a != b:
-                mismatched_dims = True
-                break
-
-        return not mismatched_dims
-
-    @classmethod
-    def check_shapes_and_types(cls, dag: OnnxDAG, node_names: List[str]) -> Tuple[int, str]:
-        """Check if the chain is valid for fusion.
-
-        Rules:
-            - Date type of the inputs and outputs must be the same
-            - Single input nodes are always valid
-            - Non-commutative ops must have the previous output as the first input
-            - The other input must be broadcastable to the output of the base op
-        Assumes each node has at most two inputs and one output.
-
-        :param dag: The ONNX graph.
-        :param node_names: The names of the nodes in the chain.
-        :return: (max_valid_len, dtype) where max_valid_len is the maximum length of the valid chain
-            and dtype is the data type of the inputs and outputs.
-        """
-        # base node is the first node in the chain
-        base = node_names[0]
-        # this is np dtype
-        dtype = dag.get_input_dtypes(base)[0]
-        a_shape = dag.get_output_shapes(base)[0]
-
-        max_valid_len = 0
-        for node_idx, name in enumerate(node_names):
-            # check if the data type is the same
-            if not all(dtype == dt for dt in dag.get_input_dtypes(name) + dag.get_output_dtypes(name)):
-                break
-
-            # check if the shapes are broadcastable
-
-            if node_idx == 0:
-                if dag.get_op_type(name) == "MatMul" and len(dag.get_input_shapes(name)[1]) != 2:
-                    # second input of matmul must be 2D
-                    break
-                # skip base node
-                max_valid_len += 1
-                continue
-
-            inputs = dag.nodes[name].inputs
-            if len(inputs) == 1:
-                # single input nodes are always valid
-                max_valid_len += 1
-                continue
-
-            if len(inputs) > 2:
-                # should not reach since we only consider two input nodes
-                break
-
-            prev_output = dag.nodes[node_names[node_idx - 1]].outputs[0]
-            if not Fusion.is_commutative_op(dag.nodes[name].op_type) and dag.nodes[name].inputs[0] != prev_output:
-                # output is not the first input
-                break
-
-            connection_idx = dag.nodes[name].inputs.index(prev_output)
-            b_shape = dag.ios[inputs[1 - connection_idx]].shape
-            if not cls.is_broadcastable(a_shape, b_shape):
-                break
-
-            max_valid_len += 1
-
-        return max_valid_len, NP_DTYPE_REVERSE_MAP[dtype]
+        all_fusions = []
+        for fusions in candidates.values():
+            all_fusions.extend(fusions)
+        return all_fusions

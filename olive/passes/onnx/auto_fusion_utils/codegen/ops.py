@@ -93,5 +93,9 @@ def get_num_op_inputs(op: str) -> int:
         raise ValueError(f"Unsupported elementwise op: {op}")
 
 
+def is_elementwise_op(op: str) -> bool:
+    return op in ELEMENTWISE_OPS or op in ELEMENTWISE_TWO_INPUT_OPS
+
+
 def is_commutative_op(op: str) -> bool:
     return get_op_info(op).is_commutative
