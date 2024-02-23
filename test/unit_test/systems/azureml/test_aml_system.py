@@ -8,7 +8,14 @@ import shutil
 import tempfile
 from functools import partial
 from pathlib import Path
-from test.unit_test.utils import ONNX_MODEL_PATH, get_accuracy_metric, get_latency_metric, get_pytorch_model_config
+from test.unit_test.utils import (
+    ONNX_MODEL_PATH,
+    get_accuracy_metric,
+    get_glue_latency_metric,
+    get_latency_metric,
+    get_onnxconversion_pass,
+    get_pytorch_model_config,
+)
 from typing import ClassVar, List
 from unittest.mock import MagicMock, Mock, patch
 
@@ -44,6 +51,28 @@ class TestAzureMLSystem:
         )
         mock_azureml_client_config = Mock(spec=AzureMLClientConfig)
         self.system = AzureMLSystem(mock_azureml_client_config, "dummy", docker_config)
+
+        self.input_model_config = {
+            "config": {
+                "hf_config": {
+                    "model_name": "Intel/bert-base-uncased-mrpc",
+                    "task": "text-classification",
+                },
+                "io_config": {
+                    "dynamic_axes": {
+                        "attention_mask": {"0": "batch_size", "1": "seq_length"},
+                        "input_ids": {"0": "batch_size", "1": "seq_length"},
+                        "token_type_ids": {"0": "batch_size", "1": "seq_length"},
+                    },
+                    "input_names": ["input_ids", "attention_mask", "token_type_ids"],
+                    "input_shapes": [[1, 128], [1, 128], [1, 128]],
+                    "input_types": ["int64", "int64", "int64"],
+                    "output_names": ["output"],
+                },
+            },
+            "type": "PyTorchModel",
+            "resource_names": [],
+        }
 
     METRIC_TEST_CASE: ClassVar[List[Metric]] = [
         (partial(get_accuracy_metric, AccuracySubType.ACCURACY_SCORE)),
@@ -451,148 +480,29 @@ class TestAzureMLSystem:
 
     @patch("olive.evaluator.olive_evaluator.OliveEvaluator.evaluate")
     def test_aml_evaluation_runner(self, mock_evaluate, tmp_path):
-        mock_evaluate.return_value = MetricResult.parse_obj(
-            {"accuracy-accuracy_score": {"value": 0.5, "priority": 1, "higher_is_better": True}}
-        )
-
         # create model_config.json
-        model_config = {
-            "config": {
-                "dummy_inputs_func": None,
-                "hf_config": {
-                    "components": None,
-                    "dataset": {
-                        "batch_size": 1,
-                        "data_name": "glue",
-                        "input_cols": ["sentence1", "sentence2"],
-                        "label_cols": ["label"],
-                        "split": "validation",
-                        "subset": "mrpc",
-                    },
-                    "model_class": None,
-                    "model_name": "Intel/bert-base-uncased-mrpc",
-                    "task": "text-classification",
-                },
-                "io_config": {
-                    "dynamic_axes": {
-                        "attention_mask": {"0": "batch_size", "1": "seq_length"},
-                        "input_ids": {"0": "batch_size", "1": "seq_length"},
-                        "token_type_ids": {"0": "batch_size", "1": "seq_length"},
-                    },
-                    "input_names": ["input_ids", "attention_mask", "token_type_ids"],
-                    "input_shapes": [[1, 128], [1, 128], [1, 128]],
-                    "input_types": ["int64", "int64", "int64"],
-                    "output_names": ["output"],
-                    "output_shapes": None,
-                    "output_types": None,
-                    "string_to_int_dim_params": None,
-                },
-                "model_loader": None,
-                "model_path": None,
-                "model_script": None,
-                "script_dir": None,
-            },
-            "type": "PyTorchModel",
-            "resource_names": [],
-        }
-
         with (tmp_path / "model_config.json").open("w") as f:
-            json.dump(model_config, f)
+            json.dump(self.input_model_config, f)
 
         # create model.pt
         # create metrics_config.json
-        metrics_config = {
-            "data_config": {
-                "components": {
-                    "dataloader": {
-                        "name": "default_dataloader",
-                        "params": {"batch_size": 1},
-                        "type": "default_dataloader",
-                    },
-                    "load_dataset": {
-                        "name": "huggingface_dataset",
-                        "params": {"data_name": "glue", "split": "validation", "subset": "mrpc"},
-                        "type": "huggingface_dataset",
-                    },
-                    "post_process_data": {
-                        "name": "text_classification_post_process",
-                        "params": {},
-                        "type": "text_classification_post_process",
-                    },
-                    "pre_process_data": {
-                        "name": "huggingface_pre_process",
-                        "params": {
-                            "input_cols": ["sentence1", "sentence2"],
-                            "label_cols": ["label"],
-                            "model_name": "Intel/bert-base-uncased-mrpc",
-                        },
-                        "type": "huggingface_pre_process",
-                    },
-                },
-                "default_components": {
-                    "dataloader": {"name": "default_dataloader", "params": {}, "type": "default_dataloader"},
-                    "load_dataset": {"name": "huggingface_dataset", "params": {}, "type": "huggingface_dataset"},
-                    "post_process_data": {
-                        "name": "text_classification_post_process",
-                        "params": {},
-                        "type": "text_classification_post_process",
-                    },
-                    "pre_process_data": {
-                        "name": "huggingface_pre_process",
-                        "params": {},
-                        "type": "huggingface_pre_process",
-                    },
-                },
-                "default_components_type": {
-                    "dataloader": "default_dataloader",
-                    "load_dataset": "huggingface_dataset",
-                    "post_process_data": "text_classification_post_process",
-                    "pre_process_data": "huggingface_pre_process",
-                },
-                "name": "_default_huggingface_dc",
-                "params_config": {
-                    "batch_size": 1,
-                    "data_name": "glue",
-                    "input_cols": ["sentence1", "sentence2"],
-                    "label_cols": ["label"],
-                    "model_name": "Intel/bert-base-uncased-mrpc",
-                    "split": "validation",
-                    "subset": "mrpc",
-                    "task": "text-classification",
-                },
-                "type": "HuggingfaceContainer",
-            },
-            "name": "result",
-            "sub_types": [
-                {
-                    "name": "accuracy_score",
-                }
-            ],
-            "type": "accuracy",
-            "user_config": {
-                "batch_size": 1,
-                "data_dir": None,
-                "dataloader_func": None,
-                "inference_settings": None,
-                "input_names": None,
-                "input_shapes": None,
-                "input_types": None,
-                "post_processing_func": None,
-                "script_dir": None,
-                "user_script": None,
-            },
-        }
-
+        metrics_config = get_glue_latency_metric().to_json()
         with (tmp_path / "metrics_config.json").open("w") as f:
             json.dump(metrics_config, f)
 
         # create accelerator_config.json
-        accelerator_config = {"accelerator_type": "cpu", "execution_provider": "CPUExecutionProvider"}
+        accelerator_config = DEFAULT_CPU_ACCELERATOR.to_json()
         with (tmp_path / "accelerator_config.json").open("w") as f:
             json.dump(accelerator_config, f)
 
-        ouptut_dir = tmp_path / "pipeline_output"
-        ouptut_dir.mkdir()
+        output_dir = tmp_path / "pipeline_output"
+        output_dir.mkdir()
+
+        # mock output
+        mock_evaluation_result = MetricResult.parse_obj(
+            {"accuracy-accuracy_score": {"value": 0.5, "priority": 1, "higher_is_better": True}}
+        )
+        mock_evaluate.return_value = mock_evaluation_result
 
         args = [
             "--model_config",
@@ -602,92 +512,56 @@ class TestAzureMLSystem:
             "--accelerator_config",
             str(tmp_path / "accelerator_config.json"),
             "--pipeline_output",
-            str(ouptut_dir),
+            str(output_dir),
         ]
         aml_evaluation_runner_main(args)
+
+        # assert
         mock_evaluate.assert_called_once()
+        with (output_dir / "metric_result.json").open() as f:
+            assert json.load(f) == mock_evaluation_result.to_json()
 
     @patch("olive.passes.onnx.conversion.OnnxConversion.run")
-    def test_pass_runner(self, mock_conversion_run, tmp_path):
-        model_config = {
-            "config": {
-                "dummy_inputs_func": None,
-                "hf_config": {
-                    "components": None,
-                    "dataset": {
-                        "batch_size": 1,
-                        "data_name": "glue",
-                        "input_cols": ["sentence1", "sentence2"],
-                        "label_cols": ["label"],
-                        "split": "validation",
-                        "subset": "mrpc",
-                    },
-                    "model_class": None,
-                    "model_name": "Intel/bert-base-uncased-mrpc",
-                    "task": "text-classification",
-                },
-                "io_config": {
-                    "dynamic_axes": {
-                        "attention_mask": {"0": "batch_size", "1": "seq_length"},
-                        "input_ids": {"0": "batch_size", "1": "seq_length"},
-                        "token_type_ids": {"0": "batch_size", "1": "seq_length"},
-                    },
-                    "input_names": ["input_ids", "attention_mask", "token_type_ids"],
-                    "input_shapes": [[1, 128], [1, 128], [1, 128]],
-                    "input_types": ["int64", "int64", "int64"],
-                    "output_names": ["output"],
-                    "output_shapes": None,
-                    "output_types": None,
-                    "string_to_int_dim_params": None,
-                },
-                "model_loader": None,
-                "model_path": None,
-                "model_script": None,
-                "script_dir": None,
-            },
-            "type": "PyTorchModel",
-            "resource_names": [],
-        }
-        pass_config = {
-            "accelerator": {"accelerator_type": "cpu", "execution_provider": "CPUExecutionProvider"},
-            "config": {
-                "all_tensors_to_one_file": True,
-                "external_data_name": None,
-                "save_as_external_data": False,
-                "script_dir": None,
-                "target_opset": 13,
-                "user_script": None,
-            },
-            "disable_search": True,
-            "type": "OnnxConversion",
-        }
-
+    def test_aml_pass_runner(self, mock_conversion_run, tmp_path):
+        # create model_config.json
         with (tmp_path / "model_config.json").open("w") as f:
-            json.dump(model_config, f)
+            json.dump(self.input_model_config, f)
 
+        # create pass_config.json
+        the_pass = get_onnxconversion_pass()
+        pass_config = the_pass.to_json()
         with (tmp_path / "pass_config.json").open("w") as f:
             json.dump(pass_config, f)
 
-        ouptut_dir = tmp_path / "pipeline_output"
-        ouptut_dir.mkdir()
-        shutil.copy(ONNX_MODEL_PATH, ouptut_dir)
-        mock_conversion_run.return_value = ONNXModelHandler(ouptut_dir / ONNX_MODEL_PATH.name)
+        output_dir = tmp_path / "pipeline_output"
+        output_dir.mkdir()
 
+        # mock output
+        shutil.copy(ONNX_MODEL_PATH, output_dir)
+        mock_conversion_run.return_value = ONNXModelHandler(output_dir / ONNX_MODEL_PATH.name)
+
+        # execute
         args = [
             "--model_config",
             str(tmp_path / "model_config.json"),
             "--pass_config",
             str(tmp_path / "pass_config.json"),
             "--pipeline_output",
-            str(ouptut_dir),
+            str(output_dir),
             "--pass_accelerator_type",
-            "cpu",
+            f"{DEFAULT_CPU_ACCELERATOR.accelerator_type}",
             "--pass_execution_provider",
-            "CPUExecutionProvider",
+            f"{DEFAULT_CPU_ACCELERATOR.execution_provider}",
         ]
-
         aml_pass_runner_main(args)
+
+        # assert
         mock_conversion_run.assert_called_once()
+        with (output_dir / "output_model_config.json").open() as f:
+            output_model_json = json.load(f)
+            assert output_model_json["type"] == "ONNXModel"
+            assert output_model_json["config"]["model_path"]["type"] == "file"
+            assert output_model_json["config"]["model_path"]["config"]["path"] == ONNX_MODEL_PATH.name
 
 
 @patch("olive.systems.azureml.aml_system.Environment")

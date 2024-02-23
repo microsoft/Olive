@@ -8,13 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from olive.engine import Engine
-from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
-from olive.hardware import Device
-from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec, create_accelerators
 from olive.logging import set_default_logger_severity
 from olive.model import ModelConfig
-from olive.passes.onnx import OrtPerfTuning
 
 # pylint: disable=attribute-defined-outside-init
 
@@ -44,31 +39,20 @@ class TestOliveManagedDockerSystem:
         )
         download_data()
 
-    def test_run_pass_evaluate(self, tmpdir, caplog):
+    def test_run_pass_evaluate(self, tmp_path, caplog):
         logger = logging.getLogger("olive")
         logger.propagate = True
 
-        from test.multiple_ep.utils import get_latency_metric
+        from test.multiple_ep.utils import create_and_run_workflow, get_latency_metric
 
-        output_dir = tmpdir
-
-        metric = get_latency_metric()
         set_default_logger_severity(0)
-        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
-        config = {
-            "cache_dir": "docker_cache",
-        }
-        engine = Engine(config=config, target_config=self.system_config, evaluator_config=evaluator_config)
-        accelerator_specs = create_accelerators(self.system_config, self.execution_providers)
-        engine.register(OrtPerfTuning)
-        output = engine.run(self.input_model_config, accelerator_specs, output_dir=output_dir)
-        cpu_res = next(iter(output[DEFAULT_CPU_ACCELERATOR].nodes.values()))
-        openvino_res = next(
-            iter(
-                output[
-                    AcceleratorSpec(accelerator_type=Device.CPU, execution_provider="OpenVINOExecutionProvider")
-                ].nodes.values()
-            )
+        cpu_res, openvino_res = create_and_run_workflow(
+            tmp_path,
+            self.system_config,
+            self.execution_providers,
+            self.input_model_config,
+            get_latency_metric(),
+            only_target=True,
         )
         assert cpu_res.metrics.value.__root__
         assert openvino_res.metrics.value.__root__
