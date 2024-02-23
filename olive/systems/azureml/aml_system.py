@@ -170,8 +170,7 @@ class AzureMLSystem(OliveSystem):
     ) -> ModelConfig:
         """Run the pass on the model at a specific point in the search space."""
         ml_client = self.azureml_client_config.create_client()
-        point = point or {}
-        config = the_pass.config_at_search_point(point)
+        config = the_pass.config_at_search_point(point or {})
         data_params = self._create_data_script_inputs_and_args(data_root, the_pass)
         pass_config = the_pass.to_json(check_object=True)
         pass_config["config"].update(the_pass.serialize_config(config, check_object=True))
