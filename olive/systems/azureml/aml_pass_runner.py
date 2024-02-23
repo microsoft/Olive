@@ -24,7 +24,7 @@ from olive.resource_path import create_resource_path
 cur_dir = Path(__file__).resolve().parent
 sys.path.append(str(cur_dir))
 
-# pylint: disable=wrong-import-position
+# pylint: disable=wrong-import-order,wrong-import-position
 from utils import get_common_args  # noqa: E402
 
 

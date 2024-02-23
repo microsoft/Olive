@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
-import os
 import shutil
 import tempfile
 from functools import partial
@@ -100,9 +99,8 @@ class TestAzureMLSystem:
     @patch("olive.systems.azureml.aml_system.AzureMLSystem._create_pipeline_for_pass")
     def test_run_pass(self, mock_create_pipeline, mock_retry_func, tmp_path):
         # setup
-        tmp_dir_path = tmp_path
         # dummy pipeline output download path
-        pipeline_output_path = tmp_dir_path / "pipeline_output" / "named-outputs" / "pipeline_output"
+        pipeline_output_path = tmp_path / "pipeline_output" / "named-outputs" / "pipeline_output"
         pipeline_output_path.mkdir(parents=True, exist_ok=True)
         # create dummy output model
         downloaded_output_model_path = pipeline_output_path / "output_model.onnx"
@@ -125,13 +123,13 @@ class TestAzureMLSystem:
         onnx_conversion_config = {}
         p = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
         model_config = get_pytorch_model_config()
-        output_model_path = tmp_dir_path / "output_folder" / "output_model_path"
+        output_model_path = tmp_path / "output_folder" / "output_model_path"
         output_model_path.mkdir(parents=True, exist_ok=True)
         # create dummy output model so that ONNXModel can be created with the same path
         expected_model_path = output_model_path / "model.onnx"
         with expected_model_path.open("w") as f:
             f.write("dummy")
-        output_folder = tmp_dir_path
+        output_folder = tmp_path
 
         ml_client = MagicMock()
         self.system.azureml_client_config.create_client.return_value = ml_client
@@ -312,23 +310,22 @@ class TestAzureMLSystem:
             assert v.type == expected_data_args[k].type
             assert Path(v.path) == Path(expected_data_args[k].path)
 
-    def test__create_metric_args(self):
+    def test__create_metric_args(self, tmp_path):
         # setup
         # the reason why we need resolve: sometimes, windows system would change c:\\ to C:\\ when calling resolve.
-        tem_dir = Path(__file__).absolute().parent.resolve()
         metric_config = {
             "user_config": {
                 "user_script": "user_script",
                 "script_dir": "script_dir",
-                "data_dir": tem_dir,
+                "data_dir": tmp_path,
             }
         }
-        metric_config_path = tem_dir / "metric_config.json"
+        metric_config_path = tmp_path / "metric_config.json"
 
         expected_metric_config = Input(type=AssetTypes.URI_FILE, path=metric_config_path)
         expected_metric_user_script = Input(type=AssetTypes.URI_FILE, path="user_script")
         expected_metric_script_dir = Input(type=AssetTypes.URI_FOLDER, path="script_dir")
-        expected_metric_data_dir = Input(type=AssetTypes.URI_FOLDER, path=str(tem_dir))
+        expected_metric_data_dir = Input(type=AssetTypes.URI_FOLDER, path=str(tmp_path))
         expected_res = {
             "metric_config": expected_metric_config,
             "metric_user_script": expected_metric_user_script,
@@ -337,7 +334,7 @@ class TestAzureMLSystem:
         }
 
         # execute
-        actual_res = self.system._create_metric_args(None, metric_config, tem_dir)
+        actual_res = self.system._create_metric_args(None, metric_config, tmp_path)
 
         # assert
         assert actual_res == expected_res
@@ -345,21 +342,14 @@ class TestAzureMLSystem:
         assert metric_config["user_config"]["script_dir"] is None
         assert metric_config["user_config"]["data_dir"] is None
 
-        # cleanup
-        if os.path.exists(metric_config_path):
-            os.remove(metric_config_path)
-
     @pytest.mark.parametrize(
         "model_resource_type",
         [ResourceType.AzureMLModel, ResourceType.LocalFile],
     )
-    @patch("olive.systems.azureml.aml_system.shutil.copy")
     @patch("olive.systems.azureml.aml_system.command")
     @patch("olive.systems.azureml.aml_system.AzureMLSystem._create_metric_args")
-    def test__create_metric_component(self, mock_create_metric_args, mock_command, mock_copy, model_resource_type):
+    def test__create_metric_component(self, mock_create_metric_args, mock_command, model_resource_type, tmp_path):
         # setup
-        tmp_dir = Path()
-        code_path = tmp_dir / "code"
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         metric.user_config = {}
         model_args = {"input": Input(type=AssetTypes.URI_FILE, path="path")}
@@ -379,7 +369,7 @@ class TestAzureMLSystem:
             "metric_script_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
             "metric_data_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
         }
-        accelerator_config_path = tmp_dir / "accelerator_config.json"
+        accelerator_config_path = tmp_path / "accelerator_config.json"
         inputs = {
             **model_inputs,
             **metric_inputs,
@@ -407,7 +397,7 @@ class TestAzureMLSystem:
             model_resource_path = create_resource_path(ONNX_MODEL_PATH)
         actual_res = self.system._create_metric_component(
             data_root=None,
-            tmp_dir=tmp_dir,
+            tmp_dir=tmp_path,
             metric=metric,
             model_args=model_args,
             model_resource_paths={"model_path": model_resource_path},
@@ -424,17 +414,13 @@ class TestAzureMLSystem:
             resources=None,
             environment=self.system.environment,
             environment_variables=self.system.env_vars,
-            code=str(code_path),
+            code=str(tmp_path / "code"),
             inputs=inputs,
             outputs={"pipeline_output": Output(type=AssetTypes.URI_FOLDER)},
             instance_count=1,
             compute=self.system.compute,
             identity=UserIdentityConfiguration(),
         )
-
-        # cleanup
-        if os.path.exists(code_path):
-            os.rmdir(code_path)
 
     def create_command(self, script_name, inputs, outputs):
         parameters = []
