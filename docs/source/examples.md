@@ -9,7 +9,6 @@
 ||phi2|[Link](https://github.com/microsoft/Olive/tree/main/examples/phi2)|`CPU`: with ONNX Runtime optimizations
 ||falcon|[Link](https://github.com/microsoft/Olive/tree/main/examples/falcon)|`GPU`: with ONNX Runtime optimizations for optimized FP16 ONNX model
 ||red pajama|[Link](https://github.com/microsoft/Olive/tree/main/examples/red_pajama)| `CPU`: with Optimum conversion and merging and ONNX Runtime optimizations for a single optimized ONNX model
-||switch transformer|[Link](https://github.com/microsoft/Olive/tree/main/examples/switch)|`GPU`: with ONNX Runtime MOE for distributed inferencing with MoE models
 ||bert|[Link](https://github.com/microsoft/Olive/tree/main/examples/bert)|`CPU`: with ONNX Runtime optimizations and quantization for optimized INT8 ONNX model<br>`CPU`: with ONNX Runtime optimizations and Intel® Neural Compressor quantization for optimized INT8 ONNX model<br>`CPU`: with PyTorch QAT Customized Training Loop and ONNX Runtime optimizations for optimized ONNX INT8 model<br>`GPU`: with ONNX Runtime optimizations for CUDA EP<br>`GPU`: with ONNX Runtime optimizations for TRT EP
 ||deberta|[Link](https://github.com/microsoft/Olive/tree/main/examples/deberta)|`GPU`: Optimize Azureml Registry Model with ONNX Runtime optimizations and quantization
 ||dolly_v2|[Link](https://github.com/microsoft/Olive/tree/main/examples/directml/dolly_v2)|`GPU`: with Optimum conversion and merging and ONNX Runtime optimizations with DirectML EP
