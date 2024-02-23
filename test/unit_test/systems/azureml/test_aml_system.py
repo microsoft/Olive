@@ -42,7 +42,7 @@ class TestAzureMLSystem:
             conda_file_path="conda_file_path",
         )
         mock_azureml_client_config = Mock(spec=AzureMLClientConfig)
-        self.system = AzureMLSystem(mock_azureml_client_config, "dummy", docker_config)
+        self.system = AzureMLSystem(mock_azureml_client_config, "dummy", docker_config, is_dev=True)
 
     METRIC_TEST_CASE: ClassVar[List[Metric]] = [
         (partial(get_accuracy_metric, AccuracySubType.ACCURACY_SCORE)),

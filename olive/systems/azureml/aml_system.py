@@ -364,7 +364,7 @@ class AzureMLSystem(OliveSystem):
         cur_dir = Path(__file__).resolve().parent
         code_root = tmp_dir / "code"
         code_files = [cur_dir / script_name]
-        self.copy_code(code_root, code_files, cur_dir.parents[1])
+        self.copy_code(code_files, code_root)
 
         accelerator_info = {
             "pass_accelerator_type": pass_config["accelerator"]["accelerator_type"],
@@ -660,7 +660,7 @@ class AzureMLSystem(OliveSystem):
         cur_dir = Path(__file__).resolve().parent
         code_root = tmp_dir / "code"
         code_files = [cur_dir / script_name]
-        self.copy_code(code_root, code_files, cur_dir.parents[1])
+        self.copy_code(code_files, code_root)
 
         # prepare inputs
         inputs = {
@@ -702,7 +702,7 @@ class AzureMLSystem(OliveSystem):
         # metric component
         return cmd(**args)
 
-    def copy_code(self, code_root: Path, code_files: List, project_folder: Union[str, Path]):
+    def copy_code(self, code_files: List, code_root: Path):
         code_root.mkdir(parents=True, exist_ok=True)
         for code_file in code_files:
             shutil.copy2(str(code_file), str(code_root))
@@ -712,6 +712,8 @@ class AzureMLSystem(OliveSystem):
                 "Dev mode is only enabled for CI pipeline! "
                 "It will overwrite the Olive package in AML computer with latest code."
             )
+            cur_dir = Path(__file__).resolve().parent
+            project_folder = cur_dir.parents[1]
             copy_dir(project_folder, code_root / "olive", ignore=shutil.ignore_patterns("__pycache__"))
 
     def remove(self):
