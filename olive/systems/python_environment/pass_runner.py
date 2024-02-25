@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import argparse
 import json
-from pathlib import Path
 
 from olive.model import ModelConfig
 from olive.passes.olive_pass import FullPassConfig
@@ -26,34 +25,22 @@ def get_args(raw_args):
 
 def main(raw_args=None):
     args = get_args(raw_args)
-    args.model_json_path = Path(args.model_json_path)
-    args.pass_json_path = Path(args.pass_json_path)
-    args.output_model_path = Path(args.output_model_path)
-    args.output_model_json_path = Path(args.output_model_json_path)
 
     with open(args.model_json_path) as f:
         model_json = json.load(f)
     with open(args.pass_json_path) as f:
         pass_json = json.load(f)
 
-    if args.data_root:
-        args.data_root = Path(args.data_root)
-    else:
-        args.data_root = None
-
     model = ModelConfig.from_json(model_json).create_model()
     the_pass = FullPassConfig.from_json(pass_json).create_pass()
 
     # run pass
     output_model = the_pass.run(model, args.data_root, args.output_model_path)
-
     # save model json
     output_json = output_model.to_json()
 
-    with args.output_model_json_path.open("w") as f:
+    with open(args.output_model_json_path, "w") as f:
         json.dump(output_json, f, indent=4)
-
-    return args.output_model_json_path
 
 
 if __name__ == "__main__":
