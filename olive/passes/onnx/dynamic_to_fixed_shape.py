@@ -57,9 +57,7 @@ class DynamicToFixedShape(Pass):
     @staticmethod
     def _validators() -> Dict[str, Callable[..., Any]]:
         return {
-            "validate_dim_param_and_value": root_validator(allow_reuse=True)(_validate_dim_param_and_value),
-            "validate_input_name_and_value": root_validator(allow_reuse=True)(_validate_input_name_and_value),
-            "validate_input_name_dim_param": root_validator(allow_reuse=True)(_validate_input_name_dim_param),
+            "validate_configs": root_validator(allow_reuse=True)(_jointly_validate_configs),
         }
 
     def _run_for_config(
@@ -85,35 +83,28 @@ class DynamicToFixedShape(Pass):
         return model_proto_to_olive_model(onnx_model, output_model_path, config)
 
 
-def _validate_dim_param_and_value(cls, values):
-    if values["input_name"] and values["input_shape"]:
-        return values
-    if not values["dim_param"] or not values["dim_value"]:
+def _jointly_validate_configs(cls, values):
+    if values.get("input_name") and values.get("dim_param"):
+        raise ValueError("Cannot set both dim_param and input_name at the same time.")
+    if not values.get("input_name") and not values.get("dim_param"):
+        raise ValueError("dim_param and input_name cannot be both empty.")
+
+    # cannot use if values["dim_param"] ^ values["dim_value"] because the value could be list
+    # and list cannot be used in xor operation
+    if (not values["dim_param"]) ^ (not values["dim_value"]):
         raise ValueError("dim_param and dim_value must be both provided or both None.")
+    if (not values["input_name"]) ^ (not values["input_shape"]):
+        raise ValueError("input_name and input_shape must be both provided or both None.")
+
     if values["dim_param"] and values["dim_value"]:
         if len(values["dim_param"]) != len(values["dim_value"]):
             raise ValueError("dim_param and dim_value must have the same number of elements.")
         if any(i <= 0 for i in values["dim_value"]):
             raise ValueError("dim_value must be all > 0 when dim_param is provided.")
-    return values
 
-
-def _validate_input_name_and_value(cls, values):
-    if values["dim_param"] and values["dim_value"]:
-        return values
-    if not values["input_name"] or not values["input_shape"]:
-        raise ValueError("input_name and input_shape must be both provided or both None.")
     if values["input_name"] and values["input_shape"]:
         if len(values["input_name"]) != len(values["input_shape"]):
             raise ValueError("input_name and input_shape must have the same number of elements.")
         if any(any(i <= 0 for i in shape) for shape in values["input_shape"]):
             raise ValueError("input_shape must be all > 0 when input_name is provided.")
-    return values
-
-
-def _validate_input_name_dim_param(cls, values):
-    if values.get("input_name") and values.get("dim_param"):
-        raise ValueError("Cannot set both dim_param and input_name at the same time.")
-    if not values.get("input_name") and not values.get("dim_param"):
-        raise ValueError("dim_param and input_name cannot be both empty.")
     return values
