@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
-import pickle
 import sys
 import tempfile
 from pathlib import Path
@@ -241,7 +240,7 @@ class TestPythonEnvironmentSystem:
     @patch("onnxruntime.get_available_providers")
     def test_available_eps_script(self, mock_get_providers, tmp_path):
         mock_get_providers.return_value = ["CPUExecutionProvider"]
-        output_path = tmp_path / "available_eps.pkl"
+        output_path = tmp_path / "available_eps.json"
 
         # command
         args = ["--output_path", str(output_path)]
@@ -252,8 +251,8 @@ class TestPythonEnvironmentSystem:
         # assert
         assert output_path.exists()
         mock_get_providers.assert_called_once()
-        with output_path.open("rb") as f:
-            assert pickle.load(f) == ["CPUExecutionProvider"]
+        with output_path.open("r") as f:
+            assert json.load(f) == ["CPUExecutionProvider"]
 
     @patch("olive.systems.utils.misc.create_new_system")
     def test_create_new_system_with_cache(self, mock_create_new_system):

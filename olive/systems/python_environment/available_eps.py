@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import argparse
-import pickle
+import json
 from pathlib import Path
 
 import onnxruntime as ort
@@ -22,9 +22,9 @@ def main(raw_args=None):
     # get available execution providers
     available_eps = ort.get_available_providers()
 
-    # save to pickle
-    with Path(args.output_path).open("wb") as f:
-        pickle.dump(available_eps, f)
+    # save to json
+    with Path(args.output_path).open("w") as f:
+        json.dump(available_eps, f)
 
 
 if __name__ == "__main__":
