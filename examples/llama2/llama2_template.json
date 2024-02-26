@@ -180,6 +180,12 @@
                 "block_size": 32,
                 "is_symmetric": true
             }
+        },
+        "gptq_quant_int4": {
+            "type": "GptqQuantizer",
+            "config": {
+                "enable_transformers_specific_optimizations": true
+            }
         }
     },
     "engine": {

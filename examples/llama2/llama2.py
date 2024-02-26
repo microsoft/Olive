@@ -22,6 +22,7 @@ SUPPORTED_WORKFLOWS = {
     "gpu": [
         ["conversion_merged", "transformers_optimization_fp16"],
         ["conversion_merged", "transformers_optimization_fp16", "blockwise_quant_int4"],
+        ["gptq_quant_int4"],
     ],
 }
 DEVICE_TO_EP = {
@@ -44,6 +45,12 @@ def get_args(raw_args):
         action="store_true",
         required=False,
         help="Whether to use GQA(grouped query attention) instead of MHA(multi-head attention). Only supported on gpu.",
+    )
+    parser.add_argument(
+        "--use_gptq",
+        action="store_true",
+        required=False,
+        help="Whether to use GPTQ quantization instead of RTN quantization. Only supported on gpu.",
     )
     parser.add_argument(
         "--only_config",
@@ -87,7 +94,11 @@ def main(raw_args=None):
     config_name = f"llama2_{device}_{gqa}"
 
     # add pass flows
-    template_json["pass_flows"] = SUPPORTED_WORKFLOWS[device]
+    if not args.use_gptq:
+        template_json["pass_flows"] = [flow for flow in SUPPORTED_WORKFLOWS[device] if "gptq" not in flow[0]]
+    else:
+        template_json["pass_flows"] = [flow for flow in SUPPORTED_WORKFLOWS[device] if "gptq" in flow[0]]
+
     # remove unused passes and set gqa related configs
     used_passes = {pass_name for pass_flow in SUPPORTED_WORKFLOWS[device] for pass_name in pass_flow}
     for pass_name in list(template_json["passes"].keys()):
