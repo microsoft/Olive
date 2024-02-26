@@ -119,20 +119,20 @@ class GptqQuantizer(Pass):
             tokenizer=tokenizer,
         )
 
-        from unittest import mock
-
         def get_onnx_quant_linear(*args, **kwargs):
             return QuantLinearORT
 
+        import auto_gptq
+
         # GPTQ Quantization in transformers use auto_gptq under the hood, so we
         # replace QuantLinear in auto_gptq with QuantLinearORT for quant linear layer packing
-        with mock.patch("auto_gptq.utils.import_utils.dynamically_import_QuantLinear", get_onnx_quant_linear):
-            quantized_model = AutoModelForCausalLM.from_pretrained(
-                model.hf_config.model_name,
-                quantization_config=gptq_config,
-                attn_implementation="eager",
-                torch_dtype=torch.half,
-            )
+        auto_gptq.utils.import_utils.dynamically_import_QuantLinear = get_onnx_quant_linear
+        quantized_model = AutoModelForCausalLM.from_pretrained(
+            model.hf_config.model_name,
+            quantization_config=gptq_config,
+            attn_implementation="eager",
+            torch_dtype=torch.half,
+        )
 
         onnx_export_from_model(
             model=quantized_model,
