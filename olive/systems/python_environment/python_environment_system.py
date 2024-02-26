@@ -5,7 +5,6 @@
 import json
 import logging
 import os
-import pickle
 import platform
 import tempfile
 from copy import deepcopy
@@ -70,8 +69,10 @@ class PythonEnvironmentSystem(OliveSystem):
         self.available_eps = None
 
         # path to inference script
-        self.pass_runner_path = Path(__file__).parent.resolve() / "pass_runner.py"
-        self.evaluation_runner_path = Path(__file__).parent.resolve() / "evaluation_runner.py"
+        parent_dir = Path(__file__).parent.resolve()
+        self.pass_runner_path = parent_dir / "pass_runner.py"
+        self.evaluation_runner_path = parent_dir / "evaluation_runner.py"
+        self.available_eps_path = parent_dir / "available_eps.py"
 
     def _run_command(self, script_path: Path, config_jsons: Dict[str, Any], **kwargs) -> Dict[str, Any]:
         """Run a script with the given config jsons and return the output json."""
@@ -149,15 +150,14 @@ class PythonEnvironmentSystem(OliveSystem):
             return self.available_eps
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            available_eps_path = Path(__file__).parent.resolve() / "available_eps.py"
-            output_path = Path(temp_dir).resolve() / "available_eps.pb"
+            output_path = Path(temp_dir).resolve() / "available_eps.json"
             run_subprocess(
-                f"python {available_eps_path} --output_path {output_path}",
+                f"python {self.available_eps_path} --output_path {output_path}",
                 env=self.environ,
                 check=True,
             )
-            with output_path.open("rb") as f:
-                available_eps = pickle.load(f)
+            with output_path.open("r") as f:
+                available_eps = json.load(f)
             self.available_eps = available_eps
             return available_eps
 
