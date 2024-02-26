@@ -17,9 +17,10 @@ Performs optimization pipeline:
 - GPU, INT4: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model fp16 + Grouped Query Attention (optional) -> Onnx Block wise int4 Quantization*
 - GPU, GPTQ INT4: *PyTorch Model -> GPTQ INT4 Onnx Model*
 
-**Note:** Group Query Attention is optional and can be enabled by passing `--use_gqa` flag to the script. It is only supported for GPU.
+**Note:** 
+- Group Query Attention is optional and can be enabled by passing `--use_gqa` flag to the script. It is only supported for GPU.
+- GPTQ quantization can be enabled by passing `--use_gptq` flag to the script.
 
-**Note:** GPTQ quantization can be enabled by passing `--use_gptq` flag to the script.
 
 Requirements file: [requirements.txt](requirements.txt)
 
@@ -96,7 +97,7 @@ Run the following command to execute the workflow:
 python -m olive.workflows.run --config lamma2_qlora.json
 ```
 
-### Generate GPTQ quantized model with Optimum
+### Text generation on GPTQ onnx model with Optimum
 
 ```python
 from optimum.onnxruntime import ORTModelForCausalLM

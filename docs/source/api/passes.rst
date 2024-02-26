@@ -201,6 +201,12 @@ TorchTRTConversion
 
 .. _optimum_conversion:
 
+GptqQuantizer
+--------------------
+.. autoconfigclass:: olive.passes.GptqQuantizer
+
+.. _gptq_quantizer:
+
 OptimumConversion
 --------------------
 .. autoconfigclass:: olive.passes.OptimumConversion

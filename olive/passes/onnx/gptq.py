@@ -17,10 +17,10 @@ from olive.passes.onnx.gptq_utils import QuantLinearORT
 
 logger = logging.getLogger(__name__)
 
-ROUNDTRIP_CHECK = False
-
 
 class GptqQuantizer(Pass):
+    """GPTQ quantization using Hugging Face Optimum and export model with onnxruntime optimized kernel."""
+
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
