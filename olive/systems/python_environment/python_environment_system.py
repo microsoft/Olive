@@ -7,20 +7,20 @@ import logging
 import os
 import platform
 import tempfile
-from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from olive.common.utils import run_subprocess
-from olive.evaluator.metric import Metric, MetricResult
-from olive.hardware.accelerator import AcceleratorSpec
+from olive.evaluator.metric import MetricResult
 from olive.model import ModelConfig
 from olive.systems.common import SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import PythonEnvironmentTargetUserConfig
-from olive.systems.utils import get_package_name_from_ep
+from olive.systems.utils import create_new_environ, get_package_name_from_ep, run_available_providers_runner
 
 if TYPE_CHECKING:
+    from olive.evaluator.metric import Metric
+    from olive.hardware.accelerator import AcceleratorSpec
     from olive.passes.olive_pass import Pass
 
 
@@ -49,13 +49,11 @@ class PythonEnvironmentSystem(OliveSystem):
             olive_managed_env=olive_managed_env,
             requirements_file=requirements_file,
         )
-        self.environ = deepcopy(os.environ)
-        if self.config.environment_variables:
-            self.environ.update(self.config.environment_variables)
-        if self.config.prepend_to_path:
-            self.environ["PATH"] = os.pathsep.join(self.config.prepend_to_path) + os.pathsep + self.environ["PATH"]
-        if self.config.python_environment_path:
-            self.environ["PATH"] = str(self.config.python_environment_path) + os.pathsep + self.environ["PATH"]
+        self.environ = create_new_environ(
+            python_environment_path=self.config.python_environment_path,
+            environment_variables=self.config.environment_variables,
+            prepend_to_path=self.config.prepend_to_path,
+        )
         if self.config.olive_managed_env:
             if platform.system() == "Linux":
                 temp_dir = os.path.join(os.environ.get("HOME", ""), "tmp")
@@ -73,7 +71,6 @@ class PythonEnvironmentSystem(OliveSystem):
         parent_dir = Path(__file__).parent.resolve()
         self.pass_runner_path = parent_dir / "pass_runner.py"
         self.evaluation_runner_path = parent_dir / "evaluation_runner.py"
-        self.available_eps_path = parent_dir / "available_eps.py"
 
     def _run_command(self, script_path: Path, config_jsons: Dict[str, Any], **kwargs) -> Dict[str, Any]:
         """Run a script with the given config jsons and return the output json."""
@@ -132,7 +129,7 @@ class PythonEnvironmentSystem(OliveSystem):
         return ModelConfig.parse_obj(output_model_json)
 
     def evaluate_model(
-        self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
+        self, model_config: ModelConfig, data_root: str, metrics: List["Metric"], accelerator: "AcceleratorSpec"
     ) -> MetricResult:
         """Evaluate the model."""
         config_jsons = {
@@ -150,19 +147,10 @@ class PythonEnvironmentSystem(OliveSystem):
         if self.available_eps:
             return self.available_eps
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            output_path = Path(temp_dir).resolve() / "available_eps.json"
-            run_subprocess(
-                f"python {self.available_eps_path} --output_path {output_path}",
-                env=self.environ,
-                check=True,
-            )
-            with output_path.open("r") as f:
-                available_eps = json.load(f)
-            self.available_eps = available_eps
-            return available_eps
+        self.available_eps = run_available_providers_runner(self.environ)
+        return self.available_eps
 
-    def install_requirements(self, accelerator: AcceleratorSpec):
+    def install_requirements(self, accelerator: "AcceleratorSpec"):
         """Install required packages."""
         # install common packages
         common_requirements_file = Path(__file__).parent.resolve() / "common_requirements.txt"

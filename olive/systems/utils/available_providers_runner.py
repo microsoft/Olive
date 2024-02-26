@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+# NOTE: Only onnxruntime and its dependencies can be imported in this file.
 import argparse
 import json
 from pathlib import Path

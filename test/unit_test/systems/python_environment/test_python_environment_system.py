@@ -21,7 +21,6 @@ from olive.evaluator.metric import MetricResult, joint_metric_key
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import ModelConfig
 from olive.systems.python_environment import PythonEnvironmentSystem
-from olive.systems.python_environment.available_eps import main as available_eps_main
 from olive.systems.python_environment.evaluation_runner import main as evaluation_runner_main
 from olive.systems.python_environment.pass_runner import main as pass_runner_main
 from olive.systems.system_config import PythonEnvironmentTargetUserConfig, SystemConfig
@@ -236,23 +235,6 @@ class TestPythonEnvironmentSystem:
         mock_conversion_run.assert_called_once()
         with output_path.open("r") as f:
             assert json.load(f) == get_onnx_model().to_json()
-
-    @patch("onnxruntime.get_available_providers")
-    def test_available_eps_script(self, mock_get_providers, tmp_path):
-        mock_get_providers.return_value = ["CPUExecutionProvider"]
-        output_path = tmp_path / "available_eps.json"
-
-        # command
-        args = ["--output_path", str(output_path)]
-
-        # execute
-        available_eps_main(args)
-
-        # assert
-        assert output_path.exists()
-        mock_get_providers.assert_called_once()
-        with output_path.open("r") as f:
-            assert json.load(f) == ["CPUExecutionProvider"]
 
     @patch("olive.systems.utils.misc.create_new_system")
     def test_create_new_system_with_cache(self, mock_create_new_system):

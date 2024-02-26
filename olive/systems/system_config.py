@@ -45,14 +45,11 @@ class AzureMLTargetUserConfig(TargetUserConfig):
     requirements_file: Union[Path, str] = None
 
 
-class PythonEnvironmentTargetUserConfig(TargetUserConfig):
-    python_environment_path: Union[Path, str] = (
-        None  # path to the python environment, e.g. /home/user/anaconda3/envs/myenv, /home/user/.virtualenvs/myenv
-    )
+class CommonPythonEnvTargetUserConfig(TargetUserConfig):
+    # path to the python environment, e.g. /home/user/anaconda3/envs/myenv, /home/user/.virtualenvs/
+    python_environment_path: Union[Path, str] = None
     environment_variables: Dict[str, str] = None  # os.environ will be updated with these variables
     prepend_to_path: List[str] = None  # paths to prepend to os.environ["PATH"]
-    olive_managed_env: bool = False  # if True, the environment will be created and managed by Olive
-    requirements_file: Union[Path, str] = None  # path to the requirements.txt file
 
     @validator("python_environment_path", "prepend_to_path", pre=True, each_item=True)
     def _get_abspath(cls, v):
@@ -72,11 +69,21 @@ class PythonEnvironmentTargetUserConfig(TargetUserConfig):
         return v
 
 
+class PythonEnvironmentTargetUserConfig(CommonPythonEnvTargetUserConfig):
+    olive_managed_env: bool = False  # if True, the environment will be created and managed by Olive
+    requirements_file: Union[Path, str] = None  # path to the requirements.txt file
+
+
+class ORTInferenceTargetUserConfig(CommonPythonEnvTargetUserConfig):
+    pass
+
+
 _type_to_config = {
     SystemType.Local: LocalTargetUserConfig,
     SystemType.AzureML: AzureMLTargetUserConfig,
     SystemType.Docker: DockerTargetUserConfig,
     SystemType.PythonEnvironment: PythonEnvironmentTargetUserConfig,
+    SystemType.ORTInference: ORTInferenceTargetUserConfig,
 }
 
 _type_to_system_path = {
@@ -84,6 +91,7 @@ _type_to_system_path = {
     SystemType.AzureML: "olive.systems.azureml.AzureMLSystem",
     SystemType.Docker: "olive.systems.docker.DockerSystem",
     SystemType.PythonEnvironment: "olive.systems.python_environment.PythonEnvironmentSystem",
+    SystemType.ORTInference: "olive.systems.ort_inference.ORTInferenceSystem",
 }
 
 

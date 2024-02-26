@@ -15,7 +15,7 @@ from olive.hardware.accelerator import AcceleratorLookup, Device
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
 from olive.model.handler.mixin import OnnxEpValidateMixin, OnnxGraphMixin
-from olive.model.utils.onnx_utils import check_and_normalize_provider_args, check_ort_fallback, get_onnx_file_path
+from olive.model.utils.onnx_utils import get_onnx_file_path
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 logger = logging.getLogger(__name__)
@@ -73,47 +73,41 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ):
-        import onnxruntime as ort
-
         # user provided inference_settings > model's inference_settings > default settings
-        inference_settings_merged = {}
+        inference_settings = self.merge_inference_settings(inference_settings, execution_providers)
+        if not inference_settings["execution_provider"]:
+            # if no execution_providers are provided, use the default ones
+            inference_settings["execution_provider"] = self._get_default_execution_providers(device)
+            inference_settings["provider_options"] = None
+        # device id for ranked model
+        device_id = rank if device == Device.GPU else None
+
+        return get_ort_inference_session(self.model_path, inference_settings, self.use_ort_extensions, device_id)
+
+    def merge_inference_settings(
+        self, inference_settings: Optional[Dict[str, Any]] = None, execution_providers: List[str] = None
+    ):
+        """Merge user provided inference settings with model's inference settings.
+
+        user provided inference_settings > model's inference_settings > eps given by arguments
+        """
+        inference_settings_merged = {"execution_provider": None, "provider_options": None}
         if self.inference_settings:
+            # start with model's inference settings
             inference_settings_merged.update(self.inference_settings)
         if inference_settings:
+            # update with user provided inference settings
             inference_settings_merged.update(inference_settings)
-        inference_settings = inference_settings_merged
 
-        # user provided eps in inference_settings > eps given by arguments > default eps
-        if inference_settings.get("execution_provider") is not None:
-            execution_providers = inference_settings.get("execution_provider")
-            provider_options = inference_settings.get("provider_options")
-        else:
-            provider_options = None
+        if inference_settings_merged.get("execution_provider") is None:
+            # use execution providers
+            inference_settings_merged["execution_provider"] = execution_providers
+            inference_settings_merged["provider_options"] = None
 
-        if not execution_providers:
-            execution_providers = self._get_default_execution_providers(device)
-            provider_options = None
-        elif isinstance(execution_providers, (str, tuple)):
-            execution_providers = [execution_providers]
-
-        # split the execution_providers and provider_options
-        execution_providers, provider_options = check_and_normalize_provider_args(
-            execution_providers, provider_options, ort.get_available_providers()
-        )
-
-        if (device == Device.GPU) and (rank is not None):
-            for i, ep in enumerate(execution_providers):
-                if ep == "CUDAExecutionProvider" and not provider_options[i]:
-                    provider_options[i] = {"device_id": str(rank)}
-        inference_settings["execution_provider"] = execution_providers
-        inference_settings["provider_options"] = provider_options
-        session = get_ort_inference_session(self.model_path, inference_settings, self.use_ort_extensions)
-        check_ort_fallback(session, execution_providers)
-        tuning_op_result = inference_settings.get("tuning_op_result")
-        if tuning_op_result:
-            assert isinstance(tuning_op_result, list)
-            session.set_tuning_results(tuning_op_result)
-        return session
+        # execution_provider should be a list
+        if isinstance(inference_settings_merged["execution_provider"], (str, tuple)):
+            inference_settings_merged["execution_provider"] = [inference_settings_merged["execution_provider"]]
+        return inference_settings_merged
 
     def get_io_config(self):
         """Get input/output names, shapes, types of the onnx model without creating an ort session.
