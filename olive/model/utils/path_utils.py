@@ -25,7 +25,7 @@ def normalize_path_suffix(file_or_dir_path: str, filename_with_suffix: str) -> s
     """
     suffix = filename_with_suffix.split(".")[-1]
     if not suffix:
-        raise ValueError(f"Model filename {filename_with_suffix} does not have a valid extension")
+        raise ValueError(f"{filename_with_suffix} does not have a valid extension")
 
     path = Path(file_or_dir_path).resolve()
     if path.is_file() and path.suffix != suffix:
