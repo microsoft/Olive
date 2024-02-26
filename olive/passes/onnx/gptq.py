@@ -12,8 +12,8 @@ from olive.model import PyTorchModelHandler
 from olive.model.handler.onnx import ONNXModelHandler
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config
-from olive.passes.pass_config import PassConfigParam
 from olive.passes.onnx.gptq_utils import QuantLinearORT
+from olive.passes.pass_config import PassConfigParam
 
 logger = logging.getLogger(__name__)
 

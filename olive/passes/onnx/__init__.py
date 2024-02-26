@@ -6,6 +6,7 @@ from olive.passes.onnx.append_pre_post_processing_ops import AppendPrePostProces
 from olive.passes.onnx.bnb_quantization import OnnxBnb4Quantization
 from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion
 from olive.passes.onnx.float16_conversion import OnnxFloatToFloat16
+from olive.passes.onnx.gptq import GptqQuantizer
 from olive.passes.onnx.inc_quantization import IncDynamicQuantization, IncQuantization, IncStaticQuantization
 from olive.passes.onnx.insert_beam_search import InsertBeamSearch
 from olive.passes.onnx.mixed_precision import OrtMixedPrecision
@@ -23,7 +24,6 @@ from olive.passes.onnx.quantization import (
 )
 from olive.passes.onnx.transformer_optimization import OrtTransformersOptimization
 from olive.passes.onnx.vitis_ai_quantization import VitisAIQuantization
-from olive.passes.onnx.gptq import GptqQuantizer
 
 __all__ = [
     "AppendPrePostProcessingOps",
@@ -48,5 +48,5 @@ __all__ = [
     "VitisAIQuantization",
     "OptimumConversion",
     "OptimumMerging",
-    "GptqQuantizer"
+    "GptqQuantizer",
 ]
