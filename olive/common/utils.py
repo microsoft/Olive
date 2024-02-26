@@ -333,7 +333,7 @@ def copy_dir(src_dir, dst_dir, ignore=None, **kwargs):
 def set_tempdir(tempdir: str = None):
     """Set the root directory for tempfiles.
 
-    :param new_tempdir: new tempdir.
+    :param tempdir: new tempdir.
     """
     if tempdir is None:
         return
