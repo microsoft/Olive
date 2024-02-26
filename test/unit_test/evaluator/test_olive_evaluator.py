@@ -31,8 +31,7 @@ from olive.evaluator.olive_evaluator import (
     SNPEEvaluator,
 )
 from olive.exception import OliveEvaluationError
-from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR, Device
-from olive.systems.local import LocalSystem
+from olive.hardware.accelerator import Device
 
 
 class TestOliveEvaluator:
@@ -429,33 +428,6 @@ class TestOliveEvaluator:
                 # verify the original inference settings are not changed
                 assert metric.get_inference_settings("onnx") == metric_inference_settings
                 assert model.inference_settings == model_inference_settings
-
-
-@pytest.mark.skip(reason="Requires custom onnxruntime build with mpi enabled")
-class TestDistributedOnnxEvaluator:
-    def test_evaluate(self):
-        from olive.model import DistributedOnnxModel
-
-        model = DistributedOnnxModel("examples/switch", "model_4n_2l_8e_{:02d}.onnx", 2)
-
-        user_config = {
-            "user_script": "examples/switch/user_script.py",
-            "dataloader_func": "create_dataloader",
-            "batch_size": 1,
-        }
-        # accuracy_metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, user_config=user_config)
-        latency_metric = get_latency_metric(LatencySubType.AVG, user_config=user_config)
-        # metrics = [accuracy_metric, latency_metric]
-        metrics = [latency_metric]
-
-        target = LocalSystem()
-
-        # execute
-        actual_res = target.evaluate_model(model, None, metrics, DEFAULT_CPU_ACCELERATOR)
-
-        # assert
-        for sub_type in latency_metric.sub_types:
-            assert actual_res.get_value(latency_metric.name, sub_type.name) > 1
 
 
 class TestOliveEvaluatorConfig:
