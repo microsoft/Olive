@@ -964,7 +964,7 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
                 else:
                     raise ValueError("Post processing function is required for SNPE model")
                 preds.extend(post_output.tolist())
-                if isinstance(labels[idx], list):
+                if isinstance(labels[idx], (list, np.ndarray)):
                     targets.extend(labels[idx])
                 else:
                     targets.append(labels[idx])
@@ -1108,7 +1108,7 @@ class QNNEvaluator(OliveEvaluator, framework=Framework.QNN):
                 else:
                     raise ValueError("Post processing function is required for QNN model")
                 preds.extend(post_output.tolist())
-                if isinstance(labels[idx], list):
+                if isinstance(labels[idx], (list, np.ndarray)):
                     targets.extend(labels[idx])
                 else:
                     targets.append(labels[idx])
