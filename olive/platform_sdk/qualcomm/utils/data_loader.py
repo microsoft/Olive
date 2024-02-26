@@ -52,7 +52,7 @@ class FileListDataLoader(ABC):
 
         self.batch_input_list_headers = []
         self.batch_input_list_contents = []
-        with open(self.input_list) as f, open(batch_input_list) as f_batch:  # noqa: PTH123
+        with open(self.input_list) as f, open(batch_input_list) as f_batch:
             for line, line_batch in zip(f, f_batch):
                 if line.startswith(("#", "%")):
                     self.batch_input_list_headers.append(line.strip())

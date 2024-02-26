@@ -56,7 +56,7 @@ def main(raw_args=None):
     args = get_args(raw_args)
 
     # load config
-    with open(args.config) as f:  # noqa: PTH123
+    with open(args.config) as f:
         config = json.load(f)
 
     # get model information

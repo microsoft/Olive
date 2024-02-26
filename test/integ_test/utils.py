@@ -37,6 +37,6 @@ def download_azure_blob(container, blob, download_path):
 
     blob = BlobClient.from_connection_string(conn_str=conn_str, container_name=container, blob_name=blob)
 
-    with open(download_path, "wb") as my_blob:  # noqa: PTH123
+    with open(download_path, "wb") as my_blob:
         blob_data = blob.download_blob()
         blob_data.readinto(my_blob)

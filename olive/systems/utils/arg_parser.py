@@ -40,7 +40,7 @@ def get_common_args(raw_args):
     common_args, extra_args = parse_common_args(raw_args)
 
     # load model json
-    with open(common_args.model_config) as f:  # noqa: PTH123
+    with open(common_args.model_config) as f:
         model_json = json.load(f)
     # model json has a list of model resource names
     model_resource_names = model_json.pop("resource_names")

@@ -194,7 +194,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
             copy_dir(os.path.join(self.model_path, "data/config"), tmp_dir, dirs_exist_ok=True)
             copy_dir(os.path.join(self.model_path, "data/tokenizer"), tmp_dir, dirs_exist_ok=True)
 
-            with open(os.path.join(self.model_path, "MLmodel")) as fp:  # noqa: PTH123
+            with open(os.path.join(self.model_path, "MLmodel")) as fp:
                 mlflow_data = yaml.safe_load(fp)
                 # default flavor is "hftransformersv2" from azureml.evaluate.mlflow>=0.0.8
                 # "hftransformers" from azureml.evaluate.mlflow<0.0.8

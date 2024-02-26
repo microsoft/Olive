@@ -41,7 +41,7 @@ def main(raw_args=None):
     args = get_args(raw_args)
 
     json_file_template = "phi2_optimize_template.json"
-    with open(json_file_template) as f:  # noqa: PTH123
+    with open(json_file_template) as f:
         template_json = json.load(f)
 
     # add pass flows

@@ -57,14 +57,14 @@ def main(raw_args=None):
     accelerator_args = parse_accelerator_args(extra_args)
 
     # load metric
-    with open(metric_args.metric_config) as f:  # noqa: PTH123
+    with open(metric_args.metric_config) as f:
         metric_config = json.load(f)
     metric = create_metric(metric_config, metric_args)
 
     # load model config
     model_config = ModelConfig.from_json(model_config)
 
-    with open(accelerator_args.accelerator_config) as f:  # noqa: PTH123
+    with open(accelerator_args.accelerator_config) as f:
         accelerator_config = json.load(f)
     accelerator_spec = AcceleratorSpec(**accelerator_config)
 

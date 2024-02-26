@@ -66,7 +66,7 @@ class AzureMLClientConfig(ConfigBase):
         """Get the workspace config as a dict."""
         if self.aml_config_path:
             # If aml_config_path is provided, load the config from the file.
-            with open(self.aml_config_path) as f:  # noqa: PTH123
+            with open(self.aml_config_path) as f:
                 return json.load(f)
         else:
             # If aml_config_path is not provided, return the config from the class.

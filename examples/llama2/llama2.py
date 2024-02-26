@@ -72,7 +72,7 @@ def main(raw_args=None):
         tempfile.tempdir = str(tempdir)
 
     json_file_template = "llama2_template.json"
-    with open(json_file_template) as f:  # noqa: PTH123
+    with open(json_file_template) as f:
         template_json = json.load(f)
 
     model_name = args.model_name
@@ -107,7 +107,7 @@ def main(raw_args=None):
     template_json["engine"]["output_dir"] = f"models/{config_name}/{model_name}"
 
     # dump config
-    with open(f"{config_name}.json", "w") as f:  # noqa: PTH123
+    with open(f"{config_name}.json", "w") as f:
         json.dump(template_json, f, indent=4)
 
     if not args.only_config:
