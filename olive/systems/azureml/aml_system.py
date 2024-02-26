@@ -702,10 +702,10 @@ class AzureMLSystem(OliveSystem):
         # metric component
         return cmd(**args)
 
-    def copy_code(self, code_files: List, code_root: Path):
-        code_root.mkdir(parents=True, exist_ok=True)
+    def copy_code(self, code_files: List, target_path: Path):
+        target_path.mkdir(parents=True, exist_ok=True)
         for code_file in code_files:
-            shutil.copy2(str(code_file), str(code_root))
+            shutil.copy2(str(code_file), str(target_path))
 
         if self.is_dev:
             logger.warning(
@@ -714,7 +714,7 @@ class AzureMLSystem(OliveSystem):
             )
             cur_dir = Path(__file__).resolve().parent
             project_folder = cur_dir.parents[1]
-            copy_dir(project_folder, code_root / "olive", ignore=shutil.ignore_patterns("__pycache__"))
+            copy_dir(project_folder, target_path / "olive", ignore=shutil.ignore_patterns("__pycache__"))
 
     def remove(self):
         if self.temp_dirs:

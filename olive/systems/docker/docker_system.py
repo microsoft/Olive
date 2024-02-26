@@ -170,15 +170,14 @@ class DockerSystem(OliveSystem):
         # mount config file
         data = self._create_eval_config(model_config, metrics_copy, model_mounts)
         config_mount_path, config_file_mount_str = docker_utils.create_config_file(
-            tempdir=workdir,
+            workdir=workdir,
             config=data,
             container_root_path=container_root_path,
-            model_mounts=model_mounts,
         )
         volumes_list.append(config_file_mount_str)
 
         output_local_path, output_mount_path, output_mount_str = docker_utils.create_output_mount(
-            tempdir=workdir,
+            workdir=workdir,
             docker_eval_output_path=eval_output_path,
             container_root_path=container_root_path,
         )

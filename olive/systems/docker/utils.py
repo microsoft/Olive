@@ -19,8 +19,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def create_config_file(tempdir, config: dict, container_root_path: Path, model_mounts: dict):
-    config_file_path = Path(tempdir) / "config.json"
+def create_config_file(workdir, config: dict, container_root_path: Path):
+    config_file_path = Path(workdir) / "config.json"
     # the config yaml file saved to local disk
     with config_file_path.open("w") as f:
         json.dump(config, f)
@@ -104,24 +104,24 @@ def create_eval_script_mount(container_root_path: Path):
     return eval_file_mount_path, eval_file_mount_str
 
 
-def create_dev_mount(tempdir: Path, container_root_path: Path):
+def create_dev_mount(workdir: Path, container_root_path: Path):
     logger.warning(
         "Dev mode is only enabled for CI pipeline! "
         "It will overwrite the Olive package in docker container with latest code."
     )
-    tempdir = Path(tempdir)
+    workdir = Path(workdir)
 
     # copy the whole project folder to tempdir
     project_folder = Path(__file__).resolve().parents[2]
-    copy_dir(project_folder, tempdir / "olive", ignore=shutil.ignore_patterns("__pycache__"))
+    copy_dir(project_folder, workdir / "olive", ignore=shutil.ignore_patterns("__pycache__"))
 
     project_folder_mount_path = str(container_root_path / "olive")
-    project_folder_mount_str = f"{tempdir / 'olive'}:{project_folder_mount_path}"
+    project_folder_mount_str = f"{workdir / 'olive'}:{project_folder_mount_path}"
     return project_folder_mount_path, project_folder_mount_str
 
 
-def create_output_mount(tempdir, docker_eval_output_path: str, container_root_path: Path):
-    output_local_path = Path(tempdir) / docker_eval_output_path
+def create_output_mount(workdir, docker_eval_output_path: str, container_root_path: Path):
+    output_local_path = Path(workdir) / docker_eval_output_path
     output_local_path.mkdir(parents=True, exist_ok=True)
     output_mount_path = str(container_root_path / docker_eval_output_path)
     output_mount_str = f"{output_local_path}:{output_mount_path}"
