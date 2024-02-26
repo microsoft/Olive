@@ -19,7 +19,7 @@ def check_output(footprints):
 
 def patch_config(config_json_path: str, search_algorithm: str, execution_order: str, system: str, is_gpu: bool = False):
     """Load the config json file and patch it with the given search algorithm, execution order and system."""
-    with open(config_json_path) as fin:  # noqa: PTH123
+    with open(config_json_path) as fin:
         olive_config = json.load(fin)
     # set default logger severity
     olive_config["engine"]["log_severity_level"] = 0
@@ -141,6 +141,6 @@ def download_azure_blob(container, blob, download_path):
 
     blob = BlobClient.from_connection_string(conn_str=conn_str, container_name=container, blob_name=blob)
 
-    with open(download_path, "wb") as my_blob:  # noqa: PTH123
+    with open(download_path, "wb") as my_blob:
         blob_data = blob.download_blob()
         blob_data.readinto(my_blob)

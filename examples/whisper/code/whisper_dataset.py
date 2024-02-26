@@ -37,7 +37,7 @@ class WhisperDataset:
         self.data = []
         for audio_file in audio_files:
             if use_audio_decoder:
-                with open(audio_file, "rb") as _f:  # noqa: PTH123
+                with open(audio_file, "rb") as _f:
                     audio_blob = np.asarray(list(_f.read()), dtype=np.uint8)
                 audio_input_name = "audio_stream"
             else:

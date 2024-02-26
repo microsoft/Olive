@@ -47,7 +47,7 @@ def main(raw_args=None):
     args.output_dir = Path(args.output_dir)
 
     # load inference setting
-    with open(args.inference_settings_path, "rb") as f:  # noqa: PTH123
+    with open(args.inference_settings_path, "rb") as f:
         inference_settings = pickle.load(f)
 
     # create session

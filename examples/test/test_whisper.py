@@ -39,7 +39,7 @@ def test_whisper(device_precision):
 
     device, precision = device_precision
     config_file = f"whisper_{device}_{precision}.json"
-    with open(config_file) as f:  # noqa: PTH123
+    with open(config_file) as f:
         olive_config = json.load(f)
 
     # test workflow

@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 def dependency_setup(config):
     here = os.path.abspath(os.path.dirname(__file__))
-    with open(os.path.join(here, "../../extra_dependencies.json")) as f:  # noqa: PTH123
+    with open(os.path.join(here, "../../extra_dependencies.json")) as f:
         extras = json.load(f)
 
     def get_system_extras(host_type, accelerators, execution_providers):

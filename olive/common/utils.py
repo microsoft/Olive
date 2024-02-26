@@ -62,13 +62,13 @@ def hash_io_stream(f):  # pragma: no cover
 
 
 def hash_file(filename):  # pragma: no cover
-    with open(filename, "rb") as f:  # noqa: PTH123
+    with open(filename, "rb") as f:
         return hash_io_stream(f)
 
 
 def hash_update_from_file(filename, hash_value):
     assert Path(filename).is_file()
-    with open(str(filename), "rb") as f:  # noqa: PTH123
+    with open(str(filename), "rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):
             hash_value.update(chunk)
     return hash_value

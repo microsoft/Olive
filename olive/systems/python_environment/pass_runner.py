@@ -8,8 +8,6 @@ import json
 from olive.model import ModelConfig
 from olive.passes.olive_pass import FullPassConfig
 
-# ruff: noqa: PTH123
-
 
 def get_args(raw_args):
     parser = argparse.ArgumentParser(description="Onnx model inference")
