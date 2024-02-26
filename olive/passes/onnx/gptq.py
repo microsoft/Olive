@@ -89,20 +89,10 @@ class GptqQuantizer(Pass):
                 default_value=True,
                 description="Use GPU for quantization. Default value is True.",
             ),
-            "export_fp16": PassConfigParam(
-                type_=bool,
-                default_value=True,
-                description="Export FP16 onnx model. Default value is True.",
-            ),
             "export_optimization": PassConfigParam(
                 type_=str,
                 default_value=None,
                 description="Export optimization level. Default value is None.",
-            ),
-            "enable_transformers_specific_optimizations": PassConfigParam(
-                type_=bool,
-                default_value=False,
-                description="Enable transformers specific optimizations. Default value is False.",
             ),
         }
         config.update(get_external_data_config())
@@ -111,7 +101,7 @@ class GptqQuantizer(Pass):
     @torch.no_grad()
     def _run_for_config(
         self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> PyTorchModelHandler:
+    ) -> ONNXModelHandler:
         from optimum.exporters.onnx import onnx_export_from_model
         from transformers import AutoModelForCausalLM, AutoTokenizer, GPTQConfig
 
@@ -153,9 +143,7 @@ class GptqQuantizer(Pass):
             device="cuda" if config["gpu"] else "cpu",
             preprocessors=None,
             task="text-generation-with-past",
-            fp16=config["export_fp16"],
             optimize=config["export_optimization"],
-            enable_transformers_specific_optimizations=config["enable_transformers_specific_optimizations"],
         )
 
         return ONNXModelHandler(model_path=output_model_path, onnx_file_name="model.onnx")

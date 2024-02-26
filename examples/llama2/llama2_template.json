@@ -180,7 +180,7 @@
         "gptq_quant_int4": {
             "type": "GptqQuantizer",
             "config": {
-                "enable_transformers_specific_optimizations": true
+                "export_optimization": "O2"
             }
         }
     },

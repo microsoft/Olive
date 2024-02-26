@@ -193,6 +193,12 @@ SparseGPT
 --------------------
 .. autoconfigclass:: olive.passes.SparseGPT
 
+.. _gptq_quantizer:
+
+GptqQuantizer
+--------------------
+.. autoconfigclass:: olive.passes.GptqQuantizer
+
 .. _torch_trt_conversion:
 
 TorchTRTConversion
@@ -200,12 +206,6 @@ TorchTRTConversion
 .. autoconfigclass:: olive.passes.TorchTRTConversion
 
 .. _optimum_conversion:
-
-GptqQuantizer
---------------------
-.. autoconfigclass:: olive.passes.GptqQuantizer
-
-.. _gptq_quantizer:
 
 OptimumConversion
 --------------------
