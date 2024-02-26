@@ -425,7 +425,7 @@ The helper can be used to update specific dimensions, or the entire input shape.
 a. Making a symbolic dimension fixed
 ```json
 {
-    "type": "OrtMixedPrecision",
+    "type": "DynamicToFixedShape",
     "config": {
         "input_dim": ["batch_size"],
         "dim_value": [1]
@@ -436,7 +436,7 @@ a. Making a symbolic dimension fixed
 b. Making the entire input shape fixed
 ```json
 {
-    "type": "OrtMixedPrecision",
+    "type": "DynamicToFixedShape",
     "config": {
         "input_name": ["input"],
         "input_shape": [[1, 3, 224, 224]]
