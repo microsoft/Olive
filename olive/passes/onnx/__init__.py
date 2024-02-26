@@ -23,6 +23,7 @@ from olive.passes.onnx.quantization import (
 )
 from olive.passes.onnx.transformer_optimization import OrtTransformersOptimization
 from olive.passes.onnx.vitis_ai_quantization import VitisAIQuantization
+from olive.passes.onnx.gptq import GptqQuantizer
 
 __all__ = [
     "AppendPrePostProcessingOps",
@@ -47,4 +48,5 @@ __all__ = [
     "VitisAIQuantization",
     "OptimumConversion",
     "OptimumMerging",
+    "GptqQuantizer"
 ]

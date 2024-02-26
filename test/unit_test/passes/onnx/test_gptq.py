@@ -6,7 +6,7 @@ from pathlib import Path
 
 from olive.model.handler.pytorch import PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.pytorch import GptqQuantizer
+from olive.passes.onnx import GptqQuantizer
 
 
 def test_quantization_default(tmp_path: Path):

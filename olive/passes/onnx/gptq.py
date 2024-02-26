@@ -13,7 +13,7 @@ from olive.model.handler.onnx import ONNXModelHandler
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config
 from olive.passes.pass_config import PassConfigParam
-from olive.passes.pytorch.gptq_utils import QuantLinearORT
+from olive.passes.onnx.gptq_utils import QuantLinearORT
 
 logger = logging.getLogger(__name__)
 
@@ -112,8 +112,8 @@ class GptqQuantizer(Pass):
     def _run_for_config(
         self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModelHandler:
-        from optimum.exporters.onnx import onnx_export_from_model  # type: ignore[import]
-        from transformers import AutoModelForCausalLM, AutoTokenizer, GPTQConfig  # type: ignore[import]
+        from optimum.exporters.onnx import onnx_export_from_model
+        from transformers import AutoModelForCausalLM, AutoTokenizer, GPTQConfig
 
         tokenizer = AutoTokenizer.from_pretrained(model.hf_config.model_name, use_fast=False)
 
