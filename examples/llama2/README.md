@@ -49,12 +49,12 @@ This example requires onnxruntime>=1.16.2. Please install the latest version of 
 
 For CPU:
 ```bash
-python -m pip install "onnxruntime>=1.16.2"
+python -m pip install "onnxruntime>=1.17.0"
 ```
 
 For GPU:
 ```bash
-python -m pip install "onnxruntime-gpu>=1.16.2"
+python -m pip install "onnxruntime-gpu>=1.17.0"
 ```
 
 **Note:** The GPU package also works for CPU.
