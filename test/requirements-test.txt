@@ -17,7 +17,7 @@ nncf==2.7.0
 onnxconverter_common
 onnxruntime-extensions
 openvino==2023.2.0
-optimum
+git+https://github.com/huggingface/optimum.git
 pandas
 peft
 plotly

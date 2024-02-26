@@ -13,7 +13,6 @@ import torch.nn as nn
 from torch.onnx.symbolic_helper import _get_tensor_dim_size, _get_tensor_sizes
 from transformers.pytorch_utils import Conv1D
 
-
 logger = logging.getLogger(__name__)
 
 
