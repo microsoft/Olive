@@ -112,8 +112,8 @@ class GptqQuantizer(Pass):
     def _run_for_config(
         self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModelHandler:
-        from optimum.exporters.onnx import onnx_export_from_model
-        from transformers import AutoModelForCausalLM, AutoTokenizer, GPTQConfig
+        from optimum.exporters.onnx import onnx_export_from_model  # type: ignore[import]
+        from transformers import AutoModelForCausalLM, AutoTokenizer, GPTQConfig  # type: ignore[import]
 
         tokenizer = AutoTokenizer.from_pretrained(model.hf_config.model_name, use_fast=False)
 

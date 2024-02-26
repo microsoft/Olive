@@ -8,7 +8,7 @@ import json
 import tempfile
 from pathlib import Path
 
-from onnxruntime import __version__ as OrtVersion
+from onnxruntime import __version__ as OrtVersion  # type: ignore[import]
 from packaging import version
 
 import olive.workflows.run as olive_run

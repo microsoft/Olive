@@ -254,29 +254,38 @@ class QuantLinearORT(nn.Module):
         pack_on_row_fast_248bit(qzeros_cuda, zeros_cuda, self.bits)
         self.qzeros = qzeros_cuda.T.contiguous().cpu()
 
-    def pack_on_device_for_even_bits(self, intweight_gpu, qzeros):
-        device = intweight_gpu.device
-        intweight_gpu = self.reorder_int_tensor(intweight_gpu)
-        qzeros = self.reorder_int_tensor(qzeros)
-        if "GEMM" in self._get_name():
-            qzeros = qzeros.T.contiguous()
-        assert intweight_gpu.shape[0] // 32 * self.bits == int(round(intweight_gpu.shape[0] * self.bits / 32 + 0.5))
+    def pack_on_device_for_even_bits(self, intweight_gpu, intzeros_T):
+        self.act_order = self.g_idx[: self.groupsize // self.bits].sum().item() != 0
+        assert self.act_order is False, "please set the pack_model to others like [GPTQ, AUTO] and try again."
+        intzeros_pt = intzeros_T.T.byte()
+        scales_pt = self.scales.T.to(intweight_gpu.device)
+        intweight_pt = intweight_gpu.byte()
+        block_size = self.groupsize
 
-        qweight_gpu = torch.zeros(
-            (intweight_gpu.shape[0] // 32 * self.bits, intweight_gpu.shape[1]), dtype=torch.int32, device=device
-        )
+        rows, cols = intweight_pt.shape
+        blob_size = block_size // 2
+        k_blocks = (rows + block_size - 1) // block_size
+        padded_rows = k_blocks * block_size
+        pad_len = padded_rows - rows
+        if pad_len > 0:
+            intweight_pt = torch.nn.functional.pad(intweight_pt, (0, 0, 0, pad_len), "constant", 0)
+            intzeros_pt = torch.nn.functional.pad(intzeros_pt, (0, 0, 0, pad_len), "constant", 0)
 
-        pack_on_row_fast_248bit(qweight_gpu, intweight_gpu, self.bits)
-        if "GEMM" in self._get_name():
-            qweight_gpu = qweight_gpu.T.contiguous()
-        self.qweight = qweight_gpu.cpu()
+        intzeros_pt = (intzeros_pt[:, 0::2]) | (intzeros_pt[:, 1::2] << 4)
+        intzeros_pt = intzeros_pt.reshape(-1)
 
-        assert max(1, qzeros.shape[1] // 32 * self.bits) == int(round(qzeros.shape[1] * self.bits / 32 + 0.5))
-        self.pack_qzeros_even(qzeros, device)
+        intweight_pt_t = intweight_gpu.T
+        intweight_pt_t = (intweight_pt_t[:, 0::2]) | (intweight_pt_t[:, 1::2] << 4)
+        intweight_pt_t = intweight_pt_t.reshape(cols, k_blocks, blob_size)
 
-        if self.orig_fp_weight is not None:
-            fw, _, _ = self.unpack()
-            assert (fw == self.orig_fp_weight.to(device)).all()
+        scales_pt = scales_pt.reshape(-1)
+
+        assert self.qweight.shape == intweight_pt_t.shape
+        assert self.qzeros.shape == intzeros_pt.shape
+
+        self.scales = scales_pt.contiguous()
+        self.qweight = intweight_pt_t.contiguous().byte()
+        self.qzeros = intzeros_pt.contiguous().byte()
 
     def accelerate_pack_on_device(self, linear, scales, zeros, g_idx=None, device="cuda"):
         scales = scales.to(device)
