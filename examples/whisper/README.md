@@ -127,7 +127,7 @@ python -m olive.workflows.run --config whisper_cpu_int8.json 2> $null
 
 ## Test the transcription of the optimized model
 ```bash
-python test_transcription.py --config whisper_{device}_{precision}.json [--auto_path AUDIO_PATH] [--language LANGUAGE] [--task {transcribe,translate}] [--predict_timestamps]
+python test_transcription.py --config whisper_{device}_{precision}.json [--audio_path AUDIO_PATH] [--language LANGUAGE] [--task {transcribe,translate}] [--predict_timestamps]
 
 # For example, to test CPU, INT8 with default audio path
 python test_transcription.py --config whisper_cpu_int8.json

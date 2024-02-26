@@ -38,7 +38,7 @@ Please refer to [OpenVINOConversion](openvino_conversion) for more details about
 ```
 
 ## Post Training Quantization (PTQ)
-`OpenVINOQuantization` pass will run [Post-training quantization](https://docs.openvino.ai/2023.2/ptq_introduction.html) for OpenVINO model which supports the uniform integer quantization method.
+`OpenVINOQuantization` pass will run [Post-training quantization](https://docs.openvino.ai/2023.3/ptq_introduction.html) for OpenVINO model which supports the uniform integer quantization method.
 This method allows moving from floating-point precision to integer precision (for example, 8-bit) for weights and activations during the
 inference time. It helps to reduce the model size, memory footprint and latency, as well as improve the computational efficiency, using
 integer arithmetic. During the quantization process the model undergoes the transformation process when additional operations, that contain

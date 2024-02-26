@@ -58,29 +58,39 @@ def create_pass(pass_config, pass_args):
     return FullPassConfig.from_json(pass_config).create_pass()
 
 
+def parse_data_item(data_name, item, extra_args):
+    data_config_parser = argparse.ArgumentParser(f"Data {item} parser")
+    data_config_parser.add_argument(f"--{data_name}_{item}", type=str, help=f"{data_name} {item}")
+
+    item_args, extra_args = data_config_parser.parse_known_args(extra_args)
+
+    for key, value in vars(item_args).items():
+        if item in key:
+            return value
+    return None
+
+
 def update_data_config(p, extra_args):
-    data_script_map = {}
-    for param, param_config in p._config.items():
+    data_map = {}
+    for param, param_config in p._config.items():  # pylint: disable=protected-access
         if param.endswith("data_config") and param_config is not None:
             data_name = param_config["name"]
-            if data_script_map.get(data_name):
-                user_script, script_dir = data_script_map[data_name]
+            if data_map.get(data_name):
+                user_script, script_dir, data_dir, data_files = data_map[data_name]
             else:
-                data_config_parser = argparse.ArgumentParser("Data user script and script dir parser")
-                data_config_parser.add_argument(f"--{data_name}_user_script", type=str, help=f"{data_name} user script")
-                data_config_parser.add_argument(f"--{data_name}_script_dir", type=str, help=f"{data_name} script dir")
-                data_config_args, extra_args = data_config_parser.parse_known_args(extra_args)
-
-                for key, value in vars(data_config_args).items():
-                    if "user_script" in key:
-                        user_script = value
-                    if "script_dir" in key:
-                        script_dir = value
+                user_script = parse_data_item(data_name, "user_script", extra_args)
+                script_dir = parse_data_item(data_name, "script_dir", extra_args)
+                data_dir = parse_data_item(data_name, "data_dir", extra_args)
+                data_files = parse_data_item(data_name, "data_files", extra_args)
+                data_map[data_name] = (user_script, script_dir, data_dir, data_files)
 
             param_config["user_script"] = user_script
             param_config["script_dir"] = script_dir
-            data_script_map[data_name] = (user_script, script_dir)
-            p._config[param] = validate_config(param_config, DataConfig)
+            if param_config.get("params_config"):
+                param_config["params_config"]["data_dir"] = data_dir
+                param_config["params_config"]["data_files"] = data_files
+
+            p._config[param] = validate_config(param_config, DataConfig)  # pylint: disable=protected-access
 
 
 def main(raw_args=None):

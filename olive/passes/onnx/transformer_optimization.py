@@ -33,7 +33,10 @@ class OrtTransformersOptimization(Pass):
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
         """Override this method to return False by using the accelerator spec information."""
-        return False
+        from onnxruntime import __version__ as OrtVersion
+        from packaging import version
+
+        return version.parse(OrtVersion) < version.parse("1.17.0")
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -131,6 +134,9 @@ class OrtTransformersOptimization(Pass):
     def validate_search_point(
         self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
     ) -> bool:
+        from onnxruntime import __version__ as OrtVersion
+        from packaging import version
+
         if with_fixed_value:
             search_point = self.config_at_search_point(search_point or {})
         if search_point.get("float16"):
@@ -158,9 +164,6 @@ class OrtTransformersOptimization(Pass):
             and search_point.get("num_heads") == 0
             and search_point.get("hidden_size") == 0
         ):
-            from onnxruntime import __version__ as OrtVersion
-            from packaging import version
-
             if version.parse(OrtVersion) <= version.parse("1.16.0"):
                 logger.info(
                     "Ignore this search point because the issue https://github.com/microsoft/onnxruntime/issues/17254"
@@ -174,6 +177,23 @@ class OrtTransformersOptimization(Pass):
 
         fusion_options = FusionOptions(run_config["model_type"])
         fusion_options.__dict__.update(run_config["optimization_options"])
+
+        attn_op_type = run_config["optimization_options"].get("attention_op_type")
+
+        if attn_op_type:
+            from onnxruntime.transformers.fusion_options import AttentionOpType
+
+            if attn_op_type == "Attention":
+                fusion_options.set_attention_op_type(AttentionOpType.Attention)
+            elif attn_op_type == "MultiHeadAttention":
+                fusion_options.set_attention_op_type(AttentionOpType.MultiHeadAttention)
+            elif attn_op_type == "GroupQueryAttention":
+                fusion_options.set_attention_op_type(AttentionOpType.GroupQueryAttention)
+            elif attn_op_type == "PagedAttention":
+                fusion_options.set_attention_op_type(AttentionOpType.PagedAttention)
+            else:
+                raise ValueError(f"Unsupported attention op type: {attn_op_type}")
+
         run_config["optimization_options"] = fusion_options
 
     def _run_for_config(
@@ -225,14 +245,27 @@ class OrtTransformersOptimization(Pass):
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
         optimization_options = config["optimization_options"]
+
         if optimization_options:
             self._set_fusion_options(run_config)
 
         if run_config["use_gpu"]:
-            from onnxruntime import __version__ as OrtVersion
+            import onnxruntime as ort
             from packaging import version
 
-            if version.parse(OrtVersion) >= version.parse("1.17.0"):
+            if (
+                version.parse(ort.__version__) >= version.parse("1.17.0")
+                and self.accelerator_spec.execution_provider in ort.get_available_providers()
+            ):
+                # TODO(myguo): please consider move EP check with available providers to transformer.optimize_model
+                # from the time being, if ORT doesn't have TensorRT EP, the create inference session would fail
+                # with AttributeError, which complains:
+                # module 'onnxruntime.capi._pybind_state' has no attribute 'register_tensorrt_plugins_as_custom_ops'
+                # Therefore, when user_gpu is True and op_level > 0, we need ensure the EP is available in ORT
+                # by checking the accleerator_spec.execution_provider is in ort.get_available_providers()
+                # if we want to apply transformers graph optimization.
+                # In theory, the EP check against available providers should be done in transformer.optimize_model
+                # Please consider move the check to transformer.optimize_model in the future.
                 run_config["provider"] = self.accelerator_spec.execution_provider.replace(
                     "ExecutionProvider", ""
                 ).lower()

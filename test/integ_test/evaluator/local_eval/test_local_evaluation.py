@@ -48,7 +48,7 @@ class TestLocalEvaluation:
     ]
 
     @pytest.mark.parametrize(
-        "type,model_config_func,metric_func,expected_res",
+        ("type", "model_config_func", "metric_func", "expected_res"),
         EVALUATION_TEST_CASE,
     )
     def test_evaluate_model(self, type, model_config_func, metric_func, expected_res):  # noqa: A002

@@ -16,7 +16,8 @@ from olive.evaluator.olive_evaluator import OliveEvaluator, OnnxEvaluator
 from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR, AcceleratorSpec, Device
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx import OrtPerfTuning
-from olive.passes.onnx.perf_tuning import PERFTUNING_BASELINE, generate_test_name
+from olive.passes.onnx.perf_tuning import PERFTUNING_BASELINE, PerfTuningRunner, generate_test_name
+from olive.systems.local import LocalSystem
 
 
 @pytest.mark.parametrize(
@@ -195,12 +196,14 @@ def test_perf_tuning_with_force_evaluate(get_available_providers_mock, evaluate_
     if force_evaluate:
         assert "execution_provider" in result.inference_settings
         acutal_eps = result.inference_settings["execution_provider"]
-        assert len(acutal_eps) == 1 and acutal_eps[0] == "CUDAExecutionProvider"
+        assert len(acutal_eps) == 1
+        assert acutal_eps[0] == "CUDAExecutionProvider"
         assert re.search("Best result:.*cuda", caplog.text)
     else:
         assert "execution_provider" in result.inference_settings
         acutal_eps = result.inference_settings["execution_provider"]
-        assert len(acutal_eps) == 1 and acutal_eps[0] == "CPUExecutionProvider"
+        assert len(acutal_eps) == 1
+        assert acutal_eps[0] == "CPUExecutionProvider"
         assert re.search("Best result: .*cpu", caplog.text)
         assert (
             "Ignore perf tuning for EP CUDAExecutionProvider since current pass EP is CPUExecutionProvider"
@@ -229,7 +232,7 @@ def test_ort_perf_tuning_pass_with_dynamic_shapes(mock_get_io_config, tmp_path):
     assert "ones() received an invalid combination of arguments" in str(e.value)
 
 
-@patch("olive.passes.onnx.perf_tuning.threads_num_binary_search")
+@patch.object(PerfTuningRunner, "threads_num_binary_search")
 def test_ort_perf_tuning_pass_with_import_error(threads_num_binary_search_mock, tmp_path):
     threads_num_binary_search_mock.side_effect = ModuleNotFoundError("test")
 
@@ -348,3 +351,14 @@ def test_rocm_tuning_enable(get_available_providers_mock, inference_session_mock
     set_tuning_result_count = 3 * set_tuning_result_binary_search_count_per_iteration
     assert mock.set_tuning_results.call_count >= set_tuning_result_count
     assert mock.get_tuning_results.call_count == mock.set_tuning_results.call_count + 1
+
+
+def test_perf_tuning_with_target(tmp_path):
+    # setup
+    input_model = get_onnx_model()
+    p = create_pass_from_dict(OrtPerfTuning, {}, disable_search=True)
+    output_folder = str(tmp_path / "onnx")
+
+    # execute
+    p.set_target(LocalSystem())
+    p.run(input_model, None, output_folder)

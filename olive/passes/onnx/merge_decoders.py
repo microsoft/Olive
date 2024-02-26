@@ -19,6 +19,8 @@ from onnx import GraphProto, ModelProto, NodeProto, OperatorSetIdProto, TensorPr
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
+# pylint: disable=consider-using-enumerate
+
 logger = logging.getLogger(__name__)
 
 
@@ -167,6 +169,7 @@ def _create_name_sharing_dict(
 
         suffix (`str`, defaults to `""`):
             Suffix to append to common name
+
     """
     name_sharing_dict: Dict[Tuple[str, int], str] = {}
     used_common_names: Dict[str, int] = {}
@@ -345,6 +348,7 @@ def merge_decoders(
             specified by 'external_data_name'. If false, save each tensor to a file named with the tensor name.
         check_model (`bool`):
             Check model after merging.
+
     """
     if isinstance(decoder, (str, Path)):
         decoder = onnx.load(Path(decoder).as_posix())
@@ -414,6 +418,6 @@ def merge_decoders(
                 if "No Op registered for" in str(e):
                     pass
                 else:
-                    raise e
+                    raise
 
     return merged_model

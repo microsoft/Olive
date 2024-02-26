@@ -109,18 +109,26 @@ class PythonEnvironmentSystem(OliveSystem):
                 json.dump(pass_config, f, indent=4)
 
             # run pass
-            command = (
-                f"python {self.pass_path} --model_json_path {model_json_path} --pass_json_path {pass_json_path}"
-                f" --output_model_path {output_model_path} --output_model_json_path {output_model_json_path}"
-            )
+            command = [
+                "python",
+                str(self.pass_path),
+                "--model_json_path",
+                str(model_json_path),
+                "--pass_json_path",
+                str(pass_json_path),
+                "--output_model_path",
+                str(output_model_path),
+                "--output_model_json_path",
+                str(output_model_json_path),
+            ]
             if point:
                 point_json_path = tmp_dir_path / "point.json"
                 with point_json_path.open("w") as f:
                     point = point or {}
                     json.dump(point, f, indent=4)
-                command += f" --point_json_path {point_json_path}"
+                command.extend(["--point_json_path", str(point_json_path)])
             if data_root:
-                command += f" --data_root {data_root}"
+                command.extend(["--data_root", str(data_root)])
 
             run_subprocess(command, env=self.environ, check=True)
 
@@ -187,11 +195,22 @@ class PythonEnvironmentSystem(OliveSystem):
                 num_batches += 1
 
             # run inference
-            command = (
-                f"python {self.inference_path} --type {metric.type} --model_path"
-                f" {model.model_path} --inference_settings_path {inference_settings_path} --input_dir"
-                f" {input_dir} --num_batches {num_batches} --output_dir  {output_dir}"
-            )
+            command = [
+                "python",
+                str(self.inference_path),
+                "--type",
+                metric.type,
+                "--model_path",
+                str(model.model_path),
+                "--inference_settings_path",
+                str(inference_settings_path),
+                "--input_dir",
+                str(input_dir),
+                "--num_batches",
+                str(num_batches),
+                "--output_dir",
+                str(output_dir),
+            ]
             run_subprocess(command, env=self.environ, check=True)
 
             # load output
@@ -253,14 +272,28 @@ class PythonEnvironmentSystem(OliveSystem):
             np.savez(input_dir / "input.npz", **input_dict)
 
             # run inference
-            command = (
-                f"python {self.inference_path} --type {metric.type} --model_path"
-                f" {model.model_path} --inference_settings_path {inference_settings_path} --input_dir"
-                f" {input_dir} --output_dir  {output_dir} --warmup_num {warmup_num} --repeat_test_num"
-                f" {repeat_test_num} --sleep_num {sleep_num}"
-            )
+            command = [
+                "python",
+                str(self.inference_path),
+                "--type",
+                metric.type,
+                "--model_path",
+                str(model.model_path),
+                "--inference_settings_path",
+                str(inference_settings_path),
+                "--input_dir",
+                str(input_dir),
+                "--output_dir",
+                str(output_dir),
+                "--warmup_num",
+                str(warmup_num),
+                "--repeat_test_num",
+                str(repeat_test_num),
+                "--sleep_num",
+                str(sleep_num),
+            ]
             if metric.user_config.io_bind:
-                command += f" --io_bind --device {self.device}"
+                command.extend(["--io_bind", "--device", str(self.device)])
             run_subprocess(command, env=self.environ, check=True)
 
             # load output
@@ -323,18 +356,16 @@ class PythonEnvironmentSystem(OliveSystem):
             is_valid_ep_path = Path(__file__).parent.resolve() / "is_valid_ep.py"
             output_path = Path(temp_dir).resolve() / "result.pb"
             run_subprocess(
-                " ".join(
-                    [
-                        "python",
-                        str(is_valid_ep_path),
-                        "--model_path",
-                        str(model.model_path),
-                        "--ep",
-                        ep,
-                        "--output_path",
-                        str(output_path),
-                    ]
-                ),
+                [
+                    "python",
+                    str(is_valid_ep_path),
+                    "--model_path",
+                    str(model.model_path),
+                    "--ep",
+                    ep,
+                    "--output_path",
+                    str(output_path),
+                ],
                 env=self.environ,
                 check=True,
             )
@@ -382,13 +413,13 @@ class PythonEnvironmentSystem(OliveSystem):
 
         try:
             shutil.rmtree(vitual_env_path)
-            logger.info("Virtual environment '{}' removed.".format(vitual_env_path))
+            logger.info("Virtual environment '%s' removed.", vitual_env_path)
         except FileNotFoundError:
             pass
 
         if platform.system() == "Linux":
             try:
                 shutil.rmtree(self.environ["TMPDIR"])
-                logger.info("Temporary directory '{}' removed.".format(self.environ["TMPDIR"]))
+                logger.info("Temporary directory '%s' removed.", self.environ["TMPDIR"])
             except FileNotFoundError:
                 pass

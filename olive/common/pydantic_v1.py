@@ -11,6 +11,8 @@ Migration Guide: https://docs.pydantic.dev/latest/migration/.
 In order to support both versions of Pydantic, we use this module to access pydantic's v1 API.
 """
 
+# pylint: disable=redefined-builtin, wildcard-import, unused-wildcard-import
+
 try:
     # pydantic v2
     from pydantic.v1 import *  # noqa: F403

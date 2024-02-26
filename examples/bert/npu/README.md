@@ -1,8 +1,8 @@
-# VGG model optimization on Qualcomm NPU
-This folder contains a sample use case of Olive to convert an Onnx model to SNPE DLC, quantize it and convert it to Onnx.
+# Bert model optimization on Qualcomm NPU with SNPE SDK
+This folder contains a sample use case of Olive to convert an bert model Onnx model, then to SNPE DLC and to evaluate the accuracy of the DLC model.
 
 Performs optimization pipeline:
-- *Onnx Model -> SNPE Model -> Quantized SNPE Model*
+- *Pytorch Model -> Onnx Model -> SNPE Model*
 
 ## Prerequisites
 ### Download and unzip SNPE SDK
@@ -14,28 +14,13 @@ Unzip the file and set the unzipped directory path as environment variable `SNPE
 
 ### Configure SNPE
 ```sh
-# in general, python 3.8 is recommended
-python -m olive.snpe.configure --py_version 3.8
-# only when the tensorflow 1.15.0 is needed, use python 3.6
-python -m olive.snpe.configure --py_version 3.6
-```
-
-### Pip requirements
-Install the necessary python packages:
-```
-python -m pip install -r requirements.txt
-```
-
-### Download data and model
-To download the necessary data and model files:
-```
-python download_files.py
+python -m olive.platform_sdk.qualcomm.configure --py_version 3.8 --sdk snpe
 ```
 
 ## Run sample
 Run the conversion and quantization locally. Only supports `x64-Linux`.
 ```
-python -m olive.workflows.run --config vgg_config.json
+python -m olive.workflows.run --config bert_snpe.json
 ```
 
 ## Issues

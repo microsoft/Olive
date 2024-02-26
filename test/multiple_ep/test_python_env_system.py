@@ -13,7 +13,7 @@ from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import Device
 from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec, create_accelerators
 from olive.passes.onnx import OrtPerfTuning
-from olive.systems.python_environment import PythonEnvironmentSystem
+from olive.systems.system_config import PythonEnvironmentTargetUserConfig, SystemConfig
 
 # pylint: disable=attribute-defined-outside-init
 
@@ -27,17 +27,22 @@ class TestOliveManagedPythonEnvironmentSystem:
     @pytest.mark.skip(reason="No machine to test DML execution provider")
     def test_run_pass_evaluate_windows(self, tmpdir):
         # use the olive managed python environment as the test environment
-        self.system = PythonEnvironmentSystem(
-            accelerators=["gpu"],
-            olive_managed_env=True,
+        self.system_config = SystemConfig(
+            type="PythonEnvironment",
+            config=PythonEnvironmentTargetUserConfig(
+                accelerators=["gpu"],
+                olive_managed_env=True,
+            ),
         )
         self.execution_providers = ["DmlExecutionProvider", "OpenVINOExecutionProvider"]
         output_dir = tmpdir
 
         metric = get_latency_metric(LatencySubType.AVG)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
-        engine = Engine(target=self.system, host=self.system, evaluator_config=evaluator_config)
-        accelerator_specs = create_accelerators(self.system, self.execution_providers)
+        engine = Engine(
+            target_config=self.system_config, host_config=self.system_config, evaluator_config=evaluator_config
+        )
+        accelerator_specs = create_accelerators(self.system_config, self.execution_providers)
 
         engine.register(OrtPerfTuning)
         output = engine.run(
@@ -53,17 +58,28 @@ class TestOliveManagedPythonEnvironmentSystem:
     @pytest.mark.skipif(platform.system() == "Windows", reason="Test for Linux only")
     def test_run_pass_evaluate_linux(self, tmpdir):
         # use the olive managed python environment as the test environment
-        self.system = PythonEnvironmentSystem(
-            accelerators=["cpu"],
-            olive_managed_env=True,
+        self.system_config = SystemConfig(
+            type="PythonEnvironment",
+            config=PythonEnvironmentTargetUserConfig(
+                accelerators=["cpu"],
+                olive_managed_env=True,
+            ),
         )
         self.execution_providers = ["CPUExecutionProvider", "OpenVINOExecutionProvider"]
         output_dir = tmpdir
 
         metric = get_latency_metric(LatencySubType.AVG)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
-        engine = Engine(target=self.system, host=self.system, evaluator_config=evaluator_config)
-        accelerator_specs = create_accelerators(self.system, self.execution_providers)
+        config = {
+            "cache_dir": "python_env_cache",
+        }
+        engine = Engine(
+            config=config,
+            target_config=self.system_config,
+            host_config=self.system_config,
+            evaluator_config=evaluator_config,
+        )
+        accelerator_specs = create_accelerators(self.system_config, self.execution_providers)
         engine.register(OrtPerfTuning)
         output = engine.run(
             self.input_model_config, accelerator_specs, output_dir=output_dir, evaluate_input_model=True

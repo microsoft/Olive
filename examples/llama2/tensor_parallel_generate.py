@@ -28,6 +28,9 @@ from transformers import AutoConfig, AutoTokenizer, GenerationConfig
 #
 # Ideally, Olive logic should be updated to generate each ranked model in its own folder.
 
+# ruff: noqa: T201
+
+
 rank = COMM_WORLD.Get_rank()
 world_size = COMM_WORLD.Get_size()
 

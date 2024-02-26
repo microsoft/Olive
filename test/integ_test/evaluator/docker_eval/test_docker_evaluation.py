@@ -52,7 +52,7 @@ class TestDockerEvaluation:
     ]
 
     @pytest.mark.parametrize(
-        "model_type,model_config_func,metric_func,expected_res",
+        ("model_type", "model_config_func", "metric_func", "expected_res"),
         EVALUATION_TEST_CASE,
     )
     @pytest.mark.skipif(platform.system() == "Windows", reason="Docker target does not support windows")

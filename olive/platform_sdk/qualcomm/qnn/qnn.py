@@ -92,14 +92,12 @@ class QNNInferenceSession:
 
         runner.run(" ".join(cmd))
 
-        result = []
         result_files = self._parse_model_output(output_dir, input_list, tmp_dir_path)
-        for rf in result_files:
-            result.append(np.fromfile(rf[1], dtype=np.float32))
+        result = [np.fromfile(rf[1], dtype=np.float32) for rf in result_files]
         latencies = {"init": [], "net_run": [], "net_run_throughput": []}
         for i in range(runs):
             latencies_item = self._parse_latency(i, tmp_dir_path)
-            for key in latencies:
+            for key in latencies:  # pylint: disable=consider-using-dict-items
                 latencies[key].append(latencies_item[key])
 
         tmp_dir.cleanup()

@@ -64,7 +64,6 @@
         },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
-            "disable_search": true,
             "config": {
                 "optimization_options": {"use_multi_head_attention": true},
                 "use_gpu": "<place_holder>"
@@ -78,7 +77,6 @@
         },
         "onnx_dynamic_quantization": {
             "type": "OnnxDynamicQuantization",
-            "disable_search": true,
             "config": {
                 "per_channel": false,
                 "reduce_range": false,
@@ -87,8 +85,7 @@
             }
         },
         "inc_dynamic_quantization": {
-            "type": "IncDynamicQuantization",
-            "disable_search": true
+            "type": "IncDynamicQuantization"
         },
         "insert_beam_search" : {
             "type" : "InsertBeamSearch",
@@ -111,7 +108,6 @@
     },
     "engine": {
         "log_severity_level": 0,
-        "search_strategy": false,
         "host": "local_system",
         "target": "local_system",
         "evaluator": "common_evaluator",

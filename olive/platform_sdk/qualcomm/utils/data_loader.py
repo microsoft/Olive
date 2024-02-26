@@ -21,6 +21,7 @@ class FileListDataLoader(ABC):
     """Abstraction for logical "FileListDataLoader", it contains data path and related metadata."""
 
     def __init__(self, config: dict, batch_size: int = None):
+        # TODO(anyone): try to add file_chunk_size to distinguish the concept of batch_size and file_chunk_size
         """:param config: data loader specific config."""
         self.config = config
         self.batch_size = batch_size
@@ -323,7 +324,7 @@ class FileListCommonDataLoader(FileListDataLoader):
                 input_file_path = input_dir_path / input_file_name
                 data.tofile(input_file_path)
 
-            annotations.append(annotation)
+            annotations.append(annotation.tolist())
 
         annotations = None if annotations[0] is None else np.array(annotations)
 

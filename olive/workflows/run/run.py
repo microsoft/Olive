@@ -127,9 +127,9 @@ def dependency_setup(config):
 
     if remote_packages:
         logger.info(
-            "Please make sure the following packages are installed in {} environment: {}".format(
-                config.engine.host.type, remote_packages
-            )
+            "Please make sure the following packages are installed in %s environment: %s",
+            config.engine.host.type,
+            remote_packages,
         )
 
 
@@ -153,7 +153,12 @@ def run_engine(config: RunConfig, data_root: str = None):
         config.engine.azureml_client_config = config.azureml_client
 
     engine = config.engine.create_engine()
-    accelerator_specs = create_accelerators(engine.target, config.engine.execution_providers)
+    no_evaluation = engine.evaluator_config is None and all(
+        pass_config.evaluator is None for pass_config in config.passes.values()
+    )
+    accelerator_specs = create_accelerators(
+        engine.target_config, config.engine.execution_providers, skip_supported_eps_check=no_evaluation
+    )
 
     pass_list = []
     acc_list = []
@@ -258,7 +263,7 @@ def check_local_ort_installation(package_name: str):
         "There are one or more onnxruntime packages installed in your environment!",
         "The setup process is stopped to avoid potential conflicts. Please run the following commands manually:",
     ]
-    uninstall_command = f"{sys.sys.executable} -m pip uninstall -y " + " ".join(local_ort_packages)
+    uninstall_command = f"{sys.executable} -m pip uninstall -y " + " ".join(local_ort_packages)
     messages.append(f"Uninstall all existing onnxruntime packages: '{uninstall_command}'")
     messages.append(f"Install {package_name}: '{sys.executable} -m pip install {package_name}'")
     messages.append(

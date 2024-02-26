@@ -21,25 +21,31 @@ class SNPESDKEnv(SDKEnv):
         target_arch = self.target_arch
         sdk_root_path = self.sdk_root_path
         delimiter = os.path.pathsep
-        python_env_bin_path = str(Path(f"{sdk_root_path}/olive-pyenv/bin"))
-        python_env_lib_path = str(Path(f"{sdk_root_path}/olive-pyenv/lib"))
-        if platform.system() == "Linux":
-            if self.use_dev_tools:
-                if not Path(python_env_bin_path).exists():
-                    raise FileNotFoundError(
-                        f"Path {python_env_bin_path} does not exist. Please run"
-                        " 'python -m olive.platform_sdk.qualcomm.snpe.configure --py_version 3.8'"
-                        " to add the missing file."
-                    )
-                env["LD_LIBRARY_PATH"] += delimiter + python_env_lib_path
-                env["PATH"] = python_env_bin_path + delimiter + env["PATH"]
-        elif platform.system() == "Windows":
+        python_env_parent_folder = "" if platform.system() == "Windows" else "bin"
+        python_env_bin_path = str(Path(f"{sdk_root_path}/olive-pyenv/{python_env_parent_folder}"))
+
+        env["PATH"] += delimiter + os.environ["PATH"]
+        if self.use_dev_tools:
+            if not Path(python_env_bin_path).exists():
+                raise FileNotFoundError(
+                    f"Path {python_env_bin_path} does not exist. Please run"
+                    " 'python -m olive.platform_sdk.qualcomm.configure --py_version 3.8 --sdk snpe'"
+                    " to add the missing file."
+                )
+
+            env["PATH"] = python_env_bin_path + delimiter + env["PATH"]
+
+        if platform.system() == "Windows":
+            os_env = os.environ.copy()
+            os_env.update(env)
+            env = os_env
             if target_arch == SDKTargetDevice.arm64x_windows:
                 bin_path = str(Path(f"{sdk_root_path}/olive-arm-win"))
                 if not Path(bin_path).exists():
                     raise FileNotFoundError(
                         f"Path {bin_path} does not exist. Please run"
-                        " 'python -m olive.platform_sdk.qualcomm.snpe.configure' to add the"
+                        " 'python -m olive.platform_sdk.qualcomm.configure --py_version 3.8 --sdk snpe' to add the"
                         " missing folder"
                     )
+
         return env

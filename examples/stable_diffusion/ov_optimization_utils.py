@@ -1,7 +1,7 @@
 # -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
-# Example modified from: https://docs.openvino.ai/2023.2/notebooks/225-stable-diffusion-text-to-image-with-output.html
+# Example modified from: https://docs.openvino.ai/2023.3/notebooks/225-stable-diffusion-text-to-image-with-output.html
 # --------------------------------------------------------------------------
 import inspect
 import json
@@ -24,6 +24,8 @@ from transformers import CLIPTokenizer
 
 OV_OPTIMIZED_MODEL_INFO = "ov_optimized_model_info.json"
 
+# ruff: noqa: T201
+
 
 def scale_fit_to_window(dst_width: int, dst_height: int, image_width: int, image_height: int):
     """Preprocessing helper function for calculating image size.
@@ -39,6 +41,7 @@ def scale_fit_to_window(dst_width: int, dst_height: int, image_width: int, image
     Returns:
       result_width (int): calculated width for resize
       result_height (int): calculated height for resize
+
     """
     im_scale = min(dst_height / image_height, dst_width / image_width)
     return int(im_scale * image_width), int(im_scale * image_height)
@@ -59,6 +62,7 @@ def preprocess(image: PIL.Image.Image):
     Returns:
        image (np.ndarray): preprocessed image tensor
        meta (Dict): dictionary with preprocessing metadata info
+
     """
     src_width, src_height = image.size
     dst_width, dst_height = scale_fit_to_window(512, 512, src_width, src_height)
@@ -81,6 +85,7 @@ class OvStableDiffusionPipelineOutput:
         images (`List[PIL.Image.Image]` or `np.ndarray`)
             List of denoised PIL images of length `batch_size` or NumPy array of shape `(batch_size, height, width,
             num_channels)`.
+
     """
 
     images: Union[List[PIL.Image.Image], np.ndarray]
@@ -115,6 +120,7 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
                 DDIMScheduler, LMSDiscreteScheduler, or PNDMScheduler.
             vae_encoder (Model):
                 Variational Auto-Encoder (VAE) Model to encode images to and from latent representations.
+
         """
         super().__init__()
         self.scheduler = scheduler
@@ -195,6 +201,7 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
                 sample - the last generated image PIL.Image.Image or np.array
                 iterations - *optional* (if gif=True) images for all diffusion steps,
                 List of PIL.Image.Image or np.array.
+
         """
         if seed is not None:
             np.random.seed(seed)
@@ -284,6 +291,7 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
             negative_prompt (str or list(str)): negative prompt to be encoded
         Returns:
             text_embeddings (np.ndarray): text encoder hidden states
+
         """
         batch_size = len(prompt) if isinstance(prompt, list) else 1
 
@@ -358,14 +366,14 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
         Returns:
             latents (np.ndarray):
                 Image encoded in latent space
+
         """
         latents_shape = (batch_size * num_images_per_prompt, 4, height // 8, width // 8)
         noise = np.random.randn(*latents_shape).astype(np.float32)
-        if image is None:
+        if image is None and isinstance(self.scheduler, LMSDiscreteScheduler):
             # if you use LMSDiscreteScheduler, let's make sure latents are multiplied by sigmas
-            if isinstance(self.scheduler, LMSDiscreteScheduler):
-                noise = noise * self.scheduler.sigmas[0].numpy()
-                return noise, {}
+            noise = noise * self.scheduler.sigmas[0].numpy()
+            return noise, {}
         input_image, meta = preprocess(image)
         latents = self.vae_encoder(input_image)[self._vae_e_output] * 0.18215
         latents = self.scheduler.add_noise(torch.from_numpy(latents), torch.from_numpy(noise), latent_timestep).numpy()
@@ -387,6 +395,7 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
         Returns:
             image (List of np.ndarray or PIL.Image.Image):
                 Postprocessed images
+
         """
         if "padding" in meta:
             pad = meta["padding"]
@@ -421,6 +430,7 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
                value between 0.0 and 1.0, that controls the amount of noise that is added to the input image.
                Values that approach 1.0 enable lots of variations
                but will also produce images that are not semantically consistent with the input.
+
         """
         # get the original timestep using init_timestep
         init_timestep = min(int(num_inference_steps * strength), num_inference_steps)

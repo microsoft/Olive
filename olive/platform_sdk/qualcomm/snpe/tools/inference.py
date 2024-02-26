@@ -159,7 +159,7 @@ def snpe_net_run(
     android_initialized: Whether the inference session has already been initialized on android using init_snpe_net_adb.
     """
     tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_")  # pylint: disable=consider-using-with
-    tmp_dir_path = Path(tmp_dir.name)
+    tmp_dir_path = Path(tmp_dir.name).resolve()
 
     # Create the snpe-net-run command
     cmd = f"snpe-net-run --container {dlc_path} --input_list {input_list} --output_dir {str(tmp_dir_path)}"
@@ -268,7 +268,6 @@ def snpe_net_run(
         for output_name in output_names:
             results[output_name].sort(key=lambda x: x[0])
             results[output_name] = [x[1] for x in results[output_name]]
-            results[output_name] = np.stack(results[output_name])
 
     if workspace is not None:
         # sort the result files by the input id
@@ -281,7 +280,8 @@ def snpe_net_run(
         # SNPE DiagLog
         snpe_diag_log = tmp_dir_path / f"SNPEDiag_{run}.log"
         snpe_diag_csv = tmp_dir_path / f"SNPEDiag_{run}.csv"
-
+        if not snpe_diag_log.exists():
+            logger.error("SNPE DiagLog file %s not found for run %d", snpe_diag_log, run)
         cmd = f"snpe-diagview --input_log {snpe_diag_log} --output {snpe_diag_csv}"
         SNPERunner().run(cmd)
 
@@ -303,7 +303,7 @@ def snpe_net_run(
 
     output_dict = {"latencies": latencies}
     if return_numpy_results:
-        output_dict["results"] = results
+        output_dict["results"] = [{k: v[i] for k, v in results.items()} for i in range(len(results[output_names[0]]))]
     if output_dir is not None:
         output_dict["output_dir"] = str(output_dir)
         output_dict["result_files"] = result_files

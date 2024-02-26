@@ -33,6 +33,7 @@ def convertquantize(
         input_list_file (str, optional): Name of input list file. Optional if it is 'input_list.txt'.
         output_dir (str, optional): Path to the output directory. Optional if it is the same as model directory.
         output_name (str, optional): Name of the output model (without extension). Optional if same as model name.
+
     """
     models_dir = Path(model).resolve().parent if output_dir is None else Path(output_dir).resolve()
     data_dir = Path(data).resolve()

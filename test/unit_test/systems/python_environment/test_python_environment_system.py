@@ -167,6 +167,10 @@ class TestPythonEnvironmentSystem:
         with output_path.open("rb") as f:
             assert pickle.load(f) == ["CPUExecutionProvider"]
 
+    def test_is_valid_ep(self):
+        model = get_onnx_model()
+        assert self.system.is_valid_ep("CPUExecutionProvider", model)
+
     @pytest.mark.parametrize("valid", [True, False])
     @patch("olive.systems.python_environment.is_valid_ep.get_ort_inference_session")
     def test_is_valid_ep_script(self, mock_get_session, tmp_path, valid):
@@ -307,11 +311,30 @@ class TestPythonEnvironmentSystem:
 
     @patch("olive.systems.utils.create_new_system")
     def test_create_new_system_with_cache(self, mock_create_new_system):
+        from olive.systems.system_config import PythonEnvironmentTargetUserConfig, SystemConfig
         from olive.systems.utils import create_new_system_with_cache
 
-        origin_system = PythonEnvironmentSystem(olive_managed_env=True)
-        create_new_system_with_cache(origin_system, DEFAULT_CPU_ACCELERATOR)
-        create_new_system_with_cache(origin_system, DEFAULT_CPU_ACCELERATOR)
+        system_config = SystemConfig(
+            type="PythonEnvironment",
+            config=PythonEnvironmentTargetUserConfig(
+                olive_managed_env=True,
+            ),
+        )
+        create_new_system_with_cache(system_config, DEFAULT_CPU_ACCELERATOR)
+        create_new_system_with_cache(system_config, DEFAULT_CPU_ACCELERATOR)
         assert mock_create_new_system.call_count == 1
         create_new_system_with_cache.cache_clear()
         assert create_new_system_with_cache.cache_info().currsize == 0
+
+    def test_create_managed_env(self):
+        from olive.systems.system_config import PythonEnvironmentTargetUserConfig, SystemConfig
+        from olive.systems.utils import create_new_system
+
+        system_config = SystemConfig(
+            type="PythonEnvironment",
+            config=PythonEnvironmentTargetUserConfig(
+                olive_managed_env=True,
+            ),
+        )
+        system = create_new_system(system_config, DEFAULT_CPU_ACCELERATOR)
+        assert system.olive_managed_env

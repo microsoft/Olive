@@ -14,7 +14,7 @@ def get_dict_dataset(length=256, max_samples=None):
     input_names = ["input_1", "input_2"]
     data = []
     for i in range(length):
-        data.append({input_names[0]: [i, i], input_names[1]: [i, i, i], label_name: i})
+        data.append({input_names[0]: [i, i], input_names[1]: [i, i, i], label_name: i})  # noqa: PERF401
     return BaseDataset(data, ["original_label"], max_samples)
 
 

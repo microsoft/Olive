@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 @model_handler_registry("ONNXModel")
-class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):
+class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):  # pylint: disable=too-many-ancestors
     """ONNX model handler.
 
     Besides the model loading functionalities, the model handler also provider the onnx graph functionality by mixin
@@ -130,10 +130,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin):
     def _get_default_execution_providers(self, device: Device):
         # return available ep as ort default ep
         available_providers = AcceleratorLookup.get_execution_providers_for_device(device)
-        eps = []
-        for ep in available_providers:
-            if self.is_valid_ep(self.model_path, ep):
-                eps.append(ep)
+        eps = [ep for ep in available_providers if self.is_valid_ep(self.model_path, ep)]
 
         if not eps:
             eps.append("CPUExecutionProvider")

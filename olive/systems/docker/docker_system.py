@@ -35,12 +35,13 @@ class DockerSystem(OliveSystem):
 
     def __init__(
         self,
-        local_docker_config: Union[Dict[str, Any], LocalDockerConfig] = None,
+        local_docker_config: Union[Dict[str, Any], LocalDockerConfig],
         accelerators: List[str] = None,
         is_dev: bool = False,
         olive_managed_env: bool = False,
-        requirements_file: Union[Path, str] = None,
         hf_token: bool = None,
+        requirements_file: Optional[Union[Path, str]] = None,
+        **kwargs,  # used to hold the rest of the arguments which is not used by dockersystem
     ):
         super().__init__(
             accelerators=accelerators,
@@ -49,58 +50,55 @@ class DockerSystem(OliveSystem):
         )
         logger.info("Initializing Docker System...")
         self.is_dev = is_dev
-        self.requirements_file = requirements_file
-        if local_docker_config and olive_managed_env:
-            raise ValueError("Olive managed environment is not supported if local_docker_config is provided.")
-        if local_docker_config:
-            self.docker_client = docker.from_env()
-            local_docker_config = validate_config(local_docker_config, LocalDockerConfig)
-            self.run_params = local_docker_config.run_params
-            try:
-                self.image = self.docker_client.images.get(local_docker_config.image_name)
-                logger.info(f"Image {local_docker_config.image_name} found")
+        self.docker_client = docker.from_env()
+        if local_docker_config is None:
+            raise ValueError("local_docker_config cannot be None.")
 
-            except docker.errors.ImageNotFound:
+        local_docker_config = validate_config(local_docker_config, LocalDockerConfig)
+        if not local_docker_config.build_context_path and not local_docker_config.dockerfile and not requirements_file:
+            raise ValueError("build_context_path, dockerfile and requirements_file cannot be None at the same time.")
+
+        self.run_params = local_docker_config.run_params
+        try:
+            self.image = self.docker_client.images.get(local_docker_config.image_name)
+            logger.info(f"Image {local_docker_config.image_name} found")
+
+        except docker.errors.ImageNotFound:
+            with tempfile.TemporaryDirectory() as tempdir:
+                build_context_path = tempdir
                 if local_docker_config.build_context_path and local_docker_config.dockerfile:
-                    build_context_path = local_docker_config.build_context_path
-                    logger.info(f"Building image from Dockerfile {build_context_path}/{local_docker_config.dockerfile}")
-                    try:
-                        self.image, build_logs = self.docker_client.images.build(
-                            path=build_context_path,
-                            dockerfile=local_docker_config.dockerfile,
-                            tag=local_docker_config.image_name,
-                            buildargs=local_docker_config.build_args,
-                        )
-                        logger.info(f"Image {local_docker_config.image_name} build successfully.")
-                        _print_docker_logs(build_logs, logging.DEBUG)
-                    except BuildError as e:
-                        logger.error(f"Image build failed with error: {e}")
-                        _print_docker_logs(e.build_log, logging.ERROR)
-                        raise
-                elif local_docker_config.requirements_file_path:
-                    logger.info(
-                        f"Building image from Olive default Dockerfile with buildargs {local_docker_config.build_args} "
-                        f"requirements.txt {local_docker_config.requirements_file_path}"
-                    )
-                    dockerfile_path = str(Path(__file__).resolve().parent / self.BASE_DOCKERFILE)
-                    with tempfile.TemporaryDirectory() as tempdir:
-                        build_context_path = tempdir
-                        shutil.copy2(dockerfile_path, build_context_path)
-                        shutil.copy2(local_docker_config.requirements_file_path, build_context_path)
+                    dockerfile = local_docker_config.dockerfile
+                    shutil.copytree(local_docker_config.build_context_path, build_context_path, dirs_exist_ok=True)
+                else:
+                    dockerfile = self.BASE_DOCKERFILE
+                    dockerfile_path = Path(__file__).resolve().parent / self.BASE_DOCKERFILE
+                    shutil.copy2(dockerfile_path, build_context_path)
 
-                        try:
-                            self.image, build_logs = self.docker_client.images.build(
-                                path=build_context_path,
-                                dockerfile=self.BASE_DOCKERFILE,
-                                tag=local_docker_config.image_name,
-                                buildargs=local_docker_config.build_args,
-                            )
-                            logger.info(f"Image {local_docker_config.image_name} build successfully.")
-                            _print_docker_logs(build_logs, logging.DEBUG)
-                        except BuildError as e:
-                            logger.error(f"Image build failed with error: {e}")
-                            _print_docker_logs(e.build_log, logging.ERROR)
-                            raise
+                if requirements_file:
+                    shutil.copyfile(requirements_file, Path(build_context_path) / "requirements.txt")
+                else:
+                    requirements_dest = Path(build_context_path) / "requirements.txt"
+                    if not requirements_dest.exists():
+                        with (Path(build_context_path) / "requirements.txt").open("w"):
+                            pass
+
+                logger.info(
+                    f"Building image from Dockerfile {build_context_path}/{local_docker_config.dockerfile}"
+                    f" with buildargs {local_docker_config.build_args} "
+                )
+                try:
+                    self.image, build_logs = self.docker_client.images.build(
+                        path=build_context_path,
+                        dockerfile=dockerfile,
+                        tag=local_docker_config.image_name,
+                        buildargs=local_docker_config.build_args,
+                    )
+                    logger.info(f"Image {local_docker_config.image_name} build successfully.")
+                    _print_docker_logs(build_logs, logging.DEBUG)
+                except BuildError as e:
+                    logger.exception("Image build failed with error.")
+                    _print_docker_logs(e.build_log, logging.ERROR)
+                    raise
 
     def run_pass(
         self,

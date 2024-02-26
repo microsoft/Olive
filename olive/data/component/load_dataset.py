@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-
 from olive.data.component.dataset import DummyDataset, RawDataset
 from olive.data.registry import Registry
 
@@ -32,7 +31,7 @@ def huggingface_dataset(data_dir, data_name=None, subset=None, split="validation
     from datasets import load_dataset
 
     assert data_name is not None, "Please specify the data name"
-    return load_dataset(path=data_name, name=subset, split=split, data_files=data_files, **kwargs)
+    return load_dataset(path=data_name, name=subset, data_dir=data_dir, split=split, data_files=data_files, **kwargs)
 
 
 @Registry.register_dataset()

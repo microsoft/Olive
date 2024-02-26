@@ -83,33 +83,41 @@ class AzureMLSystem(OliveSystem):
         aml_compute: str,
         aml_docker_config: Union[Dict[str, Any], AzureMLDockerConfig] = None,
         aml_environment_config: Union[Dict[str, Any], AzureMLEnvironmentConfig] = None,
+        tags: Dict = None,
         resources: Dict = None,
         instance_count: int = 1,
         is_dev: bool = False,
         accelerators: List[str] = None,
         olive_managed_env: bool = False,
-        requirements_file: Union[Path, str] = None,
         hf_token: bool = None,
+        **kwargs,
     ):
         super().__init__(accelerators, olive_managed_env=olive_managed_env, hf_token=hf_token)
         self.instance_count = instance_count
+        self.tags = tags or {}
         self.resources = resources
         self.is_dev = is_dev
-        self.requirements_file = requirements_file
         self.compute = aml_compute
-        azureml_client_config = validate_config(azureml_client_config, AzureMLClientConfig)
-        self.azureml_client_config = azureml_client_config
-        if (aml_docker_config or aml_environment_config) and olive_managed_env:
-            raise ValueError(
-                "Olive managed environment is not supported if aml_docker_config or aml_environment_config is provided."
-            )
+        self.azureml_client_config = validate_config(azureml_client_config, AzureMLClientConfig)
+        if not aml_docker_config and not aml_environment_config:
+            raise ValueError("either aml_docker_config or aml_environment_config should be provided.")
+
+        self.environment = None
         if aml_environment_config:
+            from azure.core.exceptions import ResourceNotFoundError
+
             aml_environment_config = validate_config(aml_environment_config, AzureMLEnvironmentConfig)
-            self.environment = self._get_enironment_from_config(aml_environment_config)
-        elif aml_docker_config:
+            try:
+                self.environment = self._get_enironment_from_config(aml_environment_config)
+            except ResourceNotFoundError:
+                if not aml_docker_config:
+                    raise
+
+        if self.environment is None and aml_docker_config:
             aml_docker_config = validate_config(aml_docker_config, AzureMLDockerConfig)
             self.environment = self._create_environment(aml_docker_config)
-        self.env_vars = self._get_hf_token_env(azureml_client_config.keyvault_name) if self.hf_token else None
+        self.env_vars = self._get_hf_token_env(self.azureml_client_config.keyvault_name) if self.hf_token else None
+        self.temp_dirs = []
 
     def _get_hf_token_env(self, keyvault_name: str):
         if keyvault_name is None:
@@ -134,10 +142,17 @@ class AzureMLSystem(OliveSystem):
     def _create_environment(self, docker_config: AzureMLDockerConfig):
         if docker_config.build_context_path:
             return Environment(
-                build=BuildContext(dockerfile_path=docker_config.dockerfile, path=docker_config.build_context_path)
+                name=docker_config.name,
+                version=docker_config.version,
+                build=BuildContext(dockerfile_path=docker_config.dockerfile, path=docker_config.build_context_path),
             )
-        if docker_config.base_image:
-            return Environment(image=docker_config.base_image, conda_file=docker_config.conda_file_path)
+        elif docker_config.base_image:
+            return Environment(
+                name=docker_config.name,
+                version=docker_config.version,
+                image=docker_config.base_image,
+                conda_file=docker_config.conda_file_path,
+            )
         raise ValueError("Please specify DockerConfig.")
 
     def _assert_not_none(self, obj):
@@ -156,7 +171,7 @@ class AzureMLSystem(OliveSystem):
         ml_client = self.azureml_client_config.create_client()
         point = point or {}
         config = the_pass.config_at_search_point(point)
-        data_params = self._create_data_script_inputs_and_args(the_pass)
+        data_params = self._create_data_script_inputs_and_args(data_root, the_pass)
         pass_config = the_pass.to_json(check_object=True)
         pass_config["config"].update(the_pass.serialize_config(config, check_object=True))
 
@@ -187,18 +202,15 @@ class AzureMLSystem(OliveSystem):
         return inputs
 
     def _create_args_from_resource_path(self, rp: OLIVE_RESOURCE_ANNOTATIONS):
-        model_resource_path = create_resource_path(rp)
-        if not model_resource_path:
+        resource_path = create_resource_path(rp)
+        if not resource_path:
             # no argument for this resource, placeholder for optional input
             return None
-        asset_type = get_asset_type_from_resource_path(model_resource_path)
+        asset_type = get_asset_type_from_resource_path(resource_path)
 
-        if model_resource_path.type == ResourceType.AzureMLDatastore:
-            asset_type = AssetTypes.URI_FILE if model_resource_path.is_file() else AssetTypes.URI_FOLDER
-
-        if model_resource_path.type in AZUREML_RESOURCE_TYPES:
+        if resource_path.type in AZUREML_RESOURCE_TYPES:
             # ensure that the model is in the same workspace as the system
-            model_workspace_config = model_resource_path.get_aml_client_config().get_workspace_config()
+            model_workspace_config = resource_path.get_aml_client_config().get_workspace_config()
             system_workspace_config = self.azureml_client_config.get_workspace_config()
             for key in model_workspace_config:
                 if model_workspace_config[key] != system_workspace_config[key]:
@@ -208,18 +220,18 @@ class AzureMLSystem(OliveSystem):
                         "the system workspace."
                     )
 
-        if model_resource_path.type == ResourceType.AzureMLJobOutput:
+        if resource_path.type == ResourceType.AzureMLJobOutput:
             # there is no direct way to use the output of a job as input to another job
             # so we create a dummy aml model and use it as input
             ml_client = self.azureml_client_config.create_client()
 
             # create aml model
-            logger.debug(f"Creating aml model for job output {model_resource_path}")
+            logger.debug(f"Creating aml model for job output {resource_path}")
             aml_model = retry_func(
                 ml_client.models.create_or_update,
                 [
                     Model(
-                        path=model_resource_path.get_path(),
+                        path=resource_path.get_path(),
                         name="olive-backend-model",
                         description="Model created by Olive backend. Ignore this model.",
                         type=AssetTypes.CUSTOM_MODEL,
@@ -229,7 +241,7 @@ class AzureMLSystem(OliveSystem):
                 delay=self.azureml_client_config.operation_retry_interval,
                 exceptions=ServiceResponseError,
             )
-            model_resource_path = create_resource_path(
+            resource_path = create_resource_path(
                 AzureMLModel(
                     {
                         "azureml_client": self.azureml_client_config,
@@ -239,8 +251,8 @@ class AzureMLSystem(OliveSystem):
                 )
             )
         # we keep the model path as a string in the config file
-        if model_resource_path.type != ResourceType.StringName:
-            return Input(type=asset_type, path=model_resource_path.get_path())
+        if resource_path.type != ResourceType.StringName:
+            return Input(type=asset_type, path=resource_path.get_path())
 
         return None
 
@@ -317,8 +329,7 @@ class AzureMLSystem(OliveSystem):
             else:
                 parameters.append(f"--{param} ${{{{inputs.{param}}}}}")
         outputs = outputs or {}
-        for param in outputs:
-            parameters.append(f"--{param} ${{{{outputs.{param}}}}}")
+        parameters.extend([f"--{param} ${{{{outputs.{param}}}}}" for param in outputs])
 
         cmd_line = f"python {script_name} {' '.join(parameters)}"
         return command(
@@ -416,7 +427,7 @@ class AzureMLSystem(OliveSystem):
 
         return pass_runner_pipeline()
 
-    def _create_data_script_inputs_and_args(self, the_pass: "Pass") -> DataParams:
+    def _create_data_script_inputs_and_args(self, data_root, the_pass: "Pass") -> DataParams:
         data_inputs = {}
         data_args = {}
         data_name_set = set()
@@ -425,7 +436,16 @@ class AzureMLSystem(OliveSystem):
             data_inputs.update({f"{name}_{key}": Input(type=input_type, optional=True)})
             data_args.update({f"{name}_{key}": Input(type=input_type, path=getattr(script_attr, key))})
 
-        for param, param_config in the_pass._config.items():
+        def update_data_path(data_config, key, data_inputs, data_args, asset_type):
+            if data_config.params_config.get(key):
+                data_path_resource_path = create_resource_path(data_config.params_config[key])
+                data_path_resource_path = normalize_data_path(data_root, data_path_resource_path)
+                if data_path_resource_path:
+                    data_path_resource_path = self._create_args_from_resource_path(data_path_resource_path)
+                    data_inputs.update({f"{data_config.name}_{key}": Input(type=asset_type, optional=True)})
+                    data_args.update({f"{data_config.name}_{key}": data_path_resource_path})
+
+        for param, param_config in the_pass._config.items():  # pylint: disable=protected-access
             if param.endswith("data_config") and param_config is not None:
                 data_config = validate_config(param_config, DataConfig)
                 if data_config.name not in data_name_set:
@@ -434,6 +454,9 @@ class AzureMLSystem(OliveSystem):
                         update_dicts(data_config.name, "user_script", data_config, AssetTypes.URI_FILE)
                     if data_config.script_dir:
                         update_dicts(data_config.name, "script_dir", data_config, AssetTypes.URI_FOLDER)
+                    update_data_path(data_config, "data_dir", data_inputs, data_args, AssetTypes.URI_FOLDER)
+                    update_data_path(data_config, "data_files", data_inputs, data_args, AssetTypes.URI_FILE)
+
         logger.debug(f"Data inputs for pass: {data_inputs}, data args for pass: {data_args}")
         return DataParams(data_inputs, data_args)
 
@@ -449,6 +472,7 @@ class AzureMLSystem(OliveSystem):
         """Run a pipeline job and return the path to named-outputs."""
         # submit job
         logger.debug("Submitting pipeline")
+        tags = {**self.tags, **(tags or {})}
         job = retry_func(
             ml_client.jobs.create_or_update,
             [pipeline_job],
@@ -695,4 +719,8 @@ class AzureMLSystem(OliveSystem):
         return cmd(**args)
 
     def remove(self):
-        logger.info("AzureML system does not need system removal")
+        if self.temp_dirs:
+            logger.info("AzureML system cleanup temp dirs.")
+            for temp_dir in self.temp_dirs:
+                temp_dir.cleanup()
+            self.temp_dirs = []

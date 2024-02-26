@@ -21,8 +21,10 @@ logger = logging.getLogger(__name__)
 def run_subprocess(cmd, env=None, cwd=None, check=False):  # pragma: no cover
     logger.debug(f"Running command: {cmd} with env: {env}")
 
+    assert isinstance(cmd, (str, list)), f"cmd must be a string or a list, got {type(cmd)}."
     windows = platform.system() == "Windows"
-    cmd = shlex.split(cmd, posix=not windows)
+    if isinstance(cmd, str):
+        cmd = shlex.split(cmd, posix=not windows)
     if windows:
         path = env.get("PATH") if env else None
         cmd_exe = shutil.which(cmd[0], path=path)
@@ -36,7 +38,7 @@ def run_subprocess(cmd, env=None, cwd=None, check=False):  # pragma: no cover
             f"Stdout: {e.stdout.decode('utf-8')}",
             f"Env: {env}",
         ]
-        logger.error("\n".join(err_msg))
+        logger.error("\n".join(err_msg))  # noqa: TRY400
         raise
     returncode = out.returncode
     stdout = out.stdout.decode("utf-8")
@@ -74,6 +76,29 @@ def hash_io_stream(f):  # pragma: no cover
 def hash_file(filename):  # pragma: no cover
     with open(filename, "rb") as f:  # noqa: PTH123
         return hash_io_stream(f)
+
+
+def hash_update_from_file(filename, hash_value):
+    assert Path(filename).is_file()
+    with open(str(filename), "rb") as f:  # noqa: PTH123
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_value.update(chunk)
+    return hash_value
+
+
+def hash_update_from_dir(directory, hash_value):
+    assert Path(directory).is_dir()
+    for path in sorted(Path(directory).iterdir(), key=lambda p: str(p).lower()):
+        hash_value.update(path.name.encode())
+        if path.is_file():
+            hash_value = hash_update_from_file(path, hash_value)
+        elif path.is_dir():
+            hash_value = hash_update_from_dir(path, hash_value)
+    return hash_value
+
+
+def hash_dir(directory):
+    return hash_update_from_dir(directory, hashlib.md5()).hexdigest()
 
 
 def hash_dict(dictionary):  # pragma: no cover
@@ -139,6 +164,7 @@ def retry_func(func, args=None, kwargs=None, max_tries=3, delay=5, backoff=2, ex
         backoff: Backoff multiplier e.g. value of 2 will double the delay each retry.
         exceptions: Exceptions to catch. If None, catch all exceptions. Can be a single exception or a tuple
             of exceptions.
+
     """
     args = args or []
     kwargs = kwargs or {}
@@ -150,11 +176,11 @@ def retry_func(func, args=None, kwargs=None, max_tries=3, delay=5, backoff=2, ex
             out = func(*args, **kwargs)
             logger.debug("Succeeded.")
             return out
-        except exceptions as e:
+        except exceptions:
             num_tries += 1
             if num_tries == max_tries:
-                logger.error(f"Failed with error: {e}", exc_info=True)
-                raise e
+                logger.exception("The operation failed after the maximum number of retries.")
+                raise
             logger.debug(f"Failed. Retrying in {sleep_time} seconds...")
             time.sleep(sleep_time)
             sleep_time *= backoff

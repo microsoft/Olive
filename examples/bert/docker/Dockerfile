@@ -7,7 +7,7 @@
 # tag list https://mcr.microsoft.com/v2/azureml/openmpi4.1.0-ubuntu20.04/tags/list
 FROM mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04
 
-ARG OPENVINO_VERSION=2023.0.0
+ARG OPENVINO_VERSION=2023.3.0
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get -y update && ACCEPT_EULA=Y apt-get -y upgrade
@@ -19,7 +19,7 @@ RUN pip install pandas \
             psutil \
             datasets \
             transformers \
-            onnxruntime-openvino==1.15.0 \
+            onnxruntime-openvino \
             evaluate \
             scikit-learn \
             git+https://github.com/microsoft/Olive.git \
@@ -33,9 +33,9 @@ ENV IE_PLUGINS_PATH $INTEL_OPENVINO_DIR/runtime/lib/intel64
 
 # Install OpenVINO
 RUN cd /opt && mkdir -p intel && cd intel && \
-    wget https://storage.openvinotoolkit.org/repositories/openvino/packages/2023.0/linux/l_openvino_toolkit_ubuntu20_2023.0.0.10926.b4452d56304_x86_64.tgz && \
-    tar xzf l_openvino_toolkit_ubuntu20_2023.0.0.10926.b4452d56304_x86_64.tgz && rm -rf l_openvino_toolkit_ubuntu20_2023.0.0.10926.b4452d56304_x86_64.tgz && \
-    mv l_openvino_toolkit_ubuntu20_2023.0.0.10926.b4452d56304_x86_64 openvino_2023.0.0 && \
+    wget https://storage.openvinotoolkit.org/repositories/openvino/packages/2023.3/linux/l_openvino_toolkit_ubuntu20_2023.3.0.13775.ceeafaf64f3_x86_64.tgz && \
+    tar xzf l_openvino_toolkit_ubuntu20_2023.3.0.13775.ceeafaf64f3_x86_64.tgz && rm -rf l_openvino_toolkit_ubuntu20_2023.3.0.13775.ceeafaf64f3_x86_64.tgz && \
+    mv l_openvino_toolkit_ubuntu20_2023.3.0.13775.ceeafaf64f3_x86_64 openvino_2023.3.0 && \
     cd $INTEL_OPENVINO_DIR/install_dependencies && ./install_openvino_dependencies.sh -y
 
 WORKDIR /root

@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 # ruff: noqa: N802, N806, RUF100
 
 # model types supported by SparseGPT
-supported_models = ["bloom", "gpt2", "gpt_neox", "llama", "opt"]
+supported_models = ("bloom", "gpt2", "gpt_neox", "llama", "opt")
 
 # additional inputs to the layers for each model type
 # all model types are expected to have "input_ids" and "attention_mask"

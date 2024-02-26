@@ -71,6 +71,8 @@ def get_pass_flows_by_accelerator_ep_precision(opt_level, accelerator, ep, preci
 
 
 def _if_match_pass_capability(p, passes_cap, accelerator, ep, precision):
+    # pylint: disable=too-many-boolean-expressions
+
     # get support precisions for this pass
     if (lower_ep := passes_cap[p].get("EP")) is not None:
         lower_ep = [e.lower() for e in lower_ep]

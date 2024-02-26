@@ -2,8 +2,11 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 from pathlib import Path
 from typing import Dict, Union
+
+logger = logging.getLogger(__name__)
 
 
 def get_ort_inference_session(
@@ -19,6 +22,7 @@ def get_ort_inference_session(
 
         sess_options.register_custom_ops_library(get_library_path())
 
+    logger.debug(f"inference_settings: {inference_settings}")
     # execution provider
     execution_provider = inference_settings.get("execution_provider")
 
@@ -51,7 +55,8 @@ def get_ort_inference_session(
         execution_provider = [execution_provider]
     else:
         # execution providers should be list[str]
-        assert isinstance(execution_provider, list) and all(isinstance(ep, str) for ep in execution_provider)
+        assert isinstance(execution_provider, list)
+        assert all(isinstance(ep, str) for ep in execution_provider)
 
     for idx, ep in enumerate(execution_provider):
         if ep == "QNNExecutionProvider":

@@ -15,7 +15,7 @@ from packaging import version
 
 from olive.model import ONNXModelHandler
 
-# ruff: noqa: TID252
+# ruff: noqa: TID252, T201
 
 
 def update_cuda_config(config: Dict):
@@ -67,7 +67,8 @@ def save_optimized_onnx_submodel(submodel_name, provider, model_info):
             elif footprint["from_pass"] == "OrtTransformersOptimization":
                 optimizer_footprint = footprint
 
-        assert conversion_footprint and optimizer_footprint
+        assert conversion_footprint
+        assert optimizer_footprint
 
         unoptimized_olive_model = ONNXModelHandler(**conversion_footprint["model_config"]["config"])
         optimized_olive_model = ONNXModelHandler(**optimizer_footprint["model_config"]["config"])

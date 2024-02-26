@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_VALID_EXECUTION_ORDERS = ["joint", "pass-by-pass"]
+_VALID_EXECUTION_ORDERS = ("joint", "pass-by-pass")
 
 # pylint: disable=attribute-defined-outside-init
 
@@ -117,9 +117,7 @@ class SearchStrategy:
             # run pass-by-pass for each pass flow which is defined as a list of registered passes
             search_spaces_groups = []
             for pass_flow_ss in search_space_names:
-                pass_flow_groups = []
-                for pass_ss in pass_flow_ss:
-                    pass_flow_groups.append([pass_ss])
+                pass_flow_groups = [[pass_ss] for pass_ss in pass_flow_ss]
                 search_spaces_groups.append(pass_flow_groups)
         else:
             raise ValueError(f"Unknown execution order: {self._config.execution_order}")

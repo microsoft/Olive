@@ -18,6 +18,8 @@ class TargetUserConfig(ConfigBase):
     accelerators: List[str] = None
     hf_token: bool = None
 
+    __hash__ = object.__hash__
+
 
 class LocalTargetUserConfig(TargetUserConfig):
     pass
@@ -35,6 +37,7 @@ class AzureMLTargetUserConfig(TargetUserConfig):
     aml_compute: str
     aml_docker_config: AzureMLDockerConfig = None
     aml_environment_config: AzureMLEnvironmentConfig = None
+    tags: Dict = None
     resources: Dict = None
     instance_count: int = 1
     is_dev: bool = False
@@ -43,9 +46,9 @@ class AzureMLTargetUserConfig(TargetUserConfig):
 
 
 class PythonEnvironmentTargetUserConfig(TargetUserConfig):
-    python_environment_path: Union[
-        Path, str
-    ] = None  # path to the python environment, e.g. /home/user/anaconda3/envs/myenv, /home/user/.virtualenvs/myenv
+    python_environment_path: Union[Path, str] = (
+        None  # path to the python environment, e.g. /home/user/anaconda3/envs/myenv, /home/user/.virtualenvs/myenv
+    )
     environment_variables: Dict[str, str] = None  # os.environ will be updated with these variables
     prepend_to_path: List[str] = None  # paths to prepend to os.environ["PATH"]
     olive_managed_env: bool = False  # if True, the environment will be created and managed by Olive
@@ -119,3 +122,9 @@ class SystemConfig(ConfigBase):
         if system_class.system_type == SystemType.AzureML and not self.config.azureml_client_config:
             raise ValueError("azureml_client is required for AzureML system")
         return system_class(**self.config.dict())
+
+    @property
+    def olive_managed_env(self):
+        return getattr(self.config, "olive_managed_env", False)
+
+    __hash__ = object.__hash__

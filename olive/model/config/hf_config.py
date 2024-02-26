@@ -138,7 +138,7 @@ class HfFromPretrainedArgs(ConfigWithExtraArgs):
         """Return all args in a dict with types expected by `from_pretrained`."""
         loading_args = {}
         # copy args that can be directly copied
-        direct_copy_args = ["device_map", "max_memory"]
+        direct_copy_args = ("device_map", "max_memory")
         for arg in direct_copy_args:
             if getattr(self, arg):
                 loading_args[arg] = deepcopy(getattr(self, arg))
@@ -244,9 +244,8 @@ class HfConfig(ConfigBase):
 
     @validator("model_class", always=True)
     def task_or_model_class_required(cls, v, values):
-        if values["model_name"]:
-            if not v and not values.get("task", None):
-                raise ValueError("Either task or model_class must be specified")
+        if values["model_name"] and not v and not values.get("task", None):
+            raise ValueError("Either task or model_class must be specified")
         return v
 
     def get_loading_args_from_pretrained(self) -> Dict[str, Any]:

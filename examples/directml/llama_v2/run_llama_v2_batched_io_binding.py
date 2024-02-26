@@ -9,6 +9,9 @@ import numpy as np
 import onnxruntime
 from sentencepiece import SentencePieceProcessor
 
+# pylint: disable=consider-using-enumerate, protected-access
+# ruff: noqa: T201
+
 
 class Tokenizer:
     def __init__(self, model_path: str):
@@ -172,9 +175,7 @@ def run_llama_v2_io_binding(
     before_time = time.perf_counter()
 
     # Iteratively generate tokens.
-    batched_output_tokens = []
-    for _ in range(batch_size):
-        batched_output_tokens.append([])
+    batched_output_tokens = [[] for _ in range(batch_size)]
 
     eos_found = [False] * batch_size
     eos_count = 0

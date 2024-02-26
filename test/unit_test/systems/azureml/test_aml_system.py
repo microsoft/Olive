@@ -16,6 +16,7 @@ import pytest
 from azure.ai.ml import Input, Output
 from azure.ai.ml.constants import AssetTypes
 from azure.ai.ml.entities import UserIdentityConfiguration
+from azure.core.exceptions import ResourceNotFoundError
 
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.data.config import DataConfig
@@ -274,11 +275,14 @@ class TestAzureMLSystem:
         # setup
         script_dir_path = Path(__file__).absolute().parent / "script_dir"
         user_script_path = script_dir_path / "user_script.py"
+        data_dir_path = Path(__file__).absolute().parent / "data_dir"
+        data_files_path = data_dir_path / "datafile.json"
         data_config = DataConfig(
             type="HuggingfaceContainer",
             name="data_name",
             user_script=str(user_script_path),
             script_dir=str(script_dir_path),
+            params_config={"data_dir": data_dir_path, "data_files": data_files_path},
         )
         pass_config = {"data_config": data_config}
         the_pass = MagicMock()
@@ -286,18 +290,27 @@ class TestAzureMLSystem:
         expected_data_inputs = {
             "data_name_user_script": Input(type=AssetTypes.URI_FILE, optional=True),
             "data_name_script_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
+            "data_name_data_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
+            "data_name_data_files": Input(type=AssetTypes.URI_FILE, optional=True),
         }
         expected_data_args = {
             "data_name_user_script": Input(type=AssetTypes.URI_FILE, path=str(user_script_path)),
             "data_name_script_dir": Input(type=AssetTypes.URI_FOLDER, path=str(script_dir_path)),
+            "data_name_data_dir": Input(type=AssetTypes.URI_FOLDER, path=str(data_dir_path)),
+            "data_name_data_files": Input(type=AssetTypes.URI_FILE, path=str(data_files_path)),
         }
 
         # execute
-        actual_data_params = self.system._create_data_script_inputs_and_args(the_pass)
+        actual_data_params = self.system._create_data_script_inputs_and_args(None, the_pass)
 
         # assert
         assert actual_data_params.data_inputs == expected_data_inputs
-        assert actual_data_params.data_args == expected_data_args
+        # assert actual_data_params.data_args == expected_data_args
+        # I deliberately use the Path.__eq__ to compare path since sometimes in Windows, the path root
+        # will be changed to uppercase, which will cause the test to fail.
+        for k, v in actual_data_params.data_args.items():
+            assert v.type == expected_data_args[k].type
+            assert Path(v.path) == Path(expected_data_args[k].path)
 
     def test__create_metric_args(self):
         # setup
@@ -354,9 +367,11 @@ class TestAzureMLSystem:
         metric_type = f"{metric.type}-{sub_type_name}"
         model_inputs = {
             "model_config": Input(type=AssetTypes.URI_FILE),
-            "model_model_path": Input(type=AssetTypes.CUSTOM_MODEL, optional=True)
-            if model_resource_type == ResourceType.AzureMLModel
-            else Input(type=AssetTypes.URI_FILE, optional=True),
+            "model_model_path": (
+                Input(type=AssetTypes.CUSTOM_MODEL, optional=True)
+                if model_resource_type == ResourceType.AzureMLModel
+                else Input(type=AssetTypes.URI_FILE, optional=True)
+            ),
         }
         metric_inputs = {
             "metric_config": Input(type=AssetTypes.URI_FILE),
@@ -430,8 +445,7 @@ class TestAzureMLSystem:
             else:
                 parameters.append(f"--{param} ${{{{inputs.{param}}}}}")
         outputs = outputs or {}
-        for param in outputs:
-            parameters.append(f"--{param} ${{{{outputs.{param}}}}}")
+        parameters.extend([f"--{param} ${{{{outputs.{param}}}}}" for param in outputs])
 
         return f"python {script_name} {' '.join(parameters)}"
 
@@ -544,7 +558,7 @@ class TestAzureMLSystem:
                     "model_name": "Intel/bert-base-uncased-mrpc",
                     "split": "validation",
                     "subset": "mrpc",
-                    "task_type": "text-classification",
+                    "task": "text-classification",
                 },
                 "type": "HuggingfaceContainer",
             },
@@ -705,7 +719,7 @@ def test_aml_system_no_keyvault_name_raise_valueerror(mock_env):
     )
 
     # assert
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError):  # noqa: PT011
         AzureMLSystem(mock_azureml_client_config, "dummy", docker_config, hf_token=True)
 
 
@@ -730,3 +744,51 @@ def test__get_enironment_from_config(mock_retry_func):
 
     # assert
     assert expected_env == system.environment
+
+
+@patch.object(AzureMLClientConfig, "create_client")
+def test_create_managed_env(create_client_mock):
+    from olive.systems.system_config import AzureMLTargetUserConfig, SystemConfig
+    from olive.systems.utils import create_new_system
+
+    ml_client = MagicMock()
+    ml_client.environments.get.side_effect = ResourceNotFoundError()
+    ml_client.environments.get.__name__ = "get"
+    create_client_mock.return_value = ml_client
+
+    docker_config = AzureMLDockerConfig(
+        base_image="base_image",
+        conda_file_path="conda_file_path",
+    )
+    system_config = SystemConfig(
+        type="AzureML",
+        config=AzureMLTargetUserConfig(
+            azureml_client_config=AzureMLClientConfig(),
+            aml_compute="aml_compute",
+            aml_docker_config=docker_config,
+            olive_managed_env=True,
+        ),
+    )
+    system = create_new_system(system_config, DEFAULT_CPU_ACCELERATOR)
+    assert system.olive_managed_env
+
+    ml_client = MagicMock()
+    ml_client.environments.get.return_value = MagicMock()
+    ml_client.environments.get.__name__ = "get"
+    create_client_mock.return_value = ml_client
+
+    system_config = SystemConfig(
+        type="AzureML",
+        config=AzureMLTargetUserConfig(
+            azureml_client_config=AzureMLClientConfig(),
+            aml_compute="aml_compute",
+            aml_environment_config=AzureMLEnvironmentConfig(
+                name="name",
+                version="version",
+                label="label",
+            ),
+            olive_managed_env=False,
+        ),
+    )
+    system = system_config.create_system()
+    assert not system.olive_managed_env
