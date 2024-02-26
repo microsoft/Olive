@@ -3,12 +3,18 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
+import pytest
+import torch
 
 from olive.model.handler.pytorch import PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx import GptqQuantizer
 
 
+@pytest.mark.skipif(
+    not torch.cuda.is_available(),
+    reason="gptq requires GPU.",
+)
 def test_quantization_default(tmp_path: Path):
     # setup
     input_model = PyTorchModelHandler(
