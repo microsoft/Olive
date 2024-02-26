@@ -1,0 +1,119 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
+
+import logging
+from typing import Any, Callable, Dict, List
+
+from onnxruntime.tools.onnx_model_utils import fix_output_shapes, make_dim_param_fixed, make_input_shape_fixed
+
+from olive.common.pydantic_v1 import root_validator
+from olive.hardware import AcceleratorSpec
+from olive.model import ONNXModelHandler
+from olive.model.utils import resolve_onnx_path
+from olive.passes.olive_pass import Pass
+from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
+from olive.passes.pass_config import PassConfigParam
+
+logger = logging.getLogger(__name__)
+
+
+class DynamicToFixedShape(Pass):
+    """Preprocess ONNX model for quantization targeting QNN Execution Provider."""
+
+    @staticmethod
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+        config = {
+            "dim_param": PassConfigParam(
+                type_=List[str],
+                default_value=None,
+                required=False,
+                description=("Symbolic parameter name. Provide dim_value if specified."),
+            ),
+            "dim_value": PassConfigParam(
+                type_=List[int],
+                default_value=None,
+                required=False,
+                description=("Value to replace dim_param with in the model. Must be > 0."),
+            ),
+            "input_name": PassConfigParam(
+                type_=List[str],
+                default_value=None,
+                required=False,
+                description=("Model input name to replace shape of. Provide input_shape if specified."),
+            ),
+            "input_shape": PassConfigParam(
+                type_=List[List[int]],
+                default_value=None,
+                required=False,
+                description=(
+                    "Shape to use for input_shape. Provide comma separated list for the shape. "
+                    "All values must be > 0. e.g. [1,3,256,256]"
+                ),
+            ),
+        }
+        config.update(get_external_data_config())
+        return config
+
+    @staticmethod
+    def _validators() -> Dict[str, Callable[..., Any]]:
+        return {
+            "validate_dim_param_and_value": root_validator(allow_reuse=True)(_validate_dim_param_and_value),
+            "validate_input_name_and_value": root_validator(allow_reuse=True)(_validate_input_name_and_value),
+            "validate_input_name_dim_param": root_validator(allow_reuse=True)(_validate_input_name_dim_param),
+        }
+
+    def _run_for_config(
+        self,
+        model: ONNXModelHandler,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+    ) -> ONNXModelHandler:
+        onnx_model = model.load_model()
+        output_model_path = resolve_onnx_path(output_model_path)
+
+        if config["dim_param"]:
+            for param, value in zip(config["dim_param"], config["dim_value"]):
+                make_dim_param_fixed(onnx_model.graph, param, value)
+        elif config["input_name"]:
+            for name, shape in zip(config["input_name"], config["input_shape"]):
+                make_input_shape_fixed(onnx_model.graph, name, shape)
+        # update the output shapes to make them fixed
+        fix_output_shapes(onnx_model)
+        return model_proto_to_olive_model(onnx_model, output_model_path, config)
+
+
+def _validate_dim_param_and_value(cls, values):
+    if values["input_name"] and values["input_shape"]:
+        return values
+    if not values["dim_param"] or not values["dim_value"]:
+        raise ValueError("dim_param and dim_value must be both provided or both None.")
+    if values["dim_param"] and values["dim_value"]:
+        if len(values["dim_param"]) != len(values["dim_value"]):
+            raise ValueError("dim_param and dim_value must have the same number of elements.")
+        if any([i <= 0 for i in values["dim_value"]]):  # noqa: C419
+            raise ValueError("dim_value must be all > 0 when dim_param is provided.")
+    return values
+
+
+def _validate_input_name_and_value(cls, values):
+    if values["dim_param"] and values["dim_value"]:
+        return values
+    if not values["input_name"] or not values["input_shape"]:
+        raise ValueError("input_name and input_shape must be both provided or both None.")
+    if values["input_name"] and values["input_shape"]:
+        if len(values["input_name"]) != len(values["input_shape"]):
+            raise ValueError("input_name and input_shape must have the same number of elements.")
+        if any([any([i <= 0 for i in shape]) for shape in values["input_shape"]]):  # noqa: C419
+            raise ValueError("input_shape must be all > 0 when input_name is provided.")
+    return values
+
+
+def _validate_input_name_dim_param(cls, values):
+    if values.get("input_name") and values.get("dim_param"):
+        raise ValueError("Cannot set both dim_param and input_name at the same time.")
+    if not values.get("input_name") and not values.get("dim_param"):
+        raise ValueError("dim_param and input_name cannot be both empty.")
+    return values
