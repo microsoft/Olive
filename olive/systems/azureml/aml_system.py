@@ -362,17 +362,9 @@ class AzureMLSystem(OliveSystem):
         # prepare code
         script_name = "aml_pass_runner.py"
         cur_dir = Path(__file__).resolve().parent
-        code_file = cur_dir / script_name
         code_root = tmp_dir / "code"
-        code_root.mkdir(parents=True, exist_ok=True)
-        shutil.copy(str(code_file), str(code_root))
-        if self.is_dev:
-            logger.warning(
-                "Dev mode is only enabled for CI pipeline! "
-                "It will overwrite the Olive package in AML computer with latest code."
-            )
-            project_folder = cur_dir.parent.parent
-            copy_dir(project_folder, code_root / "olive", ignore=shutil.ignore_patterns("__pycache__"))
+        code_files = [cur_dir / script_name]
+        self.copy_code(code_files, code_root)
 
         accelerator_info = {
             "pass_accelerator_type": pass_config["accelerator"]["accelerator_type"],
@@ -666,17 +658,9 @@ class AzureMLSystem(OliveSystem):
         # prepare code
         script_name = "aml_evaluation_runner.py"
         cur_dir = Path(__file__).resolve().parent
-        code_file = cur_dir / script_name
         code_root = tmp_dir / "code"
-        code_root.mkdir(parents=True, exist_ok=True)
-        shutil.copy(str(code_file), str(code_root))
-        if self.is_dev:
-            logger.warning(
-                "Dev mode is only enabled for CI pipeline! "
-                "It will overwrite the Olive package in AML computer with latest code."
-            )
-            project_folder = cur_dir.parent.parent
-            copy_dir(project_folder, code_root / "olive", ignore=shutil.ignore_patterns("__pycache__"))
+        code_files = [cur_dir / script_name]
+        self.copy_code(code_files, code_root)
 
         # prepare inputs
         inputs = {
@@ -717,6 +701,20 @@ class AzureMLSystem(OliveSystem):
 
         # metric component
         return cmd(**args)
+
+    def copy_code(self, code_files: List, target_path: Path):
+        target_path.mkdir(parents=True, exist_ok=True)
+        for code_file in code_files:
+            shutil.copy2(str(code_file), str(target_path))
+
+        if self.is_dev:
+            logger.warning(
+                "Dev mode is only enabled for CI pipeline! "
+                "It will overwrite the Olive package in AML computer with latest code."
+            )
+            cur_dir = Path(__file__).resolve().parent
+            project_folder = cur_dir.parents[1]
+            copy_dir(project_folder, target_path / "olive", ignore=shutil.ignore_patterns("__pycache__"))
 
     def remove(self):
         if self.temp_dirs:

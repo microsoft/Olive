@@ -117,18 +117,20 @@ class DockerSystem(OliveSystem):
     ) -> Dict[str, Any]:
         container_root_path = Path("/olive-ws/")
         with tempfile.TemporaryDirectory() as tempdir:
-            metrics_res = None
-            metric_json = self._run_container(
+            metric_json = self._run_eval_container(
                 tempdir, model_config, data_root, metrics, accelerator, container_root_path
             )
             if metric_json.is_file():
                 with metric_json.open() as f:
                     metrics_res = json.load(f)
-            return MetricResult.parse_obj(metrics_res)
+                    return MetricResult.parse_obj(metrics_res)
+            else:
+                logger.error(f"Metric result file {metric_json} not found.")
+                return None
 
-    def _run_container(
+    def _run_eval_container(
         self,
-        tempdir,
+        workdir,
         model_config: "ModelConfig",
         data_root: str,
         metrics: List[Metric],
@@ -139,38 +141,43 @@ class DockerSystem(OliveSystem):
         eval_output_name = "eval_res.json"
 
         volumes_list = []
+        # mount eval script
         eval_file_mount_path, eval_file_mount_str = docker_utils.create_eval_script_mount(container_root_path)
         volumes_list.append(eval_file_mount_str)
 
+        # mount dev stuff
         if self.is_dev:
-            _, dev_mount_str = docker_utils.create_dev_mount(tempdir, container_root_path)
+            _, dev_mount_str = docker_utils.create_dev_mount(workdir, container_root_path)
             volumes_list.append(dev_mount_str)
 
-        model_config_copy = copy.deepcopy(model_config)
+        # mount model
         model_mounts, model_mount_str_list = docker_utils.create_model_mount(
-            model_config=model_config_copy, container_root_path=container_root_path
+            model_config=model_config, container_root_path=container_root_path
         )
         volumes_list += model_mount_str_list
 
         metrics_copy = copy.deepcopy(metrics)
-        volumes_list = docker_utils.create_metric_volumes_list(
-            data_root=data_root,
-            metrics=metrics_copy,
-            container_root_path=container_root_path,
-            mount_list=volumes_list,
+        # mount metrics related external files
+        volumes_list.extend(
+            # the metrics_copy is modified when creating the volumes list
+            docker_utils.create_metric_volumes_list(
+                data_root=data_root,
+                metrics=metrics_copy,
+                container_root_path=container_root_path,
+            )
         )
 
+        # mount config file
+        data = self._create_eval_config(model_config, metrics_copy, model_mounts)
         config_mount_path, config_file_mount_str = docker_utils.create_config_file(
-            tempdir=tempdir,
-            model_config=model_config_copy,
-            metrics=metrics_copy,
+            workdir=workdir,
+            config=data,
             container_root_path=container_root_path,
-            model_mounts=model_mounts,
         )
         volumes_list.append(config_file_mount_str)
 
         output_local_path, output_mount_path, output_mount_str = docker_utils.create_output_mount(
-            tempdir=tempdir,
+            workdir=workdir,
             docker_eval_output_path=eval_output_path,
             container_root_path=container_root_path,
         )
@@ -184,7 +191,23 @@ class DockerSystem(OliveSystem):
             output_name=eval_output_name,
             accelerator=accelerator,
         )
+        return self._run_container(eval_command, volumes_list, output_local_path, eval_output_name, accelerator)
 
+    def _create_eval_config(self, model_config: "ModelConfig", metrics: List[Metric], model_mounts: Dict[str, str]):
+        model_json = model_config.to_json(check_object=True)
+        for k, v in model_mounts.items():
+            model_json["config"][k] = v
+
+        return {"metrics": [k.dict() for k in metrics], "model": model_json}
+
+    def _run_container(
+        self,
+        command,
+        volumes_list: List[str],
+        output_local_path,
+        output_name,
+        accelerator: "AcceleratorSpec",
+    ):
         run_command = docker_utils.create_run_command(run_params=self.run_params)
 
         environment = run_command.pop("environment", {})
@@ -198,26 +221,18 @@ class DockerSystem(OliveSystem):
             token = get_huggingface_token()
             environment.update({"HF_TOKEN": token})
 
-        logger.debug(f"Running container with eval command: {eval_command}")
+        logger.debug("Running container with command: %s", command)
         if accelerator.accelerator_type == Device.GPU:
-            container = self.docker_client.containers.run(
-                image=self.image,
-                command=eval_command,
-                volumes=volumes_list,
-                detach=True,
-                environment=environment,
-                device_requests=[docker.types.DeviceRequest(capabilities=[["gpu"]])],
-                **run_command,
-            )
-        else:
-            container = self.docker_client.containers.run(
-                image=self.image,
-                command=eval_command,
-                volumes=volumes_list,
-                detach=True,
-                environment=environment,
-                **run_command,
-            )
+            run_command["device_requests"] = [docker.types.DeviceRequest(capabilities=[["gpu"]])]
+
+        container = self.docker_client.containers.run(
+            image=self.image,
+            command=command,
+            volumes=volumes_list,
+            detach=True,
+            environment=environment,
+            **run_command,
+        )
         docker_logs = []
         for line in container.logs(stream=True):
             # containers.logs can accept stdout/stderr as arguments, but it doesn't work
@@ -231,11 +246,11 @@ class DockerSystem(OliveSystem):
         if exit_code != 0:
             error_msg = "\n".join(docker_logs)
             raise ContainerError(
-                container, exit_code, eval_command, self.image, f"Docker container evaluation failed with: {error_msg}"
+                container, exit_code, command, self.image, f"Docker container evaluation failed with: {error_msg}"
             )
         logger.debug("Docker container evaluation completed successfully")
 
-        return Path(output_local_path) / f"{eval_output_name}"
+        return Path(output_local_path) / output_name
 
     def remove(self):
         self.docker_client.images.remove(self.image.tags[0], force=True)

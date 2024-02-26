@@ -296,8 +296,6 @@ class TestEngine:
             # assert
             assert "Exception: test" in caplog.text
 
-            # clean up: tempfile will be deleted automatically
-
     @patch("olive.systems.local.LocalSystem")
     def test_run_evaluate_input_model(self, mock_local_system_init, tmpdir):
         # setup

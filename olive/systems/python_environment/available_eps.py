@@ -23,8 +23,7 @@ def main(raw_args=None):
     available_eps = ort.get_available_providers()
 
     # save to pickle
-    output_path = Path(args.output_path)
-    with output_path.open("wb") as f:
+    with Path(args.output_path).open("wb") as f:
         pickle.dump(available_eps, f)
 
 
