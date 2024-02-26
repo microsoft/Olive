@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader, Dataset
 from olive.constants import Framework
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
-from olive.evaluator.metric import Metric, MetricType
+from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
 from olive.evaluator.metric_config import MetricGoal
 from olive.model import ModelConfig, ONNXModelHandler, PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
@@ -172,6 +172,24 @@ def get_accuracy_metric(
     )
 
 
+def get_glue_accuracy_metric():
+    return Metric(
+        name="accuracy",
+        type=MetricType.ACCURACY,
+        sub_types=[{"name": AccuracySubType.ACCURACY_SCORE}],
+        data_config=get_glue_huggingface_data_config(),
+    )
+
+
+def get_glue_latency_metric():
+    return Metric(
+        name="latency",
+        type=MetricType.LATENCY,
+        sub_types=[{"name": LatencySubType.AVG}],
+        data_config=get_glue_huggingface_data_config(),
+    )
+
+
 def get_custom_metric(user_config=None):
     user_script_path = str(Path(__file__).absolute().parent / "assets" / "user_script.py")
     return Metric(
@@ -226,16 +244,20 @@ def get_onnx_dynamic_quantization_pass(disable_search=False):
 
 def get_data_config():
     @Registry.register_dataset("test_dataset")
-    def _test_dataset(data_dir, test_value): ...
+    def _test_dataset(data_dir, test_value):
+        ...
 
     @Registry.register_dataloader()
-    def _test_dataloader(dataset, test_value): ...
+    def _test_dataloader(dataset, test_value):
+        ...
 
     @Registry.register_pre_process()
-    def _pre_process(dataset, test_value): ...
+    def _pre_process(dataset, test_value):
+        ...
 
     @Registry.register_post_process()
-    def _post_process(output, test_value): ...
+    def _post_process(output, test_value):
+        ...
 
     return DataConfig(
         components={

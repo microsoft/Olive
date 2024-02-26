@@ -12,6 +12,7 @@ import platform
 import shlex
 import shutil
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 
@@ -327,3 +328,18 @@ def copy_dir(src_dir, dst_dir, ignore=None, **kwargs):
                 f"Received shutil.Error '{e}' but all required file names exist in destination directory. "
                 "Assuming all files were copied successfully and continuing."
             )
+
+
+def set_tempdir(tempdir: str = None):
+    """Set the root directory for tempfiles.
+
+    :param new_tempdir: new tempdir.
+    """
+    if tempdir is None:
+        return
+
+    tempdir = Path(tempdir).resolve()
+    tempdir.mkdir(parents=True, exist_ok=True)
+    # setting as string to be safe
+    logger.debug(f"Setting tempdir to {tempdir} from {tempfile.tempdir}")
+    tempfile.tempdir = str(tempdir)
