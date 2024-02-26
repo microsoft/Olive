@@ -6,8 +6,6 @@
 import logging
 from typing import Any, Callable, Dict, List
 
-from onnxruntime.tools.onnx_model_utils import fix_output_shapes, make_dim_param_fixed, make_input_shape_fixed
-
 from olive.common.pydantic_v1 import root_validator
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler
@@ -71,6 +69,8 @@ class DynamicToFixedShape(Pass):
         config: Dict[str, Any],
         output_model_path: str,
     ) -> ONNXModelHandler:
+        from onnxruntime.tools.onnx_model_utils import fix_output_shapes, make_dim_param_fixed, make_input_shape_fixed
+
         onnx_model = model.load_model()
         output_model_path = resolve_onnx_path(output_model_path)
 
@@ -93,7 +93,7 @@ def _validate_dim_param_and_value(cls, values):
     if values["dim_param"] and values["dim_value"]:
         if len(values["dim_param"]) != len(values["dim_value"]):
             raise ValueError("dim_param and dim_value must have the same number of elements.")
-        if any([i <= 0 for i in values["dim_value"]]):  # noqa: C419
+        if any(i <= 0 for i in values["dim_value"]):
             raise ValueError("dim_value must be all > 0 when dim_param is provided.")
     return values
 
@@ -106,7 +106,7 @@ def _validate_input_name_and_value(cls, values):
     if values["input_name"] and values["input_shape"]:
         if len(values["input_name"]) != len(values["input_shape"]):
             raise ValueError("input_name and input_shape must have the same number of elements.")
-        if any([any([i <= 0 for i in shape]) for shape in values["input_shape"]]):  # noqa: C419
+        if any(any(i <= 0 for i in shape) for shape in values["input_shape"]):
             raise ValueError("input_shape must be all > 0 when input_name is provided.")
     return values
 
