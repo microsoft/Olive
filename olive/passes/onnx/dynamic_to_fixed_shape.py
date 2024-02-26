@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class DynamicToFixedShape(Pass):
-    """Preprocess ONNX model for quantization targeting QNN Execution Provider."""
+    """Convert dynamic shape to fixed shape for ONNX model."""
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
