@@ -490,17 +490,9 @@
         <span class="c1"># prepare code</span>
         <span class="n">script_name</span> <span class="o">=</span> <span class="s2">&quot;aml_pass_runner.py&quot;</span>
         <span class="n">cur_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span>
-        <span class="n">code_file</span> <span class="o">=</span> <span class="n">cur_dir</span> <span class="o">/</span> <span class="n">script_name</span>
         <span class="n">code_root</span> <span class="o">=</span> <span class="n">tmp_dir</span> <span class="o">/</span> <span class="s2">&quot;code&quot;</span>
-        <span class="n">code_root</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">code_file</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">code_root</span><span class="p">))</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_dev</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="s2">&quot;Dev mode is only enabled for CI pipeline! &quot;</span>
-                <span class="s2">&quot;It will overwrite the Olive package in AML computer with latest code.&quot;</span>
-            <span class="p">)</span>
-            <span class="n">project_folder</span> <span class="o">=</span> <span class="n">cur_dir</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span>
-            <span class="n">copy_dir</span><span class="p">(</span><span class="n">project_folder</span><span class="p">,</span> <span class="n">code_root</span> <span class="o">/</span> <span class="s2">&quot;olive&quot;</span><span class="p">,</span> <span class="n">ignore</span><span class="o">=</span><span class="n">shutil</span><span class="o">.</span><span class="n">ignore_patterns</span><span class="p">(</span><span class="s2">&quot;__pycache__&quot;</span><span class="p">))</span>
+        <span class="n">code_files</span> <span class="o">=</span> <span class="p">[</span><span class="n">cur_dir</span> <span class="o">/</span> <span class="n">script_name</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">copy_code</span><span class="p">(</span><span class="n">code_files</span><span class="p">,</span> <span class="n">code_root</span><span class="p">)</span>
 
         <span class="n">accelerator_info</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;pass_accelerator_type&quot;</span><span class="p">:</span> <span class="n">pass_config</span><span class="p">[</span><span class="s2">&quot;accelerator&quot;</span><span class="p">][</span><span class="s2">&quot;accelerator_type&quot;</span><span class="p">],</span>
@@ -794,17 +786,9 @@
         <span class="c1"># prepare code</span>
         <span class="n">script_name</span> <span class="o">=</span> <span class="s2">&quot;aml_evaluation_runner.py&quot;</span>
         <span class="n">cur_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span>
-        <span class="n">code_file</span> <span class="o">=</span> <span class="n">cur_dir</span> <span class="o">/</span> <span class="n">script_name</span>
         <span class="n">code_root</span> <span class="o">=</span> <span class="n">tmp_dir</span> <span class="o">/</span> <span class="s2">&quot;code&quot;</span>
-        <span class="n">code_root</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">code_file</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">code_root</span><span class="p">))</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_dev</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="s2">&quot;Dev mode is only enabled for CI pipeline! &quot;</span>
-                <span class="s2">&quot;It will overwrite the Olive package in AML computer with latest code.&quot;</span>
-            <span class="p">)</span>
-            <span class="n">project_folder</span> <span class="o">=</span> <span class="n">cur_dir</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span>
-            <span class="n">copy_dir</span><span class="p">(</span><span class="n">project_folder</span><span class="p">,</span> <span class="n">code_root</span> <span class="o">/</span> <span class="s2">&quot;olive&quot;</span><span class="p">,</span> <span class="n">ignore</span><span class="o">=</span><span class="n">shutil</span><span class="o">.</span><span class="n">ignore_patterns</span><span class="p">(</span><span class="s2">&quot;__pycache__&quot;</span><span class="p">))</span>
+        <span class="n">code_files</span> <span class="o">=</span> <span class="p">[</span><span class="n">cur_dir</span> <span class="o">/</span> <span class="n">script_name</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">copy_code</span><span class="p">(</span><span class="n">code_files</span><span class="p">,</span> <span class="n">code_root</span><span class="p">)</span>
 
         <span class="c1"># prepare inputs</span>
         <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span>
@@ -845,6 +829,20 @@
 
         <span class="c1"># metric component</span>
         <span class="k">return</span> <span class="n">cmd</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">copy_code</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">code_files</span><span class="p">:</span> <span class="n">List</span><span class="p">,</span> <span class="n">target_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">):</span>
+        <span class="n">target_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">code_file</span> <span class="ow">in</span> <span class="n">code_files</span><span class="p">:</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">copy2</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">code_file</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">target_path</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_dev</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;Dev mode is only enabled for CI pipeline! &quot;</span>
+                <span class="s2">&quot;It will overwrite the Olive package in AML computer with latest code.&quot;</span>
+            <span class="p">)</span>
+            <span class="n">cur_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span>
+            <span class="n">project_folder</span> <span class="o">=</span> <span class="n">cur_dir</span><span class="o">.</span><span class="n">parents</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">copy_dir</span><span class="p">(</span><span class="n">project_folder</span><span class="p">,</span> <span class="n">target_path</span> <span class="o">/</span> <span class="s2">&quot;olive&quot;</span><span class="p">,</span> <span class="n">ignore</span><span class="o">=</span><span class="n">shutil</span><span class="o">.</span><span class="n">ignore_patterns</span><span class="p">(</span><span class="s2">&quot;__pycache__&quot;</span><span class="p">))</span>
 
     <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temp_dirs</span><span class="p">:</span>

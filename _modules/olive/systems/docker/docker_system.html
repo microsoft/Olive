@@ -245,18 +245,20 @@
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
         <span class="n">container_root_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;/olive-ws/&quot;</span><span class="p">)</span>
         <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tempdir</span><span class="p">:</span>
-            <span class="n">metrics_res</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="n">metric_json</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_container</span><span class="p">(</span>
+            <span class="n">metric_json</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_eval_container</span><span class="p">(</span>
                 <span class="n">tempdir</span><span class="p">,</span> <span class="n">model_config</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">metrics</span><span class="p">,</span> <span class="n">accelerator</span><span class="p">,</span> <span class="n">container_root_path</span>
             <span class="p">)</span>
             <span class="k">if</span> <span class="n">metric_json</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
                 <span class="k">with</span> <span class="n">metric_json</span><span class="o">.</span><span class="n">open</span><span class="p">()</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                     <span class="n">metrics_res</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">MetricResult</span><span class="o">.</span><span class="n">parse_obj</span><span class="p">(</span><span class="n">metrics_res</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="n">MetricResult</span><span class="o">.</span><span class="n">parse_obj</span><span class="p">(</span><span class="n">metrics_res</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Metric result file </span><span class="si">{</span><span class="n">metric_json</span><span class="si">}</span><span class="s2"> not found.&quot;</span><span class="p">)</span>
+                <span class="k">return</span> <span class="kc">None</span>
 
-    <span class="k">def</span> <span class="nf">_run_container</span><span class="p">(</span>
+    <span class="k">def</span> <span class="nf">_run_eval_container</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">tempdir</span><span class="p">,</span>
+        <span class="n">workdir</span><span class="p">,</span>
         <span class="n">model_config</span><span class="p">:</span> <span class="s2">&quot;ModelConfig&quot;</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span>
@@ -267,38 +269,43 @@
         <span class="n">eval_output_name</span> <span class="o">=</span> <span class="s2">&quot;eval_res.json&quot;</span>
 
         <span class="n">volumes_list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1"># mount eval script</span>
         <span class="n">eval_file_mount_path</span><span class="p">,</span> <span class="n">eval_file_mount_str</span> <span class="o">=</span> <span class="n">docker_utils</span><span class="o">.</span><span class="n">create_eval_script_mount</span><span class="p">(</span><span class="n">container_root_path</span><span class="p">)</span>
         <span class="n">volumes_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">eval_file_mount_str</span><span class="p">)</span>
 
+        <span class="c1"># mount dev stuff</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_dev</span><span class="p">:</span>
-            <span class="n">_</span><span class="p">,</span> <span class="n">dev_mount_str</span> <span class="o">=</span> <span class="n">docker_utils</span><span class="o">.</span><span class="n">create_dev_mount</span><span class="p">(</span><span class="n">tempdir</span><span class="p">,</span> <span class="n">container_root_path</span><span class="p">)</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">dev_mount_str</span> <span class="o">=</span> <span class="n">docker_utils</span><span class="o">.</span><span class="n">create_dev_mount</span><span class="p">(</span><span class="n">workdir</span><span class="p">,</span> <span class="n">container_root_path</span><span class="p">)</span>
             <span class="n">volumes_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dev_mount_str</span><span class="p">)</span>
 
-        <span class="n">model_config_copy</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">model_config</span><span class="p">)</span>
+        <span class="c1"># mount model</span>
         <span class="n">model_mounts</span><span class="p">,</span> <span class="n">model_mount_str_list</span> <span class="o">=</span> <span class="n">docker_utils</span><span class="o">.</span><span class="n">create_model_mount</span><span class="p">(</span>
-            <span class="n">model_config</span><span class="o">=</span><span class="n">model_config_copy</span><span class="p">,</span> <span class="n">container_root_path</span><span class="o">=</span><span class="n">container_root_path</span>
+            <span class="n">model_config</span><span class="o">=</span><span class="n">model_config</span><span class="p">,</span> <span class="n">container_root_path</span><span class="o">=</span><span class="n">container_root_path</span>
         <span class="p">)</span>
         <span class="n">volumes_list</span> <span class="o">+=</span> <span class="n">model_mount_str_list</span>
 
         <span class="n">metrics_copy</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">metrics</span><span class="p">)</span>
-        <span class="n">volumes_list</span> <span class="o">=</span> <span class="n">docker_utils</span><span class="o">.</span><span class="n">create_metric_volumes_list</span><span class="p">(</span>
-            <span class="n">data_root</span><span class="o">=</span><span class="n">data_root</span><span class="p">,</span>
-            <span class="n">metrics</span><span class="o">=</span><span class="n">metrics_copy</span><span class="p">,</span>
-            <span class="n">container_root_path</span><span class="o">=</span><span class="n">container_root_path</span><span class="p">,</span>
-            <span class="n">mount_list</span><span class="o">=</span><span class="n">volumes_list</span><span class="p">,</span>
+        <span class="c1"># mount metrics related external files</span>
+        <span class="n">volumes_list</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+            <span class="c1"># the metrics_copy is modified when creating the volumes list</span>
+            <span class="n">docker_utils</span><span class="o">.</span><span class="n">create_metric_volumes_list</span><span class="p">(</span>
+                <span class="n">data_root</span><span class="o">=</span><span class="n">data_root</span><span class="p">,</span>
+                <span class="n">metrics</span><span class="o">=</span><span class="n">metrics_copy</span><span class="p">,</span>
+                <span class="n">container_root_path</span><span class="o">=</span><span class="n">container_root_path</span><span class="p">,</span>
+            <span class="p">)</span>
         <span class="p">)</span>
 
+        <span class="c1"># mount config file</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_eval_config</span><span class="p">(</span><span class="n">model_config</span><span class="p">,</span> <span class="n">metrics_copy</span><span class="p">,</span> <span class="n">model_mounts</span><span class="p">)</span>
         <span class="n">config_mount_path</span><span class="p">,</span> <span class="n">config_file_mount_str</span> <span class="o">=</span> <span class="n">docker_utils</span><span class="o">.</span><span class="n">create_config_file</span><span class="p">(</span>
-            <span class="n">tempdir</span><span class="o">=</span><span class="n">tempdir</span><span class="p">,</span>
-            <span class="n">model_config</span><span class="o">=</span><span class="n">model_config_copy</span><span class="p">,</span>
-            <span class="n">metrics</span><span class="o">=</span><span class="n">metrics_copy</span><span class="p">,</span>
+            <span class="n">workdir</span><span class="o">=</span><span class="n">workdir</span><span class="p">,</span>
+            <span class="n">config</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
             <span class="n">container_root_path</span><span class="o">=</span><span class="n">container_root_path</span><span class="p">,</span>
-            <span class="n">model_mounts</span><span class="o">=</span><span class="n">model_mounts</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">volumes_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">config_file_mount_str</span><span class="p">)</span>
 
         <span class="n">output_local_path</span><span class="p">,</span> <span class="n">output_mount_path</span><span class="p">,</span> <span class="n">output_mount_str</span> <span class="o">=</span> <span class="n">docker_utils</span><span class="o">.</span><span class="n">create_output_mount</span><span class="p">(</span>
-            <span class="n">tempdir</span><span class="o">=</span><span class="n">tempdir</span><span class="p">,</span>
+            <span class="n">workdir</span><span class="o">=</span><span class="n">workdir</span><span class="p">,</span>
             <span class="n">docker_eval_output_path</span><span class="o">=</span><span class="n">eval_output_path</span><span class="p">,</span>
             <span class="n">container_root_path</span><span class="o">=</span><span class="n">container_root_path</span><span class="p">,</span>
         <span class="p">)</span>
@@ -312,7 +319,23 @@
             <span class="n">output_name</span><span class="o">=</span><span class="n">eval_output_name</span><span class="p">,</span>
             <span class="n">accelerator</span><span class="o">=</span><span class="n">accelerator</span><span class="p">,</span>
         <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_container</span><span class="p">(</span><span class="n">eval_command</span><span class="p">,</span> <span class="n">volumes_list</span><span class="p">,</span> <span class="n">output_local_path</span><span class="p">,</span> <span class="n">eval_output_name</span><span class="p">,</span> <span class="n">accelerator</span><span class="p">)</span>
 
+    <span class="k">def</span> <span class="nf">_create_eval_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_config</span><span class="p">:</span> <span class="s2">&quot;ModelConfig&quot;</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span> <span class="n">model_mounts</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]):</span>
+        <span class="n">model_json</span> <span class="o">=</span> <span class="n">model_config</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">model_mounts</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;metrics&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">k</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">],</span> <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">model_json</span><span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">_run_container</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">command</span><span class="p">,</span>
+        <span class="n">volumes_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">output_local_path</span><span class="p">,</span>
+        <span class="n">output_name</span><span class="p">,</span>
+        <span class="n">accelerator</span><span class="p">:</span> <span class="s2">&quot;AcceleratorSpec&quot;</span><span class="p">,</span>
+    <span class="p">):</span>
         <span class="n">run_command</span> <span class="o">=</span> <span class="n">docker_utils</span><span class="o">.</span><span class="n">create_run_command</span><span class="p">(</span><span class="n">run_params</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">run_params</span><span class="p">)</span>
 
         <span class="n">environment</span> <span class="o">=</span> <span class="n">run_command</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;environment&quot;</span><span class="p">,</span> <span class="p">{})</span>
@@ -326,26 +349,18 @@
             <span class="n">token</span> <span class="o">=</span> <span class="n">get_huggingface_token</span><span class="p">()</span>
             <span class="n">environment</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;HF_TOKEN&quot;</span><span class="p">:</span> <span class="n">token</span><span class="p">})</span>
 
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Running container with eval command: </span><span class="si">{</span><span class="n">eval_command</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Running container with command: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">command</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">accelerator</span><span class="o">.</span><span class="n">accelerator_type</span> <span class="o">==</span> <span class="n">Device</span><span class="o">.</span><span class="n">GPU</span><span class="p">:</span>
-            <span class="n">container</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">docker_client</span><span class="o">.</span><span class="n">containers</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-                <span class="n">image</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">,</span>
-                <span class="n">command</span><span class="o">=</span><span class="n">eval_command</span><span class="p">,</span>
-                <span class="n">volumes</span><span class="o">=</span><span class="n">volumes_list</span><span class="p">,</span>
-                <span class="n">detach</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                <span class="n">environment</span><span class="o">=</span><span class="n">environment</span><span class="p">,</span>
-                <span class="n">device_requests</span><span class="o">=</span><span class="p">[</span><span class="n">docker</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">DeviceRequest</span><span class="p">(</span><span class="n">capabilities</span><span class="o">=</span><span class="p">[[</span><span class="s2">&quot;gpu&quot;</span><span class="p">]])],</span>
-                <span class="o">**</span><span class="n">run_command</span><span class="p">,</span>
-            <span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">container</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">docker_client</span><span class="o">.</span><span class="n">containers</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-                <span class="n">image</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">,</span>
-                <span class="n">command</span><span class="o">=</span><span class="n">eval_command</span><span class="p">,</span>
-                <span class="n">volumes</span><span class="o">=</span><span class="n">volumes_list</span><span class="p">,</span>
-                <span class="n">detach</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                <span class="n">environment</span><span class="o">=</span><span class="n">environment</span><span class="p">,</span>
-                <span class="o">**</span><span class="n">run_command</span><span class="p">,</span>
-            <span class="p">)</span>
+            <span class="n">run_command</span><span class="p">[</span><span class="s2">&quot;device_requests&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">docker</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">DeviceRequest</span><span class="p">(</span><span class="n">capabilities</span><span class="o">=</span><span class="p">[[</span><span class="s2">&quot;gpu&quot;</span><span class="p">]])]</span>
+
+        <span class="n">container</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">docker_client</span><span class="o">.</span><span class="n">containers</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+            <span class="n">image</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">,</span>
+            <span class="n">command</span><span class="o">=</span><span class="n">command</span><span class="p">,</span>
+            <span class="n">volumes</span><span class="o">=</span><span class="n">volumes_list</span><span class="p">,</span>
+            <span class="n">detach</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">environment</span><span class="o">=</span><span class="n">environment</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">run_command</span><span class="p">,</span>
+        <span class="p">)</span>
         <span class="n">docker_logs</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">container</span><span class="o">.</span><span class="n">logs</span><span class="p">(</span><span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
             <span class="c1"># containers.logs can accept stdout/stderr as arguments, but it doesn&#39;t work</span>
@@ -359,11 +374,11 @@
         <span class="k">if</span> <span class="n">exit_code</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">error_msg</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">docker_logs</span><span class="p">)</span>
             <span class="k">raise</span> <span class="n">ContainerError</span><span class="p">(</span>
-                <span class="n">container</span><span class="p">,</span> <span class="n">exit_code</span><span class="p">,</span> <span class="n">eval_command</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Docker container evaluation failed with: </span><span class="si">{</span><span class="n">error_msg</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="n">container</span><span class="p">,</span> <span class="n">exit_code</span><span class="p">,</span> <span class="n">command</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Docker container evaluation failed with: </span><span class="si">{</span><span class="n">error_msg</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Docker container evaluation completed successfully&quot;</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_local_path</span><span class="p">)</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">eval_output_name</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_local_path</span><span class="p">)</span> <span class="o">/</span> <span class="n">output_name</span>
 
     <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">docker_client</span><span class="o">.</span><span class="n">images</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
