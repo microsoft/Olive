@@ -13,8 +13,8 @@ from olive.resource_path import ResourceType, create_resource_path
 
 class TestResourcePath:
     @pytest.fixture(autouse=True)
-    def setup(self, tmpdir):
-        self.tmp_dir_path = Path(tmpdir).resolve()
+    def setup(self, tmp_path):
+        self.tmp_dir_path = tmp_path
 
         # create a local file
         self.local_file = self.tmp_dir_path / "local_file.txt"

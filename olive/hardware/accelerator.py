@@ -5,7 +5,9 @@
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, ClassVar, List, Union
+from typing import TYPE_CHECKING, List, Union
+
+from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
 
 if TYPE_CHECKING:
     from olive.systems.system_config import SystemConfig
@@ -57,23 +59,9 @@ DEFAULT_GPU_TRT_ACCELERATOR = AcceleratorSpec(
 
 
 class AcceleratorLookup:
-    EXECUTION_PROVIDERS: ClassVar[dict] = {
-        "cpu": ["CPUExecutionProvider", "OpenVINOExecutionProvider"],
-        "gpu": [
-            "DmlExecutionProvider",
-            "CUDAExecutionProvider",
-            "ROCMExecutionProvider",
-            "MIGraphXExecutionProvider",
-            "TensorrtExecutionProvider",
-            "CPUExecutionProvider",
-            "OpenVINOExecutionProvider",
-        ],
-        "npu": ["QNNExecutionProvider", "CPUExecutionProvider"],
-    }
-
     @staticmethod
     def get_managed_supported_execution_providers(device: Device):
-        return AcceleratorLookup.EXECUTION_PROVIDERS.get(device)
+        return DEVICE_TO_EXECUTION_PROVIDERS.get(device)
 
     @staticmethod
     def get_execution_providers_for_device(device: Device):
@@ -85,7 +73,7 @@ class AcceleratorLookup:
 
     @staticmethod
     def get_execution_providers_for_device_by_available_providers(device: Device, available_providers):
-        eps_per_device = AcceleratorLookup.EXECUTION_PROVIDERS.get(device)
+        eps_per_device = DEVICE_TO_EXECUTION_PROVIDERS.get(device)
         return AcceleratorLookup.get_execution_providers(eps_per_device, available_providers)
 
     @staticmethod
@@ -122,7 +110,7 @@ class AcceleratorLookup:
         accelerators = []
         for idx, ep in enumerate(execution_provider):
             accelerators.append([])
-            for accelerator, eps in AcceleratorLookup.EXECUTION_PROVIDERS.items():
+            for accelerator, eps in DEVICE_TO_EXECUTION_PROVIDERS.items():
                 if ep in eps:
                     accelerators[idx].append(accelerator)
                     if len(accelerators[idx]) > 1:
@@ -211,7 +199,7 @@ def create_accelerators(
         "Please specify the accelerators in the target system or provide valid execution providers. "
         f"Given execution providers: {execution_providers}. "
         f"Current accelerators: {accelerators}."
-        f"Supported execution providers: {AcceleratorLookup.EXECUTION_PROVIDERS}."
+        f"Supported execution providers: {DEVICE_TO_EXECUTION_PROVIDERS}."
     )
     logger.info(f"Running workflow on accelerator specs: {','.join([str(spec) for spec in accelerator_specs])}")
     if ep_to_process:

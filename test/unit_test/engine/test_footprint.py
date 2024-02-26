@@ -2,8 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-
-import tempfile
 from copy import deepcopy
 from pathlib import Path
 
@@ -29,11 +27,10 @@ class TestFootprint:
         assert new_fp.objective_dict == self.fp.objective_dict
         assert new_fp.objective_dict is not self.fp.objective_dict
 
-    def test_file_dump(self):
-        with tempfile.TemporaryDirectory() as tempdir:
-            self.fp.to_file(Path(tempdir) / "footprint.json")
-            fp2 = Footprint.from_file(Path(tempdir) / "footprint.json")
-            assert len(fp2.nodes) == 3
+    def test_file_dump(self, tmp_path):
+        self.fp.to_file(tmp_path / "footprint.json")
+        fp2 = Footprint.from_file(tmp_path / "footprint.json")
+        assert len(fp2.nodes) == 3
 
     def test_json_dump(self):
         json_fp = self.fp.to_json()
@@ -71,14 +68,13 @@ class TestFootprint:
                 assert inference_config is not None
                 assert str(model_path).endswith(".onnx")
 
-    def test_plot_pareto_frontier(self):
-        with tempfile.TemporaryDirectory() as tempdir:
-            self.fp.objective_dict = {
-                "accuracy-accuracy_score": {"higher_is_better": True, "priority": 1},
-                "latency-avg": {"higher_is_better": False, "priority": 2},
-            }
-            self.fp._plot_pareto_frontier(
-                is_show=False,
-                save_path=Path(tempdir) / "pareto_frontier.html",
-            )
-            assert (Path(tempdir) / "pareto_frontier.html").exists()
+    def test_plot_pareto_frontier(self, tmp_path):
+        self.fp.objective_dict = {
+            "accuracy-accuracy_score": {"higher_is_better": True, "priority": 1},
+            "latency-avg": {"higher_is_better": False, "priority": 2},
+        }
+        self.fp._plot_pareto_frontier(
+            is_show=False,
+            save_path=tmp_path / "pareto_frontier.html",
+        )
+        assert (tmp_path / "pareto_frontier.html").exists()

@@ -47,18 +47,6 @@ def run_subprocess(cmd, env=None, cwd=None, check=False):  # pragma: no cover
     return returncode, stdout, stderr
 
 
-def get_package_name_from_ep(execution_provider):
-    provider_package_mapping = {
-        "CPUExecutionProvider": ("onnxruntime", "ort-nightly"),
-        "CUDAExecutionProvider": ("onnxruntime-gpu", "ort-nightly-gpu"),
-        "TensorrtExecutionProvider": ("onnxruntime-gpu", "ort-nightly-gpu"),
-        "ROCMExecutionProvider": ("onnxruntime-gpu", "ort-nightly-gpu"),
-        "OpenVINOExecutionProvider": ("onnxruntime-openvino", None),
-        "DmlExecutionProvider": ("onnxruntime-directml", "ort-nightly-directml"),
-    }
-    return provider_package_mapping.get(execution_provider, ("onnxruntime", "ort-nightly"))
-
-
 def hash_string(string):  # pragma: no cover
     md5_hash = hashlib.md5()
     md5_hash.update(string.encode())
