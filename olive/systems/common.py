@@ -15,6 +15,7 @@ class SystemType(str, Enum):
     Local = "LocalSystem"
     AzureML = "AzureML"
     PythonEnvironment = "PythonEnvironment"
+    ORTInference = "ORTInference"
 
 
 class AzureMLDockerConfig(ConfigBase):
