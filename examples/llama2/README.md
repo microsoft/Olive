@@ -15,8 +15,11 @@ Performs optimization pipeline:
 - CPU, INT4: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model fp32 -> Onnx Block wise int4 Quantization*
 - GPU, FP16: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model fp16 + Grouped Query Attention (optional)*
 - GPU, INT4: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model fp16 + Grouped Query Attention (optional) -> Onnx Block wise int4 Quantization*
+- GPU, GPTQ INT4: *PyTorch Model -> GPTQ INT4 Onnx Model*
 
 **Note:** Group Query Attention is optional and can be enabled by passing `--use_gqa` flag to the script. It is only supported for GPU.
+
+**Note:** GPTQ quantization can be enabled by passing `--use_gptq` flag to the script.
 
 Requirements file: [requirements.txt](requirements.txt)
 
@@ -83,12 +86,29 @@ GPU:
 python llama2.py --model_name meta-llama/Llama-2-7b-hf --gpu
 # use gqa instead of mha
 python llama2.py --model_name meta-llama/Llama-2-7b-hf --gpu --use_gqa
+# use gptq quantization
+python llama2.py --model_name meta-llama/Llama-2-7b-hf --gpu --use_gptq
 ```
 
 ### Fine-tune on a code generation dataset using QLoRA and optimize using ONNX Runtime Tools
 Run the following command to execute the workflow:
 ```bash
 python -m olive.workflows.run --config lamma2_qlora.json
+```
+
+### Generate GPTQ quantized model with Optimum
+
+```python
+from optimum.onnxruntime import ORTModelForCausalLM
+from transformers import AutoTokenizer
+
+quantized_model_dir = "${path_to_quantized_model}"
+model = ORTModelForCausalLM.from_pretrained(
+    quantized_model_dir, provider="CUDAExecutionProvider"
+)
+tokenizer = AutoTokenizer.from_pretrained(quantized_model_dir)
+inputs = tokenizer("Hello, World", return_tensors="pt").to("cuda:0")
+print(tokenizer.batch_decode(model.generate(**inputs, max_length=20), skip_special_tokens=True))
 ```
 
 # License
