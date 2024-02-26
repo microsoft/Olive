@@ -2,16 +2,13 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import gc
 import logging
 import math
 import os
-from typing import Dict, Optional, Tuple
 
 import torch
 import torch.nn as nn
 from torch.onnx.symbolic_helper import _get_tensor_dim_size, _get_tensor_sizes
-from transformers.pytorch_utils import Conv1D
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +36,7 @@ def pt_linear(x, qweight, qscales, qzeros, in_features, out_features, bits, grou
 
 
 class QuantLinearTorchFunction(torch.autograd.Function):
+    # pylint: disable=W0223,W0221
     @staticmethod
     def symbolic(g, x, qself_qweight, qself_scales, qself_qzeros, bits, groupsize, in_features, out_features):
         output = g.op(
@@ -98,10 +96,6 @@ def dequantize_blockwise_4bits(quant_values, scale, zero_point, rows, cols):
     return float_values, expand_zero_point, aligned_scale
 
 
-def lcm(a: int, b: int):
-    return int(a * b / math.gcd(a, b))
-
-
 def pack_on_row_fast_248bit(pack_tensor, ori_int_tensor, bits):
     if pack_tensor.shape[0] == ori_int_tensor.shape[0]:
         ori_int_tensor = ori_int_tensor.T
@@ -144,62 +138,51 @@ def general_pack_on_row(pack_tensor, ori_int32_tensor, bits):
     return pack_on_row_fast_anybit(pack_tensor, ori_int32_tensor, bits)
 
 
-def get_layers(module: nn.Module, layers=None, prefix: Optional[str] = None, name: str = ""):
-    if layers is None:
-        layers = [Conv1D, nn.Conv2d, nn.Linear]
-    for layer in layers:
-        if isinstance(module, layer):
-            if prefix is not None:
-                if name.startswith(prefix):
-                    return {name: module}
-            else:
-                return {name: module}
-    res = {}
-    for name1, child in module.named_children():
-        res.update(get_layers(child, layers=layers, prefix=prefix, name=name + "." + name1 if name != "" else name1))
-    return res
+class QuantLinearORT(nn.Module):
+    # pylint: disable=W0201
+    def __init__(self, bits, groupsize, infeatures, outfeatures, bias, *args, **kwargs):
+        super().__init__()
+        if bits not in [2, 3, 4, 5, 6, 7, 8]:
+            raise NotImplementedError("Only 2,4,5,6,7,8 bits are supported.")
+        self.infeatures = infeatures
+        self.outfeatures = outfeatures
+        self.bits = bits
+        self.orig_fp_weight = None
+        self.maxq = 2**self.bits - 1
+        self.groupsize = groupsize if groupsize != -1 else infeatures
 
+        self.register_buffer(
+            "qweight",
+            torch.zeros((outfeatures, infeatures // self.groupsize, self.groupsize // (8 // bits)), dtype=torch.uint8),
+        )
+        self.register_buffer(
+            "qzeros",
+            torch.zeros((math.ceil(infeatures // self.groupsize) * (outfeatures // 8 * self.bits)), dtype=torch.uint8),
+        )
+        self.register_buffer(
+            "scales", torch.zeros((math.ceil(infeatures / self.groupsize) * outfeatures), dtype=torch.half)
+        )
+        self.register_buffer("g_idx", torch.tensor([i // self.groupsize for i in range(infeatures)], dtype=torch.int32))
+        if bias:
+            self.register_buffer("bias", torch.zeros((outfeatures), dtype=torch.half))
+        else:
+            self.bias = None
 
-def clear_memory(*args):
-    for weight in args:
-        del weight
-    gc.collect()
-    torch.cuda.empty_cache()
+    def unpack(self):
+        float_values, zero_point, scale = dequantize_blockwise_4bits(
+            self.qweight, self.scales, self.qzeros, self.infeatures, self.outfeatures
+        )
+        float_values = float_values.contiguous()
+        zero_point = zero_point.T.contiguous()
+        scale = scale.T.contiguous()
+        return float_values, zero_point, scale
 
+    def forward(self, x):
+        out = quant_linear_forward(
+            x, self.qweight, self.scales, self.qzeros, self.bits, self.groupsize, self.infeatures, self.outfeatures
+        )
+        return out + self.bias if self.bias is not None else out
 
-def pack_model(
-    self,
-    model: nn.Module,
-    quantizers: Dict[str, Tuple],
-):
-    quant_linear = QuantLinearORT
-    logger.info("Packing model...")
-    layers = get_layers(model)
-    layers = {n: layers[n] for n in quantizers}
-    self._replace_by_quant_layers(model, quantizers)
-    qlayers = get_layers(model, [quant_linear])
-    for name in qlayers:
-        logger.info(name)
-        quantizers[name], scale, zero, g_idx = quantizers[name]
-        # so far can only pack layer on CPU
-        layer_device = qlayers[name].device
-        qlayers[name].to("cpu")
-        layers[name], scale, zero, g_idx = layers[name].to("cpu"), scale.to("cpu"), zero.to("cpu"), g_idx.to("cpu")
-        qlayers[name].pack(layers[name], scale, zero, g_idx)
-        qlayers[name].to(layer_device)
-
-    logger.info("Model packed.")
-
-
-def get_op_by_name(module, op_name):
-    # get the op by its name relative to the module
-    for name, m in module.named_modules():
-        if name == op_name:
-            return m
-    raise ValueError(f"Cannot find op {op_name} in module {module}")
-
-
-class CompressWeight:
     def quant_weight(self, weight, scales, zeros, g_idx=None, need_transpose=True):
         device = weight.device
         scales = scales.t().contiguous().to(device)
@@ -252,7 +235,7 @@ class CompressWeight:
         self.pack_qzeros_odd(intzeros, device)
 
         if self.orig_fp_weight is not None:
-            fw, _, iz = self.unpack()
+            fw, _, _ = self.unpack()
             assert (fw == self.orig_fp_weight.to(device)).all()
 
     def pack_qzeros_even(self, intzeros, device):
@@ -292,7 +275,7 @@ class CompressWeight:
         self.pack_qzeros_even(qzeros, device)
 
         if self.orig_fp_weight is not None:
-            fw, _, iz = self.unpack()
+            fw, _, _ = self.unpack()
             assert (fw == self.orig_fp_weight.to(device)).all()
 
     def accelerate_pack_on_device(self, linear, scales, zeros, g_idx=None, device="cuda"):
@@ -314,81 +297,3 @@ class CompressWeight:
     def pack(self, linear, scales, zeros, g_idx=None):
         device = "cuda" if torch.cuda.is_available() else "cpu"
         return self.accelerate_pack_on_device(linear, scales, zeros, g_idx, device)
-
-
-class QuantLinearORT(nn.Module, CompressWeight):
-    def __init__(self, bits, groupsize, infeatures, outfeatures, bias, *args, **kwargs):
-        super().__init__()
-        if bits not in [2, 3, 4, 5, 6, 7, 8]:
-            raise NotImplementedError("Only 2,4,5,6,7,8 bits are supported.")
-        self.infeatures = infeatures
-        self.outfeatures = outfeatures
-        self.bits = bits
-        self.orig_fp_weight = None
-        self.maxq = 2**self.bits - 1
-        self.groupsize = groupsize if groupsize != -1 else infeatures
-
-        self.register_buffer(
-            "qweight",
-            torch.zeros((outfeatures, infeatures // self.groupsize, self.groupsize // (8 // bits)), dtype=torch.uint8),
-        )
-        self.register_buffer(
-            "qzeros",
-            torch.zeros((math.ceil(infeatures // self.groupsize) * (outfeatures // 8 * self.bits)), dtype=torch.uint8),
-        )
-        self.register_buffer(
-            "scales", torch.zeros((math.ceil(infeatures / self.groupsize) * outfeatures), dtype=torch.half)
-        )
-        self.register_buffer("g_idx", torch.tensor([i // self.groupsize for i in range(infeatures)], dtype=torch.int32))
-        if bias:
-            self.register_buffer("bias", torch.zeros((outfeatures), dtype=torch.half))
-        else:
-            self.bias = None
-
-    def pack_on_device_for_even_bits(self, intweight_gpu, intzeros_T):
-        self.act_order = self.g_idx[: self.groupsize // self.bits].sum().item() != 0
-        assert self.act_order is False, "please set the pack_model to others like [GPTQ, AUTO] and try again."
-        intzeros_pt = intzeros_T.T.byte()
-        scales_pt = self.scales.T.to(intweight_gpu.device)
-        intweight_pt = intweight_gpu.byte()
-        block_size = self.groupsize
-
-        rows, cols = intweight_pt.shape
-        blob_size = block_size // 2
-        k_blocks = (rows + block_size - 1) // block_size
-        padded_rows = k_blocks * block_size
-        pad_len = padded_rows - rows
-        if pad_len > 0:
-            intweight_pt = torch.nn.functional.pad(intweight_pt, (0, 0, 0, pad_len), "constant", 0)
-            intzeros_pt = torch.nn.functional.pad(intzeros_pt, (0, 0, 0, pad_len), "constant", 0)
-
-        intzeros_pt = (intzeros_pt[:, 0::2]) | (intzeros_pt[:, 1::2] << 4)
-        intzeros_pt = intzeros_pt.reshape(-1)
-
-        intweight_pt_t = intweight_gpu.T
-        intweight_pt_t = (intweight_pt_t[:, 0::2]) | (intweight_pt_t[:, 1::2] << 4)
-        intweight_pt_t = intweight_pt_t.reshape(cols, k_blocks, blob_size)
-
-        scales_pt = scales_pt.reshape(-1)
-
-        assert self.qweight.shape == intweight_pt_t.shape
-        assert self.qzeros.shape == intzeros_pt.shape
-
-        self.scales = scales_pt.contiguous()
-        self.qweight = intweight_pt_t.contiguous().byte()
-        self.qzeros = intzeros_pt.contiguous().byte()
-
-    def unpack(self):
-        float_values, zero_point, scale = dequantize_blockwise_4bits(
-            self.qweight, self.scales, self.qzeros, self.infeatures, self.outfeatures
-        )
-        float_values = float_values.contiguous()
-        zero_point = zero_point.T.contiguous()
-        scale = scale.T.contiguous()
-        return float_values, zero_point, scale
-
-    def forward(self, x):
-        out = quant_linear_forward(
-            x, self.qweight, self.scales, self.qzeros, self.bits, self.groupsize, self.infeatures, self.outfeatures
-        )
-        return out + self.bias if self.bias is not None else out
