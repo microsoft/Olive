@@ -6,7 +6,6 @@ import argparse
 import json
 import shutil
 import sys
-import tempfile
 import warnings
 from pathlib import Path
 from typing import Dict
@@ -17,6 +16,7 @@ from diffusers import DiffusionPipeline
 from packaging import version
 from user_script import get_base_model_name
 
+from olive.common.utils import set_tempdir
 from olive.workflows import run as olive_run
 
 file_path = str(Path(__file__).resolve().parent)
@@ -360,11 +360,7 @@ def main(raw_args=None):
         ort_args, extra_args = parse_ort_args(extra_args)
 
     if common_args.optimize or not optimized_model_dir.exists():
-        if common_args.tempdir is not None:
-            # set tempdir if specified
-            tempdir = Path(common_args.tempdir).resolve()
-            tempdir.mkdir(parents=True, exist_ok=True)
-            tempfile.tempdir = str(tempdir)
+        set_tempdir(common_args.tempdir)
 
         # TODO(jstoecker): clean up warning filter (mostly during conversion from torch to ONNX)
         with warnings.catch_warnings():

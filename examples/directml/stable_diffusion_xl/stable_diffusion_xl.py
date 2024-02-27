@@ -6,7 +6,6 @@ import argparse
 import json
 import shutil
 import sys
-import tempfile
 import warnings
 from pathlib import Path
 from typing import Dict
@@ -20,6 +19,7 @@ from onnxruntime import __version__ as OrtVersion
 from optimum.onnxruntime import ORTStableDiffusionXLImg2ImgPipeline, ORTStableDiffusionXLPipeline
 from packaging import version
 
+from olive.common.utils import set_tempdir
 from olive.model import ONNXModelHandler
 from olive.workflows import run as olive_run
 
@@ -591,11 +591,7 @@ def main(raw_args=None):
         )
 
     if args.optimize or not optimized_model_dir.exists():
-        if args.tempdir is not None:
-            # set tempdir if specified
-            tempdir = Path(args.tempdir).resolve()
-            tempdir.mkdir(parents=True, exist_ok=True)
-            tempfile.tempdir = str(tempdir)
+        set_tempdir(args.tempdir)
 
         # TODO(PatriceVignola): clean up warning filter (mostly during conversion from torch to ONNX)
         with warnings.catch_warnings():

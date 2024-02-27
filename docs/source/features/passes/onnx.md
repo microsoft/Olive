@@ -411,3 +411,39 @@ b. More fine-grained control of the conversion conditions is also possible:
     }
 }
 ```
+
+## Convert dynamic shape to fixed shape
+
+In qnn, snpe and other mobile inference scenarios, the input shape of the model is often fixed. The `DynamicToFixedShape` pass converts the dynamic shape of the model to a fixed shape.
+
+For example, often models have a dynamic batch size so that training is more efficient. In mobile scenarios the batch generally has a size of 1. Making the batch size dimension ‘fixed’ by setting it to 1 may allow NNAPI and CoreML to run of the model.
+
+The helper can be used to update specific dimensions, or the entire input shape.
+
+### Example Configuration
+
+a. Making a symbolic dimension fixed
+```json
+{
+    "type": "DynamicToFixedShape",
+    "config": {
+        "input_dim": ["batch_size"],
+        "dim_value": [1]
+    }
+}
+```
+
+b. Making the entire input shape fixed
+```json
+{
+    "type": "DynamicToFixedShape",
+    "config": {
+        "input_name": ["input"],
+        "input_shape": [[1, 3, 224, 224]]
+    }
+}
+```
+
+Note: The `input_dim` and `dim_value` should have the same length, and the `input_name` and `input_shape` should have the same length. Also the `input_dim & dim_value` and `input_name & input_shape` should be exclusive to each other, user cannot specify both of them at the same time.
+
+More details about the pass and its config parameters can be found [here](https://onnxruntime.ai/docs/tutorials/mobile/helpers/make-dynamic-shape-fixed.html).

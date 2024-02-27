@@ -2,7 +2,7 @@
 This folder contains a sample use case of Olive to convert an bert model Onnx model, then to SNPE DLC and to evaluate the accuracy of the DLC model.
 
 Performs optimization pipeline:
-- *Pytorch Model -> Onnx Model -> SNPE Model*
+- *Pytorch Model -> Onnx Model with Dynamic Shape -> Onnx Model with Fixed Shape -> SNPE Model*
 
 ## Prerequisites
 ### Download and unzip SNPE SDK
@@ -18,7 +18,7 @@ python -m olive.platform_sdk.qualcomm.configure --py_version 3.8 --sdk snpe
 ```
 
 ## Run sample
-Run the conversion and quantization locally. Only supports `x64-Linux`.
+Run the conversion and quantization locally.
 ```
 python -m olive.workflows.run --config bert_snpe.json
 ```

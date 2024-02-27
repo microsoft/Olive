@@ -72,6 +72,12 @@ OnnxQuantization
 ----------------
 .. autoconfigclass:: olive.passes.OnnxQuantization
 
+.. _dynamic_to_fixed_shape:
+
+DynamicToFixedShape
+-------------------
+.. autoconfigclass:: olive.passes.DynamicToFixedShape
+
 .. _inc_dynamic_quantization:
 
 IncDynamicQuantization
