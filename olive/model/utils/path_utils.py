@@ -3,10 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-import logging
 from pathlib import Path
-
-logger = logging.getLogger(__name__)
 
 
 def normalize_path_suffix(file_or_dir_path: str, filename_with_suffix: str) -> str:
@@ -23,14 +20,13 @@ def normalize_path_suffix(file_or_dir_path: str, filename_with_suffix: str) -> s
     normalize_path_suffix("c:/foo/bar",  "model.onnx") -> c:/foo/bar/model.onnx
     normalize_path_suffix("c:/foo/bar",  "model.so") -> c:/foo/bar/model.so
     """
-    suffix = filename_with_suffix.split(".")[-1]
-    if not suffix:
+    if not (suffix := Path(filename_with_suffix).suffix):
         raise ValueError(f"{filename_with_suffix} does not have a valid extension")
 
     path = Path(file_or_dir_path).resolve()
     if path.is_file() and path.suffix != suffix:
         raise ValueError(f"{path} if a file but does not have a valid extension {suffix}")
     if path.suffix != suffix:
+        path.mkdir(parents=True, exist_ok=True)
         path = path / filename_with_suffix
-        path.parent.mkdir(parents=True, exist_ok=True)
     return str(path)
