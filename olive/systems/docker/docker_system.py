@@ -146,6 +146,7 @@ class DockerSystem(OliveSystem):
 
             # mount config file
             data = self._create_runner_config(model_config, pass_config, docker_model_files, docker_data_paths)
+            logger.debug(f"Runner config is {data}")
             docker_config_file, config_file_mount_str = docker_utils.create_config_file(
                 workdir=tempdir,
                 config=data,
