@@ -1,4 +1,5 @@
 accelerate
+auto-gptq
 azure-ai-ml
 azure-identity
 azure-storage-blob
@@ -18,7 +19,6 @@ onnxconverter_common
 onnxruntime-extensions
 openvino==2023.2.0
 optimum>=1.17.0
-auto-gptq
 pandas
 peft
 plotly

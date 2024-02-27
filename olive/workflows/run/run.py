@@ -62,6 +62,7 @@ def dependency_setup(config):
             "TorchTRTConversion": ["torch-tensorrt"],
             "LoRA": ["lora"],
             "QLoRA": ["bnb", "lora"],
+            "GptqQuantizer": ["auto-gptq", "optimum"],
         }
 
         extra_results = []

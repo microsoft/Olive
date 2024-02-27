@@ -6,13 +6,13 @@ import logging
 from typing import Any, Dict
 
 import torch
+from onnxruntime import __version__ as ort_version
+from packaging import version
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import PyTorchModelHandler
 from olive.model.handler.onnx import ONNXModelHandler
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_config
-from olive.passes.onnx.gptq_utils import QuantLinearORT
 from olive.passes.pass_config import PassConfigParam
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ class GptqQuantizer(Pass):
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        config = {
+        return {
             "nsamples": PassConfigParam(
                 type_=int,
                 default_value=128,
@@ -42,7 +42,7 @@ class GptqQuantizer(Pass):
             "block_name_to_quantize": PassConfigParam(
                 type_=str,
                 default_value=None,
-                description="Block name to quantize. Default value is model.decoder.layers.",
+                description="Block name to quantize. Default value is None.",
             ),
             "group_size": PassConfigParam(
                 type_=int,
@@ -82,7 +82,7 @@ class GptqQuantizer(Pass):
             "sym": PassConfigParam(
                 type_=bool,
                 default_value=False,
-                description="Symmetric quantization. Default value is True.",
+                description="Symmetric quantization. Default value is False.",
             ),
             "gpu": PassConfigParam(
                 type_=bool,
@@ -95,15 +95,21 @@ class GptqQuantizer(Pass):
                 description="Export optimization level. Default value is None.",
             ),
         }
-        config.update(get_external_data_config())
-        return config
 
     @torch.no_grad()
     def _run_for_config(
         self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
         from optimum.exporters.onnx import onnx_export_from_model
+        from optimum.version import __version__ as optimum_version
         from transformers import AutoModelForCausalLM, AutoTokenizer, GPTQConfig
+
+        from olive.passes.onnx.gptq_utils import QuantLinearORT
+
+        if version.parse(optimum_version) < version.parse("1.17.0"):
+            raise ValueError("Please use optimum>=1.17.0 for gptq quantization")
+        if version.parse(ort_version) < version.parse("1.17.0"):
+            raise ValueError("Please use onnxruntime-gpu>=1.17.0 for gptq quantization")
 
         tokenizer = AutoTokenizer.from_pretrained(model.hf_config.model_name, use_fast=False)
 
@@ -124,15 +130,25 @@ class GptqQuantizer(Pass):
 
         import auto_gptq
 
-        # GPTQ Quantization in transformers use auto_gptq under the hood, so we
-        # replace QuantLinear in auto_gptq with QuantLinearORT for quant linear layer packing
-        auto_gptq.utils.import_utils.dynamically_import_QuantLinear = get_onnx_quant_linear
-        quantized_model = AutoModelForCausalLM.from_pretrained(
-            model.hf_config.model_name,
-            quantization_config=gptq_config,
-            attn_implementation="eager",
-            torch_dtype=torch.half,
-        )
+        original = auto_gptq.utils.import_utils.dynamically_import_QuantLinear
+        try:
+            # GPTQ Quantization in transformers use auto_gptq under the hood, so we
+            # replace QuantLinear in auto_gptq with QuantLinearORT for quant linear layer packing
+            auto_gptq.utils.import_utils.dynamically_import_QuantLinear = get_onnx_quant_linear
+            quantized_model = AutoModelForCausalLM.from_pretrained(
+                model.hf_config.model_name,
+                quantization_config=gptq_config,
+                attn_implementation="eager",
+                torch_dtype=torch.half,
+            )
+        except ValueError:
+            logger.exception("Quantization failed. Only support Huggingface compatible model")
+            raise
+        except:
+            logger.exception("Quantization failed. Please check the exception message for more details.")
+            raise
+        finally:
+            auto_gptq.utils.import_utils.dynamically_import_QuantLinear = original
 
         onnx_export_from_model(
             model=quantized_model,
