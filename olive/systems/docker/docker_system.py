@@ -190,7 +190,7 @@ class DockerSystem(OliveSystem):
                 shutil.copytree(output_local_path, output_model_path, dirs_exist_ok=True)
                 logger.info(f"mount_model_to_local: {mount_model_to_local}")
                 for resource_name, resource_path in output_model.get_resource_paths().items():
-                    logger.info(f"Resource {resource_name} path: {resource_path.get_path()}")
+                    logger.info(f"Resource {resource_name} path: {resource_path.get_path()}, type={resource_path.type}")
                     if not resource_path or resource_path.is_string_name():
                         continue
                     resource_path_str = resource_path.get_path()
