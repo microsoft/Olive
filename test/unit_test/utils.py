@@ -111,6 +111,20 @@ def create_onnx_model_file():
     )
 
 
+def create_onnx_model_with_dynamic_axis(onnx_model_path):
+    pytorch_model = pytorch_model_loader(model_path=None)
+    dummy_input = get_pytorch_model_dummy_input(pytorch_model)
+    torch.onnx.export(
+        pytorch_model,
+        dummy_input,
+        onnx_model_path,
+        opset_version=10,
+        input_names=["input"],
+        output_names=["output"],
+        dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}},
+    )
+
+
 def get_onnx_model_config():
     return ModelConfig.parse_obj({"type": "ONNXModel", "config": {"model_path": str(ONNX_MODEL_PATH)}})
 
