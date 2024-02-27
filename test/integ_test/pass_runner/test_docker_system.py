@@ -26,7 +26,7 @@ def setup():
 
 
 @pytest.mark.skipif(platform.system() == "Windows", reason="Docker target does not support windows")
-def test_evaluate_model(tmp_path):
+def test_pass_runner(tmp_path):
     docker_target = get_docker_target()
     model_config = get_onnx_model()
     model_conf = ModelConfig.parse_obj({"type": "ONNXModel", "config": model_config})

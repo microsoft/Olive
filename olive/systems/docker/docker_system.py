@@ -110,66 +110,74 @@ class DockerSystem(OliveSystem):
         point: Optional[Dict[str, Any]] = None,
     ) -> "ModelConfig":
         """Run the pass on the model at a specific point in the search space."""
+        with tempfile.TemporaryDirectory() as tempdir:
+            return self._run_pass_container(Path(tempdir), the_pass, model_config, data_root, output_model_path, point)
+
+    def _run_pass_container(
+        self,
+        workdir: Path,
+        the_pass: "Pass",
+        model_config: "ModelConfig",
+        data_root: str,
+        output_model_path: str,
+        point: Optional[Dict[str, Any]] = None,
+    ) -> "ModelConfig":
         point = point or {}
         config = the_pass.config_at_search_point(point)
 
         pass_config = the_pass.to_json(check_object=True)
         pass_config["config"].update(the_pass.serialize_config(config, check_object=True))
-        container_root_path = Path("/olive-ws/")
+
         volumes_list = []
         runner_output_path = "runner_output"
         runner_output_name = "runner_res.json"
+        container_root_path = Path("/olive-ws/")
+        # mount pass_runner script
+        docker_runner_path, pass_runner_file_mount_str = docker_utils.create_runner_script_mount(container_root_path)
+        volumes_list.append(pass_runner_file_mount_str)
 
-        with tempfile.TemporaryDirectory() as tempdir:
-            # mount pass_runner script
-            docker_runner_path, pass_runner_file_mount_str = docker_utils.create_runner_script_mount(
-                container_root_path
-            )
-            volumes_list.append(pass_runner_file_mount_str)
+        # mount dev stuff
+        if self.is_dev:
+            _, dev_mount_str = docker_utils.create_dev_mount(workdir, container_root_path)
+            volumes_list.append(dev_mount_str)
 
-            # mount dev stuff
-            if self.is_dev:
-                _, dev_mount_str = docker_utils.create_dev_mount(tempdir, container_root_path)
-                volumes_list.append(dev_mount_str)
+        # mount model
+        docker_model_files, model_mount_str_list, mount_model_to_local = docker_utils.create_model_mount(
+            model_config=model_config, container_root_path=container_root_path
+        )
+        volumes_list.extend(model_mount_str_list)
 
-            # mount model
-            docker_model_files, model_mount_str_list = docker_utils.create_model_mount(
-                model_config=model_config, container_root_path=container_root_path
-            )
-            volumes_list.extend(model_mount_str_list)
+        # data_dir or data_config
+        docker_data_paths, data_mount_str_list = self._create_data_mounts_for_pass(
+            data_root, container_root_path, the_pass
+        )
+        volumes_list.extend(data_mount_str_list)
 
-            # data_dir or data_config
-            docker_data_paths, data_mount_str_list = self._create_data_mounts_for_pass(
-                data_root, container_root_path, the_pass
-            )
-            volumes_list.extend(data_mount_str_list)
+        # mount config file
+        data = self._create_runner_config(model_config, pass_config, docker_model_files, docker_data_paths)
+        logger.debug(f"Runner config is {data}")
+        docker_config_file, config_file_mount_str = docker_utils.create_config_file(
+            workdir=workdir,
+            config=data,
+            container_root_path=container_root_path,
+        )
+        volumes_list.append(config_file_mount_str)
 
-            # mount config file
-            data = self._create_runner_config(model_config, pass_config, docker_model_files, docker_data_paths)
-            logger.debug(f"Runner config is {data}")
-            docker_config_file, config_file_mount_str = docker_utils.create_config_file(
-                workdir=tempdir,
-                config=data,
-                container_root_path=container_root_path,
-            )
-            assert (Path(tempdir) / "config.json").is_file()
-            volumes_list.append(config_file_mount_str)
+        # output mount
+        output_local_path, docker_output_path, output_mount_str = docker_utils.create_output_mount(
+            workdir=workdir,
+            docker_eval_output_path=runner_output_path,
+            container_root_path=container_root_path,
+        )
+        volumes_list.append(output_mount_str)
+        logger.debug(f"The volumes list is {volumes_list}")
 
-            # output mount
-            output_local_path, docker_output_path, output_mount_str = docker_utils.create_output_mount(
-                workdir=tempdir,
-                docker_eval_output_path=runner_output_path,
-                container_root_path=container_root_path,
-            )
-            volumes_list.append(output_mount_str)
-            logger.debug(f"The volumes list is {volumes_list}")
-
-            runner_command = docker_utils.create_runner_command(
-                runner_script_path=docker_runner_path,
-                config_path=docker_config_file,
-                output_path=docker_output_path,
-                output_name=runner_output_name,
-            )
+        runner_command = docker_utils.create_runner_command(
+            runner_script_path=docker_runner_path,
+            config_path=docker_config_file,
+            output_path=docker_output_path,
+            output_name=runner_output_name,
+        )
 
         model_output_json_file = self._run_container(
             runner_command, volumes_list, output_local_path, runner_output_name, the_pass.accelerator_spec
@@ -177,7 +185,19 @@ class DockerSystem(OliveSystem):
         if model_output_json_file.is_file():
             with model_output_json_file.open() as f:
                 model_output = json.load(f)
-                return ModelConfig.parse_obj(model_output)
+                output_model = ModelConfig.parse_obj(model_output)
+                shutil.copytree(output_local_path, output_model_path, dirs_exist_ok=True)
+                for resource_name, resource_path in output_model.get_resource_paths().items():
+                    if not resource_path or resource_path.is_string_name():
+                        continue
+                    resource_path_str = resource_path.get_path()
+                    candidate_model_path = resource_path_str.replace(str(container_root_path), str(output_model_path))
+                    if Path(candidate_model_path).exists():
+                        output_model.config[resource_name] = candidate_model_path
+                    elif resource_path_str in mount_model_to_local:
+                        output_model.config[resource_name] = mount_model_to_local[resource_path_str]
+
+                return output_model
         else:
             logger.error(f"Model output file {model_output_json_file} not found.")
             return None
@@ -221,7 +241,7 @@ class DockerSystem(OliveSystem):
             volumes_list.append(dev_mount_str)
 
         # mount model
-        model_mounts, model_mount_str_list = docker_utils.create_model_mount(
+        model_mounts, model_mount_str_list, _ = docker_utils.create_model_mount(
             model_config=model_config, container_root_path=container_root_path
         )
         volumes_list += model_mount_str_list

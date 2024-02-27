@@ -97,6 +97,7 @@ def create_metric_volumes_list(data_root: str, metrics: List["Metric"], containe
 def create_model_mount(model_config: "ModelConfig", container_root_path: Path):
     mounts = {}
     mount_strs = []
+    mount_to_local = {}
     resource_paths = model_config.get_resource_paths()
     for resource_name, resource_path in resource_paths.items():
         # if the resource path is None or string name, we need not to mount it
@@ -104,11 +105,13 @@ def create_model_mount(model_config: "ModelConfig", container_root_path: Path):
             continue
 
         relevant_path = resource_path.get_path()
+        local_path = str(Path(relevant_path).resolve())
         resource_path_mount_path = str(container_root_path / Path(relevant_path).name)
-        resource_path_mount_str = f"{str(Path(relevant_path).resolve())}:{resource_path_mount_path}"
+        resource_path_mount_str = f"{local_path}:{resource_path_mount_path}"
         mounts[resource_name] = resource_path_mount_path
         mount_strs.append(resource_path_mount_str)
-    return mounts, mount_strs
+        mount_to_local[resource_path_mount_path] = local_path
+    return mounts, mount_strs, mount_to_local
 
 
 def create_runner_script_mount(container_root_path: Path):
