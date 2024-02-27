@@ -110,6 +110,10 @@
 <li class="toctree-l4"><a class="reference internal" href="#id8">Example Configuration</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#convert-dynamic-shape-to-fixed-shape">Convert dynamic shape to fixed shape</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id9">Example Configuration</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="openvino.html">OpenVINO</a></li>
@@ -574,6 +578,37 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 <span class="p">}</span>
 </pre></div>
 </div>
+</section>
+</section>
+<section id="convert-dynamic-shape-to-fixed-shape">
+<h2>Convert dynamic shape to fixed shape<a class="headerlink" href="#convert-dynamic-shape-to-fixed-shape" title="Permalink to this heading">¶</a></h2>
+<p>In qnn, snpe and other mobile inference scenarios, the input shape of the model is often fixed. The <code class="docutils literal notranslate"><span class="pre">DynamicToFixedShape</span></code> pass converts the dynamic shape of the model to a fixed shape.</p>
+<p>For example, often models have a dynamic batch size so that training is more efficient. In mobile scenarios the batch generally has a size of 1. Making the batch size dimension ‘fixed’ by setting it to 1 may allow NNAPI and CoreML to run of the model.</p>
+<p>The helper can be used to update specific dimensions, or the entire input shape.</p>
+<section id="id9">
+<h3>Example Configuration<a class="headerlink" href="#id9" title="Permalink to this heading">¶</a></h3>
+<p>a. Making a symbolic dimension fixed</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DynamicToFixedShape&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;input_dim&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;batch_size&quot;</span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;dim_value&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>b. Making the entire input shape fixed</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DynamicToFixedShape&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;input_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;input_shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">224</span><span class="p">,</span><span class="w"> </span><span class="mi">224</span><span class="p">]]</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Note: The <code class="docutils literal notranslate"><span class="pre">input_dim</span></code> and <code class="docutils literal notranslate"><span class="pre">dim_value</span></code> should have the same length, and the <code class="docutils literal notranslate"><span class="pre">input_name</span></code> and <code class="docutils literal notranslate"><span class="pre">input_shape</span></code> should have the same length. Also the <code class="docutils literal notranslate"><span class="pre">input_dim</span> <span class="pre">&amp;</span> <span class="pre">dim_value</span></code> and <code class="docutils literal notranslate"><span class="pre">input_name</span> <span class="pre">&amp;</span> <span class="pre">input_shape</span></code> should be exclusive to each other, user cannot specify both of them at the same time.</p>
+<p>More details about the pass and its config parameters can be found <a class="reference external" href="https://onnxruntime.ai/docs/tutorials/mobile/helpers/make-dynamic-shape-fixed.html">here</a>.</p>
 </section>
 </section>
 </section>
