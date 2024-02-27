@@ -17,7 +17,7 @@ import torch
 import olive.data.template as data_config_template
 from olive.cache import get_local_path_from_root
 from olive.common.config_utils import ConfigBase
-from olive.common.ort_inference import prepare_io_bindings, run_inference, time_inference
+from olive.common.ort_inference import OrtInferenceSession, prepare_io_bindings
 from olive.common.pydantic_v1 import validator
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import tensor_data_to_device
@@ -402,8 +402,8 @@ class OnnxEvaluatorMixin:
             if k in input_names
         }
 
-    @classmethod
-    def get_inference_settings(cls, metric: Metric, model: ONNXModelHandler) -> Dict[str, Any]:
+    @staticmethod
+    def get_inference_settings(metric: Metric, model: ONNXModelHandler) -> Dict[str, Any]:
         # user.config.inference_settings > model.inference_settings > default inference_settings
         # when user.config.inference_settings is None, the model.inference_settings
         # will be used in model.prepare_session(..)
@@ -421,6 +421,44 @@ class OnnxEvaluatorMixin:
 
 class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX):
 
+    @staticmethod
+    def get_session_wrapper(
+        model: ONNXModelHandler,
+        metric: Metric,
+        dataloader: "DataLoader",
+        device: Device,
+        execution_providers: List[str],
+    ) -> Tuple[OrtInferenceSession, Dict[str, Any]]:
+        """Get the session wrapper for the model."""
+        # user.config.inference_settings > model.inference_settings > default inference_settings
+        inference_settings = OnnxEvaluator.get_inference_settings(metric, model)
+        session = model.prepare_session(
+            inference_settings=inference_settings,
+            device=device,
+            execution_providers=execution_providers,
+        )
+
+        # prepare for io binding
+        io_config = model.get_io_config()
+        io_bind = OnnxEvaluator.io_bind_enabled(metric, model.inference_settings)
+        shared_kv_buffer = metric.user_config.shared_kv_buffer
+        use_fp16 = any(v == "float16" for v in io_config["input_types"])
+        input_feed = None
+        if io_bind and shared_kv_buffer and use_fp16:
+            input_feed = OnnxEvaluator.format_input(next(iter(dataloader))[0], io_config)
+
+        # create session wrapper
+        session_wrapper = OrtInferenceSession(
+            session,
+            io_bind=io_bind,
+            device=device,
+            shared_kv_buffer=shared_kv_buffer,
+            use_fp16=use_fp16,
+            input_feed=input_feed,
+        )
+
+        return session_wrapper, inference_settings
+
     def _inference(
         self,
         model: ONNXModelHandler,
@@ -430,14 +468,9 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> Tuple[OliveModelOutput, Any]:
-        # user.config.inference_settings > model.inference_settings > default inference_settings
-        inference_settings = self.get_inference_settings(metric, model)
-        session = model.prepare_session(
-            inference_settings=inference_settings,
-            device=device,
-            execution_providers=execution_providers,
+        session, inference_settings = OnnxEvaluator.get_session_wrapper(
+            model, metric, dataloader, device, execution_providers
         )
-
         io_config = model.get_io_config()
 
         preds = []
@@ -446,8 +479,9 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
         logits_dict = collections.defaultdict(list)
         output_names = io_config["output_names"]
         is_single_tensor_output = len(output_names) == 1
-
-        def post_run(result, idx, input_data, labels):
+        for input_data, labels in dataloader:
+            input_feed = OnnxEvaluator.format_input(input_data, io_config)
+            result = session.run(input_feed)
             if is_single_tensor_output:
                 result = torch.Tensor(result[0])
             else:
@@ -462,20 +496,6 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
             else:
                 for k in output_names:
                     logits_dict[k].append(result[k].cpu())
-
-        class DataGenerator:
-            def __iter__(self):
-                for input_data, labels in dataloader:
-                    yield OnnxEvaluator.format_input(input_data, io_config), labels
-
-        run_inference(
-            session,
-            DataGenerator(),
-            post_run=post_run,
-            io_bind=self.io_bind_enabled(metric, model.inference_settings),
-            device=device,
-            shared_kv_buffer=metric.user_config.shared_kv_buffer,
-        )
         preds = torch.cat(preds, dim=0)
         targets = torch.cat(targets, dim=0)
         if is_single_tensor_output:
@@ -485,7 +505,7 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
 
         tuning_result_file = inference_settings.get("tuning_result_file")
         if tuning_result_file:
-            dump_tuning_result(session, tuning_result_file)
+            dump_tuning_result(session.session, tuning_result_file)
         return OliveModelOutput(preds=preds, logits=logits), targets
 
     def _evaluate_onnx_accuracy(
@@ -511,32 +531,24 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
     ) -> List[float]:
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
 
-        # user.config.inference_settings > model.inference_settings > default inference_settings
-        inference_settings = self.get_inference_settings(metric, model)
-        session = model.prepare_session(
-            inference_settings=inference_settings,
-            device=device,
-            execution_providers=execution_providers,
+        session, inference_settings = OnnxEvaluator.get_session_wrapper(
+            model, metric, dataloader, device, execution_providers
         )
-
         io_config = model.get_io_config()
 
         input_data, _ = next(iter(dataloader))
-        input_dict = OnnxEvaluator.format_input(input_data, io_config)
+        input_feed = OnnxEvaluator.format_input(input_data, io_config)
 
-        latencies = time_inference(
-            session,
-            input_dict,
-            warmup_num + repeat_test_num,
-            sleep_num=sleep_num,
-            io_bind=self.io_bind_enabled(metric, model.inference_settings),
-            device=device,
-            shared_kv_buffer=metric.user_config.shared_kv_buffer,
-        )[warmup_num:]
+        latencies = session.time_run(
+            input_feed,
+            num_runs=repeat_test_num,
+            num_warmup=warmup_num,
+            sleep_time=sleep_num,
+        )
 
         tuning_result_file = inference_settings.get("tuning_result_file")
         if tuning_result_file:
-            dump_tuning_result(session, tuning_result_file)
+            dump_tuning_result(session.session, tuning_result_file)
         return latencies
 
     @staticmethod

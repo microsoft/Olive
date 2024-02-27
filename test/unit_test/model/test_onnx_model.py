@@ -3,6 +3,7 @@ from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
+from olive.common.ort_inference import OrtSessionFallbackError
 from olive.hardware.accelerator import Device
 
 
@@ -222,7 +223,7 @@ def test_model_prepare_session_with_unsupported_eps(get_available_providers_mock
     execution_providers = ["TensorrtExecutionProvider", "CUDAExecutionProvider"]
     # provider_options = [{}, {"device_id": "1"}]
     with pytest.raises(
-        RuntimeError,
+        OrtSessionFallbackError,
         match=(
             "The onnxruntime fallback happens. MIGraphXExecutionProvider is not in the session providers"
             r" \['CUDAExecutionProvider', 'CPUExecutionProvider'\]"

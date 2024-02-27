@@ -15,7 +15,7 @@ ort_inference_utils_parent = Path(__file__).resolve().parents[2] / "common"
 sys.path.append(str(ort_inference_utils_parent))
 
 # pylint: disable=wrong-import-position
-from ort_inference import get_ort_inference_session, run_inference, time_inference  # noqa: E402
+from ort_inference import OrtInferenceSession, get_ort_inference_session  # noqa: E402
 
 
 def get_args(raw_args):
@@ -47,47 +47,32 @@ def main(raw_args=None):
         args.model_path, config["inference_settings"], config.get("use_ort_extensions", False)
     )
 
-    # mode for the run
-    mode = config["mode"]
-    # io binding related settings
-    io_bind = config.get("io_bind", False)
-    device = config.get("device", "cpu")
-    shared_kv_buffer = config.get("shared_kv_buffer", False)
+    # get first batch
+    input_feed = load_batch(args.input_dir, "input_0.npz" if config["mode"] == "inference" else "input.npz")
+    session_wrapper = OrtInferenceSession(
+        session,
+        io_bind=config.get("io_bind", False),
+        device=config.get("device", "cpu"),
+        shared_kv_buffer=config.get("shared_kv_buffer", False),
+        use_fp16=config.get("use_fp16", False),
+        input_feed=input_feed,
+    )
 
     # run inference
-    if mode == "inference":
-
-        class DataGenerator:
-            def __iter__(self):
-                for i in range(config["num_batches"]):
-                    yield load_batch(args.input_dir, f"input_{i}.npz"), None
-
-        def post_run(result, idx, input_data, labels):
-            np.save(args.output_dir / f"output_{idx}.npy", result)
-
-        run_inference(
-            session,
-            DataGenerator(),
-            post_run=post_run,
-            io_bind=io_bind,
-            device=device,
-            shared_kv_buffer=shared_kv_buffer,
-        )
+    if config["mode"] == "inference":
+        for i in range(config["num_batches"]):
+            input_feed = load_batch(args.input_dir, f"input_{i}.npz")
+            result = session_wrapper.run(input_feed)
+            np.save(args.output_dir / f"output_{i}.npy", result)
     else:
-        warmup_num = config.get("warmup_num")
-        repeat_test_num = config.get("repeat_test_num")
-        sleep_num = config.get("sleep_num")
+        warmup_num = config["warmup_num"]
+        repeat_test_num = config["repeat_test_num"]
+        sleep_num = config["sleep_num"]
 
-        input_data = load_batch(args.input_dir, "input.npz")
-        latencies = time_inference(
-            session,
-            input_data,
-            num_runs=warmup_num + repeat_test_num,
-            sleep_num=sleep_num,
-            io_bind=io_bind,
-            device=device,
-            shared_kv_buffer=shared_kv_buffer,
-        )[warmup_num:]
+        input_feed = load_batch(args.input_dir, "input.npz")
+        latencies = session_wrapper.time_run(
+            input_feed, num_runs=repeat_test_num, num_warmup=warmup_num, sleep_time=sleep_num
+        )
         np.save(args.output_dir / "output.npy", np.array(latencies))
 
 

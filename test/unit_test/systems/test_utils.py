@@ -10,7 +10,7 @@ from olive.systems.utils.available_providers_runner import main as available_pro
 
 @patch("onnxruntime.get_available_providers")
 def test_available_providers_runner(mock_get_providers, tmp_path):
-    mock_get_providers.return_value = ["DummyEcecutionProvider"]
+    mock_get_providers.return_value = ["DummyExecutionProvider"]
     output_path = tmp_path / "available_eps.json"
 
     # command
@@ -23,4 +23,4 @@ def test_available_providers_runner(mock_get_providers, tmp_path):
     assert output_path.exists()
     mock_get_providers.assert_called_once()
     with output_path.open("r") as f:
-        assert json.load(f) == ["DummyEcecutionProvider"]
+        assert json.load(f) == ["DummyExecutionProvider"]

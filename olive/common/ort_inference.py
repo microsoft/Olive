@@ -7,7 +7,7 @@ import collections
 import logging
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -16,6 +16,10 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+class OrtSessionFallbackError(Exception):
+    """Raised when the onnxruntime fallback happens."""
 
 
 def get_ort_inference_session(
@@ -190,119 +194,105 @@ def check_ort_fallback(session: "InferenceSession", execution_providers: Sequenc
     session_providers = session.get_providers()
     for ep in execution_providers:
         if ep not in session_providers:
-            raise RuntimeError(
+            raise OrtSessionFallbackError(
                 f"The onnxruntime fallback happens. {ep} is not in the session providers {session_providers}."
                 f" session._enable_fallback = {session._enable_fallback}"
             )
     session.disable_fallback()
 
 
-def run_inference(
-    session: "InferenceSession",
-    data_generator: Iterable,
-    post_run: Callable,
-    io_bind: bool = False,
-    device: str = "cpu",
-    shared_kv_buffer: bool = False,
-):
-    """Run inference with the given session and data generator.
+class OrtInferenceSession:
+    """ORT Inference Session with IO binding."""
 
-    :param session: ONNXRuntime session
-    :param data_generator: Iterable of input data and labels. Input data must be a dict of input names to numpy arrays.
-        Labels can be Any type or None.
-    :param post_run: Function to run after each inference run. It takes the following arguments:
-        - res: List of output numpy arrays from the session.run() call.
-        - idx: Index of the current batch.
-        - input_data: Dict of input data for the current batch.
-        - labels: Labels for the current batch.
-    :param io_bind: Whether to use IO binding for inference. Default is False.
-    :param device: Device to use for IO binding. Default is "cpu".
-    :param shared_kv_buffer: Whether to share the key/value buffer across multiple runs when using IO binding.
-        Default is False.
-    """
-    if io_bind and device == "gpu":
-        # bind output data
-        io_binding = session.io_binding()
-        input_data, _ = next(iter(data_generator))
-        use_fp16 = any(v.dtype == np.float16 for v in input_data.values())
-        # no deepcopy for kv_cache_ortvalues, will update the value inplace and keep it shared across runs
-        kv_cache_ortvalues = {} if shared_kv_buffer else None
-        bind_output_data(
-            io_binding,
-            session.get_outputs(),
-            use_fp16,
-            device,
-            shared_kv_buffer=shared_kv_buffer,
-            kv_cache_ortvalues=kv_cache_ortvalues,
-        )
+    def __init__(
+        self,
+        session: "InferenceSession",
+        io_bind: bool = False,
+        device: str = "cpu",
+        shared_kv_buffer: bool = False,
+        use_fp16: bool = False,
+        input_feed: Optional[Dict[str, np.ndarray]] = None,
+    ):
+        self.session = session
+        self.io_bind = io_bind
+        self.device = device
+        self.shared_kv_buffer = shared_kv_buffer
+        self.use_fp16 = use_fp16
+        self.kv_cache_ortvalues = {} if (self.shared_kv_buffer and self.use_fp16) else None
 
-    for idx, (input_data, labels) in enumerate(data_generator):
-        if io_bind and device == "gpu":
-            bind_input_data(
-                io_binding,
-                input_data,
-                use_fp16,
-                device,
-                shared_kv_buffer=shared_kv_buffer,
-                kv_cache_ortvalues=kv_cache_ortvalues,
+        self.io_binding = None
+        if self.io_bind:
+            self.io_binding = self.session.io_binding()
+            if self.shared_kv_buffer and self.use_fp16:
+                assert input_feed is not None, "input_feed is required when shared_kv_buffer and use_fp16 are True"
+                bind_input_data(
+                    self.io_binding,
+                    input_feed,
+                    self.use_fp16,
+                    self.device,
+                    shared_kv_buffer=self.shared_kv_buffer,
+                    kv_cache_ortvalues=self.kv_cache_ortvalues,
+                )
+            bind_output_data(
+                self.io_binding,
+                self.session.get_outputs(),
+                self.use_fp16,
+                self.device,
+                shared_kv_buffer=self.shared_kv_buffer,
+                kv_cache_ortvalues=self.kv_cache_ortvalues,
             )
-            io_binding.synchronize_inputs()
-            session.run_with_iobinding(io_binding)
-            io_binding.synchronize_outputs()
-            res = [i.numpy() for i in io_binding.get_outputs()]
-            io_binding.clear_binding_inputs()
+
+    def run(self, input_feed: Dict[str, np.ndarray]) -> Sequence[np.ndarray]:
+        """Run inference with the given input data."""
+        if self.io_bind and self.device == "gpu":
+            bind_input_data(
+                self.io_binding,
+                input_feed,
+                self.use_fp16,
+                self.device,
+                shared_kv_buffer=self.shared_kv_buffer,
+                kv_cache_ortvalues=self.kv_cache_ortvalues,
+            )
+            self.io_binding.synchronize_inputs()
+            self.session.run_with_iobinding(self.io_binding)
+            self.io_binding.synchronize_outputs()
+            res = [i.numpy() for i in self.io_binding.get_outputs()]
+            self.io_binding.clear_binding_inputs()
         else:
-            res = session.run(input_feed=input_data, output_names=None)
-        post_run(res, idx, input_data, labels)
+            res = self.session.run(input_feed=input_feed, output_names=None)
+        return res
 
+    def time_run(
+        self, input_feed: Dict[str, np.ndarray], num_runs: int, num_warmup: int = 0, sleep_time: int = 0
+    ) -> Sequence[float]:
+        """Time inference runs with the given input data."""
+        latencies = []
+        if self.io_bind:
+            bind_input_data(
+                self.io_binding,
+                input_feed,
+                self.use_fp16,
+                self.device,
+                shared_kv_buffer=self.shared_kv_buffer,
+                kv_cache_ortvalues=self.kv_cache_ortvalues,
+            )
 
-def time_inference(
-    session: "InferenceSession",
-    input_data: Dict[str, np.ndarray],
-    num_runs: int,
-    sleep_num: int = 0,
-    io_bind: bool = False,
-    device: str = "cpu",
-    shared_kv_buffer: bool = False,
-) -> Sequence[float]:
-    """Time inference runs with the given session and input data.
+        for _ in range(num_warmup + num_runs):
+            if self.io_bind:
+                self.io_binding.synchronize_inputs()
+                t = time.perf_counter()
+                self.session.run_with_iobinding(self.io_binding)
+                self.io_binding.synchronize_outputs()
+                latencies.append(time.perf_counter() - t)
+            else:
+                t = time.perf_counter()
+                self.session.run(input_feed=input_feed, output_names=None)
+                latencies.append(time.perf_counter() - t)
+            time.sleep(sleep_time)
 
-    :param session: ONNXRuntime session
-    :param input_data: Dict of input data, value is numpy array
-    :param num_runs: Number of inference runs to time
-    :param sleep_num: Number of seconds to sleep between runs. Default is 0.
-    :param io_bind: Whether to use IO binding for inference. Default is False.
-    :param device: Device to use for IO binding. Default is "cpu".
-    :param shared_kv_buffer: Whether to share the key/value buffer across multiple runs when using IO binding.
-        Default is False.
-    :return: List of latencies for each run.
-    """
-    if io_bind:
-        kv_cache_ortvalues = {} if shared_kv_buffer else None
-        io_bind_op = prepare_io_bindings(
-            session,
-            input_data,
-            device,
-            shared_kv_buffer=shared_kv_buffer,
-            kv_cache_ortvalues=kv_cache_ortvalues,
-        )
-
-    latencies = []
-    for _ in range(num_runs):
-        if io_bind:
-            io_bind_op.synchronize_inputs()
-            # count the time after data are all in gpu after data copy
-            t = time.perf_counter()
-            session.run_with_iobinding(io_bind_op)
-            io_bind_op.synchronize_outputs()
-            latencies.append(time.perf_counter() - t)
-        else:
-            t = time.perf_counter()
-            session.run(input_feed=input_data, output_names=None)
-            latencies.append(time.perf_counter() - t)
-        time.sleep(sleep_num)
-
-    return latencies
+        if self.io_bind:
+            self.io_binding.clear_binding_inputs()
+        return latencies[num_warmup:]
 
 
 def bind_input_data(

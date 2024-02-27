@@ -20,6 +20,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from olive.common.ort_inference import OrtSessionFallbackError
 from olive.common.pydantic_v1 import ValidationError
 from olive.evaluator.metric import AccuracySubType, LatencySubType, ThroughputSubType
 from olive.evaluator.olive_evaluator import (
@@ -208,7 +209,7 @@ class TestOliveEvaluator:
         evaluator = OnnxEvaluator()
         latency_metric = get_latency_metric(LatencySubType.AVG)
         with pytest.raises(
-            RuntimeError,
+            OrtSessionFallbackError,
             match="The onnxruntime fallback happens. OpenVINOExecutionProvider is not in the session providers",
         ):
             evaluator.evaluate(model, None, [latency_metric], Device.CPU, execution_providers)

@@ -117,6 +117,7 @@ class ORTEnvironmentEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort
             "io_bind": cls.io_bind_enabled(metric, model.inference_settings),
             "device": str(device),
             "share_kv_buffer": metric.user_config.shared_kv_buffer,
+            "use_fp16": any(v == "float16" for v in model.get_io_config()["input_types"]),
         }
 
     def _run_inference(
