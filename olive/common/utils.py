@@ -18,8 +18,8 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
-def run_subprocess(cmd, env=None, cwd=None, check=False):  # pragma: no cover
-    logger.debug(f"Running command: {cmd} with env: {env}")
+def run_subprocess(cmd, env=None, cwd=None, check=False):
+    logger.debug("Running command: %s", cmd)
 
     assert isinstance(cmd, (str, list)), f"cmd must be a string or a list, got {type(cmd)}."
     windows = platform.system() == "Windows"
