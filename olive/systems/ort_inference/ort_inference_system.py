@@ -17,6 +17,7 @@ from olive.common.utils import run_subprocess
 from olive.evaluator.metric import get_latency_config_from_metric
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveModelOutput, OnnxEvaluatorMixin
 from olive.hardware import Device
+from olive.systems.common import SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import ORTInferenceTargetUserConfig
 from olive.systems.utils import create_new_environ, run_available_providers_runner
@@ -31,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 class ORTInferenceSystem(OliveSystem):
-    system_type = "ORTInference"
+    system_type = SystemType.ORTInference
 
     def __init__(
         self,
@@ -93,6 +94,9 @@ class ORTInferenceSystem(OliveSystem):
         self.available_eps = run_available_providers_runner(self.environ)
         return self.available_eps
 
+    def remove(self):
+        raise ValueError("ORT inference system does not support system removal")
+
 
 class ORTInferenceEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_inference"):
     def __init__(self, environ: Dict[str, str]):
@@ -109,8 +113,8 @@ class ORTInferenceEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_i
         inference_settings = model.merge_inference_settings(inference_settings, execution_providers)
         return {
             "inference_settings": inference_settings,
-            "use_ort_exetensions": model.use_ort_extensions,
-            "io_bind": model.io_bind_enabled(metric, model.inference_settings),
+            "use_ort_extensions": model.use_ort_extensions,
+            "io_bind": cls.io_bind_enabled(metric, model.inference_settings),
             "device": str(device),
             "share_kv_buffer": metric.user_config.shared_kv_buffer,
         }
@@ -148,7 +152,7 @@ class ORTInferenceEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_i
         inference_config = self._get_common_config(model, metric, device, execution_providers)
         inference_config["mode"] = "inference"
 
-        io_config = model.get_io_config(metric, model.inference_settings)
+        io_config = model.get_io_config()
 
         preds = []
         targets = []
@@ -177,6 +181,7 @@ class ORTInferenceEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_i
             config_path = temp_dir_path / "config.json"
             with config_path.open("w") as f:
                 json.dump(inference_config, f)
+            logger.debug("Inference config: %s", inference_config)
 
             # run inference
             self._run_inference(config_path, model.model_path, input_dir, output_dir)
@@ -241,7 +246,7 @@ class ORTInferenceEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_i
             }
         )
 
-        io_config = model.get_io_config(metric, model.inference_settings)
+        io_config = model.get_io_config()
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_dir_path = Path(temp_dir)
@@ -263,4 +268,4 @@ class ORTInferenceEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_i
             self._run_inference(config_path, model.model_path, input_dir, output_dir)
 
             # load output
-            return np.load(output_dir / "latencies.npy").tolist()
+            return np.load(output_dir / "output.npy").tolist()

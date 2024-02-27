@@ -33,8 +33,8 @@ def create_new_system(system_config, accelerator):
     # pylint: disable=consider-using-with
 
     # create a new system with the same type as the origin system
-    if system_config.type == SystemType.Local:
-        raise NotImplementedError("olive_managed_env is not supported for LocalSystem")
+    if system_config.type in [SystemType.Local, SystemType.ORTInference]:
+        raise NotImplementedError(f"olive_managed_env is not supported for {system_config.type} System")
 
     elif system_config.type == SystemType.PythonEnvironment:
         import platform

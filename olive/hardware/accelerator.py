@@ -138,7 +138,7 @@ def create_accelerators(
             raise ValueError("Managed environment requires execution providers to be specified.")
     else:
         system_supported_eps = None
-        if system_config.type in (SystemType.Local, SystemType.PythonEnvironment):
+        if system_config.type in (SystemType.Local, SystemType.PythonEnvironment, SystemType.ORTInference):
             target = system_config.create_system()
             system_supported_eps = target.get_supported_execution_providers()
 
@@ -150,7 +150,7 @@ def create_accelerators(
         elif system_config.type == SystemType.Docker:
             # for docker system we default use CPUExecutionProvider
             raise ValueError("DockerSystem requires execution providers to be specified.")
-        elif system_config.type in (SystemType.Local, SystemType.PythonEnvironment):
+        elif system_config.type in (SystemType.Local, SystemType.PythonEnvironment, SystemType.ORTInference):
             execution_providers = system_supported_eps
     logger.debug("Initial execution providers: %s", execution_providers)
 
@@ -175,7 +175,10 @@ def create_accelerators(
         device = Device(accelerator.lower())
         if system_config.olive_managed_env:
             available_eps = AcceleratorLookup.get_managed_supported_execution_providers(device)
-        elif system_config.type in (SystemType.Local, SystemType.PythonEnvironment) and not skip_supported_eps_check:
+        elif (
+            system_config.type in (SystemType.Local, SystemType.PythonEnvironment, SystemType.ORTInference)
+            and not skip_supported_eps_check
+        ):
             # don't need to check the supported execution providers if there is no evaluation
             # target is only used for evaluation
             available_eps = system_supported_eps
