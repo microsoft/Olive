@@ -35,3 +35,4 @@ def test_pass_runner(tmp_path):
     p = create_pass_from_dict(OrtPerfTuning, {}, True, DEFAULT_CPU_ACCELERATOR)
     output_model = docker_target.run_pass(p, model_conf, None, tmp_path)
     assert output_model.config["inference_settings"]["execution_provider"] == DEFAULT_CPU_ACCELERATOR.execution_provider
+    assert output_model.config["model_path"] == model_config["model_path"]
