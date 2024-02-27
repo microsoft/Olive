@@ -151,6 +151,7 @@ class DockerSystem(OliveSystem):
                 config=data,
                 container_root_path=container_root_path,
             )
+            assert (Path(tempdir) / "config.json").is_file()
             volumes_list.append(config_file_mount_str)
 
             # output mount
@@ -342,7 +343,7 @@ class DockerSystem(OliveSystem):
         mounts = {}
         mount_strs = []
         for param, _, category in the_pass.path_params:
-            param_val = the_pass._config.get(param)
+            param_val = the_pass._config.get(param)  # pylint: disable=protected-access
             if category == ParamCategory.DATA and param_val:
                 data_dir = get_local_path_from_root(data_root, str(param_val))
                 mount = str(container_root_path / param)

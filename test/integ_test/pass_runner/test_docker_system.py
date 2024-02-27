@@ -4,6 +4,7 @@ from test.integ_test.evaluator.docker_eval.utils import get_docker_target, get_o
 import pytest
 
 from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR
+from olive.logging import set_default_logger_severity
 from olive.model.config.model_config import ModelConfig
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.perf_tuning import OrtPerfTuning
@@ -15,6 +16,7 @@ def test_evaluate_model(tmp_path):
     model_config = get_onnx_model()
     model_conf = ModelConfig.parse_obj({"type": "ONNXModel", "config": model_config})
 
+    set_default_logger_severity(0)
     p = create_pass_from_dict(OrtPerfTuning, {}, True, DEFAULT_CPU_ACCELERATOR)
     output_model = docker_target.run_pass(p, model_conf, None, tmp_path)
     assert output_model.config["inference_settings"]["execution_provider"] == DEFAULT_CPU_ACCELERATOR.execution_provider

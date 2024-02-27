@@ -19,7 +19,7 @@ from olive.systems.docker.docker_system import DockerSystem
 from olive.systems.system_config import DockerTargetUserConfig, SystemConfig
 from olive.systems.utils import create_new_system
 
-# pylint: disable=attribute-defined-outside-init
+# pylint: disable=attribute-defined-outside-init, disable=protected-access
 
 
 class TestDockerSystem:
@@ -231,14 +231,16 @@ class TestDockerSystem:
         container_root_path = Path("/olive-ws/")
         runner_local_path = Path(__file__).resolve().parents[4] / "olive" / "systems" / "docker" / "runner.py"
         model_path = onnx_model.config["model_path"]
+        data_dir = str(p._config["data_dir"])
         volumes_list = [
             f"{runner_local_path}:{container_root_path / 'runner.py'}",  # runner script
             f"{tmp_path / 'olive'}:{container_root_path / 'olive'}",  # olive dev
             f"{model_path}:{container_root_path / Path(model_path).name}",  # model
-            f"{Path(data_root) / str(p._config['data_dir'])}:{container_root_path / str(p._config['data_dir'])}",
+            f"{Path(data_root).resolve() / data_dir}:{container_root_path / data_dir}",
             f"{tmp_path / 'config.json'}:{container_root_path / 'config.json'}",  # config
             f"{tmp_path / runner_output_path}:{container_root_path / runner_output_path}",  # output
         ]
+        assert (tmp_path / "config.json").is_file()
         runner_command = [
             "python",
             str(container_root_path / "runner.py"),
