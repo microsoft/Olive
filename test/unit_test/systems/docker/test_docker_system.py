@@ -2,15 +2,18 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
 import shutil
 from pathlib import Path
-from test.unit_test.utils import get_accuracy_metric, get_pytorch_model_config
+from test.unit_test.utils import get_accuracy_metric, get_onnx_model_config, get_pytorch_model_config
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
 from olive.evaluator.metric import AccuracySubType, joint_metric_key
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
+from olive.passes.olive_pass import create_pass_from_dict
+from olive.passes.onnx.perf_tuning import OrtPerfTuning
 from olive.systems.common import LocalDockerConfig
 from olive.systems.docker.docker_system import DockerSystem
 from olive.systems.system_config import DockerTargetUserConfig, SystemConfig
@@ -188,6 +191,95 @@ class TestDockerSystem:
             for sub_type in metric.sub_types:
                 joint_key = joint_metric_key(metric.name, sub_type.name)
                 assert actual_res[joint_key].value == 0.99618
+
+    @patch("olive.systems.docker.docker_system.docker.from_env")
+    @patch("olive.systems.docker.docker_system.tempfile.TemporaryDirectory")
+    @patch("olive.systems.docker.docker_system.copy.deepcopy")
+    def test_run_pass(self, mock_copy, mock_tempdir, mock_from_env, tmp_path):
+        runner_output_path = "runner_output"
+        runner_output_name = "runner_res.json"
+
+        exit_code = 0
+        onnx_model = get_onnx_model_config()
+
+        def container_run(image, command=None, stdout=True, stderr=False, remove=False, **kwargs):
+            container_obj = MagicMock()
+            container_obj.wait.return_value = {"StatusCode": exit_code}
+            container_obj.logs.return_value = [b"mock_error"] if exit_code != 0 else []
+            with (tmp_path / runner_output_path / runner_output_name).open("w") as f:
+                json.dump(onnx_model.to_json(), f, indent=4)
+            return container_obj
+
+        mock_docker_client = MagicMock()
+        mock_docker_client.containers.run.side_effect = container_run
+        mock_from_env.return_value = mock_docker_client
+        mock_tempdir.return_value.__enter__.return_value = str(tmp_path)
+        mock_copy.side_effect = lambda x: x
+
+        docker_config = LocalDockerConfig(
+            image_name="image_name", build_context_path="build_context_path", dockerfile="dockerfile"
+        )
+        docker_system = DockerSystem(docker_config, is_dev=True)
+        data_root = "data_root"
+
+        p = create_pass_from_dict(OrtPerfTuning, {"data_dir": "data_dir"}, disable_search=True)
+        output_folder = str(tmp_path / "onnx")
+        with patch.object(Path, "is_dir", return_value=True), patch.object(Path, "exists", return_value=True):
+            output_model = docker_system.run_pass(p, onnx_model, data_root, output_folder)
+            assert output_model is not None
+
+        container_root_path = Path("/olive-ws/")
+        runner_local_path = Path(__file__).resolve().parents[4] / "olive" / "systems" / "docker" / "runner.py"
+        model_path = onnx_model.config["model_path"]
+        volumes_list = [
+            f"{runner_local_path}:{container_root_path / 'runner.py'}",  # runner script
+            f"{tmp_path / 'olive'}:{container_root_path / 'olive'}",  # olive dev
+            f"{model_path}:{container_root_path / Path(model_path).name}",  # model
+            f"{Path(data_root) / str(p._config['data_dir'])}:{container_root_path / str(p._config['data_dir'])}",
+            f"{tmp_path / 'config.json'}:{container_root_path / 'config.json'}",  # config
+            f"{tmp_path / runner_output_path}:{container_root_path / runner_output_path}",  # output
+        ]
+        runner_command = [
+            "python",
+            str(container_root_path / "runner.py"),
+            "--config",
+            str(container_root_path / "config.json"),
+            "--output_path",
+            str(container_root_path / runner_output_path),
+            "--output_name",
+            runner_output_name,
+        ]
+        runner_command = " ".join(runner_command)
+        mock_docker_client.containers.run.assert_called_once_with(
+            image=docker_system.image,
+            command=runner_command,
+            volumes=volumes_list,
+            detach=True,
+            environment=ANY,
+        )
+
+    def test_runner_entry(self, tmp_path):
+        from olive.systems.docker import utils as docker_utils
+        from olive.systems.docker.runner import runner_entry as docker_runner_entry
+
+        p = create_pass_from_dict(OrtPerfTuning, {"data_dir": "data_dir"}, disable_search=True)
+        pass_config = p.to_json(check_object=True)
+        config = p.config_at_search_point({})
+        pass_config["config"].update(p.serialize_config(config, check_object=True))
+
+        onnx_model = get_onnx_model_config()
+
+        container_root_path = Path("/olive-ws/")
+        data = DockerSystem._create_runner_config(
+            onnx_model,
+            pass_config,
+            {"model_path": onnx_model.config["model_path"]},
+            {"data_dir": str(container_root_path / "data_dir")},
+        )
+        docker_utils.create_config_file(tmp_path, data, container_root_path)
+        with patch.object(OrtPerfTuning, "run", return_value=onnx_model):
+            docker_runner_entry(str(tmp_path / "config.json"), str(tmp_path), "runner_res.json")
+            assert (tmp_path / "runner_res.json").exists()
 
     @patch("olive.systems.docker.docker_system.docker.from_env")
     def test_managed_env(self, mock_from_env):

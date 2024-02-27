@@ -23,10 +23,24 @@ def create_config_file(workdir, config: dict, container_root_path: Path):
     config_file_path = Path(workdir) / "config.json"
     # the config yaml file saved to local disk
     with config_file_path.open("w") as f:
-        json.dump(config, f)
+        json.dump(config, f, indent=4)
     config_mount_path = str(container_root_path / "config.json")
     config_file_mount_str = f"{config_file_path}:{config_mount_path}"
     return config_mount_path, config_file_mount_str
+
+
+def create_runner_command(runner_script_path: str, config_path: str, output_path: str, output_name: str):
+    command = [
+        "python",
+        runner_script_path,
+        "--config",
+        config_path,
+        "--output_path",
+        output_path,
+        "--output_name",
+        output_name,
+    ]
+    return " ".join(command)
 
 
 def create_evaluate_command(
@@ -95,6 +109,13 @@ def create_model_mount(model_config: "ModelConfig", container_root_path: Path):
         mounts[resource_name] = resource_path_mount_path
         mount_strs.append(resource_path_mount_str)
     return mounts, mount_strs
+
+
+def create_runner_script_mount(container_root_path: Path):
+    runner_file_mount_path = str(container_root_path / "runner.py")
+    current_dir = Path(__file__).resolve().parent
+    runner_file_mount_str = f"{str(current_dir / 'runner.py')}:{runner_file_mount_path}"
+    return runner_file_mount_path, runner_file_mount_str
 
 
 def create_eval_script_mount(container_root_path: Path):
