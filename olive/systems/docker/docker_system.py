@@ -186,6 +186,7 @@ class DockerSystem(OliveSystem):
             with model_output_json_file.open() as f:
                 model_output = json.load(f)
                 output_model = ModelConfig.parse_obj(model_output)
+                logger.info(f"Copying model from {output_local_path} to {output_model_path}")
                 shutil.copytree(output_local_path, output_model_path, dirs_exist_ok=True)
                 logger.info(f"mount_model_to_local: {mount_model_to_local}")
                 for resource_name, resource_path in output_model.get_resource_paths().items():
@@ -194,11 +195,16 @@ class DockerSystem(OliveSystem):
                         continue
                     resource_path_str = resource_path.get_path()
                     candidate_model_path = resource_path_str.replace(str(container_root_path), str(output_model_path))
+                    logger.info(f"candidate_model_path: {candidate_model_path}")
+                    logger.info(
+                        f"resource_path_str in mount_model_to_local: {resource_path_str in mount_model_to_local}"
+                    )
                     if Path(candidate_model_path).exists():
                         output_model.config[resource_name] = candidate_model_path
                     elif resource_path_str in mount_model_to_local:
                         output_model.config[resource_name] = mount_model_to_local[resource_path_str]
 
+                logger.info(f"Model path is: {output_model.config['model_path']}")
                 return output_model
         else:
             logger.error(f"Model output file {model_output_json_file} not found.")
