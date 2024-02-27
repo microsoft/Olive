@@ -64,11 +64,14 @@ class TestORTInferenceSystem:
         olive_model_config = MagicMock()
         olive_model_config.type = "PyTorchModel"
 
-        with pytest.raises(NotImplementedError):
+        with pytest.raises(ValueError) as errinfo:  # noqa: PT011
             self.system.evaluate_model(olive_model_config, None, None, None)
+
+        assert "ORTInferenceSystem only supports evaluation for ONNXModel" in str(errinfo.value)
 
 
 class TestORTInferenceEvaluator:
+    @pytest.fixture(autouse=True)
     def setup(self):
         self.system = get_inference_system()
         self.evaluator = ORTInferenceEvaluator(self.system.environ)

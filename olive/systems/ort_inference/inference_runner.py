@@ -15,18 +15,18 @@ ort_inference_utils_parent = Path(__file__).resolve().parents[2] / "common"
 sys.path.append(str(ort_inference_utils_parent))
 
 # pylint: disable=wrong-import-position
-from olive.common.ort_inference import get_ort_inference_session, run_inference, time_inference  # noqa: E402
+from ort_inference import get_ort_inference_session, run_inference, time_inference  # noqa: E402
 
 
 def get_args(raw_args):
     parser = argparse.ArgumentParser(description="Onnx model inference")
 
     parser.add_argument(
-        "--config_path", type=str, required=True, help="Path to configuration for the inference to be run"
+        "--config_path", type=Path, required=True, help="Path to configuration for the inference to be run"
     )
-    parser.add_argument("--model_path", type=str, required=True, help="Path to onnx model")
-    parser.add_argument("--input_dir", type=str, required=True, help="Path to input directory")
-    parser.add_argument("--output_dir", type=str, required=True, help="Path to output directory")
+    parser.add_argument("--model_path", type=Path, required=True, help="Path to onnx model")
+    parser.add_argument("--input_dir", type=Path, required=True, help="Path to input directory")
+    parser.add_argument("--output_dir", type=Path, required=True, help="Path to output directory")
 
     return parser.parse_args(raw_args)
 
@@ -37,11 +37,9 @@ def load_batch(input_dir: Path, batch_file: str) -> Dict:
 
 def main(raw_args=None):
     args = get_args(raw_args)
-    args.input_dir = Path(args.input_dir)
-    args.output_dir = Path(args.output_dir)
 
     # load inference setting
-    with open(args.config_path, "rb") as f:
+    with args.config_path.open() as f:
         config = json.load(f)
 
     # create session

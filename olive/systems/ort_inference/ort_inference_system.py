@@ -77,7 +77,7 @@ class ORTInferenceSystem(OliveSystem):
         """Evaluate the model."""
         # only onnx model handler is supported
         if not model_config.type.lower() == "onnxmodel":
-            raise ValueError(f"Evaluation for model type {model_config.type} is not supported for ORTInferenceSystem")
+            raise ValueError(f"ORTInferenceSystem only supports evaluation for ONNXModel, got {model_config.type}")
 
         device = accelerator.accelerator_type if accelerator else Device.CPU
         execution_providers = accelerator.execution_provider if accelerator else None
