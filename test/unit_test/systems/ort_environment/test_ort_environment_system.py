@@ -14,8 +14,8 @@ from olive.constants import Framework
 from olive.evaluator.metric import AccuracySubType, LatencySubType
 from olive.evaluator.olive_evaluator import OliveEvaluator, OnnxEvaluator
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
-from olive.systems.ort_inference import ORTInferenceSystem
-from olive.systems.ort_inference.ort_inference_system import ORTInferenceEvaluator
+from olive.systems.ort_environment import ORTEnvironmentSystem
+from olive.systems.ort_environment.ort_environment_system import ORTEnvironmentEvaluator
 
 # pylint: disable=attribute-defined-outside-init, protected-access
 
@@ -23,10 +23,10 @@ from olive.systems.ort_inference.ort_inference_system import ORTInferenceEvaluat
 def get_inference_system():
     # use the current python environment as the test environment
     executable_parent = Path(sys.executable).parent.resolve().as_posix()
-    return ORTInferenceSystem(executable_parent)
+    return ORTEnvironmentSystem(executable_parent)
 
 
-class TestORTInferenceSystem:
+class TestORTEnvironmentSystem:
     @pytest.fixture(autouse=True)
     def setup(self):
         self.system = get_inference_system()
@@ -40,7 +40,7 @@ class TestORTInferenceSystem:
         with pytest.raises(NotImplementedError):
             self.system.run_pass(None, None, None, None)
 
-    @patch("olive.systems.ort_inference.ort_inference_system.ORTInferenceEvaluator.evaluate")
+    @patch("olive.systems.ort_environment.ort_environment_system.ORTEnvironmentEvaluator.evaluate")
     def test_evaluate_model(self, mock_evaluate):
         olive_model_config = MagicMock()
         olive_model_config.type = "ONNXModel"
@@ -67,14 +67,14 @@ class TestORTInferenceSystem:
         with pytest.raises(ValueError) as errinfo:  # noqa: PT011
             self.system.evaluate_model(olive_model_config, None, None, None)
 
-        assert "ORTInferenceSystem only supports evaluation for ONNXModel" in str(errinfo.value)
+        assert "ORTEnvironmentSystem only supports evaluation for ONNXModel" in str(errinfo.value)
 
 
-class TestORTInferenceEvaluator:
+class TestORTEnvironmentEvaluator:
     @pytest.fixture(autouse=True)
     def setup(self):
         self.system = get_inference_system()
-        self.evaluator = ORTInferenceEvaluator(self.system.environ)
+        self.evaluator = ORTEnvironmentEvaluator(self.system.environ)
         self.onnx_evaluator = OnnxEvaluator()
 
     def test__inference(self):

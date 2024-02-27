@@ -2,6 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from olive.systems.ort_inference.ort_inference_system import ORTInferenceSystem
+from olive.systems.ort_environment.ort_environment_system import ORTEnvironmentSystem
 
-__all__ = ["ORTInferenceSystem"]
+__all__ = ["ORTEnvironmentSystem"]

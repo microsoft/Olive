@@ -74,7 +74,7 @@ class PythonEnvironmentTargetUserConfig(CommonPythonEnvTargetUserConfig):
     requirements_file: Union[Path, str] = None  # path to the requirements.txt file
 
 
-class ORTInferenceTargetUserConfig(CommonPythonEnvTargetUserConfig):
+class ORTEnvironmentTargetUserConfig(CommonPythonEnvTargetUserConfig):
     pass
 
 
@@ -83,7 +83,7 @@ _type_to_config = {
     SystemType.AzureML: AzureMLTargetUserConfig,
     SystemType.Docker: DockerTargetUserConfig,
     SystemType.PythonEnvironment: PythonEnvironmentTargetUserConfig,
-    SystemType.ORTInference: ORTInferenceTargetUserConfig,
+    SystemType.ORTEnvironment: ORTEnvironmentTargetUserConfig,
 }
 
 _type_to_system_path = {
@@ -91,7 +91,7 @@ _type_to_system_path = {
     SystemType.AzureML: "olive.systems.azureml.AzureMLSystem",
     SystemType.Docker: "olive.systems.docker.DockerSystem",
     SystemType.PythonEnvironment: "olive.systems.python_environment.PythonEnvironmentSystem",
-    SystemType.ORTInference: "olive.systems.ort_inference.ORTInferenceSystem",
+    SystemType.ORTEnvironment: "olive.systems.ort_environment.ORTEnvironmentSystem",
 }
 
 
