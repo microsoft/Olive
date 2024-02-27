@@ -187,7 +187,9 @@ class DockerSystem(OliveSystem):
                 model_output = json.load(f)
                 output_model = ModelConfig.parse_obj(model_output)
                 shutil.copytree(output_local_path, output_model_path, dirs_exist_ok=True)
+                logger.info(f"mount_model_to_local: {mount_model_to_local}")
                 for resource_name, resource_path in output_model.get_resource_paths().items():
+                    logger.info(f"Resource {resource_name} path: {resource_path.get_path()}")
                     if not resource_path or resource_path.is_string_name():
                         continue
                     resource_path_str = resource_path.get_path()
@@ -356,7 +358,7 @@ class DockerSystem(OliveSystem):
             raise ContainerError(
                 container, exit_code, command, self.image, f"Docker container evaluation failed with: {error_msg}"
             )
-        logger.debug("Docker container evaluation completed successfully")
+        logger.debug("Docker container run completed successfully")
 
         return Path(output_local_path) / output_name
 
