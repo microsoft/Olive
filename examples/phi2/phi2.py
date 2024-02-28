@@ -36,14 +36,20 @@ def get_args(raw_args):
 
 
 def main(raw_args=None):
-    if platform.system() == "Linux" and version.parse(OrtVersion) < version.parse("1.18.0"):
+    # Check if onnxruntime version is supported
+    # in linux, it requires the
+    # 1. model_type as `phi`
+    # 2. "optimization_options": {"attention_op_type": "MultiHeadAttention"}
+    # in windows, it requires the
+    # 1. model_type as `gpt2`
+    # 2. "optimization_options": {"attention_op_type": "MultiHeadAttention"}
+    # and `phi` and `MultiHeadAttention` requires ort-nightly version >= 1.18.0
+    if version.parse(OrtVersion) < version.parse("1.18.0"):
         raise ValueError(
             "Please use onnxruntime>=1.18.0 for phi2 optimization, you can refer to "
             "https://onnxruntime.ai/docs/install/#inference-install-table-for-all-languages "
             "for ort-nightly installation."
         )
-    if platform.system() == "Windows" and version.parse(OrtVersion) < version.parse("1.17.0"):
-        raise ValueError("Please use onnxruntime>=1.17.0 for phi2 optimization")
 
     args = get_args(raw_args)
 
