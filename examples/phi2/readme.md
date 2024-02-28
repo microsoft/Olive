@@ -8,24 +8,25 @@ This folder contains an example of phi2 optimization with Olive workflow.
 * Pytorch>=2.2.0 \
   _The [official website](https://pytorch.org/) offers packages compatible with CUDA 11.8 and 12.1. Please select the appropriate version according to your needs._
 * [ONNXRuntime nightly package](https://onnxruntime.ai/docs/install/#inference-install-table-for-all-languages)
+  In Linux, phi2 optimization requires the ONNXRuntime nightly package(>=1.18.0). In Windows, ONNXRuntime>=1.17.0 is recommended.
 
 ## Usage
 cpu_fp32
 ```bash
-python phi2.py --cpu_fp32
+python phi2.py --model_type cpu_fp32
 ```
 cpu_int4
 ```bash
-python phi2.py --cpu_int4
+python phi2.py --model_type cpu_int4
 ```
 cuda_fp16
 ```bash
-python phi2.py --cuda_fp16
+python phi2.py --model_type cuda_fp16
 ```
 cuda_int4
 ```bash
-python phi2.py --cuda_int4
+python phi2.py --model_type cuda_int4
 ```
 
 ## Limitations
-TorchDynamo-based ONNX Exporter only supports Linux.
+TorchDynamo-based ONNX Exporter only supports Linux. When using Windows, Olive will fallback to the default PyTorch ONNX Exporter.
