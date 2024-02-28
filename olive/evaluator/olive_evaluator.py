@@ -69,10 +69,6 @@ class OliveEvaluator(ABC):
         cls.framework = framework
         cls.registry[str(framework).lower()] = cls
 
-    @abstractmethod
-    def __init__(self):
-        pass
-
     @classmethod
     def io_bind_enabled(cls, metric: Metric, inference_settings: Dict) -> bool:
         if metric.user_config.io_bind:
