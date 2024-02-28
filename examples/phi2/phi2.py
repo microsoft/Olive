@@ -46,9 +46,10 @@ def main(raw_args=None):
     # and `phi` and `MultiHeadAttention` requires ort-nightly version >= 1.18.0
     if version.parse(OrtVersion) < version.parse("1.18.0"):
         raise ValueError(
-            "Please use onnxruntime>=1.18.0 for phi2 optimization, you can refer to "
+            "Please use onnxruntime>=1.18.0 for phi2 optimization in Linux, you can refer to "
             "https://onnxruntime.ai/docs/install/#inference-install-table-for-all-languages "
-            "for ort-nightly installation."
+            "for ort-nightly installation. If you are optimizing phi2 model in GPU, only cuda11 "
+            "is supported in onnxruntime>=1.18.0"
         )
 
     args = get_args(raw_args)

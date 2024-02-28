@@ -29,4 +29,6 @@ python phi2.py --model_type cuda_int4
 ```
 
 ## Limitations
-TorchDynamo-based ONNX Exporter only supports Linux. When using Windows, Olive will fallback to the default PyTorch ONNX Exporter.
+The latest ONNXRuntime implements specific fusion patterns for better performance but only works for ONNX model from TorchDynamo-based ONNX Exporter. And the TorchDynamo-based ONNX Exporter is only available on Linux.
+When using Windows, this example will fallback to the default PyTorch ONNX Exporter, that can achieve a few improvements but not as much as the TorchDynamo-based ONNX Exporter.
+Therefore, it is recommended to use Linux for phi2 optimization.
