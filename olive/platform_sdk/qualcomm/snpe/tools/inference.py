@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 import platform
+import re
 import shutil
 import tempfile
 from pathlib import Path
@@ -276,12 +277,15 @@ def snpe_net_run(
             result_files[output_name] = [x[1] for x in result_files[output_name]]
 
     latencies = {"init": [], "total_inference_time": []}
-    for run in range(runs):
-        # SNPE DiagLog
-        snpe_diag_log = tmp_dir_path / f"SNPEDiag_{run}.log"
-        snpe_diag_csv = tmp_dir_path / f"SNPEDiag_{run}.csv"
-        if not snpe_diag_log.exists():
-            logger.error("SNPE DiagLog file %s not found for run %d", snpe_diag_log, run)
+    diag_log_files = []
+    for snpe_diag_log in tmp_dir_path.iterdir():
+        filename_match_group = re.match(r"SNPEDiag_(\d+)\.log", snpe_diag_log.name)
+        if not filename_match_group:
+            continue
+        diag_log_files.append(snpe_diag_log)
+        run_id = filename_match_group.group(1)
+
+        snpe_diag_csv = tmp_dir_path / f"{snpe_diag_log.stem}.csv"
         cmd = f"snpe-diagview --input_log {snpe_diag_log} --output {snpe_diag_csv}"
         SNPERunner().run(cmd)
 
@@ -296,7 +300,17 @@ def snpe_net_run(
         latencies["total_inference_time"].append(diag_log["avg_total_inference_time"])
 
         if output_dir is not None:
-            snpe_diag_csv.rename(output_dir / f"perf_results_{run}.csv")
+            snpe_diag_csv.rename(output_dir / f"perf_results_{run_id}.csv")
+
+    if len(diag_log_files) != runs:
+        # sometimes the SNPEDiag log files are not created by snpe-net-run successfully
+        # also because the SNPEDiag logs are only used for latency measurement, to unblock the
+        # main processing, we only throw a error log here for awareness.
+        logger.error(
+            "Number of SNPEDiag log files does not match the number of runs (%d). The diag files are: %s",
+            runs,
+            diag_log_files,
+        )
 
     # explicitly delete the tmp directory just to be safe
     tmp_dir.cleanup()

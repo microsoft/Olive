@@ -38,7 +38,7 @@ class SDKRunner:
         import platform
 
         if platform.system() == "Windows" and cmd.startswith(("snpe-", "qnn-")):
-            logger.debug(f"Resolving command {cmd} on Windows.")
+            logger.debug("Resolving command %s on Windows.", cmd)
             cmd_path = Path(self.sdk_env.sdk_root_path) / "bin" / self.sdk_env.target_arch
             cmd_name = cmd.split(" ")[0]
             if (cmd_path / cmd_name).exists():
@@ -50,7 +50,7 @@ class SDKRunner:
                             cmd = f"python {cmd}"
                 except UnicodeDecodeError as e:
                     logger.warning(
-                        f"Failed to read the first line of {cmd_name}: {e}. Will ignore to wrap it with python."
+                        "Failed to read the first line of %s: %s. Will ignore to wrap it with python.", cmd_name, e
                     )
 
         return cmd
@@ -61,7 +61,7 @@ class SDKRunner:
         env = self.sdk_env.env if use_olive_env else None
         for run in range(self.runs):
             run_log_msg = "" if self.runs == 1 else f" (run {run + 1}/{self.runs})"
-            logger.debug(f"Running {self.platform} command{run_log_msg}: {cmd}, with env: {env}")
+            logger.debug("Running %s command%s: ", self.platform, run_log_msg)
             _, stdout, stderr = run_subprocess(cmd, env, check=True)
             if self.sleep > 0 and run < self.runs - 1:
                 time.sleep(self.sleep)
