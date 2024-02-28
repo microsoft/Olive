@@ -37,7 +37,7 @@ def run_subprocess(cmd, env=None, cwd=None, check=False):
             f"Failed to run {cmd} with returncode {e.returncode}!",
             f"Stderr: {e.stderr.decode('utf-8')}",
             f"Stdout: {e.stdout.decode('utf-8')}",
-            f"Env: {str(env).encode(errors='ignore').decode()}",
+            f"Env: {env}",
         ]
         logger.error("\n".join(err_msg))  # noqa: TRY400
         raise
