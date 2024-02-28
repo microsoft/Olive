@@ -12,7 +12,7 @@
         "onnxruntime"
     ],
     "gpu": [
-        "onnxruntime-gpu"
+        "onnxruntime-gpu>=1.17.0"
     ],
     "directml": [
         "onnxruntime-directml"
@@ -28,7 +28,7 @@
         "neural-compressor"
     ],
     "optimum": [
-        "optimum"
+        "optimum>=1.17.0"
     ],
     "torch-tensorrt": [
         "torch-tensorrt"
@@ -44,5 +44,8 @@
     "ort-training": [
         "onnxruntime-training",
         "torch-ort"
+    ],
+    "gptq": [
+        "auto-gptq"
     ]
 }
