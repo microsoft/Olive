@@ -207,8 +207,8 @@ class DockerSystem(OliveSystem):
                     # and the output_model.config["model_path"] would like /olive-ws/runner_output/model.onnx
                     # the model path should starts with /olive-ws/runner_output
                     assert resource_str.startswith(docker_output_path)
-                    candidate_model_path = resource_str.replace(docker_output_path, output_model_path)
-                    output_model.config[resource_name] = candidate_model_path
+                    candidate_resource_path = resource_str.replace(docker_output_path, output_model_path)
+                    output_model.config[resource_name] = candidate_resource_path
 
                 logger.debug("Model path is: %s", output_model.config["model_path"])
                 return output_model
