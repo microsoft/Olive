@@ -189,20 +189,25 @@ class DockerSystem(OliveSystem):
                 logger.info(f"Copying model from {output_local_path} to {output_model_path}")
                 shutil.copytree(output_local_path, output_model_path, dirs_exist_ok=True)
                 logger.info(f"mount_model_to_local: {mount_model_to_local}")
-                for resource_name, resource_path in output_model.get_resource_paths().items():
-                    logger.info(f"Resource {resource_name} path: {resource_path.get_path()}, type={resource_path.type}")
-                    if not resource_path or resource_path.is_string_name():
+                for resource_name, resource_str in output_model.get_resource_strings().items():
+                    logger.info(f"Resource {resource_name} path: {resource_str}")
+                    if not resource_str:
                         continue
-                    resource_path_str = resource_path.get_path()
-                    candidate_model_path = resource_path_str.replace(str(container_root_path), str(output_model_path))
+                    original_model_path = mount_model_to_local.get(resource_str)
+                    if original_model_path:
+                        # If the output model path is something like /olive-ws/model.onnx
+                        # we need replace with the original model path
+                        output_model.config[resource_name] = original_model_path
+                        continue
+
+                    # output_local_path should be something like: /tmp/tmpd1sjw9xa/runner_output
+                    # If there are any output models, they will be saved in that path
+                    # and the output_model.config["model_path"] would like /olive-ws/runner_output/model.onnx
+                    # the model path should starts with /olive-ws/runner_output
+                    assert resource_str.startswith(docker_output_path)
+                    candidate_model_path = resource_str.replace(docker_output_path, output_model_path)
                     logger.info(f"candidate_model_path: {candidate_model_path}")
-                    logger.info(
-                        f"resource_path_str in mount_model_to_local: {resource_path_str in mount_model_to_local}"
-                    )
-                    if Path(candidate_model_path).exists():
-                        output_model.config[resource_name] = candidate_model_path
-                    elif resource_path_str in mount_model_to_local:
-                        output_model.config[resource_name] = mount_model_to_local[resource_path_str]
+                    output_model.config[resource_name] = candidate_model_path
 
                 logger.info(f"Model path is: {output_model.config['model_path']}")
                 return output_model

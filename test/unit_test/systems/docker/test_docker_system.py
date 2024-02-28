@@ -15,7 +15,6 @@ from olive.evaluator.metric import AccuracySubType, joint_metric_key
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.perf_tuning import OrtPerfTuning
-from olive.resource_path import ResourcePathConfig, ResourceType
 from olive.systems.common import LocalDockerConfig
 from olive.systems.docker.docker_system import DockerSystem
 from olive.systems.system_config import DockerTargetUserConfig, SystemConfig
@@ -232,19 +231,9 @@ class TestDockerSystem:
         def validate_file_or_folder(v, values, **kwargs):
             return v
 
-        def create_resource_mock(v):
-            if v == str(container_root_path / ONNX_MODEL_PATH.name):
-                return ResourcePathConfig(type=ResourceType.LocalFile, config={"path": v}).create_resource_path()
-
-            from olive.resource_path import create_resource_path
-
-            return create_resource_path(v)
-
         with patch("olive.resource_path._validate_file_path", side_effect=validate_file_or_folder), patch(
             "olive.resource_path._validate_folder_path", side_effect=validate_file_or_folder
-        ), patch("olive.resource_path._validate_path", side_effect=validate_file_or_folder), patch(
-            "olive.model.config.model_config.create_resource_path", side_effect=create_resource_mock
-        ):
+        ), patch("olive.resource_path._validate_path", side_effect=validate_file_or_folder):
             output_model = docker_system.run_pass(p, onnx_model, data_root, output_folder)
             assert output_model is not None
 
