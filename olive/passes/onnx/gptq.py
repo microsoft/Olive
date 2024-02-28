@@ -8,7 +8,7 @@ from typing import Any, Dict
 import torch
 from packaging import version
 
-from olive.hardware.accelerator import AcceleratorSpec
+from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import PyTorchModelHandler
 from olive.model.handler.onnx import ONNXModelHandler
 from olive.passes import Pass
@@ -110,6 +110,8 @@ class GptqQuantizer(Pass):
             raise ValueError("Please use optimum>=1.17.0 for gptq quantization")
         if version.parse(ort_version) < version.parse("1.17.0"):
             raise ValueError("Please use onnxruntime-gpu>=1.17.0 for gptq quantization")
+        if self.accelerator_spec.accelerator_type != Device.GPU:
+            raise ValueError("Please use GPU to run gptq quantization.")
 
         tokenizer = AutoTokenizer.from_pretrained(model.hf_config.model_name, use_fast=False)
 
