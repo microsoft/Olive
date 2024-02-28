@@ -38,9 +38,10 @@ def get_args(raw_args):
 def main(raw_args=None):
     if platform.system() == "Linux" and version.parse(OrtVersion) < version.parse("1.18.0"):
         raise ValueError(
-            "Please use onnxruntime>=1.18.0 for phi2 optimization, you can refer to "
+            "Please use onnxruntime>=1.18.0 for phi2 optimization in Linux, you can refer to "
             "https://onnxruntime.ai/docs/install/#inference-install-table-for-all-languages "
-            "for ort-nightly installation."
+            "for ort-nightly installation. If you are optimizing phi2 model in GPU, only cuda11 "
+            "is supported in onnxruntime>=1.18.0"
         )
     if platform.system() == "Windows" and version.parse(OrtVersion) < version.parse("1.17.0"):
         raise ValueError("Please use onnxruntime>=1.17.0 for phi2 optimization")
