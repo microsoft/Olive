@@ -7,7 +7,10 @@
             "dummy_inputs_func": "get_merged_decoder_with_past_dummy_inputs",
             "hf_config": {
                 "model_name": "meta-llama/Llama-2-7b-hf",
-                "task": "text-generation"
+                "task": "text-generation",
+                "from_pretrained_args": {
+                    "_attn_implementation": "eager"
+                }
             }
         }
     },
