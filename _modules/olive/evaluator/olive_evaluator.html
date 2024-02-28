@@ -137,11 +137,10 @@
 <span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
 <span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
 <span class="kn">from</span> <span class="nn">numbers</span> <span class="kn">import</span> <span class="n">Number</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">NamedTuple</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">NamedTuple</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">torch</span>
-<span class="kn">from</span> <span class="nn">torch.utils.data</span> <span class="kn">import</span> <span class="n">Dataset</span>
 
 <span class="kn">import</span> <span class="nn">olive.data.template</span> <span class="k">as</span> <span class="nn">data_config_template</span>
 <span class="kn">from</span> <span class="nn">olive.cache</span> <span class="kn">import</span> <span class="n">get_local_path_from_root</span>
@@ -163,18 +162,21 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.metric_backend</span> <span class="kn">import</span> <span class="n">MetricBackend</span>
 <span class="kn">from</span> <span class="nn">olive.hardware</span> <span class="kn">import</span> <span class="n">Device</span>
-<span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">DistributedOnnxModelHandler</span><span class="p">,</span>
-    <span class="n">OliveModelHandler</span><span class="p">,</span>
-    <span class="n">ONNXModelHandler</span><span class="p">,</span>
-    <span class="n">OpenVINOModelHandler</span><span class="p">,</span>
-    <span class="n">PyTorchModelHandler</span><span class="p">,</span>
-    <span class="n">QNNModelHandler</span><span class="p">,</span>
-    <span class="n">SNPEModelHandler</span><span class="p">,</span>
-<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">DistributedOnnxModelHandler</span><span class="p">,</span> <span class="n">ONNXModelHandler</span>
 <span class="kn">from</span> <span class="nn">olive.model.config.io_config</span> <span class="kn">import</span> <span class="n">is_io_config_static</span>
 <span class="kn">from</span> <span class="nn">olive.model.utils.onnx_utils</span> <span class="kn">import</span> <span class="n">bind_input_data</span><span class="p">,</span> <span class="n">bind_output_data</span><span class="p">,</span> <span class="n">dump_tuning_result</span><span class="p">,</span> <span class="n">prepare_io_bindings</span>
 <span class="kn">from</span> <span class="nn">olive.platform_sdk.qualcomm.utils.data_loader</span> <span class="kn">import</span> <span class="n">FileListCommonDataLoader</span><span class="p">,</span> <span class="n">FileListDataLoader</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">torch.utils.data</span> <span class="kn">import</span> <span class="n">DataLoader</span>
+
+    <span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="p">(</span>
+        <span class="n">OliveModelHandler</span><span class="p">,</span>
+        <span class="n">OpenVINOModelHandler</span><span class="p">,</span>
+        <span class="n">PyTorchModelHandler</span><span class="p">,</span>
+        <span class="n">QNNModelHandler</span><span class="p">,</span>
+        <span class="n">SNPEModelHandler</span><span class="p">,</span>
+    <span class="p">)</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
@@ -195,10 +197,6 @@
         <span class="bp">cls</span><span class="o">.</span><span class="n">framework</span> <span class="o">=</span> <span class="n">framework</span>
         <span class="bp">cls</span><span class="o">.</span><span class="n">registry</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">framework</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()]</span> <span class="o">=</span> <span class="bp">cls</span>
 
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">pass</span>
-
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">io_bind_enabled</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">io_bind</span><span class="p">:</span>
@@ -212,9 +210,9 @@
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="nf">_inference</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">OliveModelHandler</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OliveModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
-        <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+        <span class="n">dataloader</span><span class="p">:</span> <span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span>
         <span class="n">post_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -224,10 +222,10 @@
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="nf">_evaluate_accuracy</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">OliveModelHandler</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OliveModelHandler&quot;</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
-        <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+        <span class="n">dataloader</span><span class="p">:</span> <span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span>
         <span class="n">post_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -237,10 +235,10 @@
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="nf">_evaluate_raw_latency</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">OliveModelHandler</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OliveModelHandler&quot;</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
-        <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+        <span class="n">dataloader</span><span class="p">:</span> <span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span>
         <span class="n">post_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -250,14 +248,14 @@
 
     <span class="k">def</span> <span class="nf">_evaluate_latency</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">OliveModelHandler</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OliveModelHandler&quot;</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
-        <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+        <span class="n">dataloader</span><span class="p">:</span> <span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span>
         <span class="n">post_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
         <span class="n">latencies</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluate_raw_latency</span><span class="p">(</span>
             <span class="n">model</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">dataloader</span><span class="p">,</span> <span class="n">post_func</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">execution_providers</span>
         <span class="p">)</span>
@@ -265,14 +263,14 @@
 
     <span class="k">def</span> <span class="nf">_evaluate_throughput</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">OliveModelHandler</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OliveModelHandler&quot;</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
-        <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+        <span class="n">dataloader</span><span class="p">:</span> <span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span>
         <span class="n">post_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">):</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
         <span class="n">latencies</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluate_raw_latency</span><span class="p">(</span>
             <span class="n">model</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">dataloader</span><span class="p">,</span> <span class="n">post_func</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">execution_providers</span>
         <span class="p">)</span>
@@ -280,10 +278,10 @@
 
     <span class="k">def</span> <span class="nf">_evaluate_custom</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">OliveModelHandler</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OliveModelHandler&quot;</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
-        <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+        <span class="n">dataloader</span><span class="p">:</span> <span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span>
         <span class="n">eval_func</span><span class="p">,</span>
         <span class="n">post_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
@@ -322,7 +320,7 @@
 
     <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">OliveModelHandler</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OliveModelHandler&quot;</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
@@ -356,7 +354,7 @@
         <span class="k">return</span> <span class="n">flatten_metric_result</span><span class="p">(</span><span class="n">metrics_res</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">generate_metric_user_config_with_model_io</span><span class="p">(</span><span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">OliveModelHandler</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">generate_metric_user_config_with_model_io</span><span class="p">(</span><span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OliveModelHandler&quot;</span><span class="p">):</span>
         <span class="c1"># if the io_config is not specified in the metrics, use the one in the model</span>
         <span class="c1"># should not change the original metric object which is created from config jsons</span>
         <span class="c1"># otherwise, if affects hashing + caching of the olive restoring.</span>
@@ -512,8 +510,6 @@
 
 
 <span class="k">class</span> <span class="nc">OnnxEvaluator</span><span class="p">(</span><span class="n">OliveEvaluator</span><span class="p">,</span> <span class="n">framework</span><span class="o">=</span><span class="n">Framework</span><span class="o">.</span><span class="n">ONNX</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">format_input</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">io_config</span><span class="p">):</span>
@@ -553,7 +549,7 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="n">ONNXModelHandler</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
-        <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+        <span class="n">dataloader</span><span class="p">:</span> <span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span>
         <span class="n">post_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -643,7 +639,7 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="n">ONNXModelHandler</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
-        <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+        <span class="n">dataloader</span><span class="p">:</span> <span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span>
         <span class="n">post_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -655,7 +651,7 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="n">ONNXModelHandler</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
-        <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+        <span class="n">dataloader</span><span class="p">:</span> <span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span>
         <span class="n">post_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -897,7 +893,7 @@
         <span class="n">model</span><span class="p">:</span> <span class="n">ONNXModelHandler</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
-        <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+        <span class="n">dataloader</span><span class="p">:</span> <span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span>
         <span class="n">post_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -913,14 +909,14 @@
 
     <span class="k">def</span> <span class="nf">_evaluate_raw_latency</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">OliveModelHandler</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OliveModelHandler&quot;</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
-        <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+        <span class="n">dataloader</span><span class="p">:</span> <span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span>
         <span class="n">post_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">ONNXModelHandler</span><span class="p">):</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluate_onnx_latency</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">dataloader</span><span class="p">,</span> <span class="n">post_func</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">execution_providers</span><span class="p">)</span>
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">DistributedOnnxModelHandler</span><span class="p">):</span>
@@ -932,8 +928,6 @@
 
 
 <span class="k">class</span> <span class="nc">PyTorchEvaluator</span><span class="p">(</span><span class="n">OliveEvaluator</span><span class="p">,</span> <span class="n">framework</span><span class="o">=</span><span class="n">Framework</span><span class="o">.</span><span class="n">PYTORCH</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_device_string_to_torch_device</span><span class="p">(</span><span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
@@ -942,9 +936,9 @@
     <span class="nd">@torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">()</span>
     <span class="k">def</span> <span class="nf">_inference</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">PyTorchModelHandler</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PyTorchModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
-        <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+        <span class="n">dataloader</span><span class="p">:</span> <span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span>
         <span class="n">post_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -983,10 +977,10 @@
 
     <span class="k">def</span> <span class="nf">_evaluate_accuracy</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">PyTorchModelHandler</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PyTorchModelHandler&quot;</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
-        <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+        <span class="n">dataloader</span><span class="p">:</span> <span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span>
         <span class="n">post_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -997,14 +991,14 @@
     <span class="nd">@torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">()</span>
     <span class="k">def</span> <span class="nf">_evaluate_raw_latency</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">PyTorchModelHandler</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PyTorchModelHandler&quot;</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
-        <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+        <span class="n">dataloader</span><span class="p">:</span> <span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span>
         <span class="n">post_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">):</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
         <span class="c1"># pylint: disable=expression-not-assigned</span>
         <span class="n">warmup_num</span><span class="p">,</span> <span class="n">repeat_test_num</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">get_latency_config_from_metric</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
         <span class="c1"># pytorch model doesn&#39;t use inference_settings, so we can pass None</span>
@@ -1057,14 +1051,12 @@
 
 
 <span class="k">class</span> <span class="nc">SNPEEvaluator</span><span class="p">(</span><span class="n">OliveEvaluator</span><span class="p">,</span> <span class="n">framework</span><span class="o">=</span><span class="n">Framework</span><span class="o">.</span><span class="n">SNPE</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">_inference</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">SNPEModelHandler</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;SNPEModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
-        <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+        <span class="n">dataloader</span><span class="p">:</span> <span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span>
         <span class="n">post_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -1102,10 +1094,10 @@
 
     <span class="k">def</span> <span class="nf">_evaluate_accuracy</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">SNPEModelHandler</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;SNPEModelHandler&quot;</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
-        <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+        <span class="n">dataloader</span><span class="p">:</span> <span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span>
         <span class="n">post_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -1115,14 +1107,14 @@
 
     <span class="k">def</span> <span class="nf">_evaluate_raw_latency</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">SNPEModelHandler</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;SNPEModelHandler&quot;</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
-        <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+        <span class="n">dataloader</span><span class="p">:</span> <span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span>
         <span class="n">post_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
         <span class="n">dataloader</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_dataloader</span><span class="p">(</span><span class="n">dataloader</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
         <span class="n">warmup_num</span><span class="p">,</span> <span class="n">repeat_test_num</span><span class="p">,</span> <span class="n">sleep_num</span> <span class="o">=</span> <span class="n">get_latency_config_from_metric</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
         <span class="n">session</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">prepare_session</span><span class="p">(</span>
@@ -1135,7 +1127,7 @@
         <span class="k">return</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;latencies&quot;</span><span class="p">][</span><span class="s2">&quot;total_inference_time&quot;</span><span class="p">][</span><span class="n">warmup_num</span><span class="p">:]</span>
 
     <span class="k">def</span> <span class="nf">_prepare_dataloader</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">SNPEModelHandler</span><span class="p">,</span> <span class="n">file_chunk_size</span><span class="o">=</span><span class="kc">None</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">dataloader</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span> <span class="n">FileListDataLoader</span><span class="p">],</span> <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;SNPEModelHandler&quot;</span><span class="p">,</span> <span class="n">file_chunk_size</span><span class="o">=</span><span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FileListDataLoader</span><span class="p">:</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dataloader</span><span class="p">,</span> <span class="n">FileListDataLoader</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">dataloader</span>
@@ -1143,14 +1135,12 @@
 
 
 <span class="k">class</span> <span class="nc">OpenVINOEvaluator</span><span class="p">(</span><span class="n">OliveEvaluator</span><span class="p">,</span> <span class="n">framework</span><span class="o">=</span><span class="n">Framework</span><span class="o">.</span><span class="n">OPENVINO</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">_inference</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">OpenVINOModelHandler</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OpenVINOModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
-        <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+        <span class="n">dataloader</span><span class="p">:</span> <span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span>
         <span class="n">post_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -1173,10 +1163,10 @@
 
     <span class="k">def</span> <span class="nf">_evaluate_accuracy</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">OpenVINOModelHandler</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OpenVINOModelHandler&quot;</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
-        <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+        <span class="n">dataloader</span><span class="p">:</span> <span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span>
         <span class="n">post_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -1186,14 +1176,14 @@
 
     <span class="k">def</span> <span class="nf">_evaluate_raw_latency</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">OpenVINOModelHandler</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OpenVINOModelHandler&quot;</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
-        <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+        <span class="n">dataloader</span><span class="p">:</span> <span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span>
         <span class="n">post_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
         <span class="n">session</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">prepare_session</span><span class="p">(</span>
             <span class="n">inference_settings</span><span class="o">=</span><span class="n">metric</span><span class="o">.</span><span class="n">get_inference_settings</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">framework</span><span class="o">.</span><span class="n">lower</span><span class="p">()),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
         <span class="p">)</span>
@@ -1207,14 +1197,12 @@
 
 
 <span class="k">class</span> <span class="nc">QNNEvaluator</span><span class="p">(</span><span class="n">OliveEvaluator</span><span class="p">,</span> <span class="n">framework</span><span class="o">=</span><span class="n">Framework</span><span class="o">.</span><span class="n">QNN</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">_inference</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">QNNModelHandler</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;QNNModelHandler&quot;</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
-        <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+        <span class="n">dataloader</span><span class="p">:</span> <span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span>
         <span class="n">post_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -1245,10 +1233,10 @@
 
     <span class="k">def</span> <span class="nf">_evaluate_accuracy</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">QNNModelHandler</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;QNNModelHandler&quot;</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
-        <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+        <span class="n">dataloader</span><span class="p">:</span> <span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span>
         <span class="n">post_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -1258,14 +1246,14 @@
 
     <span class="k">def</span> <span class="nf">_evaluate_raw_latency</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">QNNModelHandler</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;QNNModelHandler&quot;</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
-        <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+        <span class="n">dataloader</span><span class="p">:</span> <span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span>
         <span class="n">post_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">):</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
         <span class="n">dataloader</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_dataloader</span><span class="p">(</span><span class="n">dataloader</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
         <span class="n">warmup_num</span><span class="p">,</span> <span class="n">repeat_test_num</span><span class="p">,</span> <span class="n">sleep_num</span> <span class="o">=</span> <span class="n">get_latency_config_from_metric</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
         <span class="n">session</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">prepare_session</span><span class="p">(</span>
@@ -1279,7 +1267,7 @@
         <span class="k">return</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;latencies&quot;</span><span class="p">][</span><span class="s2">&quot;net_run&quot;</span><span class="p">][</span><span class="n">warmup_num</span><span class="p">:]</span>
 
     <span class="k">def</span> <span class="nf">_prepare_dataloader</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">dataloader</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">QNNModelHandler</span><span class="p">,</span> <span class="n">file_chunk_size</span><span class="o">=</span><span class="kc">None</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">dataloader</span><span class="p">:</span> <span class="s2">&quot;DataLoader&quot;</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;QNNModelHandler&quot;</span><span class="p">,</span> <span class="n">file_chunk_size</span><span class="o">=</span><span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FileListDataLoader</span><span class="p">:</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dataloader</span><span class="p">,</span> <span class="n">FileListDataLoader</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">dataloader</span>
@@ -1288,7 +1276,7 @@
 
 <span class="k">class</span> <span class="nc">OliveEvaluatorFactory</span><span class="p">:</span>
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">create_evaluator_for_model</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">OliveModelHandler</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OliveEvaluator</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">create_evaluator_for_model</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="s2">&quot;OliveModelHandler&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OliveEvaluator</span><span class="p">:</span>
         <span class="n">evaluator_cls</span> <span class="o">=</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">registry</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">framework</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()]</span>
         <span class="k">return</span> <span class="n">evaluator_cls</span><span class="p">()</span>
 
