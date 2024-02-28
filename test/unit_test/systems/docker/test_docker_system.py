@@ -231,9 +231,16 @@ class TestDockerSystem:
         def validate_file_or_folder(v, values, **kwargs):
             return v
 
+        def is_dir_mock(self):
+            if self == Path("data_root") / "data_dir":
+                return True
+            return False
+
         with patch("olive.resource_path._validate_file_path", side_effect=validate_file_or_folder), patch(
             "olive.resource_path._validate_folder_path", side_effect=validate_file_or_folder
-        ), patch("olive.resource_path._validate_path", side_effect=validate_file_or_folder):
+        ), patch("olive.resource_path._validate_path", side_effect=validate_file_or_folder), patch.object(
+            Path, "is_dir", side_effect=is_dir_mock, autospec=True
+        ):
             output_model = docker_system.run_pass(p, onnx_model, data_root, output_folder)
             assert output_model is not None
 
@@ -244,7 +251,7 @@ class TestDockerSystem:
             f"{runner_local_path}:{container_root_path / 'runner.py'}",  # runner script
             f"{tmp_path / 'olive'}:{container_root_path / 'olive'}",  # olive dev
             f"{Path(model_path).resolve()}:{container_root_path / Path(model_path).name}",  # model
-            f"{data_root}/{data_dir}:{container_root_path / data_dir}",
+            f"{Path(data_root) / data_dir}:{container_root_path / data_dir}",
             f"{tmp_path / 'config.json'}:{container_root_path / 'config.json'}",  # config
             f"{tmp_path / runner_output_path}:{container_root_path / runner_output_path}",  # output
         ]
