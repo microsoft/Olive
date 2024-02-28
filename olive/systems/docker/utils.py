@@ -23,10 +23,24 @@ def create_config_file(workdir, config: dict, container_root_path: Path):
     config_file_path = Path(workdir) / "config.json"
     # the config yaml file saved to local disk
     with config_file_path.open("w") as f:
-        json.dump(config, f)
+        json.dump(config, f, indent=4)
     config_mount_path = str(container_root_path / "config.json")
     config_file_mount_str = f"{config_file_path}:{config_mount_path}"
     return config_mount_path, config_file_mount_str
+
+
+def create_runner_command(runner_script_path: str, config_path: str, output_path: str, output_name: str):
+    command = [
+        "python",
+        runner_script_path,
+        "--config",
+        config_path,
+        "--output_path",
+        output_path,
+        "--output_name",
+        output_name,
+    ]
+    return " ".join(command)
 
 
 def create_evaluate_command(
@@ -83,6 +97,7 @@ def create_metric_volumes_list(data_root: str, metrics: List["Metric"], containe
 def create_model_mount(model_config: "ModelConfig", container_root_path: Path):
     mounts = {}
     mount_strs = []
+    mount_to_local = {}
     resource_paths = model_config.get_resource_paths()
     for resource_name, resource_path in resource_paths.items():
         # if the resource path is None or string name, we need not to mount it
@@ -90,11 +105,20 @@ def create_model_mount(model_config: "ModelConfig", container_root_path: Path):
             continue
 
         relevant_path = resource_path.get_path()
+        local_path = str(Path(relevant_path).resolve())
         resource_path_mount_path = str(container_root_path / Path(relevant_path).name)
-        resource_path_mount_str = f"{str(Path(relevant_path).resolve())}:{resource_path_mount_path}"
+        resource_path_mount_str = f"{local_path}:{resource_path_mount_path}"
         mounts[resource_name] = resource_path_mount_path
         mount_strs.append(resource_path_mount_str)
-    return mounts, mount_strs
+        mount_to_local[resource_path_mount_path] = local_path
+    return mounts, mount_strs, mount_to_local
+
+
+def create_runner_script_mount(container_root_path: Path):
+    runner_file_mount_path = str(container_root_path / "runner.py")
+    current_dir = Path(__file__).resolve().parent
+    runner_file_mount_str = f"{str(current_dir / 'runner.py')}:{runner_file_mount_path}"
+    return runner_file_mount_path, runner_file_mount_str
 
 
 def create_eval_script_mount(container_root_path: Path):
@@ -120,9 +144,9 @@ def create_dev_mount(workdir: Path, container_root_path: Path):
     return project_folder_mount_path, project_folder_mount_str
 
 
-def create_output_mount(workdir, docker_eval_output_path: str, container_root_path: Path):
-    output_local_path = Path(workdir) / docker_eval_output_path
+def create_output_mount(workdir, docker_output_path: str, container_root_path: Path):
+    output_local_path = Path(workdir) / docker_output_path
     output_local_path.mkdir(parents=True, exist_ok=True)
-    output_mount_path = str(container_root_path / docker_eval_output_path)
+    output_mount_path = str(container_root_path / docker_output_path)
     output_mount_str = f"{output_local_path}:{output_mount_path}"
     return output_local_path, output_mount_path, output_mount_str
