@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 import torch
+from olive.hardware.accelerator import AcceleratorSpec, Device
 
 from olive.model.handler.pytorch import PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
@@ -26,7 +27,12 @@ def test_quantization_default(tmp_path: Path):
     )
     config = {}
 
-    p = create_pass_from_dict(GptqQuantizer, config, disable_search=True)
+    p = create_pass_from_dict(
+        GptqQuantizer,
+        config,
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(accelerator_type=Device.GPU, execution_provider="CUDAExecutionProvider"),
+    )
     gptq_out_folder = str(tmp_path / "gptq")
 
     # execute

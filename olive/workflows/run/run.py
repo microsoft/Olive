@@ -49,6 +49,7 @@ def dependency_setup(config):
             "OnnxFloatToFloat16": ["onnxconverter-common"],
             "OrtPerfTuning": ["psutil"],
             "QuantizationAwareTraining": ["pytorch-lightning"],
+            "GptqQuantizer": ["auto-gptq", "optimum"],
         }
 
         pass_to_extra_names = {
@@ -62,7 +63,6 @@ def dependency_setup(config):
             "TorchTRTConversion": ["torch-tensorrt"],
             "LoRA": ["lora"],
             "QLoRA": ["bnb", "lora"],
-            "GptqQuantizer": ["gptq", "gpu", "optimum"],
         }
 
         extra_results = []
