@@ -20,7 +20,7 @@ from olive.systems.docker.docker_system import DockerSystem
 from olive.systems.system_config import DockerTargetUserConfig, SystemConfig
 from olive.systems.utils import create_new_system
 
-# pylint: disable=attribute-defined-outside-init, disable=protected-access
+# pylint: disable=attribute-defined-outside-init,protected-access
 
 
 class TestDockerSystem:
