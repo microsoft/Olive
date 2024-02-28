@@ -83,11 +83,6 @@ class GptqQuantizer(Pass):
                 default_value=False,
                 description="Symmetric quantization. Default value is False.",
             ),
-            "gpu": PassConfigParam(
-                type_=bool,
-                default_value=True,
-                description="Use GPU for quantization. Default value is True.",
-            ),
             "export_optimization": PassConfigParam(
                 type_=str,
                 default_value=None,
@@ -161,7 +156,7 @@ class GptqQuantizer(Pass):
             monolith=False,
             do_validation=True,
             model_kwargs=None,
-            device="cuda" if config["gpu"] else "cpu",
+            device="cuda",
             preprocessors=None,
             task="text-generation-with-past",
             optimize=config["export_optimization"],
