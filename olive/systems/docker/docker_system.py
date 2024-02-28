@@ -166,7 +166,7 @@ class DockerSystem(OliveSystem):
         # output mount
         output_local_path, docker_output_path, output_mount_str = docker_utils.create_output_mount(
             workdir=workdir,
-            docker_eval_output_path=runner_output_path,
+            docker_output_path=runner_output_path,
             container_root_path=container_root_path,
         )
         volumes_list.append(output_mount_str)
@@ -186,18 +186,20 @@ class DockerSystem(OliveSystem):
             with model_output_json_file.open() as f:
                 model_output = json.load(f)
                 output_model = ModelConfig.parse_obj(model_output)
-                logger.info(f"Copying model from {output_local_path} to {output_model_path}")
+                logger.debug("Copying model from %s to %s", output_local_path, output_model_path)
                 shutil.copytree(output_local_path, output_model_path, dirs_exist_ok=True)
-                logger.info(f"mount_model_to_local: {mount_model_to_local}")
+                logger.debug("mount_model_to_local: %s", mount_model_to_local)
                 for resource_name, resource_str in output_model.get_resource_strings().items():
-                    logger.info(f"Resource {resource_name} path: {resource_str}")
                     if not resource_str:
                         continue
+
+                    logger.debug("Resource %s path: %s", resource_name, resource_str)
                     original_model_path = mount_model_to_local.get(resource_str)
                     if original_model_path:
                         # If the output model path is something like /olive-ws/model.onnx
                         # we need replace with the original model path
                         output_model.config[resource_name] = original_model_path
+                        logger.info("Original model path is: %s", original_model_path)
                         continue
 
                     # output_local_path should be something like: /tmp/tmpd1sjw9xa/runner_output
@@ -206,10 +208,9 @@ class DockerSystem(OliveSystem):
                     # the model path should starts with /olive-ws/runner_output
                     assert resource_str.startswith(docker_output_path)
                     candidate_model_path = resource_str.replace(docker_output_path, output_model_path)
-                    logger.info(f"candidate_model_path: {candidate_model_path}")
                     output_model.config[resource_name] = candidate_model_path
 
-                logger.info(f"Model path is: {output_model.config['model_path']}")
+                logger.debug("Model path is: %s", output_model.config["model_path"])
                 return output_model
         else:
             logger.error(f"Model output file {model_output_json_file} not found.")
@@ -281,7 +282,7 @@ class DockerSystem(OliveSystem):
 
         output_local_path, output_mount_path, output_mount_str = docker_utils.create_output_mount(
             workdir=workdir,
-            docker_eval_output_path=eval_output_path,
+            docker_output_path=eval_output_path,
             container_root_path=container_root_path,
         )
         volumes_list.append(output_mount_str)

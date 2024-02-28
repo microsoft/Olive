@@ -144,9 +144,9 @@ def create_dev_mount(workdir: Path, container_root_path: Path):
     return project_folder_mount_path, project_folder_mount_str
 
 
-def create_output_mount(workdir, docker_eval_output_path: str, container_root_path: Path):
-    output_local_path = Path(workdir) / docker_eval_output_path
+def create_output_mount(workdir, docker_output_path: str, container_root_path: Path):
+    output_local_path = Path(workdir) / docker_output_path
     output_local_path.mkdir(parents=True, exist_ok=True)
-    output_mount_path = str(container_root_path / docker_eval_output_path)
+    output_mount_path = str(container_root_path / docker_output_path)
     output_mount_str = f"{output_local_path}:{output_mount_path}"
     return output_local_path, output_mount_path, output_mount_str
