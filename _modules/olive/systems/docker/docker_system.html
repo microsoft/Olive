@@ -142,15 +142,16 @@
 <span class="kn">from</span> <span class="nn">docker.errors</span> <span class="kn">import</span> <span class="n">BuildError</span><span class="p">,</span> <span class="n">ContainerError</span>
 
 <span class="kn">import</span> <span class="nn">olive.systems.docker.utils</span> <span class="k">as</span> <span class="nn">docker_utils</span>
-<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">validate_config</span>
+<span class="kn">from</span> <span class="nn">olive.cache</span> <span class="kn">import</span> <span class="n">get_local_path_from_root</span>
+<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ParamCategory</span><span class="p">,</span> <span class="n">validate_config</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">MetricResult</span>
 <span class="kn">from</span> <span class="nn">olive.hardware</span> <span class="kn">import</span> <span class="n">Device</span>
+<span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span>
 <span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">LocalDockerConfig</span><span class="p">,</span> <span class="n">SystemType</span>
 <span class="kn">from</span> <span class="nn">olive.systems.olive_system</span> <span class="kn">import</span> <span class="n">OliveSystem</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
     <span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">AcceleratorSpec</span>
-    <span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span>
     <span class="kn">from</span> <span class="nn">olive.passes</span> <span class="kn">import</span> <span class="n">Pass</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
@@ -237,8 +238,111 @@
         <span class="n">point</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ModelConfig&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the pass on the model at a specific point in the search space.&quot;&quot;&quot;</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;DockerSystem.run_pass is not implemented yet.&quot;</span><span class="p">)</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+        <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tempdir</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_pass_container</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">tempdir</span><span class="p">),</span> <span class="n">the_pass</span><span class="p">,</span> <span class="n">model_config</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">,</span> <span class="n">point</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_run_pass_container</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">workdir</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+        <span class="n">the_pass</span><span class="p">:</span> <span class="s2">&quot;Pass&quot;</span><span class="p">,</span>
+        <span class="n">model_config</span><span class="p">:</span> <span class="s2">&quot;ModelConfig&quot;</span><span class="p">,</span>
+        <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">point</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ModelConfig&quot;</span><span class="p">:</span>
+        <span class="n">point</span> <span class="o">=</span> <span class="n">point</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="n">the_pass</span><span class="o">.</span><span class="n">config_at_search_point</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
+
+        <span class="n">pass_config</span> <span class="o">=</span> <span class="n">the_pass</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">pass_config</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">the_pass</span><span class="o">.</span><span class="n">serialize_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+
+        <span class="n">volumes_list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">runner_output_path</span> <span class="o">=</span> <span class="s2">&quot;runner_output&quot;</span>
+        <span class="n">runner_output_name</span> <span class="o">=</span> <span class="s2">&quot;runner_res.json&quot;</span>
+        <span class="n">container_root_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;/olive-ws/&quot;</span><span class="p">)</span>
+        <span class="c1"># mount pass_runner script</span>
+        <span class="n">docker_runner_path</span><span class="p">,</span> <span class="n">pass_runner_file_mount_str</span> <span class="o">=</span> <span class="n">docker_utils</span><span class="o">.</span><span class="n">create_runner_script_mount</span><span class="p">(</span><span class="n">container_root_path</span><span class="p">)</span>
+        <span class="n">volumes_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pass_runner_file_mount_str</span><span class="p">)</span>
+
+        <span class="c1"># mount dev stuff</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_dev</span><span class="p">:</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">dev_mount_str</span> <span class="o">=</span> <span class="n">docker_utils</span><span class="o">.</span><span class="n">create_dev_mount</span><span class="p">(</span><span class="n">workdir</span><span class="p">,</span> <span class="n">container_root_path</span><span class="p">)</span>
+            <span class="n">volumes_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dev_mount_str</span><span class="p">)</span>
+
+        <span class="c1"># mount model</span>
+        <span class="n">docker_model_files</span><span class="p">,</span> <span class="n">model_mount_str_list</span><span class="p">,</span> <span class="n">mount_model_to_local</span> <span class="o">=</span> <span class="n">docker_utils</span><span class="o">.</span><span class="n">create_model_mount</span><span class="p">(</span>
+            <span class="n">model_config</span><span class="o">=</span><span class="n">model_config</span><span class="p">,</span> <span class="n">container_root_path</span><span class="o">=</span><span class="n">container_root_path</span>
+        <span class="p">)</span>
+        <span class="n">volumes_list</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">model_mount_str_list</span><span class="p">)</span>
+
+        <span class="c1"># data_dir or data_config</span>
+        <span class="n">docker_data_paths</span><span class="p">,</span> <span class="n">data_mount_str_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_data_mounts_for_pass</span><span class="p">(</span>
+            <span class="n">data_root</span><span class="p">,</span> <span class="n">container_root_path</span><span class="p">,</span> <span class="n">the_pass</span>
+        <span class="p">)</span>
+        <span class="n">volumes_list</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">data_mount_str_list</span><span class="p">)</span>
+
+        <span class="c1"># mount config file</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_runner_config</span><span class="p">(</span><span class="n">model_config</span><span class="p">,</span> <span class="n">pass_config</span><span class="p">,</span> <span class="n">docker_model_files</span><span class="p">,</span> <span class="n">docker_data_paths</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Runner config is </span><span class="si">{</span><span class="n">data</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">docker_config_file</span><span class="p">,</span> <span class="n">config_file_mount_str</span> <span class="o">=</span> <span class="n">docker_utils</span><span class="o">.</span><span class="n">create_config_file</span><span class="p">(</span>
+            <span class="n">workdir</span><span class="o">=</span><span class="n">workdir</span><span class="p">,</span>
+            <span class="n">config</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+            <span class="n">container_root_path</span><span class="o">=</span><span class="n">container_root_path</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">volumes_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">config_file_mount_str</span><span class="p">)</span>
+
+        <span class="c1"># output mount</span>
+        <span class="n">output_local_path</span><span class="p">,</span> <span class="n">docker_output_path</span><span class="p">,</span> <span class="n">output_mount_str</span> <span class="o">=</span> <span class="n">docker_utils</span><span class="o">.</span><span class="n">create_output_mount</span><span class="p">(</span>
+            <span class="n">workdir</span><span class="o">=</span><span class="n">workdir</span><span class="p">,</span>
+            <span class="n">docker_output_path</span><span class="o">=</span><span class="n">runner_output_path</span><span class="p">,</span>
+            <span class="n">container_root_path</span><span class="o">=</span><span class="n">container_root_path</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">volumes_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">output_mount_str</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The volumes list is </span><span class="si">{</span><span class="n">volumes_list</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="n">runner_command</span> <span class="o">=</span> <span class="n">docker_utils</span><span class="o">.</span><span class="n">create_runner_command</span><span class="p">(</span>
+            <span class="n">runner_script_path</span><span class="o">=</span><span class="n">docker_runner_path</span><span class="p">,</span>
+            <span class="n">config_path</span><span class="o">=</span><span class="n">docker_config_file</span><span class="p">,</span>
+            <span class="n">output_path</span><span class="o">=</span><span class="n">docker_output_path</span><span class="p">,</span>
+            <span class="n">output_name</span><span class="o">=</span><span class="n">runner_output_name</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">model_output_json_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_container</span><span class="p">(</span>
+            <span class="n">runner_command</span><span class="p">,</span> <span class="n">volumes_list</span><span class="p">,</span> <span class="n">output_local_path</span><span class="p">,</span> <span class="n">runner_output_name</span><span class="p">,</span> <span class="n">the_pass</span><span class="o">.</span><span class="n">accelerator_spec</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">model_output_json_file</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+            <span class="k">with</span> <span class="n">model_output_json_file</span><span class="o">.</span><span class="n">open</span><span class="p">()</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">model_output</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+                <span class="n">output_model</span> <span class="o">=</span> <span class="n">ModelConfig</span><span class="o">.</span><span class="n">parse_obj</span><span class="p">(</span><span class="n">model_output</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Copying model from </span><span class="si">%s</span><span class="s2"> to </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">output_local_path</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">)</span>
+                <span class="n">shutil</span><span class="o">.</span><span class="n">copytree</span><span class="p">(</span><span class="n">output_local_path</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">,</span> <span class="n">dirs_exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;mount_model_to_local: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">mount_model_to_local</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">resource_name</span><span class="p">,</span> <span class="n">resource_str</span> <span class="ow">in</span> <span class="n">output_model</span><span class="o">.</span><span class="n">get_resource_strings</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">resource_str</span><span class="p">:</span>
+                        <span class="k">continue</span>
+
+                    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Resource </span><span class="si">%s</span><span class="s2"> path: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">resource_name</span><span class="p">,</span> <span class="n">resource_str</span><span class="p">)</span>
+                    <span class="n">original_resouce_path</span> <span class="o">=</span> <span class="n">mount_model_to_local</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">resource_str</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">original_resouce_path</span><span class="p">:</span>
+                        <span class="c1"># If the output model path is something like /olive-ws/model.onnx</span>
+                        <span class="c1"># we need replace with the original model path</span>
+                        <span class="n">output_model</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="n">resource_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">original_resouce_path</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Original resource path for </span><span class="si">%s</span><span class="s2"> is: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">resource_str</span><span class="p">,</span> <span class="n">original_resouce_path</span><span class="p">)</span>
+                        <span class="k">continue</span>
+
+                    <span class="c1"># output_local_path should be something like: /tmp/tmpd1sjw9xa/runner_output</span>
+                    <span class="c1"># If there are any output models, they will be saved in that path</span>
+                    <span class="c1"># and the output_model.config[&quot;model_path&quot;] would like /olive-ws/runner_output/model.onnx</span>
+                    <span class="c1"># the model path should starts with /olive-ws/runner_output</span>
+                    <span class="k">assert</span> <span class="n">resource_str</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">docker_output_path</span><span class="p">)</span>
+                    <span class="n">candidate_resource_path</span> <span class="o">=</span> <span class="n">resource_str</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">docker_output_path</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">)</span>
+                    <span class="n">output_model</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="n">resource_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">candidate_resource_path</span>
+
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Model path is: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">output_model</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;model_path&quot;</span><span class="p">])</span>
+                <span class="k">return</span> <span class="n">output_model</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Model output file </span><span class="si">{</span><span class="n">model_output_json_file</span><span class="si">}</span><span class="s2"> not found.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
 
     <span class="k">def</span> <span class="nf">evaluate_model</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">model_config</span><span class="p">:</span> <span class="s2">&quot;ModelConfig&quot;</span><span class="p">,</span> <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span> <span class="n">accelerator</span><span class="p">:</span> <span class="s2">&quot;AcceleratorSpec&quot;</span>
@@ -279,7 +383,7 @@
             <span class="n">volumes_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dev_mount_str</span><span class="p">)</span>
 
         <span class="c1"># mount model</span>
-        <span class="n">model_mounts</span><span class="p">,</span> <span class="n">model_mount_str_list</span> <span class="o">=</span> <span class="n">docker_utils</span><span class="o">.</span><span class="n">create_model_mount</span><span class="p">(</span>
+        <span class="n">model_mounts</span><span class="p">,</span> <span class="n">model_mount_str_list</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">docker_utils</span><span class="o">.</span><span class="n">create_model_mount</span><span class="p">(</span>
             <span class="n">model_config</span><span class="o">=</span><span class="n">model_config</span><span class="p">,</span> <span class="n">container_root_path</span><span class="o">=</span><span class="n">container_root_path</span>
         <span class="p">)</span>
         <span class="n">volumes_list</span> <span class="o">+=</span> <span class="n">model_mount_str_list</span>
@@ -306,7 +410,7 @@
 
         <span class="n">output_local_path</span><span class="p">,</span> <span class="n">output_mount_path</span><span class="p">,</span> <span class="n">output_mount_str</span> <span class="o">=</span> <span class="n">docker_utils</span><span class="o">.</span><span class="n">create_output_mount</span><span class="p">(</span>
             <span class="n">workdir</span><span class="o">=</span><span class="n">workdir</span><span class="p">,</span>
-            <span class="n">docker_eval_output_path</span><span class="o">=</span><span class="n">eval_output_path</span><span class="p">,</span>
+            <span class="n">docker_output_path</span><span class="o">=</span><span class="n">eval_output_path</span><span class="p">,</span>
             <span class="n">container_root_path</span><span class="o">=</span><span class="n">container_root_path</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">volumes_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">output_mount_str</span><span class="p">)</span>
@@ -321,12 +425,30 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_container</span><span class="p">(</span><span class="n">eval_command</span><span class="p">,</span> <span class="n">volumes_list</span><span class="p">,</span> <span class="n">output_local_path</span><span class="p">,</span> <span class="n">eval_output_name</span><span class="p">,</span> <span class="n">accelerator</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_create_eval_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_config</span><span class="p">:</span> <span class="s2">&quot;ModelConfig&quot;</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span> <span class="n">model_mounts</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]):</span>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_create_eval_config</span><span class="p">(</span><span class="n">model_config</span><span class="p">:</span> <span class="s2">&quot;ModelConfig&quot;</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span> <span class="n">model_mounts</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]):</span>
         <span class="n">model_json</span> <span class="o">=</span> <span class="n">model_config</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">model_mounts</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
 
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;metrics&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">k</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">],</span> <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">model_json</span><span class="p">}</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_create_runner_config</span><span class="p">(</span>
+        <span class="n">model_config</span><span class="p">:</span> <span class="s2">&quot;ModelConfig&quot;</span><span class="p">,</span>
+        <span class="n">pass_config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="n">model_mounts</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+        <span class="n">data_mounts</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+    <span class="p">):</span>
+        <span class="n">model_json</span> <span class="o">=</span> <span class="n">model_config</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">model_mounts</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+
+        <span class="n">pass_config_copy</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">pass_config</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">data_mounts</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">pass_config_copy</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">model_json</span><span class="p">,</span> <span class="s2">&quot;pass&quot;</span><span class="p">:</span> <span class="n">pass_config_copy</span><span class="p">}</span>
 
     <span class="k">def</span> <span class="nf">_run_container</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -376,9 +498,22 @@
             <span class="k">raise</span> <span class="n">ContainerError</span><span class="p">(</span>
                 <span class="n">container</span><span class="p">,</span> <span class="n">exit_code</span><span class="p">,</span> <span class="n">command</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Docker container evaluation failed with: </span><span class="si">{</span><span class="n">error_msg</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Docker container evaluation completed successfully&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Docker container run completed successfully&quot;</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_local_path</span><span class="p">)</span> <span class="o">/</span> <span class="n">output_name</span>
+
+    <span class="k">def</span> <span class="nf">_create_data_mounts_for_pass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">container_root_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">the_pass</span><span class="p">:</span> <span class="s2">&quot;Pass&quot;</span><span class="p">):</span>
+        <span class="n">mounts</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">mount_strs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">param</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">category</span> <span class="ow">in</span> <span class="n">the_pass</span><span class="o">.</span><span class="n">path_params</span><span class="p">:</span>
+            <span class="n">param_val</span> <span class="o">=</span> <span class="n">the_pass</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">param</span><span class="p">)</span>  <span class="c1"># pylint: disable=protected-access</span>
+            <span class="k">if</span> <span class="n">category</span> <span class="o">==</span> <span class="n">ParamCategory</span><span class="o">.</span><span class="n">DATA</span> <span class="ow">and</span> <span class="n">param_val</span><span class="p">:</span>
+                <span class="n">data_dir</span> <span class="o">=</span> <span class="n">get_local_path_from_root</span><span class="p">(</span><span class="n">data_root</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">param_val</span><span class="p">))</span>
+                <span class="n">mount</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">container_root_path</span> <span class="o">/</span> <span class="n">param</span><span class="p">)</span>
+                <span class="n">mounts</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="n">mount</span>
+                <span class="n">mount_strs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">data_dir</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">mount</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">mounts</span><span class="p">,</span> <span class="n">mount_strs</span>
 
     <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">docker_client</span><span class="o">.</span><span class="n">images</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
