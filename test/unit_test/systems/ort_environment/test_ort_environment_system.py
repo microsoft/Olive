@@ -3,7 +3,9 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
+import platform
 import sys
+import venv
 from pathlib import Path
 from test.unit_test.utils import get_accuracy_metric, get_latency_metric, get_onnx_model_config
 from unittest import mock
@@ -13,6 +15,7 @@ import numpy as np
 import pytest
 import torch
 
+from olive.common.utils import run_subprocess
 from olive.constants import Framework
 from olive.evaluator.metric import AccuracySubType, LatencySubType
 from olive.evaluator.olive_evaluator import OliveEvaluator, OnnxEvaluator
@@ -24,16 +27,12 @@ from olive.systems.ort_environment.ort_environment_system import ORTEnvironmentE
 # pylint: disable=attribute-defined-outside-init, protected-access
 
 
-def get_inference_system():
-    # use the current python environment as the test environment
-    executable_parent = Path(sys.executable).parent.resolve().as_posix()
-    return ORTEnvironmentSystem(executable_parent)
-
-
 class TestORTEnvironmentSystem:
     @pytest.fixture(autouse=True)
     def setup(self):
-        self.system = get_inference_system()
+        # use current python environment as the inference environment
+        # the evaluator is mocked so the python environment is not used
+        self.system = ORTEnvironmentSystem(Path(sys.executable).parent.resolve().as_posix())
 
     def test_get_supported_execution_providers(self):
         import onnxruntime as ort
@@ -76,8 +75,19 @@ class TestORTEnvironmentSystem:
 
 class TestORTEnvironmentEvaluator:
     @pytest.fixture(autouse=True)
-    def setup(self):
-        self.system = get_inference_system()
+    def setup(self, tmp_path):
+        # create a virtual environment with no packages installed
+        venv_path = tmp_path / "venv"
+        venv.create(venv_path, with_pip=True)
+        # python path
+        if platform.system() == "Windows":
+            python_environment_path = f"{venv_path}/Scripts"
+        else:
+            python_environment_path = f"{venv_path}/bin"
+        self.system = ORTEnvironmentSystem(python_environment_path)
+        # install only onnxruntime
+        run_subprocess(["python", "-m", "pip", "install", "onnxruntime"], env=self.system.environ)
+
         self.evaluator = ORTEnvironmentEvaluator(self.system.environ)
         self.onnx_evaluator = OnnxEvaluator()
 

@@ -160,7 +160,7 @@ for :code:`"conda.yaml"`.
 
 .. important::
 
-    The AzureML environment must have :code:`olive-ai` installed if :code:`olive_managed_env = False`
+    The AzureML environment must have :code:`olive-ai` installed if :code:`olive_managed_env = False`!
 
 Please refer to :ref:`azureml_system_config` for more details on the config options.
 
@@ -285,7 +285,7 @@ Python Environment System
             {
                 "type": "PythonEnvironment",
                 "config": {
-                    "python_environment_path": "/home/user/.virtualenvs/myenv",
+                    "python_environment_path": "/home/user/.virtualenvs/myenv/bin",
                     "accelerators": ["cpu"]
                 }
             }
@@ -298,7 +298,7 @@ Python Environment System
             from olive.system.common import Device
 
             python_environment_system = PythonEnvironmentSystem(
-                python_environment_path = "/home/user/.virtualenvs/myenv",
+                python_environment_path = "/home/user/.virtualenvs/myenv/bin",
                 device = Device.CPU
             )
 
@@ -329,6 +329,42 @@ Olive can also manage the environment by setting :code:`olive_managed_env = True
 
 .. important::
 
-    The python environment system can only be used to evaluate onnx models. It must have :code:`onnxruntime` installed if :code:`olive_managed_env = False` !
+    The python environment must have :code:`olive-ai` installed if :code:`olive_managed_env = False`!
 
 Please refer to :ref:`python_environment_system_config` for more details on the config options.
+
+
+Ort Environment System
+-----------------------
+.. tabs::
+    .. tab:: Config JSON
+
+        .. code-block:: json
+
+            {
+                "type": "OrtEnvironment",
+                "config": {
+                    "python_environment_path": "/home/user/.virtualenvs/myenv/bin",
+                    "accelerators": ["cpu"]
+                }
+            }
+
+    .. tab:: Python Class
+
+        .. code-block:: python
+
+            from olive.systems.ort_evironment import OrtEnvironmentSystem
+            from olive.system.common import Device
+
+            python_environment_system = OrtEnvironmentSystem(
+                python_environment_path = "/home/user/.virtualenvs/myenv/bin",
+                device = Device.CPU
+            )
+
+OrtEnvironmentSystem does not support olive_managed_env and can only be used to evaluate ONNX models.
+
+.. important::
+
+    The python environment must have the relevant ONNX runtime package installed!
+
+Please refer to :ref:`ort_environment_system_config` for more details on the config options.

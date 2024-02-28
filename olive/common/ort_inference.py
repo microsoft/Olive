@@ -2,7 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-# NOTE: Only onnxruntime and its dependencies can be imported here!!!
+# NOTE: Only onnxruntime and its dependencies can be imported in this file!!!
+# Import them lazily since onnxruntime is not a required dependency for Olive.
+# Import in TYPE_CHECKING block for type hinting is fine.
 import collections
 import logging
 import time
@@ -22,6 +24,9 @@ class OrtSessionFallbackError(Exception):
     """Raised when the onnxruntime fallback happens."""
 
 
+# NOTE: `device_id` is only used internally for inference with Distributed ONNX models.
+# For regular ONNX models, the recommended way to specify the device is to set the environment variable
+# `CUDA_VISIBLE_DEVICES` before runnning a workflow.
 def get_ort_inference_session(
     model_path: Union[Path, str],
     inference_settings: Dict[str, Any],

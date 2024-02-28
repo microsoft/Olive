@@ -2,6 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+# NOTE: Only onnxruntime and its dependencies can be imported in this file!!!
+# Import them lazily since onnxruntime is not a required dependency for Olive.
+# Import in TYPE_CHECKING block for type hinting is fine.
 import argparse
 import json
 import sys

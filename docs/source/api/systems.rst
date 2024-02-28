@@ -53,6 +53,13 @@ PythonEnvironmentTargetUserConfig
 
 .. autopydantic_settings:: olive.systems.system_config.PythonEnvironmentTargetUserConfig
 
+.. _ort_environment_system_config:
+
+OrtEnvironmentTargetUserConfig
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autopydantic_settings:: olive.systems.system_config.OrtEnvironmentTargetUserConfig
+
 
 Classes
 ---------
@@ -65,7 +72,6 @@ AzureMLSystem
 ^^^^^^^^^^^^^
 .. autoclass:: olive.systems.azureml.AzureMLSystem
 
-
 DockerSystem
 ^^^^^^^^^^^^^
 .. autoclass:: olive.systems.docker.DockerSystem
@@ -73,6 +79,10 @@ DockerSystem
 PythonEnvironmentSystem
 ^^^^^^^^^^^^^^^^^^^^^^^^
 .. autoclass:: olive.systems.python_environment.PythonEnvironmentSystem
+
+OrtEnvironmentSystem
+^^^^^^^^^^^^^^^^^^^^^^^^
+.. autoclass:: olive.systems.ort_evironment.OrtEnvironmentSystem
 
 .. _olive_system_alias:
 

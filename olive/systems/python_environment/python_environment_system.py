@@ -112,7 +112,8 @@ class PythonEnvironmentSystem(OliveSystem):
         point: Optional[Dict[str, Any]] = None,
     ) -> ModelConfig:
         """Run the pass on the model at a specific point in the search space."""
-        config = the_pass.config_at_search_point(point or {})
+        point = point or {}
+        config = the_pass.config_at_search_point(point)
         pass_config = the_pass.to_json(check_object=True)
         pass_config["config"].update(the_pass.serialize_config(config, check_object=True))
         config_jsons = {
