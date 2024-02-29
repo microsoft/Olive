@@ -3,10 +3,12 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+from pathlib import Path
 from typing import Any, Callable, Dict
 
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler
+from olive.model.utils import resolve_onnx_path
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import PassConfigParam
 
@@ -44,6 +46,7 @@ class QNNPreprocess(Pass):
 
         from onnxruntime.quantization.execution_providers.qnn import qnn_preprocess_model
 
+        output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
         modified = qnn_preprocess_model(model.model_path, output_model_path, **config)
         if not modified:
             return model
