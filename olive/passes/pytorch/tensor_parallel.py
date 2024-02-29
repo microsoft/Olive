@@ -107,7 +107,7 @@ class PyTorchTensorParallel(Pass):
     def _generate_one(params):
         model_config, rank, world_size, output_filepath = params
 
-        logger.debug(f"Exporting tensor parallel model for rank: {rank}, {output_filepath}")
+        logger.debug("Exporting tensor parallel model for rank: %d, %s", rank, output_filepath)
 
         hf_config = HfConfig(**model_config["hf_config"])
         model_type = get_model_type_from_hf_config(hf_config)
@@ -143,7 +143,7 @@ class PyTorchTensorParallel(Pass):
             # 6. Restore layers that were replaced
             impl.restore_layers()
 
-        logger.debug(f"Successfully exported tensor parallel model for rank: {rank}, {output_filepath}")
+        logger.debug("Successfully exported tensor parallel model for rank: %d, %s", rank, output_filepath)
 
         return 1  # Return 1 for success.
 

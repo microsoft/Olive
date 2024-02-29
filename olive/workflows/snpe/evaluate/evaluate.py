@@ -52,17 +52,17 @@ def evaluate(model: str, config: Union[str, Dict], data: str, input_list_file: O
     # Run inference
     results = []
     for device in devices:
-        logger.info(f"Running inference on {device}...")
+        logger.info("Running inference on %s...", device)
         session = model.prepare_session(config["inference_settings"], device=device)
         out = session(input_list, data_dir)
         logger.info(
-            "Latencies:\n"
-            f"Init: {round(out['latencies']['init'][0] * 1000, 3)} ms\n"
-            f"Total Inference: {round(out['latencies']['total_inference_time'][0] * 1000, 3)} ms"
+            "Latencies:\nInit: %f ms\nTotal Inference: %f ms",
+            round(out["latencies"]["init"][0] * 1000, 3),
+            round(out["latencies"]["total_inference_time"][0] * 1000, 3),
         )
         results.append(out["results"])
         throughput = session.throughput(5, input_list, data_dir)
-        logger.info(f"Throughput: {throughput} infs/sec")
+        logger.info("Throughput: %s infs/sec", throughput)
 
     # Compare results
     if len(results) > 1:
@@ -73,4 +73,4 @@ def evaluate(model: str, config: Union[str, Dict], data: str, input_list_file: O
             results_1 = results[1][key].reshape(batch_size, -1)
             avg_distances[key] = np.linalg.norm(results_0 - results_1, axis=1)
             avg_distances[key] = avg_distances[key].mean()
-        logger.info(f"Average distances between outputs: {avg_distances}")
+        logger.info("Average distances between outputs: %s", avg_distances)

@@ -36,7 +36,7 @@ def load_hf_model_from_task(task: str, name: str, **kwargs):
     for model_class in class_tuple:
         try:
             model = model_class.from_pretrained(name, **kwargs)
-            logger.debug(f"Loaded model {model_class} with name_or_path {name}")
+            logger.debug("Loaded model %s with name_or_path %s", model_class, name)
             return model
         except (OSError, ValueError):
             # the ValueError need to be caught since there will be multiple model_class for single task.
@@ -176,8 +176,8 @@ def get_model_max_length(model_name: str, fail_on_not_found=False) -> int:
         return getattr(model_config, max_length)
     else:
         logger.debug(
-            f"No max length mapping found in MODELS_TO_MAX_LENGTH_MAPPING for model type {model_type}, trying"
-            " __default__"
+            "No max length mapping found in MODELS_TO_MAX_LENGTH_MAPPING for model type %s, trying __default__",
+            model_type,
         )
         default_max_length = MODELS_TO_MAX_LENGTH_MAPPING["__default__"]
         try:

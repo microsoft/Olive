@@ -275,11 +275,11 @@ class VitisAIQuantization(Pass):
         # keys in extra_options that are already exposed
         intersection = set(extra_options.keys()).intersection(set(_exposed_extra_options_config.keys()))
         if intersection:
-            message = (
-                f"Extra config keys {intersection} are already exposed in the pass config. They will be overwritten by"
-                " the corresponding pass config parameter values."
+            logger.warning(
+                "Extra config keys %s are already exposed in the pass config. They will be overwritten by"
+                " the corresponding pass config parameter values.",
+                intersection,
             )
-            logger.warning(message)
         for key in _exposed_extra_options_config:
             extra_options[key] = run_config[key]
             del run_config[key]
@@ -384,7 +384,7 @@ class VitisAIQuantization(Pass):
             # there are some problems with the path to where the external data is saved
             # need to find out why before enabling this
 
-            logger.warning(f"Failed to run quantization preprocessing with error of {e}. Using original model.")
+            logger.warning("Failed to run quantization preprocessing with error of %s. Using original model.", e)
             # save original model to output path
             onnx_model = onnx.load(model.model_path)
             model_proto_to_file(

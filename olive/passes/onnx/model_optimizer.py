@@ -185,7 +185,7 @@ class ModelOptimizer:
                 o_model.add_node(cast_node)
                 o_nodes_by_name[cast_node_name] = cast_node
 
-                logger.debug(f"ModelOptimization: inserted node {cast_node.name}")
+                logger.debug("ModelOptimization: inserted node %s", cast_node.name)
 
         self.model = o_model.model  # pylint: disable=attribute-defined-outside-init
 
@@ -210,7 +210,7 @@ class ModelOptimizer:
                 o_reshape_node.input[0] = input_node_0.input[0]
                 input_node_0.input.remove(input_node_0.input[0])
 
-                logger.debug(f"ModelOptimization: removed node {input_node_0.name}")
+                logger.debug("ModelOptimization: removed node %s", input_node_0.name)
 
         o_model.prune_graph()
         self.model = o_model.model  # pylint: disable=attribute-defined-outside-init

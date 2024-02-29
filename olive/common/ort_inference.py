@@ -22,7 +22,7 @@ def get_ort_inference_session(
 
         sess_options.register_custom_ops_library(get_library_path())
 
-    logger.debug(f"inference_settings: {inference_settings}")
+    logger.debug("inference_settings: %s", inference_settings)
     # execution provider
     execution_provider = inference_settings.get("execution_provider")
 

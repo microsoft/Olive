@@ -171,8 +171,9 @@ class ConfigWithExtraArgs(ConfigBase):
         for name in list(extra_args):  # need a copy of the keys since we are mutating the dict
             if name in other_fields:
                 logger.warning(
-                    f"'{name}' provided to 'extra_args' is already defined in the class fields. Please provide the"
-                    " value directly to the field. Ignoring."
+                    "'%s' provided to 'extra_args' is already defined in the class fields. Please provide the"
+                    " value directly to the field. Ignoring.",
+                    name,
                 )
                 del extra_args[name]
         # put any values provided as keyword arguments into extra_args
@@ -181,7 +182,7 @@ class ConfigWithExtraArgs(ConfigBase):
                 continue
             if name in extra_args:
                 # extra_args takes precedence over keyword arguments
-                logger.warning(f"kwarg '{name}' is already defined in 'extra_args'. Ignoring.")
+                logger.warning("kwarg '%s' is already defined in 'extra_args'. Ignoring.", name)
             else:
                 extra_args[name] = values.pop(name)
         if extra_args:
@@ -304,7 +305,7 @@ def validate_config(
         config_keys = set(config.dict().keys())
         unused_keys = user_keys - config_keys
         if unused_keys and warn_unused_keys:
-            logger.warning(f"Keys {unused_keys} are not part of {instance_class.__name__}. Ignoring them.")
+            logger.warning("Keys %s are not part of %s. Ignoring them.", unused_keys, instance_class.__name__)
     elif isinstance(config, base_class) and config.__class__.__name__ == instance_class.__name__:
         pass
     else:
