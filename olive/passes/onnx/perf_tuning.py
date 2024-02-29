@@ -470,7 +470,7 @@ class PerfTuningRunner:
 
             end_time = time.perf_counter()
             latency_ms = metric_result[joint_key].value
-            logger.debug("It takes {%.5f} seconds to benchmark for: %s", end_time - start_time, session_name)
+            logger.debug("It takes %.5f seconds to benchmark for: %s", end_time - start_time, session_name)
 
             session_options = inference_settings.get("session_options")
 

@@ -58,7 +58,6 @@ disable = [
   "import-error",
   "import-outside-toplevel",
   "invalid-name",
-  "logging-format-interpolation",
   "no-else-continue",
   "no-else-raise",
   "no-else-return",
