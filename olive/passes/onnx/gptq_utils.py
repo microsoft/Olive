@@ -160,11 +160,11 @@ class QuantLinearORT(nn.Module):
             torch.zeros((math.ceil(infeatures // self.groupsize) * (outfeatures // 8 * self.bits)), dtype=torch.uint8),
         )
         self.register_buffer(
-            "scales", torch.zeros((math.ceil(infeatures / self.groupsize) * outfeatures), dtype=torch.half)
+            "scales", torch.zeros((math.ceil(infeatures / self.groupsize) * outfeatures), dtype=torch.float)
         )
         self.register_buffer("g_idx", torch.tensor([i // self.groupsize for i in range(infeatures)], dtype=torch.int32))
         if bias:
-            self.register_buffer("bias", torch.zeros((outfeatures), dtype=torch.half))
+            self.register_buffer("bias", torch.zeros((outfeatures), dtype=torch.float))
         else:
             self.bias = None
 
@@ -189,7 +189,7 @@ class QuantLinearORT(nn.Module):
         zeros = zeros.t().contiguous().to(device)
         g_idx = self.g_idx.long().to(device)
         scale_zeros = zeros * scales
-        self.scales = (scales.clone().half() if self.scales.sum() == 0 else self.scales).cpu()
+        self.scales = (scales.clone() if self.scales.sum() == 0 else self.scales).cpu()
 
         scale_mat = scales[g_idx]
         scale_zeros_mat = scale_zeros[g_idx]

@@ -7,7 +7,31 @@
             "dummy_inputs_func": "get_merged_decoder_with_past_dummy_inputs",
             "hf_config": {
                 "model_name": "<model_name_placeholder>",
-                "model_class": "LlamaForCausalLM"
+                "model_class": "LlamaForCausalLM",
+                "task": "text-generation"
+            }
+        }
+    },
+    "data_configs": {
+        "wikitext2_train": {
+            "name": "wikitext2_train",
+            "type": "HuggingfaceContainer",
+            "params_config": {
+                "data_name": "wikitext",
+                "subset": "wikitext-2-raw-v1",
+                "split": "train",
+                "component_kwargs": {
+                    "pre_process_data": {
+                        "text_cols": [
+                            "text"
+                        ],
+                        "corpus_strategy": "join",
+                        "add_special_tokens": false,
+                        "source_max_len": 2048,
+                        "max_samples": 128,
+                        "joiner": "\n\n"
+                    }
+                }
             }
         }
     },
@@ -180,7 +204,8 @@
         "gptq_quant_int4": {
             "type": "GptqQuantizer",
             "config": {
-                "export_optimization": "O2"
+                "export_optimization": "O2",
+                "data_config": "wikitext2_train"
             }
         }
     },

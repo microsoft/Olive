@@ -17,7 +17,7 @@ from olive.passes.onnx import GptqQuantizer
     not torch.cuda.is_available(),
     reason="gptq requires GPU.",
 )
-def test_quantization_default(tmp_path: Path):
+def test_gptq_default(tmp_path: Path):
     # setup
     input_model = PyTorchModelHandler(
         hf_config={
@@ -25,7 +25,43 @@ def test_quantization_default(tmp_path: Path):
             "model_name": "facebook/opt-125m",
         }
     )
-    config = {}
+    config = {"block_name_to_quantize": "model.decoder.layers"}
+
+    p = create_pass_from_dict(
+        GptqQuantizer,
+        config,
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(accelerator_type=Device.GPU, execution_provider="CUDAExecutionProvider"),
+    )
+    gptq_out_folder = str(tmp_path / "gptq")
+
+    # execute
+    p.run(input_model, None, gptq_out_folder)
+
+
+def get_dummy_dataloader_func():
+    return [
+        {
+            "input_ids": torch.randint(10, 100, (1, 128), dtype=torch.long),
+            "attention_mask": torch.ones(1, 128, dtype=torch.long),
+        }
+        for _ in range(128)
+    ]
+
+
+@pytest.mark.skipif(
+    not torch.cuda.is_available(),
+    reason="gptq requires GPU.",
+)
+def test_gptq_dataloader_func(tmp_path: Path):
+    # setup
+    input_model = PyTorchModelHandler(
+        hf_config={
+            "model_class": "OPTForCausalLM",
+            "model_name": "facebook/opt-125m",
+        }
+    )
+    config = {"block_name_to_quantize": "model.decoder.layers", "dataloader_func": get_dummy_dataloader_func}
 
     p = create_pass_from_dict(
         GptqQuantizer,

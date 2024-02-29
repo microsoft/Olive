@@ -3,11 +3,13 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import Any, Dict
+from typing import Any, Callable, Dict, Union
 
 import torch
 from packaging import version
 
+from olive.common.config_utils import validate_config
+from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import PyTorchModelHandler
 from olive.model.handler.onnx import ONNXModelHandler
@@ -19,6 +21,8 @@ logger = logging.getLogger(__name__)
 
 class GptqQuantizer(Pass):
     """GPTQ quantization using Hugging Face Optimum and export model with onnxruntime optimized kernel."""
+
+    _requires_user_script = True
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -40,8 +44,8 @@ class GptqQuantizer(Pass):
             ),
             "block_name_to_quantize": PassConfigParam(
                 type_=str,
-                default_value=None,
-                description="Block name to quantize. Default value is None.",
+                default_value="model.layers",
+                description="Block name to quantize. Default value is model.layers.",
             ),
             "group_size": PassConfigParam(
                 type_=int,
@@ -88,6 +92,27 @@ class GptqQuantizer(Pass):
                 default_value=None,
                 description="Export optimization level. Default value is None.",
             ),
+            "data_config": PassConfigParam(
+                type_=Union[DataConfig, Dict],
+                default_value=None,
+                description="""
+                    Data config for quantization. Default value is None.
+                """,
+            ),
+            "dataloader_func": PassConfigParam(
+                type_=Union[Callable, str],
+                default_value=None,
+                description="""Function/function name to generate dataset for quantization.
+                The returned datasets is a list of tokenized data
+                (e.g. [{ 'input_ids': [ 1, 100, 15, ... ],'attention_mask': [ 1, 1, 1, ... ]},...]).
+                Default is None.
+                """,
+            ),
+            "dataloader_func_kwargs": PassConfigParam(
+                type_=Dict[str, Any],
+                default_value=None,
+                description="Keyword arguments for dataloader_func. Default value is None.",
+            ),
         }
 
     @torch.no_grad()
@@ -96,8 +121,9 @@ class GptqQuantizer(Pass):
     ) -> ONNXModelHandler:
         from onnxruntime import __version__ as ort_version
         from optimum.exporters.onnx import onnx_export_from_model
+        from optimum.gptq import GPTQQuantizer
         from optimum.version import __version__ as optimum_version
-        from transformers import AutoModelForCausalLM, AutoTokenizer, GPTQConfig
+        from transformers import AutoTokenizer
 
         from olive.passes.onnx.gptq_utils import QuantLinearORT
 
@@ -113,42 +139,53 @@ class GptqQuantizer(Pass):
 
         tokenizer = AutoTokenizer.from_pretrained(model.hf_config.model_name, use_fast=False)
 
-        gptq_config = GPTQConfig(
+        dataset = None
+        if config["dataloader_func"]:
+            dataset = self._user_module_loader.call_object(
+                config["dataloader_func"],
+                **(config["dataloader_func_kwargs"] or {}),
+            )
+        elif config["data_config"]:
+            data_config = validate_config(config["data_config"], DataConfig)
+            dataloader = data_config.to_data_container().create_dataloader(data_root)
+            dataset = [data[0] for data in dataloader]
+        else:
+            dataset = config["dataset"]
+            if not dataset:
+                raise ValueError("Please provide dataloader_func, data_config or dataset for gptq quantization.")
+
+        pytorch_model = model.load_model()
+        quantizer = GPTQQuantizer(
             bits=config["bits"],
-            dataset=config["dataset"],
+            dataset=dataset,
+            block_name_to_quantize=config["block_name_to_quantize"],
             group_size=config["group_size"],
             damp_percent=config["damp_percent"],
             static_groups=config["static_groups"],
             true_sequential=config["true_sequential"],
             desc_act=config["desc_act"],
             sym=config["sym"],
-            tokenizer=tokenizer,
         )
 
         def get_onnx_quant_linear(*args, **kwargs):
             return QuantLinearORT
 
-        import auto_gptq
+        import optimum
 
-        original = auto_gptq.utils.import_utils.dynamically_import_QuantLinear
+        original = optimum.gptq.quantizer.dynamically_import_QuantLinear
         try:
-            # GPTQ Quantization in transformers use auto_gptq under the hood, so we
-            # replace QuantLinear in auto_gptq with QuantLinearORT for quant linear layer packing
-            auto_gptq.utils.import_utils.dynamically_import_QuantLinear = get_onnx_quant_linear
-            quantized_model = AutoModelForCausalLM.from_pretrained(
-                model.hf_config.model_name,
-                quantization_config=gptq_config,
-                attn_implementation="eager",
-                torch_dtype=torch.half,
-            )
-        except ValueError:
-            logger.exception("Quantization failed. Only support Huggingface compatible model")
-            raise
-        except:
-            logger.exception("Quantization failed. Please check the exception message for more details.")
-            raise
+            # GPTQ Quantization in transformers use optimum under the hood, so we
+            # replace QuantLinear in optimum with QuantLinearORT for quant linear layer packing
+            optimum.gptq.quantizer.dynamically_import_QuantLinear = get_onnx_quant_linear
+            quantized_model = quantizer.quantize_model(pytorch_model, tokenizer)
         finally:
-            auto_gptq.utils.import_utils.dynamically_import_QuantLinear = original
+            optimum.gptq.quantizer.dynamically_import_QuantLinear = original
+
+        # save_pretrained in export will raise error when pass custom dataset, change this to str before save
+        if config["dataloader_func"]:
+            quantized_model.config.quantization_config["dataset"] = "olive_" + str(config["dataloader_func"])
+        elif config["data_config"]:
+            quantized_model.config.quantization_config["dataset"] = "olive_" + config["data_config"]["name"]
 
         onnx_export_from_model(
             model=quantized_model,
