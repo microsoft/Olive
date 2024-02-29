@@ -5,12 +5,15 @@
 import logging
 import shutil
 import sys
+import tarfile
+import tempfile
+import urllib
 from pathlib import Path
 from typing import List, Union
 
 import triton
 
-from olive.common.utils import run_subprocess
+from olive.common.utils import copy_dir, run_subprocess
 from olive.passes.onnx.auto_fusion_utils.codegen.ort_generator import create_custom_op, join_custom_ops
 from olive.passes.onnx.auto_fusion_utils.codegen.triton_generator import create_kernel
 from olive.passes.onnx.auto_fusion_utils.utils import get_env_path
@@ -25,11 +28,21 @@ class Builder:
         out_dir: Union[str, Path],
         lib_name: str = "libcustom_op",
         constant_overrides: dict = None,
+        ort_headers_dir: Union[str, Path] = None,
+        ort_version: str = None,
     ):
         self.kernel_infos = kernel_infos
         self.out_dir = Path(out_dir).resolve()
         self.out_dir.mkdir(parents=True, exist_ok=True)
         self.lib_name = lib_name
+        self.ort_headers_dir = ort_headers_dir
+        self.ort_version = ort_version
+        if not self.ort_headers_dir:
+            assert self.ort_version, "one of ort_headers_dir or ort_version must be provided"
+            assert self.check_ort_version(self.ort_version), f"Cannot find a release for ort version {self.ort_version}"
+
+            self.ort_headers_dir = self.out_dir / "ort_includes"
+            self.download_ort_headers(self.ort_version, self.ort_headers_dir)
 
         # create subdirectories
         self.sub_dirs = {}
@@ -53,6 +66,39 @@ class Builder:
             for op, constants in constant_overrides.items():
                 self.constants[op].update(constants)
         logger.info(f"Builder constants: {self.constants}")
+
+    @staticmethod
+    def get_ort_lib_url(ort_version: str) -> str:
+        """Return the download url for onnxruntime release."""
+        return f"https://github.com/microsoft/onnxruntime/releases/download/v{ort_version}/onnxruntime-linux-x64-{ort_version}.tgz"
+
+    @classmethod
+    def check_ort_version(cls, ort_version: str) -> bool:
+        """Check if a release for the ort version exists."""
+        try:
+            with urllib.request.urlopen(cls.get_ort_lib_url(ort_version)) as url_request:
+                return url_request.status == 200
+        except urllib.error.URLError:
+            return False
+
+    @classmethod
+    def download_ort_headers(cls, ort_version: str, destination: Union[str, Path]):
+        """Download ort headers into destination."""
+        logger.debug(f"Downloading ort headers for version {ort_version} to {destination}")
+        url = cls.get_ort_lib_url(ort_version)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_dir_path = Path(temp_dir)
+
+            # download package
+            archive_path = temp_dir_path / Path(url).name
+            urllib.request.urlretrieve(url, archive_path)
+
+            # unzip
+            with tarfile.open(archive_path) as tar_ref:
+                tar_ref.extractall(temp_dir_path)
+
+            # copy over the contents of include
+            copy_dir(temp_dir_path / archive_path.stem / "include", destination, dirs_exist_ok=True)
 
     def prepare_triton_kernels(self):
         for kernel_info in self.kernel_infos:
@@ -133,8 +179,7 @@ class Builder:
         include_dirs = [
             f"-I {get_env_path('CUDA_HOME')/ 'include'}",
             f"-I {self.sub_dirs['csrc']}",
-            f"-I {get_env_path('ONNXRUNTIME_DIR') / 'include' / 'onnxruntime'}",
-            f"-I {get_env_path('ONNXRUNTIME_DIR') / 'include' / 'onnxruntime' / 'core' / 'session'}",
+            f"-I {self.ort_headers_dir}",
         ]
         link_dirs = [f"-L {get_env_path('CUDA_HOME') / 'lib64'}"]
         link_libs = ["-l cuda"]

@@ -7,10 +7,12 @@ import shutil
 import tempfile
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Set, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Set, Tuple, Union
 
 import onnx
+from packaging import version
 
+from olive.common.config_utils import ParamCategory
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
@@ -33,8 +35,16 @@ class AutoFusion(Pass):
         config = {
             "constant_overrides": PassConfigParam(
                 type_=Dict[str, Dict[str, int]],
-                default_value=None,
                 description="Override default constants for the custom op builder. Dict of op type to constants.",
+            ),
+            "ort_headers_dir": PassConfigParam(
+                type_=Union[Path, str],
+                category=ParamCategory.PATH,
+                description=(
+                    "Path to the director with onnxruntime api headers. Only needed if not using a stable release of"
+                    " onnxruntime. Should be '<onnxruntime-repo-dir>/include/onnxruntime/core/session' where"
+                    " `<onnxruntime-repo-dir> is the path to a local clone of the ort github repository."
+                ),
             ),
         }
         config.update(get_external_data_config())
@@ -43,7 +53,20 @@ class AutoFusion(Pass):
     def _run_for_config(
         self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
+        from onnxruntime import __version__ as OrtVersion
+
         from olive.passes.onnx.auto_fusion_utils import DOMAIN, Builder
+
+        if version.parse(OrtVersion) < version.parse("1.17.0"):
+            raise RuntimeError("AutoFusion only supports ONNXRuntime version 1.17.0 or later")
+
+        ort_headers_dir = config["ort_headers_dir"]
+        if ort_headers_dir:
+            assert Path(ort_headers_dir).is_dir(), f"ort_headers_dir: {ort_headers_dir} is not a directory."
+        elif not Builder.check_ort_version(OrtVersion):
+            raise RuntimeError(
+                f"Cannot find a release for ONNXRuntime version {OrtVersion}. Please provide `ort_headers_dir`."
+            )
 
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
@@ -89,7 +112,13 @@ class AutoFusion(Pass):
         custom_op_lib = None
         with tempfile.TemporaryDirectory() as temp_dir:
             logger.info("Building custom op library...")
-            builder = Builder(list(fused_kernels.values()), temp_dir, constant_overrides=config["constant_overrides"])
+            builder = Builder(
+                list(fused_kernels.values()),
+                temp_dir,
+                constant_overrides=config["constant_overrides"],
+                ort_headers_dir=ort_headers_dir,
+                ort_version=OrtVersion,
+            )
             lib_path = builder.build()
 
             Path(output_model_path).parent.mkdir(parents=True, exist_ok=True)

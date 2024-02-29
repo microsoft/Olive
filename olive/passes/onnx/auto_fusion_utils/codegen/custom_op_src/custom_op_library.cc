@@ -4,16 +4,10 @@
 #include "onnxruntime_cxx_api.h"
 #undef ORT_API_MANUAL_INIT
 
-// #include <vector>
-// #include <cmath>
-#include <mutex>
-// #include <system_error>
 
-// #include "core/common/common.h"
-// #include "core/framework/ortdevice.h"
-// #include "core/framework/ortmemoryinfo.h"
+#include <mutex>
+
 #include "fusion_ops.h"
-// #include "onnxruntime_lite_custom_op.h"
 
 static const char* c_OpDomain = "olive.auto_fusion";
 

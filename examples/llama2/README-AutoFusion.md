@@ -15,12 +15,10 @@ Performs optimization pipeline:
 Refer to the instructions in the [examples README](../README.md) to clone the repository and install Olive.
 
 ## Install onnxruntime
-This example requires the latest nightly build of ort-nightly-gpu
+This example requires onnxruntime-gpu>=1.17.0. Please install the latest version of onnxruntime:
+
 ```bash
-# Uninstall previous onnxruntime packages
-pip uninstall -y onnxruntime-gpu onnxruntime ort-nightly-gpu ort-nightly
-# Install latest nightly build of ort-nightly-gpu
-pip install ort-nightly-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
+python -m pip install "onnxruntime-gpu>=1.17.0"
 ```
 
 ### Install extra dependencies
@@ -38,14 +36,8 @@ pip uninstall -y triton triton-nightly
 pip install -U --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/Triton-Nightly/pypi/simple/ triton-nightly
 ```
 
-## Clone ONNX Runtime repository
-```bash
-git clone https://github.com/microsoft/onnxruntime.git onnxruntime-repo
-# set ONNXRUNTIME_DIR to the path of the cloned repository
-export ONNXRUNTIME_DIR=$PWD/onnxruntime-repo
-```
-
-Also requires the path to cuda to be set using `CUDA_HOME` environment variable. Only tested with CUDA 12.2
+## Set CUDA_HOME
+Set the path to cuda as `CUDA_HOME` environment variable. Only tested with CUDA 12.2
 
 ## Run the example
 ```bash

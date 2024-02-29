@@ -13,7 +13,7 @@ CUSTOM_OP_SKELETON = """
 #include <cuda.h>
 #include <iostream>
 
-#include "core/providers/cuda/cuda_context.h"
+#include "cuda_context.h"
 #include "onnxruntime_lite_custom_op.h"
 
 // Include custom kernels headers
@@ -72,7 +72,7 @@ void {custom_op_name}(
 
   // call the kernel
   CUresult ret = {kernel_name}(
-      cuda_ctx.cuda_stream,
+      reinterpret_cast<CUstream>(cuda_ctx.cuda_stream),
       {input_args}
       reinterpret_cast<CUdeviceptr>(y_raw),
       y_numel,
