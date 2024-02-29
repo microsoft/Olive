@@ -1,6 +1,7 @@
 # -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
+import platform
 from itertools import chain
 from typing import TYPE_CHECKING, List, Tuple
 
@@ -215,8 +216,14 @@ def flatten_past_kv_inputs(past_key_values: List[Tuple[torch.Tensor, torch.Tenso
     past_kv = {}
     # Convert list of past_kv to dict of past_key and past_value
     for i, (past_k, past_v) in enumerate(past_key_values):
-        past_kv[f"past_key_{i}"] = past_k
-        past_kv[f"past_value_{i}"] = past_v
+        if platform.system() == "Windows":
+            # For Windows, the dynamo export is not supported yet, and the default export is used.
+            # The default export uses the following format for past_key_values.{i}.key and past_key_values.{i}.value
+            past_kv[f"past_key_values.{i}.key"] = past_k
+            past_kv[f"past_key_values.{i}.value"] = past_v
+        elif platform.system() == "Linux":
+            past_kv[f"past_key_{i}"] = past_k
+            past_kv[f"past_value_{i}"] = past_v
     return past_kv
 
 

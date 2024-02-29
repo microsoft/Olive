@@ -34,7 +34,7 @@ python microsoft_phi.py --optimize --model_path ["microsoft/phi-1" or "microsoft
 Once the script successfully completes, the optimized ONNX pipeline will be stored under `models/optimized/microsoft/phi-1` or `models/optimized/microsoft/phi-1_5`.
 
 # Test Inference
-Re-running the script with `--inference`
+We have the default input for the model, but you can also provide your own input to test the inference of the model by updating the `inputs` variable in the `microsoft_phi.py`.
 ```
 # sample inputs
 inputs = tokenizer('''def print_prime(n):
@@ -44,8 +44,9 @@ inputs = tokenizer('''def print_prime(n):
 )
 ```
 
+Then rerun the script with `--inference`
 ```
-python .\optimize.py --inference
+python microsoft_phi.py --inference
 def print_prime(n):
     """
     Print all primes between 1 and n

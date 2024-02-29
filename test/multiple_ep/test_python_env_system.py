@@ -7,12 +7,7 @@ from test.unit_test.utils import create_onnx_model_file, get_latency_metric, get
 
 import pytest
 
-from olive.engine import Engine
 from olive.evaluator.metric import LatencySubType
-from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
-from olive.hardware import Device
-from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec, create_accelerators
-from olive.passes.onnx import OrtPerfTuning
 from olive.systems.system_config import PythonEnvironmentTargetUserConfig, SystemConfig
 
 # pylint: disable=attribute-defined-outside-init
@@ -25,72 +20,51 @@ class TestOliveManagedPythonEnvironmentSystem:
         self.input_model_config = get_onnx_model_config()
 
     @pytest.mark.skip(reason="No machine to test DML execution provider")
-    def test_run_pass_evaluate_windows(self, tmpdir):
+    def test_run_pass_evaluate_windows(self, tmp_path):
         # use the olive managed python environment as the test environment
-        self.system_config = SystemConfig(
+
+        from test.multiple_ep.utils import create_and_run_workflow
+
+        system_config = SystemConfig(
             type="PythonEnvironment",
             config=PythonEnvironmentTargetUserConfig(
                 accelerators=["gpu"],
                 olive_managed_env=True,
             ),
         )
-        self.execution_providers = ["DmlExecutionProvider", "OpenVINOExecutionProvider"]
-        output_dir = tmpdir
+        execution_providers = ["DmlExecutionProvider", "OpenVINOExecutionProvider"]
 
-        metric = get_latency_metric(LatencySubType.AVG)
-        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
-        engine = Engine(
-            target_config=self.system_config, host_config=self.system_config, evaluator_config=evaluator_config
+        dml_res, openvino_res = create_and_run_workflow(
+            tmp_path,
+            system_config,
+            execution_providers,
+            self.input_model_config,
+            get_latency_metric(LatencySubType.AVG),
         )
-        accelerator_specs = create_accelerators(self.system_config, self.execution_providers)
-
-        engine.register(OrtPerfTuning)
-        output = engine.run(
-            self.input_model_config, accelerator_specs, output_dir=output_dir, evaluate_input_model=True
-        )
-        dml_res = output[AcceleratorSpec(accelerator_type=Device.GPU, execution_provider="DmlExecutionProvider")]
-        openvino_res = output[
-            AcceleratorSpec(accelerator_type=Device.GPU, execution_provider="OpenVINOExecutionProvider")
-        ]
-        assert dml_res[tuple(engine.pass_flows[0])]["metrics"]["latency-avg"]
-        assert openvino_res[tuple(engine.pass_flows[0])]["metrics"]["latency-avg"]
+        assert dml_res.metrics.value.__root__
+        assert openvino_res.metrics.value.__root__
 
     @pytest.mark.skipif(platform.system() == "Windows", reason="Test for Linux only")
-    def test_run_pass_evaluate_linux(self, tmpdir):
+    def test_run_pass_evaluate_linux(self, tmp_path):
         # use the olive managed python environment as the test environment
-        self.system_config = SystemConfig(
+
+        from test.multiple_ep.utils import create_and_run_workflow
+
+        system_config = SystemConfig(
             type="PythonEnvironment",
             config=PythonEnvironmentTargetUserConfig(
                 accelerators=["cpu"],
                 olive_managed_env=True,
             ),
         )
-        self.execution_providers = ["CPUExecutionProvider", "OpenVINOExecutionProvider"]
-        output_dir = tmpdir
+        execution_providers = ["CPUExecutionProvider", "OpenVINOExecutionProvider"]
 
-        metric = get_latency_metric(LatencySubType.AVG)
-        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
-        config = {
-            "cache_dir": "python_env_cache",
-        }
-        engine = Engine(
-            config=config,
-            target_config=self.system_config,
-            host_config=self.system_config,
-            evaluator_config=evaluator_config,
-        )
-        accelerator_specs = create_accelerators(self.system_config, self.execution_providers)
-        engine.register(OrtPerfTuning)
-        output = engine.run(
-            self.input_model_config, accelerator_specs, output_dir=output_dir, evaluate_input_model=True
-        )
-        cpu_res = next(iter(output[DEFAULT_CPU_ACCELERATOR].nodes.values()))
-        openvino_res = next(
-            iter(
-                output[
-                    AcceleratorSpec(accelerator_type=Device.CPU, execution_provider="OpenVINOExecutionProvider")
-                ].nodes.values()
-            )
+        cpu_res, openvino_res = create_and_run_workflow(
+            tmp_path,
+            system_config,
+            execution_providers,
+            self.input_model_config,
+            get_latency_metric(LatencySubType.AVG),
         )
         assert cpu_res.metrics.value.__root__
         assert openvino_res.metrics.value.__root__

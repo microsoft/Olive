@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def evaluate_entry(config, output_path, output_name, accelerator_type, execution_provider):
-    with open(config) as f:  # noqa: PTH123
+    with open(config) as f:
         config_json = json.load(f)
 
     hf_token = os.environ.get("HF_TOKEN")
@@ -33,7 +33,7 @@ def evaluate_entry(config, output_path, output_name, accelerator_type, execution
         model, None, evaluator_config.metrics, device=accelerator_type, execution_providers=execution_provider
     )
 
-    with open(os.path.join(output_path, f"{output_name}"), "w") as f:  # noqa: PTH123
+    with open(os.path.join(output_path, f"{output_name}"), "w") as f:
         f.write(metrics_res.json())
     logger.info(f"Metric result: {metrics_res}")
 

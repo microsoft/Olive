@@ -181,6 +181,11 @@ class OrtTransformersOptimization(Pass):
         attn_op_type = run_config["optimization_options"].get("attention_op_type")
 
         if attn_op_type:
+            from onnxruntime import __version__ as OrtVersion
+            from packaging import version
+
+            if OrtVersion < version.parse("1.18.0"):
+                raise ValueError("AttentionOpType is only supported in ORT 1.18.0 or later")
             from onnxruntime.transformers.fusion_options import AttentionOpType
 
             if attn_op_type == "Attention":

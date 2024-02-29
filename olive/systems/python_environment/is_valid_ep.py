@@ -7,7 +7,7 @@ import pickle
 import sys
 from pathlib import Path
 
-ort_inference_utils_parent = Path(__file__).resolve().parent.parent.parent / "common"
+ort_inference_utils_parent = Path(__file__).resolve().parents[2] / "common"
 sys.path.append(str(ort_inference_utils_parent))
 
 # pylint: disable=wrong-import-position

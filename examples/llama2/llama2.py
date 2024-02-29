@@ -5,13 +5,12 @@
 
 import argparse
 import json
-import tempfile
-from pathlib import Path
 
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
 
 import olive.workflows.run as olive_run
+from olive.common.utils import set_tempdir
 
 SUPPORTED_WORKFLOWS = {
     "cpu": [
@@ -72,14 +71,11 @@ def main(raw_args=None):
     if args.use_gqa and not args.gpu:
         raise ValueError("GQA is only supported on gpu.")
 
-    if args.tempdir is not None:
-        # set tempdir if specified
-        tempdir = Path(args.tempdir).resolve()
-        tempdir.mkdir(parents=True, exist_ok=True)
-        tempfile.tempdir = str(tempdir)
+    # set tempdir
+    set_tempdir(args.tempdir)
 
     json_file_template = "llama2_template.json"
-    with open(json_file_template) as f:  # noqa: PTH123
+    with open(json_file_template) as f:
         template_json = json.load(f)
 
     model_name = args.model_name
@@ -118,7 +114,7 @@ def main(raw_args=None):
     template_json["engine"]["output_dir"] = f"models/{config_name}/{model_name}"
 
     # dump config
-    with open(f"{config_name}.json", "w") as f:  # noqa: PTH123
+    with open(f"{config_name}.json", "w") as f:
         json.dump(template_json, f, indent=4)
 
     if not args.only_config:

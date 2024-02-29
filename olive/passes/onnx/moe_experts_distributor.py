@@ -43,7 +43,7 @@ class MoEExpertDistributionPatternMatcher:
     @staticmethod
     def _dump_graph(node: Message, filepath: str):
         Path(filepath).parent.mkdir(parents=True, exist_ok=True)
-        with open(filepath, "w") as strm:  # noqa: PTH123
+        with open(filepath, "w") as strm:
             json.dump(
                 MessageToDict(node),
                 fp=strm,

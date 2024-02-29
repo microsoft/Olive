@@ -5,6 +5,7 @@
 
 import argparse
 import json
+import platform
 
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
@@ -35,14 +36,35 @@ def get_args(raw_args):
 
 
 def main(raw_args=None):
-    if version.parse(OrtVersion) < version.parse("1.17.0"):
-        raise ValueError("Please use onnxruntime>=1.17.0 for phi2 optimization")
+    # Check if onnxruntime version is supported
+    # in linux, it requires the
+    # 1. model_type as `phi`
+    # 2. "optimization_options": {"attention_op_type": "MultiHeadAttention"}
+    # in windows, it requires the
+    # 1. model_type as `gpt2`
+    # 2. "optimization_options": {"attention_op_type": "MultiHeadAttention"}
+    # and `phi` and `MultiHeadAttention` requires ort-nightly version >= 1.18.0
+    if version.parse(OrtVersion) < version.parse("1.18.0"):
+        raise ValueError(
+            "Please use onnxruntime>=1.18.0 for phi2 optimization in Linux, you can refer to "
+            "https://onnxruntime.ai/docs/install/#inference-install-table-for-all-languages "
+            "for ort-nightly installation. If you are optimizing phi2 model in GPU, only cuda11 "
+            "is supported in onnxruntime>=1.18.0"
+        )
 
     args = get_args(raw_args)
 
     json_file_template = "phi2_optimize_template.json"
-    with open(json_file_template) as f:  # noqa: PTH123
+    with open(json_file_template) as f:
         template_json = json.load(f)
+
+    if platform.system() == "Windows":
+        template_json["passes"]["convert"]["config"]["use_dynamo_exporter"] = False
+        template_json["passes"]["optimize_cpu"]["config"]["model_type"] = "gpt2"
+        template_json["passes"]["optimize_cuda"]["config"]["model_type"] = "gpt2"
+
+    with open("phi2_optimize.json", "w") as f:
+        json.dump(template_json, f, indent=4)
 
     # add pass flows
     model_type = str(args.model_type)

@@ -161,6 +161,7 @@ ignore = [
   "PTH118", # We still need support os.path.join
   "PTH119", # We still need support os.path.basename
   "PTH120", # We still need support os.path.dirname
+  "PTH123", # we still need built-in open
   "RET505", # We prefer if/else clauses explicitly
   "RET506", # We prefer if/else clauses explicitly
   "RET507", # We prefer if/else clauses explicitly
@@ -195,5 +196,5 @@ classmethod-decorators = ["classmethod", "olive.common.pydantic_v1.validator", "
 "examples/**" = ["INP001"]
 "olive/engine/packaging/sample_code/ONNXModel/python/**" = ["INP001"]
 "test/**" = ["INP001"]
-"scripts/**" = ["INP001", "PTH123"]
+"scripts/**" = ["INP001"]
 "examples/directml/llama_v2/chat_app/**" = ["TID252", "UP006", "T201"]

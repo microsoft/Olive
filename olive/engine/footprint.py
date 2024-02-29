@@ -174,12 +174,12 @@ class Footprint:
         return cls(nodes=nodes)
 
     def to_file(self, file_path):
-        with open(file_path, "w") as f:  # noqa: PTH123
+        with open(file_path, "w") as f:
             f.write(self.to_json())
 
     @classmethod
     def from_file(cls, file_path):
-        with open(file_path) as f:  # noqa: PTH123
+        with open(file_path) as f:
             return cls.from_json(f.read())
 
     def get_output_model_path(self):

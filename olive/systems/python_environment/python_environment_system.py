@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 import numpy as np
 import torch
 
-from olive.common.utils import get_package_name_from_ep, run_subprocess
+from olive.common.utils import run_subprocess
 from olive.evaluator.metric import (
     Metric,
     MetricResult,
@@ -30,6 +30,7 @@ from olive.model import ModelConfig, ONNXModelHandler
 from olive.systems.common import SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import PythonEnvironmentTargetUserConfig
+from olive.systems.utils import get_package_name_from_ep
 
 if TYPE_CHECKING:
     from olive.passes.olive_pass import Pass
@@ -95,7 +96,10 @@ class PythonEnvironmentSystem(OliveSystem):
     ) -> ModelConfig:
         """Run the pass on the model at a specific point in the search space."""
         model_config_json = model_config.to_json()
-        pass_config = the_pass.to_json()
+        point = point or {}
+        config = the_pass.config_at_search_point(point)
+        pass_config = the_pass.to_json(check_object=True)
+        pass_config["config"].update(the_pass.serialize_config(config, check_object=True))
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_dir_path = Path(tmp_dir)
@@ -121,12 +125,6 @@ class PythonEnvironmentSystem(OliveSystem):
                 "--output_model_json_path",
                 str(output_model_json_path),
             ]
-            if point:
-                point_json_path = tmp_dir_path / "point.json"
-                with point_json_path.open("w") as f:
-                    point = point or {}
-                    json.dump(point, f, indent=4)
-                command.extend(["--point_json_path", str(point_json_path)])
             if data_root:
                 command.extend(["--data_root", str(data_root)])
 

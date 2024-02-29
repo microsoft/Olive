@@ -3,9 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import argparse
-import tempfile
-from pathlib import Path
 
+from olive.common.utils import set_tempdir
 from olive.workflows import run
 
 if __name__ == "__main__":
@@ -17,11 +16,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    if args.tempdir is not None:
-        tempdir = Path(args.tempdir).resolve()
-        tempdir.mkdir(parents=True, exist_ok=True)
-        # setting as string to be safe
-        tempfile.tempdir = str(tempdir)
+    set_tempdir(args.tempdir)
 
     var_args = vars(args)
     del var_args["tempdir"]

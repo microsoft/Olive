@@ -101,7 +101,7 @@ def main(raw_args=None):
     pass_config_arg, extra_args = parse_pass_config_arg(extra_args)
 
     # pass config
-    with open(pass_config_arg.pass_config) as f:  # noqa: PTH123
+    with open(pass_config_arg.pass_config) as f:
         pass_config = json.load(f)
     pass_type = pass_config["type"].lower()
 

@@ -12,14 +12,15 @@ import platform
 import shlex
 import shutil
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 
-def run_subprocess(cmd, env=None, cwd=None, check=False):  # pragma: no cover
-    logger.debug(f"Running command: {cmd} with env: {env}")
+def run_subprocess(cmd, env=None, cwd=None, check=False):
+    logger.debug("Running command: %s", cmd)
 
     assert isinstance(cmd, (str, list)), f"cmd must be a string or a list, got {type(cmd)}."
     windows = platform.system() == "Windows"
@@ -47,18 +48,6 @@ def run_subprocess(cmd, env=None, cwd=None, check=False):  # pragma: no cover
     return returncode, stdout, stderr
 
 
-def get_package_name_from_ep(execution_provider):
-    provider_package_mapping = {
-        "CPUExecutionProvider": ("onnxruntime", "ort-nightly"),
-        "CUDAExecutionProvider": ("onnxruntime-gpu", "ort-nightly-gpu"),
-        "TensorrtExecutionProvider": ("onnxruntime-gpu", "ort-nightly-gpu"),
-        "ROCMExecutionProvider": ("onnxruntime-gpu", "ort-nightly-gpu"),
-        "OpenVINOExecutionProvider": ("onnxruntime-openvino", None),
-        "DmlExecutionProvider": ("onnxruntime-directml", "ort-nightly-directml"),
-    }
-    return provider_package_mapping.get(execution_provider, ("onnxruntime", "ort-nightly"))
-
-
 def hash_string(string):  # pragma: no cover
     md5_hash = hashlib.md5()
     md5_hash.update(string.encode())
@@ -74,13 +63,13 @@ def hash_io_stream(f):  # pragma: no cover
 
 
 def hash_file(filename):  # pragma: no cover
-    with open(filename, "rb") as f:  # noqa: PTH123
+    with open(filename, "rb") as f:
         return hash_io_stream(f)
 
 
 def hash_update_from_file(filename, hash_value):
     assert Path(filename).is_file()
-    with open(str(filename), "rb") as f:  # noqa: PTH123
+    with open(str(filename), "rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):
             hash_value.update(chunk)
     return hash_value
@@ -339,3 +328,18 @@ def copy_dir(src_dir, dst_dir, ignore=None, **kwargs):
                 f"Received shutil.Error '{e}' but all required file names exist in destination directory. "
                 "Assuming all files were copied successfully and continuing."
             )
+
+
+def set_tempdir(tempdir: str = None):
+    """Set the root directory for tempfiles.
+
+    :param tempdir: new tempdir.
+    """
+    if tempdir is None:
+        return
+
+    tempdir = Path(tempdir).resolve()
+    tempdir.mkdir(parents=True, exist_ok=True)
+    # setting as string to be safe
+    logger.debug(f"Setting tempdir to {tempdir} from {tempfile.tempdir}")
+    tempfile.tempdir = str(tempdir)

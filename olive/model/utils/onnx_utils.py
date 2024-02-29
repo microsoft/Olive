@@ -12,6 +12,7 @@ from typing import Any, Dict, Optional, Sequence, Tuple, Union
 import numpy as np
 
 from olive.exception import OliveEvaluationError
+from olive.model.utils.path_utils import normalize_path_suffix
 
 logger = logging.getLogger(__name__)
 
@@ -28,16 +29,7 @@ def resolve_onnx_path(file_or_dir_path: str, model_filename: str = "model.onnx")
 
     resolve_onnx_path("c:/foo/bar") -> c:/foo/bar/model.onnx
     """
-    if not model_filename.endswith(".onnx"):
-        raise ValueError(f"ONNXModel's model name must end with '.onnx', got {model_filename}")
-
-    path = Path(file_or_dir_path)
-    if path.suffix != ".onnx":
-        path = path / model_filename
-        parent_dir = path.parent
-        if not parent_dir.exists():
-            parent_dir.mkdir(parents=True, exist_ok=True)
-    return str(path)
+    return normalize_path_suffix(file_or_dir_path, model_filename)
 
 
 def get_onnx_file_path(model_path: str, onnx_file_name: Optional[str] = None) -> str:

@@ -23,7 +23,7 @@ class RandomDataLoader:
 
 
 def get_base_model_name(model_name):
-    return model_info(model_name).cardData.get("base_model", model_name)
+    return model_info(model_name).cardData.get("base_model") or model_name
 
 
 def is_lora_model(model_name):

@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader, Dataset
 from olive.constants import Framework
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
-from olive.evaluator.metric import Metric, MetricType
+from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
 from olive.evaluator.metric_config import MetricGoal
 from olive.model import ModelConfig, ONNXModelHandler, PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
@@ -111,6 +111,20 @@ def create_onnx_model_file():
     )
 
 
+def create_onnx_model_with_dynamic_axis(onnx_model_path):
+    pytorch_model = pytorch_model_loader(model_path=None)
+    dummy_input = get_pytorch_model_dummy_input(pytorch_model)
+    torch.onnx.export(
+        pytorch_model,
+        dummy_input,
+        onnx_model_path,
+        opset_version=10,
+        input_names=["input"],
+        output_names=["output"],
+        dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}},
+    )
+
+
 def get_onnx_model_config():
     return ModelConfig.parse_obj({"type": "ONNXModel", "config": {"model_path": str(ONNX_MODEL_PATH)}})
 
@@ -169,6 +183,24 @@ def get_accuracy_metric(
         sub_types=sub_types,
         user_config=user_config or accuracy_metric_config,
         backend=backend,
+    )
+
+
+def get_glue_accuracy_metric():
+    return Metric(
+        name="accuracy",
+        type=MetricType.ACCURACY,
+        sub_types=[{"name": AccuracySubType.ACCURACY_SCORE}],
+        data_config=get_glue_huggingface_data_config(),
+    )
+
+
+def get_glue_latency_metric():
+    return Metric(
+        name="latency",
+        type=MetricType.LATENCY,
+        sub_types=[{"name": LatencySubType.AVG}],
+        data_config=get_glue_huggingface_data_config(),
     )
 
 

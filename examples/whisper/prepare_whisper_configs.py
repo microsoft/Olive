@@ -110,7 +110,7 @@ def main(raw_args=None):
         )
 
     # load template
-    with open("whisper_template.json") as f:  # noqa: PTH123
+    with open("whisper_template.json") as f:
         template_json = json.load(f)
     model_name = args.model_name
 
@@ -169,7 +169,7 @@ def main(raw_args=None):
             config["passes"][pass_name] = pass_config
 
         # dump config
-        with open(f"whisper_{device}_{precision}.json", "w") as f:  # noqa: PTH123
+        with open(f"whisper_{device}_{precision}.json", "w") as f:
             json.dump(config, f, indent=4)
 
     # download audio test data

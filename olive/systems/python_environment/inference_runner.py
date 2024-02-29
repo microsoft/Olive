@@ -10,7 +10,7 @@ from pathlib import Path
 
 import numpy as np
 
-ort_inference_utils_parent = Path(__file__).resolve().parent.parent.parent / "common"
+ort_inference_utils_parent = Path(__file__).resolve().parents[2] / "common"
 sys.path.append(str(ort_inference_utils_parent))
 
 # pylint: disable=wrong-import-position
@@ -47,7 +47,7 @@ def main(raw_args=None):
     args.output_dir = Path(args.output_dir)
 
     # load inference setting
-    with open(args.inference_settings_path, "rb") as f:  # noqa: PTH123
+    with open(args.inference_settings_path, "rb") as f:
         inference_settings = pickle.load(f)
 
     # create session

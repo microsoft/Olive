@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 def dependency_setup(config):
     here = os.path.abspath(os.path.dirname(__file__))
-    with open(os.path.join(here, "../../extra_dependencies.json")) as f:  # noqa: PTH123
+    with open(os.path.join(here, "../../extra_dependencies.json")) as f:
         extras = json.load(f)
 
     def get_system_extras(host_type, accelerators, execution_providers):
@@ -154,6 +154,17 @@ def run_engine(config: RunConfig, data_root: str = None):
         config.engine.azureml_client_config = config.azureml_client
 
     engine = config.engine.create_engine()
+
+    # config file will be uploaded to AML job
+    is_azureml_system = (config.engine.host is not None and config.engine.host.type == SystemType.AzureML) or (
+        config.engine.target is not None and config.engine.target.type == SystemType.AzureML
+    )
+
+    if is_azureml_system:
+        from olive.systems.azureml.aml_system import AzureMLSystem
+
+        AzureMLSystem.olive_config = config.to_json()
+
     no_evaluation = engine.evaluator_config is None and all(
         pass_config.evaluator is None for pass_config in config.passes.values()
     )
