@@ -224,6 +224,11 @@ class LoRABase(Pass):
                     "Training arguments. If None, will use default arguments. See HFTrainingArguments for more details."
                 ),
             ),
+            "log_metrics": PassConfigParam(
+                type_=List[str],
+                default_value=None,
+                description=("The metrics that will be logged by mlflow. Now only support Azure ML system."),
+            ),
         }
 
     def validate_search_point(
@@ -620,6 +625,23 @@ class LoRABase(Pass):
             # train
             logger.info("Running fine-tuning")
             train_result = trainer.train()
+
+            # log metrics now only support Azure ML system. Metrics can be found in Metrics tab in Azure ML job
+            if config.log_metrics:
+                try:
+                    import mlflow
+
+                    logs = trainer.state.log_history
+                    logger.debug(f"trainer log history: {logs}")
+
+                    for log in logs:
+                        for metric_name in config.log_metrics:
+                            if metric_name in log:
+                                mlflow.log_metric(metric_name, log[metric_name], step=log["step"])
+
+                except ImportError:
+                    logger.warning("mlflow not installed. Cannot log metrics. Please install mlflow to log metrics.")
+
             logger.debug(f"train_result: {train_result}")
 
         if torch.cuda.is_available():
