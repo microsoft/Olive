@@ -433,7 +433,7 @@ class Engine:
             if should_prune:
                 failed_pass = pass_flow[len(model_ids)]
                 logger.warning(
-                    "Flow %s is pruned due to failed or invalid config for pass '%d'", pass_flow, failed_pass
+                    "Flow %s is pruned due to failed or invalid config for pass '%s'", pass_flow, failed_pass
                 )
                 continue
 
