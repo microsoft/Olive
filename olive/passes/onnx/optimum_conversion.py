@@ -105,7 +105,7 @@ class OptimumConversion(Pass):
                 component in exported_models for component in config["components"]
             ), f"Components {config['components']} are not exported. Only {exported_models} are exported."
         components = config["components"] or exported_models
-        logger.debug(f"Exported models are: {exported_models}. Returning components: {components}.")
+        logger.debug("Exported models are: %s. Returning components: %s.", exported_models, components)
 
         # if there is only one component, return it directly
         if len(components) == 1:

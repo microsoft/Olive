@@ -60,8 +60,10 @@ def _unify_onnx_outputs(model1: ModelProto, model2: ModelProto, strict: bool):
             )
         else:
             logger.info(
-                f"The two models proto have different outputs ({len(model1_outputs)} and {len(model2_outputs)} "
-                "outputs). Constant outputs will be added to unify the two models outputs."
+                "The two models proto have different outputs (%d and %d "
+                "outputs). Constant outputs will be added to unify the two models outputs.",
+                len(model1_outputs),
+                len(model2_outputs),
             )
 
     if model2_outputs.issubset(model1_outputs) is False:
@@ -95,8 +97,7 @@ def _unify_onnx_outputs(model1: ModelProto, model2: ModelProto, strict: bool):
                             dims_dummy_output.append(dim)
 
                     logger.info(
-                        f"Adding a constant output for {model_output_1.name} of shape "
-                        f"{dims_dummy_output} in model2."
+                        "Adding a constant output for %s of shape %s in model2.", model_output_1.name, dims_dummy_output
                     )
                     value: TensorProto = onnx.helper.make_tensor(
                         name="const_tensor", data_type=data_type, dims=dims_dummy_output, vals=[]

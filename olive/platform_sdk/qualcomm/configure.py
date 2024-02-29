@@ -33,7 +33,7 @@ def dev(args):
     if sdk_arch not in (SDKTargetDevice.x86_64_linux, SDKTargetDevice.x86_64_windows):
         return
 
-    logger.info(f"Configuring {args.sdk} for {sdk_arch} with python{args.py_version}...")
+    logger.info("Configuring %s for %s with python %s...", args.sdk, sdk_arch, args.py_version)
     with resources.path(resource_path, script_name) as create_python_env_path:
         if platform.system() == "Linux":
             cmd = f"bash {create_python_env_path} -v {args.py_version} --sdk {args.sdk}"
@@ -55,7 +55,7 @@ def eval(args):  # noqa: A001  #pylint: disable=redefined-builtin
 
     sdk_root = sdk_env.sdk_root_path
 
-    logger.info(f"Configuring {args.sdk} for {target_arch_name}...")
+    logger.info("Configuring %s for %s...", args.sdk, target_arch_name)
 
     bin_path = Path(f"{sdk_root}/bin/{target_arch_name}")
     lib_path = Path(f"{sdk_root}/lib/{target_arch_name}")

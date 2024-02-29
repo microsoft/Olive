@@ -70,7 +70,7 @@ def main():
     is_create = args.create
     is_delete = args.delete
     if is_create:
-        logger.info(f"Creating compute {compute_name}...")
+        logger.info("Creating compute %s...", compute_name)
         vm_size = args.vm_size
         location = args.location
         min_nodes = args.min_nodes
@@ -91,14 +91,19 @@ def main():
         )
         ml_client.begin_create_or_update(cluster_basic).result()
         logger.info(
-            f"Successfully created compute: {compute_name} at {location} with \
-                vm_size:{vm_size} and min_nodes={min_nodes} \
-                and max_nodes={max_nodes} and idle_time_before_scale_down={idle_time_before_scale_down}"
+            "Successfully created compute: %s at %s with vm_size:%s and "
+            "min_nodes=%d and max_nodes=%d and idle_time_before_scale_down=%d",
+            compute_name,
+            location,
+            vm_size,
+            min_nodes,
+            max_nodes,
+            idle_time_before_scale_down,
         )
     elif is_delete:
-        logger.info(f"Deleting compute {compute_name}...")
+        logger.info("Deleting compute %s...", compute_name)
         ml_client.compute.begin_delete(compute_name).wait()
-        logger.info(f"Successfully deleted compute: {compute_name}")
+        logger.info("Successfully deleted compute: %s", compute_name)
 
 
 def get_ml_client(aml_config_path, subscription_id, resource_group, workspace_name):

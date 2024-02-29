@@ -86,7 +86,8 @@ def dependency_setup(config):
             if pass_config.type in ["SNPEConversion", "SNPEQuantization", "SNPEtoONNXConversion"]:
                 logger.info(
                     "Please refer to https://microsoft.github.io/Olive/tutorials/passes/snpe.html to install SNPE"
-                    f" prerequisites for pass {pass_config.type}"
+                    " prerequisites for pass %s",
+                    pass_config.type,
                 )
 
     # add dependencies for engine
@@ -102,7 +103,7 @@ def dependency_setup(config):
         local_packages.extend(extras.get(system_extra_name))
 
     # install missing packages to local or tell user to install packages in their environment
-    logger.info(f"The following packages are required in the local environment: {local_packages}")
+    logger.info("The following packages are required in the local environment: %s", local_packages)
     packages_install = []
     for package in set(local_packages):
         if package in ort_packages:
@@ -114,16 +115,16 @@ def dependency_setup(config):
                 # use importlib.metadata to check if package is installed
                 # better than __import__ since the package name can be different from the import name
                 importlib.metadata.distribution(package)
-                logger.info(f"{package} is already installed.")
+                logger.info("%s is already installed.", package)
             except importlib.metadata.PackageNotFoundError:
                 packages_install.append(package)
 
     if packages_install:
         # Install all packages once time
         cmd = [sys.executable, "-m", "pip", "install", *packages_install]
-        logger.info(f"Running: {' '.join(cmd)}")
+        logger.info("Running: %s", " ".join(cmd))
         subprocess.check_call(cmd)
-        logger.info(f"Successfully installed {packages_install}.")
+        logger.info("Successfully installed %s.", packages_install)
 
     if remote_packages:
         logger.info(
@@ -266,7 +267,7 @@ def check_local_ort_installation(package_name: str):
         # can be the stable or nightly version
         # TODO(jambayk): will probably be fine if we want cpu package but some other ort package is installed
         # but we can add a check for that if needed in the future
-        logger.info(f"{local_ort_packages[0]} is already installed.")
+        logger.info("%s is already installed.", local_ort_packages[0])
         return None
 
     # instruction to user

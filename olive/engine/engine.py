@@ -201,7 +201,7 @@ class Engine:
         if output_name and not self.no_search:
             # In no-search mode, if output_name is provided, the output model of the pass will be saved to
             # engine's output_dir with the prefix of output_name.
-            logger.debug(f"output_name {output_name} for pass {name} will be ignored if search strategy is None")
+            logger.debug("output_name %s for pass %s will be ignored if search strategy is None", output_name, name)
 
         self.passes[name] = {
             "pass": p,
@@ -286,13 +286,13 @@ class Engine:
                 outputs[accelerator_spec] = run_result
 
         for accelerator_spec in self.footprints:
-            logger.info(f"Run history for {accelerator_spec}:")
+            logger.info("Run history for %s:", accelerator_spec)
             run_history = self.footprints[accelerator_spec].summarize_run_history()
             self.dump_run_history(run_history, output_dir / f"run_history_{accelerator_spec}.txt")
 
         if packaging_config and self.passes:
             # TODO(trajep): should we support packaging pytorch model?
-            logger.info(f"Package top ranked {sum(len(f.nodes) for f in outputs.values())} models as artifacts")
+            logger.info("Package top ranked %d models as artifacts", sum(len(f.nodes) for f in outputs.values()))
             generate_output_artifacts(
                 packaging_config,
                 self.footprints,
@@ -330,12 +330,12 @@ class Engine:
                 results = self._evaluate_model(
                     input_model_config, input_model_id, data_root, self.evaluator_config, accelerator_spec
                 )
-                logger.info(f"Input model evaluation results: {results}")
+                logger.info("Input model evaluation results: %s", results)
                 result_name = f"{prefix_output_name}_input_model_metrics"
                 results_path = output_dir / f"{result_name}.json"
                 with results_path.open("w") as f:
                     json.dump(results.to_json(), f, indent=4)
-                logger.info(f"Saved evaluation results of input model to {results_path}")
+                logger.info("Saved evaluation results of input model to %s", results_path)
                 if not self.passes:
                     logger.debug("No passes registered, return input model evaluation results.")
                     return results
@@ -363,11 +363,11 @@ class Engine:
         except EXCEPTIONS_TO_RAISE:
             raise
         except Exception as e:
-            logger.warning(f"Failed to run Olive on {accelerator_spec}: {e}", exc_info=True)
+            logger.warning("Failed to run Olive on %s: %s", accelerator_spec, e, exc_info=True)
             return None
 
         output_fp_path = output_dir / f"{prefix_output_name}_footprints.json"
-        logger.info(f"Save footprint to {output_fp_path}")
+        logger.info("Save footprint to %s", output_fp_path)
         self.footprints[accelerator_spec].to_file(output_fp_path)
         logger.debug("run_accelerator done")
         return output_footprint
@@ -425,14 +425,16 @@ class Engine:
             passes_to_run = [(pass_id, {}) for pass_id in pass_flow]
 
             # run all the passes in the pass flow
-            logger.debug(f"Running {pass_flow} with no search ...")
+            logger.debug("Running %s with no search ...", pass_flow)
             should_prune, signal, model_ids = self._run_passes(
                 passes_to_run, input_model_config, input_model_id, data_root, accelerator_spec
             )
 
             if should_prune:
                 failed_pass = pass_flow[len(model_ids)]
-                logger.warning(f"Flow {pass_flow} is pruned due to failed or invalid config for pass '{failed_pass}'")
+                logger.warning(
+                    "Flow %s is pruned due to failed or invalid config for pass '%d'", pass_flow, failed_pass
+                )
                 continue
 
             # names of the output models of the passes
@@ -521,7 +523,7 @@ class Engine:
             else:
                 model_config = self._load_model(model_id)
 
-            logger.debug(f"Step {iter_num} with search point {next_step['search_point']} ...")
+            logger.debug("Step %d with search point %s ...", iter_num, next_step["search_point"])
 
             # run all the passes in the step
             should_prune, signal, model_ids = self._run_passes(
@@ -560,7 +562,7 @@ class Engine:
             from tabulate import tabulate
 
             formatted_rls = tabulate([tuple(rh) for rh in run_history], headers=headers, tablefmt="grid")
-            logger.info(f"run history:\n{formatted_rls}")
+            logger.info("run history:\n%s", formatted_rls)
         except ImportError:
             logger.info("Please install tabulate for better run history output")
             formatted_rls = run_history
@@ -613,7 +615,7 @@ class Engine:
             )
 
         if goals:
-            logger.debug(f"Resolving goals: {goals}")
+            logger.debug("Resolving goals: %s", goals)
 
         baseline = None
         for goal in goals.values():
@@ -636,7 +638,7 @@ class Engine:
             return {}
 
         if baseline:
-            logger.debug(f"Baseline: {baseline}")
+            logger.debug("Baseline: %s", baseline)
 
         # resolve goals to thresholds
         resolved_goals = {}
@@ -660,7 +662,7 @@ class Engine:
 
                 resolved_goals[joint_metric_key(metric_name, sub_type_name)] = resolved_goal_value
         if len(resolved_goals) > 0:
-            logger.debug(f"Resolved goals: {resolved_goals}")
+            logger.debug("Resolved goals: %s", resolved_goals)
 
         return resolved_goals
 
@@ -701,7 +703,7 @@ class Engine:
         try:
             with model_json_path.open("w") as f:
                 json.dump(model_json, f, indent=4)
-            logger.debug(f"Cached model {model_id} to {model_json_path}")
+            logger.debug("Cached model %s to %s", model_id, model_json_path)
         except Exception:
             logger.exception("Failed to cache model")
 
@@ -784,7 +786,7 @@ class Engine:
         try:
             with run_json_path.open("w") as f:
                 json.dump(run_json, f, indent=4)
-            logger.debug(f"Cached run for {input_model_id}->{output_model_id} into {run_json_path}")
+            logger.debug("Cached run for %s->%s into %s", input_model_id, output_model_id, run_json_path)
         except Exception:
             logger.exception("Failed to cache run")
 
@@ -824,7 +826,7 @@ class Engine:
             )
             if model_config in PRUNED_CONFIGS:
                 should_prune = True
-                logger.debug(f"Pruned for pass {pass_id}")
+                logger.debug("Pruned for pass %s", pass_id)
                 break
             model_ids.append(model_id)
 
@@ -837,7 +839,7 @@ class Engine:
             else:
                 logger.info("Run model evaluation for the final model...")
                 signal = self._evaluate_model(model_config, model_id, data_root, evaluator_config, accelerator_spec)
-            logger.debug(f"Signal: {signal}")
+            logger.debug("Signal: %s", signal)
         else:
             signal = None
             logger.warning("Skipping evaluation as model was pruned")
@@ -857,7 +859,7 @@ class Engine:
         # pass
         p: "Pass" = self.passes[pass_id]["pass"]
         pass_name = p.__class__.__name__
-        logger.info(f"Running pass {pass_id}:{pass_name}")
+        logger.info("Running pass %s:%s", pass_id, pass_name)
         pass_config = p.config_at_search_point(pass_search_point)
         pass_config = p.serialize_config(pass_config)
 
@@ -891,7 +893,7 @@ class Engine:
                     start_time=run_cache.get("run_start_time", 0),
                     end_time=run_cache.get("run_end_time", 0),
                 )
-                logger.info(f"Loaded model from cache: {output_model_id} from {self._run_cache_path}")
+                logger.info("Loaded model from cache: %s from %s", output_model_id, self._run_cache_path)
                 return output_model_config, output_model_id
 
         # new model id
@@ -947,7 +949,7 @@ class Engine:
                 raise  # rethrow the exception if no search is performed
 
         run_end_time = datetime.now().timestamp()
-        logger.info(f"Pass {pass_id}:{pass_name} finished in {run_end_time - run_start_time} seconds")
+        logger.info("Pass %s:%s finished in {run_end_time - run_start_time} seconds", pass_id, pass_name)
 
         # cache model
         self._cache_model(output_model_config, output_model_id)

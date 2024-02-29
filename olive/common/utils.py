@@ -102,7 +102,7 @@ def hash_function(function):  # pragma: no cover
     try:
         source = inspect.getsource(function)
     except OSError:
-        logger.warning(f"Could not get source code for {function.__name__}. Hash will be based on name only.")
+        logger.warning("Could not get source code for %s. Hash will be based on name only.", function.__name__)
         source = function.__name__
     md5_hash.update(source.encode())
     return md5_hash.hexdigest()
@@ -161,7 +161,7 @@ def retry_func(func, args=None, kwargs=None, max_tries=3, delay=5, backoff=2, ex
     num_tries, sleep_time = 0, delay
     while num_tries < max_tries:
         try:
-            logger.debug(f"Calling function '{func.__name__}'. Try {num_tries + 1} of {max_tries}...")
+            logger.debug("Calling function '%s'. Try %d of %d...", func.__name__, num_tries + 1, max_tries)
             out = func(*args, **kwargs)
             logger.debug("Succeeded.")
             return out
@@ -170,7 +170,7 @@ def retry_func(func, args=None, kwargs=None, max_tries=3, delay=5, backoff=2, ex
             if num_tries == max_tries:
                 logger.exception("The operation failed after the maximum number of retries.")
                 raise
-            logger.debug(f"Failed. Retrying in {sleep_time} seconds...")
+            logger.debug("Failed. Retrying in %d seconds...", sleep_time)
             time.sleep(sleep_time)
             sleep_time *= backoff
     return None
@@ -273,7 +273,7 @@ def aml_runner_hf_login():
         from azure.keyvault.secrets import SecretClient
 
         keyvault_name = os.environ.get("KEYVAULT_NAME")
-        logger.debug(f"Getting token from keyvault {keyvault_name}")
+        logger.debug("Getting token from keyvault %s", keyvault_name)
 
         credential = DefaultAzureCredential()
         secret_client = SecretClient(vault_url=f"https://{keyvault_name}.vault.azure.net/", credential=credential)
@@ -325,8 +325,9 @@ def copy_dir(src_dir, dst_dir, ignore=None, **kwargs):
             raise RuntimeError(f"Failed to copy {not_copied}") from e
         else:
             logger.warning(
-                f"Received shutil.Error '{e}' but all required file names exist in destination directory. "
-                "Assuming all files were copied successfully and continuing."
+                "Received shutil.Error '%s' but all required file names exist in destination directory. "
+                "Assuming all files were copied successfully and continuing.",
+                e,
             )
 
 
@@ -341,5 +342,5 @@ def set_tempdir(tempdir: str = None):
     tempdir = Path(tempdir).resolve()
     tempdir.mkdir(parents=True, exist_ok=True)
     # setting as string to be safe
-    logger.debug(f"Setting tempdir to {tempdir} from {tempfile.tempdir}")
+    logger.debug("Setting tempdir to %s from %s", tempdir, tempfile.tempdir)
     tempfile.tempdir = str(tempdir)

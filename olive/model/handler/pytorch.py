@@ -188,7 +188,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
         return self.load_model(rank).eval()
 
     def _load_mlflow_model(self):
-        logger.info(f"Loading MLFlow model from {self.model_path}")
+        logger.info("Loading MLFlow model from %s", self.model_path)
         with tempfile.TemporaryDirectory(prefix="mlflow_tmp") as tmp_dir:
             copy_dir(os.path.join(self.model_path, "data/model"), tmp_dir, dirs_exist_ok=True)
             copy_dir(os.path.join(self.model_path, "data/config"), tmp_dir, dirs_exist_ok=True)
@@ -250,7 +250,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
 
         if isinstance(io_config, (str, Callable)):
             # io_config is a string name or a callable
-            logger.debug(f"Calling {io_config} to get io_config")
+            logger.debug("Calling %s to get io_config", io_config)
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             io_config = user_module_loader.call_object(io_config, self)
             return validate_config(io_config, IoConfig).dict()

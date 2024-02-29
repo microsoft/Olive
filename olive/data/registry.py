@@ -40,7 +40,7 @@ class Registry:
                 # don't want to warn here since user script is loaded everytime data config is initialized
                 # there is nothing user can do to fix this warning
                 logger.debug(
-                    f"Component {component_name} already registered in {sub_type.value}, will override the old one."
+                    "Component %s already registered in %s, will override the old one.", component_name, sub_type.value
                 )
             cls._REGISTRY[sub_type.value][component_name] = component
             return component

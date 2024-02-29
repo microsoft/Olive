@@ -454,7 +454,7 @@ class PerfTuningRunner:
             latency_metric.user_config.inference_settings = {"onnx": inference_settings}
 
             session_name = generate_test_name(test_params, io_bind)
-            logger.debug(f"Run benchmark for: {session_name}")
+            logger.debug("Run benchmark for: %s", session_name)
             joint_key = joint_metric_key(latency_metric.name, latency_metric.sub_types[0].name)
 
             start_time = time.perf_counter()
@@ -470,7 +470,7 @@ class PerfTuningRunner:
 
             end_time = time.perf_counter()
             latency_ms = metric_result[joint_key].value
-            logger.debug(f"It takes {(end_time - start_time):.5f} seconds to benchmark for: {session_name}")
+            logger.debug("It takes {%.5f} seconds to benchmark for: %s", end_time - start_time, session_name)
 
             session_options = inference_settings.get("session_options")
 

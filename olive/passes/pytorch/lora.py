@@ -113,10 +113,10 @@ class HFTrainingArguments(ConfigWithExtraArgs):
         training_args_fields.add("use_module_with_loss")
         for k in list(v):  # need a copy of the keys since we are mutating the dict
             if k == "fp16":
-                logger.warning(f"Extra arg {k} is not allowed. Please use `torch_dtype` instead.")
+                logger.warning("Extra arg %s is not allowed. Please use `torch_dtype` instead.", k)
                 del v[k]
             elif k not in training_args_fields:
-                logger.warning(f"Extra arg {k} is not a field of transformers.TrainingArguments. Ignoring.")
+                logger.warning("Extra arg %s is not a field of transformers.TrainingArguments. Ignoring.", k)
                 del v[k]
         return v
 
@@ -275,8 +275,9 @@ class LoRABase(Pass):
             # ops such as Where only support bfloat16 from opset 16
             if uses_bf16 and config.ortmodule_onnx_opset_version < 16:
                 logger.warning(
-                    f"ortmodule_onnx_opset_version is {config.ortmodule_onnx_opset_version} but training with bfloat16"
-                    " might not work properly with opset versions < 16"
+                    "ortmodule_onnx_opset_version is %d but training with bfloat16"
+                    " might not work properly with opset versions < 16",
+                    config.ortmodule_onnx_opset_version,
                 )
             os.environ["ORTMODULE_ONNX_OPSET_VERSION"] = str(config.ortmodule_onnx_opset_version)
 
@@ -520,16 +521,16 @@ class LoRABase(Pass):
         setattr(model, "is_parallelizable", True)
 
         logger.debug(
-            f"The number of trainable parameters in the original model: {self.count_trainable_parameters(model)}"
+            "The number of trainable parameters in the original model: %s", self.count_trainable_parameters(model)
         )
         if not adapter_path:
             logger.debug("Initializing LoRA adapters from config")
             lora_model = self.init_lora_adapters(model, task, config, target_modules=target_modules)
         else:
-            logger.debug(f"Loading LoRA adapters from {adapter_path}")
+            logger.debug("Loading LoRA adapters from %s", adapter_path)
             lora_model = PeftModel.from_pretrained(model, adapter_path, is_trainable=True)
         logger.debug(
-            f"The number of trainable parameters in the LoRA model: {self.count_trainable_parameters(lora_model)}"
+            "The number of trainable parameters in the LoRA model: %s", self.count_trainable_parameters(lora_model)
         )
 
         # cast lora modules to model's dtype, should be same as torch_dtype
@@ -597,7 +598,7 @@ class LoRABase(Pass):
                 # use fp16 mixed precision training
                 config.training_args.extra_args["fp16"] = True
             # create training args
-            logger.debug(f"Training args: {config.training_args.dict()}")
+            logger.debug("Training args: %s", config.training_args.dict())
 
             trainer_cls = transformers.Trainer
             if config.use_ort_trainer:
@@ -620,7 +621,7 @@ class LoRABase(Pass):
             # train
             logger.info("Running fine-tuning")
             train_result = trainer.train()
-            logger.debug(f"train_result: {train_result}")
+            logger.debug("train_result: %s", train_result)
 
         if torch.cuda.is_available():
             torch.backends.cuda.matmul.allow_tf32 = allow_tf32
@@ -656,7 +657,7 @@ class LoRABase(Pass):
         # resize model embedding layer
         model.resize_token_embeddings(len(tokenizer))
         if num_new_tokens > 0:
-            logger.info(f"Added {num_new_tokens} new tokens to tokenizer and resized model embedding layer.")
+            logger.info("Added %d new tokens to tokenizer and resized model embedding layer.", num_new_tokens)
             input_embeddings_data = model.get_input_embeddings().weight.data
             output_embeddings_data = model.get_output_embeddings().weight.data
 
@@ -694,8 +695,10 @@ class LoRABase(Pass):
             for k in cls.model_overwrites:
                 if from_pretrained_args.get(k) is not None:
                     logger.warning(
-                        f"Input model has from_pretrained_args.{k}. Ignoring. "
-                        f"{cls.__name__} will overwrite it based on the pass config."
+                        "Input model has from_pretrained_args. %s. Ignoring. "
+                        "%s will overwrite it based on the pass config.",
+                        k,
+                        cls.__name__,
                     )
 
         if model.get_resource("adapter_path"):
@@ -887,7 +890,7 @@ class QLoRA(QLoRABase):
         # this doesn't pick up the embedding layer and projection layer since those are not quantized
         # this is good since we don't want to touch those, LoRA might not work with input output embedding layers
         quantized_modules = find_submodules(pytorch_model, bnb.nn.Linear4bit)
-        logger.debug(f"Quantized modules: {quantized_modules}")
+        logger.debug("Quantized modules: %s", quantized_modules)
 
         # tokenizer
         tokenizer = AutoTokenizer.from_pretrained(
@@ -959,7 +962,7 @@ class LoftQ(QLoRA):
 
         # find the quantized modules
         quantized_modules = find_submodules(pytorch_model, bnb.nn.Linear4bit)
-        logger.debug(f"Quantized modules: {quantized_modules}")
+        logger.debug("Quantized modules: %s", quantized_modules)
 
         # only need the quantized module to find the quantized modules
         # delete quantized model to free memory

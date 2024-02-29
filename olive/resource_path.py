@@ -153,7 +153,7 @@ def create_resource_path(
     if is_local_file and isinstance(resource_path, Path) and not resource_path.exists():
         raise ValueError(f"Resource path {resource_path} of type Path does not exist.")
 
-    logger.debug(f"Resource path {resource_path} is inferred to be of type {resource_type}.")
+    logger.debug("Resource path %s is inferred to be of type %s.", resource_path, resource_type)
     return ResourcePathConfig(type=resource_type, config={config_key: resource_path}).create_resource_path()
 
 
@@ -321,7 +321,7 @@ class AzureMLResource(ResourcePath):
         _overwrite_helper(new_path, overwrite)
 
         # download the resource to the new path
-        logger.debug(f"Downloading model {self.config.name} version {self.config.version} to {new_path}.")
+        logger.debug("Downloading model %s version %s to %s.", self.config.name, self.config.version, new_path)
         from azure.core.exceptions import ServiceResponseError
 
         with tempfile.TemporaryDirectory(dir=dir_path, prefix="olive_tmp") as tempdir:
@@ -501,7 +501,7 @@ class AzureMLDatastore(ResourcePath):
         dir_path.mkdir(parents=True, exist_ok=True)
 
         # download artifacts to a temporary directory
-        logger.debug(f"Downloading aml resource for datastore {self.config.datastore_name} path {relative_path}.")
+        logger.debug("Downloading aml resource for datastore %s path %s.", self.config.datastore_name, relative_path)
 
         with tempfile.TemporaryDirectory(dir=dir_path, prefix="olive_tmp") as temp_dir:
             retry_func(
@@ -558,7 +558,9 @@ class AzureMLJobOutput(ResourcePath):
 
         # download the resource to the new path
         ml_client = self.config.azureml_client.create_client()
-        logger.debug(f"Downloading job output {self.config.job_name} output {self.config.output_name} to {new_path}.")
+        logger.debug(
+            "Downloading job output %s output %s to %s.", self.config.job_name, self.config.output_name, new_path
+        )
         from azure.core.exceptions import ServiceResponseError
 
         with tempfile.TemporaryDirectory(dir=dir_path, prefix="olive_tmp") as tempdir:
