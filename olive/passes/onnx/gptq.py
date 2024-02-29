@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import logging
 from typing import Any, Callable, Dict, Union
 
 import torch
@@ -15,8 +14,6 @@ from olive.model import PyTorchModelHandler
 from olive.model.handler.onnx import ONNXModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
-
-logger = logging.getLogger(__name__)
 
 
 class GptqQuantizer(Pass):

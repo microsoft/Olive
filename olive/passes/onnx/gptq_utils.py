@@ -2,15 +2,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import logging
 import math
 import os
 
 import torch
 import torch.nn as nn
 from torch.onnx.symbolic_helper import _get_tensor_dim_size, _get_tensor_sizes
-
-logger = logging.getLogger(__name__)
 
 
 def packed4bit_to_float(data, axis=-1):
