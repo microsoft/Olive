@@ -204,6 +204,7 @@
 
 <div class="viewcode-block" id="AzureMLSystem"><a class="viewcode-back" href="../../../../api/systems.html#olive.systems.azureml.AzureMLSystem">[docs]</a><span class="k">class</span> <span class="nc">AzureMLSystem</span><span class="p">(</span><span class="n">OliveSystem</span><span class="p">):</span>
     <span class="n">system_type</span> <span class="o">=</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">AzureML</span>
+    <span class="n">olive_config</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -404,6 +405,15 @@
 
         <span class="k">return</span> <span class="n">args</span>
 
+    <span class="k">def</span> <span class="nf">_create_olive_config_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">olive_config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">olive_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">olive_config_path</span> <span class="o">=</span> <span class="n">tmp_dir</span> <span class="o">/</span> <span class="s2">&quot;olive_config.json&quot;</span>
+        <span class="k">with</span> <span class="n">olive_config_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">olive_config</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">olive_config_path</span>
+
     <span class="k">def</span> <span class="nf">_create_pass_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pass_path_params</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">ParamCategory</span><span class="p">]]):</span>
         <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;pass_config&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">)}</span>
         <span class="k">for</span> <span class="n">param</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">pass_path_params</span><span class="p">:</span>
@@ -489,9 +499,15 @@
 
         <span class="c1"># prepare code</span>
         <span class="n">script_name</span> <span class="o">=</span> <span class="s2">&quot;aml_pass_runner.py&quot;</span>
+
         <span class="n">cur_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span>
         <span class="n">code_root</span> <span class="o">=</span> <span class="n">tmp_dir</span> <span class="o">/</span> <span class="s2">&quot;code&quot;</span>
         <span class="n">code_files</span> <span class="o">=</span> <span class="p">[</span><span class="n">cur_dir</span> <span class="o">/</span> <span class="n">script_name</span><span class="p">]</span>
+
+        <span class="n">olive_config_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_olive_config_file</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">olive_config</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">olive_config_path</span><span class="p">:</span>
+            <span class="n">code_files</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">olive_config_path</span><span class="p">)</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">copy_code</span><span class="p">(</span><span class="n">code_files</span><span class="p">,</span> <span class="n">code_root</span><span class="p">)</span>
 
         <span class="n">accelerator_info</span> <span class="o">=</span> <span class="p">{</span>
@@ -785,9 +801,16 @@
 
         <span class="c1"># prepare code</span>
         <span class="n">script_name</span> <span class="o">=</span> <span class="s2">&quot;aml_evaluation_runner.py&quot;</span>
+        <span class="n">tmp_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
         <span class="n">cur_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span>
         <span class="n">code_root</span> <span class="o">=</span> <span class="n">tmp_dir</span> <span class="o">/</span> <span class="s2">&quot;code&quot;</span>
         <span class="n">code_files</span> <span class="o">=</span> <span class="p">[</span><span class="n">cur_dir</span> <span class="o">/</span> <span class="n">script_name</span><span class="p">]</span>
+
+        <span class="n">olive_config_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_olive_config_file</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">olive_config</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">olive_config_path</span><span class="p">:</span>
+            <span class="n">code_files</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">olive_config_path</span><span class="p">)</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">copy_code</span><span class="p">(</span><span class="n">code_files</span><span class="p">,</span> <span class="n">code_root</span><span class="p">)</span>
 
         <span class="c1"># prepare inputs</span>
