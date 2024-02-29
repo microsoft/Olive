@@ -184,7 +184,7 @@
         <span class="k">if</span> <span class="s2">&quot;execution_order&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">values</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid execution_order&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">v</span> <span class="ow">and</span> <span class="n">values</span><span class="p">[</span><span class="s2">&quot;execution_order&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;joint&quot;</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">field</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> is only supported for joint execution order. Ignoring...&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> is only supported for joint execution order. Ignoring...&quot;</span><span class="p">,</span> <span class="n">field</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">field</span><span class="o">.</span><span class="n">default</span>
         <span class="k">return</span> <span class="n">v</span></div>
 
@@ -287,8 +287,8 @@
             <span class="p">]</span><span class="o">.</span><span class="n">sort_search_points</span><span class="p">(</span><span class="n">apply_goals</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">sorted_model_ids</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;No models in this search group </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="si">}</span><span class="s2"> met the goals. Sorting the models&quot;</span>
-                    <span class="s2">&quot; without applying goals...&quot;</span>
+                    <span class="s2">&quot;No models in this search group </span><span class="si">%s</span><span class="s2"> met the goals. Sorting the models without applying goals...&quot;</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="p">,</span>
                 <span class="p">)</span>
                 <span class="n">sorted_model_ids</span><span class="p">,</span> <span class="n">sorted_search_points</span><span class="p">,</span> <span class="n">sorted_results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_results</span><span class="p">[</span>
                     <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="p">)</span>

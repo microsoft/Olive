@@ -355,7 +355,7 @@
             <span class="n">ml_client</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">create_client</span><span class="p">()</span>
 
             <span class="c1"># create aml model</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Creating aml model for job output </span><span class="si">{</span><span class="n">resource_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Creating aml model for job output </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">resource_path</span><span class="p">)</span>
             <span class="n">aml_model</span> <span class="o">=</span> <span class="n">retry_func</span><span class="p">(</span>
                 <span class="n">ml_client</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">create_or_update</span><span class="p">,</span>
                 <span class="p">[</span>
@@ -593,7 +593,7 @@
                     <span class="n">update_data_path</span><span class="p">(</span><span class="n">data_config</span><span class="p">,</span> <span class="s2">&quot;data_dir&quot;</span><span class="p">,</span> <span class="n">data_inputs</span><span class="p">,</span> <span class="n">data_args</span><span class="p">,</span> <span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FOLDER</span><span class="p">)</span>
                     <span class="n">update_data_path</span><span class="p">(</span><span class="n">data_config</span><span class="p">,</span> <span class="s2">&quot;data_files&quot;</span><span class="p">,</span> <span class="n">data_inputs</span><span class="p">,</span> <span class="n">data_args</span><span class="p">,</span> <span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">)</span>
 
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Data inputs for pass: </span><span class="si">{</span><span class="n">data_inputs</span><span class="si">}</span><span class="s2">, data args for pass: </span><span class="si">{</span><span class="n">data_args</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Data inputs for pass: </span><span class="si">%s</span><span class="s2">, data args for pass: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">data_inputs</span><span class="p">,</span> <span class="n">data_args</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">DataParams</span><span class="p">(</span><span class="n">data_inputs</span><span class="p">,</span> <span class="n">data_args</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_run_job</span><span class="p">(</span>
@@ -617,7 +617,7 @@
             <span class="n">delay</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">operation_retry_interval</span><span class="p">,</span>
             <span class="n">exceptions</span><span class="o">=</span><span class="n">HttpResponseError</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Pipeline submitted. Job name: </span><span class="si">{</span><span class="n">job</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">. Job link: </span><span class="si">{</span><span class="n">job</span><span class="o">.</span><span class="n">studio_url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Pipeline submitted. Job name: </span><span class="si">%s</span><span class="s2">. Job link: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">job</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">job</span><span class="o">.</span><span class="n">studio_url</span><span class="p">)</span>
         <span class="n">ml_client</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">stream</span><span class="p">(</span><span class="n">job</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
 
         <span class="c1"># get output</span>
@@ -629,7 +629,7 @@
             <span class="n">output_arg</span><span class="p">[</span><span class="s2">&quot;output_name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_name</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">output_arg</span><span class="p">[</span><span class="s2">&quot;all&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Downloading pipeline output to </span><span class="si">{</span><span class="n">output_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Downloading pipeline output to </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">)</span>
         <span class="n">retry_func</span><span class="p">(</span>
             <span class="n">ml_client</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">download</span><span class="p">,</span>
             <span class="p">[</span><span class="n">job</span><span class="o">.</span><span class="n">name</span><span class="p">],</span>

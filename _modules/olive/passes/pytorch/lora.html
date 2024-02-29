@@ -241,10 +241,10 @@
         <span class="n">training_args_fields</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;use_module_with_loss&quot;</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>  <span class="c1"># need a copy of the keys since we are mutating the dict</span>
             <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="s2">&quot;fp16&quot;</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Extra arg </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> is not allowed. Please use `torch_dtype` instead.&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Extra arg </span><span class="si">%s</span><span class="s2"> is not allowed. Please use `torch_dtype` instead.&quot;</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
                 <span class="k">del</span> <span class="n">v</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
             <span class="k">elif</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">training_args_fields</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Extra arg </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> is not a field of transformers.TrainingArguments. Ignoring.&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Extra arg </span><span class="si">%s</span><span class="s2"> is not a field of transformers.TrainingArguments. Ignoring.&quot;</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
                 <span class="k">del</span> <span class="n">v</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">v</span>
 
@@ -403,8 +403,9 @@
             <span class="c1"># ops such as Where only support bfloat16 from opset 16</span>
             <span class="k">if</span> <span class="n">uses_bf16</span> <span class="ow">and</span> <span class="n">config</span><span class="o">.</span><span class="n">ortmodule_onnx_opset_version</span> <span class="o">&lt;</span> <span class="mi">16</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;ortmodule_onnx_opset_version is </span><span class="si">{</span><span class="n">config</span><span class="o">.</span><span class="n">ortmodule_onnx_opset_version</span><span class="si">}</span><span class="s2"> but training with bfloat16&quot;</span>
-                    <span class="s2">&quot; might not work properly with opset versions &lt; 16&quot;</span>
+                    <span class="s2">&quot;ortmodule_onnx_opset_version is </span><span class="si">%d</span><span class="s2"> but training with bfloat16&quot;</span>
+                    <span class="s2">&quot; might not work properly with opset versions &lt; 16&quot;</span><span class="p">,</span>
+                    <span class="n">config</span><span class="o">.</span><span class="n">ortmodule_onnx_opset_version</span><span class="p">,</span>
                 <span class="p">)</span>
             <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;ORTMODULE_ONNX_OPSET_VERSION&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">ortmodule_onnx_opset_version</span><span class="p">)</span>
 
@@ -648,16 +649,16 @@
         <span class="nb">setattr</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="s2">&quot;is_parallelizable&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
 
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;The number of trainable parameters in the original model: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">count_trainable_parameters</span><span class="p">(</span><span class="n">model</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="s2">&quot;The number of trainable parameters in the original model: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">count_trainable_parameters</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">adapter_path</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Initializing LoRA adapters from config&quot;</span><span class="p">)</span>
             <span class="n">lora_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_lora_adapters</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">task</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">target_modules</span><span class="o">=</span><span class="n">target_modules</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Loading LoRA adapters from </span><span class="si">{</span><span class="n">adapter_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Loading LoRA adapters from </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">adapter_path</span><span class="p">)</span>
             <span class="n">lora_model</span> <span class="o">=</span> <span class="n">PeftModel</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">adapter_path</span><span class="p">,</span> <span class="n">is_trainable</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;The number of trainable parameters in the LoRA model: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">count_trainable_parameters</span><span class="p">(</span><span class="n">lora_model</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="s2">&quot;The number of trainable parameters in the LoRA model: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">count_trainable_parameters</span><span class="p">(</span><span class="n">lora_model</span><span class="p">)</span>
         <span class="p">)</span>
 
         <span class="c1"># cast lora modules to model&#39;s dtype, should be same as torch_dtype</span>
@@ -725,7 +726,7 @@
                 <span class="c1"># use fp16 mixed precision training</span>
                 <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">extra_args</span><span class="p">[</span><span class="s2">&quot;fp16&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="c1"># create training args</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Training args: </span><span class="si">{</span><span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Training args: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">dict</span><span class="p">())</span>
 
             <span class="n">trainer_cls</span> <span class="o">=</span> <span class="n">transformers</span><span class="o">.</span><span class="n">Trainer</span>
             <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">use_ort_trainer</span><span class="p">:</span>
@@ -748,7 +749,7 @@
             <span class="c1"># train</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Running fine-tuning&quot;</span><span class="p">)</span>
             <span class="n">train_result</span> <span class="o">=</span> <span class="n">trainer</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;train_result: </span><span class="si">{</span><span class="n">train_result</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;train_result: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">train_result</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
             <span class="n">torch</span><span class="o">.</span><span class="n">backends</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">matmul</span><span class="o">.</span><span class="n">allow_tf32</span> <span class="o">=</span> <span class="n">allow_tf32</span>
@@ -784,7 +785,7 @@
         <span class="c1"># resize model embedding layer</span>
         <span class="n">model</span><span class="o">.</span><span class="n">resize_token_embeddings</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">tokenizer</span><span class="p">))</span>
         <span class="k">if</span> <span class="n">num_new_tokens</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Added </span><span class="si">{</span><span class="n">num_new_tokens</span><span class="si">}</span><span class="s2"> new tokens to tokenizer and resized model embedding layer.&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Added </span><span class="si">%d</span><span class="s2"> new tokens to tokenizer and resized model embedding layer.&quot;</span><span class="p">,</span> <span class="n">num_new_tokens</span><span class="p">)</span>
             <span class="n">input_embeddings_data</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_input_embeddings</span><span class="p">()</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">data</span>
             <span class="n">output_embeddings_data</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_output_embeddings</span><span class="p">()</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">data</span>
 
@@ -822,8 +823,10 @@
             <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">model_overwrites</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">from_pretrained_args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;Input model has from_pretrained_args.</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">. Ignoring. &quot;</span>
-                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> will overwrite it based on the pass config.&quot;</span>
+                        <span class="s2">&quot;Input model has from_pretrained_args. </span><span class="si">%s</span><span class="s2">. Ignoring. &quot;</span>
+                        <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> will overwrite it based on the pass config.&quot;</span><span class="p">,</span>
+                        <span class="n">k</span><span class="p">,</span>
+                        <span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
                     <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">get_resource</span><span class="p">(</span><span class="s2">&quot;adapter_path&quot;</span><span class="p">):</span>
@@ -1015,7 +1018,7 @@
         <span class="c1"># this doesn&#39;t pick up the embedding layer and projection layer since those are not quantized</span>
         <span class="c1"># this is good since we don&#39;t want to touch those, LoRA might not work with input output embedding layers</span>
         <span class="n">quantized_modules</span> <span class="o">=</span> <span class="n">find_submodules</span><span class="p">(</span><span class="n">pytorch_model</span><span class="p">,</span> <span class="n">bnb</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear4bit</span><span class="p">)</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Quantized modules: </span><span class="si">{</span><span class="n">quantized_modules</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Quantized modules: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">quantized_modules</span><span class="p">)</span>
 
         <span class="c1"># tokenizer</span>
         <span class="n">tokenizer</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span>
@@ -1087,7 +1090,7 @@
 
         <span class="c1"># find the quantized modules</span>
         <span class="n">quantized_modules</span> <span class="o">=</span> <span class="n">find_submodules</span><span class="p">(</span><span class="n">pytorch_model</span><span class="p">,</span> <span class="n">bnb</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear4bit</span><span class="p">)</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Quantized modules: </span><span class="si">{</span><span class="n">quantized_modules</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Quantized modules: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">quantized_modules</span><span class="p">)</span>
 
         <span class="c1"># only need the quantized module to find the quantized modules</span>
         <span class="c1"># delete quantized model to free memory</span>

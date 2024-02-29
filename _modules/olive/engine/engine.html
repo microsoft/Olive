@@ -329,7 +329,7 @@
         <span class="k">if</span> <span class="n">output_name</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span><span class="p">:</span>
             <span class="c1"># In no-search mode, if output_name is provided, the output model of the pass will be saved to</span>
             <span class="c1"># engine&#39;s output_dir with the prefix of output_name.</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;output_name </span><span class="si">{</span><span class="n">output_name</span><span class="si">}</span><span class="s2"> for pass </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> will be ignored if search strategy is None&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;output_name </span><span class="si">%s</span><span class="s2"> for pass </span><span class="si">%s</span><span class="s2"> will be ignored if search strategy is None&quot;</span><span class="p">,</span> <span class="n">output_name</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;pass&quot;</span><span class="p">:</span> <span class="n">p</span><span class="p">,</span>
@@ -414,13 +414,13 @@
                 <span class="n">outputs</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span> <span class="o">=</span> <span class="n">run_result</span>
 
         <span class="k">for</span> <span class="n">accelerator_spec</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Run history for </span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">:&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Run history for </span><span class="si">%s</span><span class="s2">:&quot;</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
             <span class="n">run_history</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">summarize_run_history</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">dump_run_history</span><span class="p">(</span><span class="n">run_history</span><span class="p">,</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;run_history_</span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">.txt&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">packaging_config</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">:</span>
             <span class="c1"># TODO(trajep): should we support packaging pytorch model?</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Package top ranked </span><span class="si">{</span><span class="nb">sum</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">f</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">outputs</span><span class="o">.</span><span class="n">values</span><span class="p">())</span><span class="si">}</span><span class="s2"> models as artifacts&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Package top ranked </span><span class="si">%d</span><span class="s2"> models as artifacts&quot;</span><span class="p">,</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">outputs</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
             <span class="n">generate_output_artifacts</span><span class="p">(</span>
                 <span class="n">packaging_config</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">,</span>
@@ -458,12 +458,12 @@
                 <span class="n">results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluate_model</span><span class="p">(</span>
                     <span class="n">input_model_config</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span><span class="p">,</span> <span class="n">accelerator_spec</span>
                 <span class="p">)</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Input model evaluation results: </span><span class="si">{</span><span class="n">results</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Input model evaluation results: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span>
                 <span class="n">result_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix_output_name</span><span class="si">}</span><span class="s2">_input_model_metrics&quot;</span>
                 <span class="n">results_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">result_name</span><span class="si">}</span><span class="s2">.json&quot;</span>
                 <span class="k">with</span> <span class="n">results_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                     <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">results</span><span class="o">.</span><span class="n">to_json</span><span class="p">(),</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved evaluation results of input model to </span><span class="si">{</span><span class="n">results_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Saved evaluation results of input model to </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">results_path</span><span class="p">)</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">:</span>
                     <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;No passes registered, return input model evaluation results.&quot;</span><span class="p">)</span>
                     <span class="k">return</span> <span class="n">results</span>
@@ -491,11 +491,11 @@
         <span class="k">except</span> <span class="n">EXCEPTIONS_TO_RAISE</span><span class="p">:</span>
             <span class="k">raise</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to run Olive on </span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to run Olive on </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="k">return</span> <span class="kc">None</span>
 
         <span class="n">output_fp_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix_output_name</span><span class="si">}</span><span class="s2">_footprints.json&quot;</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Save footprint to </span><span class="si">{</span><span class="n">output_fp_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Save footprint to </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">output_fp_path</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">to_file</span><span class="p">(</span><span class="n">output_fp_path</span><span class="p">)</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;run_accelerator done&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">output_footprint</span>
@@ -553,14 +553,16 @@
             <span class="n">passes_to_run</span> <span class="o">=</span> <span class="p">[(</span><span class="n">pass_id</span><span class="p">,</span> <span class="p">{})</span> <span class="k">for</span> <span class="n">pass_id</span> <span class="ow">in</span> <span class="n">pass_flow</span><span class="p">]</span>
 
             <span class="c1"># run all the passes in the pass flow</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Running </span><span class="si">{</span><span class="n">pass_flow</span><span class="si">}</span><span class="s2"> with no search ...&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Running </span><span class="si">%s</span><span class="s2"> with no search ...&quot;</span><span class="p">,</span> <span class="n">pass_flow</span><span class="p">)</span>
             <span class="n">should_prune</span><span class="p">,</span> <span class="n">signal</span><span class="p">,</span> <span class="n">model_ids</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_passes</span><span class="p">(</span>
                 <span class="n">passes_to_run</span><span class="p">,</span> <span class="n">input_model_config</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">accelerator_spec</span>
             <span class="p">)</span>
 
             <span class="k">if</span> <span class="n">should_prune</span><span class="p">:</span>
                 <span class="n">failed_pass</span> <span class="o">=</span> <span class="n">pass_flow</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">model_ids</span><span class="p">)]</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Flow </span><span class="si">{</span><span class="n">pass_flow</span><span class="si">}</span><span class="s2"> is pruned due to failed or invalid config for pass &#39;</span><span class="si">{</span><span class="n">failed_pass</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;Flow </span><span class="si">%s</span><span class="s2"> is pruned due to failed or invalid config for pass &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span><span class="p">,</span> <span class="n">pass_flow</span><span class="p">,</span> <span class="n">failed_pass</span>
+                <span class="p">)</span>
                 <span class="k">continue</span>
 
             <span class="c1"># names of the output models of the passes</span>
@@ -649,7 +651,7 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">model_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_model</span><span class="p">(</span><span class="n">model_id</span><span class="p">)</span>
 
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Step </span><span class="si">{</span><span class="n">iter_num</span><span class="si">}</span><span class="s2"> with search point </span><span class="si">{</span><span class="n">next_step</span><span class="p">[</span><span class="s1">&#39;search_point&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> ...&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Step </span><span class="si">%d</span><span class="s2"> with search point </span><span class="si">%s</span><span class="s2"> ...&quot;</span><span class="p">,</span> <span class="n">iter_num</span><span class="p">,</span> <span class="n">next_step</span><span class="p">[</span><span class="s2">&quot;search_point&quot;</span><span class="p">])</span>
 
             <span class="c1"># run all the passes in the step</span>
             <span class="n">should_prune</span><span class="p">,</span> <span class="n">signal</span><span class="p">,</span> <span class="n">model_ids</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_passes</span><span class="p">(</span>
@@ -688,7 +690,7 @@
             <span class="kn">from</span> <span class="nn">tabulate</span> <span class="kn">import</span> <span class="n">tabulate</span>
 
             <span class="n">formatted_rls</span> <span class="o">=</span> <span class="n">tabulate</span><span class="p">([</span><span class="nb">tuple</span><span class="p">(</span><span class="n">rh</span><span class="p">)</span> <span class="k">for</span> <span class="n">rh</span> <span class="ow">in</span> <span class="n">run_history</span><span class="p">],</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span> <span class="n">tablefmt</span><span class="o">=</span><span class="s2">&quot;grid&quot;</span><span class="p">)</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;run history:</span><span class="se">\n</span><span class="si">{</span><span class="n">formatted_rls</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;run history:</span><span class="se">\n</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">formatted_rls</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Please install tabulate for better run history output&quot;</span><span class="p">)</span>
             <span class="n">formatted_rls</span> <span class="o">=</span> <span class="n">run_history</span>
@@ -741,7 +743,7 @@
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">goals</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Resolving goals: </span><span class="si">{</span><span class="n">goals</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Resolving goals: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">goals</span><span class="p">)</span>
 
         <span class="n">baseline</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">for</span> <span class="n">goal</span> <span class="ow">in</span> <span class="n">goals</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
@@ -764,7 +766,7 @@
             <span class="k">return</span> <span class="p">{}</span>
 
         <span class="k">if</span> <span class="n">baseline</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Baseline: </span><span class="si">{</span><span class="n">baseline</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Baseline: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">baseline</span><span class="p">)</span>
 
         <span class="c1"># resolve goals to thresholds</span>
         <span class="n">resolved_goals</span> <span class="o">=</span> <span class="p">{}</span>
@@ -788,7 +790,7 @@
 
                 <span class="n">resolved_goals</span><span class="p">[</span><span class="n">joint_metric_key</span><span class="p">(</span><span class="n">metric_name</span><span class="p">,</span> <span class="n">sub_type_name</span><span class="p">)]</span> <span class="o">=</span> <span class="n">resolved_goal_value</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">resolved_goals</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Resolved goals: </span><span class="si">{</span><span class="n">resolved_goals</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Resolved goals: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">resolved_goals</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">resolved_goals</span>
 
@@ -829,7 +831,7 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="k">with</span> <span class="n">model_json_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                 <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">model_json</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cached model </span><span class="si">{</span><span class="n">model_id</span><span class="si">}</span><span class="s2"> to </span><span class="si">{</span><span class="n">model_json_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Cached model </span><span class="si">%s</span><span class="s2"> to </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">model_id</span><span class="p">,</span> <span class="n">model_json_path</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Failed to cache model&quot;</span><span class="p">)</span>
 
@@ -912,7 +914,7 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="k">with</span> <span class="n">run_json_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                 <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">run_json</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cached run for </span><span class="si">{</span><span class="n">input_model_id</span><span class="si">}</span><span class="s2">-&gt;</span><span class="si">{</span><span class="n">output_model_id</span><span class="si">}</span><span class="s2"> into </span><span class="si">{</span><span class="n">run_json_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Cached run for </span><span class="si">%s</span><span class="s2">-&gt;</span><span class="si">%s</span><span class="s2"> into </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">output_model_id</span><span class="p">,</span> <span class="n">run_json_path</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Failed to cache run&quot;</span><span class="p">)</span>
 
@@ -952,7 +954,7 @@
             <span class="p">)</span>
             <span class="k">if</span> <span class="n">model_config</span> <span class="ow">in</span> <span class="n">PRUNED_CONFIGS</span><span class="p">:</span>
                 <span class="n">should_prune</span> <span class="o">=</span> <span class="kc">True</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Pruned for pass </span><span class="si">{</span><span class="n">pass_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Pruned for pass </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">pass_id</span><span class="p">)</span>
                 <span class="k">break</span>
             <span class="n">model_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">model_id</span><span class="p">)</span>
 
@@ -965,7 +967,7 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Run model evaluation for the final model...&quot;</span><span class="p">)</span>
                 <span class="n">signal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluate_model</span><span class="p">(</span><span class="n">model_config</span><span class="p">,</span> <span class="n">model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">evaluator_config</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Signal: </span><span class="si">{</span><span class="n">signal</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Signal: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">signal</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">signal</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Skipping evaluation as model was pruned&quot;</span><span class="p">)</span>
@@ -985,7 +987,7 @@
         <span class="c1"># pass</span>
         <span class="n">p</span><span class="p">:</span> <span class="s2">&quot;Pass&quot;</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">[</span><span class="n">pass_id</span><span class="p">][</span><span class="s2">&quot;pass&quot;</span><span class="p">]</span>
         <span class="n">pass_name</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Running pass </span><span class="si">{</span><span class="n">pass_id</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">pass_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Running pass </span><span class="si">%s</span><span class="s2">:</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">pass_id</span><span class="p">,</span> <span class="n">pass_name</span><span class="p">)</span>
         <span class="n">pass_config</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">config_at_search_point</span><span class="p">(</span><span class="n">pass_search_point</span><span class="p">)</span>
         <span class="n">pass_config</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">serialize_config</span><span class="p">(</span><span class="n">pass_config</span><span class="p">)</span>
 
@@ -1019,7 +1021,7 @@
                     <span class="n">start_time</span><span class="o">=</span><span class="n">run_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;run_start_time&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
                     <span class="n">end_time</span><span class="o">=</span><span class="n">run_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;run_end_time&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
                 <span class="p">)</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Loaded model from cache: </span><span class="si">{</span><span class="n">output_model_id</span><span class="si">}</span><span class="s2"> from </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_run_cache_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loaded model from cache: </span><span class="si">%s</span><span class="s2"> from </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">output_model_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_cache_path</span><span class="p">)</span>
                 <span class="k">return</span> <span class="n">output_model_config</span><span class="p">,</span> <span class="n">output_model_id</span>
 
         <span class="c1"># new model id</span>
@@ -1075,7 +1077,7 @@
                 <span class="k">raise</span>  <span class="c1"># rethrow the exception if no search is performed</span>
 
         <span class="n">run_end_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Pass </span><span class="si">{</span><span class="n">pass_id</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">pass_name</span><span class="si">}</span><span class="s2"> finished in </span><span class="si">{</span><span class="n">run_end_time</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">run_start_time</span><span class="si">}</span><span class="s2"> seconds&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Pass </span><span class="si">%s</span><span class="s2">:</span><span class="si">%s</span><span class="s2"> finished in {run_end_time - run_start_time} seconds&quot;</span><span class="p">,</span> <span class="n">pass_id</span><span class="p">,</span> <span class="n">pass_name</span><span class="p">)</span>
 
         <span class="c1"># cache model</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cache_model</span><span class="p">(</span><span class="n">output_model_config</span><span class="p">,</span> <span class="n">output_model_id</span><span class="p">)</span>
