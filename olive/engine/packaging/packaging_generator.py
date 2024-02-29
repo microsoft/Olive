@@ -340,7 +340,7 @@ def _download_c_packages(package_name_list: List[str], ort_version: str, ort_dow
             urllib.request.urlretrieve(download_link.substitute(ort_version=ort_version), download_path)
         else:
             logger.warning(
-                f"Package {package_name} is not available for packaging. Please manually install the package."
+                "Package %s is not available for packaging. Please manually install the package.", package_name
             )
 
 

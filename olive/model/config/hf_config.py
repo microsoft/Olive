@@ -129,8 +129,8 @@ class HfFromPretrainedArgs(ConfigWithExtraArgs):
         except ImportError:
             # we don't want to fail since the pass target might have the correct transformers version
             logger.warning(
-                f"Could not import the config class for quantization method {values['quantization_method']}. Skipping "
-                " validation"
+                "Could not import the config class for quantization method %s. Skipping validation",
+                values["quantization_method"],
             )
             return v
 
@@ -205,7 +205,7 @@ class HfFromPretrainedArgs(ConfigWithExtraArgs):
         # this works since config_cls is created as a dataclass
         extras = set(config_dict.keys()) - set(config.__dict__.keys())
         if extras:
-            logger.warning(f"Unused kwargs in quantization_config: {extras}. Ignoring them")
+            logger.warning("Unused kwargs in quantization_config: %s. Ignoring them", extras)
         return config
 
 

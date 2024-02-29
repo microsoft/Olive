@@ -56,7 +56,7 @@ class SearchStrategyConfig(ConfigBase):
         if "execution_order" not in values:
             raise ValueError("Invalid execution_order")
         if v and values["execution_order"] != "joint":
-            logger.info(f"{field.name} is only supported for joint execution order. Ignoring...")
+            logger.info("%s is only supported for joint execution order. Ignoring...", field.name)
             return field.default
         return v
 
@@ -159,8 +159,8 @@ class SearchStrategy:
             ].sort_search_points(apply_goals=True)
             if sorted_model_ids is None:
                 logger.warning(
-                    f"No models in this search group {self._active_spaces_group} met the goals. Sorting the models"
-                    " without applying goals..."
+                    "No models in this search group %s met the goals. Sorting the models without applying goals...",
+                    self._active_spaces_group,
                 )
                 sorted_model_ids, sorted_search_points, sorted_results = self._search_results[
                     tuple(self._active_spaces_group)

@@ -86,7 +86,7 @@ def model_proto_to_file(
     """
     output_path = Path(output_path)
     if output_path.exists():
-        logger.info(f"Deleting existing onnx file: {output_path}")
+        logger.info("Deleting existing onnx file: %s", output_path)
         output_path.unlink()
 
     # parent directory of .onnx file
@@ -103,7 +103,7 @@ def model_proto_to_file(
             # just try to save as external data
             # if it fails, raise the original error
             try:
-                logger.debug(f"Model save failed with error: {e}. Trying to save as external data.")
+                logger.debug("Model save failed with error: %s. Trying to save as external data.", e)
                 model_proto_to_file(model, output_path, True, all_tensors_to_one_file, external_data_name)
                 logger.warning(
                     "Model is too large to save as a single file but 'save_as_external_data' is False. Saved tensors"
@@ -120,7 +120,7 @@ def model_proto_to_file(
     if all_tensors_to_one_file:
         if external_data_path.exists():
             # Delete the external data file. Otherwise, data will be appended to existing file.
-            logger.info(f"Deleting existing external data file: {external_data_path}")
+            logger.info("Deleting existing external data file: %s", external_data_path)
             external_data_path.unlink()
     else:
         if any(output_dir.iterdir()):

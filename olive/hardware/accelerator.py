@@ -115,9 +115,11 @@ class AcceleratorLookup:
                     accelerators[idx].append(accelerator)
                     if len(accelerators[idx]) > 1:
                         logger.warning(
-                            f"Execution provider {ep} is mapped to multiple accelerators {accelerators[idx]}. "
+                            "Execution provider %s is mapped to multiple accelerators %s. "
                             "Olive cannot infer the device which may cause unexpected behavior. "
-                            "Please specify the accelerator in the accelerator configs"
+                            "Please specify the accelerator in the accelerator configs",
+                            ep,
+                            accelerators[idx],
                         )
                         is_unique_inferring = False
 
@@ -150,7 +152,7 @@ def create_accelerators(
             execution_providers = ["CPUExecutionProvider"]
         elif system_config.type in (SystemType.Local, SystemType.PythonEnvironment):
             execution_providers = system_supported_eps
-    logger.debug(f"Initial execution providers: {execution_providers}")
+    logger.debug("Initial execution providers: %s", execution_providers)
 
     accelerators: List[str] = system_config.config.accelerators
     if accelerators is None:
@@ -163,7 +165,7 @@ def create_accelerators(
                 "User inferred accelerators %s from given execution providers %s.", accelerators, execution_providers
             )
             accelerators = inferred_accelerators
-    logger.debug(f"Initial accelerators: {accelerators}")
+    logger.debug("Initial accelerators: %s", accelerators)
 
     ep_to_process = set(execution_providers)
     # Flatten the accelerators to list of AcceleratorSpec
@@ -186,7 +188,7 @@ def create_accelerators(
         supported_eps = AcceleratorLookup.get_execution_providers_for_device_by_available_providers(
             device, available_eps
         )
-        logger.debug(f"Supported execution providers for device {device}: {supported_eps}")
+        logger.debug("Supported execution providers for device %s: %s", device, supported_eps)
         for ep in ep_to_process.copy():
             if ep == "CPUExecutionProvider" and device != "cpu" and is_cpu_available:
                 logger.info("Ignore the CPUExecutionProvider for non-cpu device since cpu accelerator is also present.")
@@ -201,11 +203,12 @@ def create_accelerators(
         f"Current accelerators: {accelerators}."
         f"Supported execution providers: {DEVICE_TO_EXECUTION_PROVIDERS}."
     )
-    logger.info(f"Running workflow on accelerator specs: {','.join([str(spec) for spec in accelerator_specs])}")
+    logger.info("Running workflow on accelerator specs: %s", ",".join([str(spec) for spec in accelerator_specs]))
     if ep_to_process:
         logger.warning(
-            f"The following execution provider is not supported: {','.join(ep_to_process)}. "
-            "Please consider installing an onnxruntime build that contains the relevant execution providers. "
+            "The following execution provider is not supported: %s. "
+            "Please consider installing an onnxruntime build that contains the relevant execution providers. ",
+            ",".join(ep_to_process),
         )
 
     return accelerator_specs

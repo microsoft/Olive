@@ -373,8 +373,10 @@ class PythonEnvironmentSystem(OliveSystem):
                 return True
             else:
                 logger.warning(
-                    f"Error: {result['error']} Olive will ignore this {ep}."
-                    f"Please make sure the environment with {ep} has the required dependencies."
+                    "Error: %s Olive will ignore this %(ep)s."
+                    "Please make sure the environment with %(ep)s has the required dependencies.",
+                    result["error"],
+                    ep=ep,
                 )
                 return False
 

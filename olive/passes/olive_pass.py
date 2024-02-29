@@ -213,7 +213,7 @@ class Pass(ABC):
             elif value == PassParamDefault.SEARCHABLE_VALUES:
                 v = default_config[key].searchable_values
                 if v is None:
-                    logger.warning(f"Parameter {key} does not have searchable values. Using default value instead.")
+                    logger.warning("Parameter %s does not have searchable values. Using default value instead.", key)
                     v = default_config[key].default_value
                 config[key] = v
         return config

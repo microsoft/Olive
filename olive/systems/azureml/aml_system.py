@@ -227,7 +227,7 @@ class AzureMLSystem(OliveSystem):
             ml_client = self.azureml_client_config.create_client()
 
             # create aml model
-            logger.debug(f"Creating aml model for job output {resource_path}")
+            logger.debug("Creating aml model for job output %s", resource_path)
             aml_model = retry_func(
                 ml_client.models.create_or_update,
                 [
@@ -465,7 +465,7 @@ class AzureMLSystem(OliveSystem):
                     update_data_path(data_config, "data_dir", data_inputs, data_args, AssetTypes.URI_FOLDER)
                     update_data_path(data_config, "data_files", data_inputs, data_args, AssetTypes.URI_FILE)
 
-        logger.debug(f"Data inputs for pass: {data_inputs}, data args for pass: {data_args}")
+        logger.debug("Data inputs for pass: %s, data args for pass: %s", data_inputs, data_args)
         return DataParams(data_inputs, data_args)
 
     def _run_job(
@@ -489,7 +489,7 @@ class AzureMLSystem(OliveSystem):
             delay=self.azureml_client_config.operation_retry_interval,
             exceptions=HttpResponseError,
         )
-        logger.info(f"Pipeline submitted. Job name: {job.name}. Job link: {job.studio_url}")
+        logger.info("Pipeline submitted. Job name: %s. Job link: %s", job.name, job.studio_url)
         ml_client.jobs.stream(job.name)
 
         # get output
@@ -501,7 +501,7 @@ class AzureMLSystem(OliveSystem):
             output_arg["output_name"] = output_name
         else:
             output_arg["all"] = True
-        logger.debug(f"Downloading pipeline output to {output_dir}")
+        logger.debug("Downloading pipeline output to %s", output_dir)
         retry_func(
             ml_client.jobs.download,
             [job.name],

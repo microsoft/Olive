@@ -62,13 +62,14 @@ class DockerSystem(OliveSystem):
         self.run_params = local_docker_config.run_params
         try:
             self.image = self.docker_client.images.get(local_docker_config.image_name)
-            logger.info(f"Image {local_docker_config.image_name} found")
+            logger.info("Image %s found", local_docker_config.image_name)
 
         except docker.errors.ImageNotFound:
             with tempfile.TemporaryDirectory() as tempdir:
                 build_context_path = tempdir
                 if local_docker_config.build_context_path and local_docker_config.dockerfile:
                     dockerfile = local_docker_config.dockerfile
+                    dockerfile_path = Path(local_docker_config.build_context_path) / dockerfile
                     shutil.copytree(local_docker_config.build_context_path, build_context_path, dirs_exist_ok=True)
                 else:
                     dockerfile = self.BASE_DOCKERFILE
@@ -84,8 +85,9 @@ class DockerSystem(OliveSystem):
                             pass
 
                 logger.info(
-                    f"Building image from Dockerfile {build_context_path}/{local_docker_config.dockerfile}"
-                    f" with buildargs {local_docker_config.build_args} "
+                    "Building image from Dockerfile %s with buildargs %s ",
+                    dockerfile_path,
+                    local_docker_config.build_args,
                 )
                 try:
                     self.image, build_logs = self.docker_client.images.build(
@@ -94,7 +96,7 @@ class DockerSystem(OliveSystem):
                         tag=local_docker_config.image_name,
                         buildargs=local_docker_config.build_args,
                     )
-                    logger.info(f"Image {local_docker_config.image_name} build successfully.")
+                    logger.info("Image %s build successfully.", local_docker_config.image_name)
                     _print_docker_logs(build_logs, logging.DEBUG)
                 except BuildError as e:
                     logger.exception("Image build failed with error.")
@@ -155,7 +157,7 @@ class DockerSystem(OliveSystem):
 
         # mount config file
         data = self._create_runner_config(model_config, pass_config, docker_model_files, docker_data_paths)
-        logger.debug(f"Runner config is {data}")
+        logger.debug("Runner config is %s", data)
         docker_config_file, config_file_mount_str = docker_utils.create_config_file(
             workdir=workdir,
             config=data,
@@ -170,7 +172,7 @@ class DockerSystem(OliveSystem):
             container_root_path=container_root_path,
         )
         volumes_list.append(output_mount_str)
-        logger.debug(f"The volumes list is {volumes_list}")
+        logger.debug("The volumes list is %s", volumes_list)
 
         runner_command = docker_utils.create_runner_command(
             runner_script_path=docker_runner_path,
@@ -213,7 +215,7 @@ class DockerSystem(OliveSystem):
                 logger.debug("Model path is: %s", output_model.config["model_path"])
                 return output_model
         else:
-            logger.error(f"Model output file {model_output_json_file} not found.")
+            logger.error("Model output file %s not found.", model_output_json_file)
             return None
 
     def evaluate_model(
@@ -229,7 +231,7 @@ class DockerSystem(OliveSystem):
                     metrics_res = json.load(f)
                     return MetricResult.parse_obj(metrics_res)
             else:
-                logger.error(f"Metric result file {metric_json} not found.")
+                logger.error("Metric result file %s not found.", metric_json)
                 return None
 
     def _run_eval_container(
@@ -286,7 +288,7 @@ class DockerSystem(OliveSystem):
             container_root_path=container_root_path,
         )
         volumes_list.append(output_mount_str)
-        logger.debug(f"The volumes list is {volumes_list}")
+        logger.debug("The volumes list is %s", volumes_list)
 
         eval_command = docker_utils.create_evaluate_command(
             eval_script_path=eval_file_mount_path,
@@ -389,7 +391,7 @@ class DockerSystem(OliveSystem):
 
     def remove(self):
         self.docker_client.images.remove(self.image.tags[0], force=True)
-        logger.info(f"Image {self.image.tags[0]} removed successfully.")
+        logger.info("Image %s removed successfully.", self.image.tags[0])
 
 
 def _print_docker_logs(logs, level=logging.DEBUG):
@@ -414,11 +416,11 @@ def get_huggingface_token():
     token_path = Path.home() / ".huggingface" / "token"
     if not token_path.exists():
         logger.error(
-            "Huggingface token is required at this step."
-            f"Could not find huggingface token at {token_path}. "
+            "Huggingface token is required at this step. Could not find huggingface token at %s. "
             "Please login to huggingface first using `huggingface-cli login`. "
             "If you already logged in, Olive will get token from '~/.huggingface/token' file'. "
-            f"Please make sure the token file exists."
+            "Please make sure the token file exists.",
+            token_path,
         )
         return None
     with Path(token_path).open() as f:

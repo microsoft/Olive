@@ -111,12 +111,14 @@ class SparseGPT(Pass):
         device = config["compute_device"]
         if device == "auto":
             device = "cuda" if torch.cuda.is_available() else "cpu"
-        logger.debug(f"Running SparseGPT on {device} with model_type: {model_type}, mode: {mode}, sparsity: {sparsity}")
+        logger.debug(
+            "Running SparseGPT on %s with model_type: %s, mode: %s, sparsity: %s", device, model_type, mode, sparsity
+        )
 
         # load_data
         data_config = validate_config(config["data_config"], DataConfig)
         dataloader = data_config.to_data_container().create_dataloader(data_root)
-        logger.debug(f"Data loaded. Number of batches: {len(dataloader)}")
+        logger.debug("Data loaded. Number of batches: %d", len(dataloader))
 
         # load model
         pytorch_model = model.load_model()
@@ -135,7 +137,7 @@ class SparseGPT(Pass):
 
         # get the inputs to the first layer
         inputs, attention_mask, extras = catch_layer_inputs(pytorch_model, model_type, dataloader, device)
-        logger.debug(f"Inputs shape: {inputs.shape}")
+        logger.debug("Inputs shape: %s", inputs.shape)
         # place holder to store output from layer
         outputs = torch.zeros_like(inputs)
 
@@ -145,7 +147,7 @@ class SparseGPT(Pass):
         if isinstance(layer_name_filter, str):
             layer_name_filter = [layer_name_filter]
         # loop over layers
-        logger.debug(f"Pruning layers {min_layer} to {max_layer}...")
+        logger.debug("Pruning layers %d to %d...", min_layer, max_layer)
 
         def get_handler(sparge_gpt_module):
             def handler(_, inputs, output):
@@ -154,13 +156,12 @@ class SparseGPT(Pass):
             return handler
 
         for i in range(min_layer, max_layer):
-            logger.debug(f"Pruning layer {i}...")
+            logger.debug("Pruning layer %d...", i)
             layer = layers[i]
             layer.to(device)
 
             # get list of submodules in layer
             submodules = get_layer_submodules(layer, layer_name_filter=layer_name_filter)
-            # logger.debug(f"Submodules in layer {i}: {list(submodules.keys())}")
 
             # wrap submodules in layer with SparseGPTModule
             sparge_gpt_modules = {}
@@ -188,7 +189,7 @@ class SparseGPT(Pass):
                 )
                 losses[name] = loss
                 sparse_gpt_module.free()
-            logger.debug(f"Losses for layer {i}: {losses}")
+            logger.debug("Losses for layer %d: %s", i, losses)
 
             layer.to("cpu")
             if "cuda" in device:

@@ -58,8 +58,6 @@ disable = [
   "import-error",
   "import-outside-toplevel",
   "invalid-name",
-  "logging-format-interpolation",
-  "logging-fstring-interpolation",
   "no-else-continue",
   "no-else-raise",
   "no-else-return",
@@ -144,7 +142,6 @@ ignore = [
   "D107", # Ignore missing docstring in __init__
   "D406", # Ignore new line after section name
   "D407", # Ignore dashed-underline-after-section
-  "G004", # Ignore f-string logging
   "N803", # Argument casing
   "N812", # Allow import torch.nn.functional as F
   "N999", # Module names
