@@ -38,7 +38,7 @@ python phi2.py --model_type cpu_fp32 --inference --prompt "Write a extremely lon
 This command will
 1. generate optimized models if you never run the command before,
 2. reuse the optimized models if you have run the command before,
-3. then use the optimized model to do inference with simple greedy Top1 search strategy.
+3. then use the optimized model to do inference with greedy Top1 search strategy.
 Note that, we only use the simplest greedy Top1 search strategy for inference example which may show not very reasonable results.
 
 ## Limitations
