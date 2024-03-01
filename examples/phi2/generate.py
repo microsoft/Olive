@@ -3,8 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-import platform
-
 import numpy as np
 import onnxruntime as ort
 import torch
@@ -51,8 +49,8 @@ class ORTGenerator:
         )
         for i in range(self.num_layers):
             past = torch.zeros(past_shape, device=self.device, dtype=self.torch_dtype)
-            past_key_name = f"past_key_{i}" if platform.system() == "Linux" else f"past_key_values.{i}.key"
-            past_value_name = f"past_value_{i}" if platform.system() == "Linux" else f"past_key_values.{i}.value"
+            past_key_name = f"past_key_{i}"
+            past_value_name = f"past_value_{i}"
             (
                 inputs.update({past_key_name: past.contiguous(), past_value_name: past.clone().contiguous()})
                 if not self.packed_kv
@@ -69,11 +67,11 @@ class ORTGenerator:
                 else (batch_size, self.num_heads, sequence_length, self.head_size)
             )
             for i in range(self.num_layers):
+                present_key_name = f"present_key_{i}"
+                present_value_name = f"present_value_{i}"
                 present = torch.zeros(present_shape, device=self.device, dtype=self.torch_dtype)
                 (
-                    outputs.update(
-                        {f"present_key_{i}": present.contiguous(), f"present_value_{i}": present.contiguous()}
-                    )
+                    outputs.update({present_key_name: present.contiguous(), present_value_name: present.contiguous()})
                     if not self.packed_kv
                     else outputs.update({f"present_{i}": present.contiguous()})
                 )
@@ -98,10 +96,7 @@ class ORTGenerator:
         for output in model.get_outputs():
             name = output.name
             if self.use_buffer_share and "present" in name:
-                if platform.system() == "Linux":
-                    v = inputs[name.replace("present", "past")]
-                else:
-                    v = inputs[name.replace("present", "past_key_values")]
+                v = inputs[name.replace("present", "past")]
                 io_binding.bind_output(
                     name=name,
                     device_type=v.device.type,
@@ -189,12 +184,10 @@ class ORTGenerator:
 
             if not self.use_buffer_share:
                 for i in range(self.num_layers):
-                    past_key_name = f"past_key_{i}" if platform.system() == "Linux" else f"past_key_values.{i}.key"
-                    past_value_name = (
-                        f"past_value_{i}" if platform.system() == "Linux" else f"past_key_values.{i}.value"
-                    )
-                    present_key_name = f"present_key_{i}" if platform.system() == "Linux" else f"present.{i}.key"
-                    present_value_name = f"present_value_{i}" if platform.system() == "Linux" else f"present.{i}.value"
+                    past_key_name = f"past_key_{i}"
+                    past_value_name = f"past_value_{i}"
+                    present_key_name = f"present_key_{i}"
+                    present_value_name = f"present_value_{i}"
                     if not self.packed_kv:
                         inputs[past_key_name] = outputs[present_key_name]
                         inputs[past_value_name] = outputs[present_value_name]
@@ -208,8 +201,8 @@ class ORTGenerator:
                     else (batch_size, self.num_heads, new_sequence_length, self.head_size)
                 )
                 for i in range(self.num_layers):
-                    present_key_name = f"present_key_{i}" if platform.system() == "Linux" else f"present.{i}.key"
-                    present_value_name = f"present_value_{i}" if platform.system() == "Linux" else f"present.{i}.value"
+                    present_key_name = f"present_key_{i}"
+                    present_value_name = f"present_value_{i}"
                     present = torch.zeros(present_shape, device=self.device, dtype=self.torch_dtype)
                     (
                         outputs.update(

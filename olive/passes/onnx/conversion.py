@@ -195,13 +195,15 @@ class OnnxConversion(Pass):
 
             # handle dummy inputs for model with past, which has past_key_values
             # match input names in `past_key_values.(hidden_layer_num).(key|value)` pattern(llama2 case)
-            # or `past_key_values.(hidden_layer_num)` pattern (phi2 case)
+            # or `past_key_(hidden_layer_num)`| `past_value_(hidden_layer_num)` pattern (phi2 case)
+            import re
+
             for name, dm_input in dummy_inputs.items():
                 if name == "past_key_values" and isinstance(dm_input, list):
-                    key_value_names = [f"{name}.{idx}" for idx in range(len(dm_input))]
+                    kv_name_regrex_strs = [rf"past_(.*)(.|_){idx}(.(key|value))?" for idx in range(len(dm_input))]
                     if all(
-                        any(key_value_name in input_name for input_name in input_names)
-                        for key_value_name in key_value_names
+                        any(re.match(kv_r_str, input_name) for input_name in input_names)
+                        for kv_r_str in kv_name_regrex_strs
                     ):
                         dummy_input_keys.discard(name)
 

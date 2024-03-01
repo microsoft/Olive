@@ -25,25 +25,25 @@ SUPPORTED_INFERENCE_CONFIG = {
         # -1 to use CPU
         "device_id": -1,
         "use_fp16": False,
-        "use_step": True,
+        "use_step": platform.system() == "Linux",
     },
     "cpu_int4": {
         "use_buffer_share": False,
         "device_id": -1,
         "use_fp16": False,
-        "use_step": True,
+        "use_step": platform.system() == "Linux",
     },
     "cuda_fp16": {
         "use_buffer_share": False,
         "device_id": 0,
         "use_fp16": True,
-        "use_step": True,
+        "use_step": platform.system() == "Linux",
     },
     "cuda_int4": {
         "use_buffer_share": False,
         "device_id": 0,
         "use_fp16": True,
-        "use_step": True,
+        "use_step": platform.system() == "Linux",
     },
 }
 
@@ -59,7 +59,7 @@ def get_args(raw_args):
     parser.add_argument(
         "--model_type",
         type=str,
-        default="cuda_int4",
+        default="cpu_fp32",
         help="Choose from cpu_fp32, cpu_int4, cuda_fp16, cuda_int4",
     )
     parser.add_argument(
@@ -111,11 +111,9 @@ def main(raw_args=None):
 
     if platform.system() == "Windows":
         template_json["passes"]["convert"]["config"]["use_dynamo_exporter"] = False
+        template_json["passes"]["convert"]["config"]["target_opset"] = 17
         template_json["passes"]["optimize_cpu"]["config"]["model_type"] = "gpt2"
         template_json["passes"]["optimize_cuda"]["config"]["model_type"] = "gpt2"
-
-    with open("phi2_optimize.json", "w") as f:
-        json.dump(template_json, f, indent=4)
 
     # add pass flows
     model_type = str(args.model_type)
@@ -131,6 +129,9 @@ def main(raw_args=None):
         template_json["engine"]["execution_providers"] = ["CUDAExecutionProvider"]
     if "cpu" in model_type:
         template_json["engine"]["execution_providers"] = ["CPUExecutionProvider"]
+
+    with open("phi2_optimize.json", "w") as f:
+        json.dump(template_json, f, indent=4)
 
     footprints = olive_run(template_json)
     output_model_path = get_output_model_path(footprints)
