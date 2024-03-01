@@ -130,37 +130,25 @@
 <span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
 <span class="c1"># Licensed under the MIT License.</span>
 <span class="c1"># --------------------------------------------------------------------------</span>
-<span class="kn">import</span> <span class="nn">collections</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">pickle</span>
 <span class="kn">import</span> <span class="nn">platform</span>
 <span class="kn">import</span> <span class="nn">tempfile</span>
-<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">torch</span>
-
 <span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">run_subprocess</span>
-<span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Metric</span><span class="p">,</span>
-    <span class="n">MetricResult</span><span class="p">,</span>
-    <span class="n">MetricType</span><span class="p">,</span>
-    <span class="n">flatten_metric_result</span><span class="p">,</span>
-    <span class="n">get_latency_config_from_metric</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">olive.evaluator.olive_evaluator</span> <span class="kn">import</span> <span class="n">OliveEvaluator</span><span class="p">,</span> <span class="n">OliveModelOutput</span><span class="p">,</span> <span class="n">OnnxEvaluator</span>
-<span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">AcceleratorLookup</span><span class="p">,</span> <span class="n">AcceleratorSpec</span><span class="p">,</span> <span class="n">Device</span>
-<span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span><span class="p">,</span> <span class="n">ONNXModelHandler</span>
+<span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">MetricResult</span>
+<span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span>
 <span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">SystemType</span>
 <span class="kn">from</span> <span class="nn">olive.systems.olive_system</span> <span class="kn">import</span> <span class="n">OliveSystem</span>
 <span class="kn">from</span> <span class="nn">olive.systems.system_config</span> <span class="kn">import</span> <span class="n">PythonEnvironmentTargetUserConfig</span>
-<span class="kn">from</span> <span class="nn">olive.systems.utils</span> <span class="kn">import</span> <span class="n">get_package_name_from_ep</span>
+<span class="kn">from</span> <span class="nn">olive.systems.utils</span> <span class="kn">import</span> <span class="n">create_new_environ</span><span class="p">,</span> <span class="n">get_package_name_from_ep</span><span class="p">,</span> <span class="n">run_available_providers_runner</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">Metric</span>
+    <span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">AcceleratorSpec</span>
     <span class="kn">from</span> <span class="nn">olive.passes.olive_pass</span> <span class="kn">import</span> <span class="n">Pass</span>
 
 
@@ -189,13 +177,11 @@
             <span class="n">olive_managed_env</span><span class="o">=</span><span class="n">olive_managed_env</span><span class="p">,</span>
             <span class="n">requirements_file</span><span class="o">=</span><span class="n">requirements_file</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">environ</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">environment_variables</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">environment_variables</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">prepend_to_path</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;PATH&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">pathsep</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">prepend_to_path</span><span class="p">)</span> <span class="o">+</span> <span class="n">os</span><span class="o">.</span><span class="n">pathsep</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;PATH&quot;</span><span class="p">]</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">python_environment_path</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;PATH&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">python_environment_path</span><span class="p">)</span> <span class="o">+</span> <span class="n">os</span><span class="o">.</span><span class="n">pathsep</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;PATH&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">environ</span> <span class="o">=</span> <span class="n">create_new_environ</span><span class="p">(</span>
+            <span class="n">python_environment_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">python_environment_path</span><span class="p">,</span>
+            <span class="n">environment_variables</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">environment_variables</span><span class="p">,</span>
+            <span class="n">prepend_to_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">prepend_to_path</span><span class="p">,</span>
+        <span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">olive_managed_env</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">platform</span><span class="o">.</span><span class="n">system</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;Linux&quot;</span><span class="p">:</span>
                 <span class="n">temp_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;HOME&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span> <span class="s2">&quot;tmp&quot;</span><span class="p">)</span>
@@ -210,9 +196,42 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">available_eps</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="c1"># path to inference script</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">inference_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span> <span class="o">/</span> <span class="s2">&quot;inference_runner.py&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">pass_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span> <span class="o">/</span> <span class="s2">&quot;pass_runner.py&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">accelerators</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">accelerators</span> <span class="k">else</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span>
+        <span class="n">parent_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pass_runner_path</span> <span class="o">=</span> <span class="n">parent_dir</span> <span class="o">/</span> <span class="s2">&quot;pass_runner.py&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">evaluation_runner_path</span> <span class="o">=</span> <span class="n">parent_dir</span> <span class="o">/</span> <span class="s2">&quot;evaluation_runner.py&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_run_command</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">script_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">config_jsons</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run a script with the given config jsons and return the output json.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tmp_dir</span><span class="p">:</span>
+            <span class="n">tmp_dir_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tmp_dir</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+
+            <span class="c1"># command to run</span>
+            <span class="n">command</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;python&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">script_path</span><span class="p">)]</span>
+
+            <span class="c1"># write config jsons to files</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">config_json</span> <span class="ow">in</span> <span class="n">config_jsons</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">config_json_path</span> <span class="o">=</span> <span class="n">tmp_dir_path</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">.json&quot;</span>
+                <span class="k">with</span> <span class="n">config_json_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">config_json</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+                <span class="n">command</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;--</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">config_json_path</span><span class="p">)])</span>
+
+            <span class="c1"># add extra args</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">command</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;--</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">value</span><span class="p">)])</span>
+
+            <span class="c1"># output path</span>
+            <span class="n">output_path</span> <span class="o">=</span> <span class="n">tmp_dir_path</span> <span class="o">/</span> <span class="s2">&quot;output.json&quot;</span>
+            <span class="n">command</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s2">&quot;--output_path&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">output_path</span><span class="p">)])</span>
+
+            <span class="c1"># run the command</span>
+            <span class="n">run_subprocess</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">env</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+            <span class="k">with</span> <span class="n">output_path</span><span class="o">.</span><span class="n">open</span><span class="p">()</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">output</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">output</span>
 
     <span class="k">def</span> <span class="nf">run_pass</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -223,292 +242,46 @@
         <span class="n">point</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelConfig</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the pass on the model at a specific point in the search space.&quot;&quot;&quot;</span>
-        <span class="n">model_config_json</span> <span class="o">=</span> <span class="n">model_config</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span>
         <span class="n">point</span> <span class="o">=</span> <span class="n">point</span> <span class="ow">or</span> <span class="p">{}</span>
         <span class="n">config</span> <span class="o">=</span> <span class="n">the_pass</span><span class="o">.</span><span class="n">config_at_search_point</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
         <span class="n">pass_config</span> <span class="o">=</span> <span class="n">the_pass</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">pass_config</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">the_pass</span><span class="o">.</span><span class="n">serialize_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
-
-        <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tmp_dir</span><span class="p">:</span>
-            <span class="n">tmp_dir_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tmp_dir</span><span class="p">)</span>
-            <span class="n">model_json_path</span> <span class="o">=</span> <span class="n">tmp_dir_path</span> <span class="o">/</span> <span class="s2">&quot;model.json&quot;</span>
-            <span class="n">pass_json_path</span> <span class="o">=</span> <span class="n">tmp_dir_path</span> <span class="o">/</span> <span class="s2">&quot;pass.json&quot;</span>
-            <span class="n">output_model_json_path</span> <span class="o">=</span> <span class="n">tmp_dir_path</span> <span class="o">/</span> <span class="s2">&quot;output_model.json&quot;</span>
-
-            <span class="k">with</span> <span class="n">model_json_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">model_config_json</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
-            <span class="k">with</span> <span class="n">pass_json_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">pass_config</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
-
-            <span class="c1"># run pass</span>
-            <span class="n">command</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="s2">&quot;python&quot;</span><span class="p">,</span>
-                <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pass_path</span><span class="p">),</span>
-                <span class="s2">&quot;--model_json_path&quot;</span><span class="p">,</span>
-                <span class="nb">str</span><span class="p">(</span><span class="n">model_json_path</span><span class="p">),</span>
-                <span class="s2">&quot;--pass_json_path&quot;</span><span class="p">,</span>
-                <span class="nb">str</span><span class="p">(</span><span class="n">pass_json_path</span><span class="p">),</span>
-                <span class="s2">&quot;--output_model_path&quot;</span><span class="p">,</span>
-                <span class="nb">str</span><span class="p">(</span><span class="n">output_model_path</span><span class="p">),</span>
-                <span class="s2">&quot;--output_model_json_path&quot;</span><span class="p">,</span>
-                <span class="nb">str</span><span class="p">(</span><span class="n">output_model_json_path</span><span class="p">),</span>
-            <span class="p">]</span>
-            <span class="k">if</span> <span class="n">data_root</span><span class="p">:</span>
-                <span class="n">command</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s2">&quot;--data_root&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">data_root</span><span class="p">)])</span>
-
-            <span class="n">run_subprocess</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">env</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-            <span class="k">with</span> <span class="n">output_model_json_path</span><span class="o">.</span><span class="n">open</span><span class="p">()</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                <span class="n">model_json</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-                <span class="n">output_model</span> <span class="o">=</span> <span class="n">ModelConfig</span><span class="o">.</span><span class="n">from_json</span><span class="p">(</span><span class="n">model_json</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">output_model</span>
+        <span class="n">config_jsons</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;model_config&quot;</span><span class="p">:</span> <span class="n">model_config</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+            <span class="s2">&quot;pass_config&quot;</span><span class="p">:</span> <span class="n">pass_config</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">output_model_json</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_command</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pass_runner_path</span><span class="p">,</span>
+            <span class="n">config_jsons</span><span class="p">,</span>
+            <span class="n">data_root</span><span class="o">=</span><span class="n">data_root</span><span class="p">,</span>
+            <span class="n">tempdir</span><span class="o">=</span><span class="n">tempfile</span><span class="o">.</span><span class="n">tempdir</span><span class="p">,</span>
+            <span class="n">output_model_path</span><span class="o">=</span><span class="n">output_model_path</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">ModelConfig</span><span class="o">.</span><span class="n">parse_obj</span><span class="p">(</span><span class="n">output_model_json</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">evaluate_model</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span> <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span> <span class="n">accelerator</span><span class="p">:</span> <span class="n">AcceleratorSpec</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span> <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="s2">&quot;Metric&quot;</span><span class="p">],</span> <span class="n">accelerator</span><span class="p">:</span> <span class="s2">&quot;AcceleratorSpec&quot;</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate the model.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">model_config</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;ONNXModel&quot;</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;PythonEnvironmentSystem can only evaluate ONNXModel.&quot;</span><span class="p">)</span>
-
-        <span class="c1"># check if custom metric is present</span>
-        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">MetricType</span><span class="o">.</span><span class="n">CUSTOM</span> <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;PythonEnvironmentSystem does not support custom metrics.&quot;</span><span class="p">)</span>
-
-        <span class="n">model</span> <span class="o">=</span> <span class="n">model_config</span><span class="o">.</span><span class="n">create_model</span><span class="p">()</span>
-        <span class="n">metrics_res</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">original_metric</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">:</span>
-            <span class="n">metric</span> <span class="o">=</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">generate_metric_user_config_with_model_io</span><span class="p">(</span><span class="n">original_metric</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">MetricType</span><span class="o">.</span><span class="n">ACCURACY</span><span class="p">:</span>
-                <span class="n">metrics_res</span><span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_accuracy</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">accelerator</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="n">metric</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">MetricType</span><span class="o">.</span><span class="n">LATENCY</span><span class="p">:</span>
-                <span class="n">metrics_res</span><span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_latency</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">accelerator</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">flatten_metric_result</span><span class="p">(</span><span class="n">metrics_res</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">evaluate_accuracy</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">ONNXModelHandler</span><span class="p">,</span> <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">accelerator</span><span class="p">:</span> <span class="n">AcceleratorSpec</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate the accuracy of the model.&quot;&quot;&quot;</span>
-        <span class="n">dataloader</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">post_func</span> <span class="o">=</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">get_user_config</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">framework</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">metric</span><span class="p">)</span>
-
-        <span class="n">preds</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">targets</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">logits</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">logits_dict</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
-        <span class="n">inference_settings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_inference_settings</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">accelerator</span><span class="p">)</span>
-        <span class="n">io_config</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_io_config</span><span class="p">()</span>
-        <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tmp_dir</span><span class="p">:</span>
-            <span class="n">tmp_dir_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tmp_dir</span><span class="p">)</span>
-            <span class="c1"># create input and output dir</span>
-            <span class="n">input_dir</span> <span class="o">=</span> <span class="n">tmp_dir_path</span> <span class="o">/</span> <span class="s2">&quot;input&quot;</span>
-            <span class="n">input_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="n">output_dir</span> <span class="o">=</span> <span class="n">tmp_dir_path</span> <span class="o">/</span> <span class="s2">&quot;output&quot;</span>
-            <span class="n">output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-            <span class="c1"># save inference settings</span>
-            <span class="n">inference_settings_path</span> <span class="o">=</span> <span class="n">tmp_dir_path</span> <span class="o">/</span> <span class="s2">&quot;inference_settings.pb&quot;</span>
-            <span class="k">with</span> <span class="n">inference_settings_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">inference_settings</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
-
-            <span class="n">num_batches</span> <span class="o">=</span> <span class="mi">0</span>
-            <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dataloader</span><span class="p">):</span>
-                <span class="c1"># save input data to npz</span>
-                <span class="n">input_dict</span> <span class="o">=</span> <span class="n">OnnxEvaluator</span><span class="o">.</span><span class="n">format_input</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">io_config</span><span class="p">)</span>
-                <span class="n">input_path</span> <span class="o">=</span> <span class="n">input_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;input_</span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2">.npz&quot;</span>
-                <span class="n">np</span><span class="o">.</span><span class="n">savez</span><span class="p">(</span><span class="n">input_path</span><span class="p">,</span> <span class="o">**</span><span class="n">input_dict</span><span class="p">)</span>
-                <span class="c1"># save labels</span>
-                <span class="n">targets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">labels</span><span class="o">.</span><span class="n">cpu</span><span class="p">())</span>
-                <span class="n">num_batches</span> <span class="o">+=</span> <span class="mi">1</span>
-
-            <span class="c1"># run inference</span>
-            <span class="n">command</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="s2">&quot;python&quot;</span><span class="p">,</span>
-                <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">inference_path</span><span class="p">),</span>
-                <span class="s2">&quot;--type&quot;</span><span class="p">,</span>
-                <span class="n">metric</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
-                <span class="s2">&quot;--model_path&quot;</span><span class="p">,</span>
-                <span class="nb">str</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">model_path</span><span class="p">),</span>
-                <span class="s2">&quot;--inference_settings_path&quot;</span><span class="p">,</span>
-                <span class="nb">str</span><span class="p">(</span><span class="n">inference_settings_path</span><span class="p">),</span>
-                <span class="s2">&quot;--input_dir&quot;</span><span class="p">,</span>
-                <span class="nb">str</span><span class="p">(</span><span class="n">input_dir</span><span class="p">),</span>
-                <span class="s2">&quot;--num_batches&quot;</span><span class="p">,</span>
-                <span class="nb">str</span><span class="p">(</span><span class="n">num_batches</span><span class="p">),</span>
-                <span class="s2">&quot;--output_dir&quot;</span><span class="p">,</span>
-                <span class="nb">str</span><span class="p">(</span><span class="n">output_dir</span><span class="p">),</span>
-            <span class="p">]</span>
-            <span class="n">run_subprocess</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">env</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-            <span class="c1"># load output</span>
-            <span class="n">output_names</span> <span class="o">=</span> <span class="n">io_config</span><span class="p">[</span><span class="s2">&quot;output_names&quot;</span><span class="p">]</span>
-            <span class="n">is_single_tensor_output</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">output_names</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
-            <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_batches</span><span class="p">):</span>
-                <span class="n">output_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;output_</span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2">.npy&quot;</span>
-                <span class="n">output</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">output_path</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">is_single_tensor_output</span><span class="p">:</span>
-                    <span class="n">output</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">output</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="c1"># convert to dict of torch tensor</span>
-                    <span class="n">output</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">output</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">output_names</span><span class="p">)}</span>
-                <span class="k">if</span> <span class="n">post_func</span><span class="p">:</span>
-                    <span class="n">output</span> <span class="o">=</span> <span class="n">post_func</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
-                <span class="n">preds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">cpu</span><span class="p">())</span>
-                <span class="k">if</span> <span class="n">is_single_tensor_output</span><span class="p">:</span>
-                    <span class="n">logits</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">cpu</span><span class="p">())</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">output_names</span><span class="p">:</span>
-                        <span class="n">logits_dict</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">output</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">cpu</span><span class="p">())</span>
-            <span class="n">preds</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">preds</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-            <span class="n">targets</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">targets</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">is_single_tensor_output</span><span class="p">:</span>
-                <span class="n">logits</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">logits</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">logits</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">logits</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">output_names</span><span class="p">}</span>
-
-        <span class="n">model_output</span> <span class="o">=</span> <span class="n">OliveModelOutput</span><span class="p">(</span><span class="n">preds</span><span class="p">,</span> <span class="n">logits</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">compute_accuracy</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">model_output</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">evaluate_latency</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">ONNXModelHandler</span><span class="p">,</span> <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">accelerator</span><span class="p">:</span> <span class="n">AcceleratorSpec</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate the latency of the model.&quot;&quot;&quot;</span>
-        <span class="n">dataloader</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">get_user_config</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">framework</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">metric</span><span class="p">)</span>
-        <span class="n">warmup_num</span><span class="p">,</span> <span class="n">repeat_test_num</span><span class="p">,</span> <span class="n">sleep_num</span> <span class="o">=</span> <span class="n">get_latency_config_from_metric</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
-
-        <span class="n">latencies</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">inference_settings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_inference_settings</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">accelerator</span><span class="p">)</span>
-        <span class="n">io_config</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_io_config</span><span class="p">()</span>
-
-        <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tmp_dir</span><span class="p">:</span>
-            <span class="n">tmp_dir_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tmp_dir</span><span class="p">)</span>
-            <span class="c1"># create input and output dir</span>
-            <span class="n">input_dir</span> <span class="o">=</span> <span class="n">tmp_dir_path</span> <span class="o">/</span> <span class="s2">&quot;input&quot;</span>
-            <span class="n">input_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="n">output_dir</span> <span class="o">=</span> <span class="n">tmp_dir_path</span> <span class="o">/</span> <span class="s2">&quot;output&quot;</span>
-            <span class="n">output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-            <span class="c1"># save inference settings</span>
-            <span class="n">inference_settings_path</span> <span class="o">=</span> <span class="n">tmp_dir_path</span> <span class="o">/</span> <span class="s2">&quot;inference_settings.pb&quot;</span>
-            <span class="k">with</span> <span class="n">inference_settings_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">inference_settings</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
-
-            <span class="c1"># save input data to npz</span>
-            <span class="n">input_data</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">dataloader</span><span class="p">))</span>
-            <span class="n">input_dict</span> <span class="o">=</span> <span class="n">OnnxEvaluator</span><span class="o">.</span><span class="n">format_input</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">io_config</span><span class="p">)</span>
-            <span class="n">np</span><span class="o">.</span><span class="n">savez</span><span class="p">(</span><span class="n">input_dir</span> <span class="o">/</span> <span class="s2">&quot;input.npz&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">input_dict</span><span class="p">)</span>
-
-            <span class="c1"># run inference</span>
-            <span class="n">command</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="s2">&quot;python&quot;</span><span class="p">,</span>
-                <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">inference_path</span><span class="p">),</span>
-                <span class="s2">&quot;--type&quot;</span><span class="p">,</span>
-                <span class="n">metric</span><span class="o">.</span><span class="n">type</span><span class="p">,</span>
-                <span class="s2">&quot;--model_path&quot;</span><span class="p">,</span>
-                <span class="nb">str</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">model_path</span><span class="p">),</span>
-                <span class="s2">&quot;--inference_settings_path&quot;</span><span class="p">,</span>
-                <span class="nb">str</span><span class="p">(</span><span class="n">inference_settings_path</span><span class="p">),</span>
-                <span class="s2">&quot;--input_dir&quot;</span><span class="p">,</span>
-                <span class="nb">str</span><span class="p">(</span><span class="n">input_dir</span><span class="p">),</span>
-                <span class="s2">&quot;--output_dir&quot;</span><span class="p">,</span>
-                <span class="nb">str</span><span class="p">(</span><span class="n">output_dir</span><span class="p">),</span>
-                <span class="s2">&quot;--warmup_num&quot;</span><span class="p">,</span>
-                <span class="nb">str</span><span class="p">(</span><span class="n">warmup_num</span><span class="p">),</span>
-                <span class="s2">&quot;--repeat_test_num&quot;</span><span class="p">,</span>
-                <span class="nb">str</span><span class="p">(</span><span class="n">repeat_test_num</span><span class="p">),</span>
-                <span class="s2">&quot;--sleep_num&quot;</span><span class="p">,</span>
-                <span class="nb">str</span><span class="p">(</span><span class="n">sleep_num</span><span class="p">),</span>
-            <span class="p">]</span>
-            <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">io_bind</span><span class="p">:</span>
-                <span class="n">command</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s2">&quot;--io_bind&quot;</span><span class="p">,</span> <span class="s2">&quot;--device&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)])</span>
-            <span class="n">run_subprocess</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">env</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-            <span class="c1"># load output</span>
-            <span class="n">latencies</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;output.npy&quot;</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">compute_latency</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">latencies</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">get_inference_settings</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">ONNXModelHandler</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">accelerator</span><span class="p">:</span> <span class="n">AcceleratorSpec</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the model inference settings.&quot;&quot;&quot;</span>
-        <span class="n">inference_settings</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">get_inference_settings</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">framework</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
-        <span class="n">inference_settings</span> <span class="o">=</span> <span class="n">inference_settings</span> <span class="ow">or</span> <span class="n">model</span><span class="o">.</span><span class="n">inference_settings</span> <span class="ow">or</span> <span class="p">{}</span>
-        <span class="n">inference_settings</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">inference_settings</span><span class="p">)</span>
-
-        <span class="c1"># if user doesn&#39;t not provide ep list, use default value([ep]). Otherwise, use the user&#39;s ep list</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">inference_settings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;execution_provider&quot;</span><span class="p">):</span>
-            <span class="n">execution_providers</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="n">accelerator</span><span class="o">.</span><span class="n">execution_provider</span> <span class="k">if</span> <span class="n">accelerator</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_default_execution_provider</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
-            <span class="p">)</span>
-            <span class="n">inference_settings</span><span class="p">[</span><span class="s2">&quot;execution_provider&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">execution_providers</span>
-
-        <span class="k">return</span> <span class="n">inference_settings</span>
+        <span class="n">config_jsons</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;model_config&quot;</span><span class="p">:</span> <span class="n">model_config</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+            <span class="s2">&quot;metrics_config&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">],</span>
+            <span class="s2">&quot;accelerator_config&quot;</span><span class="p">:</span> <span class="n">accelerator</span><span class="o">.</span><span class="n">to_json</span><span class="p">(),</span>
+        <span class="p">}</span>
+        <span class="n">metric_results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_command</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">evaluation_runner_path</span><span class="p">,</span> <span class="n">config_jsons</span><span class="p">,</span> <span class="n">data_root</span><span class="o">=</span><span class="n">data_root</span><span class="p">,</span> <span class="n">tempdir</span><span class="o">=</span><span class="n">tempfile</span><span class="o">.</span><span class="n">tempdir</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">MetricResult</span><span class="o">.</span><span class="n">parse_obj</span><span class="p">(</span><span class="n">metric_results</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">get_supported_execution_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the available execution providers.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">available_eps</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">available_eps</span>
 
-        <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">temp_dir</span><span class="p">:</span>
-            <span class="n">available_eps_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span> <span class="o">/</span> <span class="s2">&quot;available_eps.py&quot;</span>
-            <span class="n">output_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">temp_dir</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span> <span class="o">/</span> <span class="s2">&quot;available_eps.pb&quot;</span>
-            <span class="n">run_subprocess</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;python </span><span class="si">{</span><span class="n">available_eps_path</span><span class="si">}</span><span class="s2"> --output_path </span><span class="si">{</span><span class="n">output_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-                <span class="n">env</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">,</span>
-                <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-            <span class="p">)</span>
-            <span class="k">with</span> <span class="n">output_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                <span class="n">available_eps</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">available_eps</span> <span class="o">=</span> <span class="n">available_eps</span>
-            <span class="k">return</span> <span class="n">available_eps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">available_eps</span> <span class="o">=</span> <span class="n">run_available_providers_runner</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">available_eps</span>
 
-    <span class="k">def</span> <span class="nf">get_execution_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the execution providers for the device.&quot;&quot;&quot;</span>
-        <span class="n">available_eps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_supported_execution_providers</span><span class="p">()</span>
-        <span class="k">return</span> <span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">get_execution_providers_for_device_by_available_providers</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">available_eps</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">get_default_execution_provider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">ONNXModelHandler</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the default execution provider for the model.&quot;&quot;&quot;</span>
-        <span class="c1"># return first available ep as ort default ep</span>
-        <span class="n">available_providers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_execution_providers</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">available_providers</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_valid_ep</span><span class="p">(</span><span class="n">ep</span><span class="p">,</span> <span class="n">model</span><span class="p">):</span>
-                <span class="k">return</span> <span class="p">[</span><span class="n">ep</span><span class="p">]</span>
-        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">]</span>
-
-    <span class="k">def</span> <span class="nf">is_valid_ep</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ep</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">ONNXModelHandler</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if the execution provider is valid for the model.&quot;&quot;&quot;</span>
-        <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">temp_dir</span><span class="p">:</span>
-            <span class="n">is_valid_ep_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span> <span class="o">/</span> <span class="s2">&quot;is_valid_ep.py&quot;</span>
-            <span class="n">output_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">temp_dir</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span> <span class="o">/</span> <span class="s2">&quot;result.pb&quot;</span>
-            <span class="n">run_subprocess</span><span class="p">(</span>
-                <span class="p">[</span>
-                    <span class="s2">&quot;python&quot;</span><span class="p">,</span>
-                    <span class="nb">str</span><span class="p">(</span><span class="n">is_valid_ep_path</span><span class="p">),</span>
-                    <span class="s2">&quot;--model_path&quot;</span><span class="p">,</span>
-                    <span class="nb">str</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">model_path</span><span class="p">),</span>
-                    <span class="s2">&quot;--ep&quot;</span><span class="p">,</span>
-                    <span class="n">ep</span><span class="p">,</span>
-                    <span class="s2">&quot;--output_path&quot;</span><span class="p">,</span>
-                    <span class="nb">str</span><span class="p">(</span><span class="n">output_path</span><span class="p">),</span>
-                <span class="p">],</span>
-                <span class="n">env</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">,</span>
-                <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-            <span class="p">)</span>
-            <span class="k">with</span> <span class="n">output_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                <span class="n">result</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;valid&quot;</span><span class="p">]:</span>
-                <span class="k">return</span> <span class="kc">True</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                    <span class="s2">&quot;Error: </span><span class="si">%s</span><span class="s2"> Olive will ignore this </span><span class="si">%(ep)s</span><span class="s2">.&quot;</span>
-                    <span class="s2">&quot;Please make sure the environment with </span><span class="si">%(ep)s</span><span class="s2"> has the required dependencies.&quot;</span><span class="p">,</span>
-                    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;error&quot;</span><span class="p">],</span>
-                    <span class="n">ep</span><span class="o">=</span><span class="n">ep</span><span class="p">,</span>
-                <span class="p">)</span>
-                <span class="k">return</span> <span class="kc">False</span>
-
-    <span class="k">def</span> <span class="nf">install_requirements</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">accelerator</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">install_requirements</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">accelerator</span><span class="p">:</span> <span class="s2">&quot;AcceleratorSpec&quot;</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Install required packages.&quot;&quot;&quot;</span>
         <span class="c1"># install common packages</span>
         <span class="n">common_requirements_file</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span> <span class="o">/</span> <span class="s2">&quot;common_requirements.txt&quot;</span>

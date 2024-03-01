@@ -126,6 +126,10 @@
 <li class="toctree-l4"><a class="reference internal" href="#olive.systems.system_config.PythonEnvironmentTargetUserConfig"><code class="docutils literal notranslate"><span class="pre">PythonEnvironmentTargetUserConfig</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#isolatedorttargetuserconfig">IsolatedORTTargetUserConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#olive.systems.system_config.IsolatedORTTargetUserConfig"><code class="docutils literal notranslate"><span class="pre">IsolatedORTTargetUserConfig</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#classes">Classes</a><ul>
@@ -145,6 +149,7 @@
 <li class="toctree-l4"><a class="reference internal" href="#olive.systems.python_environment.PythonEnvironmentSystem"><code class="docutils literal notranslate"><span class="pre">PythonEnvironmentSystem</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#isolatedortsystem">IsolatedORTSystem</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#module-olive.systems.system_alias">System Alias</a><ul>
@@ -295,6 +300,11 @@
 <dl class="py attribute">
 <dt class="sig sig-object py" id="olive.systems.common.SystemType.Docker">
 <span class="sig-name descname"><span class="pre">Docker</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Docker'</span></em><a class="headerlink" href="#olive.systems.common.SystemType.Docker" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="olive.systems.common.SystemType.IsolatedORT">
+<span class="sig-name descname"><span class="pre">IsolatedORT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'IsolatedORT'</span></em><a class="headerlink" href="#olive.systems.common.SystemType.IsolatedORT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
@@ -487,21 +497,6 @@
 <dt class="sig sig-object py" id="olive.systems.system_config.PythonEnvironmentTargetUserConfig">
 <em class="property"><span class="pre">pydantic</span> <span class="pre">settings</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">olive.systems.system_config.</span></span><span class="sig-name descname"><span class="pre">PythonEnvironmentTargetUserConfig</span></span><a class="reference internal" href="../_modules/olive/systems/system_config.html#PythonEnvironmentTargetUserConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.systems.system_config.PythonEnvironmentTargetUserConfig" title="Permalink to this definition">¶</a></dt>
 <dd><dl class="py attribute pydantic_field">
-<dt class="sig sig-object py" id="olive.systems.system_config.PythonEnvironmentTargetUserConfig.python_environment_path">
-<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">python_environment_path</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.systems.system_config.PythonEnvironmentTargetUserConfig.python_environment_path" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute pydantic_field">
-<dt class="sig sig-object py" id="olive.systems.system_config.PythonEnvironmentTargetUserConfig.environment_variables">
-<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">environment_variables</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.systems.system_config.PythonEnvironmentTargetUserConfig.environment_variables" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute pydantic_field">
-<dt class="sig sig-object py" id="olive.systems.system_config.PythonEnvironmentTargetUserConfig.prepend_to_path">
-<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">prepend_to_path</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.systems.system_config.PythonEnvironmentTargetUserConfig.prepend_to_path" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute pydantic_field">
 <dt class="sig sig-object py" id="olive.systems.system_config.PythonEnvironmentTargetUserConfig.olive_managed_env">
 <em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">olive_managed_env</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#olive.systems.system_config.PythonEnvironmentTargetUserConfig.olive_managed_env" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -509,6 +504,29 @@
 <dl class="py attribute pydantic_field">
 <dt class="sig sig-object py" id="olive.systems.system_config.PythonEnvironmentTargetUserConfig.requirements_file">
 <em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">requirements_file</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.systems.system_config.PythonEnvironmentTargetUserConfig.requirements_file" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="isolatedorttargetuserconfig">
+<span id="isolated-ort-system-config"></span><h3>IsolatedORTTargetUserConfig<a class="headerlink" href="#isolatedorttargetuserconfig" title="Permalink to this heading">¶</a></h3>
+<dl class="py class pydantic_settings">
+<dt class="sig sig-object py" id="olive.systems.system_config.IsolatedORTTargetUserConfig">
+<em class="property"><span class="pre">pydantic</span> <span class="pre">settings</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">olive.systems.system_config.</span></span><span class="sig-name descname"><span class="pre">IsolatedORTTargetUserConfig</span></span><a class="reference internal" href="../_modules/olive/systems/system_config.html#IsolatedORTTargetUserConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.systems.system_config.IsolatedORTTargetUserConfig" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.systems.system_config.IsolatedORTTargetUserConfig.python_environment_path">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">python_environment_path</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.systems.system_config.IsolatedORTTargetUserConfig.python_environment_path" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.systems.system_config.IsolatedORTTargetUserConfig.environment_variables">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">environment_variables</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.systems.system_config.IsolatedORTTargetUserConfig.environment_variables" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.systems.system_config.IsolatedORTTargetUserConfig.prepend_to_path">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">prepend_to_path</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.systems.system_config.IsolatedORTTargetUserConfig.prepend_to_path" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -548,6 +566,9 @@
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">olive.systems.python_environment.</span></span><span class="sig-name descname"><span class="pre">PythonEnvironmentSystem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">python_environment_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">environment_variables</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prepend_to_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">accelerators</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">olive_managed_env</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">requirements_file</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hf_token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/olive/systems/python_environment/python_environment_system.html#PythonEnvironmentSystem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.systems.python_environment.PythonEnvironmentSystem" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+</section>
+<section id="isolatedortsystem">
+<h3>IsolatedORTSystem<a class="headerlink" href="#isolatedortsystem" title="Permalink to this heading">¶</a></h3>
 </section>
 </section>
 <section id="module-olive.systems.system_alias">

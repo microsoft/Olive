@@ -137,13 +137,14 @@
 <span class="kn">import</span> <span class="nn">onnx</span>
 <span class="kn">from</span> <span class="nn">onnx</span> <span class="kn">import</span> <span class="n">GraphProto</span><span class="p">,</span> <span class="n">ModelProto</span>
 
-<span class="kn">from</span> <span class="nn">olive.common.ort_inference</span> <span class="kn">import</span> <span class="n">get_ort_inference_session</span>
+<span class="kn">from</span> <span class="nn">olive.common.ort_inference</span> <span class="kn">import</span> <span class="n">OrtSessionFallbackError</span><span class="p">,</span> <span class="n">get_ort_inference_session</span>
 <span class="kn">from</span> <span class="nn">olive.constants</span> <span class="kn">import</span> <span class="n">Framework</span><span class="p">,</span> <span class="n">ModelFileFormat</span>
+<span class="kn">from</span> <span class="nn">olive.exception</span> <span class="kn">import</span> <span class="n">OliveEvaluationError</span>
 <span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">AcceleratorLookup</span><span class="p">,</span> <span class="n">Device</span>
 <span class="kn">from</span> <span class="nn">olive.model.config.registry</span> <span class="kn">import</span> <span class="n">model_handler_registry</span>
 <span class="kn">from</span> <span class="nn">olive.model.handler.base</span> <span class="kn">import</span> <span class="n">OliveModelHandler</span>
 <span class="kn">from</span> <span class="nn">olive.model.handler.mixin</span> <span class="kn">import</span> <span class="n">OnnxEpValidateMixin</span><span class="p">,</span> <span class="n">OnnxGraphMixin</span>
-<span class="kn">from</span> <span class="nn">olive.model.utils.onnx_utils</span> <span class="kn">import</span> <span class="n">check_and_normalize_provider_args</span><span class="p">,</span> <span class="n">check_ort_fallback</span><span class="p">,</span> <span class="n">get_onnx_file_path</span>
+<span class="kn">from</span> <span class="nn">olive.model.utils.onnx_utils</span> <span class="kn">import</span> <span class="n">get_onnx_file_path</span>
 <span class="kn">from</span> <span class="nn">olive.resource_path</span> <span class="kn">import</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
@@ -201,47 +202,44 @@
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">rank</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="kn">import</span> <span class="nn">onnxruntime</span> <span class="k">as</span> <span class="nn">ort</span>
-
         <span class="c1"># user provided inference_settings &gt; model&#39;s inference_settings &gt; default settings</span>
-        <span class="n">inference_settings_merged</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">inference_settings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">merge_inference_settings</span><span class="p">(</span><span class="n">inference_settings</span><span class="p">,</span> <span class="n">execution_providers</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">inference_settings</span><span class="p">[</span><span class="s2">&quot;execution_provider&quot;</span><span class="p">]:</span>
+            <span class="c1"># if no execution_providers are provided, use the default ones</span>
+            <span class="n">inference_settings</span><span class="p">[</span><span class="s2">&quot;execution_provider&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_default_execution_providers</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">inference_settings</span><span class="p">[</span><span class="s2">&quot;provider_options&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># device id for ranked model</span>
+        <span class="n">device_id</span> <span class="o">=</span> <span class="n">rank</span> <span class="k">if</span> <span class="n">device</span> <span class="o">==</span> <span class="n">Device</span><span class="o">.</span><span class="n">GPU</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">get_ort_inference_session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="n">inference_settings</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_ort_extensions</span><span class="p">,</span> <span class="n">device_id</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">OrtSessionFallbackError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">OliveEvaluationError</span><span class="p">(</span><span class="n">e</span><span class="p">)</span> <span class="kn">from</span> <span class="nn">e</span>
+
+    <span class="k">def</span> <span class="nf">merge_inference_settings</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">execution_providers</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Merge user provided inference settings with model&#39;s inference settings.</span>
+
+<span class="sd">        user provided inference_settings &gt; model&#39;s inference_settings &gt; eps given by arguments</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">inference_settings_merged</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;execution_provider&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;provider_options&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">}</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">inference_settings</span><span class="p">:</span>
+            <span class="c1"># start with model&#39;s inference settings</span>
             <span class="n">inference_settings_merged</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">inference_settings</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">inference_settings</span><span class="p">:</span>
+            <span class="c1"># update with user provided inference settings</span>
             <span class="n">inference_settings_merged</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">inference_settings</span><span class="p">)</span>
-        <span class="n">inference_settings</span> <span class="o">=</span> <span class="n">inference_settings_merged</span>
 
-        <span class="c1"># user provided eps in inference_settings &gt; eps given by arguments &gt; default eps</span>
-        <span class="k">if</span> <span class="n">inference_settings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;execution_provider&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">execution_providers</span> <span class="o">=</span> <span class="n">inference_settings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;execution_provider&quot;</span><span class="p">)</span>
-            <span class="n">provider_options</span> <span class="o">=</span> <span class="n">inference_settings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;provider_options&quot;</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">provider_options</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">inference_settings_merged</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;execution_provider&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># use execution providers</span>
+            <span class="n">inference_settings_merged</span><span class="p">[</span><span class="s2">&quot;execution_provider&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">execution_providers</span>
+            <span class="n">inference_settings_merged</span><span class="p">[</span><span class="s2">&quot;provider_options&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">execution_providers</span><span class="p">:</span>
-            <span class="n">execution_providers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_default_execution_providers</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
-            <span class="n">provider_options</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">execution_providers</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
-            <span class="n">execution_providers</span> <span class="o">=</span> <span class="p">[</span><span class="n">execution_providers</span><span class="p">]</span>
-
-        <span class="c1"># split the execution_providers and provider_options</span>
-        <span class="n">execution_providers</span><span class="p">,</span> <span class="n">provider_options</span> <span class="o">=</span> <span class="n">check_and_normalize_provider_args</span><span class="p">(</span>
-            <span class="n">execution_providers</span><span class="p">,</span> <span class="n">provider_options</span><span class="p">,</span> <span class="n">ort</span><span class="o">.</span><span class="n">get_available_providers</span><span class="p">()</span>
-        <span class="p">)</span>
-
-        <span class="k">if</span> <span class="p">(</span><span class="n">device</span> <span class="o">==</span> <span class="n">Device</span><span class="o">.</span><span class="n">GPU</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">rank</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">):</span>
-            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">ep</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">execution_providers</span><span class="p">):</span>
-                <span class="k">if</span> <span class="n">ep</span> <span class="o">==</span> <span class="s2">&quot;CUDAExecutionProvider&quot;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">provider_options</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
-                    <span class="n">provider_options</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;device_id&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">rank</span><span class="p">)}</span>
-        <span class="n">inference_settings</span><span class="p">[</span><span class="s2">&quot;execution_provider&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">execution_providers</span>
-        <span class="n">inference_settings</span><span class="p">[</span><span class="s2">&quot;provider_options&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">provider_options</span>
-        <span class="n">session</span> <span class="o">=</span> <span class="n">get_ort_inference_session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="n">inference_settings</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_ort_extensions</span><span class="p">)</span>
-        <span class="n">check_ort_fallback</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="n">execution_providers</span><span class="p">)</span>
-        <span class="n">tuning_op_result</span> <span class="o">=</span> <span class="n">inference_settings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;tuning_op_result&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">tuning_op_result</span><span class="p">:</span>
-            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tuning_op_result</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span>
-            <span class="n">session</span><span class="o">.</span><span class="n">set_tuning_results</span><span class="p">(</span><span class="n">tuning_op_result</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">session</span>
+        <span class="c1"># execution_provider should be a list</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">inference_settings_merged</span><span class="p">[</span><span class="s2">&quot;execution_provider&quot;</span><span class="p">],</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+            <span class="n">inference_settings_merged</span><span class="p">[</span><span class="s2">&quot;execution_provider&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">inference_settings_merged</span><span class="p">[</span><span class="s2">&quot;execution_provider&quot;</span><span class="p">]]</span>
+        <span class="k">return</span> <span class="n">inference_settings_merged</span>
 
     <span class="k">def</span> <span class="nf">get_io_config</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get input/output names, shapes, types of the onnx model without creating an ort session.</span>
