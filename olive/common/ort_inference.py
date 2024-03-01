@@ -92,7 +92,7 @@ def get_ort_inference_session(
         elif provider == "QNNExecutionProvider":
             # add backend_path for QNNExecutionProvider
             provider_options[idx]["backend_path"] = "QnnHtp.dll"
-    logger.debug(f"Normalized providers: {providers}, provider_options: {provider_options}")
+    logger.debug("Normalized providers: %s, provider_options: %s", providers, provider_options)
 
     # dml specific settings
     if len(providers) >= 1 and providers[0] == "DmlExecutionProvider":

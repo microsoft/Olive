@@ -41,7 +41,7 @@ Olive supports four main types of Systems:
 - **AzureMLSystem:** An AzureML workspace compute and environment.
 - **DockerSystem:** A docker container running on the host machine.
 - **PythonEnvironment:** A python environment on the host machine.
-- **OrtEnvironmentSystem:** A light-weight python environment on the host machine with ONNX Runtime installed. Only supports evaluation of ONNX models.
+- **ORTEnvironmentSystem:** A light-weight python environment on the host machine with ONNX Runtime installed. Only supports evaluation of ONNX models.
 
 ## Evaluator
 An Evaluator is used to evaluate a model on a specific **target** and return values for some **metrics**.

@@ -342,7 +342,7 @@ Ort Environment System
         .. code-block:: json
 
             {
-                "type": "OrtEnvironment",
+                "type": "ORTEnvironment",
                 "config": {
                     "python_environment_path": "/home/user/.virtualenvs/myenv/bin",
                     "accelerators": ["cpu"]
@@ -353,15 +353,15 @@ Ort Environment System
 
         .. code-block:: python
 
-            from olive.systems.ort_evironment import OrtEnvironmentSystem
+            from olive.systems.ort_evironment import ORTEnvironmentSystem
             from olive.system.common import Device
 
-            python_environment_system = OrtEnvironmentSystem(
+            python_environment_system = ORTEnvironmentSystem(
                 python_environment_path = "/home/user/.virtualenvs/myenv/bin",
                 device = Device.CPU
             )
 
-OrtEnvironmentSystem does not support olive_managed_env and can only be used to evaluate ONNX models.
+ORTEnvironmentSystem does not support olive_managed_env and can only be used to evaluate ONNX models.
 
 .. important::
 
