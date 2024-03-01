@@ -3,11 +3,10 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import platform
-from test.unit_test.utils import create_onnx_model_file, get_latency_metric, get_onnx_model_config
+from test.unit_test.utils import create_onnx_model_file, get_custom_metric, get_onnx_model_config
 
 import pytest
 
-from olive.evaluator.metric import LatencySubType
 from olive.systems.system_config import PythonEnvironmentTargetUserConfig, SystemConfig
 
 # pylint: disable=attribute-defined-outside-init
@@ -35,11 +34,7 @@ class TestOliveManagedPythonEnvironmentSystem:
         execution_providers = ["DmlExecutionProvider", "OpenVINOExecutionProvider"]
 
         dml_res, openvino_res = create_and_run_workflow(
-            tmp_path,
-            system_config,
-            execution_providers,
-            self.input_model_config,
-            get_latency_metric(LatencySubType.AVG),
+            tmp_path, system_config, execution_providers, self.input_model_config, get_custom_metric()
         )
         assert dml_res.metrics.value.__root__
         assert openvino_res.metrics.value.__root__
@@ -60,11 +55,7 @@ class TestOliveManagedPythonEnvironmentSystem:
         execution_providers = ["CPUExecutionProvider", "OpenVINOExecutionProvider"]
 
         cpu_res, openvino_res = create_and_run_workflow(
-            tmp_path,
-            system_config,
-            execution_providers,
-            self.input_model_config,
-            get_latency_metric(LatencySubType.AVG),
+            tmp_path, system_config, execution_providers, self.input_model_config, get_custom_metric()
         )
         assert cpu_res.metrics.value.__root__
         assert openvino_res.metrics.value.__root__

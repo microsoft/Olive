@@ -1,5 +1,5 @@
 output/
 tmp/
 
-mobilenet_config.json
+mobilenet_*eval.json
 raw_qnn_sdk_config.json

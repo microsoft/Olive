@@ -17,6 +17,7 @@ import torch
 import olive.data.template as data_config_template
 from olive.cache import get_local_path_from_root
 from olive.common.config_utils import ConfigBase
+from olive.common.ort_inference import OrtInferenceSession, prepare_io_bindings
 from olive.common.pydantic_v1 import validator
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import tensor_data_to_device
@@ -36,7 +37,7 @@ from olive.evaluator.metric_backend import MetricBackend
 from olive.hardware import Device
 from olive.model import DistributedOnnxModelHandler, ONNXModelHandler
 from olive.model.config.io_config import is_io_config_static
-from olive.model.utils.onnx_utils import bind_input_data, bind_output_data, dump_tuning_result, prepare_io_bindings
+from olive.model.utils.onnx_utils import dump_tuning_result
 from olive.platform_sdk.qualcomm.utils.data_loader import FileListCommonDataLoader, FileListDataLoader
 
 if TYPE_CHECKING:
@@ -381,7 +382,7 @@ class OliveEvaluator(ABC):
         return MetricResult.parse_obj(metric_res)
 
 
-class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
+class OnnxEvaluatorMixin:
 
     @staticmethod
     def format_input(input_data, io_config):
@@ -401,8 +402,8 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             if k in input_names
         }
 
-    @classmethod
-    def get_inference_settings(cls, metric: Metric, model: ONNXModelHandler) -> Dict[str, Any]:
+    @staticmethod
+    def get_inference_settings(metric: Metric, model: ONNXModelHandler) -> Dict[str, Any]:
         # user.config.inference_settings > model.inference_settings > default inference_settings
         # when user.config.inference_settings is None, the model.inference_settings
         # will be used in model.prepare_session(..)
@@ -411,11 +412,52 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         if model_infrerence_settings:
             inference_settings.update(model_infrerence_settings)
 
-        metric_inference_settings = metric.get_inference_settings(cls.framework.lower())
+        metric_inference_settings = metric.get_inference_settings(Framework.ONNX.lower())
         if metric_inference_settings:
             inference_settings.update(metric_inference_settings)
 
         return inference_settings
+
+
+class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX):
+
+    @staticmethod
+    def get_session_wrapper(
+        model: ONNXModelHandler,
+        metric: Metric,
+        dataloader: "DataLoader",
+        device: Device,
+        execution_providers: List[str],
+    ) -> Tuple[OrtInferenceSession, Dict[str, Any]]:
+        """Get the session wrapper for the model."""
+        # user.config.inference_settings > model.inference_settings > default inference_settings
+        inference_settings = OnnxEvaluator.get_inference_settings(metric, model)
+        session = model.prepare_session(
+            inference_settings=inference_settings,
+            device=device,
+            execution_providers=execution_providers,
+        )
+
+        # prepare for io binding
+        io_config = model.get_io_config()
+        io_bind = OnnxEvaluator.io_bind_enabled(metric, model.inference_settings)
+        shared_kv_buffer = metric.user_config.shared_kv_buffer
+        use_fp16 = any(v == "float16" for v in io_config["input_types"])
+        input_feed = None
+        if io_bind and shared_kv_buffer and use_fp16:
+            input_feed = OnnxEvaluator.format_input(next(iter(dataloader))[0], io_config)
+
+        # create session wrapper
+        session_wrapper = OrtInferenceSession(
+            session,
+            io_bind=io_bind,
+            device=device,
+            shared_kv_buffer=shared_kv_buffer,
+            use_fp16=use_fp16,
+            input_feed=input_feed,
+        )
+
+        return session_wrapper, inference_settings
 
     def _inference(
         self,
@@ -426,14 +468,9 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> Tuple[OliveModelOutput, Any]:
-        # user.config.inference_settings > model.inference_settings > default inference_settings
-        inference_settings = self.get_inference_settings(metric, model)
-        session = model.prepare_session(
-            inference_settings=inference_settings,
-            device=device,
-            execution_providers=execution_providers,
+        session, inference_settings = OnnxEvaluator.get_session_wrapper(
+            model, metric, dataloader, device, execution_providers
         )
-
         io_config = model.get_io_config()
 
         preds = []
@@ -441,51 +478,15 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         logits = []
         logits_dict = collections.defaultdict(list)
         output_names = io_config["output_names"]
-        io_bind = self.io_bind_enabled(metric, model.inference_settings)
-        device = "cuda" if device == "gpu" else "cpu"
-        if io_bind and device == "cuda":
-            io_binding = session.io_binding()
-            input_data, _ = next(iter(dataloader))
-            input_dict = OnnxEvaluator.format_input(input_data, io_config)
-            use_fp16 = any(v.dtype == np.float16 for v in input_data.values())
-            # no deepcopy for kv_cache_ortvalues, will update the value inplace and keep it shared across runs
-            if metric.user_config.shared_kv_buffer:
-                kv_cache_ortvalues = {}
-            else:
-                kv_cache_ortvalues = None
-            bind_output_data(
-                io_binding,
-                session.get_outputs(),
-                use_fp16,
-                device,
-                shared_kv_buffer=metric.user_config.shared_kv_buffer,
-                kv_cache_ortvalues=kv_cache_ortvalues,
-            )
-
         is_single_tensor_output = len(output_names) == 1
         for input_data, labels in dataloader:
-            input_dict = OnnxEvaluator.format_input(input_data, io_config)
-            if io_bind and device == "cuda":
-                bind_input_data(
-                    io_binding,
-                    input_dict,
-                    use_fp16,
-                    device,
-                    shared_kv_buffer=metric.user_config.shared_kv_buffer,
-                    kv_cache_ortvalues=kv_cache_ortvalues,
-                )
-                io_binding.synchronize_inputs()
-                session.run_with_iobinding(io_binding)
-                io_binding.synchronize_outputs()
-                res = [i.numpy() for i in io_binding.get_outputs()]
-                io_binding.clear_binding_inputs()
-            else:
-                res = session.run(input_feed=input_dict, output_names=None)
+            input_feed = OnnxEvaluator.format_input(input_data, io_config)
+            result = session.run(input_feed)
             if is_single_tensor_output:
-                result = torch.Tensor(res[0])
+                result = torch.Tensor(result[0])
             else:
                 # convert to dict of torch tensor
-                result = {name: torch.Tensor(res[i]) for i, name in enumerate(output_names)}
+                result = {name: torch.Tensor(result[i]) for i, name in enumerate(output_names)}
             outputs = post_func(result) if post_func else result
             # keep as numpy or torch arrays
             preds.append(outputs.cpu())
@@ -504,7 +505,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
         tuning_result_file = inference_settings.get("tuning_result_file")
         if tuning_result_file:
-            dump_tuning_result(session, tuning_result_file)
+            dump_tuning_result(session.session, tuning_result_file)
         return OliveModelOutput(preds=preds, logits=logits), targets
 
     def _evaluate_onnx_accuracy(
@@ -527,60 +528,27 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         post_func=None,
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
-    ) -> MetricResult:
+    ) -> List[float]:
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
 
-        # user.config.inference_settings > model.inference_settings > default inference_settings
-        inference_settings = self.get_inference_settings(metric, model)
-        session = model.prepare_session(
-            inference_settings=inference_settings,
-            device=device,
-            execution_providers=execution_providers,
+        session, inference_settings = OnnxEvaluator.get_session_wrapper(
+            model, metric, dataloader, device, execution_providers
         )
-
         io_config = model.get_io_config()
 
         input_data, _ = next(iter(dataloader))
-        input_dict = OnnxEvaluator.format_input(input_data, io_config)
-        # no deepcopy for kv_cache_ortvalues, will update the value inplace and keep it shared across runs
-        kv_cache_ortvalues = {} if metric.user_config.shared_kv_buffer else None
+        input_feed = OnnxEvaluator.format_input(input_data, io_config)
 
-        io_bind = self.io_bind_enabled(metric, model.inference_settings)
-        if io_bind:
-            io_bind_op = prepare_io_bindings(
-                session,
-                input_dict,
-                device,
-                shared_kv_buffer=metric.user_config.shared_kv_buffer,
-                kv_cache_ortvalues=kv_cache_ortvalues,
-            )
-
-        for _ in range(warmup_num):
-            if io_bind:
-                io_bind_op.synchronize_inputs()
-                session.run_with_iobinding(io_bind_op)
-                io_bind_op.synchronize_outputs()
-            else:
-                session.run(input_feed=input_dict, output_names=None)
-
-        latencies = []
-        for _ in range(repeat_test_num):
-            if io_bind:
-                io_bind_op.synchronize_inputs()
-                # count the time after data are all in gpu after data copy
-                t = time.perf_counter()
-                session.run_with_iobinding(io_bind_op)
-                io_bind_op.synchronize_outputs()
-                latencies.append(time.perf_counter() - t)
-            else:
-                t = time.perf_counter()
-                session.run(input_feed=input_dict, output_names=None)
-                latencies.append(time.perf_counter() - t)
-            time.sleep(sleep_num)
+        latencies = session.time_run(
+            input_feed,
+            num_runs=repeat_test_num,
+            num_warmup=warmup_num,
+            sleep_time=sleep_num,
+        )
 
         tuning_result_file = inference_settings.get("tuning_result_file")
         if tuning_result_file:
-            dump_tuning_result(session, tuning_result_file)
+            dump_tuning_result(session.session, tuning_result_file)
         return latencies
 
     @staticmethod
@@ -733,7 +701,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         metric: Metric,
         device,
         execution_providers: Union[str, List[str]],
-    ) -> MetricResult:
+    ) -> List[float]:
         from mpi4py.futures import MPIPoolExecutor
 
         config = {
