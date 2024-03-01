@@ -16,7 +16,7 @@ from olive.hardware.accelerator import AcceleratorLookup, Device
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
 from olive.model.handler.mixin import OnnxEpValidateMixin, OnnxGraphMixin
-from olive.model.utils.onnx_utils import get_onnx_file_path
+from olive.model.utils.onnx_utils import get_custom_op_lib_path, get_onnx_file_path
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 logger = logging.getLogger(__name__)

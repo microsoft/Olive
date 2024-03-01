@@ -55,7 +55,7 @@ def get_ort_inference_session(
 
         sess_options.register_custom_ops_library(get_library_path())
     if custom_op_lib_path:
-        logger.debug(f"Registering custom op library: {custom_op_lib_path}")
+        logger.debug("Registering custom op library: %s", custom_op_lib_path)
         sess_options.register_custom_ops_library(str(custom_op_lib_path))
 
     logger.debug("inference_settings: %s", inference_settings)

@@ -49,7 +49,7 @@ class Builder:
         for sub_dir in ["csrc", "python"]:
             sub_dir_path = self.out_dir / sub_dir
             if sub_dir_path.exists():
-                logger.warning(f"Directory {sub_dir_path} already exists and will be overwritten")
+                logger.warning("Directory %s already exists and will be overwritten", sub_dir_path)
                 shutil.rmtree(sub_dir_path)
             sub_dir_path.mkdir(parents=True, exist_ok=True)
             self.sub_dirs[sub_dir] = sub_dir_path
@@ -65,7 +65,7 @@ class Builder:
         if constant_overrides:
             for op, constants in constant_overrides.items():
                 self.constants[op].update(constants)
-        logger.info(f"Builder constants: {self.constants}")
+        logger.info("Builder constants: %s", self.constants)
 
     @staticmethod
     def get_ort_lib_url(ort_version: str) -> str:
@@ -84,7 +84,7 @@ class Builder:
     @classmethod
     def download_ort_headers(cls, ort_version: str, destination: Union[str, Path]):
         """Download ort headers into destination."""
-        logger.debug(f"Downloading ort headers for version {ort_version} to {destination}")
+        logger.debug("Downloading ort headers for version %s to %s", ort_version, destination)
         url = cls.get_ort_lib_url(ort_version)
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_dir_path = Path(temp_dir)

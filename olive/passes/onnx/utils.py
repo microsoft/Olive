@@ -415,7 +415,7 @@ class OnnxDAG:
 
             self.remove_node(node_name, check_no_consumers=True)
             removed_count += 1
-        logger.info(f"Removed {removed_count} redundant cast nodes.")
+        logger.info("Removed %d redundant cast nodes.", removed_count)
 
     @classmethod
     def from_model_path(cls, model_path: Union[str, Path]) -> "OnnxDAG":

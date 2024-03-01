@@ -96,7 +96,7 @@ class AutoFusion(Pass):
             counter[key] += 1
         logger.info(
             "Fusions: \n%s",
-            "\n".join(f"{k_repr['ops']}: {counter[key]}" for key, k_repr in fused_kernels.items()),
+            "\n".join(f"{k_repr['ops']} ({key}): {counter[key]}" for key, k_repr in fused_kernels.items()),
         )
         dag.update()
 
