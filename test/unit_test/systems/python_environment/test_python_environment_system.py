@@ -63,12 +63,17 @@ class TestPythonEnvironmentSystem:
 
         # assert
         assert res == dummy_output
-        mock_run_subprocess.assert_called_once_with(
-            f"python {script_path} --dummy_config {tmp_path / 'dummy_config.json'} --dummy_arg dummy_arg_value "
-            f"--output_path {tmp_path / 'output.json'}",
-            env=self.system.environ,
-            check=True,
-        )
+        expected_command = [
+            "python",
+            str(script_path),
+            "--dummy_config",
+            str(tmp_path / "dummy_config.json"),
+            "--dummy_arg",
+            "dummy_arg_value",
+            "--output_path",
+            str(tmp_path / "output.json"),
+        ]
+        mock_run_subprocess.assert_called_once_with(expected_command, env=self.system.environ, check=True)
         with (tmp_path / "dummy_config.json").open("r") as f:
             assert json.load(f) == config_jsons["dummy_config"]
 

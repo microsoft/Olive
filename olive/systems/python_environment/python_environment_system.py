@@ -77,25 +77,27 @@ class PythonEnvironmentSystem(OliveSystem):
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_dir_path = Path(tmp_dir).resolve()
 
+            # command to run
+            command = ["python", str(script_path)]
+
             # write config jsons to files
-            args = []
             for key, config_json in config_jsons.items():
                 config_json_path = tmp_dir_path / f"{key}.json"
                 with config_json_path.open("w") as f:
                     json.dump(config_json, f, indent=4)
-                args.append(f"--{key} {config_json_path}")
+                command.extend([f"--{key}", str(config_json_path)])
 
-            # command to run
-            command = f"python {script_path} {' '.join(args)}"
             # add extra args
             for key, value in kwargs.items():
                 if value is None:
                     continue
-                command += f" --{key} {value}"
+                command.extend([f"--{key}", str(value)])
+
             # output path
             output_path = tmp_dir_path / "output.json"
-            command += f" --output_path {output_path}"
+            command.extend(["--output_path", str(output_path)])
 
+            # run the command
             run_subprocess(command, env=self.environ, check=True)
 
             with output_path.open() as f:
