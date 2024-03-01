@@ -24,8 +24,16 @@ class ORTGenerator:
         self.num_layers = 32
         self.max_sequence_length = 2048
 
+        self.use_fp16 = False
+        self.device = -1
+        self.use_buffer_share = False
+        self.packed_kv = False
+        self.use_step = False
+        self.torch_dtype = None
+        self.sess = None
+        self.tokenizer = None
+
     def get_initial_inputs_and_outputs(self, encodings_dict):
-        self.torch_dtype = torch.float16 if self.use_fp16 else torch.float32
 
         input_ids = torch.tensor(encodings_dict["input_ids"], device=self.device, dtype=torch.int32)
         attention_mask = torch.tensor(encodings_dict["attention_mask"], device=self.device, dtype=torch.int32)
@@ -220,6 +228,6 @@ def run(prompt, onnx_model_path, use_buffer_share, device_id, packed_kv=False, u
     generator.create_session(device_id, use_fp16, use_buffer_share, packed_kv, use_step)
     texts = generator.generate(prompt, max_length=200)
 
-    for i in range(len(texts)):
+    for i, _ in enumerate(texts):
         print(f"Prompt: {prompt[i]}")  # noqa: T201
         yield texts[i]

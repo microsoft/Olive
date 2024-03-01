@@ -133,7 +133,7 @@ def main(raw_args=None):
     with open("phi2_optimize.json", "w") as f:
         json.dump(template_json, f, indent=4)
 
-    footprints = olive_run(template_json)
+    footprints = olive_run(template_json)  # pylint: disable=not-callable
     output_model_path = get_output_model_path(footprints)
     if args.inference and model_type in SUPPORTED_INFERENCE_CONFIG:
         from generate import run as generate_run
