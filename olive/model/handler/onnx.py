@@ -9,8 +9,9 @@ from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 import onnx
 from onnx import GraphProto, ModelProto
 
-from olive.common.ort_inference import get_ort_inference_session
+from olive.common.ort_inference import OrtSessionFallbackError, get_ort_inference_session
 from olive.constants import Framework, ModelFileFormat
+from olive.exception import OliveEvaluationError
 from olive.hardware.accelerator import AcceleratorLookup, Device
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
@@ -82,7 +83,10 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
         # device id for ranked model
         device_id = rank if device == Device.GPU else None
 
-        return get_ort_inference_session(self.model_path, inference_settings, self.use_ort_extensions, device_id)
+        try:
+            return get_ort_inference_session(self.model_path, inference_settings, self.use_ort_extensions, device_id)
+        except OrtSessionFallbackError as e:
+            raise OliveEvaluationError(e) from e
 
     def merge_inference_settings(
         self, inference_settings: Optional[Dict[str, Any]] = None, execution_providers: List[str] = None
