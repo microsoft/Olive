@@ -7,7 +7,6 @@ import os
 
 import torch
 import torch.nn as nn
-from torch.onnx.symbolic_helper import _get_tensor_dim_size, _get_tensor_sizes
 
 
 def packed4bit_to_float(data, axis=-1):
@@ -36,7 +35,7 @@ class QuantLinearTorchFunction(torch.autograd.Function):
     # pylint: disable=W0223,W0221
     @staticmethod
     def symbolic(g, x, qself_qweight, qself_scales, qself_qzeros, bits, groupsize, in_features, out_features):
-        output = g.op(
+        return g.op(
             "com.microsoft::MatMulNBits",
             x,
             qself_qweight,
@@ -48,11 +47,6 @@ class QuantLinearTorchFunction(torch.autograd.Function):
             bits_i=bits,
             block_size_i=groupsize,
         )
-        input_shape = _get_tensor_sizes(x)
-        if input_shape is not None and hasattr(x.type(), "with_sizes"):
-            output_type = x.type().with_sizes(input_shape[:-1] + [_get_tensor_dim_size(qself_qweight, 0)])
-            output.setType(output_type)
-        return output
 
     @staticmethod
     def forward(ctx, x, qself_qweight, qself_scales, qself_qzeros, bits, groupsize, in_features, out_features):
