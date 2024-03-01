@@ -19,7 +19,7 @@ from olive.evaluator.olive_evaluator import OliveEvaluator, OliveModelOutput, On
 from olive.hardware import Device
 from olive.systems.common import SystemType
 from olive.systems.olive_system import OliveSystem
-from olive.systems.system_config import ORTEnvironmentTargetUserConfig
+from olive.systems.system_config import IsolatedORTTargetUserConfig
 from olive.systems.utils import create_new_environ, run_available_providers_runner
 
 if TYPE_CHECKING:
@@ -31,8 +31,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class ORTEnvironmentSystem(OliveSystem):
-    system_type = SystemType.ORTEnvironment
+class IsolatedORTSystem(OliveSystem):
+    system_type = SystemType.IsolatedORT
 
     def __init__(
         self,
@@ -43,7 +43,7 @@ class ORTEnvironmentSystem(OliveSystem):
         hf_token: bool = None,
     ):
         super().__init__(accelerators=accelerators, olive_managed_env=False)
-        self.config = ORTEnvironmentTargetUserConfig(
+        self.config = IsolatedORTTargetUserConfig(
             python_environment_path=python_environment_path,
             environment_variables=environment_variables,
             prepend_to_path=prepend_to_path,
@@ -68,7 +68,7 @@ class ORTEnvironmentSystem(OliveSystem):
         point: Optional[Dict[str, Any]] = None,
     ) -> "ModelConfig":
         """Run the pass on the model at a specific point in the search space."""
-        logger.warning("ORTEnvironmentSystem does not support running passes.")
+        logger.warning("IsolatedORTSystem does not support running passes.")
         raise NotImplementedError
 
     def evaluate_model(
@@ -77,13 +77,13 @@ class ORTEnvironmentSystem(OliveSystem):
         """Evaluate the model."""
         # only onnx model handler is supported
         if not model_config.type.lower() == "onnxmodel":
-            raise ValueError(f"ORTEnvironmentSystem only supports evaluation for ONNXModel, got {model_config.type}")
+            raise ValueError(f"IsolatedORTSystem only supports evaluation for ONNXModel, got {model_config.type}")
 
         device = accelerator.accelerator_type if accelerator else Device.CPU
         execution_providers = accelerator.execution_provider if accelerator else None
 
         model = model_config.create_model()
-        evaluator = ORTEnvironmentEvaluator(self.environ)
+        evaluator = IsolatedORTEvaluator(self.environ)
         return evaluator.evaluate(model, data_root, metrics, device=device, execution_providers=execution_providers)
 
     def get_supported_execution_providers(self) -> List[str]:
@@ -98,7 +98,7 @@ class ORTEnvironmentSystem(OliveSystem):
         raise ValueError("ORT inference system does not support system removal")
 
 
-class ORTEnvironmentEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_inference"):
+class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_inference"):
     def __init__(self, environ: Dict[str, str]):
         super().__init__()
 

@@ -7,7 +7,7 @@
     },
     "systems": {
         "qnn_ep_env": {
-            "type": "ORTEnvironment",
+            "type": "IsolatedORT",
             "config": {
                 "python_environment_path": "<qnn_env_path>",
                 "accelerators": ["npu"],

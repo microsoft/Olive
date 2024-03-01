@@ -53,12 +53,12 @@ PythonEnvironmentTargetUserConfig
 
 .. autopydantic_settings:: olive.systems.system_config.PythonEnvironmentTargetUserConfig
 
-.. _ort_environment_system_config:
+.. _isolated_ort_system_config:
 
-ORTEnvironmentTargetUserConfig
+IsolatedORTTargetUserConfig
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. autopydantic_settings:: olive.systems.system_config.ORTEnvironmentTargetUserConfig
+.. autopydantic_settings:: olive.systems.system_config.IsolatedORTTargetUserConfig
 
 
 Classes
@@ -80,9 +80,9 @@ PythonEnvironmentSystem
 ^^^^^^^^^^^^^^^^^^^^^^^^
 .. autoclass:: olive.systems.python_environment.PythonEnvironmentSystem
 
-ORTEnvironmentSystem
+IsolatedORTSystem
 ^^^^^^^^^^^^^^^^^^^^^^^^
-.. autoclass:: olive.systems.ort_evironment.ORTEnvironmentSystem
+.. autoclass:: olive.systems.ort_evironment.IsolatedORTSystem
 
 .. _olive_system_alias:
 

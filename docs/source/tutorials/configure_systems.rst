@@ -342,7 +342,7 @@ Ort Environment System
         .. code-block:: json
 
             {
-                "type": "ORTEnvironment",
+                "type": "IsolatedORT",
                 "config": {
                     "python_environment_path": "/home/user/.virtualenvs/myenv/bin",
                     "accelerators": ["cpu"]
@@ -353,18 +353,18 @@ Ort Environment System
 
         .. code-block:: python
 
-            from olive.systems.ort_evironment import ORTEnvironmentSystem
+            from olive.systems.ort_evironment import IsolatedORTSystem
             from olive.system.common import Device
 
-            python_environment_system = ORTEnvironmentSystem(
+            python_environment_system = IsolatedORTSystem(
                 python_environment_path = "/home/user/.virtualenvs/myenv/bin",
                 device = Device.CPU
             )
 
-ORTEnvironmentSystem does not support olive_managed_env and can only be used to evaluate ONNX models.
+IsolatedORTSystem does not support olive_managed_env and can only be used to evaluate ONNX models.
 
 .. important::
 
     The python environment must have the relevant ONNX runtime package installed!
 
-Please refer to :ref:`ort_environment_system_config` for more details on the config options.
+Please refer to :ref:`isolated_ort_system_config` for more details on the config options.

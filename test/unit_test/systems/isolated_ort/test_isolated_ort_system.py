@@ -20,19 +20,19 @@ from olive.constants import Framework
 from olive.evaluator.metric import AccuracySubType, LatencySubType
 from olive.evaluator.olive_evaluator import OliveEvaluator, OnnxEvaluator
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
-from olive.systems.ort_environment import ORTEnvironmentSystem
-from olive.systems.ort_environment.inference_runner import main as inference_runner_main
-from olive.systems.ort_environment.ort_environment_system import ORTEnvironmentEvaluator
+from olive.systems.isolated_ort import IsolatedORTSystem
+from olive.systems.isolated_ort.inference_runner import main as inference_runner_main
+from olive.systems.isolated_ort.isolated_ort_system import IsolatedORTEvaluator
 
 # pylint: disable=attribute-defined-outside-init, protected-access
 
 
-class TestORTEnvironmentSystem:
+class TestIsolatedORTSystem:
     @pytest.fixture(autouse=True)
     def setup(self):
         # use current python environment as the inference environment
         # the evaluator is mocked so the python environment is not used
-        self.system = ORTEnvironmentSystem(Path(sys.executable).parent.resolve().as_posix())
+        self.system = IsolatedORTSystem(Path(sys.executable).parent.resolve().as_posix())
 
     def test_get_supported_execution_providers(self):
         import onnxruntime as ort
@@ -43,7 +43,7 @@ class TestORTEnvironmentSystem:
         with pytest.raises(NotImplementedError):
             self.system.run_pass(None, None, None, None)
 
-    @patch("olive.systems.ort_environment.ort_environment_system.ORTEnvironmentEvaluator.evaluate")
+    @patch("olive.systems.isolated_ort.isolated_ort_system.IsolatedORTEvaluator.evaluate")
     def test_evaluate_model(self, mock_evaluate):
         olive_model_config = MagicMock()
         olive_model_config.type = "ONNXModel"
@@ -70,10 +70,10 @@ class TestORTEnvironmentSystem:
         with pytest.raises(ValueError) as errinfo:  # noqa: PT011
             self.system.evaluate_model(olive_model_config, None, None, None)
 
-        assert "ORTEnvironmentSystem only supports evaluation for ONNXModel" in str(errinfo.value)
+        assert "IsolatedORTSystem only supports evaluation for ONNXModel" in str(errinfo.value)
 
 
-class TestORTEnvironmentEvaluator:
+class TestIsolatedORTEvaluator:
     @pytest.fixture(autouse=True)
     def setup(self, tmp_path):
         # create a virtual environment with no packages installed
@@ -84,11 +84,11 @@ class TestORTEnvironmentEvaluator:
             python_environment_path = f"{venv_path}/Scripts"
         else:
             python_environment_path = f"{venv_path}/bin"
-        self.system = ORTEnvironmentSystem(python_environment_path)
+        self.system = IsolatedORTSystem(python_environment_path)
         # install only onnxruntime
         run_subprocess(["python", "-m", "pip", "install", "onnxruntime"], env=self.system.environ)
 
-        self.evaluator = ORTEnvironmentEvaluator(self.system.environ)
+        self.evaluator = IsolatedORTEvaluator(self.system.environ)
         self.onnx_evaluator = OnnxEvaluator()
 
     def test__inference(self):
@@ -138,8 +138,8 @@ class TestORTEnvironmentEvaluator:
         assert all(val > 0 for val in res)
 
     @pytest.mark.parametrize("mode", ["inference", "latency"])
-    @patch("olive.systems.ort_environment.inference_runner.get_ort_inference_session")
-    @patch("olive.systems.ort_environment.inference_runner.OrtInferenceSession")
+    @patch("olive.systems.isolated_ort.inference_runner.get_ort_inference_session")
+    @patch("olive.systems.isolated_ort.inference_runner.OrtInferenceSession")
     def test_inference_runner_with_run(self, mock_wrapper_class, mock_get_session, tmp_path, mode):
         # setup
         mock_wrapper = MagicMock()
