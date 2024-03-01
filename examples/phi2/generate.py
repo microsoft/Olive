@@ -228,6 +228,6 @@ def run(prompt, onnx_model_path, use_buffer_share, device_id, packed_kv=False, u
     generator.create_session(device_id, use_fp16, use_buffer_share, packed_kv, use_step)
     texts = generator.generate(prompt, max_length=200)
 
-    for i, _ in enumerate(texts):
+    for i, text in enumerate(texts):
         print(f"Prompt: {prompt[i]}")  # noqa: T201
-        yield texts[i]
+        yield text
