@@ -216,3 +216,9 @@ OptimumConversion
 OptimumMerging
 --------------------
 .. autoconfigclass:: olive.passes.OptimumMerging
+
+.. _genai_model_exporter:
+
+GenAIModelExporter
+--------------------
+.. autoconfigclass:: olive.passes.GenAIModelExporter

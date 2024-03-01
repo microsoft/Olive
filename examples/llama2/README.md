@@ -36,6 +36,33 @@ Supported languages are Python, TypeScript, JavaScript, Ruby, Julia, Rust, C++, 
 
 Requirements file: [requirements-qlora.txt](requirements-qlora.txt)
 
+### Inference optimization using ONNX Runtime GenAI
+For using ONNX runtime GenAI to optimize, follow build and installation instructions [here](https://github.com/microsoft/onnxruntime-genai).
+
+Run the following command to execute the workflow:
+```bash
+python -m olive.workflows.run --config lamma2_genai.json
+```
+Snippet below shows an example run of generated llama2 model.
+```
+import onnxruntime_genai as ortgenai
+
+model = ortgenai.Model("llama2-7b-chat-int4-cpu", ortgenai.DeviceType.CPU)
+tokenizer = model.create_tokenizer()
+
+while True:
+    prompt = input("Input: ")
+    input_tokens = tokenizer.encode(prompt)
+
+    params = ortgenai.GeneratorParams(model)
+    params.max_length = 64
+    params.input_ids = input_tokens
+
+    output_tokens = model.generate(params)[0]
+
+    print("Output: ", tokenizer.decode(output_tokens))
+```
+
 ## Prerequisites
 ### Clone the repository and install Olive
 
