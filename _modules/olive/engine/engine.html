@@ -490,12 +490,12 @@
                 <span class="p">)</span>
         <span class="k">except</span> <span class="n">EXCEPTIONS_TO_RAISE</span><span class="p">:</span>
             <span class="k">raise</span>
-        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to run Olive on </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to run Olive on </span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="k">return</span> <span class="kc">None</span>
 
         <span class="n">output_fp_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix_output_name</span><span class="si">}</span><span class="s2">_footprints.json&quot;</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Save footprint to </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">output_fp_path</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Save footprint to </span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">output_fp_path</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">to_file</span><span class="p">(</span><span class="n">output_fp_path</span><span class="p">)</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;run_accelerator done&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">output_footprint</span>
@@ -1077,7 +1077,7 @@
                 <span class="k">raise</span>  <span class="c1"># rethrow the exception if no search is performed</span>
 
         <span class="n">run_end_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Pass </span><span class="si">%s</span><span class="s2">:</span><span class="si">%s</span><span class="s2"> finished in {run_end_time - run_start_time} seconds&quot;</span><span class="p">,</span> <span class="n">pass_id</span><span class="p">,</span> <span class="n">pass_name</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Pass </span><span class="si">%s</span><span class="s2">:</span><span class="si">%s</span><span class="s2"> finished in </span><span class="si">%f</span><span class="s2"> seconds&quot;</span><span class="p">,</span> <span class="n">pass_id</span><span class="p">,</span> <span class="n">pass_name</span><span class="p">,</span> <span class="n">run_end_time</span> <span class="o">-</span> <span class="n">run_start_time</span><span class="p">)</span>
 
         <span class="c1"># cache model</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cache_model</span><span class="p">(</span><span class="n">output_model_config</span><span class="p">,</span> <span class="n">output_model_id</span><span class="p">)</span>
