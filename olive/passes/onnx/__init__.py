@@ -7,6 +7,7 @@ from olive.passes.onnx.bnb_quantization import OnnxBnb4Quantization
 from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion
 from olive.passes.onnx.dynamic_to_fixed_shape import DynamicToFixedShape
 from olive.passes.onnx.float16_conversion import OnnxFloatToFloat16
+from olive.passes.onnx.genai_model_exporter import GenAIModelExporter
 from olive.passes.onnx.gptq import GptqQuantizer
 from olive.passes.onnx.inc_quantization import IncDynamicQuantization, IncQuantization, IncStaticQuantization
 from olive.passes.onnx.insert_beam_search import InsertBeamSearch
@@ -29,26 +30,28 @@ from olive.passes.onnx.vitis_ai_quantization import VitisAIQuantization
 __all__ = [
     "AppendPrePostProcessingOps",
     "DynamicToFixedShape",
-    "OnnxConversion",
-    "OnnxOpVersionConversion",
-    "OnnxBnb4Quantization",
-    "OnnxDynamicQuantization",
-    "OnnxMatMul4Quantizer",
-    "OnnxQuantization",
-    "OnnxStaticQuantization",
+    "GenAIModelExporter",
     "IncDynamicQuantization",
     "IncQuantization",
     "IncStaticQuantization",
+    "InsertBeamSearch",
     "MoEExpertsDistributor",
+    "OnnxBnb4Quantization",
+    "OnnxConversion",
+    "OnnxDynamicQuantization",
+    "OnnxFloatToFloat16",
+    "OnnxMatMul4Quantizer",
+    "OnnxModelOptimizer",
+    "OnnxOpVersionConversion",
+    "OnnxQuantization",
+    "OnnxStaticQuantization",
+    "OptimumConversion",
+    "OptimumMerging",
+    "OrtMixedPrecision",
     "OrtPerfTuning",
     "OrtTransformersOptimization",
-    "OnnxModelOptimizer",
-    "OnnxFloatToFloat16",
     "QNNPreprocess",
-    "InsertBeamSearch",
-    "OrtMixedPrecision",
     "VitisAIQuantization",
     "OptimumConversion",
     "OptimumMerging",
-    "GptqQuantizer",
 ]

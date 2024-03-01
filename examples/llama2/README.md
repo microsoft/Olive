@@ -1,11 +1,21 @@
 # Llama2 optimization
 Sample use cases of Olive to optimize a [Llama2](https://huggingface.co/meta-llama/Llama-2-7b-hf)
 
-- [Inference Optimization with ONNX Runtime tools for CPUs and GPUs](#inference-optimize-using-onnx-runtime-tools)
-- [Inference Optimization with ONNX Runtime DirectML for GPUs](#inference-optimization-with-onnnx-runtime-with-directml)
-- [With QLoRa fine-tune and ONNX Runtime Inference Optimizations](#fine-tune-on-a-code-generation-dataset-using-qlora-and-optimize-using-onnx-runtime-tools)
-- [Notebook of using AzureML compute to fine tune and optimize for your local GPUs](https://github.com/microsoft/Olive/tree/main/examples/llama2/notebook)
-- [How to run](#prerequisites)
+- [Llama2 optimization](#llama2-optimization)
+  - [Optimization Workflows](#optimization-workflows)
+    - [Inference optimization using ONNX Runtime Tools](#inference-optimization-using-onnx-runtime-tools)
+    - [Inference optimization with ONNNX Runtime with DirectML](#inference-optimization-with-onnnx-runtime-with-directml)
+    - [Fine-tune on a code generation dataset using QLoRA and optimize using ONNX Runtime Tools](#fine-tune-on-a-code-generation-dataset-using-qlora-and-optimize-using-onnx-runtime-tools)
+    - [Inference optimization using ONNX Runtime GenAI](#inference-optimization-using-onnx-runtime-genai)
+    - [Quantization using GPTQ and do text generation using ONNX Runtime with Optimum](#quantization-using-gptq-and-do-text-generation-using-onnx-runtime-with-optimum)
+  - [Prerequisites](#prerequisites)
+    - [Clone the repository and install Olive](#clone-the-repository-and-install-olive)
+    - [Install onnxruntime](#install-onnxruntime)
+    - [Install extra dependencies](#install-extra-dependencies)
+  - [Run the config to optimize the model](#run-the-config-to-optimize-the-model)
+    - [Optimize using ONNX Runtime Tools](#optimize-using-onnx-runtime-tools)
+    - [Fine-tune on a code generation dataset using QLoRA and optimize using ONNX Runtime Tools](#fine-tune-on-a-code-generation-dataset-using-qlora-and-optimize-using-onnx-runtime-tools-1)
+- [License](#license)
 
 ## Optimization Workflows
 ### Inference optimization using ONNX Runtime Tools
@@ -35,6 +45,33 @@ Supported languages are Python, TypeScript, JavaScript, Ruby, Julia, Rust, C++, 
 - You must be logged in to HuggingFace using `huggingface-cli login` to download the dataset or update `token` field in the config file with your HuggingFace token.
 
 Requirements file: [requirements-qlora.txt](requirements-qlora.txt)
+
+### Inference optimization using ONNX Runtime GenAI
+For using ONNX runtime GenAI to optimize, follow build and installation instructions [here](https://github.com/microsoft/onnxruntime-genai).
+
+Run the following command to execute the workflow:
+```bash
+python -m olive.workflows.run --config lamma2_genai.json
+```
+Snippet below shows an example run of generated llama2 model.
+```
+import onnxruntime_genai as ortgenai
+
+model = ortgenai.Model("llama2-7b-chat-int4-cpu", ortgenai.DeviceType.CPU)
+tokenizer = model.create_tokenizer()
+
+while True:
+    prompt = input("Input: ")
+    input_tokens = tokenizer.encode(prompt)
+
+    params = ortgenai.GeneratorParams(model)
+    params.max_length = 64
+    params.input_ids = input_tokens
+
+    output_tokens = model.generate(params)[0]
+
+    print("Output: ", tokenizer.decode(output_tokens))
+```
 
 ### Quantization using GPTQ and do text generation using ONNX Runtime with Optimum
 

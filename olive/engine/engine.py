@@ -362,12 +362,12 @@ class Engine:
                 )
         except EXCEPTIONS_TO_RAISE:
             raise
-        except Exception as e:
-            logger.warning("Failed to run Olive on %s: %s", accelerator_spec, e, exc_info=True)
+        except Exception:
+            logger.warning("Failed to run Olive on %s.", accelerator_spec, exc_info=True)
             return None
 
         output_fp_path = output_dir / f"{prefix_output_name}_footprints.json"
-        logger.info("Save footprint to %s", output_fp_path)
+        logger.info("Save footprint to %s.", output_fp_path)
         self.footprints[accelerator_spec].to_file(output_fp_path)
         logger.debug("run_accelerator done")
         return output_footprint
@@ -949,7 +949,7 @@ class Engine:
                 raise  # rethrow the exception if no search is performed
 
         run_end_time = datetime.now().timestamp()
-        logger.info("Pass %s:%s finished in {run_end_time - run_start_time} seconds", pass_id, pass_name)
+        logger.info("Pass %s:%s finished in %f seconds", pass_id, pass_name, run_end_time - run_start_time)
 
         # cache model
         self._cache_model(output_model_config, output_model_id)

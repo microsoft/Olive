@@ -28,6 +28,21 @@ Besides, if you want to convert a existing ONNX model with another target opset,
  }
 ```
 
+For generative models, the alternative conversion pass [GenAIModelExporter](genai_model_exporter) that integrates the
+[ONNX Runtime Generative AI](https://github.com/microsoft/onnxruntime-genai) module can be used.
+
+Please refer to [GenAIModelExporter](genai_model_exporter) for more details about the pass and its config parameters.
+
+### Example Configuration
+```json
+{
+    "type": "GenAIModelExporter",
+    "config": {
+        "precision": "int4"
+    }
+}
+```
+
 ## Model Optimizer
 `OnnxModelOptimizer` optimizes an ONNX model by fusing nodes. Fusing nodes involves merging multiple nodes in a model into a single node to
 reduce the computational cost and improve the performance of the model. The optimization process involves analyzing the structure of the ONNX model and identifying nodes that can be fused.

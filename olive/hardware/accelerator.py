@@ -149,7 +149,7 @@ def create_accelerators(
             raise ValueError("AzureMLSystem requires execution providers to be specified.")
         elif system_config.type == SystemType.Docker:
             # for docker system we default use CPUExecutionProvider
-            execution_providers = ["CPUExecutionProvider"]
+            raise ValueError("DockerSystem requires execution providers to be specified.")
         elif system_config.type in (SystemType.Local, SystemType.PythonEnvironment):
             execution_providers = system_supported_eps
     logger.debug("Initial execution providers: %s", execution_providers)
@@ -179,9 +179,6 @@ def create_accelerators(
             # don't need to check the supported execution providers if there is no evaluation
             # target is only used for evaluation
             available_eps = system_supported_eps
-        elif system_config.type == SystemType.Docker:
-            # TODO(myguo): do we need allow docker system support other execution providers?
-            available_eps = ["CPUExecutionProvider"]
         else:
             available_eps = execution_providers
 

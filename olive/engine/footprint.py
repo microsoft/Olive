@@ -102,7 +102,7 @@ class Footprint:
             return self._create_pareto_frontier_from_nodes(self.nodes)
         else:
             topk_nodes = self._get_top_ranked_nodes(output_model_num)
-            logger.info("Output top ranked %s models based on metric priorities", len(topk_nodes))
+            logger.info("Output top ranked %d models based on metric priorities", len(topk_nodes))
             return self._create_pareto_frontier_from_nodes(topk_nodes)
 
     def plot_pareto_frontier_to_html(self, index=None, save_path=None, is_show=False):
