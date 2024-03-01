@@ -31,6 +31,7 @@ __all__ = [
     "AppendPrePostProcessingOps",
     "DynamicToFixedShape",
     "GenAIModelExporter",
+    "GptqQuantizer",
     "IncDynamicQuantization",
     "IncQuantization",
     "IncStaticQuantization",
