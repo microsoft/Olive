@@ -35,7 +35,7 @@ def evaluate_entry(config, output_path, output_name, accelerator_type, execution
 
     with open(os.path.join(output_path, f"{output_name}"), "w") as f:
         f.write(metrics_res.json())
-    logger.info(f"Metric result: {metrics_res}")
+    logger.info("Metric result: %s", metrics_res)
 
 
 if __name__ == "__main__":

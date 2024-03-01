@@ -46,6 +46,7 @@ def patch_config(config_json_path: str, search_algorithm: str, execution_order: 
     elif system == "docker_system":
         # set docker_system
         set_docker_system(olive_config)
+        olive_config["engine"]["host"] = system
         olive_config["engine"]["target"] = system
         # reduce agent size for docker system
 

@@ -26,8 +26,10 @@ class OnnxEpValidateMixin:
             ort.InferenceSession(filepath, sess_options, providers=[ep])
         except Exception as e:  # pylint: disable=broad-except
             logger.warning(
-                f"Error: {e}Olive will ignore this {ep}."
-                f"Please make sure the environment with {ep} has the required dependencies."
+                "Error: %s Olive will ignore this %(ep)s."
+                "Please make sure the environment with %(ep)s has the required dependencies.",
+                e,
+                ep=ep,
             )
             return False
         return True

@@ -233,7 +233,7 @@ class FileListCommonDataLoader(FileListDataLoader):
         super().__init__(config, batch_size)
 
     def load_data(self) -> Tuple[str, str, np.ndarray]:
-        logger.debug(f"Converting dataloader of type {type(self.config['dataloader'])} to FileList dataloader")
+        logger.debug("Converting dataloader of type %s to FileList dataloader", type(self.config["dataloader"]))
         input_specs = {}
         for input_name, input_shape in zip(
             self.config["io_config"]["input_names"], self.config["io_config"]["input_shapes"]
@@ -286,7 +286,7 @@ class FileListCommonDataLoader(FileListDataLoader):
                 )
 
             input_spec["permutation"] = permutation
-        logger.debug(f"Input specs: {input_specs}")
+        logger.debug("Input specs: %s", input_specs)
 
         self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_")  # pylint: disable=consider-using-with
         data_dir = Path(self.tmp_dir.name) / "data"

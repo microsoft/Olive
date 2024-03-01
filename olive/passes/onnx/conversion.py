@@ -171,7 +171,7 @@ class OnnxConversion(Pass):
             pytorch_model = pytorch_model.get_base_model()
 
         # put pytorch_model and dummy_inputs at the same device
-        logger.debug(f"Converting model on device {device} with dtype {torch_dtype}.")
+        logger.debug("Converting model on device %s with dtype %s.", device, torch_dtype)
         pytorch_model.to(device)
         if torch_dtype:
             pytorch_model = pytorch_model.to(torch_dtype)
@@ -208,7 +208,7 @@ class OnnxConversion(Pass):
             unused_keys = dummy_input_keys - set(input_names)
 
             if unused_keys:
-                logger.debug(f"Removing unused dummy inputs: {unused_keys}")
+                logger.debug("Removing unused dummy inputs: %s", unused_keys)
 
         onnx_model = None
         if config["use_dynamo_exporter"]:
@@ -323,8 +323,9 @@ class OnnxConversion(Pass):
         if torch_dtype and torch_dtype != model_dtype:
             # if the model loading args specify a different dtype, update the model loading args
             logger.debug(
-                f"Changing torch_dtype in model loading args from {from_pretrained_args.get_torch_dtype()} to"
-                f" {torch_dtype}."
+                "Changing torch_dtype in model loading args from %s to %s.",
+                from_pretrained_args.get_torch_dtype(),
+                torch_dtype,
             )
             new_from_pretrained_args["torch_dtype"] = torch_dtype
             new_model_attributes["torch_dtype"] = str(torch_dtype).replace("torch.", "")
@@ -558,7 +559,7 @@ class OnnxOpVersionConversion(Pass):
         model_proto = model.load_model()
         model_opset_version = model_proto.opset_import[0].version
         if model_opset_version == config["target_opset"]:
-            logger.info(f"Model is already in target opset version {config['target_opset']}.")
+            logger.info("Model is already in target opset version %s.", config["target_opset"])
             return model
 
         output_model_path = resolve_onnx_path(output_model_path)

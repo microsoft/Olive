@@ -230,7 +230,7 @@ class InsertBeamSearch(Pass):
 
         beam_graph = helper.make_graph(graph_nodes, "beam-search-test", graph_inputs, graph_outputs, initializers)
         assert model_A.ir_version == model_B.ir_version
-        logger.debug(f"Using IR version {model_A.ir_version} for chained model")
+        logger.debug("Using IR version %s for chained model", model_A.ir_version)
 
         # Set IR version of chained model to IR version of subgraphs in order to generate a working E2E model
         return helper.make_model_gen_version(

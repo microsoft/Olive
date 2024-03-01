@@ -160,7 +160,9 @@ class DataConfig(ConfigBase):
                     if info.kind in (info.VAR_POSITIONAL, info.VAR_KEYWORD):
                         continue
                     elif info.default is info.empty:
-                        logger.debug(f"Missing parameter {param} for component {k} with type {v.type}. Set to None.")
+                        logger.debug(
+                            "Missing parameter %s for component %s with type %s. Set to None.", param, k, v.type
+                        )
                         v.params[param] = None
                     else:
                         v.params[param] = params[param].default

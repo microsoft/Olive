@@ -113,7 +113,7 @@ def download_resource(resource_path: ResourcePath, cache_dir: Union[str, Path] =
 
     # check if resource path is cached
     if resource_path_json.exists():
-        logger.debug(f"Using cached resource path {resource_path.to_json()}")
+        logger.debug("Using cached resource path %s", resource_path.to_json())
         with resource_path_json.open("r") as f:
             resource_path_data = json.load(f)["dest"]
         return create_resource_path(resource_path_data)
@@ -126,11 +126,11 @@ def download_resource(resource_path: ResourcePath, cache_dir: Union[str, Path] =
     save_dir.mkdir(parents=True, exist_ok=True)
 
     # download resource to save directory
-    logger.debug(f"Downloading non-local resource {resource_path.to_json()} to {save_dir}")
+    logger.debug("Downloading non-local resource %s to %s", resource_path.to_json(), save_dir)
     local_resource_path = create_resource_path(resource_path.save_to_dir(save_dir))
 
     # cache resource path
-    logger.debug(f"Caching resource path {resource_path}")
+    logger.debug("Caching resource path %s", resource_path)
     with resource_path_json.open("w") as f:
         data = {"source": resource_path.to_json(), "dest": local_resource_path.to_json()}
         json.dump(data, f, indent=4)
@@ -216,7 +216,7 @@ def save_model(
         model_json = serialize_to_json(json.load(f))
 
     if model_json["type"].lower() in ("compositemodel", "compositepytorchmodel"):
-        logger.warning(f"Saving models of type '{model_json['type']}' is not supported yet.")
+        logger.warning("Saving models of type '%s' is not supported yet.", model_json["type"])
         return None
 
     # create model object so that we can get the resource paths

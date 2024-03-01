@@ -65,7 +65,7 @@ class HfConfigMixin:
         """Load model from model_path or model_name."""
         model_name_or_path = model_path or self.hf_config.model_name
         loading_args = self.hf_config.get_loading_args_from_pretrained()
-        logger.info(f"Loading Huggingface model from {model_name_or_path}")
+        logger.info("Loading Huggingface model from %s", model_name_or_path)
         if self.hf_config.task:
             model = load_hf_model_from_task(self.hf_config.task, model_name_or_path, **loading_args)
         elif self.hf_config.model_class:

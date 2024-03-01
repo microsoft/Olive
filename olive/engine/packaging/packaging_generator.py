@@ -67,7 +67,8 @@ def _generate_zipfile_output(
                 )
         _package_onnxruntime_packages(tempdir, next(iter(pf_footprints.values())))
         shutil.make_archive(packaging_config.name, "zip", tempdir)
-        shutil.move(f"{packaging_config.name}.zip", output_dir / f"{packaging_config.name}.zip")
+        package_file = f"{packaging_config.name}.zip"
+        shutil.move(package_file, output_dir / package_file)
 
 
 def _package_models_rank(tempdir, footprints: Dict["AcceleratorSpec", "Footprint"]):
@@ -109,7 +110,7 @@ def _package_candidate_models(
     model_rank = 1
     input_node = footprint.get_input_node()
     for model_id, node in pf_footprint.nodes.items():
-        model_dir = candidate_models_dir / f"{accelerator_spec}" / f"BestCandidateModel_{model_rank}"
+        model_dir = candidate_models_dir / str(accelerator_spec) / f"BestCandidateModel_{model_rank}"
         model_dir.mkdir(parents=True, exist_ok=True)
         model_rank += 1
 
@@ -340,7 +341,7 @@ def _download_c_packages(package_name_list: List[str], ort_version: str, ort_dow
             urllib.request.urlretrieve(download_link.substitute(ort_version=ort_version), download_path)
         else:
             logger.warning(
-                f"Package {package_name} is not available for packaging. Please manually install the package."
+                "Package %s is not available for packaging. Please manually install the package.", package_name
             )
 
 

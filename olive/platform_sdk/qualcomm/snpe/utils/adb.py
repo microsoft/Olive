@@ -22,7 +22,7 @@ def get_snpe_android_root() -> str:
     """
     try:
         snpe_android_root = os.environ["SNPE_ANDROID_ROOT"]
-        logger.debug(f"SNPE_ANDROID_ROOT is set to {snpe_android_root}")
+        logger.debug("SNPE_ANDROID_ROOT is set to %s", snpe_android_root)
     except KeyError:
         raise ValueError("SNPE_ANDROID_ROOT is not set") from None
 
@@ -42,7 +42,7 @@ def get_snpe_android_arch(snpe_android_root: str) -> str:
         raise FileNotFoundError(f"SNPE_ANDROID_ROOT {snpe_android_root} missing aarch64-android-*")
 
     android_arch = android_archs[0].name
-    logger.debug(f"SNPE Android architecture: {android_arch}")
+    logger.debug("SNPE Android architecture: %s", android_arch)
 
     return android_arch
 
@@ -73,9 +73,9 @@ def run_adb_command(
     full_cmd = f"{adb_head} {cmd}"
     for run in range(runs):
         run_log_msg = "" if runs == 1 else f" (run {run + 1}/{runs})"
-        logger.debug(f"Running ADB command{run_log_msg}: {full_cmd}")
+        logger.debug("Running ADB command %s: %s", run_log_msg, full_cmd)
         returncode, stdout, stderr = run_subprocess(full_cmd)
-        logger.debug(f"Return code: {returncode} \n Stdout: {stdout} \n Stderr: {stderr}")
+        logger.debug("Return code: %d \n Stdout: %s \n Stderr: %s", returncode, stdout, stderr)
         if returncode != 0:
             break
         if sleep > 0 and run < runs - 1:
@@ -168,7 +168,7 @@ def prepare_snpe_adb(android_target: str):
     android_target: The target Android device
     """
     get_snpe_adb_env(android_target, push_snpe=True)
-    logger.info(f"SNPE prepared for Android target {android_target}")
+    logger.info("SNPE prepared for Android target %s", android_target)
 
 
 def run_snpe_adb_command(

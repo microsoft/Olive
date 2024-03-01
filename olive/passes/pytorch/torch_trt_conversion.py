@@ -155,9 +155,9 @@ class TorchTRTConversion(Pass):
             del info["handles"]
 
         # convert submodules to trt modules
-        logger.debug(f"Converting layers {min_layer} to {max_layer}...")
+        logger.debug("Converting layers %d to %d...", min_layer, max_layer)
         for layer_index, info in layer_info.items():
-            logger.debug(f"Converting layer {layer_index}...")
+            logger.debug("Converting layer %d...", layer_index)
             for name, shape in info["input_shapes"].items():
                 inputs = torch.zeros(shape, dtype=torch.float16, device=device)
                 # create trt module

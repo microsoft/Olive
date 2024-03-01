@@ -98,11 +98,11 @@ class Footprint:
     def create_pareto_frontier(self, output_model_num: int = None) -> Optional["Footprint"]:
         self._mark_pareto_frontier()
         if output_model_num is None or len(self.nodes) <= output_model_num:
-            logger.info(f"Output all {len(self.nodes)} models")
+            logger.info("Output all %d models", len(self.nodes))
             return self._create_pareto_frontier_from_nodes(self.nodes)
         else:
             topk_nodes = self._get_top_ranked_nodes(output_model_num)
-            logger.info(f"Output top ranked {len(topk_nodes)} models based on metric priorities")
+            logger.info("Output top ranked %d models based on metric priorities", len(topk_nodes))
             return self._create_pareto_frontier_from_nodes(topk_nodes)
 
     def plot_pareto_frontier_to_html(self, index=None, save_path=None, is_show=False):
@@ -117,7 +117,7 @@ class Footprint:
             logger.warning("There is no pareto frontier points.")
             return None
         for v in rls.values():
-            logger.info(f"pareto frontier points: {v.model_id} \n{v.metrics.value}")
+            logger.info("pareto frontier points: %s \n%s", v.model_id, v.metrics.value)
 
         # restructure the pareto frontier points to instance of Footprints node for further analysis
         return Footprint(
@@ -231,7 +231,7 @@ class Footprint:
             if_goals_met = []
             for metric_name in v.metrics.value:
                 if metric_name not in self.objective_dict:
-                    logger.debug(f"There is no goal set for metric: {metric_name}.")
+                    logger.debug("There is no goal set for metric: %s.", metric_name)
                     continue
                 higher_is_better = self.objective_dict[metric_name]["higher_is_better"]
                 cmp_direction = 1 if higher_is_better else -1
@@ -286,7 +286,7 @@ class Footprint:
                 dominated = True  # current point is dominated by other point
                 for metric_name in v.metrics.value:
                     if metric_name not in _v.metrics.cmp_direction:
-                        logger.debug(f"Metric {metric_name} is not in cmp_direction, will not be compared.")
+                        logger.debug("Metric %s is not in cmp_direction, will not be compared.", metric_name)
                         continue
                     other_point_metrics = _v.metrics.value[metric_name].value * _v.metrics.cmp_direction[metric_name]
                     current_point_metrics = v.metrics.value[metric_name].value * v.metrics.cmp_direction[metric_name]
@@ -324,12 +324,12 @@ class Footprint:
                         if index in self.objective_dict:
                             rls.append(index)
                         else:
-                            logger.error(f"the metric {index} is not in the metrics")
+                            logger.error("the metric %s is not in the metrics", index)
                     elif isinstance(index, int):
                         if index < len(self.objective_dict):
                             rls.append(list(self.objective_dict.keys())[index])
                         else:
-                            logger.error(f"the index {index} is out of range")
+                            logger.error("the index %s is out of range", index)
                 if rls:
                     return rls
         return []
