@@ -28,10 +28,15 @@ git config --system core.longpaths true
 ```
 
 ## Usage
+CPU:
 ```bash
 python -m olive.workflows.run --config mistral_optimize.json
 ```
 
+GPU:
+```bash
+python -m olive.workflows.run --config mistral_fp16_optimize.json
+```
 ### Local model
 if the input model is saved locally, you can specify the configuration like the following:
 ```json
