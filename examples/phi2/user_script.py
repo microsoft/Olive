@@ -1,7 +1,8 @@
 # -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
-import platform
+# --------------------------------------------------------------------------
+
 from itertools import chain
 from typing import TYPE_CHECKING, List, Tuple
 
@@ -44,19 +45,17 @@ def get_io_config(model):
     input_names = [
         "input_ids",
         "attention_mask",
-        *list(
-            chain.from_iterable(
-                (f"past_key_values.{i}.key", f"past_key_values.{i}.value") for i in range(config.num_hidden_layers)
-            )
-        ),
+        *list(chain.from_iterable((f"past_key_{i}", f"past_value_{i}") for i in range(config.num_hidden_layers))),
     ]
     output_names = [
         "logits",
-        *list(chain.from_iterable((f"present.{i}.key", f"present.{i}.value") for i in range(config.num_hidden_layers))),
+        *list(chain.from_iterable((f"present_key_{i}", f"present_value_{i}") for i in range(config.num_hidden_layers))),
     ]
+    input_types = ["int32", "int32"] + ["float32", "float32"] * config.num_hidden_layers
     dynamic_axes = get_merged_model_dynamic_axes(input_names, output_names)
     return {
         "input_names": input_names,
+        "input_types": input_types,
         "output_names": output_names,
         "dynamic_axes": dynamic_axes,
     }
@@ -133,7 +132,7 @@ def get_merged_model_dynamic_axes(input_names: List[str], output_names: List[str
             dynamic_axes[name] = {0: "batch_size", 1: "total_sequence_length"}
         elif "past" in name:
             # shape is (batch_size, num_heads, past_sequence_length, head_size)
-            dynamic_axes[name] = {0: "batch_size", 1: "max_sequence_length"}
+            dynamic_axes[name] = {0: "batch_size", 2: "max_sequence_length"}
         elif name == "logits":
             # shape is (batch_size, sequence_length, vocab_size)
             dynamic_axes[name] = {0: "batch_size", 1: "sequence_length"}
@@ -142,7 +141,7 @@ def get_merged_model_dynamic_axes(input_names: List[str], output_names: List[str
             # = (batch_size, num_heads, total_sequence_length, head_size)
             # for prompt generation, past_sequence_length = 0
             # for token generation, sequence_length = 1
-            dynamic_axes[name] = {0: "batch_size", 1: "max_sequence_length"}
+            dynamic_axes[name] = {0: "batch_size", 2: "max_sequence_length"}
         else:
             raise Exception("Unknown input or output name found")
     return dynamic_axes
@@ -165,8 +164,8 @@ def get_merged_sample_with_past_kv_inputs(
     return_dict: bool = False,
     world_size: int = 1,
 ):
-    input_ids = torch.randint(low=0, high=config.vocab_size, size=(batch_size, seq_len), dtype=torch.int64)
-    attention_mask = torch.ones(batch_size, past_seq_len + seq_len, dtype=torch.int64)
+    input_ids = torch.randint(low=0, high=config.vocab_size, size=(batch_size, seq_len), dtype=torch.int32)
+    attention_mask = torch.ones(batch_size, past_seq_len + seq_len, dtype=torch.int32)
     # position_ids is of shape (batch_size, seq_len) for prompt generation, (batch_size, 1) for token generation
     position_ids = get_position_ids(attention_mask, past_seq_len)
     step = torch.tensor(0, dtype=torch.int64)
@@ -216,14 +215,8 @@ def flatten_past_kv_inputs(past_key_values: List[Tuple[torch.Tensor, torch.Tenso
     past_kv = {}
     # Convert list of past_kv to dict of past_key and past_value
     for i, (past_k, past_v) in enumerate(past_key_values):
-        if platform.system() == "Windows":
-            # For Windows, the dynamo export is not supported yet, and the default export is used.
-            # The default export uses the following format for past_key_values.{i}.key and past_key_values.{i}.value
-            past_kv[f"past_key_values.{i}.key"] = past_k
-            past_kv[f"past_key_values.{i}.value"] = past_v
-        elif platform.system() == "Linux":
-            past_kv[f"past_key_{i}"] = past_k
-            past_kv[f"past_value_{i}"] = past_v
+        past_kv[f"past_key_{i}"] = past_k
+        past_kv[f"past_value_{i}"] = past_v
     return past_kv
 
 
