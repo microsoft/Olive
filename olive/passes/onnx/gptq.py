@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 from typing import Any, Callable, Dict, Union
 
 import torch
@@ -14,6 +15,8 @@ from olive.model import PyTorchModelHandler
 from olive.model.handler.onnx import ONNXModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
+
+logger = logging.getLogger(__name__)
 
 
 class GptqQuantizer(Pass):
@@ -113,27 +116,33 @@ class GptqQuantizer(Pass):
             ),
         }
 
+    def validate_search_point(
+        self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
+    ) -> bool:
+        from onnxruntime import __version__ as ort_version
+        from optimum.version import __version__ as optimum_version
+
+        if version.parse(optimum_version) < version.parse("1.17.0"):
+            logger.info("Please use optimum>=1.17.0 for gptq quantization")
+            return False
+        if version.parse(ort_version) < version.parse("1.17.0"):
+            logger.info("Please use onnxruntime-gpu>=1.17.0 for gptq quantization")
+            return False
+        if self.accelerator_spec.accelerator_type != Device.GPU:
+            logger.info("Please use GPU and CUDAExecutionProvider to run gptq quantization.")
+            return False
+
+        return True
+
     @torch.no_grad()
     def _run_for_config(
         self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
-        from onnxruntime import __version__ as ort_version
         from optimum.exporters.onnx import onnx_export_from_model
         from optimum.gptq import GPTQQuantizer
-        from optimum.version import __version__ as optimum_version
         from transformers import AutoTokenizer
 
         from olive.passes.onnx.gptq_utils import QuantLinearORT
-
-        if version.parse(optimum_version) < version.parse("1.17.0"):
-            raise ValueError("Please use optimum>=1.17.0 for gptq quantization")
-        if version.parse(ort_version) < version.parse("1.17.0"):
-            raise ValueError("Please use onnxruntime-gpu>=1.17.0 for gptq quantization")
-        if (
-            self.accelerator_spec.accelerator_type != Device.GPU
-            or self.accelerator_spec.execution_provider != "CUDAExecutionProvider"
-        ):
-            raise ValueError("Please use GPU and CUDAExecutionProvider to run gptq quantization.")
 
         tokenizer = AutoTokenizer.from_pretrained(model.hf_config.model_name, use_fast=False)
 
@@ -175,6 +184,9 @@ class GptqQuantizer(Pass):
             # GPTQ Quantization in transformers use optimum under the hood, so we
             # replace QuantLinear in optimum with QuantLinearORT for quant linear layer packing
             optimum.gptq.quantizer.dynamically_import_QuantLinear = get_onnx_quant_linear
+
+            # Optimum quantize_model currently only support cuda device. It accepts model on cpu but
+            # will move each block(layer) to cuda before quantization and move back to cpu when finished.
             quantized_model = quantizer.quantize_model(pytorch_model, tokenizer)
         finally:
             optimum.gptq.quantizer.dynamically_import_QuantLinear = original
@@ -185,6 +197,7 @@ class GptqQuantizer(Pass):
         elif config["data_config"]:
             quantized_model.config.quantization_config["dataset"] = "olive_" + config["data_config"]["name"]
 
+        assert self.accelerator_spec.accelerator_type == Device.GPU
         onnx_export_from_model(
             model=quantized_model,
             output=output_model_path,

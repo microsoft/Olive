@@ -159,7 +159,16 @@ class QuantLinearORT(nn.Module):
         else:
             self.bias = None
 
-    def unpack(self):
+    def forward(self, x):
+        out = quant_linear_forward(
+            x, self.qweight, self.scales, self.qzeros, self.bits, self.groupsize, self.infeatures, self.outfeatures
+        )
+        return out + self.bias if self.bias is not None else out
+
+    def pack(self, linear, scales, zeros, g_idx=None):
+        return self._accelerate_pack_on_device(linear, scales, zeros, g_idx)
+
+    def _unpack(self):
         float_values, zero_point, scale = dequantize_blockwise_4bits(
             self.qweight, self.scales, self.qzeros, self.infeatures, self.outfeatures
         )
@@ -168,89 +177,61 @@ class QuantLinearORT(nn.Module):
         scale = scale.T.contiguous()
         return float_values, zero_point, scale
 
-    def forward(self, x):
-        out = quant_linear_forward(
-            x, self.qweight, self.scales, self.qzeros, self.bits, self.groupsize, self.infeatures, self.outfeatures
-        )
-        return out + self.bias if self.bias is not None else out
-
-    def quant_weight(self, weight, scales, zeros, g_idx=None, need_transpose=True):
-        device = weight.device
-        scales = scales.t().contiguous().to(device)
-        zeros = zeros.t().contiguous().to(device)
-        g_idx = self.g_idx.long().to(device)
+    def _quant_weight(self, weight, scales, zeros, g_idx=None, need_transpose=True):
+        scales = scales.t().contiguous()
+        zeros = zeros.t().contiguous()
+        g_idx = self.g_idx.long()
         scale_zeros = zeros * scales
-        self.scales = (scales.clone() if self.scales.sum() == 0 else self.scales).cpu()
+        self.scales = scales.clone() if self.scales.sum() == 0 else self.scales
 
         scale_mat = scales[g_idx]
         scale_zeros_mat = scale_zeros[g_idx]
         intweight_t = torch.round((weight.T + scale_zeros_mat) / scale_mat).to(torch.int)
 
         if not need_transpose:
-            return intweight_t.cpu()
-        return intweight_t.T.cpu()
+            return intweight_t
+        return intweight_t.T
 
-    def reorder_int_tensor(self, int_tensor):
-        return int_tensor
-
-    def reverse_reorder_int_tensor(self, int_tensor):
-        return int_tensor
-
-    def pack_qzeros_odd(self, intzeros, device):
+    def _pack_qzeros_odd(self, intzeros):
         # why -1?
         # zeros_cuda = (zeros - 1).to(device).int()
         compatible_with_autogptq = int(os.environ.get("COMPATIBLE_WITH_AUTOGPTQ", "0"))
-        zeros_cuda = intzeros - compatible_with_autogptq
+        device = intzeros.device
+        zeros = intzeros - compatible_with_autogptq
         max_num_in_bits = 2**self.bits - 1
-        zeros_cuda = (zeros_cuda.byte() & max_num_in_bits).int()
-        qzeros_cuda = torch.zeros(
+        zeros = (zeros.byte() & max_num_in_bits).int()
+        qzeros = torch.zeros(
             (intzeros.shape[0], (intzeros.shape[1] * self.bits + 31) // 32), dtype=torch.int32, device=device
         )
 
-        qzeros_cuda = qzeros_cuda.T.contiguous()
-        zeros_cuda = zeros_cuda.T.contiguous()
-        general_pack_on_row(qzeros_cuda, zeros_cuda, self.bits)
+        qzeros = qzeros.T.contiguous()
+        zeros = zeros.T.contiguous()
+        general_pack_on_row(qzeros, zeros, self.bits)
 
-        self.qzeros = qzeros_cuda.T.contiguous().cpu()
+        self.qzeros = qzeros.T.contiguous()
 
     # odd bits, 3,5,6,7
-    def pack_on_device_for_odd_bits(self, intweight_gpu, intzeros):
-        device = intweight_gpu.device
+    def _pack_on_device_for_odd_bits(self, intweight, intzeros):
+        device = intweight.device
         qweight_gpu = torch.zeros(
-            ((intweight_gpu.shape[0] * self.bits + 31) // 32, intweight_gpu.shape[1]), dtype=torch.int32, device=device
+            ((intweight.shape[0] * self.bits + 31) // 32, intweight.shape[1]), dtype=torch.int32, device=device
         )
 
-        general_pack_on_row(qweight_gpu, intweight_gpu, self.bits)
-        self.qweight = qweight_gpu.cpu()
+        general_pack_on_row(qweight_gpu, intweight, self.bits)
+        self.qweight = qweight_gpu
 
-        self.pack_qzeros_odd(intzeros, device)
+        self._pack_qzeros_odd(intzeros)
 
         if self.orig_fp_weight is not None:
-            fw, _, _ = self.unpack()
-            assert (fw == self.orig_fp_weight.to(device)).all()
+            fw, _, _ = self._unpack()
+            assert (fw == self.orig_fp_weight).all()
 
-    def pack_qzeros_even(self, intzeros, device):
-        intzeros = intzeros.int()
-        # why -1?
-        # zeros_cuda = (zeros - 1).to(device).int()
-        compatible_with_autogptq = int(os.environ.get("COMPATIBLE_WITH_AUTOGPTQ", "0"))
-        zeros_cuda = intzeros - compatible_with_autogptq
-        max_num_in_bits = 2**self.bits - 1
-        zeros_cuda = (zeros_cuda.byte() & max_num_in_bits).int()
-        qzeros_cuda = torch.zeros(
-            (intzeros.shape[0], intzeros.shape[1] // 32 * self.bits), dtype=torch.int32, device=device
-        )
-        qzeros_cuda = qzeros_cuda.T.contiguous()
-        zeros_cuda = zeros_cuda.T.contiguous()
-        pack_on_row_fast_248bit(qzeros_cuda, zeros_cuda, self.bits)
-        self.qzeros = qzeros_cuda.T.contiguous().cpu()
-
-    def pack_on_device_for_even_bits(self, intweight_gpu, intzeros_T):
+    def _pack_on_device_for_even_bits(self, intweight, intzeros_T):
         self.act_order = self.g_idx[: self.groupsize // self.bits].sum().item() != 0
         assert self.act_order is False, "please set the pack_model to others like [GPTQ, AUTO] and try again."
         intzeros_pt = intzeros_T.T.byte()
-        scales_pt = self.scales.T.to(intweight_gpu.device)
-        intweight_pt = intweight_gpu.byte()
+        scales_pt = self.scales.T.to(intweight.device)
+        intweight_pt = intweight.byte()
         block_size = self.groupsize
 
         rows, cols = intweight_pt.shape
@@ -265,7 +246,7 @@ class QuantLinearORT(nn.Module):
         intzeros_pt = (intzeros_pt[:, 0::2]) | (intzeros_pt[:, 1::2] << 4)
         intzeros_pt = intzeros_pt.reshape(-1)
 
-        intweight_pt_t = intweight_gpu.T
+        intweight_pt_t = intweight.T
         intweight_pt_t = (intweight_pt_t[:, 0::2]) | (intweight_pt_t[:, 1::2] << 4)
         intweight_pt_t = intweight_pt_t.reshape(cols, k_blocks, blob_size)
 
@@ -278,22 +259,15 @@ class QuantLinearORT(nn.Module):
         self.qweight = intweight_pt_t.contiguous().byte()
         self.qzeros = intzeros_pt.contiguous().byte()
 
-    def accelerate_pack_on_device(self, linear, scales, zeros, g_idx=None, device="cuda"):
-        scales = scales.to(device)
-        zeros = zeros.to(device)
-        layer_weight = linear.weight.data.to(device)
+    def _accelerate_pack_on_device(self, linear, scales, zeros, g_idx=None):
+        layer_weight = linear.weight.data
 
         self.g_idx = g_idx.clone() if g_idx is not None else self.g_idx
-        intweight = self.quant_weight(layer_weight, scales, zeros, g_idx, need_transpose=False)
-        intweight_gpu = intweight.to(device)
+        intweight = self._quant_weight(layer_weight, scales, zeros, g_idx, need_transpose=False)
 
         qzeros = zeros.t().contiguous()
 
         if self.bits in [2, 4, 8]:
-            return self.pack_on_device_for_even_bits(intweight_gpu, qzeros)
+            return self._pack_on_device_for_even_bits(intweight, qzeros)
         else:
-            return self.pack_on_device_for_odd_bits(intweight_gpu, qzeros)
-
-    def pack(self, linear, scales, zeros, g_idx=None):
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        return self.accelerate_pack_on_device(linear, scales, zeros, g_idx, device)
+            return self._pack_on_device_for_odd_bits(intweight, qzeros)
