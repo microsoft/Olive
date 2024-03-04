@@ -167,7 +167,9 @@ def create_accelerators(
             accelerators = inferred_accelerators
     logger.debug("Initial accelerators: %s", accelerators)
 
-    ep_to_process = set(execution_providers)
+    seen = set()
+    ep_to_process = [ep for ep in execution_providers if ep not in seen and not seen.add(ep)]
+
     # Flatten the accelerators to list of AcceleratorSpec
     accelerator_specs: List[AcceleratorSpec] = []
     is_cpu_available = "cpu" in [accelerator.lower() for accelerator in accelerators]
