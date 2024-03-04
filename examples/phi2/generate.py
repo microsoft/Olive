@@ -25,7 +25,9 @@ class ORTGenerator:
         self.max_sequence_length = 2048
 
         self.use_fp16 = False
-        self.device = -1
+        # -1 to use CPU
+        self.device_id = -1
+        self.device = None
         self.use_buffer_share = False
         self.packed_kv = False
         self.use_step = False
