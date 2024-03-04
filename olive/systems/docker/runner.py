@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 from olive.common.utils import huggingface_login
-from olive.logging import set_verbosity
+from olive.logging import set_verbosity_from_env
 from olive.model import ModelConfig
 from olive.passes.olive_pass import FullPassConfig
 
@@ -39,8 +39,7 @@ def runner_entry(config, output_path, output_name):
 
 
 if __name__ == "__main__":
-    log_level = os.environ.get("OLIVE_LOG_LEVEL", "INFO")
-    set_verbosity(log_level)
+    set_verbosity_from_env()
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, help="runner config")

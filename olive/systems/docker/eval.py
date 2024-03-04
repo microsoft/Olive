@@ -10,7 +10,7 @@ import sys
 
 from olive.common.utils import huggingface_login
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorConfig, OliveEvaluatorFactory
-from olive.logging import set_verbosity
+from olive.logging import set_verbosity_from_env
 from olive.model import ModelConfig
 
 logger = logging.getLogger("olive")
@@ -40,8 +40,7 @@ def evaluate_entry(config, output_path, output_name, accelerator_type, execution
 
 
 if __name__ == "__main__":
-    log_level = os.environ.get("OLIVE_LOG_LEVEL", "INFO")
-    set_verbosity(log_level)
+    set_verbosity_from_env()
 
     parser = argparse.ArgumentParser()
 
