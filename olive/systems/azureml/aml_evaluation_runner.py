@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from olive.common.utils import aml_runner_hf_login
 from olive.evaluator.metric import Metric
 from olive.hardware import AcceleratorSpec
+from olive.logging import set_verbosity_from_env
 from olive.model import ModelConfig
 from olive.systems.local import LocalSystem
 from olive.systems.utils import get_common_args
@@ -49,6 +50,8 @@ def create_metric(metric_config, metric_args):
 
 
 def main(raw_args=None):
+    set_verbosity_from_env()
+
     # login to hf if HF_LOGIN is set to True
     aml_runner_hf_login()
 

@@ -10,10 +10,11 @@ import sys
 from pathlib import Path
 
 from olive.common.utils import huggingface_login
+from olive.logging import set_verbosity_from_env
 from olive.model import ModelConfig
 from olive.passes.olive_pass import FullPassConfig
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("olive")
 
 
 def runner_entry(config, output_path, output_name):
@@ -38,6 +39,8 @@ def runner_entry(config, output_path, output_name):
 
 
 if __name__ == "__main__":
+    set_verbosity_from_env()
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, help="runner config")
     parser.add_argument("--output_path", help="Path of output model")

@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 from olive.common.utils import set_tempdir
+from olive.logging import set_verbosity_from_env
 from olive.model import ModelConfig
 from olive.passes.olive_pass import FullPassConfig
 
@@ -25,6 +26,8 @@ def get_args(raw_args):
 
 
 def main(raw_args=None):
+    set_verbosity_from_env()
+
     args = get_args(raw_args)
 
     set_tempdir(args.tempdir)
