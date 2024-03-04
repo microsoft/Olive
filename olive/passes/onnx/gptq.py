@@ -96,6 +96,7 @@ class GptqQuantizer(Pass):
                     Data config for quantization. Default value is None.
                 """,
             ),
+            # TODO(trajep): consider to use data_config to implement the functionality of dataloader_func.
             "dataloader_func": PassConfigParam(
                 type_=Union[Callable, str],
                 default_value=None,
