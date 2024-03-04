@@ -68,10 +68,21 @@ def get_args(raw_args):
         help="Run inference with optimized model",
     )
     parser.add_argument(
+        "--optimum_optimization",
+        action="store_true",
+        help="Run inference with optimized model",
+    )
+    parser.add_argument(
         "--prompt",
         nargs="*",
         type=str,
         default=["Write a function to print 1 to n", "Write a extremely long story starting with once upon a time"],
+    )
+    parser.add_argument(
+        "--max_length",
+        type=int,
+        default=50,
+        help="Max length for generation",
     )
 
     return parser.parse_args(raw_args)
@@ -110,14 +121,23 @@ def main(raw_args=None):
         template_json = json.load(f)
 
     if platform.system() == "Windows":
-        template_json["passes"]["convert"]["config"]["use_dynamo_exporter"] = False
-        template_json["passes"]["convert"]["config"]["target_opset"] = 17
-        template_json["passes"]["optimize_cpu"]["config"]["model_type"] = "gpt2"
-        template_json["passes"]["optimize_cuda"]["config"]["model_type"] = "gpt2"
+        legacy_optimization_setting(template_json)
 
     # add pass flows
     model_type = str(args.model_type)
     template_json["pass_flows"] = SUPPORTED_WORKFLOWS[model_type]
+    if args.optimum_optimization:
+        # if args.model_type in ("cpu_int4", "cuda_int4"):
+        #     raise ValueError("Int4 optimization is not supported in phi2 optimum optimization")
+        # set evaluator as None:
+        template_json["engine"]["evaluate_input_model"] = False
+        template_json["engine"]["evaluator"] = None
+        legacy_optimization_setting(template_json)
+        for pass_flow in template_json["pass_flows"]:
+            pass_flow[0] = "optimum_convert"
+            if "perf_tuning" in pass_flow:
+                pass_flow.remove("perf_tuning")
+
     # remove unused passes
     used_passes = {pass_name for pass_flow in SUPPORTED_WORKFLOWS[model_type] for pass_name in pass_flow}
     for pass_name in list(template_json["passes"].keys()):
@@ -138,9 +158,22 @@ def main(raw_args=None):
     if args.inference and model_type in SUPPORTED_INFERENCE_CONFIG:
         from generate import run as generate_run
 
-        for text in generate_run(args.prompt, output_model_path, **SUPPORTED_INFERENCE_CONFIG[model_type]):
+        for text in generate_run(
+            args.prompt,
+            output_model_path,
+            **SUPPORTED_INFERENCE_CONFIG[model_type],
+            use_optimum=args.optimum_optimization,
+            max_length=args.max_length,
+        ):
             print(f"Generation output: {text}")  # noqa: T201
             print("*" * 50)  # noqa: T201
+
+
+def legacy_optimization_setting(config):
+    config["passes"]["convert"]["config"]["use_dynamo_exporter"] = False
+    config["passes"]["convert"]["config"]["target_opset"] = 17
+    config["passes"]["optimize_cpu"]["config"]["model_type"] = "gpt2"
+    config["passes"]["optimize_cuda"]["config"]["model_type"] = "gpt2"
 
 
 if __name__ == "__main__":

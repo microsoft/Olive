@@ -126,19 +126,33 @@ class ORTGenerator:
 
         return io_binding
 
-    def create_session(self, device_id, use_fp16=True, use_buffer_share=True, packed_kv=False, use_step=False):
+    def create_session(
+        self,
+        device_id,
+        use_fp16=True,
+        use_buffer_share=True,
+        packed_kv=False,
+        use_step=False,
+        delay_ort_session_init=False,
+    ):
         sess_options = ort.SessionOptions()
         ep = "CUDAExecutionProvider" if device_id >= 0 else "CPUExecutionProvider"
-        self.sess = ort.InferenceSession(self.onnx_decoder_path, sess_options=sess_options, providers=[ep])
+        if not delay_ort_session_init:
+            self.sess = ort.InferenceSession(self.onnx_decoder_path, sess_options=sess_options, providers=[ep])
 
+        self.device_id = device_id
         self.device = torch.device("cuda:" + str(device_id) if device_id >= 0 else "cpu")
         self.use_fp16 = use_fp16
         self.use_buffer_share = use_buffer_share
         self.packed_kv = packed_kv
         self.use_step = use_step
 
-        self.tokenizer = AutoTokenizer.from_pretrained("microsoft/phi-2", trust_remote_code=True)
-        self.tokenizer.pad_token = "[PAD]"
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            "microsoft/phi-2",
+            trust_remote_code=True,
+            padding_side="left",
+        )
+        self.tokenizer.pad_token = self.tokenizer.eos_token
 
     def generate(self, prompt, max_length):
         encodings_dict = self.tokenizer.batch_encode_plus(prompt, padding=True)
@@ -222,11 +236,49 @@ class ORTGenerator:
 
         return self.tokenizer.batch_decode(all_token_ids, skip_special_tokens=True)
 
+    def optimum_generate(self, prompt, max_length):
+        from pathlib import Path
 
-def run(prompt, onnx_model_path, use_buffer_share, device_id, packed_kv=False, use_fp16=True, use_step=False):
+        from optimum.onnxruntime import ORTModelForCausalLM
+        from optimum.utils.save_utils import maybe_save_preprocessors
+        from transformers import AutoConfig
+
+        output_model_path = Path(self.onnx_decoder_path)
+        model_id = "microsoft/phi-2"
+        maybe_save_preprocessors(model_id, output_model_path.parent, trust_remote_code=True)
+        AutoConfig.from_pretrained(model_id).save_pretrained(output_model_path.parent)
+
+        model = ORTModelForCausalLM.from_pretrained(
+            output_model_path.parent,
+            provider="CUDAExecutionProvider" if self.device_id >= 0 else "CPUExecutionProvider",
+            use_io_binding=self.device_id >= 0,
+        )
+        inputs = self.tokenizer(
+            prompt,
+            return_tensors="pt",
+            padding=True,
+        ).to(self.device)
+        outputs = model.generate(**inputs, max_length=max_length)
+        return self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
+
+
+def run(
+    prompt,
+    onnx_model_path,
+    use_buffer_share,
+    device_id,
+    packed_kv=False,
+    use_fp16=True,
+    use_step=False,
+    use_optimum=False,
+    max_length=200,
+):
     generator = ORTGenerator(onnx_model_path)
-    generator.create_session(device_id, use_fp16, use_buffer_share, packed_kv, use_step)
-    texts = generator.generate(prompt, max_length=200)
+    generator.create_session(device_id, use_fp16, use_buffer_share, packed_kv, use_step, use_optimum)
+    if not use_optimum:
+        texts = generator.generate(prompt, max_length=max_length)
+    else:
+        texts = generator.optimum_generate(prompt, max_length=max_length)
 
     for i, text in enumerate(texts):
         print(f"Prompt: {prompt[i]}")  # noqa: T201

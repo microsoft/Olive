@@ -52,6 +52,9 @@
                 "all_tensors_to_one_file": true
             }
         },
+        "optimum_convert": {
+            "type": "OptimumConversion"
+        },
         "optimize_cpu": {
             "type": "OrtTransformersOptimization",
             "config": {
