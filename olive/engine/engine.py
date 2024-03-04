@@ -22,7 +22,6 @@ from olive.exception import EXCEPTIONS_TO_RAISE, OlivePassError
 from olive.model import ModelConfig
 from olive.strategy.search_strategy import SearchStrategy
 from olive.systems.common import SystemType
-from olive.systems.local import LocalSystem
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import LocalTargetUserConfig, SystemConfig
 from olive.systems.utils import create_new_system_with_cache
@@ -921,16 +920,13 @@ class Engine:
 
         run_start_time = datetime.now().timestamp()
         try:
-            from olive.passes.onnx.perf_tuning import OrtPerfTuning
-
-            # For perf-tuning, we need the model evaluation happens in target even if it is a pass.
-            # TODO(myguo): consider more better way to handle System doesn't support run pass like DockerSystem
-            if (
-                isinstance(p, OrtPerfTuning)
-                and isinstance(host, LocalSystem)
-                and not isinstance(self.target, LocalSystem)
-            ):
-                p.set_target(self.target)
+            if p.run_on_target:
+                if self.target.system_type == SystemType.IsolatedORT:
+                    logger.warning(
+                        "Cannot run pass %s on IsolatedORT target, will use the host to run the pass.", pass_id
+                    )
+                else:
+                    host = self.target
 
             output_model_config = host.run_pass(p, input_model_config, data_root, output_model_path, pass_search_point)
         except OlivePassError:
