@@ -345,6 +345,9 @@ class DockerSystem(OliveSystem):
             token = get_huggingface_token()
             environment.update({"HF_TOKEN": token})
 
+        log_level = logging.getLevelName(logger.getEffectiveLevel())
+        environment.update({"OLIVE_LOG_LEVEL": log_level})
+
         logger.debug("Running container with command: %s", command)
         if accelerator.accelerator_type == Device.GPU:
             run_command["device_requests"] = [docker.types.DeviceRequest(capabilities=[["gpu"]])]

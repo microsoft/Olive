@@ -10,9 +10,10 @@ import sys
 
 from olive.common.utils import huggingface_login
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorConfig, OliveEvaluatorFactory
+from olive.logging import set_verbosity
 from olive.model import ModelConfig
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("olive")
 
 
 def evaluate_entry(config, output_path, output_name, accelerator_type, execution_provider):
@@ -39,6 +40,9 @@ def evaluate_entry(config, output_path, output_name, accelerator_type, execution
 
 
 if __name__ == "__main__":
+    log_level = os.environ.get("OLIVE_LOG_LEVEL", "INFO")
+    set_verbosity(log_level)
+
     parser = argparse.ArgumentParser()
 
     # no need to get model_path since it's already updated in config file
@@ -49,7 +53,6 @@ if __name__ == "__main__":
     parser.add_argument("--execution_provider", type=str, help="execution provider")
 
     args, _ = parser.parse_known_args()
-    logger = logging.getLogger("module")
     logger.info("command line arguments: %s", sys.argv)
 
     evaluate_entry(args.config, args.output_path, args.output_name, args.accelerator_type, args.execution_provider)

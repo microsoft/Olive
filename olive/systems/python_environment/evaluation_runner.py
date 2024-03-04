@@ -4,12 +4,14 @@
 # --------------------------------------------------------------------------
 import argparse
 import json
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from olive.common.utils import set_tempdir
 from olive.evaluator.metric import Metric
 from olive.hardware import AcceleratorSpec
+from olive.logging import set_verbosity
 from olive.model import ModelConfig
 from olive.systems.local import LocalSystem
 
@@ -31,6 +33,9 @@ def get_args(raw_args):
 
 
 def main(raw_args=None):
+    log_level = os.environ.get("OLIVE_LOG_LEVEL", "INFO")
+    set_verbosity(log_level)
+
     args = get_args(raw_args)
 
     set_tempdir(args.tempdir)
