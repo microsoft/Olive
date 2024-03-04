@@ -343,7 +343,7 @@ class AzureMLSystem(OliveSystem):
         parameters.extend([f"--{param} ${{{{outputs.{param}}}}}" for param in outputs])
 
         cmd_line = f"python {script_name} {' '.join(parameters)}"
-        env_vars = copy.deepcopy(self.env_vars)
+        env_vars = copy.deepcopy(self.env_vars) if self.env_vars else {}
         env_vars["OLIVE_LOG_LEVEL"] = logging.getLevelName(logger.getEffectiveLevel())
 
         return command(
