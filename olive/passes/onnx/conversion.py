@@ -202,10 +202,10 @@ class OnnxConversion(Pass):
                 # the `past_key_values` is the argument name from huggingface model class
                 # which is independent of the kv-related variables in input list
                 if name == "past_key_values" and isinstance(dm_input, list):
-                    kv_name_regrex_strs = [rf"past_(.*)(.|_){idx}(.(key|value))?" for idx in range(len(dm_input))]
+                    kv_name_regex_strs = [rf"past_(.*)(.|_){idx}(.(key|value))?" for idx in range(len(dm_input))]
                     if all(
                         any(re.match(kv_r_str, input_name) for input_name in input_names)
-                        for kv_r_str in kv_name_regrex_strs
+                        for kv_r_str in kv_name_regex_strs
                     ):
                         dummy_input_keys.discard(name)
 
