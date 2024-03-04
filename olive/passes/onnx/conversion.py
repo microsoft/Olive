@@ -197,6 +197,8 @@ class OnnxConversion(Pass):
             # match input names in `past_key_values.(hidden_layer_num).(key|value)` pattern(llama2 case)
             # or `past_key_values.(hidden_layer_num)` pattern (phi2 case)
             for name, dm_input in dummy_inputs.items():
+                # the `past_key_values` is the argument name from huggingface model class
+                # which is independent of the kv-related variables in input list
                 if name == "past_key_values" and isinstance(dm_input, list):
                     key_value_names = [f"{name}.{idx}" for idx in range(len(dm_input))]
                     if all(
