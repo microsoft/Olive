@@ -56,7 +56,7 @@ class TestPythonEnvironmentSystem:
         with dummy_output_path.open("w") as f:
             json.dump(dummy_output, f)
 
-        mock_run_subprocess.return_value = None
+        mock_run_subprocess.return_value = (0, "test", "")
 
         # execute
         res = self.system._run_command(script_path, config_jsons, **extra_args)
