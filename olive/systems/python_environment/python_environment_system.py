@@ -157,27 +157,25 @@ class PythonEnvironmentSystem(OliveSystem):
         """Install required packages."""
         # install common packages
         common_requirements_file = Path(__file__).parent.resolve() / "common_requirements.txt"
-        run_subprocess(
-            f"pip install --cache-dir {self.environ['TMPDIR']} -r {common_requirements_file}",
-            env=self.environ,
-            check=True,
-        )
+        packages = [
+            f"-r {common_requirements_file}",
+        ]
+
+        if self.config.requirements_file:
+            # install user requirements
+            packages.append(f"-r {self.config.requirements_file}")
 
         # install onnxruntime package
         onnxruntime_package = get_package_name_from_ep(accelerator.execution_provider)[0]
-        run_subprocess(
-            f"pip install --cache-dir {self.environ['TMPDIR']} {onnxruntime_package}",
+        packages.append(onnxruntime_package)
+
+        _, stdout, stderr = run_subprocess(
+            f"pip install --cache-dir {self.environ['TMPDIR']} {' '.join(packages)}",
             env=self.environ,
             check=True,
         )
-
-        # install user requirements
-        if self.config.requirements_file:
-            run_subprocess(
-                f"pip install --cache-dir {self.environ['TMPDIR']} -r {self.config.requirements_file}",
-                env=self.environ,
-                check=True,
-            )
+        msgs = [log.strip() for log in stdout.splitlines()]
+        logger.debug("\n".join(msgs))
 
     def remove(self):
         import shutil
