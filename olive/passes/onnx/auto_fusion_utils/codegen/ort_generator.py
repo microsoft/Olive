@@ -42,7 +42,7 @@ def create_custom_op(kernel_info: Dict) -> Dict:
     input_args = []
     for _, inputs in kernel_info["network"]:
         for name in inputs:
-            if name == KERNEL_OUTPUT or name in seen_inputs:
+            if isinstance(name, (int, float)) or name == KERNEL_OUTPUT or name in seen_inputs:
                 continue
 
             input_params.append(templates.INPUT_PARAM.format(input_name=name, cpp_dtype=cpp_dtype))

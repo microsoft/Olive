@@ -24,7 +24,7 @@ def create_kernel(kernel_info) -> Dict:
         compute_inputs = {}
         for idx, name in enumerate(op_inputs):
             compute_inputs[f"in{idx}"] = name
-            if name == "y":
+            if isinstance(name, (int, float)) or name == "y":
                 continue
             if name not in external_inputs:
                 external_inputs.append(name)

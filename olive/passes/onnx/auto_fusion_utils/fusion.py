@@ -57,7 +57,7 @@ class FusionBase(ABC):
         self.base_node = base_node
         self.fused_nodes = []
 
-        self.network = [(base_node, dag.get_input_names(base_node))]
+        self.network = [(base_node, dag.get_input_names_or_scalar(base_node))]
 
     def __len__(self):
         return len(self.fused_nodes) + 1
@@ -132,7 +132,7 @@ class FusionBase(ABC):
     def add_fused_node(self, node: str):
         assert self.dtype_is_valid(node, self.dag), f"Invalid dtype: {node}"
 
-        inputs = self.dag.get_input_names(node)
+        inputs = self.dag.get_input_names_or_scalar(node)
         assert self.output_name in inputs, "Output of current fusion must be input to the new fusion"
 
         # which input is the output of the current fusion
@@ -151,7 +151,7 @@ class FusionBase(ABC):
     def concat_fusion(self, fusion: "FusionBase"):
         assert self.dtype_is_valid(fusion.base_node, fusion.dag), f"Invalid dtype: {fusion.base_node}"
 
-        inputs = fusion.dag.get_input_names(fusion.base_node)
+        inputs = fusion.dag.get_input_names_or_scalar(fusion.base_node)
         assert self.output_name in inputs, "Output of current fusion must be input to the new fusion"
 
         assert self.is_valid_fusion(
@@ -184,7 +184,11 @@ class FusionBase(ABC):
         for node, inputs in self.network:
             op_type = self.dag.get_op_type(node)
             input_names = [
-                (name if name == KERNEL_OUTPUT else kernel_args.add_input(name, self.dag.get_shape(name)))
+                (
+                    name
+                    if (isinstance(name, (int, float)) or name == KERNEL_OUTPUT)
+                    else kernel_args.add_input(name, self.dag.get_shape(name))
+                )
                 for name in inputs
             ]
             network.append([op_type, input_names])
@@ -217,7 +221,7 @@ class FusionBase(ABC):
         for node, node_inputs in self.network:
             node_names.append(node)
             for input_name in node_inputs:
-                if input_name == KERNEL_OUTPUT or input_name in seen_inputs:
+                if isinstance(input_name, (int, float)) or input_name == KERNEL_OUTPUT or input_name in seen_inputs:
                     continue
                 inputs.append(input_name)
                 seen_inputs.add(input_name)

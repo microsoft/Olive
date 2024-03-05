@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Set, Union
 
 import onnx
-from onnx import AttributeProto, GraphProto, NodeProto, TensorProto, ValueInfoProto
+from onnx import AttributeProto, GraphProto, NodeProto, TensorProto, ValueInfoProto, numpy_helper
 from onnx.shape_inference import infer_shapes_path
 
 from olive.common.config_utils import ConfigBase
@@ -61,6 +61,7 @@ class OnnxIO(ConfigBase):
     destination: List[str] = Field(default_factory=list)
     graph_idx: int
     proto: Union[ValueInfoProto, TensorProto]
+    scalar_value: Union[int, float] = None
 
     def __str__(self):
         return f"{self.proto.name}({self.dtype}, {self.shape})"
@@ -72,8 +73,8 @@ class OnnxDAG:
     def __init__(self, model: "ModelProto"):
         self.model = model
         self.graphs = self.get_all_graphs(model)
-        self.nodes = {}
-        self.ios = {}
+        self.nodes: Dict[str, OnnxNode] = {}
+        self.ios: Dict[str, OnnxIO] = {}
         self.connections = defaultdict(list)
 
         # traverse the graphs and populate nodes, ios, and connections
@@ -83,7 +84,7 @@ class OnnxDAG:
                 self.process_node(node, self.nodes, self.ios, self.connections, idx)
 
     @staticmethod
-    def get_all_graphs(model: "ModelProto"):
+    def get_all_graphs(model: "ModelProto") -> List[GraphProto]:
         """Get all graphs in the model."""
         all_graphs = []
         graph_queue = [model.graph]
@@ -117,6 +118,16 @@ class OnnxDAG:
             "shape": shape,
         }
 
+    @staticmethod
+    def _get_scalar_value(proto, shape: List[int]) -> Union[int, float]:
+        """Get scalar value from an initializer or constant node."""
+        scalar_value = None
+        if shape in ([], [1]):
+            value = numpy_helper.to_array(proto).item()
+            if isinstance(value, (int, float)):
+                scalar_value = value
+        return scalar_value
+
     @classmethod
     def process_io(cls, graph: GraphProto, ios: Dict[str, OnnxIO], graph_idx: int):
         """Process inputs, outputs, initializers, and value_info.
@@ -138,12 +149,16 @@ class OnnxDAG:
                 **cls._get_io_type_shape(o),
             )
         for initializer in graph.initializer:
+            shape = list(initializer.dims)
+            # extract scalar value
+            scalar_value = cls._get_scalar_value(initializer, shape)
             ios[initializer.name] = OnnxIO(
                 proto=initializer,
                 source=SpecialInput.INITIALIZER,
                 graph_idx=graph_idx,
                 dtype=onnx_dtype_to_np_dtype(initializer.data_type),
-                shape=list(initializer.dims),
+                shape=shape,
+                scalar_value=scalar_value,
             )
         for vi in graph.value_info:
             ios[vi.name] = OnnxIO(
@@ -153,8 +168,9 @@ class OnnxDAG:
             )
         return ios
 
-    @staticmethod
+    @classmethod
     def process_node(
+        cls,
         node_proto: NodeProto,
         nodes: Dict[str, OnnxNode],
         ios: Dict[str, OnnxIO],
@@ -182,6 +198,12 @@ class OnnxDAG:
             if ios[o].source is not None:
                 raise ValueError(f"Output {o} is already connected to another node.")
             ios[o].source = name
+            # get scalar value if node is a constant
+            if node_proto.op_type == "Constant":
+                for attr in node_proto.attribute:
+                    if attr.name == "value":
+                        ios[o].scalar_value = cls._get_scalar_value(attr.t, ios[o].shape)
+                        break
             for destination in ios[o].destination:
                 if destination != SpecialOutput.OUTPUT and destination not in connections[name]:
                     connections[name].append(destination)
@@ -238,8 +260,10 @@ class OnnxDAG:
             if self.nodes[node].graph_idx != graph_idx:
                 raise ValueError(f"Node {node} is not in the same graph as the other nodes.")
 
+        # constant scalar inputs are absorbed by the new node
+        constant_scalar = [i for i in inputs if self.ios[i].scalar_value is not None]
         # check that the inputs and outputs match
-        if set(inputs) != set(new_node_proto.input):
+        if (set(inputs) - set(constant_scalar)) != set(new_node_proto.input):
             raise ValueError("Inputs do not match.")
         if set(outputs) != set(new_node_proto.output):
             raise ValueError("Outputs do not match.")
@@ -247,6 +271,11 @@ class OnnxDAG:
         # remove the old nodes
         for node in old_node_names[::-1]:
             self.remove_node(node)
+        # remove constant nodes whose inputs are not needed anymore
+        for i in constant_scalar:
+            node = self.ios[i].source
+            if not self.connections[node]:
+                self.remove_node(node)
 
         # add the new node
         self.add_node(new_node_proto, graph_idx)
@@ -299,6 +328,14 @@ class OnnxDAG:
     def get_input_names(self, node_name: str) -> List[str]:
         """Get the input names of a node."""
         return list(self.nodes[node_name].inputs)
+
+    def get_input_names_or_scalar(self, node_name: str) -> List[Union[str, int, float]]:
+        """Get the input names of a node. If the input is a scalar, return the scalar value."""
+        inputs = self.get_input_names(node_name)
+        for idx, input_name in enumerate(inputs):
+            if self.ios[input_name].scalar_value is not None:
+                inputs[idx] = self.ios[input_name].scalar_value
+        return inputs
 
     def get_output_names(self, node_name: str) -> List[str]:
         """Get the output names of a node."""
