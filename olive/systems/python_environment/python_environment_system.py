@@ -200,4 +200,6 @@ class PythonEnvironmentSystem(OliveSystem):
 
 
 def log_stdout(stdout: str):
+    logger.debug("Start of stdout:")
     logger.debug("%s", "\n".join(log.strip() for log in stdout.splitlines()))
+    logger.debug("End of stdout")
