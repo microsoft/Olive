@@ -98,7 +98,8 @@ class PythonEnvironmentSystem(OliveSystem):
             command.extend(["--output_path", str(output_path)])
 
             # run the command
-            run_subprocess(command, env=self.environ, check=True)
+            _, stdout, _ = run_subprocess(command, env=self.environ, check=True)
+            log_stdout(stdout)
 
             with output_path.open() as f:
                 output = json.load(f)
@@ -157,27 +158,27 @@ class PythonEnvironmentSystem(OliveSystem):
         """Install required packages."""
         # install common packages
         common_requirements_file = Path(__file__).parent.resolve() / "common_requirements.txt"
-        run_subprocess(
-            f"pip install --cache-dir {self.environ['TMPDIR']} -r {common_requirements_file}",
-            env=self.environ,
-            check=True,
-        )
+        packages = [
+            f"-r {common_requirements_file}",
+        ]
+
+        if self.config.requirements_file:
+            # install user requirements
+            packages.append(f"-r {self.config.requirements_file}")
 
         # install onnxruntime package
         onnxruntime_package = get_package_name_from_ep(accelerator.execution_provider)[0]
-        run_subprocess(
-            f"pip install --cache-dir {self.environ['TMPDIR']} {onnxruntime_package}",
+        packages.append(onnxruntime_package)
+
+        _, stdout, _ = run_subprocess(
+            f"pip install --cache-dir {self.environ['TMPDIR']} {' '.join(packages)}",
             env=self.environ,
             check=True,
         )
+        log_stdout(stdout)
 
-        # install user requirements
-        if self.config.requirements_file:
-            run_subprocess(
-                f"pip install --cache-dir {self.environ['TMPDIR']} -r {self.config.requirements_file}",
-                env=self.environ,
-                check=True,
-            )
+        _, stdout, _ = run_subprocess(f"pip show {onnxruntime_package}", env=self.environ, check=True)
+        log_stdout(stdout)
 
     def remove(self):
         import shutil
@@ -196,3 +197,8 @@ class PythonEnvironmentSystem(OliveSystem):
                 logger.info("Temporary directory '%s' removed.", self.environ["TMPDIR"])
             except FileNotFoundError:
                 pass
+
+
+def log_stdout(stdout: str):
+    for line in stdout.splitlines():
+        logger.debug("%s", line.strip())
