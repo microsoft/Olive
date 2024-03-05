@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 
 decoder_model = None
-normalization_type = None
+normalization_type = "rms"
 state_dict = None
 strict_weights_loading = True
 hidden_size = 4096
@@ -17,3 +17,7 @@ epsilon = 1e-5
 model_type = "llama"
 apply_residual_connection_post_layernorm = True
 model_id = "meta-llama/Llama-2-7b-chat-hf"
+partial_rotary_factor = 1.0
+max_position_embeddings = 4096
+use_bias = False
+hidden_act = "silu"

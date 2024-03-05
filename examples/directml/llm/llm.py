@@ -49,9 +49,24 @@ def set_config_parameters(tokenizer: transformers.AutoTokenizer, repo_id: str, n
     config.num_layers = num_layers or llm_model.config.num_hidden_layers
     config.vocab_size = llm_model.config.vocab_size
     config.model_type = main_model.config.model_type
-    config.apply_residual_connection_post_layernorm = getattr(
-        llm_model.config, "apply_residual_connection_post_layernorm", True
-    )
+
+    if hasattr(llm_model.config, "apply_residual_connection_post_layernorm"):
+        config.apply_residual_connection_post_layernorm = llm_model.config.apply_residual_connection_post_layernorm
+    elif llm_model.config.model_type == "phi":
+        config.apply_residual_connection_post_layernorm = False
+    else:
+        config.apply_residual_connection_post_layernorm = True
+
+    config.use_bias = llm_model.config.model_type == "phi"
+
+    if hasattr(llm_model.config, "hidden_act"):
+        config.hidden_act = llm_model.config.hidden_act
+    elif hasattr(llm_model.config, "activation_function"):
+        config.hidden_act = llm_model.config.activation_function
+    elif llm_model.config.model_type == "falcon":
+        config.hidden_act = "gelu"
+    else:
+        raise ValueError("Activation function was not found")
 
     if hasattr(llm_model.config, "intermediate_size"):
         config.intermediate_size = llm_model.config.intermediate_size
@@ -69,11 +84,18 @@ def set_config_parameters(tokenizer: transformers.AutoTokenizer, repo_id: str, n
     elif hasattr(llm_model.config, "layer_norm_epsilon"):
         config.normalization_type = "layer_norm"
         config.epsilon = llm_model.config.layer_norm_epsilon
+    elif hasattr(llm_model.config, "layer_norm_eps"):
+        config.normalization_type = "layer_norm"
+        config.epsilon = llm_model.config.layer_norm_eps
     else:
         raise ValueError("Normalization epsilon value was not found")
 
     config.model_id = repo_id
     config.normalization_type = "rms" if hasattr(llm_model.config, "rms_norm_eps") else "layer_norm"
+    config.partial_rotary_factor = getattr(llm_model.config, "partial_rotary_factor", 1.0)
+    config.max_position_embeddings = (
+        llm_model.config.max_position_embeddings if hasattr(llm_model.config, "max_position_embeddings") else 4096
+    )
     config.strict_weights_loading = config.num_layers == llm_model.config.num_hidden_layers
     config.state_dict = main_model.state_dict()
 
@@ -102,7 +124,7 @@ def optimize(
                 "type": "IncStaticQuantization",
                 "disable_search": True,
                 "config": {
-                    "backend": "onnxrt_cuda_ep",
+                    "backend": f"onnxrt_{device}_ep",
                     "approach": "weight_only",
                     "device": "gpu",
                     "weight_only_config": {"bits": 4, "algorithm": "AWQ"},
@@ -130,18 +152,20 @@ def optimize(
         # Some models are too fragile and need layer norm to be performed in fp32 to keep their accuracy.
         # bfloat16 could fix this, but since DML doesn't support it we need to fall back to fp32.
         models_that_need_fp32_layer_norm = ["llava-hf_llava-1.5-7b-hf", "tiiuae_falcon-7b-instruct"]
-        models_that_need_fp32_mha = ["llava-hf_llava-1.5-7b-hf"]
+        models_that_need_fp32_mha = ["llava-hf_llava-1.5-7b-hf", "microsoft_phi-2"]
+
+        force_fp32_ops = olive_config["passes"]["optimize"]["config"].get("force_fp32_ops", [])
+
         if model_name in models_that_need_fp32_layer_norm:
-            olive_config["passes"]["optimize"]["config"]["force_fp32_ops"] = [
-                "SimplifiedLayerNormalization",
-                "LayerNormalization",
-            ]
+            force_fp32_ops.extend(["SimplifiedLayerNormalization", "LayerNormalization"])
 
         if model_name in models_that_need_fp32_mha:
-            olive_config["passes"]["optimize"]["config"]["force_fp32_ops"] = ["MultiHeadAttention"]
+            force_fp32_ops.extend(["MultiHeadAttention"])
 
         if repo_id == "llava-hf/llava-1.5-7b-hf":
             olive_config["passes"]["optimize"]["config"]["replace_attn_mask_input_with_seq_len"] = False
+
+        olive_config["passes"]["optimize"]["config"]["force_fp32_ops"] = force_fp32_ops
 
         # Set the input names and dynamic axes
         io_config = olive_config["input_model"]["config"]["io_config"]

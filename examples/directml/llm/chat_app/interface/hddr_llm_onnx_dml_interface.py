@@ -55,18 +55,30 @@ class LLMOnnxDmlInterface(BaseLLMInterface):
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_dir)
 
         if self.tokenizer.chat_template is None:
-            self.tokenizer.chat_template = (
-                "{% for message in messages %}"
-                "{% if message['role'] == 'user' %}"
-                "{{ ' ' }}"
-                "{% endif %}"
-                "{{ message['content'] }}"
-                "{% if not loop.last %}"
-                "{{ '  ' }}"
-                "{% endif %}"
-                "{% endfor %}"
-                "{{ eos_token }}"
-            )
+            if "phi" in self.model_dir:
+                self.tokenizer.chat_template = (
+                    "{% for message in messages %}"
+                    "{% if message['role'] == 'user' %}"
+                    "Human: {{ message['content'] }}\nAI:"
+                    "{% endif %}"
+                    "{% if message['role'] == 'assistant' %}"
+                    "{{ message['content'] }}\n"
+                    "{% endif %}"
+                    "{% endfor %}"
+                )
+            else:
+                self.tokenizer.chat_template = (
+                    "{% for message in messages %}"
+                    "{% if message['role'] == 'user' %}"
+                    "{{ ' ' }}"
+                    "{% endif %}"
+                    "{{ message['content'] }}"
+                    "{% if not loop.last %}"
+                    "{{ '  ' }}"
+                    "{% endif %}"
+                    "{% endfor %}"
+                    "{{ eos_token }}"
+                )
 
         # Create the I/O bindings
         self.llm_io_binding = self.llm_session.io_binding()
@@ -90,14 +102,7 @@ class LLMOnnxDmlInterface(BaseLLMInterface):
                 {"role": "assistant", "content": "OK!"},
             ]
         else:
-            self.initial_prompt = [
-                {"role": "user", "content": "Hey there I am a human that would like to have a conversation with you."},
-                {"role": "assistant", "content": "Sure, I am happy to answer most questions."},
-                {"role": "user", "content": "Great, I insist that we take turns."},
-                {"role": "assistant", "content": "I agree, we should take turns."},
-                {"role": "user", "content": "Great, can we also keep answers short?"},
-                {"role": "assistant", "content": "Yes, short answers are usually best."},
-            ]
+            self.initial_prompt = []
 
     def shutdown(self):
         pass

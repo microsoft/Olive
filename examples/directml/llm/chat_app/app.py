@@ -108,7 +108,7 @@ def launch_chat_app(expose_locally: bool = False, device: str = "dml"):
                 )
                 max_length_tokens = gr.Slider(
                     minimum=0,
-                    maximum=512,
+                    maximum=4096,
                     value=256,
                     step=8,
                     interactive=True,
@@ -124,7 +124,7 @@ def launch_chat_app(expose_locally: bool = False, device: str = "dml"):
                 )
                 token_printing_step = gr.Slider(
                     minimum=1,
-                    maximum=10,
+                    maximum=50,
                     value=4,
                     step=1,
                     interactive=True,

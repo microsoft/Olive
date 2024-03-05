@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import config
 import torch
 from decoder_model import DecoderModel
 from transformers import AutoModel, LlavaConfig
@@ -39,24 +38,7 @@ class LlavaModel(torch.nn.Module):
 
         self.multi_modal_projector = LlavaMultiModalProjector(llava_config)
         self.vocab_size = llava_config.vocab_size
-
-        use_embeddings = True
-
-        scale_type = "SquareRootHeadDim"
-        self.language_model = DecoderModel(
-            config.model_type,
-            config.num_layers,
-            config.vocab_size,
-            config.hidden_size,
-            config.intermediate_size,
-            config.num_heads,
-            config.num_key_value_heads,
-            scale_type,
-            config.normalization_type,
-            config.epsilon,
-            config.apply_residual_connection_post_layernorm,
-            use_embeddings,
-        )
+        self.language_model = DecoderModel(use_embeddings=True)
 
         self.pad_token_id = self.llava_config.pad_token_id if self.llava_config.pad_token_id is not None else -1
 

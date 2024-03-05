@@ -13,6 +13,7 @@ from datasets import load_dataset
 from decoder_model import DecoderModel
 from falcon import convert_falcon_weights
 from llava_model import LlavaModel
+from phi import convert_phi_weights
 from transformers import AutoConfig, AutoTokenizer
 
 
@@ -33,8 +34,6 @@ class RandomDataLoader:
 
 
 def get_or_create_decoder_model():
-    scale_type = "SquareRootHeadDim"
-
     # Lazily load the decoder model the first time it's requested. This is necessary because both the cache and
     # no_cache models need to share the same instance in order to export their common weights with the same names.
     # Not doing so would result identical weights having different names in both models, which makes merging them
@@ -44,23 +43,14 @@ def get_or_create_decoder_model():
             llava_config = AutoConfig.from_pretrained(config.model_id)
             config.decoder_model = LlavaModel(llava_config)
         else:
-            config.decoder_model = DecoderModel(
-                config.model_type,
-                config.num_layers,
-                config.vocab_size,
-                config.hidden_size,
-                config.intermediate_size,
-                config.num_heads,
-                config.num_key_value_heads,
-                scale_type,
-                config.normalization_type,
-                config.epsilon,
-                config.apply_residual_connection_post_layernorm,
-            )
+            config.decoder_model = DecoderModel()
         config.decoder_model.eval()
 
         if config.model_type == "falcon":
             new_dict = convert_falcon_weights()
+            config.decoder_model.load_state_dict(new_dict, strict=config.strict_weights_loading)
+        elif config.model_type == "phi":
+            new_dict = convert_phi_weights()
             config.decoder_model.load_state_dict(new_dict, strict=config.strict_weights_loading)
         else:
             config.decoder_model.load_state_dict(config.state_dict, strict=config.strict_weights_loading)
