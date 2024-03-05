@@ -129,7 +129,7 @@ class GptqQuantizer(Pass):
             logger.info("Please use onnxruntime-gpu>=1.17.0 for gptq quantization")
             return False
         if self.accelerator_spec.accelerator_type != Device.GPU:
-            logger.info("Please use GPU and CUDAExecutionProvider to run gptq quantization.")
+            logger.info("Please use GPU to run gptq quantization.")
             return False
 
         return True

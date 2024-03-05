@@ -9,7 +9,8 @@ import torch
 import torch.nn as nn
 
 
-def packed4bit_to_float(data, axis=-1):
+def _packed4bit_to_float(data, axis=-1):
+    # unpack 4bit tensor to float
     shape = data.size()
     new_shape = shape[:-1] + (shape[-1] * 2,)
     data = data.repeat_interleave(2, axis=axis)
@@ -19,12 +20,13 @@ def packed4bit_to_float(data, axis=-1):
     return data.reshape(*new_shape)
 
 
-def pt_linear(x, qweight, qscales, qzeros, in_features, out_features, bits, group_size):
-    qweight = packed4bit_to_float(qweight.reshape(out_features, -1))
+def _pt_linear(x, qweight, qscales, qzeros, in_features, out_features, bits, group_size):
+    # pytorch unfused implementation of quantized linear
+    qweight = _packed4bit_to_float(qweight.reshape(out_features, -1))
     qscales = qscales.reshape(out_features, -1).repeat_interleave(group_size, dim=-1)
-    qzeros = packed4bit_to_float(qzeros.reshape(out_features, in_features // 8 * bits // group_size)).repeat_interleave(
-        group_size, dim=-1
-    )
+    qzeros = _packed4bit_to_float(
+        qzeros.reshape(out_features, in_features // 8 * bits // group_size)
+    ).repeat_interleave(group_size, dim=-1)
     qzeros = -qscales * qzeros
     qweight = qweight * qscales
     qweight = qweight + qzeros
@@ -54,79 +56,14 @@ class QuantLinearTorchFunction(torch.autograd.Function):
             return torch.zeros(x.shape[:-1] + (out_features,), dtype=x.dtype, device=x.device)
         x_dtype = x.dtype
         x = x.to(qself_scales)
-        return pt_linear(x, qself_qweight, qself_scales, qself_qzeros, in_features, out_features, bits, groupsize).to(
+        return _pt_linear(x, qself_qweight, qself_scales, qself_qzeros, in_features, out_features, bits, groupsize).to(
             x_dtype
         )
 
 
-def quant_linear_forward(inputs, qweight, scales, qzeros, bits, groupsize, in_features, out_features):
+def _quant_linear_forward(inputs, qweight, scales, qzeros, bits, groupsize, in_features, out_features):
     assert bits == 4, "Only 4 bits are supported."
     return QuantLinearTorchFunction().apply(inputs, qweight, scales, qzeros, bits, groupsize, in_features, out_features)
-
-
-def dequantize_blockwise_4bits(quant_values, scale, zero_point, rows, cols):
-    expand_quant_value = (
-        quant_values.unsqueeze(-1) >> torch.tensor([[[[0, 4]]]], dtype=torch.int32, device=quant_values.device)
-    ) & 0x0F
-    expand_quant_value = expand_quant_value.reshape(*quant_values.shape[:-1], -1)
-    aligned_scale = scale.reshape(*quant_values.shape[:-1], 1)
-    expand_zero_point = (
-        zero_point.unsqueeze(-1) >> torch.tensor([[[[0, 4]]]], dtype=torch.int32, device=quant_values.device)
-    ) & 0x0F
-    expand_zero_point = expand_zero_point.reshape(*quant_values.shape[:-1], -1)
-    float_values = ((expand_quant_value - expand_zero_point) * aligned_scale).to(scale.dtype)
-    float_values = float_values.reshape(cols, -1)
-    if rows != float_values.shape[-1]:
-        float_values = float_values[:, :rows]
-        expand_zero_point = expand_zero_point[:, :rows]
-    if expand_zero_point.ndim == 3:
-        expand_zero_point = expand_zero_point.squeeze(-1)
-    if aligned_scale.ndim == 3:
-        aligned_scale = aligned_scale.squeeze(-1)
-
-    return float_values, expand_zero_point, aligned_scale
-
-
-def pack_on_row_fast_248bit(pack_tensor, ori_int_tensor, bits):
-    if pack_tensor.shape[0] == ori_int_tensor.shape[0]:
-        ori_int_tensor = ori_int_tensor.T
-        pack_tensor = pack_tensor.T
-    compress_ratio = 32 // bits
-    i = 0
-    row = 0
-    while row < pack_tensor.shape[0]:
-        if bits in [2, 4, 8]:
-            for j in range(i, i + compress_ratio):
-                pack_tensor[row:] |= ori_int_tensor[j::compress_ratio] << (bits * (j - i))
-            break
-        raise NotImplementedError("Only 2,4,8 bits are supported.")
-
-
-def pack_on_row_fast_anybit(pack_tensor, ori_int_tensor, bits):
-    need_transpose = False
-    if pack_tensor.shape[0] != ori_int_tensor.shape[0]:
-        need_transpose = True
-        ori_int_tensor = ori_int_tensor.T
-    pack_tensor.mul_(0)
-    wf = torch.arange(0, bits).to(pack_tensor.device).view(1, 1, -1)
-    out = torch.bitwise_right_shift(ori_int_tensor.unsqueeze(-1), wf)
-    torch.bitwise_and(out, 1, out=out)
-    out = out.reshape(ori_int_tensor.shape[0], -1, 32)
-    wf1 = torch.arange(0, 32, 1).to(pack_tensor.device).view(1, 1, -1)
-    out = torch.bitwise_left_shift(out, wf1)
-    out = out.sum(dim=-1).int()
-
-    if need_transpose:
-        out = out.T.contiguous()
-    pack_tensor.copy_(out)
-
-
-def general_pack_on_row(pack_tensor, ori_int32_tensor, bits):
-    assert pack_tensor.shape[0] == ori_int32_tensor.shape[0] or pack_tensor.shape[1] == ori_int32_tensor.shape[1], ""
-    pack_tensor.mul_(0)
-    if bits in [2, 4, 8]:
-        return pack_on_row_fast_248bit(pack_tensor, ori_int32_tensor, bits)
-    return pack_on_row_fast_anybit(pack_tensor, ori_int32_tensor, bits)
 
 
 class QuantLinearORT(nn.Module):
@@ -160,24 +97,28 @@ class QuantLinearORT(nn.Module):
             self.bias = None
 
     def forward(self, x):
-        out = quant_linear_forward(
+        out = _quant_linear_forward(
             x, self.qweight, self.scales, self.qzeros, self.bits, self.groupsize, self.infeatures, self.outfeatures
         )
         return out + self.bias if self.bias is not None else out
 
     def pack(self, linear, scales, zeros, g_idx=None):
-        return self._accelerate_pack_on_device(linear, scales, zeros, g_idx)
+        # function to transform float weights to quantized integer weights and pack them
+        # using one byte to save multiple subbyte data points
+        layer_weight = linear.weight.data
 
-    def _unpack(self):
-        float_values, zero_point, scale = dequantize_blockwise_4bits(
-            self.qweight, self.scales, self.qzeros, self.infeatures, self.outfeatures
-        )
-        float_values = float_values.contiguous()
-        zero_point = zero_point.T.contiguous()
-        scale = scale.T.contiguous()
-        return float_values, zero_point, scale
+        self.g_idx = g_idx.clone() if g_idx is not None else self.g_idx
+        intweight = self._quant_weight(layer_weight, scales, zeros, g_idx, need_transpose=False)
+
+        qzeros = zeros.t().contiguous()
+
+        if self.bits in [2, 4, 8]:
+            self._pack_for_even_bits(intweight, qzeros)
+        else:
+            self._pack_for_odd_bits(intweight, qzeros)
 
     def _quant_weight(self, weight, scales, zeros, g_idx=None, need_transpose=True):
+        # quantize float weight to integer weight
         scales = scales.t().contiguous()
         zeros = zeros.t().contiguous()
         g_idx = self.g_idx.long()
@@ -192,45 +133,13 @@ class QuantLinearORT(nn.Module):
             return intweight_t
         return intweight_t.T
 
-    def _pack_qzeros_odd(self, intzeros):
-        # why -1?
-        # zeros_cuda = (zeros - 1).to(device).int()
-        compatible_with_autogptq = int(os.environ.get("COMPATIBLE_WITH_AUTOGPTQ", "0"))
-        device = intzeros.device
-        zeros = intzeros - compatible_with_autogptq
-        max_num_in_bits = 2**self.bits - 1
-        zeros = (zeros.byte() & max_num_in_bits).int()
-        qzeros = torch.zeros(
-            (intzeros.shape[0], (intzeros.shape[1] * self.bits + 31) // 32), dtype=torch.int32, device=device
-        )
-
-        qzeros = qzeros.T.contiguous()
-        zeros = zeros.T.contiguous()
-        general_pack_on_row(qzeros, zeros, self.bits)
-
-        self.qzeros = qzeros.T.contiguous()
-
-    # odd bits, 3,5,6,7
-    def _pack_on_device_for_odd_bits(self, intweight, intzeros):
-        device = intweight.device
-        qweight_gpu = torch.zeros(
-            ((intweight.shape[0] * self.bits + 31) // 32, intweight.shape[1]), dtype=torch.int32, device=device
-        )
-
-        general_pack_on_row(qweight_gpu, intweight, self.bits)
-        self.qweight = qweight_gpu
-
-        self._pack_qzeros_odd(intzeros)
-
-        if self.orig_fp_weight is not None:
-            fw, _, _ = self._unpack()
-            assert (fw == self.orig_fp_weight).all()
-
-    def _pack_on_device_for_even_bits(self, intweight, intzeros_T):
+    def _pack_for_even_bits(self, intweight, intzeros_T):
+        # pack multiple integer weights into one byte, this function is optimized for
+        # even bits
         self.act_order = self.g_idx[: self.groupsize // self.bits].sum().item() != 0
-        assert self.act_order is False, "please set the pack_model to others like [GPTQ, AUTO] and try again."
+        assert self.act_order is False, "act_order=True is not supported"
         intzeros_pt = intzeros_T.T.byte()
-        scales_pt = self.scales.T.to(intweight.device)
+        scales_pt = self.scales.T
         intweight_pt = intweight.byte()
         block_size = self.groupsize
 
@@ -259,15 +168,76 @@ class QuantLinearORT(nn.Module):
         self.qweight = intweight_pt_t.contiguous().byte()
         self.qzeros = intzeros_pt.contiguous().byte()
 
-    def _accelerate_pack_on_device(self, linear, scales, zeros, g_idx=None):
-        layer_weight = linear.weight.data
+    def _pack_on_row_fast_248bit(self, pack_tensor, ori_int_tensor, bits):
+        if pack_tensor.shape[0] == ori_int_tensor.shape[0]:
+            ori_int_tensor = ori_int_tensor.T
+            pack_tensor = pack_tensor.T
+        compress_ratio = 32 // bits
+        i = 0
+        row = 0
+        while row < pack_tensor.shape[0]:
+            if bits in [2, 4, 8]:
+                for j in range(i, i + compress_ratio):
+                    pack_tensor[row:] |= ori_int_tensor[j::compress_ratio] << (bits * (j - i))
+                break
+            raise NotImplementedError("Only 2,4,8 bits are supported.")
 
-        self.g_idx = g_idx.clone() if g_idx is not None else self.g_idx
-        intweight = self._quant_weight(layer_weight, scales, zeros, g_idx, need_transpose=False)
+    def _pack_on_row_fast_anybit(self, pack_tensor, ori_int_tensor, bits):
+        device = pack_tensor.device
+        need_transpose = False
+        if pack_tensor.shape[0] != ori_int_tensor.shape[0]:
+            need_transpose = True
+            ori_int_tensor = ori_int_tensor.T
+        pack_tensor.mul_(0)
+        wf = torch.arange(0, bits, device=device).view(1, 1, -1)
+        out = torch.bitwise_right_shift(ori_int_tensor.unsqueeze(-1), wf)
+        torch.bitwise_and(out, 1, out=out)
+        out = out.reshape(ori_int_tensor.shape[0], -1, 32)
+        wf1 = torch.arange(0, 32, 1, device=device).view(1, 1, -1)
+        out = torch.bitwise_left_shift(out, wf1)
+        out = out.sum(dim=-1).int()
 
-        qzeros = zeros.t().contiguous()
+        if need_transpose:
+            out = out.T.contiguous()
+        pack_tensor.copy_(out)
 
-        if self.bits in [2, 4, 8]:
-            return self._pack_on_device_for_even_bits(intweight, qzeros)
-        else:
-            return self._pack_on_device_for_odd_bits(intweight, qzeros)
+    def _general_pack_on_row(self, pack_tensor, ori_int32_tensor, bits):
+        # general pack for any bits
+        assert pack_tensor.shape[0] == ori_int32_tensor.shape[0] or pack_tensor.shape[1] == ori_int32_tensor.shape[1]
+        pack_tensor.mul_(0)
+        if bits in [2, 4, 8]:
+            self._pack_on_row_fast_248bit(pack_tensor, ori_int32_tensor, bits)
+        self._pack_on_row_fast_anybit(pack_tensor, ori_int32_tensor, bits)
+
+    def _pack_for_odd_bits(self, intweight, intzeros):
+        device = intweight.device
+        qweight = torch.zeros(
+            ((intweight.shape[0] * self.bits + 31) // 32, intweight.shape[1]), dtype=torch.int32, device=device
+        )
+
+        self._general_pack_on_row(qweight, intweight, self.bits)
+        self.qweight = qweight
+
+        self._pack_qzeros_odd(intzeros)
+
+        if self.orig_fp_weight is not None:
+            fw, _, _ = self._unpack()
+            assert (fw == self.orig_fp_weight).all()
+
+    def _pack_qzeros_odd(self, intzeros):
+        # why -1?
+        # zeros_cuda = (zeros - 1).to(device).int()
+        compatible_with_autogptq = int(os.environ.get("COMPATIBLE_WITH_AUTOGPTQ", "0"))
+        device = intzeros.device
+        zeros = intzeros - compatible_with_autogptq
+        max_num_in_bits = 2**self.bits - 1
+        zeros = (zeros.byte() & max_num_in_bits).int()
+        qzeros = torch.zeros(
+            (intzeros.shape[0], (intzeros.shape[1] * self.bits + 31) // 32), dtype=torch.int32, device=device
+        )
+
+        qzeros = qzeros.T.contiguous()
+        zeros = zeros.T.contiguous()
+        self._general_pack_on_row(qzeros, zeros, self.bits)
+
+        self.qzeros = qzeros.T.contiguous()
