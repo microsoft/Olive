@@ -98,7 +98,8 @@ class PythonEnvironmentSystem(OliveSystem):
             command.extend(["--output_path", str(output_path)])
 
             # run the command
-            run_subprocess(command, env=self.environ, check=True)
+            _, stdout, _ = run_subprocess(command, env=self.environ, check=True)
+            log_stdout(stdout)
 
             with output_path.open() as f:
                 output = json.load(f)
@@ -169,13 +170,15 @@ class PythonEnvironmentSystem(OliveSystem):
         onnxruntime_package = get_package_name_from_ep(accelerator.execution_provider)[0]
         packages.append(onnxruntime_package)
 
-        _, stdout, stderr = run_subprocess(
+        _, stdout, _ = run_subprocess(
             f"pip install --cache-dir {self.environ['TMPDIR']} {' '.join(packages)}",
             env=self.environ,
             check=True,
         )
-        msgs = [log.strip() for log in stdout.splitlines()]
-        logger.debug("\n".join(msgs))
+        log_stdout(stdout)
+
+        _, stdout, _ = run_subprocess(f"pip show {onnxruntime_package}", env=self.environ, check=True)
+        log_stdout(stdout)
 
     def remove(self):
         import shutil
@@ -194,3 +197,7 @@ class PythonEnvironmentSystem(OliveSystem):
                 logger.info("Temporary directory '%s' removed.", self.environ["TMPDIR"])
             except FileNotFoundError:
                 pass
+
+
+def log_stdout(stdout: str):
+    logger.debug("%s", "\n".join(log.strip() for log in stdout.splitlines()))

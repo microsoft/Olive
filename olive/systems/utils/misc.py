@@ -139,6 +139,7 @@ def create_new_environ(
         environ["PATH"] = os.pathsep.join(prepend_to_path) + os.pathsep + environ["PATH"]
     if python_environment_path:
         environ["PATH"] = str(python_environment_path) + os.pathsep + environ["PATH"]
+        logger.debug("Prepending python environment %s to PATH", python_environment_path)
 
     log_level = logging.getLevelName(logger.getEffectiveLevel())
     environ["OLIVE_LOG_LEVEL"] = log_level
