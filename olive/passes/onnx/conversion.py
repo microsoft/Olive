@@ -192,22 +192,33 @@ class OnnxConversion(Pass):
         # only handle dict for now since we cannot get the name of the input from a list/tuple
         if isinstance(dummy_inputs, dict):
             dummy_input_keys = set(dummy_inputs.keys())
+            # In the case of dynamo exporting, user do not need to provide input names
+            # for past_key_values, when exported to onnx, it will be expand to
+            # `past_key_values.(hidden_layer_num).(key|value)` pattern(llama2 case)
+            # or `past_(key|value)_(hidden_layer_num)` pattern (phi2 case)
 
-            # handle dummy inputs for model with past, which has past_key_values
-            # match input names in `past_key_values.(hidden_layer_num).(key|value)` pattern(llama2 case)
-            # or `past_key_(hidden_layer_num)`| `past_value_(hidden_layer_num)` pattern (phi2 case)
-            import re
-
+            # after the expansion, user should provide the correct input names for inference
             for name, dm_input in dummy_inputs.items():
                 # the `past_key_values` is the argument name from huggingface model class
-                # which is independent of the kv-related variables in input list
+                # which is independent of the kv-related variables in input list provided by users
+                # if user provided the kv-related variables, we should not remove
+                # the `past_key_values` from dummy inputs. But if not, we should remove it.
                 if name == "past_key_values" and isinstance(dm_input, list):
-                    kv_name_regex_strs = [rf"past_(.*)(.|_){idx}(.(key|value))?" for idx in range(len(dm_input))]
-                    if all(
-                        any(re.match(kv_r_str, input_name) for input_name in input_names)
-                        for kv_r_str in kv_name_regex_strs
-                    ):
-                        dummy_input_keys.discard(name)
+                    # possible kv-related variables which might be provided by the user
+                    # past_key_0, past_value_0, ...
+                    # past_key_values.0.key, past_key_values.0.value, ...
+                    # please keep adding more patterns if necessary
+                    kv_name_groups = [
+                        [f"past_key_{idx}" for idx in range(len(dm_input))]
+                        + [f"past_value_{idx}" for idx in range(len(dm_input))]
+                    ]
+                    kv_name_groups += [
+                        [f"past_key_values.{idx}.key" for idx in range(len(dm_input))]
+                        + [f"past_key_values.{idx}.value" for idx in range(len(dm_input))]
+                    ]
+                    for kv_name_group in kv_name_groups:
+                        if all(any(kv_str in input_name for input_name in input_names) for kv_str in kv_name_group):
+                            dummy_input_keys.discard(name)
 
             unused_keys = dummy_input_keys - set(input_names)
 
