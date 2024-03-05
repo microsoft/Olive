@@ -78,7 +78,8 @@ class SNPEConversion(Pass):
                 description=(
                     "Extra arguments to pass to snpe conversion tool. Refer to snpe-onnx-to-dlc and"
                     " snpe-tensorflow-to-dlc at https://developer.qualcomm.com/sites/default/files/docs/snpe/tools.html"
-                    " for more additional arguments. Must be a dictionary of the form: {'arg_name': 'arg_value'}."
+                    " for more additional arguments. The value is a string that will be passed as is to the tool."
+                    " e.g.: --enable_cpu_fallback --priority_hint low"
                 ),
             ),
         }
