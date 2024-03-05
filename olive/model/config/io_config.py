@@ -107,10 +107,10 @@ def is_kv_cache_required(input_past_kv_list, io_config: IoConfig):
         ["past_key_values.<id>"],
     ]
     possible_kv_names_group = [[] for _ in range(len(possible_kv_names_templates))]
-    for i in range(hidden_layer_num):
-        for j, kv_template in enumerate(possible_kv_names_templates):
-            for kv_str in kv_template:
-                possible_kv_names_group[j].append(kv_str.replace("<id>", str(i)))
+
+    for j, kv_template in enumerate(possible_kv_names_templates):
+        for kv_str in kv_template:
+            possible_kv_names_group[j].extend(kv_str.replace("<id>", str(i)) for i in range(hidden_layer_num))
 
     for kv_name_group in possible_kv_names_group:
         if all(any(kv_str in input_name for input_name in io_config.input_names) for kv_str in kv_name_group):
