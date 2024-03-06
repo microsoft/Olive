@@ -3792,6 +3792,18 @@
 </dd></dl>
 
 <dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.passes.pytorch.lora.HFTrainingArguments.overwrite_output_dir">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">overwrite_output_dir</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#olive.passes.pytorch.lora.HFTrainingArguments.overwrite_output_dir" title="Permalink to this definition">¶</a></dt>
+<dd><p>If True, overwrite the content of output_dir. Otherwise, will continue training if <cite>output_dir</cite> points to a checkpoint directory.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.passes.pytorch.lora.HFTrainingArguments.resume_from_checkpoint">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">resume_from_checkpoint</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.passes.pytorch.lora.HFTrainingArguments.resume_from_checkpoint" title="Permalink to this definition">¶</a></dt>
+<dd><p>The path to a folder with a valid checkpoint for the model. Supercedes any checkpoint found in output_dir.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
 <dt class="sig sig-object py" id="olive.passes.pytorch.lora.HFTrainingArguments.extra_args">
 <em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">extra_args</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.passes.pytorch.lora.HFTrainingArguments.extra_args" title="Permalink to this definition">¶</a></dt>
 <dd><p>Extra arguments to pass to the trainer. Values can be provided directly to this field as a dict or as keyword arguments to the config. See transformers.TrainingArguments for more details on the available arguments.</p>
