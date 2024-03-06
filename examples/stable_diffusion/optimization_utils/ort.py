@@ -27,6 +27,25 @@ def update_cuda_config(config: Dict):
     return config
 
 
+def update_qnn_config(config: Dict):
+    if version.parse(OrtVersion) < version.parse("1.17.0"):
+        # disable skip_group_norm fusion since there is a shape inference bug which leads to invalid models
+        raise ValueError("QNNExecutionProvider is not supported for onnxruntime < 1.17.0")
+    # add onnx qnn preprocess pass
+    config["passes"]["qnn_preprocess"] = {
+        "type": "QNNPreprocess",
+        "config": {
+            # fuse_layernorm requires opset version >= 17
+            "fuse_layernorm": True,
+        },
+    }
+    config["passes"]["convert"]["config"]["target_opset"] = 17
+    config["pass_flows"] = [["convert", "qnn_preprocess", "optimize_cuda"]]
+    # config["engine"]["execution_providers"] = ["QNNExecutionProvider"]
+    config["engine"]["execution_providers"] = ["CUDAExecutionProvider"]
+    return config
+
+
 def validate_args(args, provider):
     ort.set_default_logger_severity(4)
     if args.static_dims:
@@ -54,7 +73,10 @@ def validate_ort_version(provider: str):
 
 def save_optimized_onnx_submodel(submodel_name, provider, model_info):
     footprints_file_path = (
-        Path(__file__).resolve().parent / "footprints" / f"{submodel_name}_gpu-{provider}_footprints.json"
+        # TODO(trajepl): remove test code
+        Path(__file__).resolve().parents[1]
+        / "footprints"
+        / f"{submodel_name}_gpu-cuda_footprints.json"
     )
     with footprints_file_path.open("r") as footprint_file:
         footprints = json.load(footprint_file)
@@ -152,6 +174,7 @@ def get_ort_pipeline(model_dir, common_args, ort_args, guidance_scale):
     provider_map = {
         "dml": "DmlExecutionProvider",
         "cuda": "CUDAExecutionProvider",
+        "qnn": "CUDAExecutionProvider",  # TODO(trajepl): update to "QNNExecutionProvider" when available
     }
     assert provider in provider_map, f"Unsupported provider: {provider}"
     return OnnxStableDiffusionPipeline.from_pretrained(

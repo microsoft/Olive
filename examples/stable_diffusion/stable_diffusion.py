@@ -172,13 +172,17 @@ def update_config_with_provider(config: Dict, provider: str):
         # DirectML EP is the default, so no need to update config.
         return config
     elif provider == "cuda":
-        from ort_optimization_util import update_cuda_config
+        from optimization_utils.ort import update_cuda_config
 
         return update_cuda_config(config)
     elif provider == "openvino":
-        from ov_optimization_utils import update_ov_config
+        from optimization_utils.ov import update_ov_config
 
         return update_ov_config(config)
+    elif provider == "qnn":
+        from optimization_utils.ort import update_qnn_config
+
+        return update_qnn_config(config)
     else:
         raise ValueError(f"Unsupported provider: {provider}")
 
@@ -247,20 +251,20 @@ def optimize(
         run_res = olive_run(olive_config)
 
         if provider == "openvino":
-            from ov_optimization_utils import save_optimized_ov_submodel
+            from optimization_utils.ov import save_optimized_ov_submodel
 
             save_optimized_ov_submodel(run_res, submodel_name, optimized_model_dir, model_info)
         else:
-            from ort_optimization_util import save_optimized_onnx_submodel
+            from optimization_utils.ort import save_optimized_onnx_submodel
 
             save_optimized_onnx_submodel(submodel_name, provider, model_info)
 
     if provider == "openvino":
-        from ov_optimization_utils import save_ov_model_info
+        from optimization_utils.ov import save_ov_model_info
 
         save_ov_model_info(model_info, optimized_model_dir)
     else:
-        from ort_optimization_util import save_onnx_pipeline
+        from optimization_utils.ort import save_onnx_pipeline
 
         save_onnx_pipeline(
             has_safety_checker, model_info, optimized_model_dir, unoptimized_model_dir, pipeline, submodel_names
@@ -274,7 +278,11 @@ def parse_common_args(raw_args):
 
     parser.add_argument("--model_id", default="runwayml/stable-diffusion-v1-5", type=str)
     parser.add_argument(
-        "--provider", default="dml", type=str, choices=["dml", "cuda", "openvino"], help="Execution provider to use"
+        "--provider",
+        default="dml",
+        type=str,
+        choices=["dml", "cuda", "openvino", "qnn"],
+        help="Execution provider to use",
     )
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
     parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")
@@ -366,7 +374,7 @@ def main(raw_args=None):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             if provider != "openvino":
-                from ort_optimization_util import validate_args
+                from optimization_utils.ort import validate_args
 
                 validate_args(ort_args, common_args.provider)
             optimize(common_args.model_id, common_args.provider, unoptimized_model_dir, optimized_model_dir)
@@ -376,16 +384,16 @@ def main(raw_args=None):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             if provider == "openvino":
-                from ov_optimization_utils import get_ov_pipeline
+                from optimization_utils.ov import get_ov_pipeline
 
                 pipeline = get_ov_pipeline(common_args, ov_args, optimized_model_dir)
             else:
-                from ort_optimization_util import get_ort_pipeline
+                from optimization_utils.ort import get_ort_pipeline
 
                 pipeline = get_ort_pipeline(model_dir, common_args, ort_args, guidance_scale)
             if provider == "openvino" and (ov_args.image_path or ov_args.img_to_img_example):
                 if ov_args.image_path:
-                    from ov_optimization_utils import run_ov_image_inference
+                    from optimization_utils.ov import run_ov_image_inference
 
                     res = run_ov_image_inference(
                         pipeline,
@@ -398,7 +406,7 @@ def main(raw_args=None):
                         common_args,
                     )
                 if ov_args.img_to_img_example:
-                    from ov_optimization_utils import run_ov_img_to_img_example
+                    from optimization_utils.ov import run_ov_img_to_img_example
 
                     res = run_ov_img_to_img_example(pipeline, guidance_scale, common_args)
                 save_image(res, common_args.batch_size, "openvino", common_args.num_images, 0)

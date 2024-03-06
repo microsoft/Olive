@@ -120,7 +120,7 @@ Refer to the corresponding section in the DirectML READMEs for more details on t
 - [Stable Diffusion XL](../directml/stable_diffusion_xl/README.md#test-inference)
 
 
-## Stable Diffusion Optimization  with OpenVINO
+## Stable Diffusion Optimization with OpenVINO
 
 **Contents**:
 - [Setup](#setup)
@@ -152,7 +152,7 @@ pip install -r requirements-ov.txt
 The easiest way to optimize the pipeline is with the `stable_diffusion.py` helper script:
 
 ```
-python stable_diffusion.py --optimize
+python stable_diffusion.py --optimize --provider openvino
 ```
 
 The above command will enumerate the `config_<model_name>.json` files and optimize each with Olive, then gather the optimized models into a directory structure suitable for testing inference.

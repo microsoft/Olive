@@ -10,6 +10,7 @@ from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes.olive_pass import Pass
+from olive.passes.onnx.common import get_external_data_config
 from olive.passes.pass_config import PassConfigParam
 
 
@@ -18,7 +19,7 @@ class QNNPreprocess(Pass):
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        return {
+        config = {
             "fuse_layernorm": PassConfigParam(
                 type_=bool,
                 default_value=False,
@@ -26,6 +27,13 @@ class QNNPreprocess(Pass):
                 description=("Whether to fuse ReduceMean sequence into a single LayerNormalization node."),
             )
         }
+        # only 1.18.0 or later adds the following parameters
+        from onnxruntime import __version__ as OrtVersion
+        from packaging import version
+
+        if version.parse(OrtVersion) > version.parse("1.18.0"):
+            config.update(get_external_data_config())
+        return config
 
     @staticmethod
     def _validators() -> Dict[str, Callable[..., Any]]:
