@@ -27,6 +27,7 @@ from olive.model import (
 )
 from olive.model.config import IoConfig
 from olive.model.config.hf_config import HfConfig, get_model_type_from_hf_config
+from olive.model.config.io_config import is_kv_cache_required
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
@@ -193,17 +194,18 @@ class OnnxConversion(Pass):
         if isinstance(dummy_inputs, dict):
             dummy_input_keys = set(dummy_inputs.keys())
 
-            # handle dummy inputs for model with past, which has past_key_values
-            # match input names in `past_key_values.(hidden_layer_num).(key|value)` pattern(llama2 case)
-            # or `past_key_values.(hidden_layer_num)` pattern (phi2 case)
+            # after the expansion, user should provide the correct input names for inference
             for name, dm_input in dummy_inputs.items():
-                if name == "past_key_values" and isinstance(dm_input, list):
-                    key_value_names = [f"{name}.{idx}" for idx in range(len(dm_input))]
-                    if all(
-                        any(key_value_name in input_name for input_name in input_names)
-                        for key_value_name in key_value_names
-                    ):
-                        dummy_input_keys.discard(name)
+                # the `past_key_values` is the argument name from huggingface model class
+                # which is independent of the kv-related variables in input list provided by users
+                # if user provided the kv-related variables, we should not remove
+                # the `past_key_values` from dummy inputs. But if not, we should remove it.
+                if (
+                    name == "past_key_values"
+                    and isinstance(dm_input, list)
+                    and is_kv_cache_required(dm_input, io_config)
+                ):
+                    dummy_input_keys.discard(name)
 
             unused_keys = dummy_input_keys - set(input_names)
 
@@ -223,7 +225,6 @@ class OnnxConversion(Pass):
 
             config.capture_scalar_outputs = True
 
-            input_names = io_config.input_names
             if isinstance(dummy_inputs, dict):
                 for key in unused_keys:
                     dummy_inputs[key] = None
