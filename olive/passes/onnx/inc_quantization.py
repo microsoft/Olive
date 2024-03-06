@@ -26,8 +26,6 @@ from olive.passes.pass_config import ParamCategory, PassConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional
 
-# pylint: disable=protected-access
-
 logger = logging.getLogger(__name__)
 
 _inc_quantization_config = {
@@ -569,6 +567,7 @@ class IncQuantization(Pass):
         if q_model.is_large_model:
             from onnx.external_data_helper import load_external_data_for_model
 
+            # pylint: disable=protected-access
             load_external_data_for_model(q_model.model, os.path.dirname(q_model._model_path))
 
         # save the model to the output path and return the model
