@@ -32,7 +32,7 @@ class QNNPreprocess(Pass):
         from packaging import version
 
         # there is a customer use 1.17.0, so we need to add the following parameters
-        if version.parse(OrtVersion) > version.parse("1.18.0"):
+        if version.parse(OrtVersion) >= version.parse("1.18.0"):
             config.update(get_external_data_config())
             config.update(
                 {
@@ -106,7 +106,6 @@ class QNNPreprocess(Pass):
             fuse_layernorm=config["fuse_layernorm"],
             save_as_external_data=config["save_as_external_data"],
             all_tensors_to_one_file=config["all_tensors_to_one_file"],
-            external_data_location=config["location"],
             external_data_size_threshold=config["size_threshold"],
             external_data_convert_attribute=config["convert_attribute"],
             inputs_to_make_channel_last=config["inputs_to_make_channel_last"],
