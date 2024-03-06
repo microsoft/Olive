@@ -58,7 +58,9 @@ _inc_quantization_config = {
     "workspace": PassConfigParam(
         type_=str,
         default_value=None,
-        description="""Workspace for Intel® Neural Compressor quantization.""",
+        description="""Workspace for Intel® Neural Compressor quantization where intermediate files and
+            tuning history file are stored.  Default value is:
+            "./nc_workspace/{}/".format(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))""",
     ),
     "recipes": PassConfigParam(
         type_=dict,
