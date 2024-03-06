@@ -94,6 +94,19 @@ class HFTrainingArguments(ConfigWithExtraArgs):
         "none", description="The list of integrations to report the results and logs to."
     )
     output_dir: str = Field(None, description="The output dir for logs and checkpoints. If None, will use a temp dir.")
+    overwrite_output_dir: bool = Field(
+        False,
+        description=(
+            "If True, overwrite the content of output_dir. Otherwise, will continue training if `output_dir` points to"
+            " a checkpoint directory."
+        ),
+    )
+    resume_from_checkpoint: str = Field(
+        None,
+        description=(
+            "The path to a folder with a valid checkpoint for the model. Supercedes any checkpoint found in output_dir."
+        ),
+    )
     extra_args: Dict[str, Any] = Field(
         None,
         description=(
@@ -284,6 +297,20 @@ class LoRABase(Pass):
         # bitsandbytes quantization only supported after transformers 4.30.0
         if is_qlora and version.parse(transformers.__version__) < version.parse("4.30.0"):
             raise ImportError(f"Please install transformers >= 4.30.0 to use {cls.__name__} pass.")
+
+        if config.training_args:
+            # check if output_dir is a valid directory
+            # must be a directory with checkpoints
+            output_dir = config.training_args.output_dir
+            if config.training_args.overwrite_output_dir or not output_dir or not Path(output_dir).exists():
+                return
+            # find the last checkpoint in output_dir
+            checkpoint = transformers.trainer_utils.get_last_checkpoint(output_dir)
+            if not checkpoint and len(list(Path(output_dir).iterdir())) > 0:
+                raise ValueError(
+                    f"Output directory ({output_dir}) already exists and is not empty. Set overwrite_output_dir to True"
+                    " to overwrite or provide a new output_dir."
+                )
 
     @staticmethod
     def collate_batch(batch: List[Dict], tokenizer: "PreTrainedTokenizer") -> Dict[str, torch.Tensor]:
@@ -589,11 +616,26 @@ class LoRABase(Pass):
         # is handled by the caller (after try except) or the program exits
         # Plus the cleanup after error doesn't work as expected with notebooks
         with tempfile.TemporaryDirectory(prefix="olive_tmp") as temp_dir:
+            checkpoint = config.training_args.resume_from_checkpoint
             if not config.training_args.output_dir:
                 logger.info("No training_args.output_dir provided. Using a temp dir.")
                 config.training_args.output_dir = temp_dir
                 # set save_total_limit to 1 since the temp dir will be deleted after training
                 config.training_args.extra_args["save_total_limit"] = 1
+            elif (
+                not checkpoint
+                and not config.training_args.overwrite_output_dir
+                and Path(config.training_args.output_dir).exists()
+            ):
+                # find the last checkpoint in output_dir
+                checkpoint = transformers.trainer_utils.get_last_checkpoint(config.training_args.output_dir)
+                if checkpoint:
+                    logger.info(
+                        "Checkpoint detected in output_dir. Resuming training at %s. To avoid this behavior and train"
+                        " from scratch, change `output_dir` or set `overwrite_output_dir` to True.",
+                        checkpoint,
+                    )
+
             if self.get_torch_dtype(config.torch_dtype) == torch.float16:
                 # use fp16 mixed precision training
                 config.training_args.extra_args["fp16"] = True
@@ -620,7 +662,7 @@ class LoRABase(Pass):
 
             # train
             logger.info("Running fine-tuning")
-            train_result = trainer.train()
+            train_result = trainer.train(resume_from_checkpoint=checkpoint)
             logger.debug("train_result: %s", train_result)
 
         if torch.cuda.is_available():
