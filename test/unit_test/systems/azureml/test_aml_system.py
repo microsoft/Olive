@@ -313,7 +313,7 @@ class TestAzureMLSystem:
         )
         pass_config = {"data_config": data_config}
         the_pass = MagicMock()
-        the_pass._config = pass_config
+        the_pass.config = pass_config
         expected_data_inputs = {
             "data_name_user_script": Input(type=AssetTypes.URI_FILE, optional=True),
             "data_name_script_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),

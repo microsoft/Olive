@@ -383,7 +383,7 @@ class DockerSystem(OliveSystem):
         mounts = {}
         mount_strs = []
         for param, _, category in the_pass.path_params:
-            param_val = the_pass._config.get(param)  # pylint: disable=protected-access
+            param_val = the_pass.config.get(param)
             if category == ParamCategory.DATA and param_val:
                 data_dir = get_local_path_from_root(data_root, str(param_val))
                 mount = str(container_root_path / param)
