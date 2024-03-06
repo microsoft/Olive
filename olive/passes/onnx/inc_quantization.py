@@ -567,6 +567,7 @@ class IncQuantization(Pass):
         if q_model.is_large_model:
             from onnx.external_data_helper import load_external_data_for_model
 
+            # pylint: disable=protected-access_
             load_external_data_for_model(q_model.model, os.path.dirname(q_model._model_path))
 
         # save the model to the output path and return the model
