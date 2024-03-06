@@ -7,33 +7,42 @@ import json
 import shutil
 from pathlib import Path
 
-import onnxruntime as ort
-import torch
-from transformers import AutoConfig, LlamaTokenizer
+from optimum.onnxruntime import ORTModelForCausalLM
+from optimum.utils.save_utils import maybe_save_preprocessors
+from transformers import AutoConfig, AutoTokenizer
 
 from olive.workflows import run as olive_run
 
 # ruff: noqa: T201, T203
 
 
-def optimize(model_name: str, optimized_model_des: Path, config: str):
-    ort.set_default_logger_severity(4)
-    cur_dir = Path(__file__).resolve().parent
-
+def optimize(model_name: str, olive_config: dict):
     # Optimize the model with Olive
-    print(f"\nOptimizing {model_name}")
-
-    olive_config = None
-    with (cur_dir / config).open() as fin:
-        olive_config = json.load(fin)
+    print(f"Optimizing {model_name}")
 
     olive_config["input_model"]["config"]["model_path"] = model_name
-    olive_run(olive_config)
+    print(olive_run(olive_config))
+
+
+def inference(model_id: str, optimized_model_dir: Path, execution_provider: str, prompt: str, max_length: int):
+    # save any configs that might be needed for inference
+    maybe_save_preprocessors(model_id, optimized_model_dir, trust_remote_code=True)
+    AutoConfig.from_pretrained(model_id).save_pretrained(optimized_model_dir)
+
+    tokenizer = AutoTokenizer.from_pretrained(model_id)
+    model = ORTModelForCausalLM.from_pretrained(
+        optimized_model_dir, execution_provider=execution_provider, use_io_binding=False
+    )
+
+    device = "cuda" if execution_provider == "CUDAExecutionProvider" else "cpu"
+    inputs = tokenizer(prompt, return_tensors="pt").to(device)
+    print(inputs)
+    outputs = model.generate(**inputs, max_length=max_length)
+    return tokenizer.decode(outputs, skip_special_tokens=True)
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
     parser.add_argument(
         "--model-id",
         dest="model_id",
@@ -43,57 +52,44 @@ def main():
     )
     parser.add_argument(
         "--config",
-        dest="config",
         type=str,
-        default="mistral_optimize.json",
+        required=True,
         help="Path to the Olive config file",
+        choices=["mistral_int4_optimize.json", "mistral_fp16_optimize.json"],
     )
+    parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
     parser.add_argument("--inference", action="store_true", help="Runs the inference step")
+
     args = parser.parse_args()
 
+    with Path(args.config).open() as f:
+        config = json.load(f)
+
+    # get ep and accelerator
+    ep = config["engine"]["execution_providers"][0]
+    ep_header = ep.replace("ExecutionProvider", "").lower()
+    accelerator = "gpu" if ep_header == "cuda" else "cpu"
+
+    # output model dir
     script_dir = Path(__file__).resolve().parent
-    optimized_model_dir = script_dir / "models" / "convert-optimize-perf_tuning" / "mistral_gpu-cuda_model"
+    optimized_model_dir = (
+        script_dir
+        / config["engine"]["output_dir"]
+        / "-".join(config["pass_flows"][0])
+        / f"{config['engine']['output_name']}_{accelerator}-{ep_header}_model"
+    )
 
     if args.optimize:
         shutil.rmtree(optimized_model_dir, ignore_errors=True)
 
     if args.optimize or not optimized_model_dir.exists():
-        optimize(args.model_id, optimized_model_dir, args.config)
+        optimize(args.model_id, config)
 
     if args.inference:
         prompt = "Is it normal to have a dark ring around the iris of my eye?"
-
-        tokenizer = LlamaTokenizer.from_pretrained(args.model_id)
-        tokens = tokenizer(prompt, return_tensors="pt")
-        tokenizer = None
-
-        config = AutoConfig.from_pretrained(args.model_id)
-        num_heads = config.num_key_value_heads
-        head_size = config.hidden_size // config.num_attention_heads
-        past_seq_len = 0
-
-        position_ids = tokens.attention_mask.long().cumsum(-1) - 1
-        position_ids.masked_fill_(tokens.attention_mask == 0, 1)
-
-        onnx_inputs = {
-            "input_ids": tokens.input_ids.numpy(),
-            "attention_mask": tokens.attention_mask.numpy(),
-            "position_ids": position_ids.numpy(),
-        }
-        for i in range(config.num_hidden_layers):
-            onnx_inputs[f"past_key_values.{i}.key"] = torch.rand(
-                1, num_heads // 1, past_seq_len, head_size, dtype=torch.float16
-            ).numpy()
-            onnx_inputs[f"past_key_values.{i}.value"] = torch.rand(
-                1, num_heads // 1, past_seq_len, head_size, dtype=torch.float16
-            ).numpy()
-
-        model_path = optimized_model_dir / "model.onnx"
-
-        session = ort.InferenceSession(model_path, providers=["CUDAExecutionProvider"])
-        session.run(None, onnx_inputs)[0]
-
-        print("Inference test completed successfully!")
+        print(f"Running inference on prompt: {prompt}")
+        output = inference(args.model_id, optimized_model_dir, ep, prompt, 50)
+        print(f"Output: {output}")
 
 
 if __name__ == "__main__":

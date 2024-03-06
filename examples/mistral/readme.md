@@ -37,47 +37,21 @@ GPU:
 ```bash
 python mistral.py --optimize --config mistral_fp16_optimize.json
 ```
+
+**NOTE:** You can run the optimization for a locally saved model by setting the `--model_id` to the path of the model.
+
 ## Test Inference
 To test inference on the model run the script with `--inference`
 ```bash
-CUDA_VISIBLE_DEVICES=6 python mistral.py --inference
-```
-Currently inference only supports float16 model running on gpu
-
-### Local model
-if the input model is saved locally, you can specify the configuration like the following:
-```json
-{
-    "input_model": {
-        "type": "PyTorchModel",
-        "config": {
-            "model_path": "C:/git/Olive/examples/mistral/mistral-7b2"
-        }
-    },
-    //...
-    "passes": {
-        "convert": {
-            "type": "OptimumConversion",
-            "config": {
-                "target_opset": 14,
-                "extra_args": {
-                    "legacy": false,
-                    "no_post_process": false,
-                    "task": "text-generation-with-past"
-                }
-            }
-        }
-    }
-    //...
-}
+CUDA_VISIBLE_DEVICES=6 python mistral.py --config mistral_fp16_optimize.json --inference
 ```
 
 ## Known issues
 From the time being, the latency for sequence length larger than 1 will be worse than that of original model if the int4 quantized model is running in CPU. So, we'd suggest to run the int4 quantized model in GPU for better performance.
 
-To make sure int4 quantized model running in GPU, please start with the example by changing the accelerator/EP to GPU/CUDA in the config file.
+To make sure int4 quantized model running in GPU, please start with the example by changing the EP to CUDA in the config file.
 
-The following table show the latency comparison between original model and int4 quantized model with different accuracy level when running in my CPU (AMD EPYC 7763) with sequence length 32.
+The following table show the latency comparison between original model and int4 quantized model with different accuracy level when running in an AMD EPYC 7763 CPU with sequence length 32.
 | Model | Average Latency in ms |
 | --- | --- |
 | Original | 944.14496 |

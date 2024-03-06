@@ -85,14 +85,11 @@
     "engine": {
         "evaluate_input_model": false,
         "evaluator": "common_evaluator",
-        "cache_dir": "cache",
-        "output_name": "mistral",
-        "output_dir": "models",
         "execution_providers": [
             "CUDAExecutionProvider"
         ],
-        "clean_cache": false,
-        "log_severity_level": 0,
-        "log_to_file": true
+        "cache_dir": "cache",
+        "output_dir": "models",
+        "output_name": "mistral_fp16"
     }
 }
