@@ -16,8 +16,8 @@ from olive.passes.pass_config import PassConfigParam
 class QNNPreprocess(Pass):
     """Preprocess ONNX model for quantization targeting QNN Execution Provider."""
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "fuse_layernorm": PassConfigParam(
                 type_=bool,

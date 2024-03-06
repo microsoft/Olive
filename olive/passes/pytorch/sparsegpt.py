@@ -38,8 +38,8 @@ class SparseGPT(Pass):
     must be one of [bloom, gpt2, gpt_neox, llama, opt].
     """
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "sparsity": PassConfigParam(
                 type_=Union[float, List[int]],

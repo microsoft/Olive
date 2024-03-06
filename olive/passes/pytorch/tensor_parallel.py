@@ -48,8 +48,8 @@ class TensorParallel:
 
 
 class PyTorchTensorParallel(Pass):
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         # Note : The default world_size should be the no of gpus (AcceleratorSpec.Device == GPU)
         # in the target OliveSystem
         return {

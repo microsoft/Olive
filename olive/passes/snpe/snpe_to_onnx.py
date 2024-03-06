@@ -28,8 +28,8 @@ class SNPEtoONNXConversion(Pass):
     Creates a ONNX graph with the SNPE DLC as a node.
     """
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "target_device": PassConfigParam(
                 type_=str,

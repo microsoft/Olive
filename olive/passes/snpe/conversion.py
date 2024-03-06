@@ -44,8 +44,8 @@ class SNPEConversion(Pass):
     Uses snpe-tensorflow-to-dlc or snpe-onnx-to-dlc tools from the SNPE SDK.
     """
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "input_names": PassConfigParam(type_=List[str], required=True, description="List of input names."),
             "input_shapes": PassConfigParam(

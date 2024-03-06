@@ -25,8 +25,8 @@ class QNNModelLibGenerator(Pass):
     Uses qnn-model-lib-generator tool from the QNN SDK.
     """
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "lib_targets": PassConfigParam(
                 type_=str,

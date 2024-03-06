@@ -285,8 +285,8 @@ class IncQuantization(Pass):
         """Override this method to return False by using the accelerator spec information."""
         return False
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "approach": PassConfigParam(
                 type_=str,
@@ -592,8 +592,8 @@ class IncDynamicQuantization(IncQuantization):
 
     _requires_user_script = False
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, Any]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, Any]:
         config = {
             "approach": PassConfigParam(type_=str, default_value="dynamic", description="dynamic quantization mode")
         }
@@ -612,8 +612,8 @@ class IncDynamicQuantization(IncQuantization):
 class IncStaticQuantization(IncQuantization):
     """Intel® Neural Compressor Static Quantization Pass."""
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, Any]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, Any]:
         config = {
             "approach": PassConfigParam(type_=str, default_value="static", description="static quantization mode"),
             "diagnosis": PassConfigParam(

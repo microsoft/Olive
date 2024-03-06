@@ -25,8 +25,8 @@ class InsertBeamSearch(Pass):
 
     _accepts_composite_model = True
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         use_gpu = accelerator_spec.accelerator_type == Device.GPU
         config = {
             "no_repeat_ngram_size": PassConfigParam(

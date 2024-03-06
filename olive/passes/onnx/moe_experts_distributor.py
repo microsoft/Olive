@@ -363,8 +363,8 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
 class MoEExpertsDistributor(Pass):
     """Split the input model (and insert necessary communication operations) to prepare for distributed inferencing."""
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "world_size": PassConfigParam(
                 type_=int,

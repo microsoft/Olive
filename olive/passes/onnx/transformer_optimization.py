@@ -38,8 +38,8 @@ class OrtTransformersOptimization(Pass):
 
         return version.parse(OrtVersion) < version.parse("1.17.0")
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         from onnxruntime.transformers.fusion_options import FusionOptions
 
         is_gpu = accelerator_spec.accelerator_type == Device.GPU

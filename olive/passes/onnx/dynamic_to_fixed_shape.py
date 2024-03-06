@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 class DynamicToFixedShape(Pass):
     """Convert dynamic shape to fixed shape for ONNX model."""
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "dim_param": PassConfigParam(
                 type_=List[str],

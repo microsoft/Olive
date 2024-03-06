@@ -157,8 +157,8 @@ class LoRABase(Pass):
     # values from the input model will be ignored and new values will be set based on the pass config
     model_overwrites: ClassVar[tuple] = ("torch_dtype", "device_map")
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "use_ort_trainer": PassConfigParam(
                 type_=bool, default_value=False, description="Whether or not to use ORTTrainer."
@@ -771,12 +771,12 @@ class LoRA(LoRABase):
     This pass only supports PyTorchModelHandler with hf_config.
     """
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "target_modules": PassConfigParam(type_=List[str], default_value=None, description="Target modules"),
         }
-        config.update(LoRABase._default_config(accelerator_spec))
+        config.update(super()._default_config(accelerator_spec))
         return config
 
     def _run_for_config(
@@ -820,8 +820,8 @@ class QLoRABase(LoRABase):
 
     model_overwrites: ClassVar[tuple] = ("torch_dtype", "device_map", "quantization_method", "quantization_config")
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             # quantization parameters
             "compute_dtype": PassConfigParam(
@@ -832,7 +832,7 @@ class QLoRABase(LoRABase):
                 ),
             )
         }
-        config.update(LoRABase._default_config(accelerator_spec))
+        config.update(super()._default_config(accelerator_spec))
         return config
 
     def _run_for_config(
@@ -883,8 +883,8 @@ class QLoRA(QLoRABase):
     This pass only supports PyTorchModelHandler with hf_config.
     """
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             # quantization parameters
             "double_quant": PassConfigParam(
@@ -901,7 +901,7 @@ class QLoRA(QLoRABase):
                 description="Quantization data type to use. Should be one of `fp4` or `nf4`.",
             ),
         }
-        config.update(QLoRABase._default_config(accelerator_spec))
+        config.update(super()._default_config(accelerator_spec))
         return config
 
     def get_model_tokenizer(
@@ -954,8 +954,8 @@ class LoftQ(QLoRA):
     This pass only supports PyTorchModelHandler with hf_config.
     """
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             # quantization parameters
             "loftq_iter": PassConfigParam(
@@ -964,7 +964,7 @@ class LoftQ(QLoRA):
                 description="Number of LoftQ iterations.",
             ),
         }
-        config.update(QLoRABase._default_config(accelerator_spec))  # pylint: disable=protected-access
+        config.update(super()._default_config(accelerator_spec))
         return config
 
     @classmethod

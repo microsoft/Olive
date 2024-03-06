@@ -153,9 +153,9 @@ class Pass(ABC):
         """Pydantic validators for config params."""
         return {}
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         """Get the default configuration for the pass. Doesn't include user_script and script_dir.
 
         Example:

@@ -187,8 +187,8 @@ def _validate_path(v):
 class LocalResourcePath(ResourcePath):
     """Base class for a local resource path."""
 
-    @staticmethod
-    def _default_config() -> Dict[str, Any]:
+    @classmethod
+    def _default_config(cls) -> Dict[str, Any]:
         return {
             "path": ConfigParam(type_=Union[Path, str], required=True, description="Path to the resource."),
         }
@@ -267,8 +267,8 @@ class StringName(ResourcePath):
 
     name = ResourceType.StringName
 
-    @staticmethod
-    def _default_config() -> Dict[str, Any]:
+    @classmethod
+    def _default_config(cls) -> Dict[str, Any]:
         return {
             "name": ConfigParam(type_=str, required=True, description="Name of the resource."),
         }
@@ -344,8 +344,8 @@ class AzureMLModel(AzureMLResource):
 
     name = ResourceType.AzureMLModel
 
-    @staticmethod
-    def _default_config() -> Dict[str, Any]:
+    @classmethod
+    def _default_config(cls) -> Dict[str, Any]:
         return {
             "azureml_client": ConfigParam(
                 type_=AzureMLClientConfig, required=True, description="AzureML client config."
@@ -370,8 +370,8 @@ class AzureMLRegistryModel(AzureMLResource):
 
     name = ResourceType.AzureMLRegistryModel
 
-    @staticmethod
-    def _default_config() -> Dict[str, Any]:
+    @classmethod
+    def _default_config(cls) -> Dict[str, Any]:
         return {
             "azureml_client": ConfigParam(
                 type_=AzureMLClientConfig, required=False, description="AzureML client config."
@@ -424,8 +424,8 @@ class AzureMLDatastore(ResourcePath):
         )
         return validators
 
-    @staticmethod
-    def _default_config() -> Dict[str, Any]:
+    @classmethod
+    def _default_config(cls) -> Dict[str, Any]:
         return {
             "azureml_client": ConfigParam(type_=AzureMLClientConfig, description="AzureML client config."),
             "datastore_name": ConfigParam(type_=str, description="Name of the datastore."),
@@ -527,8 +527,8 @@ class AzureMLJobOutput(ResourcePath):
 
     name = ResourceType.AzureMLJobOutput
 
-    @staticmethod
-    def _default_config() -> Dict[str, Any]:
+    @classmethod
+    def _default_config(cls) -> Dict[str, Any]:
         return {
             "azureml_client": ConfigParam(
                 type_=AzureMLClientConfig, required=True, description="AzureML client config."

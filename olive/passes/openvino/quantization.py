@@ -71,8 +71,8 @@ class OpenVINOQuantizationBase(Pass):
 
     _requires_user_script = True
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "dataloader_func": PassConfigParam(
                 type_=Union[Callable, str],
@@ -219,9 +219,6 @@ class OpenVINOQuantizationBase(Pass):
 
 
 class OpenVINOQuantization(OpenVINOQuantizationBase):
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        return OpenVINOQuantizationBase._default_config(accelerator_spec)
 
     def _run_for_config(
         self, model: OpenVINOModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
@@ -247,8 +244,8 @@ class OpenVINOQuantization(OpenVINOQuantizationBase):
 
 
 class OpenVINOQuantizationWithAccuracy(OpenVINOQuantizationBase):
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "validation_func": PassConfigParam(
                 type_=Union[Callable, str],
@@ -280,7 +277,7 @@ class OpenVINOQuantizationWithAccuracy(OpenVINOQuantizationBase):
                 ),
             ),
         }
-        config.update(OpenVINOQuantizationBase._default_config(accelerator_spec))
+        config.update(super()._default_config(accelerator_spec))
         return config
 
     def _run_for_config(
