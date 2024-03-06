@@ -31,7 +31,7 @@ def download_audio_test_data(tmp_path):
 
 
 @pytest.fixture(name="whisper_config")
-def prepare_whisper_config(audio_data):
+def prepare_whisper_config(audio_data, tmp_path):
     return {
         "input_model": {
             "type": "PyTorchModel",
@@ -79,6 +79,9 @@ def prepare_whisper_config(audio_data):
             "inc_dynamic_quantization": {
                 "type": "IncDynamicQuantization",
                 "disable_search": True,
+                "config": {
+                    "workspace": str(tmp_path / "workspace"),
+                },
             },
             "insert_beam_search": {
                 "type": "InsertBeamSearch",
@@ -102,8 +105,8 @@ def prepare_whisper_config(audio_data):
             "evaluate_input_model": False,
             "execution_providers": ["CPUExecutionProvider"],
             "clean_cache": True,
-            "cache_dir": "cache",
-            "output_dir": "models",
+            "cache_dir": str(tmp_path / "cache"),
+            "output_dir": str(tmp_path / "models"),
             "output_name": "whisper_cpu_fp32",
         },
     }

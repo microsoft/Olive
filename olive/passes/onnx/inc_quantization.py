@@ -55,6 +55,11 @@ _inc_quantization_config = {
             If users set domain as auto, automatic detection for domain will be executed.
         """,
     ),
+    "workspace": PassConfigParam(
+        type_=str,
+        default_value=None,
+        description="""Workspace for Intel® Neural Compressor quantization.""",
+    ),
     "recipes": PassConfigParam(
         type_=dict,
         default_value={},
@@ -506,6 +511,12 @@ class IncQuantization(Pass):
 
         eval_func, accuracy_criterion, tuning_criterion = self._set_tuning_config(run_config, data_root)
         weight_only_config = self._set_woq_config(run_config)
+
+        workspace = run_config.pop("workspace", None)
+        if workspace:
+            from neural_compressor import set_workspace
+
+            set_workspace(workspace)
 
         # keys not needed for quantization
         to_delete = [
