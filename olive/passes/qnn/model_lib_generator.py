@@ -6,7 +6,7 @@
 import logging
 import platform
 from pathlib import Path
-from typing import Any, Callable, Dict
+from typing import Any, Dict
 
 from olive.constants import ModelFileFormat
 from olive.hardware import AcceleratorSpec
@@ -46,10 +46,6 @@ class QNNModelLibGenerator(Pass):
         }
         config.update(get_env_config())
         return config
-
-    @staticmethod
-    def _validators() -> Dict[str, Callable[..., Any]]:
-        pass
 
     def _run_for_config(
         self,

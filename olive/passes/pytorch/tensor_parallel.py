@@ -95,13 +95,9 @@ class PyTorchTensorParallel(Pass):
 
         return v
 
-    @staticmethod
-    def _validators() -> Dict[str, Callable]:
-        return {
-            "validate_distributor_config": validator("world_size", allow_reuse=True)(
-                PyTorchTensorParallel._validate_world_size
-            )
-        }
+    @classmethod
+    def _validators(cls) -> Dict[str, Callable]:
+        return {"validate_distributor_config": validator("world_size", allow_reuse=True)(cls._validate_world_size)}
 
     @staticmethod
     def _generate_one(params):

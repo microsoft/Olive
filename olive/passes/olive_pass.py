@@ -148,8 +148,8 @@ class Pass(ABC):
                 ), f"{param} ending with data_config must be of type DataConfig."
         return config
 
-    @staticmethod
-    def _validators() -> Dict[str, Callable]:
+    @classmethod
+    def _validators(cls) -> Dict[str, Callable]:
         """Pydantic validators for config params."""
         return {}
 

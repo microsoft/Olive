@@ -39,8 +39,8 @@ class AutoConfigClass(ABC):
             ...
             return v
 
-        @staticmethod
-        def _validators():
+        @classmethod
+        def _validators(cls):
             return {"validate_func_param": validator("func_param", allow_reuse=True)(validate_func_param)}
     """
 
@@ -67,8 +67,8 @@ class AutoConfigClass(ABC):
         """Get the default configuration for the class."""
         raise NotImplementedError
 
-    @staticmethod
-    def _validators() -> Dict[str, Callable]:
+    @classmethod
+    def _validators(cls) -> Dict[str, Callable]:
         """Get ydantic validators for config params."""
         return {}
 

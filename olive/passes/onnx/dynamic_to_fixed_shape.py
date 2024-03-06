@@ -54,8 +54,8 @@ class DynamicToFixedShape(Pass):
         config.update(get_external_data_config())
         return config
 
-    @staticmethod
-    def _validators() -> Dict[str, Callable[..., Any]]:
+    @classmethod
+    def _validators(cls) -> Dict[str, Callable[..., Any]]:
         return {
             "validate_configs": root_validator(allow_reuse=True)(_jointly_validate_configs),
         }

@@ -84,8 +84,8 @@ class SNPEConversion(Pass):
             ),
         }
 
-    @staticmethod
-    def _validators() -> Dict[str, Callable]:
+    @classmethod
+    def _validators(cls) -> Dict[str, Callable]:
         return {
             "validate_input_types_layouts": validator("input_types", "input_layouts", allow_reuse=True)(
                 _validate_input_types_layouts

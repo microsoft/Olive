@@ -15,7 +15,7 @@ from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR, DEFAULT_GPU_TRT_ACCELERATOR
 from olive.model import ModelConfig
 
-# pylint: disable=attribute-defined-outside-init, protected-access
+# pylint: disable=attribute-defined-outside-init
 
 
 class TestAutoOptimizer:

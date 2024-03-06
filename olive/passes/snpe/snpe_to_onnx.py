@@ -44,8 +44,8 @@ class SNPEtoONNXConversion(Pass):
         config.update(get_external_data_config())
         return config
 
-    @staticmethod
-    def _validators() -> Dict[str, Callable]:
+    @classmethod
+    def _validators(cls) -> Dict[str, Callable]:
         return {
             "validate_target_device": validator("target_device", allow_reuse=True)(_validate_target_device),
         }

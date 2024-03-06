@@ -193,8 +193,8 @@ class LocalResourcePath(ResourcePath):
             "path": ConfigParam(type_=Union[Path, str], required=True, description="Path to the resource."),
         }
 
-    @staticmethod
-    def _validators() -> Dict[str, Callable]:
+    @classmethod
+    def _validators(cls) -> Dict[str, Callable]:
         return {"validate_path": validator("path", allow_reuse=True)(_validate_path)}
 
     def get_path(self) -> str:
@@ -236,9 +236,9 @@ class LocalFile(LocalResourcePath):
 
     name = ResourceType.LocalFile
 
-    @staticmethod
-    def _validators() -> Dict[str, Callable[..., Any]]:
-        validators = LocalResourcePath._validators()
+    @classmethod
+    def _validators(cls) -> Dict[str, Callable[..., Any]]:
+        validators = super()._validators()
         validators.update({"validate_file_path": validator("path", allow_reuse=True)(_validate_file_path)})
         return validators
 
@@ -255,9 +255,9 @@ class LocalFolder(LocalResourcePath):
 
     name = ResourceType.LocalFolder
 
-    @staticmethod
-    def _validators() -> Dict[str, Callable[..., Any]]:
-        validators = LocalResourcePath._validators()
+    @classmethod
+    def _validators(cls) -> Dict[str, Callable[..., Any]]:
+        validators = super()._validators()
         validators.update({"validate_folder_path": validator("path", allow_reuse=True)(_validate_folder_path)})
         return validators
 
@@ -414,9 +414,9 @@ class AzureMLDatastore(ResourcePath):
 
     name = ResourceType.AzureMLDatastore
 
-    @staticmethod
-    def _validators() -> Dict[str, Callable[..., Any]]:
-        validators = ResourcePath._validators()
+    @classmethod
+    def _validators(cls) -> Dict[str, Callable[..., Any]]:
+        validators = super()._validators()
         validators.update(
             {
                 "validate_datastore_url": validator("datastore_url", allow_reuse=True)(_datastore_url_validator),

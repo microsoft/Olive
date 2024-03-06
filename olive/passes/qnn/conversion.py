@@ -5,7 +5,7 @@
 
 import platform
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Dict, List, Union
 
 from olive.constants import ModelFileFormat
 from olive.hardware import AcceleratorSpec
@@ -65,10 +65,6 @@ class QNNConversion(Pass):
         }
         config.update(get_env_config())
         return config
-
-    @staticmethod
-    def _validators() -> Dict[str, Callable[..., Any]]:
-        pass
 
     def _run_for_config(
         self,

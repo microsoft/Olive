@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 
 from pathlib import Path
-from typing import Any, Callable, Dict
+from typing import Any, Dict
 
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler
@@ -26,10 +26,6 @@ class QNNPreprocess(Pass):
                 description=("Whether to fuse ReduceMean sequence into a single LayerNormalization node."),
             )
         }
-
-    @staticmethod
-    def _validators() -> Dict[str, Callable[..., Any]]:
-        pass
 
     def _run_for_config(
         self,
