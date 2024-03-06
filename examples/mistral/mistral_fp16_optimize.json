@@ -87,7 +87,7 @@
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
         "output_name": "mistral",
-        "output_dir": "mistral_gptq",
+        "output_dir": "models",
         "execution_providers": [
             "CUDAExecutionProvider"
         ],
