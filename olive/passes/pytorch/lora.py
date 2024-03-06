@@ -948,7 +948,7 @@ class QLoRA(QLoRABase):
         return new_model_handler, pytorch_model, tokenizer, quantized_modules
 
 
-class LoftQ(QLoRA):
+class LoftQ(QLoRABase):
     """Run LoftQ fine-tuning on a Hugging Face PyTorch model.
 
     This pass only supports PyTorchModelHandler with hf_config.
