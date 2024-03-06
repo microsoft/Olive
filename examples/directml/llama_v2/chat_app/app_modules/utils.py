@@ -194,7 +194,7 @@ def transfer_input(inputs):
     return (
         inputs,
         gr.update(value=""),
-        gr.Button.update(visible=True),
+        gr.Button(visible=True),
     )
 
 

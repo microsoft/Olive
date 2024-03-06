@@ -48,7 +48,8 @@ def change_model_listener(new_model_name):
 
 gr.Chatbot.postprocess = postprocess
 
-with Path("chat_app/assets/custom.css").open() as f:
+current_dir = Path(__file__).parent.resolve()
+with (current_dir / "assets" / "custom.css").open() as f:
     custom_css = f.read()
 
 
@@ -191,9 +192,9 @@ def launch_chat_app(expose_locally: bool = False):
     demo.title = "Llama Chat UI"
 
     if expose_locally:
-        demo.queue(concurrency_count=1).launch(server_name="0.0.0.0", server_port=7860)
+        demo.queue().launch(server_name="0.0.0.0", server_port=7860, max_threads=1)
     else:
-        demo.queue(concurrency_count=1).launch(server_port=7860)
+        demo.queue().launch(server_port=7860, max_threads=1)
 
 
 if __name__ == "__main__":
