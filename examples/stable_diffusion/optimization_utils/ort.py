@@ -37,6 +37,8 @@ def update_qnn_config(config: Dict):
         "config": {
             # fuse_layernorm requires opset version >= 17
             "fuse_layernorm": True,
+            "save_as_external_data": True,
+            "all_tensors_to_one_file": True,
         },
     }
     config["passes"]["convert"]["config"]["target_opset"] = 17
