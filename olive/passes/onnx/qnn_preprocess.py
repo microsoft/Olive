@@ -100,12 +100,9 @@ class QNNPreprocess(Pass):
         }
         if version.parse(OrtVersion) < version.parse("1.18.0"):
             removed_config = [
-                "save_as_external_data",
-                "all_tensors_to_one_file",
-                "size_threshold",
-                "convert_attribute",
                 "inputs_to_make_channel_last",
                 "outputs_to_make_channel_last",
+                *get_external_data_config(),
             ]
             logger.info(
                 "Following config settings will be ignored as they are not supported in ONNXRuntime < 1.18.0: %s",
