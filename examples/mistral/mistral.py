@@ -19,8 +19,7 @@ from olive.workflows import run as olive_run
 def get_args(raw_args):
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--model-id",
-        dest="model_id",
+        "--model_id",
         type=str,
         default="mistralai/Mistral-7B-v0.1",
         help="Model Id to load",
@@ -61,10 +60,10 @@ def optimize(model_name: str, olive_config: dict):
 
 
 def inference(model_id: str, optimized_model_dir: Path, execution_provider: str, prompt: List[str], max_length: int):
+    import onnxruntime as ort
     from optimum.onnxruntime import ORTModelForCausalLM
     from optimum.utils.save_utils import maybe_save_preprocessors
     from transformers import AutoConfig, AutoTokenizer
-    import onnxruntime as ort
 
     ort.set_default_logger_severity(3)
     # save any configs that might be needed for inference
@@ -121,9 +120,9 @@ def main(raw_args=None):
 
     if args.inference:
         output = inference(args.model_id, optimized_model_dir, ep, args.prompt, args.max_length)
-        for p, o in zip(args.prompt, output):
-            print(f"Prompt: {p}")
-            print(f"Generation output: {o}")
+        for prompt_i, output_i in zip(args.prompt, output):
+            print(f"Prompt: {prompt_i}")
+            print(f"Generation output: {output_i}")
             print("*" * 50)
 
 
