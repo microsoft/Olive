@@ -4,9 +4,9 @@ An example of mistral model optimization using olive workflows.
 
 ## Prerequisites
 * transformers>=4.34.99
-* optimum
+* optimum>1.17.0
 * neural-compressor>=2.4.1
-* ort-nightly
+* onnxruntime>=1.17.0 or onnxruntime-gpu>=1.17.0
 
 ## Installation
 ```bash
@@ -14,12 +14,9 @@ conda create -n olive python=3.8 -y
 conda activate olive
 git clone https://github.com/microsoft/Olive.git
 cd Olive
-pip install --pre torch --index-url https://download.pytorch.org/whl/nightly/cpu
 pip install -e .
 cd examples/mistral
 pip install -r requirements.txt
-# manually install the nightly ORT
-pip install ort-nightly==1.17.0.dev20231225002 --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
 ```
 
 In above steps, please run the following command in Administrator command prompt if you hit "Filename too long" when installing the packages.
@@ -27,7 +24,7 @@ In above steps, please run the following command in Administrator command prompt
 git config --system core.longpaths true
 ```
 
-## Usage
+## Run Optimization
 CPU:
 ```bash
 python mistral.py --optimize --config mistral_optimize.json
@@ -42,6 +39,17 @@ python mistral.py --optimize --config mistral_fp16_optimize.json
 
 ## Test Inference
 To test inference on the model run the script with `--inference`
+```bash
+python mistral.py --config mistral_fp16_optimize.json --inference
+```
+
+**NOTE:**
+- You can provide you own prompts using `--prompt` argument. For example:
+```bash
+python mistral.py --config mistral_fp16_optimize.json --inference --prompt "Language models are very useful" "What is the meaning of life?"
+```
+-- `max_length` can be used to specify the maximum length of the generated sequence.
+- Use `CUDA_VISIBLE_DEVICES` to specify the GPU to run the inference on. For example:
 ```bash
 CUDA_VISIBLE_DEVICES=6 python mistral.py --config mistral_fp16_optimize.json --inference
 ```

@@ -1,6 +1,6 @@
 datasets
 neural-compressor>=2.4.1
 onnxruntime-extensions
-optimum>=1.14.1
+optimum>=1.17.0 # for inference
 tabulate
 transformers>=4.34.99

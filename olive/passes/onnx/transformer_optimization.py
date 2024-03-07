@@ -403,4 +403,5 @@ class OrtTransformersOptimization(Pass):
             )
             model.model.graph.node.remove(node)
             model.model.graph.node.extend([gqa_node])
+        logger.info("Replaced %d MultiHeadAttention nodes with GroupQueryAttention", len(mha_nodes))
         return model
