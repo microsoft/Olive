@@ -14,6 +14,7 @@ The OpenVINO optimization sample will convert each PyTorch model to OpenVINO IR 
     - [CUDA EP](#stable-diffusion-and-stable-diffusion-xl-optimization-with-onnx-runtime-cuda-ep)
     - DirectML EP: go to examples [Stable Diffusion](../directml/stable_diffusion/README.md), [Stable Diffusion XL](../directml/stable_diffusion_xl/README.md)
 - [OpenVINO](#stable-diffusion-optimization-with-openvino)
+<!-- TODO(anyone): once qnn-ep is available for SD, update the corresponding documents -->
 
 ## Stable Diffusion and Stable Diffusion XL Optimization with ONNX Runtime CUDA EP
 
@@ -152,7 +153,7 @@ pip install -r requirements-ov.txt
 The easiest way to optimize the pipeline is with the `stable_diffusion.py` helper script:
 
 ```
-python stable_diffusion.py --optimize
+python stable_diffusion.py --optimize --provider openvino
 ```
 
 The above command will enumerate the `config_<model_name>.json` files and optimize each with Olive, then gather the optimized models into a directory structure suitable for testing inference.

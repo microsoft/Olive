@@ -27,6 +27,52 @@ def update_cuda_config(config: Dict):
     return config
 
 
+def update_qnn_config(config: Dict):
+    if version.parse(OrtVersion) < version.parse("1.18.0"):
+        raise ValueError("QNNExecutionProvider for SD example is not supported for onnxruntime < 1.18.0")
+    # add onnx qnn preprocess pass
+    config["passes"].update(
+        {
+            "qnn_preprocess": {
+                "type": "QNNPreprocess",
+                "config": {
+                    "fuse_layernorm": False,  # fuse_layernorm requires opset version >= 17
+                    "save_as_external_data": config["passes"]["convert"]["config"].get("save_as_external_data", False),
+                    "all_tensors_to_one_file": config["passes"]["convert"]["config"].get(
+                        "all_tensors_to_one_file", False
+                    ),
+                },
+            },
+            "optimize_cpu": {
+                "type": "OrtTransformersOptimization",
+                "config": {
+                    "model_type": config["passes"]["optimize"]["config"]["model_type"],
+                    "opt_level": 0,
+                    "float16": False,
+                    "use_gpu": False,
+                    "keep_io_types": False,
+                    "optimization_options": {
+                        "enable_packed_qkv": False,
+                        "enable_packed_kv": False,
+                    },
+                },
+            },
+        }
+    )
+    # fuse_layernorm requires opset version >= 17
+    config["passes"]["convert"]["config"]["target_opset"] = 17
+    # TODO(anyone): may double check `optimize`(transformer optimization) is necessary or not
+    config["pass_flows"] = [["convert", "qnn_preprocess", "optimize_cpu"]]
+
+    config["engine"]["execution_providers"] = ["QNNExecutionProvider"]
+    # set the evaluator to None to skip the available EP check
+    # as the quantization requires QNNExecutionProvider to set
+    # reasonable default config but sometime in non-arm devices
+    # the QNNExecutionProvider is not available.
+    config["engine"]["evaluator"] = None
+    return config
+
+
 def validate_args(args, provider):
     ort.set_default_logger_severity(4)
     if args.static_dims:
@@ -117,9 +163,9 @@ def save_onnx_pipeline(
     print("Copying optimized models...")
     shutil.copytree(unoptimized_model_dir, optimized_model_dir, ignore=shutil.ignore_patterns("weights.pb"))
     for submodel_name in submodel_names:
-        src_path = model_info[submodel_name]["optimized"]["path"]
-        dst_path = optimized_model_dir / submodel_name / "model.onnx"
-        shutil.copyfile(src_path, dst_path)
+        src_path = Path(model_info[submodel_name]["optimized"]["path"]).parent
+        dst_path = optimized_model_dir / submodel_name
+        shutil.copytree(src_path, dst_path, dirs_exist_ok=True)
 
     print(f"The optimized pipeline is located here: {optimized_model_dir}")
 
@@ -152,6 +198,11 @@ def get_ort_pipeline(model_dir, common_args, ort_args, guidance_scale):
     provider_map = {
         "dml": "DmlExecutionProvider",
         "cuda": "CUDAExecutionProvider",
+        # set the provider to CPUExecutionProvider for qnn is just for testing purpose
+        # in real case, the pipeline should be run on qnn device and should be updated
+        # accordingly.
+        # TODO(anyone): test and update the pipeline for qnn-ep
+        "qnn": "CUDAExecutionProvider",
     }
     assert provider in provider_map, f"Unsupported provider: {provider}"
     return OnnxStableDiffusionPipeline.from_pretrained(

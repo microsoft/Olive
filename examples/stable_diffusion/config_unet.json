@@ -67,6 +67,8 @@
                 "float16": true,
                 "use_gpu": true,
                 "keep_io_types": false,
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true,
                 "optimization_options": {
                     "enable_gelu": true,
                     "enable_layer_norm": true,
@@ -101,7 +103,9 @@
                 "opt_level": 0,
                 "float16": true,
                 "use_gpu": true,
-                "keep_io_types": false
+                "keep_io_types": false,
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true
             }
         }
     },

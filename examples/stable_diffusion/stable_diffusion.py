@@ -172,6 +172,12 @@ def update_config_with_provider(config: Dict, provider: str):
         from sd_utils.ort import update_cuda_config
 
         return update_cuda_config(config)
+    elif provider == "qnn":
+        # TODO(anyone): feel free to create a separated qnn utils if there is
+        # more qnn specific config, like we did for openvino(utils/ov.py)
+        from sd_utils.ort import update_qnn_config
+
+        return update_qnn_config(config)
     elif provider == "openvino":
         from sd_utils.ov import update_ov_config
 
@@ -271,7 +277,11 @@ def parse_common_args(raw_args):
 
     parser.add_argument("--model_id", default="runwayml/stable-diffusion-v1-5", type=str)
     parser.add_argument(
-        "--provider", default="dml", type=str, choices=["dml", "cuda", "openvino"], help="Execution provider to use"
+        "--provider",
+        default="dml",
+        type=str,
+        choices=["dml", "cuda", "openvino", "qnn"],
+        help="Execution provider to use",
     )
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
     parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")
