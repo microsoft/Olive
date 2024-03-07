@@ -138,7 +138,7 @@ def create_accelerators(
             raise ValueError("Managed environment requires execution providers to be specified.")
     else:
         system_supported_eps = None
-        if system_config.type in (SystemType.Local, SystemType.PythonEnvironment):
+        if system_config.type in (SystemType.Local, SystemType.PythonEnvironment, SystemType.IsolatedORT):
             target = system_config.create_system()
             system_supported_eps = target.get_supported_execution_providers()
 
@@ -150,7 +150,7 @@ def create_accelerators(
         elif system_config.type == SystemType.Docker:
             # for docker system we default use CPUExecutionProvider
             raise ValueError("DockerSystem requires execution providers to be specified.")
-        elif system_config.type in (SystemType.Local, SystemType.PythonEnvironment):
+        elif system_config.type in (SystemType.Local, SystemType.PythonEnvironment, SystemType.IsolatedORT):
             execution_providers = system_supported_eps
     logger.debug("Initial execution providers: %s", execution_providers)
 
@@ -167,7 +167,9 @@ def create_accelerators(
             accelerators = inferred_accelerators
     logger.debug("Initial accelerators: %s", accelerators)
 
-    ep_to_process = set(execution_providers)
+    seen = set()
+    ep_to_process = [ep for ep in execution_providers if ep not in seen and not seen.add(ep)]
+
     # Flatten the accelerators to list of AcceleratorSpec
     accelerator_specs: List[AcceleratorSpec] = []
     is_cpu_available = "cpu" in [accelerator.lower() for accelerator in accelerators]
@@ -175,7 +177,10 @@ def create_accelerators(
         device = Device(accelerator.lower())
         if system_config.olive_managed_env:
             available_eps = AcceleratorLookup.get_managed_supported_execution_providers(device)
-        elif system_config.type in (SystemType.Local, SystemType.PythonEnvironment) and not skip_supported_eps_check:
+        elif (
+            system_config.type in (SystemType.Local, SystemType.PythonEnvironment, SystemType.IsolatedORT)
+            and not skip_supported_eps_check
+        ):
             # don't need to check the supported execution providers if there is no evaluation
             # target is only used for evaluation
             available_eps = system_supported_eps

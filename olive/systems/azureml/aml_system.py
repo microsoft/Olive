@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import copy
 import json
 import logging
 import shutil
@@ -342,6 +343,9 @@ class AzureMLSystem(OliveSystem):
         parameters.extend([f"--{param} ${{{{outputs.{param}}}}}" for param in outputs])
 
         cmd_line = f"python {script_name} {' '.join(parameters)}"
+        env_vars = copy.deepcopy(self.env_vars) if self.env_vars else {}
+        env_vars["OLIVE_LOG_LEVEL"] = logging.getLevelName(logger.getEffectiveLevel())
+
         return command(
             name=name,
             display_name=display_name,
@@ -349,7 +353,7 @@ class AzureMLSystem(OliveSystem):
             command=cmd_line,
             resources=resources,
             environment=aml_environment,
-            environment_variables=self.env_vars,
+            environment_variables=env_vars,
             code=str(code),
             inputs=inputs,
             outputs=outputs,
@@ -453,7 +457,7 @@ class AzureMLSystem(OliveSystem):
                     data_inputs.update({f"{data_config.name}_{key}": Input(type=asset_type, optional=True)})
                     data_args.update({f"{data_config.name}_{key}": data_path_resource_path})
 
-        for param, param_config in the_pass._config.items():  # pylint: disable=protected-access
+        for param, param_config in the_pass.config.items():
             if param.endswith("data_config") and param_config is not None:
                 data_config = validate_config(param_config, DataConfig)
                 if data_config.name not in data_name_set:

@@ -11,13 +11,13 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Union
 
+from olive.common.ort_inference import check_and_normalize_provider_args
 from olive.data.config import DataConfig
 from olive.evaluator.metric import LatencySubType, Metric, MetricType, joint_metric_key
 from olive.evaluator.metric_config import get_user_config_properties_from_metric_type
 from olive.exception import EXCEPTIONS_TO_RAISE
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
 from olive.model import ONNXModelHandler
-from olive.model.utils.onnx_utils import check_and_normalize_provider_args
 from olive.passes import Pass
 from olive.passes.pass_config import ParamCategory, PassConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
@@ -212,8 +212,8 @@ class OrtPerfTuning(Pass):
         """Override this method to return False by using the accelerator spec information."""
         return False
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         device = accelerator_spec.accelerator_type
         execution_provider = accelerator_spec.execution_provider
 
@@ -314,7 +314,6 @@ class OrtPerfTuning(Pass):
 
 
 class PerfTuningRunner:
-
     def __init__(
         self, accelerator_spec: AcceleratorSpec, target: "OliveSystem", config: Dict[str, Any], data_root: str = None
     ):

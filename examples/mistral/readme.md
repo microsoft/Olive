@@ -28,9 +28,21 @@ git config --system core.longpaths true
 ```
 
 ## Usage
+CPU:
 ```bash
-python -m olive.workflows.run --config mistral_optimize.json
+python mistral.py --optimize --config mistral_optimize.json
 ```
+
+GPU:
+```bash
+python mistral.py --optimize --config mistral_fp16_optimize.json
+```
+## Test Inference
+To test inference on the model run the script with `--inference`
+```bash
+CUDA_VISIBLE_DEVICES=6 python mistral.py --inference
+```
+Currently inference only supports float16 model running on gpu
 
 ### Local model
 if the input model is saved locally, you can specify the configuration like the following:

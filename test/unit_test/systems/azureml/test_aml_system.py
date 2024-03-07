@@ -16,7 +16,7 @@ from test.unit_test.utils import (
     get_pytorch_model_config,
 )
 from typing import ClassVar, List
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import ANY, MagicMock, Mock, patch
 
 import pytest
 from azure.ai.ml import Input, Output
@@ -289,7 +289,7 @@ class TestAzureMLSystem:
             command=self.create_command(script_name, inputs, outputs),
             resources=resources,
             environment=aml_environment,
-            environment_variables=None,
+            environment_variables=ANY,
             code=code,
             inputs=inputs,
             outputs=outputs,
@@ -313,7 +313,7 @@ class TestAzureMLSystem:
         )
         pass_config = {"data_config": data_config}
         the_pass = MagicMock()
-        the_pass._config = pass_config
+        the_pass.config = pass_config
         expected_data_inputs = {
             "data_name_user_script": Input(type=AssetTypes.URI_FILE, optional=True),
             "data_name_script_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
@@ -442,7 +442,7 @@ class TestAzureMLSystem:
             command=self.create_command("aml_evaluation_runner.py", inputs, outputs),
             resources=None,
             environment=self.system.environment,
-            environment_variables=self.system.env_vars,
+            environment_variables=ANY,
             code=str(tmp_path / "code"),
             inputs=inputs,
             outputs={"pipeline_output": Output(type=AssetTypes.URI_FOLDER)},

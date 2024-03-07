@@ -21,8 +21,8 @@ class OptimumConversion(Pass):
 
     _requires_user_script = True
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "target_opset": PassConfigParam(
                 type_=int, default_value=14, description="The version of the default (ai.onnx) opset to target."

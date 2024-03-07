@@ -17,4 +17,4 @@ def test_pass_serialization():
     p = cfg.create_pass()
     assert isinstance(p, OnnxConversion)
     assert p.accelerator_spec == DEFAULT_CPU_ACCELERATOR
-    assert p._config == config  # pylint: disable=protected-access
+    assert p.config == config

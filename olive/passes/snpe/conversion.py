@@ -44,8 +44,8 @@ class SNPEConversion(Pass):
     Uses snpe-tensorflow-to-dlc or snpe-onnx-to-dlc tools from the SNPE SDK.
     """
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "input_names": PassConfigParam(type_=List[str], required=True, description="List of input names."),
             "input_shapes": PassConfigParam(
@@ -78,13 +78,14 @@ class SNPEConversion(Pass):
                 description=(
                     "Extra arguments to pass to snpe conversion tool. Refer to snpe-onnx-to-dlc and"
                     " snpe-tensorflow-to-dlc at https://developer.qualcomm.com/sites/default/files/docs/snpe/tools.html"
-                    " for more additional arguments. Must be a dictionary of the form: {'arg_name': 'arg_value'}."
+                    " for more additional arguments. The value is a string that will be passed as is to the tool."
+                    " e.g.: --enable_cpu_fallback --priority_hint low"
                 ),
             ),
         }
 
-    @staticmethod
-    def _validators() -> Dict[str, Callable]:
+    @classmethod
+    def _validators(cls) -> Dict[str, Callable]:
         return {
             "validate_input_types_layouts": validator("input_types", "input_layouts", allow_reuse=True)(
                 _validate_input_types_layouts

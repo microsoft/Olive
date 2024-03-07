@@ -26,8 +26,8 @@ class SNPEQuantization(Pass):
 
     _requires_user_script = True
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "data_dir": PassConfigParam(
                 type_=OLIVE_RESOURCE_ANNOTATIONS,
@@ -79,7 +79,8 @@ class SNPEQuantization(Pass):
                 description=(
                     "Extra arguments to pass to snpe conversion tool. Refer to"
                     " https://developer.qualcomm.com/sites/default/files/docs/snpe/tools.html#tools_snpe-dlc-quantize"
-                    " for more additional arguments. Must be a dictionary of the form: {'arg_name': 'arg_value'}."
+                    " for more additional arguments. The value is a string that will be passed as is to the tool."
+                    " e.g.: --bias_bitwidth 16 --overwrite_cache_records"
                 ),
             ),
         }

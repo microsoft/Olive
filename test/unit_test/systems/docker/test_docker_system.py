@@ -246,7 +246,7 @@ class TestDockerSystem:
 
         runner_local_path = Path(__file__).resolve().parents[4] / "olive" / "systems" / "docker" / "runner.py"
         model_path = onnx_model.config["model_path"]
-        data_dir = str(p._config["data_dir"])
+        data_dir = str(p.config["data_dir"])
         volumes_list = [
             f"{runner_local_path}:{container_root_path / 'runner.py'}",  # runner script
             f"{tmp_path / 'olive'}:{container_root_path / 'olive'}",  # olive dev

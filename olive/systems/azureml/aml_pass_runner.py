@@ -15,9 +15,10 @@ from olive.common.config_utils import ParamCategory, validate_config
 from olive.common.utils import aml_runner_hf_login, copy_dir
 from olive.data.config import DataConfig
 from olive.hardware import AcceleratorSpec
+from olive.logging import set_verbosity_from_env
 from olive.model import ModelConfig
 from olive.passes import REGISTRY as PASS_REGISTRY
-from olive.passes import FullPassConfig
+from olive.passes import FullPassConfig, Pass
 from olive.resource_path import create_resource_path
 from olive.systems.utils import get_common_args
 
@@ -70,9 +71,9 @@ def parse_data_item(data_name, item, extra_args):
     return None
 
 
-def update_data_config(p, extra_args):
+def update_data_config(p: "Pass", extra_args):
     data_map = {}
-    for param, param_config in p._config.items():  # pylint: disable=protected-access
+    for param, param_config in p.config.items():
         if param.endswith("data_config") and param_config is not None:
             data_name = param_config["name"]
             if data_map.get(data_name):
@@ -90,10 +91,12 @@ def update_data_config(p, extra_args):
                 param_config["params_config"]["data_dir"] = data_dir
                 param_config["params_config"]["data_files"] = data_files
 
-            p._config[param] = validate_config(param_config, DataConfig)  # pylint: disable=protected-access
+            p.config[param] = validate_config(param_config, DataConfig)
 
 
 def main(raw_args=None):
+    set_verbosity_from_env()
+
     # login to hf if HF_LOGIN is set to True
     aml_runner_hf_login()
 

@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 class OrtMixedPrecision(Pass):
     """Convert model to mixed precision."""
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "op_block_list": PassConfigParam(
                 type_=List[str],

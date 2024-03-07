@@ -238,8 +238,8 @@ class OnnxQuantization(Pass):
         # pylint: disable=attribute-defined-outside-init
         self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "quant_mode": PassConfigParam(
                 type_=str,
@@ -526,8 +526,8 @@ class OnnxDynamicQuantization(OnnxQuantization):
 
     _requires_user_script = False
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         if accelerator_spec.execution_provider == "QNNExecutionProvider":
             raise ValueError("QNNExecutionProvider is not supported for dynamic quantization.")
         config = {
@@ -546,8 +546,8 @@ class OnnxDynamicQuantization(OnnxQuantization):
 class OnnxStaticQuantization(OnnxQuantization):
     """ONNX Static Quantization Pass."""
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "quant_mode": PassConfigParam(type_=str, default_value="static", description="static quantization mode")
         }
@@ -574,8 +574,8 @@ class OnnxStaticQuantization(OnnxQuantization):
 
 
 class OnnxMatMul4Quantizer(Pass):
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "block_size": PassConfigParam(
                 type_=int,

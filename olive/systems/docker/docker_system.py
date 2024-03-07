@@ -345,6 +345,9 @@ class DockerSystem(OliveSystem):
             token = get_huggingface_token()
             environment.update({"HF_TOKEN": token})
 
+        log_level = logging.getLevelName(logger.getEffectiveLevel())
+        environment.update({"OLIVE_LOG_LEVEL": log_level})
+
         logger.debug("Running container with command: %s", command)
         if accelerator.accelerator_type == Device.GPU:
             run_command["device_requests"] = [docker.types.DeviceRequest(capabilities=[["gpu"]])]
@@ -380,7 +383,7 @@ class DockerSystem(OliveSystem):
         mounts = {}
         mount_strs = []
         for param, _, category in the_pass.path_params:
-            param_val = the_pass._config.get(param)  # pylint: disable=protected-access
+            param_val = the_pass.config.get(param)
             if category == ParamCategory.DATA and param_val:
                 data_dir = get_local_path_from_root(data_root, str(param_val))
                 mount = str(container_root_path / param)

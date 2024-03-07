@@ -120,7 +120,7 @@ Refer to the corresponding section in the DirectML READMEs for more details on t
 - [Stable Diffusion XL](../directml/stable_diffusion_xl/README.md#test-inference)
 
 
-## Stable Diffusion Optimization  with OpenVINO
+## Stable Diffusion Optimization with OpenVINO
 
 **Contents**:
 - [Setup](#setup)

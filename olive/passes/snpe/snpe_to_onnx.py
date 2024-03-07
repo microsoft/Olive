@@ -28,8 +28,8 @@ class SNPEtoONNXConversion(Pass):
     Creates a ONNX graph with the SNPE DLC as a node.
     """
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "target_device": PassConfigParam(
                 type_=str,
@@ -44,8 +44,8 @@ class SNPEtoONNXConversion(Pass):
         config.update(get_external_data_config())
         return config
 
-    @staticmethod
-    def _validators() -> Dict[str, Callable]:
+    @classmethod
+    def _validators(cls) -> Dict[str, Callable]:
         return {
             "validate_target_device": validator("target_device", allow_reuse=True)(_validate_target_device),
         }
