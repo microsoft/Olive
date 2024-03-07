@@ -16,7 +16,7 @@ from olive.workflows import run as olive_run
 # ruff: noqa: T201, T203
 
 
-def optimize(model_name: str, optimized_model_des: Path):
+def optimize(model_name: str, optimized_model_des: Path, config: str):
     ort.set_default_logger_severity(4)
     cur_dir = Path(__file__).resolve().parent
 
@@ -24,7 +24,7 @@ def optimize(model_name: str, optimized_model_des: Path):
     print(f"\nOptimizing {model_name}")
 
     olive_config = None
-    with (cur_dir / "mistral_optimize.json").open() as fin:
+    with (cur_dir / config).open() as fin:
         olive_config = json.load(fin)
 
     olive_config["input_model"]["config"]["model_path"] = model_name
@@ -41,6 +41,13 @@ def main():
         default="mistralai/Mistral-7B-v0.1",
         help="Model Id to load",
     )
+    parser.add_argument(
+        "--config",
+        dest="config",
+        type=str,
+        default="mistral_optimize.json",
+        help="Path to the Olive config file",
+    )
     parser.add_argument("--inference", action="store_true", help="Runs the inference step")
     args = parser.parse_args()
 
@@ -51,7 +58,7 @@ def main():
         shutil.rmtree(optimized_model_dir, ignore_errors=True)
 
     if args.optimize or not optimized_model_dir.exists():
-        optimize(args.model_id, optimized_model_dir)
+        optimize(args.model_id, optimized_model_dir, args.config)
 
     if args.inference:
         prompt = "Is it normal to have a dark ring around the iris of my eye?"
