@@ -196,7 +196,7 @@ class Engine:
                 if name not in self.passes:
                     break
 
-        if self.no_search and len(p.search_space()) > 0:
+        if self.no_search and len(p.search_space) > 0:
             raise ValueError(f"Search strategy is None but pass {name} has search space")
         if output_name and not self.no_search:
             # In no-search mode, if output_name is provided, the output model of the pass will be saved to
@@ -395,7 +395,7 @@ class Engine:
             pass_search_spaces = []
             for pass_name in pass_flow:
                 p: "Pass" = self.passes[pass_name]["pass"]
-                pass_search_spaces.append((pass_name, p.search_space()))
+                pass_search_spaces.append((pass_name, p.search_space))
             self.pass_flows_search_spaces.append(pass_search_spaces)
 
     def reset_passes(self):
@@ -415,7 +415,7 @@ class Engine:
     ):
         """Run all the registered Olive pass flows in no-search mode."""
         for pass_item in self.passes.values():
-            if len(pass_item["pass"].search_space()) > 0:
+            if len(pass_item["pass"].search_space) > 0:
                 pass_name = pass_item["name"]
                 raise ValueError(f"Pass {pass_name} has search space but search strategy is None")
 
