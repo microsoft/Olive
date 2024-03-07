@@ -30,8 +30,8 @@ logger = logging.getLogger(__name__)
 class AutoFusion(Pass):
     """Automatically fuse nodes in an ONNX model using auto-generated custom operators."""
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "constant_overrides": PassConfigParam(
                 type_=Dict[str, Dict[str, int]],
