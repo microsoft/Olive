@@ -19,7 +19,7 @@ from olive.common.config_utils import ParamCategory, validate_config
 from olive.evaluator.metric import Metric, MetricResult
 from olive.hardware import Device
 from olive.model import ModelConfig
-from olive.systems.common import LocalDockerConfig, SystemType
+from olive.systems.common import AcceleratorConfig, LocalDockerConfig, SystemType
 from olive.systems.olive_system import OliveSystem
 
 if TYPE_CHECKING:
@@ -37,7 +37,7 @@ class DockerSystem(OliveSystem):
     def __init__(
         self,
         local_docker_config: Union[Dict[str, Any], LocalDockerConfig],
-        accelerators: List[str] = None,
+        accelerators: List[AcceleratorConfig] = None,
         is_dev: bool = False,
         olive_managed_env: bool = False,
         hf_token: bool = None,

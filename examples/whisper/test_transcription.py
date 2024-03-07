@@ -76,8 +76,8 @@ def main(raw_args=None):
         args.predict_timestamps = False
 
     # get device and ep
-    device = config["systems"]["local_system"]["config"]["accelerators"][0]
-    ep = config["engine"]["execution_providers"][0]
+    device = config["systems"]["local_system"]["config"]["accelerators"][0]["device"]
+    ep = config["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"][0]
     accelerator_spec = AcceleratorSpec(accelerator_type=device, execution_provider=ep)
 
     # load output model json

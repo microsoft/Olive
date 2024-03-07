@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 from olive.common.utils import run_subprocess
 from olive.evaluator.metric import MetricResult
 from olive.model import ModelConfig
-from olive.systems.common import SystemType
+from olive.systems.common import AcceleratorConfig, SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import PythonEnvironmentTargetUserConfig
 from olive.systems.utils import create_new_environ, get_package_name_from_ep, run_available_providers_runner
@@ -36,7 +36,7 @@ class PythonEnvironmentSystem(OliveSystem):
         python_environment_path: Union[Path, str] = None,
         environment_variables: Dict[str, str] = None,
         prepend_to_path: List[str] = None,
-        accelerators: List[str] = None,
+        accelerators: List[AcceleratorConfig] = None,
         olive_managed_env: bool = False,
         requirements_file: Union[Path, str] = None,
         hf_token: bool = None,

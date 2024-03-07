@@ -4,9 +4,10 @@
 # --------------------------------------------------------------------------
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-from olive.systems.common import SystemType
+from olive.common.config_utils import validate_config
+from olive.systems.common import AcceleratorConfig, SystemType
 
 if TYPE_CHECKING:
     from olive.evaluator.metric import Metric, MetricResult
@@ -23,11 +24,15 @@ class OliveSystem(ABC):
 
     def __init__(
         self,
-        accelerators: List[str] = None,
+        accelerators: Union[List[AcceleratorConfig], List[Dict[str, Any]]] = None,
         olive_managed_env: bool = False,
         hf_token: bool = None,
     ):
-        self.accelerators = accelerators
+        if accelerators:
+            self.accelerators = [validate_config(accelerator, AcceleratorConfig) for accelerator in accelerators]
+        else:
+            self.accelerators = None
+
         self.olive_managed_env = olive_managed_env
         self.hf_token = hf_token
 

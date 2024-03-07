@@ -17,7 +17,14 @@
         "aml": {
             "type": "AzureML",
             "config": {
-                "accelerators": ["gpu"],
+                "accelerators": [
+                    {
+                        "device": "gpu",
+                        "execution_providers": [
+                            "CUDAExecutionProvider"
+                        ]
+                    }
+                ],
                 "aml_compute": "gpu-cluster",
                 "aml_docker_config": {
                     "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.6-cudnn8-ubuntu20.04",
@@ -28,7 +35,14 @@
         "azure_arc": {
             "type": "AzureML",
             "config": {
-                "accelerators": ["gpu"],
+                "accelerators": [
+                    {
+                        "device": "gpu",
+                        "execution_providers": [
+                            "CUDAExecutionProvider"
+                        ]
+                    }
+                ],
                 "aml_compute": "olive-test",
                 "aml_docker_config": {
                     "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.6-cudnn8-ubuntu20.04",
@@ -87,7 +101,6 @@
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
         "output_name": "ollama",
-        "execution_providers": ["CUDAExecutionProvider"],
         "target": "azure_arc",
         "host": "aml",
         "output_dir": "models/open_llama_arc"

@@ -2,7 +2,15 @@
         "python_system": {
             "type": "PythonEnvironment",
             "config": {
-                "accelerators": ["gpu"],
+                "accelerators": [
+                    {
+                        "device": "gpu",
+                        "execution_providers": [
+                            "DmlExecutionProvider",
+                            "OpenVINOExecutionProvider"
+                        ]
+                    }
+                ],
                 "olive_managed_env": true,
                 "requirements_file": "multiple_ep_requirements.txt"
             }
@@ -67,7 +75,6 @@
     },
     "engine": {
         "evaluator": "common_evaluator",
-        "execution_providers": ["DmlExecutionProvider", "OpenVINOExecutionProvider"],
         "target": "python_system",
         "host": "python_system",
         "cache_dir": "cache",

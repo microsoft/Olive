@@ -32,7 +32,7 @@ def config_json(tmp_path):
 
     with (Path(__file__).parent / "mock_data" / "dependency_setup.json").open() as f:
         config = json.load(f)
-        config["engine"]["execution_providers"] = [ep]
+        config["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [ep]
 
     config_json_file = tmp_path / "config.json"
     with config_json_file.open("w") as f:

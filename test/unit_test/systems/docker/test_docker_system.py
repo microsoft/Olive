@@ -309,7 +309,7 @@ class TestDockerSystem:
         system_config = SystemConfig(
             type="Docker",
             config=DockerTargetUserConfig(
-                accelerators=["cpu"],
+                accelerators=[{"device": "cpu"}],
                 olive_managed_env=True,
                 is_dev=True,
             ),

@@ -18,7 +18,7 @@ Local System
             {
                 "type": "LocalSystem",
                 "config": {
-                    "accelerators": ["cpu"]
+                    "accelerators": [{"device": "cpu"}]
                 }
             }
 
@@ -30,7 +30,7 @@ Local System
             from olive.system.common import Device
 
             local_system = LocalSystem(
-                accelerators=[Device.CPU]
+                accelerators=[{"device": Device.CPU}]
             )
 
 Please refer to :ref:`local_system_config` for more details on the config options.
@@ -137,7 +137,15 @@ Olive can also manage the environment by setting :code:`olive_managed_env = True
                 "type": "AzureML",
                 "config": {
                     "aml_compute": "cpu-cluster",
-                    "accelerators": ["cpu"],
+                    "accelerators": [
+                        {
+                            "device": "cpu",
+                            "execution_providers": [
+                                "CPUExecutionProvider",
+                                "OpenVINOExecutionProvider"
+                            ]
+                        }
+                    ],
                     "olive_managed_env": true,
                 }
             }
@@ -150,7 +158,7 @@ Olive can also manage the environment by setting :code:`olive_managed_env = True
 
             aml_system = AzureMLSystem(
                 aml_compute="cpu-cluster",
-                accelerators=["cpu"],
+                accelerators=[{"device": "cpu", "execution_providers": ["CPUExecutionProvider", "OpenVINOExecutionProvider"]}],
                 olive_managed_env=True,
             )
 
@@ -246,7 +254,15 @@ Olive can manage the environment by setting :code:`olive_managed_env = True`
             {
                 "type": "Docker",
                 "config": {
-                    "accelerators": ["cpu"],
+                    "accelerators": [
+                        {
+                            "device": "cpu",
+                            "execution_providers": [
+                                "CPUExecutionProvider",
+                                "OpenVINOExecutionProvider"
+                            ]
+                        }
+                    ],
                     "olive_managed_env": true,
                     "requirements_file": "mnist_requirements.txt"
                     }
@@ -286,7 +302,15 @@ Python Environment System
                 "type": "PythonEnvironment",
                 "config": {
                     "python_environment_path": "/home/user/.virtualenvs/myenv/bin",
-                    "accelerators": ["cpu"]
+                    "accelerators": [
+                        {
+                            "device": "cpu",
+                            "execution_providers": [
+                                "CPUExecutionProvider",
+                                "OpenVINOExecutionProvider"
+                            ]
+                        }
+                    ]
                 }
             }
 
@@ -299,7 +323,7 @@ Python Environment System
 
             python_environment_system = PythonEnvironmentSystem(
                 python_environment_path = "/home/user/.virtualenvs/myenv/bin",
-                device = Device.CPU
+                accelerators = [{"device": Device.CPU}]
             )
 
 Olive can also manage the environment by setting :code:`olive_managed_env = True`. This feature works best when used from Conda.
@@ -312,7 +336,7 @@ Olive can also manage the environment by setting :code:`olive_managed_env = True
             {
                 "type": "PythonEnvironment",
                 "config": {
-                    "accelerators": ["cpu"],
+                    "accelerators": [{"device": "cpu"}]
                     "olive_managed_env": true,
                 }
             }
@@ -324,7 +348,7 @@ Olive can also manage the environment by setting :code:`olive_managed_env = True
 
             python_environment_system = PythonEnvironmentSystem(
                 olive_managed_env = True,
-                device = Device.CPU
+                accelerators = [{"device": Device.CPU}]
             )
 
 .. important::
@@ -345,7 +369,7 @@ Ort Environment System
                 "type": "IsolatedORT",
                 "config": {
                     "python_environment_path": "/home/user/.virtualenvs/myenv/bin",
-                    "accelerators": ["cpu"]
+                    "accelerators": [{"device": "cpu"}]
                 }
             }
 
@@ -358,7 +382,7 @@ Ort Environment System
 
             python_environment_system = IsolatedORTSystem(
                 python_environment_path = "/home/user/.virtualenvs/myenv/bin",
-                device = Device.CPU
+                accelerators = [{"device": Device.CPU}]
             )
 
 IsolatedORTSystem does not support olive_managed_env and can only be used to evaluate ONNX models.

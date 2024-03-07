@@ -12,6 +12,7 @@ class TestAcceleratorLookup:
         "execution_providers_test",
         [
             (["CPUExecutionProvider"], None),
+            (["AzureMLExecutionProvider"], []),
             (["CUDAExecutionProvider"], ["gpu"]),
             (["DmlExecutionProvider", "CUDAExecutionProvider"], ["gpu"]),
             (["QNNExecutionProvider", "CUDAExecutionProvider"], ["gpu", "npu"]),

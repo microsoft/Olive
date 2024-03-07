@@ -56,7 +56,6 @@ Config Fields:
                 }
             },
             "evaluator": "common_evaluator",
-            "execution_providers": ["CUDAExecutionProvider", "TensorrtExecutionProvider"],
             "cache_dir": "cache",
             "output_dir" : "models/bert_gpu"
         },
@@ -109,6 +108,16 @@ Here is another quick comparison between Auto Optimizer and manual settings.
                         }
                     }
                 },
+                "systems": {
+                    "local_system": {
+                        "type": "LocalSystem",
+                        "config": {
+                            "accelerators": [
+                                {"device": "gpu", "execution_providers": ["CUDAExecutionProvider", "TensorrtExecutionProvider"]}
+                            ]
+                        }
+                    }
+                },
                 "evaluators": {
                     "common_evaluator": {
                         "metrics":[
@@ -143,7 +152,8 @@ Here is another quick comparison between Auto Optimizer and manual settings.
                         }
                     },
                     "evaluator": "common_evaluator",
-                    "execution_providers": ["CUDAExecutionProvider", "TensorrtExecutionProvider"],
+                    "host": "local_system",
+                    "target": "local_system",
                     "cache_dir": "cache",
                     "output_dir" : "models/bert_gpu"
                 }
@@ -169,6 +179,16 @@ Here is another quick comparison between Auto Optimizer and manual settings.
                                 "label_cols": ["label"],
                                 "batch_size": 1
                             }
+                        }
+                    }
+                },
+                "systems": {
+                    "local_system": {
+                        "type": "LocalSystem",
+                        "config": {
+                            "accelerators": [
+                                {"device": "gpu", "execution_providers": ["CUDAExecutionProvider", "TensorrtExecutionProvider"]}
+                            ]
                         }
                     }
                 },
@@ -244,7 +264,8 @@ Here is another quick comparison between Auto Optimizer and manual settings.
                         }
                     },
                     "evaluator": "common_evaluator",
-                    "execution_providers": ["CUDAExecutionProvider", "TensorrtExecutionProvider"],
+                    "host": "local_system",
+                    "target": "local_system",
                     "cache_dir": "cache",
                     "output_dir" : "models/bert_gpu"
                 }

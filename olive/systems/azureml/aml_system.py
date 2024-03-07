@@ -33,7 +33,7 @@ from olive.resource_path import (
     ResourceType,
     create_resource_path,
 )
-from olive.systems.common import AzureMLDockerConfig, AzureMLEnvironmentConfig, SystemType
+from olive.systems.common import AcceleratorConfig, AzureMLDockerConfig, AzureMLEnvironmentConfig, SystemType
 from olive.systems.olive_system import OliveSystem
 
 if TYPE_CHECKING:
@@ -89,7 +89,7 @@ class AzureMLSystem(OliveSystem):
         resources: Dict = None,
         instance_count: int = 1,
         is_dev: bool = False,
-        accelerators: List[str] = None,
+        accelerators: List[AcceleratorConfig] = None,
         olive_managed_env: bool = False,
         hf_token: bool = None,
         **kwargs,

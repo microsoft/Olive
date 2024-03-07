@@ -31,14 +31,15 @@ class TestOliveAzureMLSystem:
             config=AzureMLTargetUserConfig(
                 azureml_client_config=azureml_client_config,
                 aml_compute=aml_compute,
-                accelerators=["cpu"],
+                accelerators=[
+                    {"device": "cpu", "execution_providers": ["CPUExecutionProvider", "OpenVINOExecutionProvider"]}
+                ],
                 olive_managed_env=True,
                 requirements_file=Path(__file__).parent / "requirements.txt",
                 is_dev=True,
             ),
         )
 
-        self.execution_providers = ["CPUExecutionProvider", "OpenVINOExecutionProvider"]
         download_models()
         self.input_model_config = ModelConfig.parse_obj(
             {"type": "ONNXModel", "config": {"model_path": get_onnx_model()}}
@@ -49,7 +50,7 @@ class TestOliveAzureMLSystem:
         from test.multiple_ep.utils import create_and_run_workflow, get_latency_metric
 
         cpu_res, openvino_res = create_and_run_workflow(
-            tmp_path, self.system_config, self.execution_providers, self.input_model_config, get_latency_metric()
+            tmp_path, self.system_config, self.input_model_config, get_latency_metric()
         )
         assert cpu_res.metrics.value.__root__
         assert openvino_res.metrics.value.__root__

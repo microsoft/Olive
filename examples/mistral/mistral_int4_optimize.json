@@ -94,9 +94,8 @@
     "engine": {
         "evaluate_input_model": false,
         "evaluator": "common_evaluator",
-        "execution_providers": [
-            "CPUExecutionProvider"
-        ],
+        "host": "local_system",
+        "target": "local_system",
         "cache_dir": "cache",
         "output_dir": "models",
         "output_name": "mistral_int4"

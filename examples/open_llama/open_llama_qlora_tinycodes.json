@@ -8,6 +8,21 @@
             }
         }
     },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "device": "gpu",
+                        "execution_providers": [
+                            "CPUExecutionProvider"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
     "data_configs": {
         "tiny_codes_train": {
             "name": "tiny_codes_train",
@@ -61,13 +76,8 @@
         "log_severity_level": 0,
         "search_strategy": false,
         "evaluate_input_model": false,
-        "target": {
-            "type": "LocalSystem",
-            "config": {
-                "accelerators": ["gpu"]
-            }
-        },
-        "execution_providers": ["CPUExecutionProvider"],
+        "host": "local_system",
+        "target": "local_system",
         "cache_dir": "cache",
         "output_dir" : "models/open_llama_qlora_tinycodes"
     }

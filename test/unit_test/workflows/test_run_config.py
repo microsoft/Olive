@@ -129,7 +129,7 @@ class TestRunConfig:
             user_script_config = json.load(f)
 
         cfg = RunConfig.parse_obj(user_script_config)
-        assert cfg.engine.target.config.accelerators == ["GPU"]
+        assert cfg.engine.target.config.accelerators[0].device == "GPU"
 
     def test_default_engine(self):
         default_engine_config_file = Path(__file__).parent / "mock_data" / "default_engine.json"

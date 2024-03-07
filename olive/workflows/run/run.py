@@ -93,12 +93,16 @@ def dependency_setup(config):
 
     # add dependencies for engine
     host_type = None
-    accelerators = None
-    if config.engine.host:
-        host_type = config.engine.host.type
-        accelerators = config.engine.host.config.accelerators
+    accelerators = []
+    execution_providers = []
+    if config.engine.target:
+        host_type = config.engine.target.type
+        if config.engine.target.config.accelerators:
+            for acc in config.engine.target.config.accelerators:
+                accelerators.append(acc.device)
+                if acc.execution_providers:
+                    execution_providers.extend(acc.execution_providers)
 
-    execution_providers = config.engine.execution_providers if config.engine.execution_providers else None
     system_extra_name = get_system_extras(host_type, accelerators, execution_providers)
     if system_extra_name:
         local_packages.extend(extras.get(system_extra_name))
@@ -130,7 +134,7 @@ def dependency_setup(config):
     if remote_packages:
         logger.info(
             "Please make sure the following packages are installed in %s environment: %s",
-            config.engine.host.type,
+            config.engine.target.type,
             remote_packages,
         )
 
@@ -169,9 +173,7 @@ def run_engine(config: RunConfig, data_root: str = None):
     no_evaluation = engine.evaluator_config is None and all(
         pass_config.evaluator is None for pass_config in config.passes.values()
     )
-    accelerator_specs = create_accelerators(
-        engine.target_config, config.engine.execution_providers, skip_supported_eps_check=no_evaluation
-    )
+    accelerator_specs = create_accelerators(engine.target_config, skip_supported_eps_check=no_evaluation)
 
     pass_list = []
     acc_list = []

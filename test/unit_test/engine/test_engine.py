@@ -147,7 +147,6 @@ class TestEngine:
             "CUDAExecutionProvider",
             "CPUExecutionProvider",
         ]
-        system_object.accelerators = ["CPU"]
         system_object.olive_managed_env = False
 
         engine = Engine(options, evaluator_config=evaluator_config)
@@ -261,7 +260,6 @@ class TestEngine:
         mock_local_system.system_type = SystemType.Local
         mock_local_system.run_pass.return_value = onnx_model_config
         mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
-        mock_local_system.accelerators = ["CPU"]
         mock_local_system.get_supported_execution_providers.return_value = ["CPUExecutionProvider"]
         mock_local_system.olive_managed_env = False
 
@@ -348,7 +346,6 @@ class TestEngine:
         mock_local_system.run_pass.return_value = get_onnx_model_config()
         mock_local_system.get_supported_execution_providers.return_value = ["CPUExecutionProvider"]
         mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
-        mock_local_system.accelerators = ["CPU"]
         mock_local_system.system_type = SystemType.Local
         mock_local_system.olive_managed_env = False
         mock_local_system_init.return_value = mock_local_system
@@ -395,7 +392,6 @@ class TestEngine:
         }
         mock_local_system = MagicMock()
         mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
-        mock_local_system.accelerators = ["CPU"]
         mock_local_system.olive_managed_env = False
         mock_local_system.system_type = SystemType.Local
         mock_local_system.get_supported_execution_providers.return_value = ["CPUExecutionProvider"]
@@ -479,7 +475,6 @@ class TestEngine:
         }
         mock_local_system = MagicMock()
         mock_local_system.system_type = SystemType.Local
-        mock_local_system.accelerators = ["GPU", "CPU"]
         mock_local_system.get_supported_execution_providers.return_value = [
             "CUDAExecutionProvider",
             "CPUExecutionProvider",
@@ -503,10 +498,10 @@ class TestEngine:
         system_config = SystemConfig(
             type=SystemType.Local,
             config=LocalTargetUserConfig(
-                accelerators=["GPU", "CPU"],
+                accelerators=[{"device": "GPU", "execution_providers": None}, {"device": "CPU"}],
             ),
         )
-        accelerator_specs = create_accelerators(system_config, None)
+        accelerator_specs = create_accelerators(system_config)
         assert len(accelerator_specs) == 2
         assert "QNNExecutionProvider" in caplog.text
         engine.register(OnnxConversion, clean_run_cache=True)
@@ -534,7 +529,6 @@ class TestEngine:
         }
         mock_local_system = MagicMock()
         mock_local_system.system_type = SystemType.Local
-        mock_local_system.accelerators = ["GPU", "CPU"]
         mock_local_system.get_supported_execution_providers.return_value = [
             "CUDAExecutionProvider",
             "CPUExecutionProvider",
@@ -557,10 +551,10 @@ class TestEngine:
         system_config = SystemConfig(
             type=SystemType.Local,
             config=LocalTargetUserConfig(
-                accelerators=["GPU", "CPU"],
+                accelerators=[{"device": "GPU"}, {"device": "CPU", "execution_providers": None}],
             ),
         )
-        accelerator_specs = create_accelerators(system_config, None)
+        accelerator_specs = create_accelerators(system_config)
         engine.register(OnnxConversion, clean_run_cache=True)
 
         model_config = get_pytorch_model_config()

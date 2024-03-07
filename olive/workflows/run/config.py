@@ -45,7 +45,6 @@ class RunEngineConfig(EngineConfig):
         config = self.dict()
         to_del = [
             "evaluate_input_model",
-            "execution_providers",
             "output_dir",
             "output_name",
             "packaging_config",

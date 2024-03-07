@@ -27,7 +27,14 @@
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": {"accelerators": ["<place_holder>"]}
+            "config": {
+                "accelerators": [
+                    {
+                        "device": "<place_holder>",
+                        "execution_providers": "<place_holder>"
+                    }
+                ]
+            }
         }
     },
     "evaluators": {
@@ -112,7 +119,6 @@
         "target": "local_system",
         "evaluator": "common_evaluator",
         "evaluate_input_model": false,
-        "execution_providers": "<place_holder>",
         "clean_cache": false,
         "cache_dir": "cache",
         "output_dir": "models",

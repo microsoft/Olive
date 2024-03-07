@@ -18,7 +18,7 @@ from olive.common.utils import run_subprocess
 from olive.evaluator.metric import get_latency_config_from_metric
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveModelOutput, OnnxEvaluatorMixin
 from olive.hardware import Device
-from olive.systems.common import SystemType
+from olive.systems.common import AcceleratorConfig, SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import IsolatedORTTargetUserConfig
 from olive.systems.utils import create_new_environ, run_available_providers_runner
@@ -40,7 +40,7 @@ class IsolatedORTSystem(OliveSystem):
         python_environment_path: Union[Path, str] = None,
         environment_variables: Dict[str, str] = None,
         prepend_to_path: List[str] = None,
-        accelerators: List[str] = None,
+        accelerators: List[AcceleratorConfig] = None,
         hf_token: bool = None,
     ):
         if python_environment_path is None:

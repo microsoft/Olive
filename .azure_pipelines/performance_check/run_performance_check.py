@@ -217,14 +217,9 @@ def run_perf_comparison(cur_dir, model_name, device, model_root_path, test_num):
                     olive_config["input_model"]["config"]["model_script"] = user_script_path
                     olive_config["input_model"]["config"]["model_loader"] = "torch_complied_model"
 
-                olive_config["systems"]["local_system"]["config"]["accelerators"] = (
-                    ["cpu"] if device == "cpu" else ["gpu"]
-                )
                 olive_config["engine"]["cache_dir"] = str(Path(model_root_path / optimized_model / "cache"))
                 olive_config["engine"]["output_dir"] = str(Path(model_root_path / optimized_model / "output"))
-                olive_config["engine"]["execution_providers"] = (
-                    ["CPUExecutionProvider"] if device == "cpu" else ["CUDAExecutionProvider"]
-                )
+                olive_config = update_accelerator_config(olive_config, device)
                 olive_config["evaluators"]["common_evaluator"]["metrics"].append(accuracy_metric)
                 olive_config["evaluators"]["common_evaluator"]["metrics"].append(latency_metric)
                 olive_config["evaluators"]["common_evaluator"]["metrics"][0]["data_config"] = (
@@ -250,6 +245,26 @@ def run_perf_comparison(cur_dir, model_name, device, model_root_path, test_num):
             v[metric_name] = round((vsum / len(metric_value_list)), 4)
     print(f"Avg metric results {metric_res}")
     return metric_res
+
+
+def update_accelerator_config(config, device):
+    if "systems" not in config:
+        config["systems"] = {
+            "local_system": {
+                "type": "LocalSystem",
+                "config": {"accelerators": [{"device": "cpu" if device == "cpu" else "gpu"}]},
+            }
+        }
+        config["engine"]["host"] = "local_system"
+        config["engine"]["target"] = "local_system"
+    else:
+        config["systems"]["local_system"]["config"]["accelerators"][0]["device"] = "cpu" if device == "cpu" else "gpu"
+
+    config["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = (
+        ["CPUExecutionProvider"] if device == "cpu" else ["CUDAExecutionProvider"]
+    )
+
+    return config
 
 
 def print_perf_table(metric_res, device):

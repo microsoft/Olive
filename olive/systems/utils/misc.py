@@ -10,11 +10,14 @@ import tempfile
 from copy import deepcopy
 from functools import lru_cache
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 from olive.common.utils import hash_dir, run_subprocess
 from olive.hardware.constants import PROVIDER_DOCKERFILE_MAPPING, PROVIDER_PACKAGE_MAPPING
 from olive.systems.common import SystemType
+
+if TYPE_CHECKING:
+    from olive.hardware import AcceleratorSpec
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +32,11 @@ def create_new_system_with_cache(system_config, accelerator):
     return create_new_system(system_config, accelerator)
 
 
-def create_new_system(system_config, accelerator):
+def create_new_system(system_config, accelerator: "AcceleratorSpec"):
     # pylint: disable=consider-using-with
+    accelerator_cfg = [
+        {"device": accelerator.accelerator_type, "execution_providers": [accelerator.execution_provider]}
+    ]
 
     # create a new system with the same type as the origin system
     if system_config.type in [SystemType.Local, SystemType.IsolatedORT]:
@@ -59,7 +65,7 @@ def create_new_system(system_config, accelerator):
             python_environment_path = f"{venv_path}/bin"
         new_system = PythonEnvironmentSystem(
             python_environment_path=python_environment_path,
-            accelerators=[accelerator.accelerator_type],
+            accelerators=accelerator_cfg,
             environment_variables=system_config.config.environment_variables,
             prepend_to_path=system_config.config.prepend_to_path,
             olive_managed_env=True,
@@ -78,7 +84,7 @@ def create_new_system(system_config, accelerator):
                 "dockerfile": dockerfile,
                 "build_context_path": Path(__file__).parents[1] / "docker",
             },
-            accelerators=[accelerator.accelerator_type],
+            accelerators=accelerator_cfg,
             is_dev=system_config.config.is_dev,
             olive_managed_env=True,
             requirements_file=(
@@ -105,7 +111,7 @@ def create_new_system(system_config, accelerator):
             azureml_client_config=system_config.config.azureml_client_config,
             aml_compute=system_config.config.aml_compute,
             instance_count=system_config.config.instance_count,
-            accelerators=[accelerator.accelerator_type],
+            accelerators=accelerator_cfg,
             aml_environment_config={
                 "name": name,
                 "label": "latest",
