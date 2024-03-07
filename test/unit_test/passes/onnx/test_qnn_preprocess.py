@@ -33,3 +33,23 @@ def test_qnn_preprocess_changed_model(mocked_qnn_preprocess_model, tmp_path):
     p = create_pass_from_dict(QNNPreprocess, {}, disable_search=True)
     out = p.run(input_model, None, tmp_path)
     assert out != input_model
+
+
+@pytest.mark.skipif(
+    version.parse(OrtVersion) < version.parse("1.18.0"),
+    reason="qnn quantization extra configs is only supported in onnxruntime>=1.18.0",
+)
+def test_qnn_preprocess_extra_configs(tmp_path):
+    input_model = get_onnx_model()
+    p = create_pass_from_dict(
+        QNNPreprocess,
+        {
+            "save_as_external_data": False,
+            "convert_attribute": None,
+            "inputs_to_make_channel_last": None,
+            "outputs_to_make_channel_last": None,
+        },
+        disable_search=True,
+    )
+    out = p.run(input_model, None, tmp_path)
+    assert out == input_model
