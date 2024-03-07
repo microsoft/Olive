@@ -44,8 +44,8 @@ class PrePostProcessorInput(ConfigBase):
 class AppendPrePostProcessingOps(Pass):
     """Add Pre/Post nodes to the input model."""
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, Dict[str, Any]]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, Dict[str, Any]]:
         config = {
             "pre": PassConfigParam(
                 type_=List[Dict[str, Any]],

@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 
 from pathlib import Path
-from typing import Any, Callable, Dict
+from typing import Any, Dict
 
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler
@@ -16,8 +16,8 @@ from olive.passes.pass_config import PassConfigParam
 class QNNPreprocess(Pass):
     """Preprocess ONNX model for quantization targeting QNN Execution Provider."""
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "fuse_layernorm": PassConfigParam(
                 type_=bool,
@@ -26,10 +26,6 @@ class QNNPreprocess(Pass):
                 description=("Whether to fuse ReduceMean sequence into a single LayerNormalization node."),
             )
         }
-
-    @staticmethod
-    def _validators() -> Dict[str, Callable[..., Any]]:
-        pass
 
     def _run_for_config(
         self,

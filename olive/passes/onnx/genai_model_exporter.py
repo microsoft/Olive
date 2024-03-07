@@ -32,8 +32,8 @@ class GenAIModelExporter(Pass):
         FP16 = "fp16"
         INT4 = "int4"
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "precision": PassConfigParam(
                 type_=GenAIModelExporter.Precision,

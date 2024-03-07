@@ -5,7 +5,7 @@
 
 import platform
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Dict, List, Union
 
 from olive.constants import ModelFileFormat
 from olive.hardware import AcceleratorSpec
@@ -24,8 +24,8 @@ class QNNConversion(Pass):
     Uses qnn-[framework]-converter tool from the QNN SDK.
     """
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             # input_network is required for qnn conversion, but we don't have it in the config.
             # The `input_network` will be set in the runtime.
@@ -65,10 +65,6 @@ class QNNConversion(Pass):
         }
         config.update(get_env_config())
         return config
-
-    @staticmethod
-    def _validators() -> Dict[str, Callable[..., Any]]:
-        pass
 
     def _run_for_config(
         self,

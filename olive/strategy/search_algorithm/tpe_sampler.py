@@ -19,10 +19,10 @@ class TPESearchAlgorithm(OptunaSearchAlgorithm):
 
     name = "tpe"
 
-    @staticmethod
-    def _default_config() -> Dict[str, ConfigParam]:
+    @classmethod
+    def _default_config(cls) -> Dict[str, ConfigParam]:
         return {
-            **OptunaSearchAlgorithm._default_config(),
+            **super()._default_config(),
             "multivariate": ConfigParam(
                 type_=bool, default_value=True, description="Use multivariate TPE when suggesting parameters."
             ),

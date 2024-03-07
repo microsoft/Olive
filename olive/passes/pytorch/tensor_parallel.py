@@ -48,8 +48,8 @@ class TensorParallel:
 
 
 class PyTorchTensorParallel(Pass):
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         # Note : The default world_size should be the no of gpus (AcceleratorSpec.Device == GPU)
         # in the target OliveSystem
         return {
@@ -95,13 +95,9 @@ class PyTorchTensorParallel(Pass):
 
         return v
 
-    @staticmethod
-    def _validators() -> Dict[str, Callable]:
-        return {
-            "validate_distributor_config": validator("world_size", allow_reuse=True)(
-                PyTorchTensorParallel._validate_world_size
-            )
-        }
+    @classmethod
+    def _validators(cls) -> Dict[str, Callable]:
+        return {"validate_distributor_config": validator("world_size", allow_reuse=True)(cls._validate_world_size)}
 
     @staticmethod
     def _generate_one(params):
