@@ -18,7 +18,7 @@ def setup():
     cur_dir = Path(__file__).resolve().parent.parent
     example_dir = str(cur_dir / "whisper")
     os.chdir(example_dir)
-    sys.path.append(example_dir)
+    sys.path.insert(0, example_dir)
 
     # prepare configs
     from prepare_whisper_configs import main as prepare_whisper_configs
