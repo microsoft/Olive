@@ -27,7 +27,7 @@ git config --system core.longpaths true
 ## Run Optimization
 CPU:
 ```bash
-python mistral.py --optimize --config mistral_optimize.json
+python mistral.py --optimize --config mistral_int4_optimize.json
 ```
 
 GPU:
@@ -48,7 +48,7 @@ python mistral.py --config mistral_fp16_optimize.json --inference
 ```bash
 python mistral.py --config mistral_fp16_optimize.json --inference --prompt "Language models are very useful" "What is the meaning of life?"
 ```
--- `max_length` can be used to specify the maximum length of the generated sequence.
+- `--max_length` can be used to specify the maximum length of the generated sequence.
 - Use `CUDA_VISIBLE_DEVICES` to specify the GPU to run the inference on. For example:
 ```bash
 CUDA_VISIBLE_DEVICES=6 python mistral.py --config mistral_fp16_optimize.json --inference
