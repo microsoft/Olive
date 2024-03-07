@@ -185,8 +185,8 @@ Must be a Categorical or Conditional SearchParameter.</p></li>
 </ul>
 <section id="example">
 <h3>Example<a class="headerlink" href="#example" title="Permalink to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_default_config</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_default_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
         <span class="k">return</span> <span class="p">{</span>
             <span class="c1"># required parameter</span>
             <span class="s2">&quot;param1&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;param1 description&quot;</span><span class="p">),</span>
@@ -232,7 +232,7 @@ Must be a Categorical or Conditional SearchParameter.</p></li>
 <h2>3. Implement the run function<a class="headerlink" href="#implement-the-run-function" title="Permalink to this heading">¶</a></h2>
 <p>The final step is to implement the <code class="docutils literal notranslate"><span class="pre">_run_for_config</span></code> method to optimize the input model. Olive Engine will invoke the
 method while auto tuning the model. This method will also receive a search point (one set of configuration option from
-the search space created based on the options defined in <code class="docutils literal notranslate"><span class="pre">_default_config(accelerator_spec:</span> <span class="pre">AcceleratorSpec)</span></code>) along
+the search space created based on the options defined in <code class="docutils literal notranslate"><span class="pre">_default_config(cls,</span> <span class="pre">accelerator_spec:</span> <span class="pre">AcceleratorSpec)</span></code>) along
 with output path. The method should return a valid OliveModelHandler which can be used as an input for the next Pass.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="k">def</span> <span class="nf">_run_for_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">ONNXModelHandler</span><span class="p">,</span> <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ONNXModelHandler</span><span class="p">:</span>
 </pre></div>
