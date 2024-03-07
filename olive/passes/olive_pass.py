@@ -80,10 +80,10 @@ class Pass(ABC):
             self._user_module_loader = UserModuleLoader(self.config["user_script"], self.config["script_dir"])
 
         self._fixed_params = {}
-        self._search_space = {}
+        self.search_space = {}
         for k, v in self.config.items():
             if isinstance(v, SearchParameter):
-                self._search_space[k] = v
+                self.search_space[k] = v
             else:
                 self._fixed_params[k] = v
 
@@ -147,6 +147,79 @@ class Pass(ABC):
                     param_type
                 ), f"{param} ending with data_config must be of type DataConfig."
         return config
+
+    def config_at_search_point(self, point: Dict[str, Any]) -> Dict[str, Any]:
+        """Get the configuration for the pass at a specific point in the search space."""
+        assert set(point.keys()) == set(self.search_space.keys()), "Search point is not in the search space."
+        config = self._fixed_params.copy()
+        for key, value in point.items():
+            config[key] = value
+        return self._config_class(**config).dict()
+
+    def validate_search_point(
+        self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
+    ) -> bool:
+        """Validate the search point for the pass."""
+        return True
+
+    def run(
+        self, model: OliveModelHandler, data_root: str, output_model_path: str, point: Optional[Dict[str, Any]] = None
+    ) -> OliveModelHandler:
+        """Run the pass on the model at a specific point in the search space."""
+        point = point or {}
+        config = self.config_at_search_point(point)
+
+        if not self._initialized:
+            self._initialize()
+            self._initialized = True
+
+        # Optimization pass still works on individual graphs.
+        if isinstance(model, DistributedOnnxModelHandler):
+            for rank in range(model.num_ranks):
+                input_ranked_model = model.load_model(rank)
+                ranked_output_path = Path(output_model_path).with_suffix("") / model.ranked_model_name(rank)
+                self._run_for_config(input_ranked_model, data_root, config, str(ranked_output_path))
+
+            output_model = DistributedOnnxModelHandler(
+                model_path=str(Path(output_model_path).with_suffix("")),
+                model_name_pattern=model.model_name_pattern,
+                num_ranks=model.num_ranks,
+                inference_settings=model.inference_settings,
+            )
+        elif isinstance(model, CompositeModelHandler) and not self._accepts_composite_model:
+            # CompositePyTorchModel is also handled here.
+            components = []
+            component_names = []
+            for component_name, component_model in model.get_model_components():
+                component_output_path = Path(output_model_path).with_suffix("") / component_name
+                output_model_component = self._run_for_config(
+                    component_model, data_root, config, str(component_output_path)
+                )
+                output_model_component.model_attributes = (
+                    output_model_component.model_attributes or component_model.model_attributes
+                )
+                components.append(output_model_component)
+                component_names.append(component_name)
+            output_model = CompositeModelHandler(components, component_names)
+        else:
+            output_model = self._run_for_config(model, data_root, config, output_model_path)
+        # assumption: the model attributes from passes, if any, are more important than
+        # the input model attributes, we should not update/extend anymore outside of the pass run
+        output_model.model_attributes = output_model.model_attributes or model.model_attributes
+        return output_model
+
+    def serialize_config(self, config: Dict[str, Any], check_object: bool = False) -> str:
+        """Serialize the configuration."""
+        return self._config_class(**config).to_json(check_object)
+
+    def to_json(self, check_object: bool = False) -> Dict[str, Any]:
+        """Convert the pass to json."""
+        return {
+            "type": self.__class__.__name__,
+            "disable_search": True,
+            "accelerator": self.accelerator_spec.to_json(),
+            "config": self.serialize_config(self.config, check_object),
+        }
 
     @classmethod
     def _validators(cls) -> Dict[str, Callable]:
@@ -305,93 +378,12 @@ class Pass(ABC):
     def _initialize(self):
         """Initialize the pass. Pass specific initialization should be done here."""
 
-    def search_space(self) -> Dict[str, SearchParameter]:
-        """Get the search space for the pass."""
-        return self._search_space
-
-    def config_at_search_point(self, point: Dict[str, Any]) -> Dict[str, Any]:
-        """Get the configuration for the pass at a specific point in the search space."""
-        assert set(point.keys()) == set(self._search_space.keys()), "Search point is not in the search space."
-        config = self._fixed_params.copy()
-        for key, value in point.items():
-            config[key] = value
-        return self._config_class(**config).dict()
-
-    def validate_search_point(
-        self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
-    ) -> bool:
-        """Validate the search point for the pass."""
-        return True
-
-    def filter_ignored_params(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Filter out ignored parameters."""
-        return {key: value for key, value in config.items() if value != SpecialParamValue.IGNORED}
-
     @abstractmethod
     def _run_for_config(
         self, model: OliveModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> OliveModelHandler:
         """Run the pass on the model with the given configuration."""
         raise NotImplementedError
-
-    def run(
-        self, model: OliveModelHandler, data_root: str, output_model_path: str, point: Optional[Dict[str, Any]] = None
-    ) -> OliveModelHandler:
-        """Run the pass on the model at a specific point in the search space."""
-        point = point or {}
-        config = self.config_at_search_point(point)
-
-        if not self._initialized:
-            self._initialize()
-            self._initialized = True
-
-        # Optimization pass still works on individual graphs.
-        if isinstance(model, DistributedOnnxModelHandler):
-            for rank in range(model.num_ranks):
-                input_ranked_model = model.load_model(rank)
-                ranked_output_path = Path(output_model_path).with_suffix("") / model.ranked_model_name(rank)
-                self._run_for_config(input_ranked_model, data_root, config, str(ranked_output_path))
-
-            output_model = DistributedOnnxModelHandler(
-                model_path=str(Path(output_model_path).with_suffix("")),
-                model_name_pattern=model.model_name_pattern,
-                num_ranks=model.num_ranks,
-                inference_settings=model.inference_settings,
-            )
-        elif isinstance(model, CompositeModelHandler) and not self._accepts_composite_model:
-            # CompositePyTorchModel is also handled here.
-            components = []
-            component_names = []
-            for component_name, component_model in model.get_model_components():
-                component_output_path = Path(output_model_path).with_suffix("") / component_name
-                output_model_component = self._run_for_config(
-                    component_model, data_root, config, str(component_output_path)
-                )
-                output_model_component.model_attributes = (
-                    output_model_component.model_attributes or component_model.model_attributes
-                )
-                components.append(output_model_component)
-                component_names.append(component_name)
-            output_model = CompositeModelHandler(components, component_names)
-        else:
-            output_model = self._run_for_config(model, data_root, config, output_model_path)
-        # assumption: the model attributes from passes, if any, are more important than
-        # the input model attributes, we should not update/extend anymore outside of the pass run
-        output_model.model_attributes = output_model.model_attributes or model.model_attributes
-        return output_model
-
-    def serialize_config(self, config: Dict[str, Any], check_object: bool = False) -> str:
-        """Serialize the configuration."""
-        return self._config_class(**config).to_json(check_object)
-
-    def to_json(self, check_object: bool = False) -> Dict[str, Any]:
-        """Convert the pass to json."""
-        return {
-            "type": self.__class__.__name__,
-            "disable_search": True,
-            "accelerator": self.accelerator_spec.to_json(),
-            "config": self.serialize_config(self.config, check_object),
-        }
 
 
 # TODO(jambayk): rename. We are using FullPassConfig since PassConfigBase already refers to inner config
