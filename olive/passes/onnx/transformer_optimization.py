@@ -228,16 +228,20 @@ class OrtTransformersOptimization(Pass):
                 model_type = MODEL_TYPE_MAPPING.get(input_model_type, input_model_type)
             else:
                 model_type = None
+            if not run_config["model_type"] and model_type:
+                logger.debug("model_type is set to %s from model attributes", model_type)
             run_config["model_type"] = run_config["model_type"] or model_type
             if run_config["num_heads"] == 0:
                 for num_heads_name in NUM_HEADS_NAMES:
                     if num_heads_name in model_attributes:
                         run_config["num_heads"] = model_attributes[num_heads_name]
+                        logger.debug("num_heads is set to %d from model attributes", run_config["num_heads"])
                         break
             if run_config["hidden_size"] == 0:
                 for hidden_size_name in HIDDEN_SIZE_NAMES:
                     if hidden_size_name in model_attributes:
                         run_config["hidden_size"] = model_attributes[hidden_size_name]
+                        logger.debug("hidden_size is set to %d from model attributes", run_config["hidden_size"])
                         break
 
         if run_config["model_type"] is None or run_config["model_type"] not in transformers_optimizer.MODEL_TYPES:
