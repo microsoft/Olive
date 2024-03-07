@@ -217,9 +217,9 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
                     raise ValueError(
                         "Unsupported MLFlow model flavor. Currently only support hftransformersv2/hftransformers."
                     )
-
+            loading_args = self.hf_config.get_loading_args_from_pretrained()
             model_loader = huggingface_model_loader(hf_pretrained_class)
-            loaded_model = model_loader(tmp_dir)
+            loaded_model = model_loader(tmp_dir, **loading_args)
             loaded_model.eval()
             return loaded_model
 
