@@ -12,8 +12,8 @@ class ExhaustiveSearchAlgorithm(SearchAlgorithm):
 
     name = "exhaustive"
 
-    @staticmethod
-    def _default_config():
+    @classmethod
+    def _default_config(cls):
         return {}
 
     def initialize(self):

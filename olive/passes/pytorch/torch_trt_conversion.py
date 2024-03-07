@@ -37,8 +37,8 @@ class TorchTRTConversion(Pass):
     must be one of [bloom, gpt2, gpt_neox, llama, opt].
     """
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "min_layer": PassConfigParam(
                 type_=int, default_value=None, description="Convert all layers with id >= min_layer."

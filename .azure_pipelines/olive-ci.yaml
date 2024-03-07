@@ -88,10 +88,9 @@ jobs:
       bert_ptq_cpu_aml:
         exampleFolder: bert
         exampleName: bert_ptq_cpu_aml
-      # enable the docker test for openvino after the ORT-openvino 1.17 is released.
-      # bert_ptq_cpu_docker:
-      #   exampleFolder: bert
-      #   exampleName: bert_ptq_cpu_docker
+      bert_ptq_cpu_docker:
+        exampleFolder: bert
+        exampleName: bert_ptq_cpu_docker
       resnet_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_ptq_cpu
@@ -110,16 +109,6 @@ jobs:
       inception_snpe_toolkit:
         exampleFolder: inception
         exampleName: snpe_toolkit
-
-- template: job_templates/olive-example-template.yaml
-  parameters:
-    name: Linux_CI_ORT_116
-    pool: $(OLIVE_POOL_UBUNTU2004)
-    onnxruntime: onnxruntime==1.16.3
-    examples:
-      bert_ptq_cpu_docker:
-        exampleFolder: bert
-        exampleName: bert_ptq_cpu_docker
 
 # # Windows examples test
 - template: job_templates/olive-example-template.yaml

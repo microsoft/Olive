@@ -23,8 +23,8 @@ logger = logging.getLogger(__name__)
 class OnnxBnb4Quantization(Pass):
     """Quantize MatMul nodes in ONNX model using 4bit FP4/NF4 quantization."""
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "quant_type": PassConfigParam(
                 type_=str,

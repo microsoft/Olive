@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 class DynamicToFixedShape(Pass):
     """Convert dynamic shape to fixed shape for ONNX model."""
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "dim_param": PassConfigParam(
                 type_=List[str],
@@ -54,8 +54,8 @@ class DynamicToFixedShape(Pass):
         config.update(get_external_data_config())
         return config
 
-    @staticmethod
-    def _validators() -> Dict[str, Callable[..., Any]]:
+    @classmethod
+    def _validators(cls) -> Dict[str, Callable[..., Any]]:
         return {
             "validate_configs": root_validator(allow_reuse=True)(_jointly_validate_configs),
         }

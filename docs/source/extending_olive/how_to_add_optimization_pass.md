@@ -55,8 +55,8 @@ takes an `AcceleratorSpec` as input and returns `Dict[str, PassConfigParam]`.
 
 ### Example
 ```python
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             # required parameter
             "param1": PassConfigParam(type_=int, required=True, description="param1 description"),
@@ -100,7 +100,7 @@ takes an `AcceleratorSpec` as input and returns `Dict[str, PassConfigParam]`.
 
 The final step is to implement the `_run_for_config` method to optimize the input model. Olive Engine will invoke the
 method while auto tuning the model. This method will also receive a search point (one set of configuration option from
-the search space created based on the options defined in `_default_config(accelerator_spec: AcceleratorSpec)`) along
+the search space created based on the options defined in `_default_config(cls, accelerator_spec: AcceleratorSpec)`) along
 with output path. The method should return a valid OliveModelHandler which can be used as an input for the next Pass.
 
 ```python

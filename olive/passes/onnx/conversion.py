@@ -63,8 +63,8 @@ class OnnxConversion(Pass):
 
     _requires_user_script = True
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "target_opset": PassConfigParam(
                 type_=int, default_value=13, description="The version of the default (ai.onnx) opset to target."
@@ -539,8 +539,8 @@ class OnnxConversion(Pass):
 
 
 class OnnxOpVersionConversion(Pass):
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         latest_opset_version = onnx.defs.onnx_opset_version()
 
         config = {

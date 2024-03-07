@@ -219,8 +219,8 @@ class ModelOptimizer:
 class OnnxModelOptimizer(Pass):
     """Optimize ONNX model by fusing nodes."""
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return get_external_data_config()
 
     def _run_for_config(

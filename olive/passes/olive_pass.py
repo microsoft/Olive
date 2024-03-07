@@ -75,13 +75,13 @@ class Pass(ABC):
         self.accelerator_spec = accelerator_spec
 
         self._config_class = config_class
-        self._config = config
+        self.config = config
         if self._requires_user_script:
-            self._user_module_loader = UserModuleLoader(self._config["user_script"], self._config["script_dir"])
+            self._user_module_loader = UserModuleLoader(self.config["user_script"], self.config["script_dir"])
 
         self._fixed_params = {}
         self._search_space = {}
-        for k, v in self._config.items():
+        for k, v in self.config.items():
             if isinstance(v, SearchParameter):
                 self._search_space[k] = v
             else:
@@ -148,14 +148,14 @@ class Pass(ABC):
                 ), f"{param} ending with data_config must be of type DataConfig."
         return config
 
-    @staticmethod
-    def _validators() -> Dict[str, Callable]:
+    @classmethod
+    def _validators(cls) -> Dict[str, Callable]:
         """Pydantic validators for config params."""
         return {}
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         """Get the default configuration for the pass. Doesn't include user_script and script_dir.
 
         Example:
@@ -390,7 +390,7 @@ class Pass(ABC):
             "type": self.__class__.__name__,
             "disable_search": True,
             "accelerator": self.accelerator_spec.to_json(),
-            "config": self.serialize_config(self._config, check_object),
+            "config": self.serialize_config(self.config, check_object),
         }
 
 
