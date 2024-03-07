@@ -6,42 +6,17 @@ import argparse
 import json
 import shutil
 from pathlib import Path
+from typing import List
 
-from optimum.onnxruntime import ORTModelForCausalLM
-from optimum.utils.save_utils import maybe_save_preprocessors
-from transformers import AutoConfig, AutoTokenizer
+from onnxruntime import __version__ as OrtVersion
+from packaging import version
 
 from olive.workflows import run as olive_run
 
-# ruff: noqa: T201, T203
+# ruff: noqa: T201
 
 
-def optimize(model_name: str, olive_config: dict):
-    # Optimize the model with Olive
-    print(f"Optimizing {model_name}")
-
-    olive_config["input_model"]["config"]["model_path"] = model_name
-    print(olive_run(olive_config))
-
-
-def inference(model_id: str, optimized_model_dir: Path, execution_provider: str, prompt: str, max_length: int):
-    # save any configs that might be needed for inference
-    maybe_save_preprocessors(model_id, optimized_model_dir, trust_remote_code=True)
-    AutoConfig.from_pretrained(model_id).save_pretrained(optimized_model_dir)
-
-    tokenizer = AutoTokenizer.from_pretrained(model_id)
-    model = ORTModelForCausalLM.from_pretrained(
-        optimized_model_dir, execution_provider=execution_provider, use_io_binding=False
-    )
-
-    device = "cuda" if execution_provider == "CUDAExecutionProvider" else "cpu"
-    inputs = tokenizer(prompt, return_tensors="pt").to(device)
-    print(inputs)
-    outputs = model.generate(**inputs, max_length=max_length)
-    return tokenizer.decode(outputs, skip_special_tokens=True)
-
-
-def main():
+def get_args(raw_args):
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--model-id",
@@ -59,8 +34,67 @@ def main():
     )
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
     parser.add_argument("--inference", action="store_true", help="Runs the inference step")
+    parser.add_argument(
+        "--prompt",
+        nargs="*",
+        type=str,
+        default=[
+            "Is it normal to have a dark ring around the iris of my eye?",
+            "Write a extremely long story starting with once upon a time",
+        ],
+    )
+    parser.add_argument(
+        "--max_length",
+        type=int,
+        default=50,
+        help="Max length for generation",
+    )
 
-    args = parser.parse_args()
+    return parser.parse_args(raw_args)
+
+
+def optimize(model_name: str, olive_config: dict):
+    # Optimize the model with Olive
+    print(f"Optimizing {model_name}")
+    olive_config["input_model"]["config"]["model_path"] = model_name
+    olive_run(olive_config)
+
+
+def inference(model_id: str, optimized_model_dir: Path, execution_provider: str, prompt: List[str], max_length: int):
+    from optimum.onnxruntime import ORTModelForCausalLM
+    from optimum.utils.save_utils import maybe_save_preprocessors
+    from transformers import AutoConfig, AutoTokenizer
+    import onnxruntime as ort
+
+    ort.set_default_logger_severity(3)
+    # save any configs that might be needed for inference
+    maybe_save_preprocessors(model_id, optimized_model_dir, trust_remote_code=True)
+    AutoConfig.from_pretrained(model_id).save_pretrained(optimized_model_dir)
+
+    # model and tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(model_id)
+    # there is no pad token for this tokenizer, so we set it to eos token
+    tokenizer.pad_token = tokenizer.eos_token
+    model = ORTModelForCausalLM.from_pretrained(
+        optimized_model_dir, provider=execution_provider, use_io_binding=execution_provider == "CUDAExecutionProvider"
+    )
+
+    # generate
+    device = "cuda" if execution_provider == "CUDAExecutionProvider" else "cpu"
+    inputs = tokenizer(
+        prompt,
+        return_tensors="pt",
+        padding=True,
+    ).to(device)
+    outputs = model.generate(**inputs, max_length=max_length)
+    return tokenizer.batch_decode(outputs, skip_special_tokens=True)
+
+
+def main(raw_args=None):
+    if version.parse(OrtVersion) < version.parse("1.17.0"):
+        raise ValueError("This example requires ONNX Runtime 1.17.0 or later.")
+
+    args = get_args(raw_args)
 
     with Path(args.config).open() as f:
         config = json.load(f)
@@ -86,10 +120,11 @@ def main():
         optimize(args.model_id, config)
 
     if args.inference:
-        prompt = "Is it normal to have a dark ring around the iris of my eye?"
-        print(f"Running inference on prompt: {prompt}")
-        output = inference(args.model_id, optimized_model_dir, ep, prompt, 50)
-        print(f"Output: {output}")
+        output = inference(args.model_id, optimized_model_dir, ep, args.prompt, args.max_length)
+        for p, o in zip(args.prompt, output):
+            print(f"Prompt: {p}")
+            print(f"Generation output: {o}")
+            print("*" * 50)
 
 
 if __name__ == "__main__":

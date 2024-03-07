@@ -24,13 +24,7 @@
                         "user_script": "user_script.py",
                         "dataloader_func": "create_dataloader",
                         "batch_size": 1,
-                        "inference_settings": {
-                            "onnx": {
-                                "session_options": {
-                                    "enable_profiling": false
-                                }
-                            }
-                        }
+                        "io_bind": true
                     }
                 }
             ]
@@ -59,10 +53,10 @@
                 "optimization_options": {
                     "use_multi_head_attention": false
                 },
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true,
                 "float16": true,
-                "use_gqa": true
+                "use_gqa": true,
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true
             }
         },
         "perf_tuning": {
