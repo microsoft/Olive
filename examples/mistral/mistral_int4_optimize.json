@@ -8,16 +8,6 @@
             }
         }
     },
-    "systems": {
-        "local_system": {
-            "type": "LocalSystem",
-            "config": {
-                "accelerators": [
-                    "cpu"
-                ]
-            }
-        }
-    },
     "evaluators": {
         "common_evaluator": {
             "metrics": [
@@ -63,8 +53,6 @@
                 "model_type": "gpt2",
                 "use_gpu": false,
                 "keep_io_types": true,
-                "num_heads": 32,
-                "hidden_size": 4096,
                 "optimization_options": {
                     "use_multi_head_attention": false
                 },
@@ -94,15 +82,6 @@
                 "all_tensors_to_one_file": true,
                 "diagnosis": false
             }
-        },
-        "perf_tuning": {
-            "type": "OrtPerfTuning",
-            "config": {
-                "user_script": "user_script.py",
-                "dataloader_func": "create_dataloader",
-                "batch_size": 1,
-                "enable_profiling": false
-            }
         }
     },
     "pass_flows": [
@@ -115,12 +94,11 @@
     "engine": {
         "evaluate_input_model": false,
         "evaluator": "common_evaluator",
-        "target": "local_system",
+        "execution_providers": [
+            "CPUExecutionProvider"
+        ],
         "cache_dir": "cache",
-        "output_name": "mistral",
-        "output_dir": "mistral_gptq",
-        "clean_cache": false,
-        "log_severity_level": 0,
-        "log_to_file": true
+        "output_dir": "models",
+        "output_name": "mistral_int4"
     }
 }
