@@ -332,6 +332,9 @@ class OnnxQuantization(Pass):
             assert (
                 config["dataloader_func"] or config["data_config"]
             ), "dataloader_func or data_config is required for static quantization."
+            # whether to prepare qnn config
+            if config["prepare_qnn_config"] and version.parse(OrtVersion) < version.parse("1.17.0"):
+                raise OlivePassError("prepare_qnn_config is only supported for onnxruntime-qnn>=1.17.0")
 
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
@@ -364,10 +367,6 @@ class OnnxQuantization(Pass):
             else:
                 logger.info("Already processed model for quantization, skipping preprocessing")
                 model = ONNXModelHandler(LocalFile({"path": preprocessed_temp_model_path}))
-
-        # whether to prepare qnn config
-        if run_config.get("prepare_qnn_config", False) and version.parse(OrtVersion) < version.parse("1.17.0"):
-            raise OlivePassError("prepare_qnn_config is only supported for onnxruntime-qnn>=1.17.0")
 
         # keys not needed for quantization
         to_delete = [
