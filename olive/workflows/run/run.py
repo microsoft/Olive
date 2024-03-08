@@ -20,7 +20,7 @@ from olive.workflows.run.config import RunConfig, RunPassConfig
 logger = logging.getLogger(__name__)
 
 
-def dependency_setup(config):
+def dependency_setup(config: RunConfig):
     here = os.path.abspath(os.path.dirname(__file__))
     with open(os.path.join(here, "../../extra_dependencies.json")) as f:
         extras = json.load(f)
@@ -95,10 +95,10 @@ def dependency_setup(config):
     host_type = None
     accelerators = []
     execution_providers = []
-    if config.engine.target:
-        host_type = config.engine.target.type
-        if config.engine.target.config.accelerators:
-            for acc in config.engine.target.config.accelerators:
+    if config.engine.host:
+        host_type = config.engine.host.type
+        if config.engine.host.config.accelerators:
+            for acc in config.engine.host.config.accelerators:
                 accelerators.append(acc.device)
                 if acc.execution_providers:
                     execution_providers.extend(acc.execution_providers)
@@ -134,7 +134,7 @@ def dependency_setup(config):
     if remote_packages:
         logger.info(
             "Please make sure the following packages are installed in %s environment: %s",
-            config.engine.target.type,
+            config.engine.host.type,
             remote_packages,
         )
 

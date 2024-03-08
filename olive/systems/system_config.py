@@ -32,6 +32,7 @@ class LocalTargetUserConfig(TargetUserConfig):
 
 
 class DockerTargetUserConfig(TargetUserConfig):
+    # the local_docker_config is optional for managed environments and required for normal docker system
     local_docker_config: LocalDockerConfig = None
     is_dev: bool = False
     olive_managed_env: bool = False
