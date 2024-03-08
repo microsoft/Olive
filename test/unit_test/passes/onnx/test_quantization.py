@@ -57,8 +57,9 @@ def test_dynamic_quantization(tmp_path):
     config = {"quant_mode": "dynamic"}
     p = create_pass_from_dict(OnnxQuantization, config, disable_search=True)
 
-    if version.parse(OrtVersion) >= version.parse("1.17.0"):
-        # there is a bug in ort quantizer after version 1.17.0
+    ort_version = version.parse(OrtVersion)
+    if ort_version.major == 1 and ort_version.minor == 17:
+        # there is a bug in ort quantizer in versions 1.17.x
         with pytest.raises(TypeError, match="missing 1 required positional argument: 'initial_type'"):
             out = p.run(input_model, None, tmp_path)
     else:
