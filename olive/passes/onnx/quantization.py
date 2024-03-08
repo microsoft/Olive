@@ -333,8 +333,11 @@ class OnnxQuantization(Pass):
                 config["dataloader_func"] or config["data_config"]
             ), "dataloader_func or data_config is required for static quantization."
             # whether to prepare qnn config
+            # we do the version check here and not in `_validate_search_point` since search point validation
+            # is done by the engine. Unless the host is local system, the ort version of the host is
+            # not known by the engine when the search point is validated.
             if config["prepare_qnn_config"] and version.parse(OrtVersion) < version.parse("1.17.0"):
-                raise OlivePassError("prepare_qnn_config is only supported for onnxruntime-qnn>=1.17.0")
+                raise OlivePassError("prepare_qnn_config is only supported by onnxruntime>=1.17.0")
 
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
