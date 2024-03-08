@@ -4,18 +4,18 @@
 # --------------------------------------------------------------------------
 from olive.systems.utils.arg_parser import get_common_args
 from olive.systems.utils.misc import (
+    create_managed_system,
+    create_managed_system_with_cache,
     create_new_environ,
-    create_new_system,
-    create_new_system_with_cache,
     get_package_name_from_ep,
     run_available_providers_runner,
 )
 
 __all__ = [
-    "get_common_args",
+    "create_managed_system",
+    "create_managed_system_with_cache",
     "create_new_environ",
-    "create_new_system",
-    "create_new_system_with_cache",
+    "get_common_args",
     "get_package_name_from_ep",
     "run_available_providers_runner",
 ]

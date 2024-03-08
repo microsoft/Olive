@@ -21,6 +21,7 @@ from olive.hardware import Device
 from olive.model import ModelConfig
 from olive.systems.common import AcceleratorConfig, LocalDockerConfig, SystemType
 from olive.systems.olive_system import OliveSystem
+from olive.systems.system_config import DockerTargetUserConfig
 
 if TYPE_CHECKING:
     from olive.hardware.accelerator import AcceleratorSpec
@@ -39,16 +40,12 @@ class DockerSystem(OliveSystem):
         local_docker_config: Union[Dict[str, Any], LocalDockerConfig],
         accelerators: List[AcceleratorConfig] = None,
         is_dev: bool = False,
-        olive_managed_env: bool = False,
         hf_token: bool = None,
         requirements_file: Optional[Union[Path, str]] = None,
-        **kwargs,  # used to hold the rest of the arguments which is not used by dockersystem
+        **kwargs,  # used to hold the rest of the arguments not used by dockersystem.
     ):
-        super().__init__(
-            accelerators=accelerators,
-            olive_managed_env=olive_managed_env,
-            hf_token=hf_token,
-        )
+        super().__init__(accelerators=accelerators, hf_token=hf_token)
+
         logger.info("Initializing Docker System...")
         self.is_dev = is_dev
         self.docker_client = docker.from_env()
@@ -58,6 +55,8 @@ class DockerSystem(OliveSystem):
         local_docker_config = validate_config(local_docker_config, LocalDockerConfig)
         if not local_docker_config.build_context_path and not local_docker_config.dockerfile and not requirements_file:
             raise ValueError("build_context_path, dockerfile and requirements_file cannot be None at the same time.")
+
+        self.config = DockerTargetUserConfig(**locals(), **kwargs)
 
         self.run_params = local_docker_config.run_params
         try:

@@ -24,7 +24,7 @@ from olive.strategy.search_strategy import SearchStrategy
 from olive.systems.common import SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import LocalTargetUserConfig, SystemConfig
-from olive.systems.utils import create_new_system_with_cache
+from olive.systems.utils import create_managed_system_with_cache
 
 if TYPE_CHECKING:
     from olive.engine.packaging.packaging_config import PackagingConfig
@@ -269,7 +269,7 @@ class Engine:
 
         for accelerator_spec in accelerator_specs:
             logger.info("Running Olive on accelerator: %s", accelerator_spec)
-            with self.create_managed_environment(accelerator_spec):
+            with self._create_system(accelerator_spec):
                 run_result = self.run_accelerator(
                     input_model_config,
                     data_root,
@@ -1058,14 +1058,14 @@ class Engine:
         return f"{output_name}_{accelerator_spec}" if output_name else str(accelerator_spec)
 
     @contextmanager
-    def create_managed_environment(self, accelerator_spec):
+    def _create_system(self, accelerator_spec):
         def create_system(config: "SystemConfig", accelerator_spec):
             assert config, "System config is not provided"
             if config.olive_managed_env:
                 logger.debug(
                     "Creating olive_managed_env %s with EP %s", config.type, accelerator_spec.execution_provider
                 )
-                return create_new_system_with_cache(config, accelerator_spec)
+                return create_managed_system_with_cache(config, accelerator_spec)
             else:
                 logger.debug("create native OliveSystem %s", config.type)
                 return config.create_system()
@@ -1084,4 +1084,4 @@ class Engine:
             self.host.remove()
             self.host = None
 
-        create_new_system_with_cache.cache_clear()
+        create_managed_system_with_cache.cache_clear()

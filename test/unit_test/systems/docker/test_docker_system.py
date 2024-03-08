@@ -18,7 +18,7 @@ from olive.passes.onnx.perf_tuning import OrtPerfTuning
 from olive.systems.common import LocalDockerConfig
 from olive.systems.docker.docker_system import DockerSystem
 from olive.systems.system_config import DockerTargetUserConfig, SystemConfig
-from olive.systems.utils import create_new_system
+from olive.systems.utils import create_managed_system
 
 # pylint: disable=attribute-defined-outside-init,protected-access
 
@@ -314,5 +314,5 @@ class TestDockerSystem:
                 is_dev=True,
             ),
         )
-        target = create_new_system(system_config, DEFAULT_CPU_ACCELERATOR)
-        assert target.olive_managed_env
+        target = create_managed_system(system_config, DEFAULT_CPU_ACCELERATOR)
+        assert target.config.olive_managed_env

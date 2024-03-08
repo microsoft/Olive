@@ -25,15 +25,14 @@ class OliveSystem(ABC):
     def __init__(
         self,
         accelerators: Union[List[AcceleratorConfig], List[Dict[str, Any]]] = None,
-        olive_managed_env: bool = False,
         hf_token: bool = None,
     ):
+        # the self._accelerators is not used by now, but it is kept for future use.
         if accelerators:
-            self.accelerators = [validate_config(accelerator, AcceleratorConfig) for accelerator in accelerators]
+            self._accelerators = [validate_config(accelerator, AcceleratorConfig) for accelerator in accelerators]
         else:
-            self.accelerators = None
+            self._accelerators = None
 
-        self.olive_managed_env = olive_managed_env
         self.hf_token = hf_token
 
     @abstractmethod

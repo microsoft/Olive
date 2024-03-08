@@ -18,6 +18,7 @@ from olive.systems.common import SystemType
 
 if TYPE_CHECKING:
     from olive.hardware import AcceleratorSpec
+    from olive.systems.system_config import SystemConfig
 
 logger = logging.getLogger(__name__)
 
@@ -28,12 +29,14 @@ def get_package_name_from_ep(execution_provider: str) -> str:
 
 
 @lru_cache(maxsize=8)
-def create_new_system_with_cache(system_config, accelerator):
-    return create_new_system(system_config, accelerator)
+def create_managed_system_with_cache(system_config, accelerator):
+    return create_managed_system(system_config, accelerator)
 
 
-def create_new_system(system_config, accelerator: "AcceleratorSpec"):
+def create_managed_system(system_config: "SystemConfig", accelerator: "AcceleratorSpec"):
     # pylint: disable=consider-using-with
+    assert system_config.olive_managed_env, "system_config.olive_managed_env must be True"
+
     accelerator_cfg = [
         {"device": accelerator.accelerator_type, "execution_providers": [accelerator.execution_provider]}
     ]

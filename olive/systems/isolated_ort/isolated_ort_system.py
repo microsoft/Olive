@@ -46,13 +46,8 @@ class IsolatedORTSystem(OliveSystem):
         if python_environment_path is None:
             raise ValueError("python_environment_path is required for PythonEnvironmentSystem.")
 
-        super().__init__(accelerators=accelerators, olive_managed_env=False, hf_token=hf_token)
-        self.config = IsolatedORTTargetUserConfig(
-            python_environment_path=python_environment_path,
-            environment_variables=environment_variables,
-            prepend_to_path=prepend_to_path,
-            accelerators=accelerators,
-        )
+        super().__init__(accelerators=accelerators, hf_token=hf_token)
+        self.config = IsolatedORTTargetUserConfig(**locals())
         self.environ = create_new_environ(
             python_environment_path=self.config.python_environment_path,
             environment_variables=self.config.environment_variables,
