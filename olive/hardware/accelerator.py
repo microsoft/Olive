@@ -8,7 +8,6 @@ from enum import Enum
 from typing import TYPE_CHECKING, List, Union
 
 from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
-from olive.systems.common import AcceleratorConfig
 
 if TYPE_CHECKING:
     from olive.systems.system_config import SystemConfig
@@ -168,8 +167,9 @@ def create_accelerators(system_config: "SystemConfig", skip_supported_eps_check:
                         f"Cannot infer the accelerators from the execution providers: {system_supported_eps}"
                     )
 
+                # here the pydantic validate_assignment will initialize the accelerator instances
                 system_config.config.accelerators = [
-                    AcceleratorConfig(device=inferred_accelerators[0], execution_providers=system_supported_eps)
+                    {"device": inferred_accelerators[0], "execution_providers": system_supported_eps}
                 ]
             else:
                 for accelerator in system_config.config.accelerators:

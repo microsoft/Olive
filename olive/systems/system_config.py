@@ -26,6 +26,9 @@ class TargetUserConfig(ConfigBase):
 
     __hash__ = object.__hash__
 
+    class Config:
+        validate_assignment = True
+
 
 class LocalTargetUserConfig(TargetUserConfig):
     pass
