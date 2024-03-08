@@ -53,8 +53,21 @@ class TestPyTorchMLflowModel(unittest.TestCase):
         # model_attributes will be delayed loaded until pass run
         assert olive_model.model_attributes == transformers.AutoConfig.from_pretrained(self.architecture).to_dict()
 
-    def test_load_model(self):
-        olive_model = PyTorchModelHandler(model_path=self.model_path, model_file_format="PyTorch.MLflow").load_model()
+    @pytest.mark.parametrize(
+        "hf_config",
+        [
+            {
+                "task": "text-classification",
+                "model_name": "Intel/bert-base-uncased-mrpc",
+                "from_pretrained_args": {"trust_remote_code": True},
+            },
+            None,
+        ],
+    )
+    def test_load_model(self, hf_config):
+        olive_model = PyTorchModelHandler(
+            model_path=self.model_path, model_file_format="PyTorch.MLflow", hf_config=hf_config
+        ).load_model()
         mlflow_model = mlflow.pyfunc.load_model(self.model_path)
 
         sample_input = {"inputs": {"input_string": self.input_text}}
