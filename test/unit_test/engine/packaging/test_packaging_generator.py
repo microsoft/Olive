@@ -28,6 +28,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.passes.onnx.conversion import OnnxConversion
 
 
+# TODO(team): no engine API envolved, use generate_output_artifacts API directly
 @patch("onnx.external_data_helper.sys.getsizeof")
 @pytest.mark.parametrize(
     ("save_as_external_data", "mocked_size_value"),
@@ -97,6 +98,7 @@ def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, m
     shutil.rmtree(output_dir)
 
 
+# TODO(team): no engine API envolved, use generate_output_artifacts API directly
 def test_generate_zipfile_artifacts_no_search(tmp_path):
     # setup
     options = {
@@ -137,6 +139,7 @@ def test_generate_zipfile_artifacts_no_search(tmp_path):
     shutil.rmtree(output_dir)
 
 
+# TODO(team): no engine API envolved, use generate_output_artifacts API directly
 def test_generate_zipfile_artifacts_mlflow(tmp_path):
     # setup
     options = {
