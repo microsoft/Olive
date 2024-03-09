@@ -97,7 +97,7 @@ def _generate_azureml_resources(
                     inference_config = pf_footprint.get_model_inference_config(model_id) or {}
 
                     saved_model_path = _save_model(
-                        pf_footprint, model_id, Path(tempdir.name), inference_config, export_in_mlflow_format
+                        pf_footprint, model_id, tempdir, inference_config, export_in_mlflow_format
                     )
 
                     if packaging_type == PackagingType.AzureMLModels:
