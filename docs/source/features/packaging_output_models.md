@@ -1,7 +1,7 @@
 # Packaging Olive artifacts
 
 ## What is Olive Packaging
-Olive will output multiple candidate models based on metrics priorities. It also can package output artifacts when the user required. Olive packaging can be used in different scenarios. There is only one packaging type: `Zipfile`.
+Olive will output multiple candidate models based on metrics priorities. It also can package output artifacts when the user required. Olive packaging can be used in different scenarios. There are 3 packaging types: `Zipfile`, `AzureMLModels` and `AzureMLData`.
 
 
 ### Zipfile
@@ -46,6 +46,30 @@ The inference config file is a json file including `execution_provider` and `ses
 #### SampleCode
 Olive will only provide sample codes for ONNX model. Sample code supports 3 different programming languages: `C++`, `C#` and `Python`. And a code snippet introducing how to use Olive output artifacts to inference candidate model with recommended inference configurations.
 
+### AzureMLModels
+AzureMLModels packaging will register the output models to your Azure Machine Learning workspace. The asset name will be set as `<packaging_config_name>_<accelerator_spec>_<model_rank>`. For instance, if the output model is ONNX model and the packaging config is:
+
+```
+{
+    "type": "AzureMLModels",
+    "name": "olive_output_model"
+}
+```
+
+and for CPU, the best execution provider is CPUExecutionProvider, so the first ranked model name registered on AML will be `olive_output_model_cpu-cpu_1`.
+
+### AzureMLData
+AzureMLData packaging will upload the output models to your Azure Machine Learning workspace as Data assets. The asset name will be set as `<packaging_config_name>_<accelerator_spec>_<model_rank>`. For instance, if the output model is ONNX model and the packaging config is:
+
+```
+{
+    "type": "AzureMLData",
+    "name": "olive_output_model"
+}
+```
+
+and for CPU, the best execution provider is CPUExecutionProvider, so the first ranked model Data name on AML will be `olive_output_model_cpu-cpu_1`.
+
 
 ## How to package Olive artifacts
 Olive packaging configuration is configured in `PackagingConfig` in Engine configuration. If not specified, Olive will not package artifacts.
@@ -54,9 +78,28 @@ Olive packaging configuration is configured in `PackagingConfig` in Engine confi
     * `type [PackagingType]`:
       Olive packaging type. Olive will package different artifacts based on `type`.
     * `name [str]`:
-      For `PackagingType.Zipfile` type, Olive will generate a ZIP file with `name` prefix: `<name>.zip`. By default, the output artifacts will be named as `OutputModels.zip`.
-    * `export_in_mlflow_format [bool]`:
-      Export model in mlflow format. This is `false` by default.
+      For `PackagingType.Zipfile` type, Olive will generate a ZIP file with `name` prefix: `<name>.zip`.
+      For `PackagingType.AzureMLModels` and `PackagingType.AzureMLData`, Olive will use this `name` for Azure ML resource.
+      The default value is `OutputModels`.
+    * `config [dict]`:
+      The packaging config.
+      * `Zipfile`
+        * `export_in_mlflow_format [bool]`:
+          Export model in mlflow format. This is `false` by default.
+      * `AzureMLModels`
+        * `export_in_mlflow_format [bool]`:
+          Export model in mlflow format. This is `false` by default.
+        * `version [int | str]`：
+          The version for this model registration. This is `None` by default.
+        * `description [str]`
+          The description for this model registration. This is `None` by default.
+      * `AzureMLData`
+        * `export_in_mlflow_format [bool]`:
+          Export model in mlflow format. This is `false` by default.
+        * `version [int | str]`：
+          The version for this data asset.
+        * `description [str]`
+          The description for this data asset. This is `None` by default.
 
 You can add `PackagingConfig` to Engine configurations. e.g.:
 

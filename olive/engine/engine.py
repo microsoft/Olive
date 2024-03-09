@@ -226,7 +226,7 @@ class Engine:
         input_model_config: ModelConfig,
         accelerator_specs: List["AcceleratorSpec"],
         data_root: str = None,
-        packaging_config: Optional["PackagingConfig"] = None,
+        packaging_config: Optional[Union["PackagingConfig", List["PackagingConfig"]]] = None,
         output_dir: str = None,
         output_name: str = None,
         evaluate_input_model: bool = True,
@@ -297,6 +297,7 @@ class Engine:
                 self.footprints,
                 outputs,
                 output_dir,
+                self.azureml_client_config,
             )
         else:
             logger.info("No packaging config provided, skip packaging artifacts")
