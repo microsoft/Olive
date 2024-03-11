@@ -279,6 +279,7 @@ class IncQuantization(Pass):
     """Quantize ONNX model with Intel® Neural Compressor."""
 
     _requires_user_script = True
+    run_on_target = True
 
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:

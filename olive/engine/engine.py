@@ -22,7 +22,6 @@ from olive.exception import EXCEPTIONS_TO_RAISE, OlivePassError
 from olive.model import ModelConfig
 from olive.strategy.search_strategy import SearchStrategy
 from olive.systems.common import SystemType
-from olive.systems.local import LocalSystem
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import LocalTargetUserConfig, SystemConfig
 from olive.systems.utils import create_new_system_with_cache
@@ -196,7 +195,7 @@ class Engine:
                 if name not in self.passes:
                     break
 
-        if self.no_search and len(p.search_space()) > 0:
+        if self.no_search and len(p.search_space) > 0:
             raise ValueError(f"Search strategy is None but pass {name} has search space")
         if output_name and not self.no_search:
             # In no-search mode, if output_name is provided, the output model of the pass will be saved to
@@ -395,7 +394,7 @@ class Engine:
             pass_search_spaces = []
             for pass_name in pass_flow:
                 p: "Pass" = self.passes[pass_name]["pass"]
-                pass_search_spaces.append((pass_name, p.search_space()))
+                pass_search_spaces.append((pass_name, p.search_space))
             self.pass_flows_search_spaces.append(pass_search_spaces)
 
     def reset_passes(self):
@@ -415,7 +414,7 @@ class Engine:
     ):
         """Run all the registered Olive pass flows in no-search mode."""
         for pass_item in self.passes.values():
-            if len(pass_item["pass"].search_space()) > 0:
+            if len(pass_item["pass"].search_space) > 0:
                 pass_name = pass_item["name"]
                 raise ValueError(f"Pass {pass_name} has search space but search strategy is None")
 
@@ -921,16 +920,13 @@ class Engine:
 
         run_start_time = datetime.now().timestamp()
         try:
-            from olive.passes.onnx.perf_tuning import OrtPerfTuning
-
-            # For perf-tuning, we need the model evaluation happens in target even if it is a pass.
-            # TODO(myguo): consider more better way to handle System doesn't support run pass like DockerSystem
-            if (
-                isinstance(p, OrtPerfTuning)
-                and isinstance(host, LocalSystem)
-                and not isinstance(self.target, LocalSystem)
-            ):
-                p.set_target(self.target)
+            if p.run_on_target:
+                if self.target.system_type == SystemType.IsolatedORT:
+                    logger.warning(
+                        "Cannot run pass %s on IsolatedORT target, will use the host to run the pass.", pass_id
+                    )
+                else:
+                    host = self.target
 
             output_model_config = host.run_pass(p, input_model_config, data_root, output_model_path, pass_search_point)
         except OlivePassError:

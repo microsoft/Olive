@@ -15,7 +15,7 @@ def setup():
     cur_dir = Path(__file__).resolve().parent.parent
     example_dir = str(cur_dir / "stable_diffusion")
     os.chdir(example_dir)
-    sys.path.append(example_dir)
+    sys.path.insert(0, example_dir)
 
     yield
     os.chdir(cur_dir)

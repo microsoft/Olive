@@ -33,7 +33,7 @@ def dummpy_dataloader_func(data_dir, batch_size, *args, **kwargs):
 
 
 @pytest.mark.parametrize("calibrate_method", ["MinMax", "Entropy", "Percentile"])
-def test_quantization(calibrate_method, tmp_path):
+def test_static_quantization(calibrate_method, tmp_path):
     input_model = get_onnx_model()
     config = {
         "quant_mode": "static",
@@ -50,6 +50,21 @@ def test_quantization(calibrate_method, tmp_path):
     p = create_pass_from_dict(OnnxQuantization, config, disable_search=True)
     out = p.run(input_model, None, tmp_path)
     assert out is not None
+
+
+def test_dynamic_quantization(tmp_path):
+    input_model = get_onnx_model()
+    config = {"quant_mode": "dynamic"}
+    p = create_pass_from_dict(OnnxQuantization, config, disable_search=True)
+
+    ort_version = version.parse(OrtVersion)
+    if ort_version.major == 1 and ort_version.minor == 17:
+        # there is a bug in ort quantizer in versions 1.17.x
+        with pytest.raises(TypeError, match="missing 1 required positional argument: 'initial_type'"):
+            out = p.run(input_model, None, tmp_path)
+    else:
+        out = p.run(input_model, None, tmp_path)
+        assert out is not None
 
 
 @pytest.mark.skipif(
