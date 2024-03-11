@@ -149,7 +149,7 @@
 <span class="kn">from</span> <span class="nn">olive.model.config.registry</span> <span class="kn">import</span> <span class="n">model_handler_registry</span>
 <span class="kn">from</span> <span class="nn">olive.model.handler.base</span> <span class="kn">import</span> <span class="n">OliveModelHandler</span>
 <span class="kn">from</span> <span class="nn">olive.model.handler.mixin</span> <span class="kn">import</span> <span class="n">DummyInputsMixin</span><span class="p">,</span> <span class="n">HfConfigMixin</span>
-<span class="kn">from</span> <span class="nn">olive.model.utils.hf_utils</span> <span class="kn">import</span> <span class="n">huggingface_model_loader</span>
+<span class="kn">from</span> <span class="nn">olive.model.utils.hf_utils</span> <span class="kn">import</span> <span class="n">load_hf_model_from_model_class</span>
 <span class="kn">from</span> <span class="nn">olive.resource_path</span> <span class="kn">import</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span><span class="p">,</span> <span class="n">ResourceType</span><span class="p">,</span> <span class="n">create_resource_path</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
@@ -345,9 +345,8 @@
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                         <span class="s2">&quot;Unsupported MLFlow model flavor. Currently only support hftransformersv2/hftransformers.&quot;</span>
                     <span class="p">)</span>
-
-            <span class="n">model_loader</span> <span class="o">=</span> <span class="n">huggingface_model_loader</span><span class="p">(</span><span class="n">hf_pretrained_class</span><span class="p">)</span>
-            <span class="n">loaded_model</span> <span class="o">=</span> <span class="n">model_loader</span><span class="p">(</span><span class="n">tmp_dir</span><span class="p">)</span>
+            <span class="n">loading_args</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">get_loading_args_from_pretrained</span><span class="p">()</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span> <span class="k">else</span> <span class="p">{}</span>
+            <span class="n">loaded_model</span> <span class="o">=</span> <span class="n">load_hf_model_from_model_class</span><span class="p">(</span><span class="n">hf_pretrained_class</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">,</span> <span class="o">**</span><span class="n">loading_args</span><span class="p">)</span>
             <span class="n">loaded_model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
             <span class="k">return</span> <span class="n">loaded_model</span>
 
