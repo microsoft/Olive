@@ -41,13 +41,13 @@ class GptqQuantizer(Pass):
                 default_value="model.layers",
                 description="Block name to quantize. Default value is model.layers.",
             ),
-            "outside_layer_modules ": PassConfigParam(
+            "outside_layer_modules": PassConfigParam(
                 type_=List[str],
                 default_value=None,
                 description="Names of other nn modules that in the same level as the transformer layer block. "
                 "Default value is None.",
             ),
-            "inside_layer_modules  ": PassConfigParam(
+            "inside_layer_modules": PassConfigParam(
                 type_=List[List[str]],
                 default_value=None,
                 description="Names of linear layers in transformer layer module. Default value is None.",
