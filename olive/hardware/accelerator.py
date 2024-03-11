@@ -171,6 +171,10 @@ def create_accelerators(system_config: "SystemConfig", skip_supported_eps_check:
                 system_config.config.accelerators = [
                     {"device": inferred_accelerators[0], "execution_providers": system_supported_eps}
                 ]
+                logger.info(
+                    "There is no any accelerator specified. Inferred accelerators: %s",
+                    system_config.config.accelerators,
+                )
             else:
                 for accelerator in system_config.config.accelerators:
                     if not accelerator.execution_providers:
@@ -187,6 +191,12 @@ def create_accelerators(system_config: "SystemConfig", skip_supported_eps_check:
                                 "Please raise issue in Olive site since it might be a bug. ",
                                 ",".join(filtered_eps),
                             )
+
+                        logger.info(
+                            "The accelerator execution providers is not specified for %s. Use the inferred ones. %s",
+                            accelerator.device,
+                            accelerator.execution_providers,
+                        )
         else:
             # for AzureML and Docker System
             if not system_config.config.accelerators:
