@@ -27,11 +27,11 @@ class OliveSystem(ABC):
         accelerators: Union[List[AcceleratorConfig], List[Dict[str, Any]]] = None,
         hf_token: bool = None,
     ):
-        # the self._accelerators is not used by now, but it is kept for future use.
         if accelerators:
-            self._accelerators = [validate_config(accelerator, AcceleratorConfig) for accelerator in accelerators]
-        else:
-            self._accelerators = None
+            assert all(
+                isinstance(validate_config(accelerator, AcceleratorConfig), AcceleratorConfig)
+                for accelerator in accelerators
+            )
 
         self.hf_token = hf_token
 

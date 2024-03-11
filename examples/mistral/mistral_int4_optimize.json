@@ -8,6 +8,21 @@
             }
         }
     },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "device": "cpu",
+                        "execution_providers": [
+                            "CPUExecutionProvider"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
     "evaluators": {
         "common_evaluator": {
             "metrics": [
