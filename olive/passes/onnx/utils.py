@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-import tempfile
 from collections import defaultdict
 from enum import Enum
 from pathlib import Path
@@ -11,7 +10,6 @@ from typing import TYPE_CHECKING, Dict, List, Set, Union
 
 import onnx
 from onnx import AttributeProto, GraphProto, NodeProto, TensorProto, ValueInfoProto, numpy_helper
-from onnx.shape_inference import infer_shapes_path
 
 from olive.common.config_utils import ConfigBase
 from olive.common.pydantic_v1 import Field
@@ -71,8 +69,11 @@ class OnnxDAG:
     """ONNX model as a directed acyclic graph (DAG)."""
 
     def __init__(self, model: "ModelProto"):
-        self.model = model
-        self.graphs = self.get_all_graphs(model)
+        from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
+
+        # onnruntime's symbolic shape inference is better
+        self.model = SymbolicShapeInference.infer_shapes(model, auto_merge=True)
+        self.graphs = self.get_all_graphs(self.model)
         self.nodes: Dict[str, OnnxNode] = {}
         self.ios: Dict[str, OnnxIO] = {}
         self.connections = defaultdict(list)
@@ -161,6 +162,9 @@ class OnnxDAG:
                 scalar_value=scalar_value,
             )
         for vi in graph.value_info:
+            if vi.name in ios:
+                # outputs are already processed
+                continue
             ios[vi.name] = OnnxIO(
                 proto=vi,
                 graph_idx=graph_idx,
@@ -457,24 +461,4 @@ class OnnxDAG:
     @classmethod
     def from_model_path(cls, model_path: Union[str, Path]) -> "OnnxDAG":
         """Load an ONNX model with shape inference and create an DAG."""
-        with tempfile.NamedTemporaryFile(dir=Path(model_path).parent) as tmpfile:
-            shape_infer_model_path = tmpfile.name
-            # infer_shapes_path can be used for model >2GB, and infer_shapes cannot.
-            infer_shapes_path(model_path, shape_infer_model_path)
-            model = onnx.load(shape_infer_model_path)
-
-        return cls(model)
-
-    @classmethod
-    def from_model(cls, model: "ModelProto", do_shape_infer: bool = True) -> "OnnxDAG":
-        """Create a DAG for the model."""
-        if do_shape_infer:
-            # shape infer needs file path for model >2GB
-            # so always save the model to a temporary file to avoid memory issues
-            with tempfile.TemporaryDirectory() as tmpdir:
-                model_path = Path(tmpdir) / "model.onnx"
-                onnx.save(model, model_path, save_as_external_data=True, location="model.onnx.data")
-
-                return cls.from_model_path(model_path)
-
-        return cls(model)
+        return cls(onnx.load(model_path))

@@ -96,8 +96,9 @@ class FusionBase(ABC):
     def is_broadcastable(shape1: SHAPE_TYPE, shape2: SHAPE_TYPE, multidirectional: bool = False) -> bool:
         # assume the symbolic dims in same index are the same
         max_len = max(len(shape1), len(shape2))
-        shape1 = KernelArgs.normalize_symbolic_dims(shape1, max_len)
-        shape2 = KernelArgs.normalize_symbolic_dims(shape2, max_len)
+        # remove normalize symbolic dims since the ort shape inference has correct symbolic dims
+        # shape1 = KernelArgs.normalize_symbolic_dims(shape1, max_len)
+        # shape2 = KernelArgs.normalize_symbolic_dims(shape2, max_len)
         if multidirectional:
             shape1 = [1] * (max_len - len(shape1)) + shape1
             shape2 = [1] * (max_len - len(shape2)) + shape2
