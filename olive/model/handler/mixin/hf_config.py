@@ -56,7 +56,7 @@ class HfConfigMixin:
         else:
             return None
 
-    def get_hf_components(self, rank: Optional[int] = None) -> Generator[Tuple[str, "PyTorchModelHandler"]]:
+    def get_hf_components(self, rank: Optional[int] = None) -> Generator[Tuple[str, "PyTorchModelHandler"], None, None]:
         if self.hf_config and self.hf_config.components:
             for component in self.hf_config.components:
                 yield component.name, self.get_component_model(component, rank)
