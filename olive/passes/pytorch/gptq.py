@@ -3,16 +3,15 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import Any, Callable, Dict, Union
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Union
 
 import torch
-from packaging import version
 
 from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import PyTorchModelHandler
-from olive.model.handler.onnx import ONNXModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
 
@@ -37,15 +36,21 @@ class GptqQuantizer(Pass):
                 default_value=4,
                 description="quantization bits. Default value is 4",
             ),
-            "dataset": PassConfigParam(
-                type_=str,
-                default_value="wikitext2",
-                description="Calibration dataset. Default value is wikitext2",
-            ),
-            "block_name_to_quantize": PassConfigParam(
+            "layers_block_name": PassConfigParam(
                 type_=str,
                 default_value="model.layers",
                 description="Block name to quantize. Default value is model.layers.",
+            ),
+            "outside_layer_modules ": PassConfigParam(
+                type_=List[str],
+                default_value=None,
+                description="Names of other nn modules that in the same level as the transformer layer block. "
+                "Default value is None.",
+            ),
+            "inside_layer_modules  ": PassConfigParam(
+                type_=List[List[str]],
+                default_value=None,
+                description="Names of linear layers in transformer layer module. Default value is None.",
             ),
             "group_size": PassConfigParam(
                 type_=int,
@@ -87,11 +92,6 @@ class GptqQuantizer(Pass):
                 default_value=False,
                 description="Symmetric quantization. Default value is False.",
             ),
-            "export_optimization": PassConfigParam(
-                type_=str,
-                default_value=None,
-                description="Export optimization level. Default value is None.",
-            ),
             "data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
                 default_value=None,
@@ -119,15 +119,6 @@ class GptqQuantizer(Pass):
     def validate_search_point(
         self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
     ) -> bool:
-        from onnxruntime import __version__ as ort_version
-        from optimum.version import __version__ as optimum_version
-
-        if version.parse(optimum_version) < version.parse("1.17.0"):
-            logger.info("Please use optimum>=1.17.0 for gptq quantization")
-            return False
-        if version.parse(ort_version) < version.parse("1.17.0"):
-            logger.info("Please use onnxruntime-gpu>=1.17.0 for gptq quantization")
-            return False
         if self.accelerator_spec.accelerator_type != Device.GPU:
             logger.info("Please use GPU to run gptq quantization.")
             return False
@@ -137,14 +128,12 @@ class GptqQuantizer(Pass):
     @torch.no_grad()
     def _run_for_config(
         self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> ONNXModelHandler:
-        from optimum.exporters.onnx import onnx_export_from_model
-        from optimum.gptq import GPTQQuantizer
-        from transformers import AutoTokenizer
+    ) -> PyTorchModelHandler:
+        from auto_gptq import BaseQuantizeConfig
+        from auto_gptq.modeling import BaseGPTQForCausalLM
+        from auto_gptq.modeling.auto import GPTQ_CAUSAL_LM_MODEL_MAP
 
-        from olive.passes.onnx.gptq_utils import QuantLinearORT
-
-        tokenizer = AutoTokenizer.from_pretrained(model.hf_config.model_name, use_fast=False)
+        from olive.passes.pytorch.gptq_utils import QuantLinearORT
 
         dataset = None
         if config["dataloader_func"]:
@@ -156,16 +145,21 @@ class GptqQuantizer(Pass):
             data_config = validate_config(config["data_config"], DataConfig)
             dataloader = data_config.to_data_container().create_dataloader(data_root)
             dataset = [data[0] for data in dataloader]
-        else:
-            dataset = config["dataset"]
-            if not dataset:
-                raise ValueError("Please provide dataloader_func, data_config or dataset for gptq quantization.")
+
+        if (
+            not dataset
+            or not isinstance(dataset, list)
+            or not isinstance(dataset[0], dict)
+            or ("input_ids" not in dataset[0] or "attention_mask" not in dataset[0])
+        ):
+            raise ValueError(
+                "Provided dataset is invalid. The returned datasets is a list of tokenized data "
+                "(e.g. [{ 'input_ids': [ 1, 100, 15, ... ],'attention_mask': [ 1, 1, 1, ... ]},...])"
+            )
 
         pytorch_model = model.load_model()
-        quantizer = GPTQQuantizer(
+        quantize_config = BaseQuantizeConfig(
             bits=config["bits"],
-            dataset=dataset,
-            block_name_to_quantize=config["block_name_to_quantize"],
             group_size=config["group_size"],
             damp_percent=config["damp_percent"],
             static_groups=config["static_groups"],
@@ -177,37 +171,49 @@ class GptqQuantizer(Pass):
         def get_onnx_quant_linear(*args, **kwargs):
             return QuantLinearORT
 
-        import optimum
+        if hasattr(pytorch_model, "config") and pytorch_model.config.model_type in GPTQ_CAUSAL_LM_MODEL_MAP:
+            model_type = pytorch_model.config.model_type
+            model_class = GPTQ_CAUSAL_LM_MODEL_MAP[model_type]
+            quantized_model = model_class(pytorch_model, False, quantize_config)
+        else:
+            quantized_model = BaseGPTQForCausalLM(pytorch_model, False, quantize_config)
+            if not (config["layers_block_name"] and config["outside_layer_modules"] and config["inside_layer_modules"]):
+                raise ValueError(
+                    "Can't get layers_block_name to quantize automatically, "
+                    "please set layers_block_name, outside_layer_modules and inside_layer_modules in config."
+                )
+            quantized_model.layers_block_name = config["layers_block_name"]
+            quantized_model.outside_layer_modules = config["outside_layer_modules"]
+            quantized_model.inside_layer_modules = config["inside_layer_modules"]
 
-        original = optimum.gptq.quantizer.dynamically_import_QuantLinear
+        import auto_gptq
+
+        original = auto_gptq.modeling._utils.dynamically_import_QuantLinear  # pylint: disable=protected-access
         try:
-            # GPTQ Quantization in transformers use optimum under the hood, so we
-            # replace QuantLinear in optimum with QuantLinearORT for quant linear layer packing
-            optimum.gptq.quantizer.dynamically_import_QuantLinear = get_onnx_quant_linear
+            # Replace QuantLinear in autogptq with QuantLinearORT for quant linear layer packing
+            auto_gptq.modeling._utils.dynamically_import_QuantLinear = (  # pylint: disable=protected-access
+                get_onnx_quant_linear
+            )
 
-            # Optimum quantize_model currently only support cuda device. It accepts model on cpu but
+            # Autogpq quantize_model currently only support cuda device. It accepts model on cpu but
             # will move each block(layer) to cuda before quantization and move back to cpu when finished.
-            quantized_model = quantizer.quantize_model(pytorch_model, tokenizer)
+            quantized_model.quantize(dataset)
         finally:
-            optimum.gptq.quantizer.dynamically_import_QuantLinear = original
+            auto_gptq.modeling._utils.dynamically_import_QuantLinear = original  # pylint: disable=protected-access
 
-        # save_pretrained in export will raise error when pass custom dataset, change this to str before save
-        if config["dataloader_func"]:
-            quantized_model.config.quantization_config["dataset"] = "olive_" + str(config["dataloader_func"])
-        elif config["data_config"]:
-            quantized_model.config.quantization_config["dataset"] = "olive_" + config["data_config"]["name"]
-
+        quantized_model = quantized_model.model
         assert self.accelerator_spec.accelerator_type == Device.GPU
-        onnx_export_from_model(
-            model=quantized_model,
-            output=output_model_path,
-            monolith=False,
-            do_validation=True,
-            model_kwargs=None,
-            device="cuda",
-            preprocessors=None,
-            task="text-generation-with-past",
-            optimize=config["export_optimization"],
-        )
 
-        return ONNXModelHandler(model_path=output_model_path, onnx_file_name="model.onnx")
+        output_model_path = Path(output_model_path).with_suffix(".pt")
+        torch.save(quantized_model, output_model_path)
+
+        model_config = model.to_json()["config"]
+        model_config["model_path"] = output_model_path
+        if model.hf_config is not None:
+            hf_config = model.get_hf_model_config()
+            del model_config["hf_config"]
+            model_config["model_attributes"] = hf_config.to_dict()
+
+        return PyTorchModelHandler(
+            **model_config,
+        )

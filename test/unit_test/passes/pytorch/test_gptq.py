@@ -10,7 +10,7 @@ import torch
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model.handler.pytorch import PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx import GptqQuantizer
+from olive.passes.pytorch import GptqQuantizer
 
 
 def get_dummy_dataloader_func():
@@ -27,8 +27,7 @@ def get_dummy_dataloader_func():
     not torch.cuda.is_available(),
     reason="gptq requires GPU.",
 )
-@pytest.mark.parametrize("dataloader_func", [None, get_dummy_dataloader_func])
-def test_gptq_default(tmp_path: Path, dataloader_func):
+def test_gptq_default(tmp_path: Path):
     # setup
     input_model = PyTorchModelHandler(
         hf_config={
@@ -36,7 +35,7 @@ def test_gptq_default(tmp_path: Path, dataloader_func):
             "model_name": "facebook/opt-125m",
         }
     )
-    config = {"block_name_to_quantize": "model.decoder.layers", "dataloader_func": dataloader_func}
+    config = {"dataloader_func": get_dummy_dataloader_func}
 
     p = create_pass_from_dict(
         GptqQuantizer,

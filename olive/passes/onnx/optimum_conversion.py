@@ -48,16 +48,28 @@ class OptimumConversion(Pass):
                 default_value=None,
                 description="Extra arguments to pass to the `optimum.exporters.onnx.main_export` function.",
             ),
+            "custom_model": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Whether the model is a custom model which can not load from transformers directly",
+            ),
         }
 
     def validate_search_point(
         self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
     ) -> bool:
+        from optimum import version as optimum_version
+        from packaging import version
+
         if with_fixed_value:
             search_point = self.config_at_search_point(search_point or {})
 
         if search_point.get("fp16") and search_point.get("device") != "cuda":
             logger.info("OptimumConversion: fp16 is set to True, but device is not set to cuda.")
+            return False
+
+        if search_point.get("custom_model") and version.parse(optimum_version.__version__) < version.parse("1.17.0"):
+            logger.info("Custom model export is only supported in Optimum version 1.17.0 or later.")
             return False
 
         return True
@@ -68,6 +80,9 @@ class OptimumConversion(Pass):
         from optimum import version as optimum_version
         from optimum.exporters.onnx import main_export as export_optimum_model
         from packaging import version
+
+        if config["custom_model"]:
+            from optimum.exporters.onnx import onnx_export_from_model
 
         extra_args = deepcopy(config["extra_args"]) or {}
         extra_args.update(
@@ -96,7 +111,11 @@ class OptimumConversion(Pass):
 
         # export directly to the output path
         # TODO(anyone): consider using a temporary directory to export the model and then save the relevant components
-        export_optimum_model(model.model_path or hf_config.model_name, output_model_path, **extra_args)
+        if not config["custom_model"]:
+            export_optimum_model(model.model_path or hf_config.model_name, output_model_path, **extra_args)
+        else:
+            pytorch_model = model.load_model()
+            onnx_export_from_model(pytorch_model, output_model_path, **extra_args)
 
         # check the exported components
         exported_models = [name.stem for name in Path(output_model_path).iterdir() if name.suffix == ".onnx"]

@@ -55,8 +55,12 @@ def get_merged_sample_with_past_kv_inputs(
     #   past_seq_len >= 1, seq_len = 1, use_gqa = False, use_fp16 = False
     # By using a single function with no default values, we can avoid confusion and are deliberate about the sizes
     # can instead write dummy input functions like 'get_merged_decoder_with_past_dummy_inputs' if needed
-
-    config = model.get_hf_model_config() if model else LlamaConfig.from_pretrained(model_id)
+    if not model:
+        config = LlamaConfig.from_pretrained(model_id)
+    elif model.hf_config is not None:
+        config = model.get_hf_model_config() if model else LlamaConfig.from_pretrained(model_id)
+    else:
+        config = model.model_attributes
     world_size = config.world_size if hasattr(config, "world_size") else 1
     input_ids = torch.randint(low=0, high=config.vocab_size, size=(batch_size, seq_len), dtype=torch.int64)
     attention_mask = torch.ones(batch_size, past_seq_len + seq_len, dtype=torch.int64)

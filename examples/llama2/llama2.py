@@ -21,7 +21,8 @@ SUPPORTED_WORKFLOWS = {
     "gpu": [
         ["conversion_merged", "transformers_optimization_fp16"],
         ["conversion_merged", "transformers_optimization_fp16", "blockwise_quant_int4"],
-        ["gptq_quant_int4"],
+        ["gptq_quant_int4", "optimum_convert", "transformers_optimization_fp32"],
+        ["gptq_quant_int4", "optimum_convert", "transformers_optimization_fp16"],
     ],
 }
 DEVICE_TO_EP = {
