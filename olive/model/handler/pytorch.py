@@ -3,32 +3,29 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-import os
-import tempfile
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Dict, List, Optional, Tuple, Union
 
 import torch
-import yaml
 
 from olive.common.config_utils import serialize_to_json, validate_config
 from olive.common.user_module_loader import UserModuleLoader
-from olive.common.utils import copy_dir
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
 from olive.model.config import HfComponent, HfConfig, IoConfig
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
-from olive.model.handler.mixin import DummyInputsMixin, HfConfigMixin
-from olive.model.utils.hf_utils import huggingface_model_loader
+from olive.model.handler.mixin import DummyInputsMixin, HfConfigMixin, MLFlowTransformerMixin
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, ResourceType, create_resource_path
 
 logger = logging.getLogger(__name__)
 
 
 @model_handler_registry("PyTorchModel")
-class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  # pylint: disable=too-many-ancestors
+class PyTorchModelHandler(
+    OliveModelHandler, HfConfigMixin, DummyInputsMixin, MLFlowTransformerMixin
+):  # pylint: disable=too-many-ancestors
     """PyTorch model handler.
 
     Besides the model loading for PyTorch model, the model handler also provides the following functionalities:
@@ -83,7 +80,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
         self.hf_config = None
         if hf_config:
             self.hf_config = validate_config(hf_config, HfConfig)
-            hf_model_config = self.get_hf_model_config().to_dict()
+            hf_model_config = self._get_hf_config_dict()
             model_attr = self.model_attributes or {}
             hf_model_config.update(model_attr)
             self.model_attributes = hf_model_config
@@ -133,7 +130,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
         elif self.model_file_format == ModelFileFormat.PYTORCH_TORCH_SCRIPT:
             model = torch.jit.load(self.model_path)
         elif self.model_file_format == ModelFileFormat.PYTORCH_MLFLOW_MODEL:
-            model = self._load_mlflow_model()
+            model = self.get_transformer_model_from_mlflow_model()
         elif self.hf_config and (self.hf_config.model_class or self.hf_config.task):
             model = self.load_hf_model(self.model_path)
         elif self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
@@ -187,48 +184,22 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
     ):
         return self.load_model(rank).eval()
 
-    def _load_mlflow_model(self):
-        logger.info("Loading MLFlow model from %s", self.model_path)
-        with tempfile.TemporaryDirectory(prefix="mlflow_tmp") as tmp_dir:
-            copy_dir(os.path.join(self.model_path, "data/model"), tmp_dir, dirs_exist_ok=True)
-            copy_dir(os.path.join(self.model_path, "data/config"), tmp_dir, dirs_exist_ok=True)
-            copy_dir(os.path.join(self.model_path, "data/tokenizer"), tmp_dir, dirs_exist_ok=True)
-
-            with open(os.path.join(self.model_path, "MLmodel")) as fp:
-                mlflow_data = yaml.safe_load(fp)
-                # default flavor is "hftransformersv2" from azureml.evaluate.mlflow>=0.0.8
-                # "hftransformers" from azureml.evaluate.mlflow<0.0.8
-                # TODO(trajep): let user specify flavor name if needed
-                # to support other flavors in mlflow not only hftransformers
-                hf_pretrained_class = None
-                flavors = mlflow_data.get("flavors", {})
-                if not flavors:
-                    raise ValueError(
-                        "Invalid MLFlow model format. Please make sure the input model"
-                        " format is same with the result of mlflow.transformers.save_model,"
-                        " or aml_mlflow.hftransformers.save_model from azureml.evaluate.mlflow"
-                    )
-
-                if "hftransformersv2" in flavors:
-                    hf_pretrained_class = flavors["hftransformersv2"].get("hf_pretrained_class", "AutoModel")
-                elif "hftransformers" in flavors:
-                    hf_pretrained_class = flavors["hftransformers"].get("hf_pretrained_class", "AutoModel")
-                else:
-                    raise ValueError(
-                        "Unsupported MLFlow model flavor. Currently only support hftransformersv2/hftransformers."
-                    )
-
-            model_loader = huggingface_model_loader(hf_pretrained_class)
-            loaded_model = model_loader(tmp_dir)
-            loaded_model.eval()
-            return loaded_model
+    def _get_hf_config_dict(self):
+        if self.model_file_format == ModelFileFormat.PYTORCH_MLFLOW_MODEL:
+            hf_config_dict = self.get_config_from_mlflow_model().to_dict()
+        else:
+            hf_config_dict = self.get_hf_model_config().to_dict()
+        return hf_config_dict
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
         # only keep model_attributes that are not in hf_config
         if self.model_attributes and self.hf_config:
             model_attributes = {}
-            hf_config_dict = self.get_hf_model_config().to_dict()
+            if self.model_file_format == ModelFileFormat.PYTORCH_MLFLOW_MODEL:
+                hf_config_dict = self.get_config_from_mlflow_model().to_dict()
+            else:
+                hf_config_dict = self._get_hf_config_dict()
             for key, value in self.model_attributes.items():
                 if key not in hf_config_dict or hf_config_dict[key] != value:
                     model_attributes[key] = value

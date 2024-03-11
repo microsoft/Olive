@@ -78,7 +78,7 @@ class HfConfigMixin:
     def get_hf_dummy_inputs(self):
         """Get dummy inputs for the model."""
         return get_hf_model_dummy_input(
-            self.model_path or self.hf_config.model_name,
+            self._get_model_path_or_name(),
             self.hf_config.task,
             self.hf_config.feature,
             **self.hf_config.get_loading_args_from_pretrained(),
