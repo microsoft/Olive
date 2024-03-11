@@ -35,16 +35,16 @@ Passes are the building blocks of an Olive workflow. Olive uses multiple Passes 
 The base class for Pass:
 ```python
 class Pass(ABC):
-    def __init__(self, config: Union[Dict[str, Any], BaseModel], disable_search: Optional[bool] = False):
+    def __init__(self, accelerator_spec: AcceleratorSpec, config: Union[Dict[str, Any], BaseModel], disable_search: Optional[bool] = False):
         ...
 
     @classmethod
     def get_config_class(cls, disable_search: Optional[bool] = False) -> Type[BaseModel]:
         ...
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def default_config() -> Dict[str, PassConfigParam]:
+    def default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
 ```
 where `BaseModel` is a [pydantic model](https://docs.pydantic.dev/usage/models/)
 
@@ -59,7 +59,7 @@ Optional parameters can be fixed values or search values which are prescribed us
 
 Searchable parameters have default search values which can be used by assigning the config value as `SEARCHABLE_VALUES`. Optional parameters use the default fixed value, also assignable using `DEFAULT_VALUE`, if not assigned.
 
-During initialization, the pass compares the user provided config and pass config class to create a dictionary for fixed parameters (`_fixed_params`) and search parameters (`_search_space`).
+During initialization, the pass compares the user provided config and pass config class to create a dictionary for fixed parameters (`_fixed_params`) and search parameters (`search_space`).
 
 ### default_config
 Each pass must implement the default_config static method. It returns a dictionary

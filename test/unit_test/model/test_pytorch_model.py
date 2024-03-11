@@ -30,6 +30,9 @@ class TestPyTorchMLflowModel(unittest.TestCase):
         self.task = "text-classification"
         self.architecture = "Intel/bert-base-uncased-mrpc"
         self.original_model = transformers.BertForSequenceClassification.from_pretrained(self.architecture)
+        # note that cannot tokenizer cannot be used before any forked process
+        # otherwise it will disable parallelism to avoid deadlocks which make the
+        # pytest.mark.parametrize unavailable
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.architecture)
         self.input_text = "Today was an amazing day."
         self.hf_conf = {
@@ -52,6 +55,21 @@ class TestPyTorchMLflowModel(unittest.TestCase):
         olive_model = PyTorchModelHandler(hf_config={"task": self.task, "model_name": self.architecture})
         # model_attributes will be delayed loaded until pass run
         assert olive_model.model_attributes == transformers.AutoConfig.from_pretrained(self.architecture).to_dict()
+
+    def test_load_model_with_pretrained_args(self):
+        # as the tokenizer is used in setup function
+        # we cannot use pytest.mark.parametrize as it will be disabled
+        # to avoid deadlocks
+        olive_model = PyTorchModelHandler(
+            model_path=self.model_path,
+            model_file_format="PyTorch.MLflow",
+            hf_config={
+                "task": self.task,
+                "model_name": self.architecture,
+                "from_pretrained_args": {"trust_remote_code": True},
+            },
+        ).load_model()
+        assert olive_model is not None
 
     def test_load_model(self):
         olive_model = PyTorchModelHandler(model_path=self.model_path, model_file_format="PyTorch.MLflow").load_model()
