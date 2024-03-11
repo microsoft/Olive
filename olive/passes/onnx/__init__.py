@@ -51,6 +51,4 @@ __all__ = [
     "OrtTransformersOptimization",
     "QNNPreprocess",
     "VitisAIQuantization",
-    "OptimumConversion",
-    "OptimumMerging",
 ]
