@@ -150,7 +150,6 @@
 <span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span>
 <span class="kn">from</span> <span class="nn">olive.strategy.search_strategy</span> <span class="kn">import</span> <span class="n">SearchStrategy</span>
 <span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">SystemType</span>
-<span class="kn">from</span> <span class="nn">olive.systems.local</span> <span class="kn">import</span> <span class="n">LocalSystem</span>
 <span class="kn">from</span> <span class="nn">olive.systems.olive_system</span> <span class="kn">import</span> <span class="n">OliveSystem</span>
 <span class="kn">from</span> <span class="nn">olive.systems.system_config</span> <span class="kn">import</span> <span class="n">LocalTargetUserConfig</span><span class="p">,</span> <span class="n">SystemConfig</span>
 <span class="kn">from</span> <span class="nn">olive.systems.utils</span> <span class="kn">import</span> <span class="n">create_new_system_with_cache</span>
@@ -1049,16 +1048,13 @@
 
         <span class="n">run_start_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="kn">from</span> <span class="nn">olive.passes.onnx.perf_tuning</span> <span class="kn">import</span> <span class="n">OrtPerfTuning</span>
-
-            <span class="c1"># For perf-tuning, we need the model evaluation happens in target even if it is a pass.</span>
-            <span class="c1"># TODO(myguo): consider more better way to handle System doesn&#39;t support run pass like DockerSystem</span>
-            <span class="k">if</span> <span class="p">(</span>
-                <span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">OrtPerfTuning</span><span class="p">)</span>
-                <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">host</span><span class="p">,</span> <span class="n">LocalSystem</span><span class="p">)</span>
-                <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="p">,</span> <span class="n">LocalSystem</span><span class="p">)</span>
-            <span class="p">):</span>
-                <span class="n">p</span><span class="o">.</span><span class="n">set_target</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">run_on_target</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">system_type</span> <span class="o">==</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">IsolatedORT</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                        <span class="s2">&quot;Cannot run pass </span><span class="si">%s</span><span class="s2"> on IsolatedORT target, will use the host to run the pass.&quot;</span><span class="p">,</span> <span class="n">pass_id</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">host</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span>
 
             <span class="n">output_model_config</span> <span class="o">=</span> <span class="n">host</span><span class="o">.</span><span class="n">run_pass</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">input_model_config</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">,</span> <span class="n">pass_search_point</span><span class="p">)</span>
         <span class="k">except</span> <span class="n">OlivePassError</span><span class="p">:</span>
