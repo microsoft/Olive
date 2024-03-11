@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, Generator, Optional, Tuple
 
 from olive.constants import ModelFileFormat
 from olive.model.utils.hf_utils import (
@@ -56,7 +56,7 @@ class HfConfigMixin:
         else:
             return None
 
-    def get_hf_components(self, rank: Optional[int] = None) -> List[Tuple[str, "PyTorchModelHandler"]]:
+    def get_hf_components(self, rank: Optional[int] = None) -> Generator[Tuple[str, "PyTorchModelHandler"]]:
         if self.hf_config and self.hf_config.components:
             for component in self.hf_config.components:
                 yield component.name, self.get_component_model(component, rank)
