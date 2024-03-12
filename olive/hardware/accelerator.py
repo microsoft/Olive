@@ -61,7 +61,7 @@ DEFAULT_GPU_TRT_ACCELERATOR = AcceleratorSpec(
 class AcceleratorLookup:
     @staticmethod
     def get_managed_supported_execution_providers(device: Device):
-        return DEVICE_TO_EXECUTION_PROVIDERS.get(device)
+        return [*DEVICE_TO_EXECUTION_PROVIDERS.get(device), "CPUExecutionProvider"]
 
     @staticmethod
     def get_execution_providers_for_device(device: Device):
@@ -73,7 +73,7 @@ class AcceleratorLookup:
 
     @staticmethod
     def get_execution_providers_for_device_by_available_providers(device: Device, available_providers):
-        eps_per_device = DEVICE_TO_EXECUTION_PROVIDERS.get(device)
+        eps_per_device = [*DEVICE_TO_EXECUTION_PROVIDERS.get(device), "CPUExecutionProvider"]
         return AcceleratorLookup.get_execution_providers(eps_per_device, available_providers)
 
     @staticmethod
@@ -92,40 +92,59 @@ class AcceleratorLookup:
         return [ep for ep in available_providers if ep in execution_providers]
 
     @staticmethod
-    def infer_accelerators_from_execution_provider(execution_provider: List[str]):
+    def infer_accelerators_from_execution_providers(execution_providers: List[str]):
         """Infer the device from the execution provider name.
 
         If all the execution provider is uniquely mapped to a device, return the device list.
         Otherwise, return None.
+        Please note that the CPUExecutionProvider is skipped for device infer. And only other ORT EPs are considered.
         For example:
             execution_provider = ["CPUExecutionProvider", "CUDAExecutionProvider"]
-            return None (CPUExecutionProvider is mapped to CPU and GPU, Olive cannot infer the device)
+            return ["gpu"]
             execution_provider = ["CUDAExecutionProvider", "TensorrtExecutionProvider"]
             return ["gpu"]
         """
-        if not execution_provider:
+        if not execution_providers:
             return None
 
-        is_unique_inferring = True
-        accelerators = []
-        for idx, ep in enumerate(execution_provider):
-            accelerators.append([])
+        ep_to_accelerator = {}
+        for ep in execution_providers:
+            if ep == "CPUExecutionProvider":
+                # cannot infer device for CPUExecutionProvider since all ORT EP supports CPU
+                continue
+
+            inferered_accelerators = []
             for accelerator, eps in DEVICE_TO_EXECUTION_PROVIDERS.items():
                 if ep in eps:
-                    accelerators[idx].append(accelerator)
-                    if len(accelerators[idx]) > 1:
-                        logger.warning(
-                            "Execution provider %s is mapped to multiple accelerators %s. "
-                            "Olive cannot infer the device which may cause unexpected behavior. "
-                            "Please specify the accelerator in the accelerator configs",
-                            ep,
-                            accelerators[idx],
-                        )
-                        is_unique_inferring = False
+                    inferered_accelerators.append(accelerator)
+            if inferered_accelerators:
+                ep_to_accelerator[ep] = inferered_accelerators
+            else:
+                ep_to_accelerator[ep] = None
 
-        if is_unique_inferring:
-            return list({accelerator[0] for accelerator in accelerators if accelerator})
-        return None
+        mapped_devices = []
+        for ep, inferred_device in ep_to_accelerator.items():
+            if inferred_device is None:
+                logger.warning(
+                    "Execution provider %s is not able to be mapped to any device. "
+                    "Olive cannot infer the device which may cause unexpected behavior. "
+                    "Please specify the accelerator in the accelerator configs",
+                    ep,
+                )
+                return None
+            elif len(inferred_device) > 1:
+                logger.warning(
+                    "Execution provider %s is mapped to multiple devices %s. "
+                    "Olive cannot infer the device which may cause unexpected behavior. "
+                    "Please specify the accelerator in the accelerator configs",
+                    ep,
+                    inferred_device,
+                )
+                return None
+            else:
+                if inferred_device[0] not in mapped_devices:
+                    mapped_devices.append(inferred_device[0])
+        return mapped_devices if mapped_devices else None
 
 
 def create_accelerators(system_config: "SystemConfig", skip_supported_eps_check: bool = True) -> List[AcceleratorSpec]:
@@ -152,19 +171,18 @@ def create_accelerators(system_config: "SystemConfig", skip_supported_eps_check:
             assert system_supported_eps, "No supported execution providers found for the target system."
 
             if not system_config.config.accelerators:
-                eps_exclude_cpus = [ep for ep in system_supported_eps if ep != "CPUExecutionProvider"]
-                if eps_exclude_cpus:
-                    inferred_accelerators = AcceleratorLookup.infer_accelerators_from_execution_provider(
-                        eps_exclude_cpus
+                if system_supported_eps == ["CPUExecutionProvider"]:
+                    inferred_accelerators = ["cpu"]
+                else:
+                    inferred_accelerators = AcceleratorLookup.infer_accelerators_from_execution_providers(
+                        system_supported_eps
                     )
                     assert (
                         inferred_accelerators
-                    ), f"Cannot infer the accelerators from the execution providers {eps_exclude_cpus}."
-                elif "CPUExecutionProvider" in system_supported_eps:
-                    inferred_accelerators = ["cpu"]
-                else:
-                    raise ValueError(
-                        f"Cannot infer the accelerators from the execution providers: {system_supported_eps}"
+                    ), f"Cannot infer the accelerators from the execution providers {system_supported_eps}."
+                    assert len(inferred_accelerators) == 1, (
+                        f"Cannot infer the accelerators from the execution providers {system_supported_eps}. "
+                        f"Multiple accelerators are inferred: {inferred_accelerators}"
                     )
 
                 # here the pydantic validate_assignment will initialize the accelerator instances

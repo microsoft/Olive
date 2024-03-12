@@ -17,17 +17,17 @@ from olive.systems.system_config import SystemConfig
     "execution_providers_test",
     [
         (["CPUExecutionProvider"], None),
-        (["AzureMLExecutionProvider"], []),
+        (["AzureMLExecutionProvider"], None),
+        (["OpenVINOExecutionProvider"], None),
         (["CUDAExecutionProvider"], ["gpu"]),
+        (["CPUExecutionProvider", "CUDAExecutionProvider"], ["gpu"]),
         (["DmlExecutionProvider", "CUDAExecutionProvider"], ["gpu"]),
-        (["QNNExecutionProvider", "CUDAExecutionProvider"], ["gpu", "npu"]),
+        (["QNNExecutionProvider", "CUDAExecutionProvider"], ["npu", "gpu"]),
     ],
 )
 def test_infer_accelerators_from_execution_provider(execution_providers_test):
     execution_providers, expected_accelerators = execution_providers_test
-    actual_rls = AcceleratorLookup.infer_accelerators_from_execution_provider(execution_providers)
-    if actual_rls:
-        actual_rls = sorted(actual_rls)
+    actual_rls = AcceleratorLookup.infer_accelerators_from_execution_providers(execution_providers)
     assert actual_rls == expected_accelerators
 
 
