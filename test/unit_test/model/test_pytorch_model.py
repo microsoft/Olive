@@ -28,7 +28,7 @@ class TestPyTorchMLflowModel(unittest.TestCase):
         self.root_dir = Path(self.tempdir)
         self.model_path = str(self.root_dir.resolve() / "mlflow_test")
         self.task = "text-classification"
-        self.architecture = "Intel/bert-base-uncased-mrpc"
+        self.architecture = "google/bert_uncased_L-4_H-256_A-4"
         self.original_model = transformers.BertForSequenceClassification.from_pretrained(self.architecture)
         # note that cannot tokenizer cannot be used before any forked process
         # otherwise it will disable parallelism to avoid deadlocks which make the

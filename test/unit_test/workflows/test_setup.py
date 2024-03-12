@@ -11,6 +11,8 @@ import pytest
 
 from olive.common.utils import run_subprocess
 
+# pylint: disable=redefined-outer-name
+
 
 class DependencySetupEnvBuilder(venv.EnvBuilder):
     def post_setup(self, context) -> None:
