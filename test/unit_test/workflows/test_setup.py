@@ -11,8 +11,6 @@ import pytest
 
 from olive.common.utils import run_subprocess
 
-# pylint: disable=redefined-outer-name
-
 
 class DependencySetupEnvBuilder(venv.EnvBuilder):
     def post_setup(self, context) -> None:
@@ -60,11 +58,10 @@ def test_dependency_setup(tmp_path, config_json):
         str(user_script_config_file),
         "--setup",
     ]
-    # pylint: disable=subprocess-run-check
-    result = run_subprocess(cmd, check=True)
 
-    if result.returncode != 0:
-        pytest.fail(result.stdout.decode())
+    return_code, _, stderr = run_subprocess(cmd, check=True)
+    if return_code != 0:
+        pytest.fail(stderr)
 
     _, outputs, _ = run_subprocess([python_path, "-Im", "pip", "list"], check=True)
     assert ort_extra in outputs
