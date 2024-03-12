@@ -107,11 +107,11 @@ class OptimumConversion(Pass):
 
         # export directly to the output path
         # TODO(anyone): consider using a temporary directory to export the model and then save the relevant components
-        if not config["custom_model"]:
-            export_optimum_model(model.model_path or hf_config.model_name, output_model_path, **extra_args)
-        else:
+        if config["custom_model"]:
             pytorch_model = model.load_model()
             onnx_export_from_model(pytorch_model, output_model_path, **extra_args)
+        else:
+            export_optimum_model(model.model_path or hf_config.model_name, output_model_path, **extra_args)
 
         # check the exported components
         exported_models = [name.stem for name in Path(output_model_path).iterdir() if name.suffix == ".onnx"]
