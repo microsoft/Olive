@@ -7,6 +7,19 @@ A system is the environment (OS, hardware spec, device platform, supported EP) t
 is evaluated on. It can thus be the **host** of a Pass or the **target** of an evaluation. This document describes
 how to configure the different types of Systems.
 
+Accelerator Configuration
+-------------------------
+For each **host** or **target**, it could specify multiple accelerators associated with it. Each accelerator could have the following attributes.
+
+* :code:`device`: The device type of the accelerator. It could be "cpu", "gpu", "npu", etc. Please refer to the API documentation for the full list of supported devices.
+* :code:`execution_providers`: The execution provider list that are supported by the accelerator. For e.g. ["CUDAExecutionProvider", "CPUExecutionProvider"].
+
+Note:
+
+- The accelerators for local system or python system is optional. If not provided, Olive will get the available execution providers installed in current local machine and infer its device.
+- If the accelerators are specified, the device is mandatory. The execution_providers is optional. If not provided, Olive will get the available execution providers associated with the device.
+- For docker system and AzureML system, both device and execution_providers are mandatory. Otherwise, Olive will raise an error.
+
 Local System
 -------------
 

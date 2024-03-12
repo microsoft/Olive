@@ -24,8 +24,6 @@ class TargetUserConfig(ConfigBase):
     accelerators: List[AcceleratorConfig] = None
     hf_token: bool = None
 
-    __hash__ = object.__hash__
-
     class Config:
         validate_assignment = True
 
@@ -172,4 +170,6 @@ class SystemConfig(ConfigBase):
     def olive_managed_env(self):
         return getattr(self.config, "olive_managed_env", False)
 
+    # the __hash__ is needed so to create_managed_system_with_cache, otherwise the following error will be raised:
+    # unhashable type: 'SystemConfig'
     __hash__ = object.__hash__
