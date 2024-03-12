@@ -139,6 +139,12 @@ def get_hf_model_io_config(model_name: str, task: str, feature: Optional[str] = 
     model_config = get_onnx_config(model_name, task, feature, **kwargs)
     inputs = model_config.inputs
     outputs = model_config.outputs
+    if not inputs or not outputs:
+        # just log a warning and return None, since this is not a critical error
+        # and following pass may not use the io_config, like OptimumConversion
+        logger.warning("No inputs or outputs found from model %s", model_config)
+        return None
+
     io_config = {}
     io_config["input_names"] = list(inputs.keys())
     io_config["output_names"] = list(outputs.keys())

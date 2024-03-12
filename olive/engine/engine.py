@@ -471,7 +471,8 @@ class Engine:
         fp_outputs = self.footprints[accelerator_spec].create_footprints_by_model_ids(output_model_ids)
         # update the output model config
         for model_id, model_config in output_models.items():
-            fp_outputs.nodes[model_id].model_config = model_config
+            # output_model_config could be None if the model is not supported to be saved like CompositeModel
+            fp_outputs.nodes[model_id].model_config = model_config or fp_outputs.nodes[model_id].model_config
 
         return fp_outputs
 
