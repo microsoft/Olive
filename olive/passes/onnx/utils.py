@@ -73,15 +73,19 @@ class OnnxDAG:
         from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
 
         # onnruntime's symbolic shape inference is better
-        self.model = SymbolicShapeInference.infer_shapes(model, auto_merge=True)
+        self.model = model
+        # there are some issues with the shape infer where it assumes past_seq_len + seq_len = total_seq_len = seq_len
+        # so we will only use the shape infer to process io
+        model_with_shape = SymbolicShapeInference.infer_shapes(model, auto_merge=True)
         self.graphs = self.get_all_graphs(self.model)
+        graphs_with_shape = self.get_all_graphs(model_with_shape)
         self.nodes: Dict[str, OnnxNode] = {}
         self.ios: Dict[str, OnnxIO] = {}
         self.connections = defaultdict(list)
 
         # traverse the graphs and populate nodes, ios, and connections
-        for idx, graph in enumerate(self.graphs):
-            self.process_io(graph, self.ios, idx)
+        for idx, (graph, graph_with_shape) in enumerate(zip(self.graphs, graphs_with_shape)):
+            self.process_io(graph, graph_with_shape, self.ios, idx)
             for node in graph.node:
                 self.process_node(node, self.nodes, self.ios, self.connections, idx)
 
@@ -131,7 +135,7 @@ class OnnxDAG:
         return scalar_value
 
     @classmethod
-    def process_io(cls, graph: GraphProto, ios: Dict[str, OnnxIO], graph_idx: int):
+    def process_io(cls, graph: GraphProto, graph_with_shape: GraphProto, ios: Dict[str, OnnxIO], graph_idx: int):
         """Process inputs, outputs, initializers, and value_info.
 
         This will populate ios. Should be called before adding nodes.
@@ -162,7 +166,7 @@ class OnnxDAG:
                 shape=shape,
                 scalar_value=scalar_value,
             )
-        for vi in graph.value_info:
+        for vi in graph_with_shape.value_info:
             if vi.name in ios:
                 # outputs are already processed
                 continue
@@ -445,26 +449,26 @@ class OnnxDAG:
                 and (len(self.get_consumers(name)) > 0 or self.is_output_producer(name))
             ]
 
-            # assume inputs, outputs and initializers have not changed
-            value_info = []
-            for io in self.ios.values():
-                if io.graph_idx != idx:
-                    continue
-                if io.source in [None, SpecialInput.INPUT, SpecialInput.INITIALIZER]:
-                    # skip inputs, initializers
-                    # skip if parent node is removed
-                    continue
-                if not io.destination or SpecialOutput.OUTPUT in io.destination:
-                    # skip output
-                    # skip if destination nodes are removed
-                    continue
-                value_info.append(io.proto)
+            # # assume inputs, outputs and initializers have not changed
+            # value_info = []
+            # for io in self.ios.values():
+            #     if io.graph_idx != idx:
+            #         continue
+            #     if io.source in [None, SpecialInput.INPUT, SpecialInput.INITIALIZER]:
+            #         # skip inputs, initializers
+            #         # skip if parent node is removed
+            #         continue
+            #     if not io.destination or SpecialOutput.OUTPUT in io.destination:
+            #         # skip output
+            #         # skip if destination nodes are removed
+            #         continue
+            #     value_info.append(io.proto)
 
             # update the graph proto
             graph.ClearField("node")
             graph.node.extend(nodes)
-            graph.ClearField("value_info")
-            graph.value_info.extend(value_info)
+            # graph.ClearField("value_info")
+            # graph.value_info.extend(value_info)
 
     @classmethod
     def from_model_path(cls, model_path: Union[str, Path]) -> "OnnxDAG":
