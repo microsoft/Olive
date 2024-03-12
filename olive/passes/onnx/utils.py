@@ -6,7 +6,7 @@ import logging
 from collections import defaultdict
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Set, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Set, Union
 
 import onnx
 from onnx import AttributeProto, GraphProto, NodeProto, TensorProto, ValueInfoProto, numpy_helper
@@ -40,6 +40,7 @@ class OnnxNode(ConfigBase):
     op_type: str
     inputs: List[str]
     outputs: List[str]
+    attributes: Dict[str, Any]
     graph_idx: int
     proto: NodeProto  # reference to the node in the model graph
 
@@ -188,6 +189,7 @@ class OnnxDAG:
             op_type=node_proto.op_type,
             inputs=list(node_proto.input),
             outputs=list(node_proto.output),
+            attributes={key: value for attr in node_proto.attribute for key, value in attribute_to_kwarg(attr).items()},
             graph_idx=graph_idx,
         )
         nodes[name] = onnx_node
@@ -317,6 +319,23 @@ class OnnxDAG:
         if new_parent not in [SpecialInput.INPUT, SpecialInput.INITIALIZER]:
             self.connections[new_parent].append(node_name)
 
+    def fold_node(self, node_a, node_b):
+        """Fold node_a into node_b."""
+        if node_a not in self.nodes:
+            raise ValueError(f"Node {node_a} does not exist in the graph.")
+        if node_b not in self.nodes:
+            raise ValueError(f"Node {node_b} does not exist in the graph.")
+
+        # update the inputs of the consumers of node_a to use the outputs of node_b
+        node_a_outputs = self.nodes[node_a].outputs
+        node_b_outputs = self.nodes[node_b].outputs
+        for output, new_output in zip(node_a_outputs, node_b_outputs):
+            for consumer in list(self.ios[output].destination):
+                self.replace_node_input(consumer, output, new_output)
+
+        # remove node_a
+        self.remove_node(node_a, check_no_consumers=True)
+
     def get_shape(self, io_name: str) -> List:
         """Get the shape of an input/output."""
         return list(self.ios[io_name].shape)
@@ -325,9 +344,17 @@ class OnnxDAG:
         """Get the op type of a node."""
         return self.nodes[node_name].op_type
 
+    def get_attributes(self, node_name: str) -> Dict[str, Any]:
+        """Get the attributes of a node."""
+        return self.nodes[node_name].attributes
+
     def get_consumers(self, node_name: str) -> List[str]:
         """Get the consumers of a node."""
         return list(self.connections[node_name])
+
+    def is_output_producer(self, node_name: str) -> bool:
+        """Check if a node is an output producer."""
+        return any(SpecialOutput.OUTPUT in self.ios[o].destination for o in self.nodes[node_name].outputs)
 
     def get_input_names(self, node_name: str) -> List[str]:
         """Get the input names of a node."""
@@ -411,7 +438,12 @@ class OnnxDAG:
 
         for idx, graph in enumerate(self.graphs):
             # update the nodes in the graph proto
-            nodes = [self.nodes[name].proto for name in node_order if self.nodes[name].graph_idx == idx]
+            nodes = [
+                self.nodes[name].proto
+                for name in node_order
+                if self.nodes[name].graph_idx == idx
+                and (len(self.get_consumers(name)) > 0 or self.is_output_producer(name))
+            ]
 
             # assume inputs, outputs and initializers have not changed
             value_info = []
@@ -434,31 +466,44 @@ class OnnxDAG:
             graph.ClearField("value_info")
             graph.value_info.extend(value_info)
 
-    def remove_redundant_cast_nodes(self):
-        """Remove redundant cast nodes from the graph."""
-        model_outputs = self.get_model_outputs()
-        removed_count = 0
-        for node_name in list(self.nodes):
-            node = self.nodes[node_name]
-            if node.op_type != "Cast":
-                continue
-
-            if self.get_input_dtypes(node_name) != self.get_output_dtypes(node_name):
-                continue
-
-            if node.outputs[0] in model_outputs:
-                # we don't want to remove the cast node if it's an output
-                # TODO(jambayk): handle this
-                continue
-
-            for destination in list(self.ios[node.outputs[0]].destination):
-                self.replace_node_input(destination, node.outputs[0], node.inputs[0])
-
-            self.remove_node(node_name, check_no_consumers=True)
-            removed_count += 1
-        logger.info("Removed %d redundant cast nodes.", removed_count)
-
     @classmethod
     def from_model_path(cls, model_path: Union[str, Path]) -> "OnnxDAG":
         """Load an ONNX model with shape inference and create an DAG."""
         return cls(onnx.load(model_path))
+
+
+def attribute_to_kwarg(attribute: AttributeProto):
+    """Convert attribute to kwarg format.
+
+    :param attribute: attribute in AttributeProto format.
+    :return: attribute in {key: value} format.
+    """
+    if attribute.type == 0:
+        raise ValueError(f"attribute {attribute.name} does not have type specified.")
+
+    # Based on attribute type definitions from AttributeProto
+    # definition in https://github.com/onnx/onnx/blob/main/onnx/onnx.proto
+    if attribute.type == 1:
+        value = attribute.f
+    elif attribute.type == 2:
+        value = attribute.i
+    elif attribute.type == 3:
+        value = attribute.s
+    elif attribute.type == 4:
+        value = attribute.t
+    elif attribute.type == 5:
+        value = attribute.g
+    elif attribute.type == 6:
+        value = list(attribute.floats)
+    elif attribute.type == 7:
+        value = list(attribute.ints)
+    elif attribute.type == 8:
+        value = list(attribute.strings)
+    elif attribute.type == 9:
+        value = list(attribute.tensors)
+    elif attribute.type == 10:
+        value = list(attribute.graphs)
+    else:
+        raise ValueError(f"attribute {attribute.name} has unsupported type {attribute.type}.")
+
+    return {attribute.name: value}

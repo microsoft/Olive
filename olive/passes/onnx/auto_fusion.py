@@ -13,6 +13,7 @@ import onnx
 from packaging import version
 
 from olive.common.config_utils import ParamCategory
+from olive.common.utils import hash_dict
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
@@ -73,7 +74,9 @@ class AutoFusion(Pass):
         # get dag
         dag = OnnxDAG.from_model_path(model.model_path)
         # remove useless nodes
-        dag.remove_redundant_cast_nodes()
+        self.remove_redundant_cast_nodes(dag)
+        # fold duplicate nodes
+        self.fold_duplicate_nodes(dag)
 
         # get fusable candidates
         candidates = self.get_fusion_candidates(dag)
@@ -196,3 +199,66 @@ class AutoFusion(Pass):
         for fusions in candidates.values():
             all_fusions.extend(fusions)
         return all_fusions
+
+    @staticmethod
+    def remove_redundant_cast_nodes(dag: OnnxDAG):
+        """Remove redundant cast nodes from the graph."""
+        model_outputs = dag.get_model_outputs()
+        removed_count = 0
+        for node_name in list(dag.nodes):
+            node = dag.nodes[node_name]
+            if node.op_type != "Cast":
+                continue
+
+            if dag.get_input_dtypes(node_name) != dag.get_output_dtypes(node_name):
+                continue
+
+            if node.outputs[0] in model_outputs:
+                # we don't want to remove the cast node if it's an output
+                # TODO(jambayk): handle this
+                continue
+
+            for destination in list(dag.ios[node.outputs[0]].destination):
+                dag.replace_node_input(destination, node.outputs[0], node.inputs[0])
+
+            dag.remove_node(node_name, check_no_consumers=True)
+            removed_count += 1
+        logger.info("Removed %d redundant cast nodes.", removed_count)
+
+    @staticmethod
+    def fold_duplicate_nodes(dag: OnnxDAG):
+        """Fold duplicate nodes in the graph."""
+        num_folded = 0
+        order = dag.topological_sort()
+        # iterate through the nodes in topological order
+        # TODO(jambayk): iterate over the inputs of the model first so that input consumers are folded too
+        for node_name in order:
+            # mapping from hash to nodes
+            # we will hash the inputs, op_type and attributes of the node
+            hash_to_nodes = defaultdict(list)
+
+            # iterate through the consumers of the node
+            for consumer in dag.get_consumers(node_name):
+                if dag.get_op_type(consumer) in ["Constant", "ConstantOfShape"]:
+                    continue
+                node_hash = hash_dict(
+                    {
+                        "inputs": dag.get_input_names_or_scalar(consumer),
+                        "op_type": dag.get_op_type(consumer),
+                        "attributes": dag.get_attributes(consumer),
+                    }
+                )
+                if consumer not in hash_to_nodes[node_hash]:
+                    # need to do this check since same output can be consumed multiple times by the same node
+                    hash_to_nodes[node_hash].append(consumer)
+
+            # iterate through the hash_to_nodes and fold the nodes
+            for nodes in hash_to_nodes.values():
+                if len(nodes) < 2:
+                    continue
+
+                # fold the nodes into the first node
+                for node in nodes[1:]:
+                    dag.fold_node(node, nodes[0])
+                    num_folded += 1
+        logger.info("Folded %d duplicate nodes.", num_folded)
