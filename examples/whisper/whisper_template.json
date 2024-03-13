@@ -7,9 +7,6 @@
             "hf_config": {
                 "model_class" : "WhisperForConditionalGeneration",
                 "model_name" : "<place_holder>",
-                "from_pretrained_args": {
-                    "attn_implementation": "eager"
-                },
                 "components" : [
                     {
                         "name": "encoder_decoder_init",
