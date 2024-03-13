@@ -47,11 +47,11 @@ class PythonEnvironmentSystem(OliveSystem):
         super().__init__(accelerators=accelerators, hf_token=hf_token)
         self.config = PythonEnvironmentTargetUserConfig(**locals())
         self.environ = create_new_environ(
-            python_environment_path=self.config.python_environment_path,
-            environment_variables=self.config.environment_variables,
-            prepend_to_path=self.config.prepend_to_path,
+            python_environment_path=python_environment_path,
+            environment_variables=environment_variables,
+            prepend_to_path=prepend_to_path,
         )
-        if self.config.olive_managed_env:
+        if olive_managed_env:
             if platform.system() == "Linux":
                 temp_dir = os.path.join(os.environ.get("HOME", ""), "tmp")
                 if not os.path.exists(temp_dir):

@@ -2,6 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import sys
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -61,24 +63,30 @@ def test_infer_accelerators_from_execution_provider(execution_providers_test):
         ),
         # PythonEnvironment
         (
-            {"type": "PythonEnvironment"},
+            {"type": "PythonEnvironment", "config": {"python_environment_path": Path(sys.executable).parent}},
             [("cpu", "CPUExecutionProvider")],
             ["AzureExecutionProvider", "CPUExecutionProvider"],
         ),
         (
-            {"type": "PythonEnvironment", "config": {"accelerators": [{"device": "cpu"}]}},
+            {
+                "type": "PythonEnvironment",
+                "config": {"accelerators": [{"device": "cpu"}], "python_environment_path": Path(sys.executable).parent},
+            },
             [("CPU", "OpenVINOExecutionProvider"), ("cpu", "CPUExecutionProvider")],
             ["OpenVINOExecutionProvider", "CPUExecutionProvider"],
         ),
         (
-            {"type": "PythonEnvironment"},
+            {"type": "PythonEnvironment", "config": {"python_environment_path": Path(sys.executable).parent}},
             [("gpu", "TensorrtExecutionProvider"), ("gpu", "CUDAExecutionProvider"), ("gpu", "CPUExecutionProvider")],
             ["TensorrtExecutionProvider", "CUDAExecutionProvider", "CPUExecutionProvider"],
         ),
         (
             {
                 "type": "PythonEnvironment",
-                "config": {"accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}]},
+                "config": {
+                    "accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
+                    "python_environment_path": Path(sys.executable).parent,
+                },
             },
             [("cpu", "CPUExecutionProvider")],
             ["CPUExecutionProvider"],

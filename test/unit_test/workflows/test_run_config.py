@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
+from olive.common.pydantic_v1 import ValidationError
 from olive.data.config import DataConfig
 from olive.workflows.run.config import INPUT_MODEL_DATA_CONFIG, RunConfig
 
@@ -137,6 +138,16 @@ class TestRunConfig:
         assert run_config.evaluators is None
         assert run_config.engine.host is None
         assert run_config.engine.target is None
+
+    def test_deprecated_engine_ep(self):
+        with self.user_script_config_file.open() as f:
+            user_script_config = json.load(f)
+
+        user_script_config["engine"]["execution_providers"] = ["CUDAExecutionProvider", "TensorrtExecutionProvider"]
+        with pytest.raises(ValidationError) as e:
+            _ = RunConfig.parse_obj(user_script_config)
+        errors = e.value.errors()
+        assert errors[0]["loc"] == ("engine", "execution_providers")
 
 
 class TestDataConfigValidation:

@@ -41,8 +41,6 @@ class TestEngine:
         evaluator_config = OliveEvaluatorConfig(metrics=[get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)])
 
         options = {
-            "output_dir": tmpdir,
-            "output_name": "test",
             "cache_dir": tmpdir,
             "clean_cache": True,
             "search_strategy": {
@@ -120,7 +118,6 @@ class TestEngine:
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
-            "output_name": "test",
             "cache_dir": tmpdir,
             "clean_cache": True,
             "search_strategy": {
@@ -239,8 +236,6 @@ class TestEngine:
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
-            "output_dir": tmpdir,
-            "output_name": "test",
             "cache_dir": tmpdir,
             "clean_cache": True,
             "search_strategy": None,
@@ -380,7 +375,6 @@ class TestEngine:
             "clean_cache": True,
             "search_strategy": None,
             "clean_evaluation_cache": True,
-            "auto_optimizer_config": {"disable_auto_optimizer": True},
         }
         metric_result_dict = {
             joint_metric_key(metric.name, sub_metric.name): {
