@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import os
 import platform
+import shutil
 from pathlib import Path
 from subprocess import CompletedProcess
 from unittest.mock import patch
@@ -67,7 +68,8 @@ def test_run_snpe_command():
             os_env = os.environ.copy()
             os_env.update(env)
             env = os_env
-            cmd = "python C:\\snpe\\bin\\x86_64-windows-msvc\\snpe-net-run --container xxxx"
+            python_cmd_path = shutil.which("python", path=env["path"])
+            cmd = f"{python_cmd_path} C:\\snpe\\bin\\x86_64-windows-msvc\\snpe-net-run --container xxxx"
 
         mock_run_subprocess.assert_called_once_with(
             cmd.split(),
