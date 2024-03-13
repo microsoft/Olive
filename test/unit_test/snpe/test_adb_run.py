@@ -68,7 +68,7 @@ def test_run_snpe_command():
             os_env = os.environ.copy()
             os_env.update(env)
             env = os_env
-            python_cmd_path = shutil.which("python", path=env["path"])
+            python_cmd_path = shutil.which("python", path=env["PATH"])
             cmd = f"{python_cmd_path} C:\\snpe\\bin\\x86_64-windows-msvc\\snpe-net-run --container xxxx"
 
         mock_run_subprocess.assert_called_once_with(
