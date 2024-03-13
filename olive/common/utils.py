@@ -29,6 +29,7 @@ def run_subprocess(cmd, env=None, cwd=None, check=False):
     if windows:
         path = env.get("PATH") if env else None
         cmd_exe = shutil.which(cmd[0], path=path)
+        assert cmd_exe, f"Command '{cmd[0]}' not found in PATH {path}."
         cmd[0] = cmd_exe
     try:
         out = subprocess.run(cmd, env=env, cwd=cwd, capture_output=True, check=check)
