@@ -1,3 +1,8 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
+import shutil
 from test.unit_test.workflows.whisper_utils import (
     decoder_dummy_inputs,
     encoder_decoder_init_dummy_inputs,
@@ -121,7 +126,7 @@ def check_output(footprints):
             assert all(metric_result.value > 0 for metric_result in v.metrics.value.values())
 
 
-def test_whisper_run(whisper_config):
+def test_whisper_run(tmp_path, whisper_config):
     from packaging import version
     from transformers import __version__ as transformers_version
 
@@ -129,3 +134,4 @@ def test_whisper_run(whisper_config):
         whisper_config["input_model"]["config"]["hf_config"]["from_pretrained_args"] = {"attn_implementation": "eager"}
     result = olive_run(whisper_config)
     check_output(result)
+    shutil.rmtree(tmp_path, ignore_errors=True)
