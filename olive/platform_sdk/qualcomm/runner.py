@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import shutil
 import time
 from pathlib import Path
 
@@ -47,7 +48,8 @@ class SDKRunner:
                     with (cmd_path / cmd_name).open() as f:
                         first_line = f.readline()
                         if "python" in first_line:
-                            cmd = f"python {cmd}"
+                            python_path = shutil.which("python", self.sdk_env.env.get("PATH", None))
+                            cmd = f"{python_path} {cmd}"
                 except UnicodeDecodeError as e:
                     logger.warning(
                         "Failed to read the first line of %s: %s. Will ignore to wrap it with python.", cmd_name, e
