@@ -1,0 +1,22 @@
+{
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "hf_config": {
+                "model_name": "Intel/bert-base-uncased-mrpc",
+                "task": "text-classification",
+                "dataset": {
+                    "data_name":"glue",
+                    "subset": "mrpc",
+                    "split": "validation",
+                    "input_cols": ["sentence1", "sentence2"],
+                    "label_cols": ["label"],
+                    "batch_size": 1
+                }
+            }
+        }
+    },
+    "auto_optimizer_config": {
+        "precisions": ["fp32", "int8"]
+    }
+}
