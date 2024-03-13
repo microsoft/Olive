@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import itertools
 import json
 import logging
 import platform
@@ -21,10 +20,8 @@ from olive.common.utils import copy_dir, retry_func, run_subprocess
 from olive.engine.packaging.packaging_config import (
     AzureMLDataPackagingConfig,
     AzureMLModelsPackagingConfig,
-    CommonPackagingConfig,
     PackagingConfig,
     PackagingType,
-    ZipfilePackagingConfig,
 )
 from olive.model import ONNXModelHandler
 from olive.resource_path import ResourceType, create_resource_path
@@ -32,7 +29,7 @@ from olive.systems.utils import get_package_name_from_ep
 
 if TYPE_CHECKING:
     from olive.azureml.azureml_client import AzureMLClientConfig
-    from olive.engine.footprint import Footprint
+    from olive.engine.footprint import Footprint, FootprintNode
     from olive.hardware import AcceleratorSpec
 
 logger = logging.getLogger(__name__)
@@ -52,64 +49,79 @@ def generate_output_artifacts(
         return
     packaging_config_list = packaging_configs if isinstance(packaging_configs, list) else [packaging_configs]
     for packaging_config in packaging_config_list:
-        if packaging_config.type == PackagingType.Zipfile:
-            _generate_zipfile_output(
-                packaging_config.name, packaging_config.config, footprints, pf_footprints, output_dir
-            )
-        elif packaging_config.type == PackagingType.AzureMLModels:
-            _generate_azureml_resources(
-                packaging_config.name,
-                packaging_config.config,
-                footprints,
-                pf_footprints,
-                azureml_client_config,
-                PackagingType.AzureMLModels,
-            )
-        elif packaging_config.type == PackagingType.AzureMLData:
-            _generate_azureml_resources(
-                packaging_config.name,
-                packaging_config.config,
-                footprints,
-                pf_footprints,
-                azureml_client_config,
-                PackagingType.AzureMLData,
-            )
+        _package_candidate_models(packaging_config, output_dir, footprints, pf_footprints, azureml_client_config)
 
 
-def _generate_azureml_resources(
-    output_name: str,
-    config: CommonPackagingConfig,
+def _package_candidate_models(
+    packaging_config: PackagingConfig,
+    output_dir: Path,
     footprints: Dict["AcceleratorSpec", "Footprint"],
     pf_footprints: Dict["AcceleratorSpec", "Footprint"],
-    azureml_client_config: "AzureMLClientConfig",
-    packaging_type: PackagingType,
+    azureml_client_config: "AzureMLClientConfig" = None,
 ):
+    packaging_type = packaging_config.type
+    output_name = packaging_config.name
+    config = packaging_config.config
+    export_in_mlflow_format = config.export_in_mlflow_format
+
     logger.info("Packaging output models to %s", packaging_type)
 
-    for accelerator_spec, pf_footprint in pf_footprints.items():
-        if pf_footprint.nodes and footprints[accelerator_spec].nodes:
-            model_rank = 1
-            for model_id in pf_footprint.nodes:
-                model_name = f"{output_name}_{accelerator_spec}_{model_rank}"
-                export_in_mlflow_format = config.export_in_mlflow_format
-                with tempfile.TemporaryDirectory() as temp_dir:
-                    tempdir = Path(temp_dir)
+    with tempfile.TemporaryDirectory() as temp_dir:
+
+        tempdir = Path(temp_dir)
+
+        if packaging_type == PackagingType.Zipfile:
+            cur_path = Path(__file__).parent
+            _package_sample_code(cur_path, tempdir)
+            _package_onnxruntime_packages(tempdir, next(iter(pf_footprints.values())))
+
+        for accelerator_spec, pf_footprint in pf_footprints.items():
+            footprint = footprints[accelerator_spec]
+            if pf_footprint.nodes and footprint.nodes:
+                model_rank = 1
+                input_node = footprint.get_input_node()
+                for model_id, node in pf_footprint.nodes.items():
+                    model_name = f"{output_name}_{accelerator_spec}_{model_rank}"
+                    if packaging_type == PackagingType.Zipfile:
+                        model_dir = (
+                            tempdir / "CandidateModels" / str(accelerator_spec) / f"BestCandidateModel_{model_rank}"
+                        )
+                    else:
+                        model_dir = tempdir / model_name
+
+                    model_dir.mkdir(parents=True, exist_ok=True)
+
+                    # Copy inference config
+                    inference_config_path = model_dir / "inference_config.json"
                     inference_config = pf_footprint.get_model_inference_config(model_id) or {}
 
-                    saved_model_path = _save_model(
-                        pf_footprint, model_id, tempdir, inference_config, export_in_mlflow_format
-                    )
+                    _copy_inference_config(inference_config_path, inference_config)
+                    _copy_configurations(model_dir, footprint, model_id)
+                    _copy_metrics(model_dir, input_node, node)
+                    _save_model(pf_footprint, model_id, model_dir, inference_config, export_in_mlflow_format)
+
+                    model_info_list = []
+                    model_info = _get_model_info(node, model_rank)
+                    model_info_list.append(model_info)
+                    _copy_model_info(model_dir, model_info)
 
                     if packaging_type == PackagingType.AzureMLModels:
-                        _upload_to_azureml_models(azureml_client_config, saved_model_path, model_name, config)
+                        _upload_to_azureml_models(azureml_client_config, model_dir, model_name, config)
                     elif packaging_type == PackagingType.AzureMLData:
-                        _upload_to_azureml_data(azureml_client_config, saved_model_path, model_name, config)
+                        _upload_to_azureml_data(azureml_client_config, model_dir, model_name, config)
 
                 model_rank += 1
 
+        if packaging_type == PackagingType.Zipfile:
+            _copy_models_rank(tempdir, model_info_list)
+            _package_zipfile_model(output_dir, output_name, tempdir)
+
 
 def _upload_to_azureml_models(
-    azureml_client_config, model_path: Path, model_name: str, config: AzureMLModelsPackagingConfig
+    azureml_client_config: "AzureMLClientConfig",
+    model_path: Path,
+    model_name: str,
+    config: AzureMLModelsPackagingConfig,
 ):
     from azure.ai.ml.constants import AssetTypes
     from azure.ai.ml.entities import Model
@@ -133,7 +145,7 @@ def _upload_to_azureml_models(
 
 
 def _upload_to_azureml_data(
-    azureml_client_config, model_path: Path, model_name: str, config: AzureMLDataPackagingConfig
+    azureml_client_config: "AzureMLClientConfig", model_path: Path, model_name: str, config: AzureMLDataPackagingConfig
 ):
     from azure.ai.ml.constants import AssetTypes
     from azure.ai.ml.entities import Data
@@ -156,110 +168,65 @@ def _upload_to_azureml_data(
     )
 
 
-def _generate_zipfile_output(
-    output_name: str,
-    packaging_config: ZipfilePackagingConfig,
-    footprints: Dict["AcceleratorSpec", "Footprint"],
-    pf_footprints: Dict["AcceleratorSpec", "Footprint"],
-    output_dir: Path,
-) -> None:
-    logger.info("Packaging Zipfile output artifacts")
-    cur_path = Path(__file__).parent
-    with tempfile.TemporaryDirectory() as temp_dir:
-        tempdir = Path(temp_dir)
-        _package_sample_code(cur_path, tempdir)
-        _package_models_rank(tempdir, pf_footprints)
-        for accelerator_spec, pf_footprint in pf_footprints.items():
-            if pf_footprint.nodes and footprints[accelerator_spec].nodes:
-                _package_candidate_models(
-                    tempdir,
-                    footprints[accelerator_spec],
-                    pf_footprint,
-                    accelerator_spec,
-                    packaging_config.export_in_mlflow_format,
-                )
-        _package_onnxruntime_packages(tempdir, next(iter(pf_footprints.values())))
-        shutil.make_archive(output_name, "zip", tempdir)
-        package_file = f"{output_name}.zip"
-        shutil.move(package_file, output_dir / package_file)
+def _get_model_info(node: "FootprintNode", model_rank: int):
+    return {
+        "rank": model_rank,
+        "model_config": node.model_config,
+        "metrics": node.metrics.value.to_json() if node.metrics else None,
+    }
 
 
-def _package_models_rank(tempdir, footprints: Dict["AcceleratorSpec", "Footprint"]):
-    metrics_dict = next(iter(footprints.values())).objective_dict
-    sorted_nodes = sorted(
-        itertools.chain.from_iterable(f.nodes.values() for f in footprints.values()),
-        key=lambda x: tuple(
-            x.metrics.value[metric].value if x.metrics.cmp_direction[metric] == 1 else -x.metrics.value[metric].value
-            for metric in metrics_dict
-        ),
-        reverse=True,
-    )
-    rank = 1
-    model_info_list = []
-    for node in sorted_nodes:
-        model_info = {
-            "rank": rank,
-            "model_config": node.model_config,
-            "metrics": node.metrics.value.to_json() if node.metrics else None,
-        }
-        model_info_list.append(model_info)
-        rank += 1
+def _copy_models_rank(tempdir: Path, model_info_list: List[Dict]):
     with (tempdir / "models_rank.json").open("w") as f:
         f.write(json.dumps(model_info_list))
 
 
-def _package_sample_code(cur_path, tempdir):
+def _package_sample_code(cur_path: Path, tempdir: Path):
     copy_dir(cur_path / "sample_code", tempdir / "SampleCode")
 
 
-def _package_candidate_models(
-    tempdir,
-    footprint: "Footprint",
+def _package_zipfile_model(output_dir: Path, output_name: str, model_dir: Path):
+    shutil.make_archive(output_name, "zip", model_dir)
+    package_file = f"{output_name}.zip"
+    shutil.move(package_file, output_dir / package_file)
+
+
+def _copy_model_info(model_dir: Path, model_info: Dict):
+    model_info_path = model_dir / "model_info.json"
+    with model_info_path.open("w") as f:
+        json.dump(model_info, f, indent=4)
+
+
+def _copy_inference_config(path: Path, inference_config: Dict):
+    with path.open("w") as f:
+        json.dump(inference_config, f, indent=4)
+
+
+def _copy_configurations(model_dir: Path, footprint: "Footprint", model_id: str):
+    configuration_path = model_dir / "configurations.json"
+    with configuration_path.open("w") as f:
+        json.dump(OrderedDict(reversed(footprint.trace_back_run_history(model_id).items())), f, indent=4)
+
+
+# TODO(xiaoyu): Add target info to metrics file
+def _copy_metrics(model_dir: Path, input_node: "FootprintNode", node: "FootprintNode"):
+    metric_path = model_dir / "metrics.json"
+    if node.metrics:
+        with metric_path.open("w") as f:
+            metrics = {
+                "input_model_metrics": input_node.metrics.value.to_json() if input_node.metrics else None,
+                "candidate_model_metrics": node.metrics.value.to_json(),
+            }
+            json.dump(metrics, f, indent=4)
+
+
+def _save_model(
     pf_footprint: "Footprint",
-    accelerator_spec: "AcceleratorSpec",
-    export_in_mlflow_format=False,
-) -> None:
-    candidate_models_dir = tempdir / "CandidateModels"
-    model_rank = 1
-    input_node = footprint.get_input_node()
-    for model_id, node in pf_footprint.nodes.items():
-        model_dir = candidate_models_dir / str(accelerator_spec) / f"BestCandidateModel_{model_rank}"
-        model_dir.mkdir(parents=True, exist_ok=True)
-        model_rank += 1
-
-        # Copy inference config
-        inference_config_path = model_dir / "inference_config.json"
-        inference_config = pf_footprint.get_model_inference_config(model_id) or {}
-
-        # Add use_ort_extensions to inference config if needed
-        use_ort_extensions = pf_footprint.get_use_ort_extensions(model_id)
-        if use_ort_extensions:
-            inference_config["use_ort_extensions"] = True
-
-        with inference_config_path.open("w") as f:
-            json.dump(inference_config, f)
-
-        # Copy model file
-        _save_model(pf_footprint, model_id, model_dir, inference_config, export_in_mlflow_format)
-
-        # Copy Passes configurations
-        configuration_path = model_dir / "configurations.json"
-        with configuration_path.open("w") as f:
-            json.dump(OrderedDict(reversed(footprint.trace_back_run_history(model_id).items())), f)
-
-        # Copy metrics
-        # TODO(xiaoyu): Add target info to metrics file
-        if node.metrics:
-            metric_path = model_dir / "metrics.json"
-            with metric_path.open("w") as f:
-                metrics = {
-                    "input_model_metrics": input_node.metrics.value.to_json() if input_node.metrics else None,
-                    "candidate_model_metrics": node.metrics.value.to_json(),
-                }
-                json.dump(metrics, f, indent=4)
-
-
-def _save_model(pf_footprint, model_id, saved_model_path, inference_config, export_in_mlflow_format):
+    model_id: str,
+    saved_model_path: Path,
+    inference_config: Dict,
+    export_in_mlflow_format: bool,
+):
     model_path = pf_footprint.get_model_path(model_id)
     model_resource_path = create_resource_path(model_path) if model_path else None
     model_type = pf_footprint.get_model_type(model_id)
@@ -304,7 +271,7 @@ def _save_model(pf_footprint, model_id, saved_model_path, inference_config, expo
         )
 
 
-def _generate_onnx_mlflow_model(model_dir, inference_config):
+def _generate_onnx_mlflow_model(model_dir: Path, inference_config: Dict):
     try:
         import mlflow
     except ImportError:
@@ -345,7 +312,7 @@ def _generate_onnx_mlflow_model(model_dir, inference_config):
     return mlflow_model_path
 
 
-def _package_onnxruntime_packages(tempdir, pf_footprint: "Footprint"):
+def _package_onnxruntime_packages(tempdir: Path, pf_footprint: "Footprint"):
     # pylint: disable=not-an-iterable
     installed_packages = pkg_resources.working_set
     onnxruntime_pkg = [i for i in installed_packages if i.key.startswith("onnxruntime")]
@@ -476,7 +443,7 @@ def _download_c_packages(package_name_list: List[str], ort_version: str, ort_dow
             )
 
 
-def _skip_download_c_package(package_path):
+def _skip_download_c_package(package_path: Path):
     warning_msg = (
         "Found ort-nightly package installed. Please manually download "
         "ort-nightly package from https://aiinfra.visualstudio.com/PublicPackages/_artifacts/feed/ORT-Nightly"

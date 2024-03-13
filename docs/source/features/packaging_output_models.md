@@ -3,7 +3,6 @@
 ## What is Olive Packaging
 Olive will output multiple candidate models based on metrics priorities. It also can package output artifacts when the user required. Olive packaging can be used in different scenarios. There are 3 packaging types: `Zipfile`, `AzureMLModels` and `AzureMLData`.
 
-
 ### Zipfile
 Zipfile packaging will generate a ZIP file which includes 3 folders: `CandidateModels`, `SampleCode` and `ONNXRuntimePackages`, and a `models_rank.json` file in the `output_dir` folder (from Engine Configuration):
 * `CandidateModels`: top ranked output model set
@@ -22,110 +21,10 @@ Zipfile packaging will generate a ZIP file which includes 3 folders: `CandidateM
 
 Each `BestCandidateModel` folder will include model file/folder. The folder also includes a json file which includes the Olive Pass run history configurations since input model, a json file with performance metrics and a json file for inference settings for the candidate model if the candidate model is an ONNX model.
 
-##### Inference config file
-The inference config file is a json file including `execution_provider` and `session_options`. e.g.:
-
-```
-{
-    "execution_provider": [
-        [
-            "CPUExecutionProvider",
-            {}
-        ]
-    ],
-    "session_options": {
-        "execution_mode": 1,
-        "graph_optimization_level": 99,
-        "extra_session_config": null,
-        "inter_op_num_threads": 1,
-        "intra_op_num_threads": 64
-    }
-}
-```
-
 #### SampleCode
 Olive will only provide sample codes for ONNX model. Sample code supports 3 different programming languages: `C++`, `C#` and `Python`. And a code snippet introducing how to use Olive output artifacts to inference candidate model with recommended inference configurations.
 
-### AzureMLModels
-AzureMLModels packaging will register the output models to your Azure Machine Learning workspace. The asset name will be set as `<packaging_config_name>_<accelerator_spec>_<model_rank>`. The order is ranked by metrics priorities, starting from 1. For instance, if the output model is ONNX model and the packaging config is:
-
-```
-{
-    "type": "AzureMLModels",
-    "name": "olive_output_model"
-}
-```
-
-and for CPU, the best execution provider is CPUExecutionProvider, so the first ranked model name registered on AML will be `olive_output_model_cpu-cpu_1`.
-
-### AzureMLData
-AzureMLData packaging will upload the output models to your Azure Machine Learning workspace as Data assets. The asset name will be set as `<packaging_config_name>_<accelerator_spec>_<model_rank>`. The order is ranked by metrics priorities, starting from 1. For instance, if the output model is ONNX model and the packaging config is:
-
-```
-{
-    "type": "AzureMLData",
-    "name": "olive_output_model"
-}
-```
-
-and for CPU, the best execution provider is CPUExecutionProvider, so the first ranked model Data name on AML will be `olive_output_model_cpu-cpu_1`.
-
-
-## How to package Olive artifacts
-Olive packaging configuration is configured in `PackagingConfig` in Engine configuration. If not specified, Olive will not package artifacts.
-
-* `PackagingConfig`
-    * `type [PackagingType]`:
-      Olive packaging type. Olive will package different artifacts based on `type`.
-    * `name [str]`:
-      For `PackagingType.Zipfile` type, Olive will generate a ZIP file with `name` prefix: `<name>.zip`.
-      For `PackagingType.AzureMLModels` and `PackagingType.AzureMLData`, Olive will use this `name` for Azure ML resource.
-      The default value is `OutputModels`.
-    * `config [dict]`:
-      The packaging config.
-      * `Zipfile`
-        * `export_in_mlflow_format [bool]`:
-          Export model in mlflow format. This is `false` by default.
-      * `AzureMLModels`
-        * `export_in_mlflow_format [bool]`:
-          Export model in mlflow format. This is `false` by default.
-        * `version [int | str]`：
-          The version for this model registration. This is `None` by default.
-        * `description [str]`
-          The description for this model registration. This is `None` by default.
-      * `AzureMLData`
-        * `export_in_mlflow_format [bool]`:
-          Export model in mlflow format. This is `false` by default.
-        * `version [int | str]`：
-          The version for this data asset.
-        * `description [str]`
-          The description for this data asset. This is `None` by default.
-
-You can add `PackagingConfig` to Engine configurations. e.g.:
-
-```
-"engine": {
-    "search_strategy": {
-        "execution_order": "joint",
-        "search_algorithm": "tpe",
-        "search_algorithm_config": {
-            "num_samples": 5,
-            "seed": 0
-        }
-    },
-    "evaluator": "common_evaluator",
-    "host": "local_system",
-    "target": "local_system",
-    "packaging_config": {
-        "type": "Zipfile",
-        "name": "OutputModels"
-    },
-    "clean_cache": true,
-    "cache_dir": "cache"
-}
-```
-
-### Models rank JSON file
+#### Models rank JSON file
 A file that contains a JSON list for ranked model info across all accelerators, e.g.:
 ```
 [
@@ -171,3 +70,150 @@ A file that contains a JSON list for ranked model info across all accelerators, 
     {"rank": 3, "model_config": <model_config>, "metrics": <metrics>}
 ]
 ```
+
+### AzureMLModels
+AzureMLModels packaging will register the output models to your Azure Machine Learning workspace. The asset name will be set as `<packaging_config_name>_<accelerator_spec>_<model_rank>`. The order is ranked by metrics priorities, starting from 1. For instance, if the output model is ONNX model and the packaging config is:
+
+```
+{
+    "type": "AzureMLModels",
+    "name": "olive_output_model",
+    "config": {
+        "version": "1",
+        "description": "description"
+    }
+}
+```
+
+and for CPU, the best execution provider is CPUExecutionProvider, so the first ranked model name registered on AML will be `olive_output_model_cpu-cpu_1`.
+
+Olive will also upload model configuration file, inference config file, metrics file and model info file to the Azure ML.
+
+### AzureMLData
+AzureMLData packaging will upload the output models to your Azure Machine Learning workspace as Data assets. The asset name will be set as `<packaging_config_name>_<accelerator_spec>_<model_rank>`. The order is ranked by metrics priorities, starting from 1. For instance, if the output model is ONNX model and the packaging config is:
+
+```
+{
+    "type": "AzureMLData",
+    "name": "olive_output_model",
+    "config": {
+        "version": "1",
+        "description": "description"
+    }
+}
+```
+
+and for CPU, the best execution provider is CPUExecutionProvider, so the first ranked model Data name on AML will be `olive_output_model_cpu-cpu_1`.
+
+Olive will also upload model configuration file, inference config file, metrics file and model info file to the Azure ML.
+
+## How to package Olive artifacts
+Olive packaging configuration is configured in `PackagingConfig` in Engine configuration. `PackagingConfig` can be a single packging configuration. Alternatively, if you want to apply multiple packaging types, you can also define a list of packaging configurations.
+
+If not specified, Olive will not package artifacts.
+
+* `PackagingConfig`
+    * `type [PackagingType]`:
+      Olive packaging type. Olive will package different artifacts based on `type`.
+    * `name [str]`:
+      For `PackagingType.Zipfile` type, Olive will generate a ZIP file with `name` prefix: `<name>.zip`.
+      For `PackagingType.AzureMLModels` and `PackagingType.AzureMLData`, Olive will use this `name` for Azure ML resource.
+      The default value is `OutputModels`.
+    * `config [dict]`:
+      The packaging config.
+      * `Zipfile`
+        * `export_in_mlflow_format [bool]`:
+          Export model in mlflow format. This is `false` by default.
+      * `AzureMLModels`
+        * `export_in_mlflow_format [bool]`:
+          Export model in mlflow format. This is `false` by default.
+        * `version [int | str]`：
+          The version for this model registration. This is `1` by default.
+        * `description [str]`
+          The description for this model registration. This is `None` by default.
+      * `AzureMLData`
+        * `export_in_mlflow_format [bool]`:
+          Export model in mlflow format. This is `false` by default.
+        * `version [int | str]`：
+          The version for this data asset. This is `1` by default.
+        * `description [str]`
+          The description for this data asset. This is `None` by default.
+
+You can add `PackagingConfig` to Engine configurations. e.g.:
+
+```
+"engine": {
+    "search_strategy": {
+        "execution_order": "joint",
+        "search_algorithm": "tpe",
+        "search_algorithm_config": {
+            "num_samples": 5,
+            "seed": 0
+        }
+    },
+    "evaluator": "common_evaluator",
+    "host": "local_system",
+    "target": "local_system",
+    "packaging_config": [
+        {
+            "type": "Zipfile",
+            "name": "OutputModels"
+        },
+        {
+            "type": "AzureMLModels",
+            "name": "OutputModels"
+        },
+        {
+            "type": "AzureMLData",
+            "name": "OutputModels"
+        }
+    ]
+    "clean_cache": true,
+    "cache_dir": "cache"
+}
+```
+
+## Packaged files
+### Inference config file
+The inference config file is a json file including `execution_provider` and `session_options`. e.g.:
+
+```
+{
+    "execution_provider": [
+        [
+            "CPUExecutionProvider",
+            {}
+        ]
+    ],
+    "session_options": {
+        "execution_mode": 1,
+        "graph_optimization_level": 99,
+        "extra_session_config": null,
+        "inter_op_num_threads": 1,
+        "intra_op_num_threads": 64
+    }
+}
+```
+
+### Model configuration file
+The model configuration file is a json file including the history of applied Passes history to the output model. e.g.:
+```
+{
+  "53fc6781998a4624b61959bb064622ce": null,
+  "0_OnnxConversion-53fc6781998a4624b61959bb064622ce-7a320d6d630bced3548f242238392730": {
+    ...
+  },
+  "1_OrtTransformersOptimization-0-c499e39e42693aaab050820afd31e0c3-cpu-cpu": {
+    ...
+  },
+  "2_OnnxQuantization-1-1431c563dcfda9c9c3bf26c5d61ef58e": {
+    ...
+  },
+  "3_OrtPerfTuning-2-a843d77ae4964c04e145b83567fb5b05-cpu-cpu": {
+    ...
+  }
+}
+```
+
+### Metrics file
+The metrics file is a json file including input model metrics and output model metrics.

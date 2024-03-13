@@ -26,12 +26,12 @@ class ZipfilePackagingConfig(CommonPackagingConfig):
 
 
 class AzureMLDataPackagingConfig(CommonPackagingConfig):
-    version: Optional[Union[int, str]] = None
+    version: Union[int, str] = "1"
     description: Optional[str] = None
 
 
 class AzureMLModelsPackagingConfig(CommonPackagingConfig):
-    version: Optional[Union[int, str]] = None
+    version: Union[int, str] = "1"
     description: Optional[str] = None
 
 
