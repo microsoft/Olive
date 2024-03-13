@@ -153,17 +153,7 @@
                 "all_tensors_to_one_file": true
             }
         },
-        "optimum_convert": {
-            "type": "OptimumConversion",
-            "config": {
-                "target_opset": 13,
-                "extra_args": {
-                    "legacy": false,
-                    "no_post_process": false
-                },
-                "custom_model": true
-            }
-        },
+
         "transformers_optimization_fp16": {
             "type": "OrtTransformersOptimization",
             "evaluator": "gqa_evaluator",

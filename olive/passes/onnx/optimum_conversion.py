@@ -48,17 +48,11 @@ class OptimumConversion(Pass):
                 default_value=None,
                 description="Extra arguments to pass to the `optimum.exporters.onnx.main_export` function.",
             ),
-            "custom_model": PassConfigParam(
-                type_=bool,
-                default_value=False,
-                description="Whether the model is a custom model which can not load from transformers directly",
-            ),
         }
 
     def validate_search_point(
         self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
     ) -> bool:
-
         if with_fixed_value:
             search_point = self.config_at_search_point(search_point or {})
 
@@ -100,18 +94,9 @@ class OptimumConversion(Pass):
                 )
                 del extra_args["legacy"]
 
-        if config["custom_model"]:
-            if version.parse(optimum_version.__version__) < version.parse("1.17.0"):
-                raise ValueError("Custom model export is only supported in Optimum version 1.17.0 or later.")
-            from optimum.exporters.onnx import onnx_export_from_model
-
         # export directly to the output path
         # TODO(anyone): consider using a temporary directory to export the model and then save the relevant components
-        if config["custom_model"]:
-            pytorch_model = model.load_model()
-            onnx_export_from_model(pytorch_model, output_model_path, **extra_args)
-        else:
-            export_optimum_model(model.model_path or hf_config.model_name, output_model_path, **extra_args)
+        export_optimum_model(model.model_path or hf_config.model_name, output_model_path, **extra_args)
 
         # check the exported components
         exported_models = [name.stem for name in Path(output_model_path).iterdir() if name.suffix == ".onnx"]
