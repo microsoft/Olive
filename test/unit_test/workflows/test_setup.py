@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import json
 import platform
+import shutil
 import venv
 from pathlib import Path
 
@@ -67,3 +68,4 @@ def test_dependency_setup(tmp_path, config_json):
 
     _, outputs, _ = run_subprocess([python_path, "-Im", "pip", "list"], check=True)
     assert ort_extra in outputs
+    shutil.rmtree(tmp_path, ignore_errors=True)

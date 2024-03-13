@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import json
 import platform
+import shutil
 import sys
 import venv
 from pathlib import Path
@@ -90,6 +91,8 @@ class TestIsolatedORTEvaluator:
 
         self.evaluator = IsolatedORTEvaluator(self.system.environ)
         self.onnx_evaluator = OnnxEvaluator()
+        yield
+        shutil.rmtree(venv_path, ignore_errors=True)
 
     def test__inference(self):
         model = get_onnx_model_config().create_model()
