@@ -21,12 +21,10 @@ def android_target():
     return "emulator-5554"
 
 
-@patch("shutil.which")
 @patch("subprocess.run")
-def test_run_adb_command(mock_run_subprocess, mock_which, android_target):
+def test_run_adb_command(mock_run_subprocess, android_target):
     ret_val = CompletedProcess(None, returncode=0, stdout=b"stdout", stderr=b"stderr")
     mock_run_subprocess.return_value = ret_val
-    mock_which.side_effect = lambda x, path: x
     stdout, stderr = run_adb_command("version", android_target)
     mock_run_subprocess.assert_called_once_with(
         f"adb -s {android_target} version".split(), capture_output=True, env=None, cwd=None, check=False
@@ -43,12 +41,11 @@ def test_run_snpe_command():
         os.environ["SNPE_ROOT"] = "/snpe"
         target_arch = "x86_64-linux-clang"
 
-    with patch.object(Path, "exists") as mock_exists, patch.object(Path, "glob") as mock_glob, patch(
-        "shutil.which"
-    ) as mock_witch, patch.object(Path, "open") as open_file, patch("subprocess.run") as mock_run_subprocess:
+    with patch.object(Path, "exists") as mock_exists, patch.object(Path, "glob") as mock_glob, patch.object(
+        Path, "open"
+    ) as open_file, patch("subprocess.run") as mock_run_subprocess:
         mock_exists.return_value = True
         mock_glob.return_value = [Path("lib") / target_arch]
-        mock_witch.side_effect = lambda x, path: x
         open_file.return_value.__enter__.return_value.readline.return_value = "python"
         mock_run_subprocess.return_value = CompletedProcess(None, returncode=0, stdout=b"stdout", stderr=b"stderr")
         runner = SDKRunner(platform="SNPE")
