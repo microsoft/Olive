@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import shutil
 import unittest
-from pathlib import Path
 from types import FunctionType
 from unittest.mock import MagicMock, patch
 
@@ -23,9 +22,8 @@ from olive.model.handler.pytorch import PyTorchModelHandler
 
 class TestPyTorchMLflowModel(unittest.TestCase):
     @pytest.fixture(autouse=True)
-    def setup(self, tmpdir):
-        self.tempdir = tmpdir
-        self.root_dir = Path(self.tempdir)
+    def setup(self, tmp_path):
+        self.root_dir = tmp_path
         self.model_path = str(self.root_dir.resolve() / "mlflow_test")
         self.task = "text-classification"
         self.architecture = "Intel/bert-base-uncased-mrpc"
@@ -42,7 +40,6 @@ class TestPyTorchMLflowModel(unittest.TestCase):
         }
 
         # cleanup the model path, otherwise, the test will fail after the first run.
-        shutil.rmtree(self.model_path, ignore_errors=True)
         aml_mlflow.hftransformers.save_model(
             self.original_model,
             self.model_path,
@@ -50,6 +47,8 @@ class TestPyTorchMLflowModel(unittest.TestCase):
             config=self.original_model.config,
             hf_conf=self.hf_conf,
         )
+        yield
+        shutil.rmtree(self.root_dir, ignore_errors=True)
 
     def test_hf_model_attributes(self):
         olive_model = PyTorchModelHandler(hf_config={"task": self.task, "model_name": self.architecture})
