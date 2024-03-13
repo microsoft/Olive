@@ -23,6 +23,10 @@ class UserModuleLoader:
         else:
             self.user_module = None
 
+    def is_empty(self):
+        """Check if user_module is empty."""
+        return self.user_module is None
+
     def call_object(self, obj: Union[str, Callable, Any], *args, **kwargs):
         """Call obj with given arguments if it is a function, otherwise just return the object."""
         obj = self.load_object(obj)

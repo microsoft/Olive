@@ -112,7 +112,7 @@ class RegulatePassConfigMixin:
             return pass_config, pass_flows
 
         # data_config
-        passes_require_data_config = ["OnnxQuantization", "OrtPerfTuning"]
+        passes_require_data_config = ["OnnxQuantization", "IncQuantization", "OrtPerfTuning"]
         for p in passes_require_data_config:
             # TODO(anyone): support multi data_config for different passes, pass_flows
             p_names = self._find_pass_name_in_pass_flow(p, pass_flows)
