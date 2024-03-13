@@ -551,7 +551,9 @@ class IncQuantization(Pass):
 
         inc_calib_dataloader = None
         if require_dataloader:
-            if self._user_module_loader:
+            # Never directly use `if self._user_module_loader` to check dataloader is provided or not
+            # self._user_module_loader is always not None since it is initialized in __init__
+            if config["dataloader_func"]:
                 data_dir = get_local_path_from_root(data_root, config["data_dir"])
                 inc_calib_dataloader = self._user_module_loader.call_object(
                     config["dataloader_func"],
@@ -562,7 +564,11 @@ class IncQuantization(Pass):
                 )
             elif config["data_config"]:
                 data_config = validate_config(config["data_config"], DataConfig)
-                inc_calib_dataloader = data_config.to_data_container().create_calibration_dataloader(data_root)
+                # inc quantization's calibration dataloader requires:
+                # 1. input: (input, label)
+                # 2. the dataloader should have the attributes of "__iter__" and "batch_size"
+                #  which is data_config's create_dataloader but not create_calibration_dataloader
+                inc_calib_dataloader = data_config.to_data_container().create_dataloader(data_root)
 
         if run_config.get("diagnosis", False):
             assert inc_calib_dataloader is not None, "diagnosis mode requires dataloader"
