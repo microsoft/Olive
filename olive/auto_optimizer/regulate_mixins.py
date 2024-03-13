@@ -36,7 +36,10 @@ class RegulatePassConfigMixin:
                 for p in pf:
                     if p not in pass_config:
                         pass_config.update({p: {"type": p, "config": {}}})
-
+        # disable pass search when search strategy is None/False
+        if not self.evaluator_config:
+            for pass_name in pass_config:
+                pass_config[pass_name]["disable_search"] = True
         return pass_config, pass_flows
 
     def _regulate_fp16(self, pass_config, pass_flows):
