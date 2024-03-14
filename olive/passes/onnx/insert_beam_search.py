@@ -98,20 +98,11 @@ class InsertBeamSearch(Pass):
     ):
         from onnxruntime import __version__ as OrtVersion
         from onnxruntime.transformers.convert_generation import get_shared_initializers
-        from transformers import AutoTokenizer
 
         # version check
         version_1_16 = version.parse(OrtVersion) >= version.parse("1.16.0")
         version_1_17_1 = version.parse(OrtVersion) >= version.parse("1.17.1")
         # NOTE: will ignore cross qk related options for now
-
-        # get tokenizer
-        model_name = options["model_name"] or model_config.get("_name_or_path")
-        if not model_name:
-            raise ValueError("model_name is not provided and cannot be inferred from model attributes.")
-        if not options["model_name"]:
-            logger.info("Inferred model name from model attributes: %s", model_name)
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
 
         # Chain two models (model_A and model_B) by inserting beam search op in between.
         model_A.graph.name = f"{model_A_name} subgraph"
@@ -190,6 +181,16 @@ class InsertBeamSearch(Pass):
             helper.make_attribute("model_type", 2),
         ]
         if version_1_17_1:
+            from transformers import AutoTokenizer
+
+            # get tokenizer
+            model_name = options["model_name"] or model_config.get("_name_or_path")
+            if not model_name:
+                raise ValueError("model_name is not provided and cannot be inferred from model attributes.")
+            if not options["model_name"]:
+                logger.info("Inferred model name from model attributes: %s", model_name)
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
+
             beam_search_attrs.extend(
                 [
                     helper.make_attribute("translate_token_id", tokenizer.convert_tokens_to_ids(["<|translate|>"])[0]),
