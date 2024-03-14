@@ -101,7 +101,7 @@ class ResourcePathConfig(ConfigBase):
             raise ValueError("Invalid type.")
 
         config_class = ResourcePath.registry[values["type"]].get_config_class()
-        return validate_config(v, ConfigBase, config_class)
+        return validate_config(v, config_class)
 
     def create_resource_path(self) -> ResourcePath:
         return ResourcePath.registry[self.type](self.config)
