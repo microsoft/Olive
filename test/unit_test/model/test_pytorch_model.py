@@ -26,7 +26,7 @@ class TestPyTorchMLflowModel(unittest.TestCase):
         self.root_dir = tmp_path
         self.model_path = str(self.root_dir.resolve() / "mlflow_test")
         self.task = "text-classification"
-        self.architecture = "Intel/bert-base-uncased-mrpc"
+        self.architecture = "google/bert_uncased_L-4_H-256_A-4"
         self.original_model = transformers.BertForSequenceClassification.from_pretrained(self.architecture)
         # note that cannot tokenizer cannot be used before any forked process
         # otherwise it will disable parallelism to avoid deadlocks which make the
@@ -49,6 +49,24 @@ class TestPyTorchMLflowModel(unittest.TestCase):
         )
         yield
         shutil.rmtree(self.root_dir, ignore_errors=True)
+
+    def test_mlflow_model_hfconfig_function(self):
+        hf_model = PyTorchModelHandler(
+            model_path=self.architecture, hf_config={"task": self.task, "model_name": self.architecture}
+        )
+        mlflow_olive_model = PyTorchModelHandler(
+            model_path=self.model_path,
+            model_file_format="PyTorch.MLflow",
+            hf_config={
+                "task": self.task,
+                "model_name": self.architecture,
+            },
+        )
+        # load_hf_model only works for huggingface models and not for mlflow models
+        assert mlflow_olive_model.get_hf_model_config() == hf_model.get_hf_model_config()
+        assert mlflow_olive_model.get_hf_io_config() == hf_model.get_hf_io_config()
+        assert len(list(mlflow_olive_model.get_hf_components())) == len(list(hf_model.get_hf_components()))
+        assert len(mlflow_olive_model.get_hf_dummy_inputs()) == len(hf_model.get_hf_dummy_inputs())
 
     def test_hf_model_attributes(self):
         olive_model = PyTorchModelHandler(hf_config={"task": self.task, "model_name": self.architecture})

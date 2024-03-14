@@ -71,7 +71,7 @@ def load_hf_model_from_model_class(model_class: str, name: str, **kwargs):
     return huggingface_model_loader(model_class)(name, **kwargs)
 
 
-# patched version of transforrmers.onnx.features.supported_features_mapping
+# patched version of transformers.onnx.features.supported_features_mapping
 # to support additional models in olive
 def patched_supported_features_mapping(*supported_features: str, onnx_config_cls: str = None) -> Dict[str, Callable]:
     """Generate the mapping between supported the features and their corresponding OnnxConfig for a given model.

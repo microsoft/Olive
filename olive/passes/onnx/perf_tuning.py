@@ -430,7 +430,7 @@ class PerfTuningRunner:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             enable_rocm_op_tuning(inference_settings, tuning_result, temp_dir)
-            # set the session_options for metrics so that the evalute will use them by default
+            # set the session_options for metrics so that the evaluate will use them by default
             latency_metric.user_config.io_bind = io_bind
             latency_metric.user_config.inference_settings = {"onnx": inference_settings}
 
