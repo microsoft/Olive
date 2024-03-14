@@ -249,6 +249,12 @@ class RunConfig(ConfigBase):
                 )
         return v
 
+    @validator("auto_optimizer_config", always=True)
+    def validate_auto_optimizer_config(cls, v, values):
+        if not values["passes"] and not v:
+            return AutoOptimizerConfig()
+        return v
+
 
 def _resolve_config_str(v, values, alias, component_name):
     """Resolve string value for alias in v to corresponding component config in values.
