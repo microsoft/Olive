@@ -21,7 +21,10 @@ logger = logging.getLogger(__name__)
 
 
 class InsertBeamSearch(Pass):
-    """Insert Beam Search Op. Uses WhisperBeamSearch op if ORT version >= 1.17.1, else uses BeamSearch op."""
+    """Insert Beam Search Op. Only used for whisper models.
+
+    Uses WhisperBeamSearch contrib op if ORT version >= 1.17.1, else uses BeamSearch contrib op.
+    """
 
     _accepts_composite_model = True
 
@@ -29,13 +32,6 @@ class InsertBeamSearch(Pass):
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         use_gpu = accelerator_spec.accelerator_type == Device.GPU
         config = {
-            "model_name": PassConfigParam(
-                type_=str,
-                description=(
-                    "Name of the model. Such as openai/whisper-tiny. Will try to infer from model attributes if not"
-                    " provided."
-                ),
-            ),
             "no_repeat_ngram_size": PassConfigParam(
                 type_=int,
                 default_value=0,
@@ -184,12 +180,8 @@ class InsertBeamSearch(Pass):
             from transformers import AutoTokenizer
 
             # get tokenizer
-            model_name = options["model_name"] or model_config.get("_name_or_path")
-            if not model_name:
-                raise ValueError("model_name is not provided and cannot be inferred from model attributes.")
-            if not options["model_name"]:
-                logger.info("Inferred model name from model attributes: %s", model_name)
-            tokenizer = AutoTokenizer.from_pretrained(model_name)
+            # can get the base name of the model from the config
+            tokenizer = AutoTokenizer.from_pretrained(model_config["_name_or_path"])
 
             beam_search_attrs.extend(
                 [
