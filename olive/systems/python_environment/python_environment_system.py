@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import platform
+import sys
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
@@ -78,7 +79,7 @@ class PythonEnvironmentSystem(OliveSystem):
             tmp_dir_path = Path(tmp_dir).resolve()
 
             # command to run
-            command = ["python", str(script_path)]
+            command = [sys.executable, str(script_path)]
 
             # write config jsons to files
             for key, config_json in config_jsons.items():
@@ -171,13 +172,15 @@ class PythonEnvironmentSystem(OliveSystem):
         packages.append(onnxruntime_package)
 
         _, stdout, _ = run_subprocess(
-            f"pip install --cache-dir {self.environ['TMPDIR']} {' '.join(packages)}",
+            f"{sys.executable} -m pip install --cache-dir {self.environ['TMPDIR']} {' '.join(packages)}",
             env=self.environ,
             check=True,
         )
         log_stdout(stdout)
 
-        _, stdout, _ = run_subprocess(f"pip show {onnxruntime_package}", env=self.environ, check=True)
+        _, stdout, _ = run_subprocess(
+            f"{sys.executable} -m pip show {onnxruntime_package}", env=self.environ, check=True
+        )
         log_stdout(stdout)
 
     def remove(self):

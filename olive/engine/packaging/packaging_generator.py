@@ -7,6 +7,7 @@ import json
 import logging
 import platform
 import shutil
+import sys
 import tempfile
 import urllib.request
 from collections import OrderedDict
@@ -249,12 +250,12 @@ def _package_onnxruntime_packages(tempdir, pf_footprint: "Footprint"):
     try:
         # Download Python onnxruntime package
         NIGHTLY_PYTHON_COMMAND = Template(
-            "python -m pip download -i "
+            f"{sys.executable} -m pip download -i "
             "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ "
             "$package_name==$ort_version --no-deps -d $python_download_path"
         )
         STABLE_PYTHON_COMMAND = Template(
-            "python -m pip download $package_name==$ort_version --no-deps -d $python_download_path"
+            f"{sys.executable} -m pip download $package_name==$ort_version --no-deps -d $python_download_path"
         )
         python_download_path = tempdir / "ONNXRuntimePackages" / "python"
         python_download_path.mkdir(parents=True, exist_ok=True)
@@ -309,7 +310,7 @@ def _download_ort_extensions_package(use_ort_extensions: bool, download_path: st
             system = platform.system()
             if system == "Windows":
                 download_command = (
-                    "python -m pip download -i "
+                    f"{sys.executable} -m pip download -i "
                     "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ "
                     f"onnxruntime-extensions=={version} --no-deps -d {download_path}"
                 )
@@ -320,7 +321,9 @@ def _download_ort_extensions_package(use_ort_extensions: bool, download_path: st
                     "Skip packaging ONNXRuntime-Extensions package. Please manually install ONNXRuntime-Extensions."
                 )
         else:
-            download_command = f"python -m pip download onnxruntime-extensions=={version} --no-deps -d {download_path}"
+            download_command = (
+                f"{sys.executable} -m pip download onnxruntime-extensions=={version} --no-deps -d {download_path}"
+            )
             run_subprocess(download_command)
 
 

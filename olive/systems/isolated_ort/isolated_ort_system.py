@@ -5,6 +5,7 @@
 import collections
 import json
 import logging
+import sys
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
@@ -128,7 +129,7 @@ class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_in
         output_dir: Union[str, Path],
     ):
         command = [
-            "python",
+            sys.executable,
             str(self.inference_runner_path),
             "--config_path",
             str(config_path),

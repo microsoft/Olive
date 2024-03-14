@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import shutil
+import sys
 import tempfile
 from copy import deepcopy
 from functools import lru_cache
@@ -152,7 +153,7 @@ def run_available_providers_runner(environ: Dict) -> List[str]:
     with tempfile.TemporaryDirectory() as temp_dir:
         output_path = Path(temp_dir).resolve() / "available_eps.json"
         run_subprocess(
-            f"python {runner_path} --output_path {output_path}",
+            f"{sys.executable} {runner_path} --output_path {output_path}",
             env=environ,
             check=True,
         )
