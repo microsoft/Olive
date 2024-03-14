@@ -7,7 +7,6 @@ import logging
 import os
 import platform
 import shutil
-import sys
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
@@ -177,14 +176,14 @@ class PythonEnvironmentSystem(OliveSystem):
         packages.append(onnxruntime_package)
 
         _, stdout, _ = run_subprocess(
-            f"{sys.executable} -m pip install --cache-dir {self.environ['TMPDIR']} {' '.join(packages)}",
+            f"{self.executable} -m pip install --cache-dir {self.environ['TMPDIR']} {' '.join(packages)}",
             env=self.environ,
             check=True,
         )
         log_stdout(stdout)
 
         _, stdout, _ = run_subprocess(
-            f"{sys.executable} -m pip show {onnxruntime_package}", env=self.environ, check=True
+            f"{self.executable} -m pip show {onnxruntime_package}", env=self.environ, check=True
         )
         log_stdout(stdout)
 
