@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import platform
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -41,6 +42,9 @@ class PythonEnvironmentSystem(OliveSystem):
         requirements_file: Union[Path, str] = None,
         hf_token: bool = None,
     ):
+        if python_environment_path is None:
+            raise ValueError("python_environment_path is required for PythonEnvironmentSystem.")
+
         super().__init__(accelerators=accelerators, olive_managed_env=olive_managed_env)
         self.config = PythonEnvironmentTargetUserConfig(
             python_environment_path=python_environment_path,
@@ -64,6 +68,7 @@ class PythonEnvironmentSystem(OliveSystem):
             else:
                 self.environ["TMPDIR"] = tempfile.TemporaryDirectory().name  # pylint: disable=consider-using-with
 
+        self.executable = shutil.which("python", path=self.environ["PATH"])
         # available eps. This will be populated the first time self.get_supported_execution_providers() is called.
         # used for caching the available eps
         self.available_eps = None
@@ -79,7 +84,7 @@ class PythonEnvironmentSystem(OliveSystem):
             tmp_dir_path = Path(tmp_dir).resolve()
 
             # command to run
-            command = [sys.executable, str(script_path)]
+            command = [self.executable, str(script_path)]
 
             # write config jsons to files
             for key, config_json in config_jsons.items():

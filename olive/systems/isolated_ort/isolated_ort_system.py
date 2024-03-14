@@ -5,7 +5,7 @@
 import collections
 import json
 import logging
-import sys
+import shutil
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
@@ -43,6 +43,9 @@ class IsolatedORTSystem(OliveSystem):
         accelerators: List[str] = None,
         hf_token: bool = None,
     ):
+        if python_environment_path is None:
+            raise ValueError("python_environment_path is required for PythonEnvironmentSystem.")
+
         super().__init__(accelerators=accelerators, olive_managed_env=False)
         self.config = IsolatedORTTargetUserConfig(
             python_environment_path=python_environment_path,
@@ -103,8 +106,10 @@ class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_in
     def __init__(self, environ: Dict[str, str]):
         super().__init__()
 
+        assert environ, "environ should not be None"
         self.environ = environ
         self.inference_runner_path = Path(__file__).parent.resolve() / "inference_runner.py"
+        self.executable = shutil.which("python", path=self.environ["PATH"])
 
     @classmethod
     def _get_common_config(
@@ -129,7 +134,7 @@ class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_in
         output_dir: Union[str, Path],
     ):
         command = [
-            sys.executable,
+            self.executable,
             str(self.inference_runner_path),
             "--config_path",
             str(config_path),

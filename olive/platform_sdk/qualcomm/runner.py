@@ -56,7 +56,7 @@ class SDKRunner:
                     )
         if isinstance(cmd, str):
             cmd = shlex.split(cmd, posix=(platform.system() != "Windows"))
-            cmd[0] = shutil.which(cmd[0], path=self.sdk_env.env.get("PATH", None) or cmd[0])
+            cmd[0] = shutil.which(cmd[0], path=self.sdk_env.env.get("PATH")) or cmd[0]
         return cmd
 
     def run(self, cmd: str, use_olive_env: bool = True):

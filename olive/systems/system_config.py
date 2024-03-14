@@ -55,27 +55,47 @@ class CommonPythonEnvTargetUserConfig(TargetUserConfig):
     def _get_abspath(cls, v):
         return str(Path(v).resolve()) if v else None
 
-    @validator("python_environment_path")
-    def _validate_python_environment_path(cls, v):
-        if v:
-            # check if the path exists
-            if not Path(v).exists():
-                raise ValueError(f"Python path {v} does not exist")
-
-            # check if python exists in the path
-            python_path = shutil.which("python", path=v)
-            if not python_path:
-                raise ValueError(f"Python executable not found in the path {v}")
-        return v
-
 
 class PythonEnvironmentTargetUserConfig(CommonPythonEnvTargetUserConfig):
     olive_managed_env: bool = False  # if True, the environment will be created and managed by Olive
     requirements_file: Union[Path, str] = None  # path to the requirements.txt file
 
+    @root_validator(pre=True)
+    def _validate_python_environment_path(cls, values):
+        # if olive_managed_env is True, python_environment_path is not required
+        if values.get("olive_managed_env"):
+            return values
+
+        python_environment_path = values.get("python_environment_path")
+        if python_environment_path is None:
+            raise ValueError("python_environment_path is required for PythonEnvironmentSystem native mode")
+
+        # check if the path exists
+        if not Path(python_environment_path).exists():
+            raise ValueError(f"Python path {python_environment_path} does not exist")
+
+        # check if python exists in the path
+        python_path = shutil.which("python", path=python_environment_path)
+        if not python_path:
+            raise ValueError(f"Python executable not found in the path {python_environment_path}")
+        return values
+
 
 class IsolatedORTTargetUserConfig(CommonPythonEnvTargetUserConfig):
-    pass
+    # Override to make python_environment_path required
+    python_environment_path: Union[Path, str]
+
+    @validator("python_environment_path")
+    def _validate_python_environment_path(cls, v):
+        # check if the path exists
+        if not Path(v).exists():
+            raise ValueError(f"Python path {v} does not exist")
+
+        # check if python exists in the path
+        python_path = shutil.which("python", path=v)
+        if not python_path:
+            raise ValueError(f"Python executable not found in the path {v}")
+        return v
 
 
 _type_to_config = {
