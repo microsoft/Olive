@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import platform
+import shutil
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
@@ -40,7 +41,10 @@ class PythonEnvironmentSystem(OliveSystem):
         requirements_file: Union[Path, str] = None,
         hf_token: bool = None,
     ):
-        super().__init__(accelerators=accelerators, olive_managed_env=olive_managed_env)
+        if python_environment_path is None:
+            raise ValueError("python_environment_path is required for PythonEnvironmentSystem.")
+
+        super().__init__(accelerators=accelerators, olive_managed_env=olive_managed_env, hf_token=hf_token)
         self.config = PythonEnvironmentTargetUserConfig(
             python_environment_path=python_environment_path,
             environment_variables=environment_variables,
@@ -63,6 +67,7 @@ class PythonEnvironmentSystem(OliveSystem):
             else:
                 self.environ["TMPDIR"] = tempfile.TemporaryDirectory().name  # pylint: disable=consider-using-with
 
+        self.executable = shutil.which("python", path=self.environ["PATH"])
         # available eps. This will be populated the first time self.get_supported_execution_providers() is called.
         # used for caching the available eps
         self.available_eps = None
@@ -78,7 +83,7 @@ class PythonEnvironmentSystem(OliveSystem):
             tmp_dir_path = Path(tmp_dir).resolve()
 
             # command to run
-            command = ["python", str(script_path)]
+            command = [self.executable, str(script_path)]
 
             # write config jsons to files
             for key, config_json in config_jsons.items():
@@ -171,18 +176,18 @@ class PythonEnvironmentSystem(OliveSystem):
         packages.append(onnxruntime_package)
 
         _, stdout, _ = run_subprocess(
-            f"pip install --cache-dir {self.environ['TMPDIR']} {' '.join(packages)}",
+            f"{self.executable} -m pip install --cache-dir {self.environ['TMPDIR']} {' '.join(packages)}",
             env=self.environ,
             check=True,
         )
         log_stdout(stdout)
 
-        _, stdout, _ = run_subprocess(f"pip show {onnxruntime_package}", env=self.environ, check=True)
+        _, stdout, _ = run_subprocess(
+            f"{self.executable} -m pip show {onnxruntime_package}", env=self.environ, check=True
+        )
         log_stdout(stdout)
 
     def remove(self):
-        import shutil
-
         vitual_env_path = Path(self.config.python_environment_path).resolve().parent
 
         try:
