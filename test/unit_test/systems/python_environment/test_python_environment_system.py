@@ -19,6 +19,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from olive.common.utils import run_subprocess
 from olive.evaluator.metric import MetricResult, joint_metric_key
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import ModelConfig
@@ -48,6 +49,10 @@ class TestPythonEnvironmentSystem:
         shutil.rmtree(venv_path)
 
     def test_get_supported_execution_providers(self):
+        python_path = shutil.which("python", path=self.python_environment_path)
+        # install only onnxruntime
+        run_subprocess([python_path, "-m", "pip", "install", "onnxruntime"], env=self.system.environ)
+
         import onnxruntime as ort
 
         assert set(self.system.get_supported_execution_providers()) == set(ort.get_available_providers())
