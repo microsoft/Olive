@@ -188,8 +188,6 @@ class PythonEnvironmentSystem(OliveSystem):
         log_stdout(stdout)
 
     def remove(self):
-        import shutil
-
         vitual_env_path = Path(self.config.python_environment_path).resolve().parent
 
         try:
