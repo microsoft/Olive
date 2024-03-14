@@ -91,9 +91,11 @@ Once finished, you can do text generation using the following code:
 
 ```python
 from optimum.onnxruntime import ORTModelForCausalLM
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, AutoConfig
 
-quantized_model_dir = "${path_to_quantized_model}"
+quantized_model_dir = "${path_to_quantized_llama2-7b}"
+AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf").save_pretrained(quantized_model_dir)
+AutoConfig.from_pretrained("meta-llama/Llama-2-7b-hf").save_pretrained(quantized_model_dir)
 model = ORTModelForCausalLM.from_pretrained(
     quantized_model_dir, provider="CUDAExecutionProvider"
 )

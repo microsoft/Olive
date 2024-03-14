@@ -101,7 +101,7 @@ class QuantLinearTorchFunction(torch.autograd.Function):
     # pylint: disable=W0223,W0221
     @staticmethod
     def symbolic(g, x, qself_qweight, qself_scales, qself_qzeros, bits, groupsize, in_features, out_features):
-        return g.op(
+        output = g.op(
             "com.microsoft::MatMulNBits",
             x,
             qself_qweight,
@@ -113,6 +113,12 @@ class QuantLinearTorchFunction(torch.autograd.Function):
             bits_i=bits,
             block_size_i=groupsize,
         )
+        input_shape = x.type().varyingSizes()
+        if input_shape is not None and hasattr(x.type(), "with_sizes"):
+            output_type = x.type().with_sizes(input_shape[:-1] + [qself_qweight.type().varyingSizes()[0]])
+            output.setType(output_type)
+
+        return output
 
     @staticmethod
     def forward(ctx, x, qself_qweight, qself_scales, qself_qzeros, bits, groupsize, in_features, out_features):

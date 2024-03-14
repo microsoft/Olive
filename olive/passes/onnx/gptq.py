@@ -3,11 +3,11 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import sys
 import tempfile
 from typing import Any, Callable, Dict, List, Union
 
 import torch
-from packaging import version
 
 from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
@@ -97,6 +97,11 @@ class GptqQuantizer(Pass):
                 default_value=False,
                 description="Symmetric quantization. Default value is False.",
             ),
+            "quantization_verbose": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Whether to print verbose information during quantization. Default value is False.",
+            ),
             "data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
                 default_value=None,
@@ -119,16 +124,6 @@ class GptqQuantizer(Pass):
                 default_value=None,
                 description="Keyword arguments for dataloader_func. Default value is None.",
             ),
-            "export_optimum": PassConfigParam(
-                type_=bool,
-                default_value=True,
-                description="Whether to use optimum to export ONNX model. Default value is True.",
-            ),
-            "extra_args": PassConfigParam(
-                type_=dict,
-                default_value=None,
-                description="Extra arguments to pass to the `optimum.exporters.onnx.onnx_export_from_model` function.",
-            ),
             "use_dynamo_exporter": PassConfigParam(
                 type_=bool,
                 default_value=False,
@@ -137,6 +132,11 @@ class GptqQuantizer(Pass):
             "target_opset": PassConfigParam(
                 type_=int,
                 default_value=13,
+                description="The version of the default (ai.onnx) opset to target when export_optimum=False.",
+            ),
+            "export_device": PassConfigParam(
+                type_=str,
+                default_value="cpu",
                 description="The version of the default (ai.onnx) opset to target when export_optimum=False.",
             ),
         }
@@ -149,17 +149,15 @@ class GptqQuantizer(Pass):
         from auto_gptq.modeling import BaseGPTQForCausalLM
         from auto_gptq.modeling.auto import GPTQ_CAUSAL_LM_MODEL_MAP
 
-        from olive.passes.pytorch.gptq_utils import QuantLinearORT
+        from olive.passes.onnx.gptq_utils import QuantLinearORT
 
         if self.accelerator_spec.accelerator_type != Device.GPU:
             raise ValueError("Please use GPU to run gptq quantization.")
 
-        if config["export_optimum"]:
-            from optimum.version import __version__ as optimum_version
-
-            if version.parse(optimum_version) < version.parse("1.17.0"):
-                raise ValueError("Please use optimum>=1.17.0 for optimum export")
-            from optimum.exporters.onnx import onnx_export_from_model
+        if config["quantization_verbose"]:
+            auto_gptq_logger = logging.getLogger("auto_gptq")
+            auto_gptq_logger.addHandler(logging.StreamHandler(sys.stdout))
+            auto_gptq_logger.setLevel(logging.INFO)
 
         dataset = None
         if config["dataloader_func"]:
@@ -230,25 +228,16 @@ class GptqQuantizer(Pass):
         quantized_model = quantized_model.model
         assert self.accelerator_spec.accelerator_type == Device.GPU
 
-        if config["export_optimum"]:
-            onnx_export_from_model(
-                model=quantized_model,
-                output=output_model_path,
-                device="cuda",
-                **config["extra_args"] if config["extra_args"] else {},
-            )
-            return ONNXModelHandler(model_path=output_model_path, onnx_file_name="model.onnx")
-        else:
-            converted_onnx_model = OnnxConversion._export_pytorch_model(
-                quantized_model,
-                model.get_dummy_inputs(),
-                model.get_io_config(),
-                config,
-                "cuda",
-                None,
-                tempfile.tempdir,
-            )
-            output_model_path = resolve_onnx_path(output_model_path)
-            output_model = model_proto_to_olive_model(converted_onnx_model, output_model_path, config)
-            output_model.model_attributes = model.model_attributes
-            return output_model
+        converted_onnx_model = OnnxConversion._export_pytorch_model(  # pylint: disable=protected-access
+            quantized_model,
+            model.get_dummy_inputs(),
+            model.get_io_config(),
+            config,
+            config["export_device"],
+            None,
+            tempfile.tempdir,
+        )
+        output_model_path = resolve_onnx_path(output_model_path)
+        output_model = model_proto_to_olive_model(converted_onnx_model, output_model_path, config)
+        output_model.model_attributes = model.model_attributes
+        return output_model

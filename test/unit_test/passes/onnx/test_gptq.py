@@ -33,46 +33,10 @@ def test_gptq_default(tmp_path: Path):
         hf_config={
             "model_class": "OPTForCausalLM",
             "model_name": "facebook/opt-125m",
+            "task": "text-generation",
         }
     )
     config = {"dataloader_func": get_dummy_dataloader_func}
-
-    p = create_pass_from_dict(
-        GptqQuantizer,
-        config,
-        disable_search=True,
-        accelerator_spec=AcceleratorSpec(accelerator_type=Device.GPU, execution_provider="CUDAExecutionProvider"),
-    )
-    gptq_out_folder = str(tmp_path / "gptq")
-
-    # execute
-    p.run(input_model, None, gptq_out_folder)
-
-
-@pytest.mark.skipif(
-    not torch.cuda.is_available(),
-    reason="gptq requires GPU.",
-)
-def test_gptq_custom_export(tmp_path: Path):
-    # setup
-    input_model = PyTorchModelHandler(
-        hf_config={
-            "model_class": "OPTForCausalLM",
-            "model_name": "facebook/opt-125m",
-        },
-        io_config={
-            "input_names": ["input_ids", "attention_mask"],
-            "input_types": ["int64", "int64"],
-            "input_shapes": [(2, 32), (2, 32)],
-            "output_names": ["logits"],
-            "dynamic_axes": {
-                "input_ids": {0: "batch", 1: "sequence"},
-                "attention_mask": {0: "batch", 1: "sequence"},
-                "logits": {0: "batch", 1: "sequence"},
-            },
-        },
-    )
-    config = {"dataloader_func": get_dummy_dataloader_func, "export_optimum": False}
 
     p = create_pass_from_dict(
         GptqQuantizer,
