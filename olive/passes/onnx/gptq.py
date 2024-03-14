@@ -2,8 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import logging
-import sys
 import tempfile
 from typing import Any, Callable, Dict, List, Union
 
@@ -19,8 +17,6 @@ from olive.passes import Pass
 from olive.passes.onnx.common import model_proto_to_olive_model
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.pass_config import PassConfigParam
-
-logger = logging.getLogger(__name__)
 
 
 class GptqQuantizer(Pass):
@@ -97,11 +93,6 @@ class GptqQuantizer(Pass):
                 default_value=False,
                 description="Symmetric quantization. Default value is False.",
             ),
-            "quantization_verbose": PassConfigParam(
-                type_=bool,
-                default_value=False,
-                description="Whether to print verbose information during quantization. Default value is False.",
-            ),
             "data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
                 default_value=None,
@@ -153,11 +144,6 @@ class GptqQuantizer(Pass):
 
         if self.accelerator_spec.accelerator_type != Device.GPU:
             raise ValueError("Please use GPU to run gptq quantization.")
-
-        if config["quantization_verbose"]:
-            auto_gptq_logger = logging.getLogger("auto_gptq")
-            auto_gptq_logger.addHandler(logging.StreamHandler(sys.stdout))
-            auto_gptq_logger.setLevel(logging.INFO)
 
         dataset = None
         if config["dataloader_func"]:

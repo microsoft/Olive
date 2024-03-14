@@ -5,6 +5,8 @@
 
 import argparse
 import json
+import logging
+import sys
 
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
@@ -95,6 +97,9 @@ def main(raw_args=None):
         template_json["pass_flows"] = [flow for flow in SUPPORTED_WORKFLOWS[device] if "gptq" not in flow[0]]
     else:
         template_json["pass_flows"] = [flow for flow in SUPPORTED_WORKFLOWS[device] if "gptq" in flow[0]]
+        auto_gptq_logger = logging.getLogger("auto_gptq")
+        auto_gptq_logger.addHandler(logging.StreamHandler(sys.stdout))
+        auto_gptq_logger.setLevel(logging.INFO)
 
     # remove unused passes and set gqa related configs
     used_passes = {pass_name for pass_flow in SUPPORTED_WORKFLOWS[device] for pass_name in pass_flow}
