@@ -53,9 +53,11 @@ class TestPythonEnvironmentSystem:
         # install only onnxruntime
         run_subprocess([python_path, "-m", "pip", "install", "onnxruntime"], env=self.system.environ)
 
-        import onnxruntime as ort
-
-        assert set(self.system.get_supported_execution_providers()) == set(ort.get_available_providers())
+        # for GPU ort, the get_available_providers will return ["CUDAExecutionProvider", "DmlExecutionProvider"]
+        assert set(self.system.get_supported_execution_providers()) == {
+            "AzureExecutionProvider",
+            "CPUExecutionProvider",
+        }
 
     @patch("olive.systems.python_environment.python_environment_system.run_subprocess")
     @patch("olive.systems.python_environment.python_environment_system.tempfile.TemporaryDirectory")
