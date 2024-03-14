@@ -169,7 +169,10 @@ def _package_candidate_models(
         elif model_type.lower() == "openvinomodel":
             model_resource_path.save_to_dir(model_dir, "model", True)
         else:
-            raise ValueError(f"Unsupported model type: {model_type} for packaging")
+            raise ValueError(
+                f"Unsupported model type: {model_type} for packaging,"
+                " you can set `packaging_config` as None to mitigate this issue."
+            )
 
         # Copy Passes configurations
         configuration_path = model_dir / "configurations.json"

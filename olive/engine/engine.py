@@ -459,6 +459,8 @@ class Engine:
                     overwrite=True,
                     cache_dir=self._config.cache_dir,
                 )
+                # it is not supported to save compositepytorchmodel/compositemodel again
+                # so the output_model_json could be None
                 output_models[pass_output_model_id] = output_model_json
 
             # save the evaluation results to output_dir
@@ -471,7 +473,7 @@ class Engine:
         fp_outputs = self.footprints[accelerator_spec].create_footprints_by_model_ids(output_model_ids)
         # update the output model config
         for model_id, model_config in output_models.items():
-            fp_outputs.nodes[model_id].model_config = model_config
+            fp_outputs.nodes[model_id].model_config = model_config or fp_outputs.nodes[model_id].model_config
 
         return fp_outputs
 

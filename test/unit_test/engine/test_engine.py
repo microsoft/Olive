@@ -7,6 +7,7 @@ import logging
 from pathlib import Path
 from test.unit_test.utils import (
     get_accuracy_metric,
+    get_composite_onnx_model_config,
     get_onnx_model_config,
     get_onnxconversion_pass,
     get_pytorch_model_config,
@@ -21,7 +22,7 @@ from olive.evaluator.metric import AccuracySubType, MetricResult, joint_metric_k
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.hardware.accelerator import create_accelerators
-from olive.passes.onnx import OnnxConversion, OnnxDynamicQuantization, OnnxStaticQuantization
+from olive.passes.onnx import OnnxConversion, OnnxDynamicQuantization, OnnxStaticQuantization, OptimumConversion
 from olive.systems.common import SystemType
 from olive.systems.local import LocalSystem
 from olive.systems.system_config import LocalTargetUserConfig, SystemConfig
@@ -204,6 +205,33 @@ class TestEngine:
         assert system_object.run_pass.call_count == 2
         assert system_object.evaluate_model.call_count == 3
         system_object.evaluate_model.assert_called_with(onnx_model_config.to_json(), None, [metric], accelerator_spec)
+
+    @patch("olive.systems.local.LocalSystem")
+    def test_run_no_search_model_components(self, mock_local_system_init, tmpdir):
+        model_config = get_pytorch_model_config()
+        composite_onnx_model_config = get_composite_onnx_model_config()
+
+        mock_local_system = MagicMock()
+        mock_local_system_init.return_value = mock_local_system
+        mock_local_system.system_type = SystemType.Local
+        mock_local_system.run_pass.return_value = composite_onnx_model_config
+        mock_local_system.accelerators = ["CPU"]
+        mock_local_system.get_supported_execution_providers.return_value = ["CPUExecutionProvider"]
+        mock_local_system.olive_managed_env = False
+
+        engine = Engine()
+        engine.register(OptimumConversion, disable_search=True, clean_run_cache=True)
+        engine.set_pass_flows()
+        # output model to output_dir
+        output_dir = Path(tmpdir)
+
+        # execute
+        accelerator_spec = DEFAULT_CPU_ACCELERATOR
+        _actual_res = engine.run(model_config, [accelerator_spec], output_dir=output_dir)
+
+        # assert
+        actual_res = next(iter(_actual_res[accelerator_spec].nodes.values()))
+        assert composite_onnx_model_config.to_json() == actual_res.model_config
 
     @patch("olive.systems.local.LocalSystem")
     def test_run_no_search(self, mock_local_system_init, tmpdir):
