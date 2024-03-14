@@ -215,7 +215,7 @@ class OnnxDAG:
                         ios[o].scalar_value = cls._get_scalar_value(attr.t, ios[o].shape)
                         break
             for destination in ios[o].destination:
-                if destination != SpecialOutput.OUTPUT and destination not in connections[name]:
+                if destination != SpecialOutput.OUTPUT:
                     connections[name].append(destination)
 
     def add_node(self, node_proto: NodeProto, graph_idx: int):
@@ -281,7 +281,7 @@ class OnnxDAG:
         # remove the old nodes
         for node in old_node_names[::-1]:
             self.remove_node(node)
-        # remove constant nodes whose inputs are not needed anymore
+        # remove constant nodes whose values are not needed anymore
         for i in constant_scalar:
             node = self.ios[i].source
             if not self.connections[node]:
@@ -302,26 +302,28 @@ class OnnxDAG:
         node = self.nodes[node_name]
         # update the node object and proto
         node.inputs[node.inputs.index(old_input)] = new_input
-        proto_updated = False
+        num_updated = 0
         for i in range(len(node.inputs)):
             if node.proto.input[i] == old_input:
                 node.proto.input[i] = new_input
-                proto_updated = True
-        if not proto_updated:
+
+                # update the ios
+                self.ios[old_input].destination.remove(node_name)
+                self.ios[new_input].destination.append(node_name)
+
+                # update the connections
+                old_parent = self.ios[old_input].source
+                if old_parent not in [SpecialInput.INPUT, SpecialInput.INITIALIZER]:
+                    self.connections[old_parent].remove(node_name)
+
+                new_parent = self.ios[new_input].source
+                if new_parent not in [SpecialInput.INPUT, SpecialInput.INITIALIZER]:
+                    self.connections[new_parent].append(node_name)
+
+                num_updated += 1
+
+        if num_updated < 1:
             raise ValueError(f"Input {old_input} does not exist in node {node_name} proto.")
-
-        # update the ios
-        self.ios[old_input].destination.remove(node_name)
-        self.ios[new_input].destination.append(node_name)
-
-        # update the connections
-        old_parent = self.ios[old_input].source
-        if old_parent not in [SpecialInput.INPUT, SpecialInput.INITIALIZER]:
-            self.connections[old_parent].remove(node_name)
-
-        new_parent = self.ios[new_input].source
-        if new_parent not in [SpecialInput.INPUT, SpecialInput.INITIALIZER]:
-            self.connections[new_parent].append(node_name)
 
     def fold_node(self, node_a, node_b):
         """Fold node_a into node_b."""
@@ -334,7 +336,8 @@ class OnnxDAG:
         node_a_outputs = self.nodes[node_a].outputs
         node_b_outputs = self.nodes[node_b].outputs
         for output, new_output in zip(node_a_outputs, node_b_outputs):
-            for consumer in list(self.ios[output].destination):
+            # using a set to avoid duplicates. Same output can be consumed multiple times by the same node
+            for consumer in set(self.ios[output].destination):
                 self.replace_node_input(consumer, output, new_output)
 
         # remove node_a
@@ -353,7 +356,13 @@ class OnnxDAG:
         return self.nodes[node_name].attributes
 
     def get_consumers(self, node_name: str) -> List[str]:
-        """Get the consumers of a node."""
+        """Get the consumers of a node.
+
+        :param node_name: name of the node. It can also be an input or initializer.
+        """
+        if node_name in self.ios and self.ios[node_name].source in [SpecialInput.INPUT, SpecialInput.INITIALIZER]:
+            return list(self.ios[node_name].destination)
+
         return list(self.connections[node_name])
 
     def is_output_producer(self, node_name: str) -> bool:
@@ -408,6 +417,10 @@ class OnnxDAG:
         """Get the model outputs."""
         return [o for o, io in self.ios.items() if SpecialOutput.OUTPUT in io.destination]
 
+    def get_model_initializers(self) -> List[str]:
+        """Get the model initializers."""
+        return [i for i, io in self.ios.items() if io.source == SpecialInput.INITIALIZER]
+
     def _topological_sort_util(self, v: str, visited: Set[str], order: List[str]):
         # keep track of the nodes to visit
         stack = [v]
@@ -416,7 +429,7 @@ class OnnxDAG:
             v = stack.pop()
             visited.add(v)
 
-            for neighbor in self.connections[v]:
+            for neighbor in self.get_consumers(v):
                 if neighbor not in visited:
                     # remember to come back to this node
                     stack.append(v)
@@ -426,11 +439,22 @@ class OnnxDAG:
             else:
                 order.insert(0, v)
 
-    def topological_sort(self):
+    def topological_sort(self, include_inputs: bool = False, include_initializers: bool = False):
+        """Sort the nodes in topological order.
+
+        :param include_inputs: include model inputs in the order.
+        :param include_initializers: include model initializers in the order.
+        """
         visited = set()
         order = []
 
-        for v in self.nodes:
+        nodes_to_visit = list(self.nodes.keys())
+        if include_inputs:
+            nodes_to_visit.extend(self.get_model_inputs())
+        if include_initializers:
+            nodes_to_visit.extend(self.get_model_initializers())
+
+        for v in nodes_to_visit:
             if v not in visited:
                 self._topological_sort_util(v, visited, order)
 

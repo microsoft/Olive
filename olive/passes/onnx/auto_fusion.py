@@ -144,7 +144,7 @@ class AutoFusion(Pass):
             v = stack.pop()
             visited.add(v)
 
-            for neighbor in dag.connections[v]:
+            for neighbor in dag.get_consumers(v):
                 if neighbor not in visited:
                     stack.append(v)
                     stack.append(neighbor)
@@ -152,13 +152,14 @@ class AutoFusion(Pass):
             else:
                 fusion_cls = get_fusion_class(v, dag)
                 if not fusion_cls or not fusion_cls(v, dag).can_fuse_more():
+                    # second condition checks if the node has only one consumer
                     continue
 
                 # keep track of all possible fusion starting from v
                 fusions = []
 
                 # try to fuse the node with its child
-                child = dag.connections[v][0]
+                child = dag.get_consumers(v)[0]
                 fusion = fusion_cls(v, dag)
                 if fusion.try_fuse_node(child):
                     fusions.append(fusion)
@@ -203,23 +204,25 @@ class AutoFusion(Pass):
     @staticmethod
     def remove_redundant_cast_nodes(dag: OnnxDAG):
         """Remove redundant cast nodes from the graph."""
-        model_outputs = dag.get_model_outputs()
         removed_count = 0
         for node_name in list(dag.nodes):
-            node = dag.nodes[node_name]
-            if node.op_type != "Cast":
+            if dag.get_op_type(node_name) != "Cast":
                 continue
 
             if dag.get_input_dtypes(node_name) != dag.get_output_dtypes(node_name):
                 continue
 
-            if node.outputs[0] in model_outputs:
+            if dag.is_output_producer(node_name):
                 # we don't want to remove the cast node if it's an output
                 # TODO(jambayk): handle this
                 continue
 
-            for destination in list(dag.ios[node.outputs[0]].destination):
-                dag.replace_node_input(destination, node.outputs[0], node.inputs[0])
+            # cast node only has one input and one output
+            # so we can just iterate through the consumers
+            output_name = dag.get_output_names(node_name)[0]
+            input_name = dag.get_input_names(node_name)[0]
+            for destination in dag.get_consumers(node_name):
+                dag.replace_node_input(destination, output_name, input_name)
 
             dag.remove_node(node_name, check_no_consumers=True)
             removed_count += 1
@@ -229,7 +232,7 @@ class AutoFusion(Pass):
     def fold_duplicate_nodes(dag: OnnxDAG):
         """Fold duplicate nodes in the graph."""
         num_folded = 0
-        order = dag.topological_sort()
+        order = dag.topological_sort(include_inputs=True, include_initializers=True)
         # iterate through the nodes in topological order
         # TODO(jambayk): iterate over the inputs of the model first so that input consumers are folded too
         for node_name in order:
