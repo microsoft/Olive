@@ -3,6 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import shlex
+import shutil
 import time
 from pathlib import Path
 
@@ -52,7 +54,9 @@ class SDKRunner:
                     logger.warning(
                         "Failed to read the first line of %s: %s. Will ignore to wrap it with python.", cmd_name, e
                     )
-
+            if isinstance(cmd, str):
+                cmd = shlex.split(cmd, posix=(platform.system() != "Windows"))
+                cmd[0] = shutil.which(cmd[0], path=self.sdk_env.env.get("PATH", None) or cmd[0])
         return cmd
 
     def run(self, cmd: str, use_olive_env: bool = True):
