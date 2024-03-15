@@ -134,6 +134,7 @@
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">platform</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
 <span class="kn">import</span> <span class="nn">tempfile</span>
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
@@ -168,7 +169,10 @@
         <span class="n">requirements_file</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">hf_token</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">accelerators</span><span class="o">=</span><span class="n">accelerators</span><span class="p">,</span> <span class="n">olive_managed_env</span><span class="o">=</span><span class="n">olive_managed_env</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">python_environment_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;python_environment_path is required for PythonEnvironmentSystem.&quot;</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">accelerators</span><span class="o">=</span><span class="n">accelerators</span><span class="p">,</span> <span class="n">olive_managed_env</span><span class="o">=</span><span class="n">olive_managed_env</span><span class="p">,</span> <span class="n">hf_token</span><span class="o">=</span><span class="n">hf_token</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">PythonEnvironmentTargetUserConfig</span><span class="p">(</span>
             <span class="n">python_environment_path</span><span class="o">=</span><span class="n">python_environment_path</span><span class="p">,</span>
             <span class="n">environment_variables</span><span class="o">=</span><span class="n">environment_variables</span><span class="p">,</span>
@@ -191,6 +195,7 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;TMPDIR&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span><span class="o">.</span><span class="n">name</span>  <span class="c1"># pylint: disable=consider-using-with</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">executable</span> <span class="o">=</span> <span class="n">shutil</span><span class="o">.</span><span class="n">which</span><span class="p">(</span><span class="s2">&quot;python&quot;</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;PATH&quot;</span><span class="p">])</span>
         <span class="c1"># available eps. This will be populated the first time self.get_supported_execution_providers() is called.</span>
         <span class="c1"># used for caching the available eps</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">available_eps</span> <span class="o">=</span> <span class="kc">None</span>
@@ -206,7 +211,7 @@
             <span class="n">tmp_dir_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tmp_dir</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
 
             <span class="c1"># command to run</span>
-            <span class="n">command</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;python&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">script_path</span><span class="p">)]</span>
+            <span class="n">command</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">executable</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">script_path</span><span class="p">)]</span>
 
             <span class="c1"># write config jsons to files</span>
             <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">config_json</span> <span class="ow">in</span> <span class="n">config_jsons</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
@@ -299,18 +304,18 @@
         <span class="n">packages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">onnxruntime_package</span><span class="p">)</span>
 
         <span class="n">_</span><span class="p">,</span> <span class="n">stdout</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">run_subprocess</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;pip install --cache-dir </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;TMPDIR&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">packages</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">executable</span><span class="si">}</span><span class="s2"> -m pip install --cache-dir </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;TMPDIR&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">packages</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
             <span class="n">env</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">,</span>
             <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">log_stdout</span><span class="p">(</span><span class="n">stdout</span><span class="p">)</span>
 
-        <span class="n">_</span><span class="p">,</span> <span class="n">stdout</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">run_subprocess</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;pip show </span><span class="si">{</span><span class="n">onnxruntime_package</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">env</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">stdout</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">run_subprocess</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">executable</span><span class="si">}</span><span class="s2"> -m pip show </span><span class="si">{</span><span class="n">onnxruntime_package</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">env</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
         <span class="n">log_stdout</span><span class="p">(</span><span class="n">stdout</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="kn">import</span> <span class="nn">shutil</span>
-
         <span class="n">vitual_env_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">python_environment_path</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span>
 
         <span class="k">try</span><span class="p">:</span>

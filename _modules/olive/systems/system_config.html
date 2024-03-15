@@ -183,27 +183,47 @@
     <span class="k">def</span> <span class="nf">_get_abspath</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
         <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">())</span> <span class="k">if</span> <span class="n">v</span> <span class="k">else</span> <span class="kc">None</span>
 
-    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;python_environment_path&quot;</span><span class="p">)</span>
-    <span class="k">def</span> <span class="nf">_validate_python_environment_path</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">v</span><span class="p">:</span>
-            <span class="c1"># check if the path exists</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">Path</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Python path </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> does not exist&quot;</span><span class="p">)</span>
-
-            <span class="c1"># check if python exists in the path</span>
-            <span class="n">python_path</span> <span class="o">=</span> <span class="n">shutil</span><span class="o">.</span><span class="n">which</span><span class="p">(</span><span class="s2">&quot;python&quot;</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">v</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">python_path</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Python executable not found in the path </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">v</span>
-
 
 <div class="viewcode-block" id="PythonEnvironmentTargetUserConfig"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.system_config.PythonEnvironmentTargetUserConfig">[docs]</a><span class="k">class</span> <span class="nc">PythonEnvironmentTargetUserConfig</span><span class="p">(</span><span class="n">CommonPythonEnvTargetUserConfig</span><span class="p">):</span>
     <span class="n">olive_managed_env</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># if True, the environment will be created and managed by Olive</span>
-    <span class="n">requirements_file</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># path to the requirements.txt file</span></div>
+    <span class="n">requirements_file</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># path to the requirements.txt file</span>
+
+    <span class="nd">@root_validator</span><span class="p">(</span><span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_validate_python_environment_path</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
+        <span class="c1"># if olive_managed_env is True, python_environment_path is not required</span>
+        <span class="k">if</span> <span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;olive_managed_env&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">values</span>
+
+        <span class="n">python_environment_path</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;python_environment_path&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">python_environment_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;python_environment_path is required for PythonEnvironmentSystem native mode&quot;</span><span class="p">)</span>
+
+        <span class="c1"># check if the path exists</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">Path</span><span class="p">(</span><span class="n">python_environment_path</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Python path </span><span class="si">{</span><span class="n">python_environment_path</span><span class="si">}</span><span class="s2"> does not exist&quot;</span><span class="p">)</span>
+
+        <span class="c1"># check if python exists in the path</span>
+        <span class="n">python_path</span> <span class="o">=</span> <span class="n">shutil</span><span class="o">.</span><span class="n">which</span><span class="p">(</span><span class="s2">&quot;python&quot;</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">python_environment_path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">python_path</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Python executable not found in the path </span><span class="si">{</span><span class="n">python_environment_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">values</span></div>
 
 
 <div class="viewcode-block" id="IsolatedORTTargetUserConfig"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.system_config.IsolatedORTTargetUserConfig">[docs]</a><span class="k">class</span> <span class="nc">IsolatedORTTargetUserConfig</span><span class="p">(</span><span class="n">CommonPythonEnvTargetUserConfig</span><span class="p">):</span>
-    <span class="k">pass</span></div>
+    <span class="c1"># Override to make python_environment_path required</span>
+    <span class="n">python_environment_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span>
+
+    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;python_environment_path&quot;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_validate_python_environment_path</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+        <span class="c1"># check if the path exists</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">Path</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Python path </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> does not exist&quot;</span><span class="p">)</span>
+
+        <span class="c1"># check if python exists in the path</span>
+        <span class="n">python_path</span> <span class="o">=</span> <span class="n">shutil</span><span class="o">.</span><span class="n">which</span><span class="p">(</span><span class="s2">&quot;python&quot;</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">v</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">python_path</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Python executable not found in the path </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">v</span></div>
 
 
 <span class="n">_type_to_config</span> <span class="o">=</span> <span class="p">{</span>
