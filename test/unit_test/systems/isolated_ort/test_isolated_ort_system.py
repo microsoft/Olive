@@ -16,7 +16,6 @@ import numpy as np
 import pytest
 import torch
 
-from olive.common.pydantic_v1 import ValidationError
 from olive.common.utils import run_subprocess
 from olive.constants import Framework
 from olive.evaluator.metric import AccuracySubType, LatencySubType
@@ -36,9 +35,17 @@ class TestIsolatedORTSystemConfig:
         system_config = SystemConfig.parse_obj(config)
         assert isinstance(system_config.config, IsolatedORTTargetUserConfig)
 
-    def test_missing_isolated_system_config(self):
-        config = {"type": "IsolatedORT", "config": {}}
-        with pytest.raises(ValidationError):
+    @pytest.mark.parametrize(
+        "config",
+        [
+            {"type": "IsolatedORT", "config": {"python_environment_path": None}},
+            {
+                "type": "IsolatedORT",
+            },
+        ],
+    )
+    def test_missing_isolated_system_config(self, config):
+        with pytest.raises(ValueError, match="python_environment_path is required for IsolatedORTSystem"):
             SystemConfig.parse_obj(config)
 
     def test_invalid_isolated_system_config(self):
