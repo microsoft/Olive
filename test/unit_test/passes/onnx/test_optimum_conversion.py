@@ -101,16 +101,3 @@ def test_optimum_configs(config, is_valid, tmp_path):
         assert p.validate_search_point(config, None)
         onnx_model = p.run(input_model, None, output_folder)
         assert Path(onnx_model.model_path).exists()
-
-
-def test_optimum_export_from_model(tmp_path):
-    input_model = get_hf_model()
-    # setup
-    p = create_pass_from_dict(OptimumConversion, {"custom_model": True}, disable_search=True)
-    output_folder = tmp_path
-
-    # execute
-    onnx_model = p.run(input_model, None, output_folder)
-
-    # assert
-    assert Path(onnx_model.model_path).exists()

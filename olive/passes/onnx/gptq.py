@@ -118,17 +118,17 @@ class GptqQuantizer(Pass):
             "use_dynamo_exporter": PassConfigParam(
                 type_=bool,
                 default_value=False,
-                description="Whether to use dynamo_export API to export ONNX model when export_optimum=False.",
+                description="Whether to use dynamo_export API to export ONNX model. Default value is False.",
             ),
             "target_opset": PassConfigParam(
                 type_=int,
                 default_value=13,
-                description="The version of the default (ai.onnx) opset to target when export_optimum=False.",
+                description="The version of the default (ai.onnx) opset to target. Default value is 13.",
             ),
             "export_device": PassConfigParam(
                 type_=str,
                 default_value="cpu",
-                description="The version of the default (ai.onnx) opset to target when export_optimum=False.",
+                description="The device to export the model. Default value is 'cpu'.",
             ),
         }
 
