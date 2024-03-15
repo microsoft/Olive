@@ -7,7 +7,7 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 
 from olive.common.config_utils import serialize_to_json
 from olive.common.utils import hash_dict
@@ -197,7 +197,7 @@ def save_model(
     output_name: Union[str, Path] = None,
     overwrite: bool = False,
     cache_dir: Union[str, Path] = ".olive-cache",
-):
+) -> Optional[Dict]:
     """Save a model from the cache to a given path."""
     # This function should probably be outside of the cache module
     # just to be safe, import lazily to avoid any future circular imports
