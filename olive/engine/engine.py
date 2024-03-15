@@ -19,6 +19,7 @@ from olive.engine.footprint import Footprint, FootprintNodeMetric
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import Metric, MetricResult, joint_metric_key
 from olive.exception import EXCEPTIONS_TO_RAISE, OlivePassError
+from olive.hardware import AcceleratorSpec
 from olive.model import ModelConfig
 from olive.strategy.search_strategy import SearchStrategy
 from olive.systems.common import SystemType
@@ -29,7 +30,6 @@ from olive.systems.utils import create_managed_system_with_cache
 if TYPE_CHECKING:
     from olive.engine.packaging.packaging_config import PackagingConfig
     from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
-    from olive.hardware import AcceleratorSpec
     from olive.passes.olive_pass import Pass
 
 logger = logging.getLogger(__name__)
@@ -1073,7 +1073,14 @@ class Engine:
         if not self.target:
             self.target = create_system(self.target_config, accelerator_spec)
         if not self.host:
-            self.host = create_system(self.host_config, accelerator_spec)
+            host_accelerators = self.host_config.config.accelerators
+            if host_accelerators and host_accelerators[0].execution_providers:
+                host_accelerator_spec = AcceleratorSpec(
+                    host_accelerators[0].device, host_accelerators[0].execution_providers[0]
+                )
+            else:
+                host_accelerator_spec = None
+            self.host = create_system(self.host_config, host_accelerator_spec)
 
         yield
 

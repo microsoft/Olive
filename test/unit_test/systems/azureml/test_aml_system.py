@@ -632,6 +632,9 @@ def test_create_managed_env(create_client_mock):
     system = create_managed_system(system_config, DEFAULT_CPU_ACCELERATOR)
     assert system.config.olive_managed_env
 
+    host_system = create_managed_system(system_config, None)
+    assert host_system.config.olive_managed_env
+
     ml_client = MagicMock()
     ml_client.environments.get.return_value = MagicMock()
     ml_client.environments.get.__name__ = "get"

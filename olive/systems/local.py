@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorFactory
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ModelConfig
-from olive.systems.common import AcceleratorConfig, SystemType
+from olive.systems.common import SystemType
 from olive.systems.olive_system import OliveSystem
 
 if TYPE_CHECKING:

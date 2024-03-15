@@ -147,7 +147,8 @@ class AcceleratorLookup:
         return mapped_devices if mapped_devices else None
 
 
-def create_accelerators(system_config: "SystemConfig", skip_supported_eps_check: bool = True) -> List[AcceleratorSpec]:
+def infer_accelerators_for_system_config(system_config: "SystemConfig") -> "SystemConfig":
+    """If the accelerators are not specified, infer the accelerators. otherwise, return the original system config."""
     from olive.systems.common import SystemType
 
     system_supported_eps = None
@@ -225,6 +226,14 @@ def create_accelerators(system_config: "SystemConfig", skip_supported_eps_check:
                         "AzureML and Docker system requires execution providers to be specified for"
                         f" {accelerator.device}"
                     )
+
+    return system_config, system_supported_eps
+
+
+def create_accelerators(system_config: "SystemConfig", skip_supported_eps_check: bool = True) -> List[AcceleratorSpec]:
+    from olive.systems.common import SystemType
+
+    system_config, system_supported_eps = infer_accelerators_for_system_config(system_config)
 
     device_to_eps = {}
     for accelerator in system_config.config.accelerators:

@@ -284,6 +284,9 @@ class TestPythonEnvironmentSystem:
         system = create_managed_system(system_config, DEFAULT_CPU_ACCELERATOR)
         assert system.config.olive_managed_env
 
+        host_system = create_managed_system(system_config, None)
+        assert host_system.config.olive_managed_env
+
     def test_python_system_config(self):
         config = {
             "type": "PythonEnvironment",

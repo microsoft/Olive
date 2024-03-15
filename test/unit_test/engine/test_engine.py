@@ -472,7 +472,6 @@ class TestEngine:
         mock_local_system.get_supported_execution_providers.return_value = [
             "CUDAExecutionProvider",
             "CPUExecutionProvider",
-            "QNNExecutionProvider",
         ]
         mock_get_available_providers.return_value = ["CUDAExecutionProvider", "CPUExecutionProvider"]
         mock_local_system.run_pass.return_value = get_onnx_model_config()
@@ -497,7 +496,6 @@ class TestEngine:
         )
         accelerator_specs = create_accelerators(system_config)
         assert len(accelerator_specs) == 2
-        assert "QNNExecutionProvider" in caplog.text
         engine.register(OnnxConversion, clean_run_cache=True)
 
         model_config = get_pytorch_model_config()

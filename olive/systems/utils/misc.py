@@ -13,11 +13,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 from olive.common.utils import hash_dir, run_subprocess
+from olive.hardware import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
 from olive.hardware.constants import PROVIDER_DOCKERFILE_MAPPING, PROVIDER_PACKAGE_MAPPING
 from olive.systems.common import SystemType
 
 if TYPE_CHECKING:
-    from olive.hardware import AcceleratorSpec
     from olive.systems.system_config import SystemConfig
 
 logger = logging.getLogger(__name__)
@@ -37,9 +37,14 @@ def create_managed_system(system_config: "SystemConfig", accelerator: "Accelerat
     # pylint: disable=consider-using-with
     assert system_config.olive_managed_env, "system_config.olive_managed_env must be True"
 
-    accelerator_cfg = [
-        {"device": accelerator.accelerator_type, "execution_providers": [accelerator.execution_provider]}
-    ]
+    # for host system, use the first available accelerator
+    if accelerator:
+        accelerator_cfg = [
+            {"device": accelerator.accelerator_type, "execution_providers": [accelerator.execution_provider]}
+        ]
+    else:
+        accelerator_cfg = None
+        accelerator = DEFAULT_CPU_ACCELERATOR
 
     # create a new system with the same type as the origin system
     if system_config.type in [SystemType.Local, SystemType.IsolatedORT]:
@@ -75,7 +80,6 @@ def create_managed_system(system_config: "SystemConfig", accelerator: "Accelerat
             requirements_file=system_config.config.requirements_file,
         )
         new_system.install_requirements(accelerator)
-
     elif system_config.type == SystemType.Docker:
         from olive.systems.docker import DockerSystem
 

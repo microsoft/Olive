@@ -316,3 +316,6 @@ class TestDockerSystem:
         )
         target = create_managed_system(system_config, DEFAULT_CPU_ACCELERATOR)
         assert target.config.olive_managed_env
+
+        host_system = create_managed_system(system_config, None)
+        assert host_system.config.olive_managed_env
