@@ -40,7 +40,7 @@ class GptqQuantizer(Pass):
                 type_=str,
                 default_value="model.layers",
                 description="Block name to quantize. Default value is model.layers. "
-                "For models can't be auto filled, you can refer this link to fill whese parameters.\n"
+                "For models can't be auto filled, you can refer this link to fill these parameters.\n"
                 "https://github.com/AutoGPTQ/AutoGPTQ/blob/896d8204bc89a7cfbda42bf3314e13cf4ce20b02/auto_gptq/modeling/llama.py#L19-L26",
             ),
             "outside_layer_modules": PassConfigParam(
