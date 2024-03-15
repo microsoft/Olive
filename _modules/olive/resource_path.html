@@ -229,7 +229,7 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid type.&quot;</span><span class="p">)</span>
 
         <span class="n">config_class</span> <span class="o">=</span> <span class="n">ResourcePath</span><span class="o">.</span><span class="n">registry</span><span class="p">[</span><span class="n">values</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">get_config_class</span><span class="p">()</span>
-        <span class="k">return</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">config_class</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">config_class</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">create_resource_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ResourcePath</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">ResourcePath</span><span class="o">.</span><span class="n">registry</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">](</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>

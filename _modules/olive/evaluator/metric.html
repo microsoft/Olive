@@ -306,7 +306,7 @@
         <span class="k">elif</span> <span class="n">values</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">MetricType</span><span class="o">.</span><span class="n">THROUGHPUT</span><span class="p">:</span>
             <span class="n">v</span><span class="p">[</span><span class="s2">&quot;higher_is_better&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;higher_is_better&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
             <span class="n">metric_config_cls</span> <span class="o">=</span> <span class="n">ThroughputMetricConfig</span>
-        <span class="n">v</span><span class="p">[</span><span class="s2">&quot;metric_config&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;metric_config&quot;</span><span class="p">,</span> <span class="p">{}),</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">metric_config_cls</span><span class="p">)</span>
+        <span class="n">v</span><span class="p">[</span><span class="s2">&quot;metric_config&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;metric_config&quot;</span><span class="p">,</span> <span class="p">{}),</span> <span class="n">metric_config_cls</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">v</span>
 
@@ -316,7 +316,7 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid type&quot;</span><span class="p">)</span>
 
         <span class="n">user_config_class</span> <span class="o">=</span> <span class="n">get_user_config_class</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">])</span>
-        <span class="k">return</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">user_config_class</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">user_config_class</span><span class="p">)</span></div>
 
 
 <span class="k">class</span> <span class="nc">SubMetricResult</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>

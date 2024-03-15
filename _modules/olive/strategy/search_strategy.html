@@ -177,7 +177,7 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid search_algorithm&quot;</span><span class="p">)</span>
 
         <span class="n">config_class</span> <span class="o">=</span> <span class="n">REGISTRY</span><span class="p">[</span><span class="n">values</span><span class="p">[</span><span class="s2">&quot;search_algorithm&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">get_config_class</span><span class="p">()</span>
-        <span class="k">return</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">config_class</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">config_class</span><span class="p">)</span>
 
     <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;stop_when_goals_met&quot;</span><span class="p">,</span> <span class="s2">&quot;max_iter&quot;</span><span class="p">,</span> <span class="s2">&quot;max_time&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">def</span> <span class="nf">_validate_stop_when_goals_met</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">field</span><span class="p">):</span>
