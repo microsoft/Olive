@@ -302,7 +302,12 @@ def validate_config(
         unused_keys = user_keys - config_keys
         if unused_keys and warn_unused_keys:
             logger.warning("Keys %s are not part of %s. Ignoring them.", unused_keys, instance_class.__name__)
-    elif isinstance(config, ConfigBase) and config.__class__.__name__ == instance_class.__name__:
+    # for dynamically created class by Pydantic create_model, the classes are different even if the class names are same
+    elif (
+        isinstance(config, ConfigBase)
+        and config.__class__.__module__ == instance_class.__module__
+        and config.__class__.__name__ == instance_class.__name__
+    ):
         pass
     else:
         raise ValueError(
