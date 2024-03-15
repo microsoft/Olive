@@ -82,11 +82,17 @@ class PythonEnvironmentTargetUserConfig(CommonPythonEnvTargetUserConfig):
 
 
 class IsolatedORTTargetUserConfig(CommonPythonEnvTargetUserConfig):
-    # Override to make python_environment_path required
-    python_environment_path: Union[Path, str]
-
-    @validator("python_environment_path")
+    # Please refer to https://github.com/pydantic/pydantic/issues/1223
+    # In Pydantic v1, missing a optional field will skip the validation. But if the field is specified as None
+    # The validation will be triggered. As the result, we cannot use the following line to make the field as required
+    # since the validation will still be triggered if user pass it as None.
+    # A better approach is to use always=True to check it is required.
+    # python_environment_path: Union[Path, str]
+    @validator("python_environment_path", always=True)
     def _validate_python_environment_path(cls, v):
+        if v is None:
+            raise ValueError("python_environment_path is required for IsolatedORTSystem")
+
         # check if the path exists
         if not Path(v).exists():
             raise ValueError(f"Python path {v} does not exist")
