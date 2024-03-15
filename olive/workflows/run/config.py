@@ -90,14 +90,18 @@ class RunConfig(ConfigBase):
 
     @validator("engine", pre=True, always=True)
     def default_engine_config(cls, v):
-        return v or {}
+        if v is None:
+            v = {}
+        return v
 
     @validator("data_configs", pre=True, always=True)
     def insert_input_model_data_config(cls, v, values):
         if "input_model" not in values:
             raise ValueError("Invalid input model")
 
-        v = v or {}
+        if not v:
+            # if data_configs is None, create an empty dict
+            v = {}
 
         if INPUT_MODEL_DATA_CONFIG in v:
             raise ValueError(f"Data config name {INPUT_MODEL_DATA_CONFIG} is reserved. Please use another name.")
@@ -247,7 +251,9 @@ class RunConfig(ConfigBase):
 
     @validator("auto_optimizer_config", always=True)
     def validate_auto_optimizer_config(cls, v, values):
-        return v or AutoOptimizerConfig()
+        if not v:
+            v = AutoOptimizerConfig()
+        return v
 
 
 def _resolve_config_str(v, values, alias, component_name):
