@@ -587,6 +587,8 @@
                     <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                     <span class="n">cache_dir</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">,</span>
                 <span class="p">)</span>
+                <span class="c1"># it is not supported to save compositepytorchmodel/compositemodel again</span>
+                <span class="c1"># so the output_model_json could be None</span>
                 <span class="n">output_models</span><span class="p">[</span><span class="n">pass_output_model_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_model_json</span>
 
             <span class="c1"># save the evaluation results to output_dir</span>
@@ -599,7 +601,8 @@
         <span class="n">fp_outputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">create_footprints_by_model_ids</span><span class="p">(</span><span class="n">output_model_ids</span><span class="p">)</span>
         <span class="c1"># update the output model config</span>
         <span class="k">for</span> <span class="n">model_id</span><span class="p">,</span> <span class="n">model_config</span> <span class="ow">in</span> <span class="n">output_models</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">fp_outputs</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">model_id</span><span class="p">]</span><span class="o">.</span><span class="n">model_config</span> <span class="o">=</span> <span class="n">model_config</span>
+            <span class="k">if</span> <span class="n">model_config</span><span class="p">:</span>
+                <span class="n">fp_outputs</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">model_id</span><span class="p">]</span><span class="o">.</span><span class="n">model_config</span> <span class="o">=</span> <span class="n">model_config</span>
 
         <span class="k">return</span> <span class="n">fp_outputs</span>
 
