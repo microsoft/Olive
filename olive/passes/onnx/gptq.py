@@ -10,8 +10,7 @@ import torch
 from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.model import PyTorchModelHandler
-from olive.model.handler.onnx import ONNXModelHandler
+from olive.model import ONNXModelHandler, PyTorchModelHandler
 from olive.model.utils.onnx_utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import model_proto_to_olive_model
@@ -40,7 +39,9 @@ class GptqQuantizer(Pass):
             "layers_block_name": PassConfigParam(
                 type_=str,
                 default_value="model.layers",
-                description="Block name to quantize. Default value is model.layers.",
+                description="Block name to quantize. Default value is model.layers. "
+                "For models can't be auto filled, you can refer this link to fill whese parameters.\n"
+                "https://github.com/AutoGPTQ/AutoGPTQ/blob/896d8204bc89a7cfbda42bf3314e13cf4ce20b02/auto_gptq/modeling/llama.py#L19-L26",
             ),
             "outside_layer_modules": PassConfigParam(
                 type_=List[str],

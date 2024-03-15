@@ -47,4 +47,5 @@ def test_gptq_default(tmp_path: Path):
     gptq_out_folder = str(tmp_path / "gptq")
 
     # execute
-    p.run(input_model, None, gptq_out_folder)
+    out = p.run(input_model, None, gptq_out_folder)
+    assert out is not None
