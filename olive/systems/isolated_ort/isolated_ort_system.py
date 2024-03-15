@@ -99,7 +99,7 @@ class IsolatedORTSystem(OliveSystem):
         return self.available_eps
 
     def remove(self):
-        raise ValueError("ORT inference system does not support system removal")
+        raise NotImplementedError("ORT inference system does not support system removal")
 
 
 class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_inference"):
