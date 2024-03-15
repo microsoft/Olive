@@ -49,7 +49,7 @@ class SearchStrategyConfig(ConfigBase):
             raise ValueError("Invalid search_algorithm")
 
         config_class = REGISTRY[values["search_algorithm"]].get_config_class()
-        return validate_config(v, ConfigBase, config_class)
+        return validate_config(v, config_class)
 
     @validator("stop_when_goals_met", "max_iter", "max_time", pre=True)
     def _validate_stop_when_goals_met(cls, v, values, field):

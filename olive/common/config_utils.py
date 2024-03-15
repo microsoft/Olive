@@ -286,8 +286,7 @@ T = TypeVar("T", bound=ConfigBase)
 
 def validate_config(
     config: Union[Dict[str, Any], ConfigBase, None],
-    base_class: Type[T],
-    instance_class: Optional[Type[T]] = None,
+    instance_class: Type[T],
     warn_unused_keys: bool = True,
 ) -> T:
     """Validate a config dictionary or object against a base class and instance class.
@@ -296,9 +295,6 @@ def validate_config(
     """
     config = config or {}
 
-    if instance_class is None:
-        instance_class = base_class
-
     if isinstance(config, dict):
         user_keys = set(config.keys())
         config = instance_class(**config)
@@ -306,7 +302,12 @@ def validate_config(
         unused_keys = user_keys - config_keys
         if unused_keys and warn_unused_keys:
             logger.warning("Keys %s are not part of %s. Ignoring them.", unused_keys, instance_class.__name__)
-    elif isinstance(config, base_class) and config.__class__.__name__ == instance_class.__name__:
+    # for dynamically created class by Pydantic create_model, the classes are different even if the class names are same
+    elif (
+        isinstance(config, ConfigBase)
+        and config.__class__.__module__ == instance_class.__module__
+        and config.__class__.__name__ == instance_class.__name__
+    ):
         pass
     else:
         raise ValueError(

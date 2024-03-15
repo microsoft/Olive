@@ -120,7 +120,7 @@ class Pass(ABC):
         # Get the config class with default value or default search value
         config_class, default_config = cls.get_config_class(accelerator_spec, disable_search)
         # Generate the search space by using both default value and default search value and user provided config
-        config = validate_config(config, PassConfigBase, config_class)
+        config = validate_config(config, config_class)
 
         config = cls._resolve_config(config, default_config)
         return cls._init_fixed_and_search_params(config, default_config)

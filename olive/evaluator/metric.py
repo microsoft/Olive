@@ -178,7 +178,7 @@ class Metric(ConfigBase):
         elif values["type"] == MetricType.THROUGHPUT:
             v["higher_is_better"] = v.get("higher_is_better", True)
             metric_config_cls = ThroughputMetricConfig
-        v["metric_config"] = validate_config(v.get("metric_config", {}), ConfigBase, metric_config_cls)
+        v["metric_config"] = validate_config(v.get("metric_config", {}), metric_config_cls)
 
         return v
 
@@ -188,7 +188,7 @@ class Metric(ConfigBase):
             raise ValueError("Invalid type")
 
         user_config_class = get_user_config_class(values["type"])
-        return validate_config(v, ConfigBase, user_config_class)
+        return validate_config(v, user_config_class)
 
 
 class SubMetricResult(ConfigBase):
