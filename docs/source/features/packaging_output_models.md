@@ -1,7 +1,7 @@
 # Packaging Olive artifacts
 
 ## What is Olive Packaging
-Olive will output multiple candidate models based on metrics priorities. It also can package output artifacts when the user required. Olive packaging can be used in different scenarios. There are 3 packaging types: `Zipfile`, `AzureMLModels` and `AzureMLData`.
+Olive will output multiple candidate models based on metrics priorities. It also can package output artifacts when the user requires. Olive packaging can be used in different scenarios. There are 3 packaging types: `Zipfile`, `AzureMLModels` and `AzureMLData`.
 
 ### Zipfile
 Zipfile packaging will generate a ZIP file which includes 3 folders: `CandidateModels`, `SampleCode` and `ONNXRuntimePackages`, and a `models_rank.json` file in the `output_dir` folder (from Engine Configuration):
