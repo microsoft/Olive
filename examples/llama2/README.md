@@ -1,11 +1,21 @@
 # Llama2 optimization
 Sample use cases of Olive to optimize a [Llama2](https://huggingface.co/meta-llama/Llama-2-7b-hf)
 
-- [Inference Optimization with ONNX Runtime tools for CPUs and GPUs](#inference-optimize-using-onnx-runtime-tools)
-- [Inference Optimization with ONNX Runtime DirectML for GPUs](#inference-optimization-with-onnnx-runtime-with-directml)
-- [With QLoRa fine-tune and ONNX Runtime Inference Optimizations](#fine-tune-on-a-code-generation-dataset-using-qlora-and-optimize-using-onnx-runtime-tools)
-- [Notebook of using AzureML compute to fine tune and optimize for your local GPUs](https://github.com/microsoft/Olive/tree/main/examples/llama2/notebook)
-- [How to run](#prerequisites)
+- [Llama2 optimization](#llama2-optimization)
+  - [Optimization Workflows](#optimization-workflows)
+    - [Inference optimization using ONNX Runtime Tools](#inference-optimization-using-onnx-runtime-tools)
+    - [Inference optimization with ONNNX Runtime with DirectML](#inference-optimization-with-onnnx-runtime-with-directml)
+    - [Fine-tune on a code generation dataset using QLoRA and optimize using ONNX Runtime Tools](#fine-tune-on-a-code-generation-dataset-using-qlora-and-optimize-using-onnx-runtime-tools)
+    - [Inference optimization using ONNX Runtime GenAI](#inference-optimization-using-onnx-runtime-genai)
+    - [Quantization using GPTQ and do text generation using ONNX Runtime with Optimum](#quantization-using-gptq-and-do-text-generation-using-onnx-runtime-with-optimum)
+  - [Prerequisites](#prerequisites)
+    - [Clone the repository and install Olive](#clone-the-repository-and-install-olive)
+    - [Install onnxruntime](#install-onnxruntime)
+    - [Install extra dependencies](#install-extra-dependencies)
+  - [Run the config to optimize the model](#run-the-config-to-optimize-the-model)
+    - [Optimize using ONNX Runtime Tools](#optimize-using-onnx-runtime-tools)
+    - [Fine-tune on a code generation dataset using QLoRA and optimize using ONNX Runtime Tools](#fine-tune-on-a-code-generation-dataset-using-qlora-and-optimize-using-onnx-runtime-tools-1)
+- [License](#license)
 
 ## Optimization Workflows
 ### Inference optimization using ONNX Runtime Tools
@@ -63,6 +73,37 @@ while True:
     print("Output: ", tokenizer.decode(output_tokens))
 ```
 
+### Quantization using GPTQ and do text generation using ONNX Runtime with Optimum
+
+This workflow quantizes the Llama2 model using [GPTQ](https://arxiv.org/abs/2210.17323) and does text generation using ONNX Runtime with Optimum.
+
+- GPU, GPTQ INT4: *PyTorch Model -> GPTQ INT4 Onnx Model*
+
+**Note:**
+
+- This workflow is only supported for GPU and need GPU to run.
+- GPTQ quantization can be enabled by passing `--use_gptq` flag to the script.
+- You must be logged in to HuggingFace using `huggingface-cli login` to download the dataset or update `token` field in the config file with your HuggingFace token.
+
+Requirements file: [requirements-gptq.txt](requirements-gptq.txt)
+
+Once finished, you can do text generation using the following code:
+
+```python
+from optimum.onnxruntime import ORTModelForCausalLM
+from transformers import AutoTokenizer, AutoConfig
+
+quantized_model_dir = "${path_to_quantized_llama2-7b}"
+AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf").save_pretrained(quantized_model_dir)
+AutoConfig.from_pretrained("meta-llama/Llama-2-7b-hf").save_pretrained(quantized_model_dir)
+model = ORTModelForCausalLM.from_pretrained(
+    quantized_model_dir, provider="CUDAExecutionProvider"
+)
+tokenizer = AutoTokenizer.from_pretrained(quantized_model_dir)
+inputs = tokenizer("Hello, World", return_tensors="pt").to("cuda:0")
+print(tokenizer.batch_decode(model.generate(**inputs, max_length=20), skip_special_tokens=True))
+```
+
 ## Prerequisites
 ### Clone the repository and install Olive
 
@@ -73,12 +114,12 @@ This example requires onnxruntime>=1.16.2. Please install the latest version of 
 
 For CPU:
 ```bash
-python -m pip install "onnxruntime>=1.16.2"
+python -m pip install "onnxruntime>=1.17.0"
 ```
 
 For GPU:
 ```bash
-python -m pip install "onnxruntime-gpu>=1.16.2"
+python -m pip install "onnxruntime-gpu>=1.17.0"
 ```
 
 **Note:** The GPU package also works for CPU.
@@ -110,6 +151,8 @@ GPU:
 python llama2.py --model_name meta-llama/Llama-2-7b-hf --gpu
 # use gqa instead of mha
 python llama2.py --model_name meta-llama/Llama-2-7b-hf --gpu --use_gqa
+# use gptq quantization
+python llama2.py --model_name meta-llama/Llama-2-7b-hf --gpu --use_gptq
 ```
 
 ### Fine-tune on a code generation dataset using QLoRA and optimize using ONNX Runtime Tools

@@ -1,6 +1,6 @@
 datasets>=2.8.0
-git+https://github.com/huggingface/optimum.git
 onnx>=1.14.0
+optimum>=1.17.0
 protobuf==3.20.2
 torch -i https://download.pytorch.org/whl/nightly/cu118
 transformers>=4.33.2

@@ -49,6 +49,7 @@ def dependency_setup(config):
             "OnnxFloatToFloat16": ["onnxconverter-common"],
             "OrtPerfTuning": ["psutil"],
             "QuantizationAwareTraining": ["pytorch-lightning"],
+            "GptqQuantizer": ["auto-gptq", "optimum"],
         }
 
         pass_to_extra_names = {
