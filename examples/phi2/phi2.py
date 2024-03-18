@@ -98,23 +98,23 @@ def get_output_model_path(footprints):
 
 
 def main(raw_args=None):
-    # Check if onnxruntime version is supported
-    # in linux, it requires the
-    # 1. model_type as `phi`
-    # 2. "optimization_options": {"attention_op_type": "MultiHeadAttention"}
-    # in windows, it requires the
-    # 1. model_type as `gpt2`
-    # 2. "optimization_options": {"attention_op_type": "MultiHeadAttention"}
-    # and `phi` and `MultiHeadAttention` requires ort-nightly version >= 1.18.0
-    if version.parse(OrtVersion) < version.parse("1.18.0"):
+    args = get_args(raw_args)
+
+    if not args.optimum_optimization and version.parse(OrtVersion) < version.parse("1.18.0"):
+        # Check if onnxruntime version is supported
+        # in linux, it requires the
+        # 1. model_type as `phi`
+        # 2. "optimization_options": {"attention_op_type": "MultiHeadAttention"}
+        # in windows, it requires the
+        # 1. model_type as `gpt2`
+        # 2. "optimization_options": {"attention_op_type": "MultiHeadAttention"}
+        # and `phi` and `MultiHeadAttention` requires ort-nightly version >= 1.18.0
         raise ValueError(
             "Please use onnxruntime>=1.18.0 for phi2 optimization in Linux, you can refer to "
             "https://onnxruntime.ai/docs/install/#inference-install-table-for-all-languages "
             "for ort-nightly installation. If you are optimizing phi2 model in GPU, only cuda11 "
             "is supported in onnxruntime>=1.18.0"
         )
-
-    args = get_args(raw_args)
 
     json_file_template = "phi2_optimize_template.json"
     with open(json_file_template) as f:
