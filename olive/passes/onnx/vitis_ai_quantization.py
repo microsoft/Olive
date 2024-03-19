@@ -222,6 +222,7 @@ class VitisAIQuantization(Pass):
     """
 
     _requires_user_script = True
+    run_on_target = True
 
     def _initialize(self):
         super()._initialize()

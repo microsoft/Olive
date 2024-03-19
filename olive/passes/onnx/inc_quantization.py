@@ -29,6 +29,7 @@ from olive.strategy.search_parameter import Boolean, Categorical, Conditional
 logger = logging.getLogger(__name__)
 
 _inc_quantization_config = {
+    # TODO(myguo): consider remove the device since now we have accelerator_spec.device
     "device": PassConfigParam(
         type_=str,
         default_value="cpu",
