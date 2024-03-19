@@ -31,7 +31,7 @@ class ORTGenerator:
         self.use_buffer_share = False
         self.packed_kv = False
         self.use_step = False
-        self.torch_dtype = None
+        self.kv_torch_dtype = None
         self.sess = None
         self.tokenizer = None
 
@@ -58,7 +58,7 @@ class ORTGenerator:
             else (batch_size, self.num_heads, past_seq_length, self.head_size)
         )
         for i in range(self.num_layers):
-            past = torch.zeros(past_shape, device=self.device, dtype=self.torch_dtype)
+            past = torch.zeros(past_shape, device=self.device, dtype=self.kv_torch_dtype)
             past_key_name = f"past_key_{i}"
             past_value_name = f"past_value_{i}"
             (
@@ -67,7 +67,7 @@ class ORTGenerator:
                 else inputs.update({f"past_{i}": past.contiguous()})
             )
 
-        logits = torch.zeros(batch_size, sequence_length, 51200, device=self.device, dtype=self.torch_dtype)
+        logits = torch.zeros(batch_size, sequence_length, 51200, device=self.device, dtype=self.kv_torch_dtype)
         outputs = {"logits": logits.contiguous()}
 
         if not self.use_buffer_share:
@@ -79,7 +79,7 @@ class ORTGenerator:
             for i in range(self.num_layers):
                 present_key_name = f"present_key_{i}"
                 present_value_name = f"present_value_{i}"
-                present = torch.zeros(present_shape, device=self.device, dtype=self.torch_dtype)
+                present = torch.zeros(present_shape, device=self.device, dtype=self.kv_torch_dtype)
                 (
                     outputs.update({present_key_name: present.contiguous(), present_value_name: present.contiguous()})
                     if not self.packed_kv
@@ -138,6 +138,7 @@ class ORTGenerator:
         delay_ort_session_init=False,
     ):
         sess_options = ort.SessionOptions()
+        self.kv_torch_dtype = torch.float16 if use_fp16 else torch.float32
         ep = "CUDAExecutionProvider" if device_id >= 0 else "CPUExecutionProvider"
         if not delay_ort_session_init:
             self.sess = ort.InferenceSession(self.onnx_decoder_path, sess_options=sess_options, providers=[ep])
@@ -227,7 +228,7 @@ class ORTGenerator:
                 for i in range(self.num_layers):
                     present_key_name = f"present_key_{i}"
                     present_value_name = f"present_value_{i}"
-                    present = torch.zeros(present_shape, device=self.device, dtype=self.torch_dtype)
+                    present = torch.zeros(present_shape, device=self.device, dtype=self.kv_torch_dtype)
                     (
                         outputs.update(
                             {present_key_name: present.contiguous(), present_value_name: present.clone().contiguous()}
