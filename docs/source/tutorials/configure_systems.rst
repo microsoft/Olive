@@ -371,8 +371,8 @@ Olive can also manage the environment by setting :code:`olive_managed_env = True
 Please refer to :ref:`python_environment_system_config` for more details on the config options.
 
 
-Ort Environment System
------------------------
+Isolated ORT System
+-------------------
 .. tabs::
     .. tab:: Config JSON
 
