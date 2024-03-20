@@ -127,8 +127,8 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
             return self.model
 
         # Load special path or format model -> load model from hf config -> load normal path model
+        user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
         if self.model_loader is not None:
-            user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             model = user_module_loader.call_object(self.model_loader, self.model_path)
         elif self.model_file_format == ModelFileFormat.PYTORCH_TORCH_SCRIPT:
             model = torch.jit.load(self.model_path)
