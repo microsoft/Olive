@@ -14,6 +14,20 @@
             }
         }
     },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "execution_providers": [
+                            "CPUExecutionProvider"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
     "evaluators": {
         "common_evaluator":{
             "metrics":[
@@ -87,6 +101,8 @@
             "execution_order": "joint",
             "search_algorithm": "exhaustive"
         },
+        "host": "local_system",
+        "target": "local_system",
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
         "output_dir": "models/resnet_ptq_cpu"
