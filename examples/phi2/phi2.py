@@ -146,10 +146,12 @@ def main(raw_args=None):
             continue
 
     if "cuda" in model_type:
+        template_json["system"]["local_system"]["config"]["accelerators"][0]["device"] = "gpu"
         template_json["system"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [
             "CUDAExecutionProvider"
         ]
     if "cpu" in model_type:
+        # no need to set device for CPU since default it is CPU
         template_json["system"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [
             "CPUExecutionProvider"
         ]
