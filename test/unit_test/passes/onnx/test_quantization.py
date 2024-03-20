@@ -5,6 +5,7 @@ from onnxruntime import __version__ as OrtVersion
 from onnxruntime.quantization.calibrate import CalibrationDataReader
 from packaging import version
 
+from olive.common.pydantic_v1 import ValidationError
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx import OnnxMatMul4Quantizer, OnnxQuantization, OnnxStaticQuantization
@@ -108,3 +109,23 @@ def test_matmul_4bit_quantization(tmp_path):
     p = create_pass_from_dict(OnnxMatMul4Quantizer, config, disable_search=True, accelerator_spec=accelerator_spec)
     out = p.run(input_model, None, tmp_path)
     assert out is not None
+
+
+@pytest.mark.skipif(
+    version.parse(OrtVersion) < version.parse("1.16.2"),
+    reason="matmul 4bit quantization is only supported in onnxruntime>=1.16.2",
+)
+def test_invalid_config_for_matmul_4bits():
+    config = {
+        "block_size": 32,
+        "is_symmetric": True,
+        "nodes_to_exclude": [],
+        "accuracy_level": 5,
+        "algorithm": "TE",
+    }
+    accelerator_spec = AcceleratorSpec(
+        accelerator_type="CPU",
+        execution_provider="CPUExecutionProvider",
+    )
+    with pytest.raises(ValidationError):
+        create_pass_from_dict(OnnxMatMul4Quantizer, config, disable_search=True, accelerator_spec=accelerator_spec)

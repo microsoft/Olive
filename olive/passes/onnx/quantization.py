@@ -13,6 +13,7 @@ from packaging import version
 
 from olive.cache import get_local_path_from_root
 from olive.common.config_utils import validate_config
+from olive.common.pydantic_v1 import validator
 from olive.common.utils import hash_string
 from olive.data.config import DataConfig
 from olive.exception import OlivePassError
@@ -595,7 +596,8 @@ class OnnxMatMul4Quantizer(Pass):
                 description="List of node names to exclude from quantization.",
             ),
             "accuracy_level": PassConfigParam(
-                type_=Any,
+                # TODO(trajep): to make it searchable
+                type_=int,
                 default_value=None,
                 description="Available from onnxruntime>=1.17.0 "
                 "The minimum accuracy level of input A, can be: 0(unset), 1(fp32), 2(fp16), 3(bf16), "
@@ -620,6 +622,13 @@ class OnnxMatMul4Quantizer(Pass):
         }
         config.update(get_external_data_config())
         return config
+
+    @classmethod
+    def _validators(cls) -> Dict[str, Callable]:
+        return {
+            "validate_accuracy_level": validator("accuracy_level", allow_reuse=True)(_validate_accuracy_level),
+            "validate_algorithm": validator("algorithm", allow_reuse=True)(_validate_algorithm),
+        }
 
     def _run_for_config(
         self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
@@ -659,3 +668,31 @@ class OnnxMatMul4Quantizer(Pass):
 
         # save the model to the output path and return the model
         return model_proto_to_olive_model(quant.model.model, output_model_path, config)
+
+
+def _validate_accuracy_level(v, values, field):
+    if not v:
+        return v
+
+    if v not in (0, 1, 2, 3, 4):
+        raise ValueError(f"OnnxMatMul4Quantizer {field.name} must be 0(unset), 1(fp32), 2(fp16), 3(bf16) or 4(int8)")
+
+    return v
+
+
+def _validate_algorithm(v, values, field):
+    if not v:
+        return v
+
+    if v not in ("DEFAULT", "HQQ", "RTN", "GPTQ"):
+        raise ValueError(f"OnnxMatMul4Quantizer {field.name} must be 'DEFAULT', 'HQQ', 'RTN', 'GPTQ'")
+
+    if v in ("RTN", "GPTQ"):
+        try:
+            import neural_compressor  # noqa: F401
+        except ImportError:
+            raise ImportError(
+                f"OnnxMatMul4Quantizer {field.name}={v} requires neural_compressor package to be installed"
+            ) from None
+
+    return v
