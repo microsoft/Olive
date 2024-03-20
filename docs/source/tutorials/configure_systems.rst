@@ -17,7 +17,7 @@ For each **host** or **target**, it could specify multiple accelerators associat
 Note:
 
 - The accelerators for local system or python system is optional. If not provided, Olive will get the available execution providers installed in current local machine and infer its device.
-- If the accelerators are specified, the device is mandatory. The execution_providers is optional. If not provided, Olive will get the available execution providers associated with the device.
+- For local system or python system, either device or execution_providers is optional but not both if the accelerators are specified. If device or execution_providers is not provided, Olive will infer the device or execution_providers if possible.
 - For docker system and AzureML system, both device and execution_providers are mandatory. Otherwise, Olive will raise an error.
 
 Local System

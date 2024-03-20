@@ -172,6 +172,7 @@ def infer_accelerators_for_system_config(system_config: "SystemConfig") -> "Syst
             assert system_supported_eps, "No supported execution providers found for the target system."
 
             if not system_config.config.accelerators:
+                # User does not specify the accelerators.
                 if system_supported_eps == ["CPUExecutionProvider"]:
                     inferred_accelerators = ["cpu"]
                 else:
@@ -196,7 +197,31 @@ def infer_accelerators_for_system_config(system_config: "SystemConfig") -> "Syst
                 )
             else:
                 for accelerator in system_config.config.accelerators:
-                    if not accelerator.execution_providers:
+                    if not accelerator.device:
+                        # User does not specify the device but providing the execution providers
+                        assert accelerator.execution_providers, "The execution providers are not specified."
+                        if accelerator.execution_providers == ["CPUExecutionProvider"]:
+                            inferred_accelerators = ["cpu"]
+                        else:
+                            inferred_accelerators = AcceleratorLookup.infer_accelerators_from_execution_providers(
+                                accelerator.execution_providers
+                            )
+
+                        assert inferred_accelerators, (
+                            "Cannot infer the accelerators from the execution providers "
+                            f"{accelerator.execution_providers}."
+                            " Please specify the accelerator in the accelerator configs."
+                        )
+                        assert len(inferred_accelerators) == 1, (
+                            "Cannot infer the accelerators from the execution providers "
+                            f"{accelerator.execution_providers}. "
+                            f"Multiple accelerators are inferred: {inferred_accelerators}."
+                            " Please specify the accelerator in the accelerator configs."
+                        )
+                        accelerator.device = inferred_accelerators[0]
+                    else:
+                        assert accelerator.device, "The device is not specified."
+                        # User specify the device but missing the execution providers
                         execution_providers = (
                             AcceleratorLookup.get_execution_providers_for_device_by_available_providers(
                                 accelerator.device.lower(), system_supported_eps

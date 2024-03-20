@@ -19,8 +19,14 @@ class SystemType(str, Enum):
 
 
 class AcceleratorConfig(ConfigBase):
-    device: str
+    device: str = None
     execution_providers: List[str] = None
+
+    @validator("execution_providers", always=True)
+    def validate_device_and_execution_providers(cls, v, values):
+        if v is None and values.get("device") is None:
+            raise ValueError("Either device or execution_providers must be provided")
+        return v
 
 
 class AzureMLDockerConfig(ConfigBase):

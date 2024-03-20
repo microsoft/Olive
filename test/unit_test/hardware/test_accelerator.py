@@ -10,7 +10,7 @@ import pytest
 
 from olive.common.config_utils import validate_config
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec, create_accelerators
-from olive.systems.common import SystemType
+from olive.systems.common import AcceleratorConfig, SystemType
 from olive.systems.python_environment.python_environment_system import PythonEnvironmentSystem
 from olive.systems.system_config import SystemConfig
 
@@ -60,6 +60,24 @@ def test_infer_accelerators_from_execution_provider(execution_providers_test):
             },
             [("cpu", "CPUExecutionProvider")],
             ["CPUExecutionProvider"],
+        ),
+        (
+            {
+                "type": "LocalSystem",
+                "config": {"accelerators": [{"execution_providers": ["CPUExecutionProvider"]}]},
+            },
+            [("cpu", "CPUExecutionProvider")],
+            ["CPUExecutionProvider"],
+        ),
+        (
+            {
+                "type": "LocalSystem",
+                "config": {
+                    "accelerators": [{"execution_providers": ["CUDAExecutionProvider", "CPUExecutionProvider"]}]
+                },
+            },
+            [("gpu", "CUDAExecutionProvider"), ("gpu", "CPUExecutionProvider")],
+            ["CUDAExecutionProvider", "CPUExecutionProvider"],
         ),
         # PythonEnvironment
         (
@@ -185,6 +203,36 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
             ValueError,
             "Managed environment requires execution providers to be specified for cpu",
         ),
+        (
+            {
+                "type": "LocalSystem",
+                "config": {
+                    "accelerators": [{"execution_providers": ["OpenVINOExecutionProvider", "CPUExecutionProvider"]}]
+                },
+            },
+            ["CPUExecutionProvider"],
+            AssertionError,
+            (
+                "Cannot infer the accelerators from the execution providers "
+                "['OpenVINOExecutionProvider', 'CPUExecutionProvider']. "
+                "Please specify the accelerator in the accelerator configs."
+            ),
+        ),
+        (
+            {
+                "type": "LocalSystem",
+                "config": {
+                    "accelerators": [{"execution_providers": ["QNNExecutionProvider", "CUDAExecutionProvider"]}]
+                },
+            },
+            ["CPUExecutionProvider"],
+            AssertionError,
+            (
+                "Cannot infer the accelerators from the execution providers "
+                "['QNNExecutionProvider', 'CUDAExecutionProvider']. Multiple accelerators are inferred: ['npu', 'gpu']."
+                " Please specify the accelerator in the accelerator configs."
+            ),
+        ),
     ],
 )
 @patch("onnxruntime.get_available_providers")
@@ -198,3 +246,12 @@ def test_create_accelerator_with_error(
         create_accelerators(system_config)
     if error_message:
         assert error_message in str(exp.value)
+
+
+def test_accelerator_config():
+    acc_cfg1 = AcceleratorConfig.parse_obj({"device": "cpu"})
+    assert acc_cfg1.execution_providers is None
+    acc_cfg2 = AcceleratorConfig.parse_obj({"execution_providers": ["CPUExecutionProvider"]})
+    assert acc_cfg2.device is None
+    with pytest.raises(ValueError, match="Either device or execution_providers must be provided"):
+        _ = AcceleratorConfig.parse_obj({})
