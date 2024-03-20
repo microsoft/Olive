@@ -126,8 +126,10 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
         if self.model is not None:
             return self.model
 
-        # Load special path or format model -> load model from hf config -> load normal path model
+        # Load user module at the begining since we may need user defined models to load model
         user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
+
+        # Load special path or format model -> load model from hf config -> load normal path model
         if self.model_loader is not None:
             model = user_module_loader.call_object(self.model_loader, self.model_path)
         elif self.model_file_format == ModelFileFormat.PYTORCH_TORCH_SCRIPT:
