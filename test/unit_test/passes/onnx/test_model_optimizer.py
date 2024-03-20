@@ -11,8 +11,8 @@ from onnx import TensorProto, helper
 
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx import OnnxModelOptimizer
 from olive.passes.onnx.common import model_proto_to_olive_model
+from olive.passes.onnx.model_optimizer import OnnxModelOptimizer
 
 if TYPE_CHECKING:
     from olive.model import ONNXModelHandler

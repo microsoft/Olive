@@ -25,13 +25,13 @@ def get_version(rel_path):
 def get_extra_deps(rel_path):
     here = os.path.abspath(os.path.dirname(__file__))
     with open(os.path.join(here, rel_path)) as fp:
-        return json.load(fp)
+        return json.load(fp)["extra_dependencies"]
 
 
 # use techniques described at https://packaging.python.org/en/latest/guides/single-sourcing-package-version/
 # Don't use technique 6 since it needs extra dependencies.
 VERSION = get_version("olive/__init__.py")
-EXTRAS = get_extra_deps("olive/extra_dependencies.json")
+EXTRAS = get_extra_deps("olive/olive_config.json")
 
 with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "requirements.txt")) as req_file:
     requirements = req_file.read().splitlines()
@@ -81,7 +81,7 @@ setup(
     extras_require=EXTRAS,
     include_package_data=False,
     package_data={
-        "olive": ["extra_dependencies.json"],
+        "olive": ["olive_config.json"],
         "olive.auto_optimizer": ["config_template/*.yaml"],
         "olive.engine.packaging": ["sample_code/*/*/*"],
         "olive.platform_sdk.qualcomm": ["create_python_env.sh", "create_python_env.ps1", "copy_libcdsprpc.ps1"],

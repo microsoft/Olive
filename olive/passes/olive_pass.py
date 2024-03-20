@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any, Callable, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
 
 from olive.common.config_utils import ConfigBase, ParamCategory, validate_config
-from olive.common.pydantic_v1 import validator
 from olive.common.user_module_loader import UserModuleLoader
 from olive.data.config import DataConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
@@ -406,12 +405,6 @@ class FullPassConfig(ConfigBase):
     accelerator: Dict[str, str] = None
     host_device: Optional[str] = None
     config: Dict[str, Any] = None
-
-    @validator("type")
-    def validate_type(cls, v):
-        if v.lower() not in Pass.registry:
-            raise ValueError(f"Unknown pass type {v}")
-        return v
 
     def create_pass(self):
         if not isinstance(self.accelerator, dict):

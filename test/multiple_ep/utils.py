@@ -12,7 +12,7 @@ from olive.engine import Engine
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware.accelerator import create_accelerators
-from olive.passes.onnx import OrtPerfTuning
+from olive.passes.onnx.perf_tuning import OrtPerfTuning
 
 # pylint: disable=redefined-outer-name
 

@@ -4,7 +4,7 @@ import pytest
 
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx import DynamicToFixedShape
+from olive.passes.onnx.dynamic_to_fixed_shape import DynamicToFixedShape
 
 
 @pytest.mark.parametrize(

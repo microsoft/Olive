@@ -8,7 +8,7 @@ from packaging import version
 from olive.common.pydantic_v1 import ValidationError
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx import OnnxMatMul4Quantizer, OnnxQuantization, OnnxStaticQuantization
+from olive.passes.onnx.quantization import OnnxMatMul4Quantizer, OnnxQuantization, OnnxStaticQuantization
 
 
 class DummyCalibrationDataReader(CalibrationDataReader):
