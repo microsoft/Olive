@@ -645,15 +645,6 @@ class OnnxMatMul4Quantizer(Pass):
         if version.parse(OrtVersion) >= version.parse("1.17.0"):
             from onnxruntime.quantization.matmul_4bits_quantizer import WeightOnlyQuantConfig
 
-            if config["algorithm"] in ("RTN", "GPTQ"):
-                try:
-                    import neural_compressor  # noqa: F401 # pylint: disable=unused-import
-                except ImportError:
-                    raise ImportError(
-                        f"OnnxMatMul4Quantizer algorithm={config['algorithm']} "
-                        "requires neural_compressor package to be installed"
-                    ) from None
-
             weight_only_quant_config = WeightOnlyQuantConfig(algorithm=config["algorithm"])
             quant = MatMul4BitsQuantizer(
                 model.load_model(),
