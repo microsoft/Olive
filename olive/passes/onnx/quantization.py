@@ -645,6 +645,15 @@ class OnnxMatMul4Quantizer(Pass):
         if version.parse(OrtVersion) >= version.parse("1.17.0"):
             from onnxruntime.quantization.matmul_4bits_quantizer import WeightOnlyQuantConfig
 
+            if config["algorithm"] in ("RTN", "GPTQ"):
+                try:
+                    import neural_compressor  # noqa: F401 # pylint: disable=unused-import
+                except ImportError:
+                    raise ImportError(
+                        f"OnnxMatMul4Quantizer algorithm={config['algorithm']} "
+                        "requires neural_compressor package to be installed"
+                    ) from None
+
             weight_only_quant_config = WeightOnlyQuantConfig(algorithm=config["algorithm"])
             quant = MatMul4BitsQuantizer(
                 model.load_model(),
@@ -686,13 +695,5 @@ def _validate_algorithm(v, values, field):
 
     if v not in ("DEFAULT", "HQQ", "RTN", "GPTQ"):
         raise ValueError(f"OnnxMatMul4Quantizer {field.name} must be 'DEFAULT', 'HQQ', 'RTN', 'GPTQ'")
-
-    if v in ("RTN", "GPTQ"):
-        try:
-            import neural_compressor  # noqa: F401
-        except ImportError:
-            raise ImportError(
-                f"OnnxMatMul4Quantizer {field.name}={v} requires neural_compressor package to be installed"
-            ) from None
 
     return v
