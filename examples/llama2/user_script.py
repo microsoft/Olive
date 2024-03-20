@@ -61,7 +61,7 @@ def get_merged_sample_with_past_kv_inputs(
     elif model.hf_config is not None:
         config = model.get_hf_model_config() if model else LlamaConfig.from_pretrained(model_id)
     else:
-        # Using Namespace class to access a dict item like class attributes
+        # Using Namespace class to access dict items like class attributes
         config = Namespace(**model.model_attributes)
     world_size = config.world_size if hasattr(config, "world_size") else 1
     input_ids = torch.randint(low=0, high=config.vocab_size, size=(batch_size, seq_len), dtype=torch.int64)
@@ -160,7 +160,7 @@ def get_merged_decoder_with_past_io_config(model: PyTorchModelHandler):
     if model.hf_config is not None:
         config = model.get_hf_model_config()
     else:
-        # Using Namespace class to access a dict item like class attributes
+        # Using Namespace class to access dict items like class attributes
         config = Namespace(**model.model_attributes)
 
     input_names = [
