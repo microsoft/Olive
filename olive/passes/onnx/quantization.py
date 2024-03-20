@@ -13,6 +13,7 @@ from packaging import version
 
 from olive.cache import get_local_path_from_root
 from olive.common.config_utils import validate_config
+from olive.common.pydantic_v1 import validator
 from olive.common.utils import hash_string
 from olive.data.config import DataConfig
 from olive.exception import OlivePassError
@@ -594,9 +595,40 @@ class OnnxMatMul4Quantizer(Pass):
                 default_value=None,
                 description="List of node names to exclude from quantization.",
             ),
+            "accuracy_level": PassConfigParam(
+                # TODO(trajep): to make it searchable
+                type_=int,
+                default_value=None,
+                description="Available from onnxruntime>=1.17.0 "
+                "The minimum accuracy level of input A, can be: 0(unset), 1(fp32), 2(fp16), 3(bf16), "
+                "or 4(int8) (default unset when 0 or None). It is used to control how input A is quantized or downcast "
+                "internally while doing computation, for example: 0 means input A will not be quantized "
+                "or downcast while doing computation. 4 means input A can be quantized with the same "
+                "block_size to int8 internally from type T1. "
+                "Refer to the MatMulNBits contrib op's 'accuracy_level' attribute for details "
+                "(https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#commicrosoftmatmulnbits).",
+            ),
+            "algorithm": PassConfigParam(
+                type_=str,
+                default_value=None,
+                description="Available from onnxruntime>=1.17.0 "
+                "Algorithm config for quantization, can be 'DEFAULT', 'HQQ' or 'RTN', 'GPTQ' "
+                "(default DEFAULT when not set). For 4b quantize a model with RTN or GPTQ algorithm. "
+                "Please refer to https://github.com/intel/neural-compressor/blob/master/docs/source/quantization_weight_only.md "  # noqa: E501
+                "for more details on weight only quantization using Intel® Neural Compressor. "
+                "For HQQ, please refer to onnxruntime for more details: "
+                "https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L102C1-L126C25",
+            ),
         }
         config.update(get_external_data_config())
         return config
+
+    @classmethod
+    def _validators(cls) -> Dict[str, Callable]:
+        return {
+            "validate_accuracy_level": validator("accuracy_level", allow_reuse=True)(_validate_accuracy_level),
+            "validate_algorithm": validator("algorithm", allow_reuse=True)(_validate_algorithm),
+        }
 
     def _run_for_config(
         self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
@@ -610,9 +642,25 @@ class OnnxMatMul4Quantizer(Pass):
 
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
-        quant = MatMul4BitsQuantizer(
-            model.load_model(), config["block_size"], config["is_symmetric"], config["nodes_to_exclude"]
-        )
+        if version.parse(OrtVersion) >= version.parse("1.17.0"):
+            from onnxruntime.quantization.matmul_4bits_quantizer import WeightOnlyQuantConfig
+
+            weight_only_quant_config = WeightOnlyQuantConfig(algorithm=config["algorithm"])
+            quant = MatMul4BitsQuantizer(
+                model.load_model(),
+                block_size=config["block_size"],
+                is_symmetric=config["is_symmetric"],
+                nodes_to_exclude=config["nodes_to_exclude"],
+                accuracy_level=config["accuracy_level"],
+                algo_config=weight_only_quant_config,
+            )
+        else:
+            quant = MatMul4BitsQuantizer(
+                model.load_model(),
+                block_size=config["block_size"],
+                is_symmetric=config["is_symmetric"],
+                nodes_to_exclude=config["nodes_to_exclude"],
+            )
         quant.process()
         # topologically sort the graph at the end since previous optimizations may have broken it
         quant.model.topological_sort()
@@ -620,3 +668,23 @@ class OnnxMatMul4Quantizer(Pass):
 
         # save the model to the output path and return the model
         return model_proto_to_olive_model(quant.model.model, output_model_path, config)
+
+
+def _validate_accuracy_level(v, values, field):
+    if not v:
+        return v
+
+    if v not in (0, 1, 2, 3, 4):
+        raise ValueError(f"OnnxMatMul4Quantizer {field.name} must be 0(unset), 1(fp32), 2(fp16), 3(bf16) or 4(int8)")
+
+    return v
+
+
+def _validate_algorithm(v, values, field):
+    if not v:
+        return v
+
+    if v not in ("DEFAULT", "HQQ", "RTN", "GPTQ"):
+        raise ValueError(f"OnnxMatMul4Quantizer {field.name} must be 'DEFAULT', 'HQQ', 'RTN', 'GPTQ'")
+
+    return v
