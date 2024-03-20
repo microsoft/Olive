@@ -12,6 +12,7 @@ from onnxruntime import __version__ as ort_version
 from packaging import version
 
 from olive.common.config_utils import ParamCategory, validate_config
+from olive.common.package_config import OlivePackageConfig
 from olive.common.utils import aml_runner_hf_login, copy_dir
 from olive.data.config import DataConfig
 from olive.hardware import AcceleratorSpec

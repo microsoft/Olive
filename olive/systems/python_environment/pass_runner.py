@@ -6,6 +6,7 @@ import argparse
 import json
 from pathlib import Path
 
+from olive.common.package_config import OlivePackageConfig
 from olive.common.utils import set_tempdir
 from olive.logging import set_verbosity_from_env
 from olive.model import ModelConfig
