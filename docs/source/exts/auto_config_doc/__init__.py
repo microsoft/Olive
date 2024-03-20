@@ -14,7 +14,6 @@ from sphinx.util.nodes import nested_parse_with_titles
 from sphinx.util.typing import stringify_annotation
 
 from olive.common.auto_config import AutoConfigClass
-from olive.common.package_config import OlivePackageConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.package_config import OlivePackageConfig
 from olive.passes import Pass
