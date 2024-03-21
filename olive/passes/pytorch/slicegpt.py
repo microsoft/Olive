@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Union
 
 import torch
 
-from olive.common.config_utils import validate_config
+from olive.common.config_utils import ConfigBase
 from olive.constants import ModelFileFormat
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
@@ -51,10 +51,26 @@ class SliceGPT(Pass):
             ),
         }
 
+    @staticmethod
+    def get_datasets(config: ConfigBase, data_root: str):
+        """Load training and evaluation datasets."""
+        train_data_config = config.data_config
+
+        # load training dataset
+        train_data_container = train_data_config.to_data_container()
+        train_dataset = train_data_container.pre_process(train_data_container.load_dataset(data_root))
+        train_dataset = train_dataset.to_hf_dataset(label_name="labels")
+
+        return train_dataset
+
     @torch.no_grad()
     def _run_for_config(
         self, model_handler: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModelHandler:
+
+        # convert config to pass config class
+        # this will validate the config and convert to the correct types
+        config = self._config_class(**config)
 
         if model_handler.hf_config is None or model_handler.hf_config.model_name is None:
             logger.info("SliceGPT only supports select HuggingFace models")
@@ -75,21 +91,19 @@ class SliceGPT(Pass):
         layernorm_fusion.fuse_modules(model_adapter)
 
         # compute new embedding dimension given the desired sparsity level
-        sparsity = config["sparsity"]
+        sparsity = config.sparsity
         new_embedding_dim = int((1 - sparsity) * model_adapter.hidden_size)
         # round (down) to the nearest multiple of round_interval
-        round_interval = config["round_interval"]
+        round_interval = config.round_interval
         new_embedding_dim -= new_embedding_dim % round_interval
         logger.info(f"New embedding dimension: {new_embedding_dim} (sparsity {100*(1 - new_embedding_dim / model_adapter.hidden_size):.4f} %)")
         schedular = ConstSlicingScheduler(new_embedding_dim)
 
-        # load_data
-        data_config = validate_config(config["data_config"], DataConfig)
-        dataloader = data_config.to_data_container().create_dataloader(data_root)
-        logger.debug(f"Data loaded. Number of batches: {len(dataloader)}")
+        # get datasets
+        train_dataset = self.get_datasets(config, data_root)
 
         # rotate and slice
-        rotate.rotate_and_slice(model_adapter, dataloader, schedular, final_orientation=config["final_orientation"])
+        rotate.rotate_and_slice(model_adapter, train_dataset, schedular, final_orientation=config.final_orientation)
         sliced_param_count = sum(int(p.nelement()) for p in model.parameters())
         sliced_fraction = 1.0 - sliced_param_count / original_param_count
         logger.info(f'Sliced model parameters: {sliced_param_count:,d} (sliced fraction {sliced_fraction:.4f})')
@@ -97,5 +111,5 @@ class SliceGPT(Pass):
         # return PyTorchModelHandler
         model.save_pretrained(output_model_path)
         model_config = model.to_json()["config"]
-        model_config["model_path"] = output_model_path
+        model_config.model_path = output_model_path
         return PyTorchModelHandler(**model_config, model_file_format=ModelFileFormat.PYTORCH_SLICE_GPT_MODEL)
