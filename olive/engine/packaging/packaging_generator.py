@@ -123,12 +123,13 @@ def _upload_to_azureml_models(
     model_name: str,
     config: AzureMLModelsPackagingConfig,
 ):
+    """Upload model to AzureML workspace Models."""
     from azure.ai.ml.constants import AssetTypes
     from azure.ai.ml.entities import Model
     from azure.core.exceptions import ServiceResponseError
 
     ml_client = azureml_client_config.create_client()
-    file_model = Model(
+    model = Model(
         path=model_path,
         type=AssetTypes.MLFLOW_MODEL if config.export_in_mlflow_format else AssetTypes.CUSTOM_MODEL,
         name=model_name,
@@ -137,7 +138,7 @@ def _upload_to_azureml_models(
     )
     retry_func(
         ml_client.models.create_or_update,
-        [file_model],
+        [model],
         max_tries=azureml_client_config.max_operation_retries,
         delay=azureml_client_config.operation_retry_interval,
         exceptions=ServiceResponseError,
@@ -147,6 +148,7 @@ def _upload_to_azureml_models(
 def _upload_to_azureml_data(
     azureml_client_config: "AzureMLClientConfig", model_path: Path, model_name: str, config: AzureMLDataPackagingConfig
 ):
+    """Upload model as Data to AzureML workspace Data."""
     from azure.ai.ml.constants import AssetTypes
     from azure.ai.ml.entities import Data
     from azure.core.exceptions import ServiceResponseError
