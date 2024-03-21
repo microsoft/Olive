@@ -139,14 +139,21 @@
 <span class="kn">from</span> <span class="nn">olive.azureml.azureml_client</span> <span class="kn">import</span> <span class="n">AzureMLClientConfig</span>
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">validate_config</span>
 <span class="kn">from</span> <span class="nn">olive.common.pydantic_v1</span> <span class="kn">import</span> <span class="n">root_validator</span><span class="p">,</span> <span class="n">validator</span>
-<span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">AzureMLDockerConfig</span><span class="p">,</span> <span class="n">AzureMLEnvironmentConfig</span><span class="p">,</span> <span class="n">LocalDockerConfig</span><span class="p">,</span> <span class="n">SystemType</span>
+<span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">AcceleratorConfig</span><span class="p">,</span>
+    <span class="n">AzureMLDockerConfig</span><span class="p">,</span>
+    <span class="n">AzureMLEnvironmentConfig</span><span class="p">,</span>
+    <span class="n">LocalDockerConfig</span><span class="p">,</span>
+    <span class="n">SystemType</span><span class="p">,</span>
+<span class="p">)</span>
 
 
 <span class="k">class</span> <span class="nc">TargetUserConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
-    <span class="n">accelerators</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">accelerators</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">AcceleratorConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">hf_token</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="fm">__hash__</span> <span class="o">=</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__hash__</span>
+    <span class="k">class</span> <span class="nc">Config</span><span class="p">:</span>
+        <span class="n">validate_assignment</span> <span class="o">=</span> <span class="kc">True</span>
 
 
 <div class="viewcode-block" id="LocalTargetUserConfig"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.system_config.LocalTargetUserConfig">[docs]</a><span class="k">class</span> <span class="nc">LocalTargetUserConfig</span><span class="p">(</span><span class="n">TargetUserConfig</span><span class="p">):</span>
@@ -154,6 +161,7 @@
 
 
 <div class="viewcode-block" id="DockerTargetUserConfig"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.system_config.DockerTargetUserConfig">[docs]</a><span class="k">class</span> <span class="nc">DockerTargetUserConfig</span><span class="p">(</span><span class="n">TargetUserConfig</span><span class="p">):</span>
+    <span class="c1"># the local_docker_config is optional for managed environments and required for normal docker system</span>
     <span class="n">local_docker_config</span><span class="p">:</span> <span class="n">LocalDockerConfig</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">is_dev</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">olive_managed_env</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
@@ -266,7 +274,8 @@
         <span class="n">system_alias_class</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">system_alias</span><span class="p">,</span> <span class="n">type_name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">system_alias_class</span><span class="p">:</span>
             <span class="n">values</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">system_alias_class</span><span class="o">.</span><span class="n">system_type</span>
-            <span class="n">values</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;accelerators&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">system_alias_class</span><span class="o">.</span><span class="n">accelerators</span>
+            <span class="k">if</span> <span class="n">system_alias_class</span><span class="o">.</span><span class="n">accelerators</span><span class="p">:</span>
+                <span class="n">values</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;accelerators&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[{</span><span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="n">acc</span><span class="p">}</span> <span class="k">for</span> <span class="n">acc</span> <span class="ow">in</span> <span class="n">system_alias_class</span><span class="o">.</span><span class="n">accelerators</span><span class="p">]</span>
             <span class="c1"># TODO(myguo): consider how to use num_cpus and num_gpus in distributed inference.</span>
         <span class="k">return</span> <span class="n">values</span>
 
@@ -289,6 +298,8 @@
     <span class="k">def</span> <span class="nf">olive_managed_env</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;olive_managed_env&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
 
+    <span class="c1"># the __hash__ is needed so to create_managed_system_with_cache, otherwise the following error will be raised:</span>
+    <span class="c1"># unhashable type: &#39;SystemConfig&#39;</span>
     <span class="fm">__hash__</span> <span class="o">=</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__hash__</span></div>
 </pre></div>
 

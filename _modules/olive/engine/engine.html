@@ -147,17 +147,17 @@
 <span class="kn">from</span> <span class="nn">olive.engine.packaging.packaging_generator</span> <span class="kn">import</span> <span class="n">generate_output_artifacts</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">MetricResult</span><span class="p">,</span> <span class="n">joint_metric_key</span>
 <span class="kn">from</span> <span class="nn">olive.exception</span> <span class="kn">import</span> <span class="n">EXCEPTIONS_TO_RAISE</span><span class="p">,</span> <span class="n">OlivePassError</span>
+<span class="kn">from</span> <span class="nn">olive.hardware</span> <span class="kn">import</span> <span class="n">AcceleratorSpec</span>
 <span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span>
 <span class="kn">from</span> <span class="nn">olive.strategy.search_strategy</span> <span class="kn">import</span> <span class="n">SearchStrategy</span>
 <span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">SystemType</span>
 <span class="kn">from</span> <span class="nn">olive.systems.olive_system</span> <span class="kn">import</span> <span class="n">OliveSystem</span>
 <span class="kn">from</span> <span class="nn">olive.systems.system_config</span> <span class="kn">import</span> <span class="n">LocalTargetUserConfig</span><span class="p">,</span> <span class="n">SystemConfig</span>
-<span class="kn">from</span> <span class="nn">olive.systems.utils</span> <span class="kn">import</span> <span class="n">create_new_system_with_cache</span>
+<span class="kn">from</span> <span class="nn">olive.systems.utils</span> <span class="kn">import</span> <span class="n">create_managed_system_with_cache</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
     <span class="kn">from</span> <span class="nn">olive.engine.packaging.packaging_config</span> <span class="kn">import</span> <span class="n">PackagingConfig</span>
     <span class="kn">from</span> <span class="nn">olive.evaluator.olive_evaluator</span> <span class="kn">import</span> <span class="n">OliveEvaluatorConfig</span>
-    <span class="kn">from</span> <span class="nn">olive.hardware</span> <span class="kn">import</span> <span class="n">AcceleratorSpec</span>
     <span class="kn">from</span> <span class="nn">olive.passes.olive_pass</span> <span class="kn">import</span> <span class="n">Pass</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
@@ -397,7 +397,7 @@
 
         <span class="k">for</span> <span class="n">accelerator_spec</span> <span class="ow">in</span> <span class="n">accelerator_specs</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Running Olive on accelerator: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
-            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_managed_environment</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">):</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_system</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">):</span>
                 <span class="n">run_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_accelerator</span><span class="p">(</span>
                     <span class="n">input_model_config</span><span class="p">,</span>
                     <span class="n">data_root</span><span class="p">,</span>
@@ -1186,14 +1186,14 @@
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">output_name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">output_name</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">)</span>
 
     <span class="nd">@contextmanager</span>
-    <span class="k">def</span> <span class="nf">create_managed_environment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_create_system</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">):</span>
         <span class="k">def</span> <span class="nf">create_system</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="s2">&quot;SystemConfig&quot;</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">):</span>
             <span class="k">assert</span> <span class="n">config</span><span class="p">,</span> <span class="s2">&quot;System config is not provided&quot;</span>
             <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">olive_managed_env</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
                     <span class="s2">&quot;Creating olive_managed_env </span><span class="si">%s</span><span class="s2"> with EP </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="o">.</span><span class="n">execution_provider</span>
                 <span class="p">)</span>
-                <span class="k">return</span> <span class="n">create_new_system_with_cache</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">create_managed_system_with_cache</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;create native OliveSystem </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">type</span><span class="p">)</span>
                 <span class="k">return</span> <span class="n">config</span><span class="o">.</span><span class="n">create_system</span><span class="p">()</span>
@@ -1201,7 +1201,14 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">target</span> <span class="o">=</span> <span class="n">create_system</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_config</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">host</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">host</span> <span class="o">=</span> <span class="n">create_system</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">host_config</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
+            <span class="n">host_accelerators</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_config</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">accelerators</span>
+            <span class="k">if</span> <span class="n">host_accelerators</span> <span class="ow">and</span> <span class="n">host_accelerators</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">execution_providers</span><span class="p">:</span>
+                <span class="n">host_accelerator_spec</span> <span class="o">=</span> <span class="n">AcceleratorSpec</span><span class="p">(</span>
+                    <span class="n">host_accelerators</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">host_accelerators</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">execution_providers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">host_accelerator_spec</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">host</span> <span class="o">=</span> <span class="n">create_system</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">host_config</span><span class="p">,</span> <span class="n">host_accelerator_spec</span><span class="p">)</span>
 
         <span class="k">yield</span>
 
@@ -1212,7 +1219,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">host</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">host</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="n">create_new_system_with_cache</span><span class="o">.</span><span class="n">cache_clear</span><span class="p">()</span></div>
+        <span class="n">create_managed_system_with_cache</span><span class="o">.</span><span class="n">cache_clear</span><span class="p">()</span></div>
 </pre></div>
 
            </div>

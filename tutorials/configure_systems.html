@@ -83,6 +83,7 @@
 <p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">How To Configure System</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#accelerator-configuration">Accelerator Configuration</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#local-system">Local System</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#azureml-system">AzureML System</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#prerequisites">Prerequisites</a></li>
@@ -96,7 +97,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#python-environment-system">Python Environment System</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#ort-environment-system">Ort Environment System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#isolated-ort-system">Isolated ORT System</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="configure_metrics.html">How To Configure Metric</a></li>
@@ -149,13 +150,27 @@
 <p>A system is the environment (OS, hardware spec, device platform, supported EP) that a Pass is run in or a Model
 is evaluated on. It can thus be the <strong>host</strong> of a Pass or the <strong>target</strong> of an evaluation. This document describes
 how to configure the different types of Systems.</p>
+<section id="accelerator-configuration">
+<h2>Accelerator Configuration<a class="headerlink" href="#accelerator-configuration" title="Permalink to this heading">¶</a></h2>
+<p>For each <strong>host</strong> or <strong>target</strong>, it could specify multiple accelerators associated with it. Each accelerator could have the following attributes.</p>
+<ul class="simple">
+<li><p><code class="code docutils literal notranslate"><span class="pre">device</span></code>: The device type of the accelerator. It could be “cpu”, “gpu”, “npu”, etc. Please refer to the API documentation for the full list of supported devices.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">execution_providers</span></code>: The execution provider list that are supported by the accelerator. For e.g. [“CUDAExecutionProvider”, “CPUExecutionProvider”].</p></li>
+</ul>
+<p>Note:</p>
+<ul class="simple">
+<li><p>The accelerators for local system or python system is optional. If not provided, Olive will get the available execution providers installed in current local machine and infer its device.</p></li>
+<li><p>For local system or python system, either device or execution_providers is optional but not both if the accelerators are specified. If device or execution_providers is not provided, Olive will infer the device or execution_providers if possible.</p></li>
+<li><p>For docker system and AzureML system, both device and execution_providers are mandatory. Otherwise, Olive will raise an error.</p></li>
+</ul>
+</section>
 <section id="local-system">
 <h2>Local System<a class="headerlink" href="#local-system" title="Permalink to this heading">¶</a></h2>
 <div class="sphinx-tabs docutils container">
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;LocalSystem&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;cpu&quot;</span><span class="p">]</span>
+<span class="w">        </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu&quot;</span><span class="p">}]</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -164,7 +179,7 @@ how to configure the different types of Systems.</p>
 <span class="kn">from</span> <span class="nn">olive.system.common</span> <span class="kn">import</span> <span class="n">Device</span>
 
 <span class="n">local_system</span> <span class="o">=</span> <span class="n">LocalSystem</span><span class="p">(</span>
-    <span class="n">accelerators</span><span class="o">=</span><span class="p">[</span><span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">]</span>
+    <span class="n">accelerators</span><span class="o">=</span><span class="p">[{</span><span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">}]</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -254,7 +269,15 @@ Alternatively, you can provide an existing Azure ML Environment using <code clas
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AzureML&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;aml_compute&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu-cluster&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;cpu&quot;</span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">            </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;execution_providers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                    </span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="s2">&quot;OpenVINOExecutionProvider&quot;</span>
+<span class="w">                </span><span class="p">]</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">],</span>
 <span class="w">        </span><span class="nt">&quot;olive_managed_env&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
@@ -264,7 +287,7 @@ Alternatively, you can provide an existing Azure ML Environment using <code clas
 
 <span class="n">aml_system</span> <span class="o">=</span> <span class="n">AzureMLSystem</span><span class="p">(</span>
     <span class="n">aml_compute</span><span class="o">=</span><span class="s2">&quot;cpu-cluster&quot;</span><span class="p">,</span>
-    <span class="n">accelerators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;cpu&quot;</span><span class="p">],</span>
+    <span class="n">accelerators</span><span class="o">=</span><span class="p">[{</span><span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="s2">&quot;cpu&quot;</span><span class="p">,</span> <span class="s2">&quot;execution_providers&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">,</span> <span class="s2">&quot;OpenVINOExecutionProvider&quot;</span><span class="p">]}],</span>
     <span class="n">olive_managed_env</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
@@ -348,7 +371,15 @@ for <code class="code docutils literal notranslate"><span class="pre">&quot;cond
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-5-5-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-5-5-0" name="5-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-5-5-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-5-5-1" name="5-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-5-5-0" class="sphinx-tabs-panel" id="panel-5-5-0" name="5-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Docker&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;cpu&quot;</span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">            </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;execution_providers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                    </span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="s2">&quot;OpenVINOExecutionProvider&quot;</span>
+<span class="w">                </span><span class="p">]</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">],</span>
 <span class="w">        </span><span class="nt">&quot;olive_managed_env&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">&quot;requirements_file&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mnist_requirements.txt&quot;</span>
 <span class="w">        </span><span class="p">}</span>
@@ -382,7 +413,15 @@ for <code class="code docutils literal notranslate"><span class="pre">&quot;dock
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PythonEnvironment&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;python_environment_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/home/user/.virtualenvs/myenv/bin&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;cpu&quot;</span><span class="p">]</span>
+<span class="w">        </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">            </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;execution_providers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                    </span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="s2">&quot;OpenVINOExecutionProvider&quot;</span>
+<span class="w">                </span><span class="p">]</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">]</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -392,7 +431,7 @@ for <code class="code docutils literal notranslate"><span class="pre">&quot;dock
 
 <span class="n">python_environment_system</span> <span class="o">=</span> <span class="n">PythonEnvironmentSystem</span><span class="p">(</span>
     <span class="n">python_environment_path</span> <span class="o">=</span> <span class="s2">&quot;/home/user/.virtualenvs/myenv/bin&quot;</span><span class="p">,</span>
-    <span class="n">device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span>
+    <span class="n">accelerators</span> <span class="o">=</span> <span class="p">[{</span><span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">}]</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -402,7 +441,7 @@ for <code class="code docutils literal notranslate"><span class="pre">&quot;dock
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-7-7-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-7-7-0" name="7-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-7-7-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-7-7-1" name="7-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-7-7-0" class="sphinx-tabs-panel" id="panel-7-7-0" name="7-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PythonEnvironment&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;cpu&quot;</span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu&quot;</span><span class="p">}]</span>
 <span class="w">        </span><span class="nt">&quot;olive_managed_env&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
@@ -413,7 +452,7 @@ for <code class="code docutils literal notranslate"><span class="pre">&quot;dock
 
 <span class="n">python_environment_system</span> <span class="o">=</span> <span class="n">PythonEnvironmentSystem</span><span class="p">(</span>
     <span class="n">olive_managed_env</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-    <span class="n">device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span>
+    <span class="n">accelerators</span> <span class="o">=</span> <span class="p">[{</span><span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">}]</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -424,14 +463,14 @@ for <code class="code docutils literal notranslate"><span class="pre">&quot;dock
 </div>
 <p>Please refer to <a class="reference internal" href="../api/systems.html#python-environment-system-config"><span class="std std-ref">PythonEnvironmentTargetUserConfig</span></a> for more details on the config options.</p>
 </section>
-<section id="ort-environment-system">
-<h2>Ort Environment System<a class="headerlink" href="#ort-environment-system" title="Permalink to this heading">¶</a></h2>
+<section id="isolated-ort-system">
+<h2>Isolated ORT System<a class="headerlink" href="#isolated-ort-system" title="Permalink to this heading">¶</a></h2>
 <div class="sphinx-tabs docutils container">
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-8-8-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-8-8-0" name="8-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-8-8-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-8-8-1" name="8-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-8-8-0" class="sphinx-tabs-panel" id="panel-8-8-0" name="8-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;IsolatedORT&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;python_environment_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/home/user/.virtualenvs/myenv/bin&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;cpu&quot;</span><span class="p">]</span>
+<span class="w">        </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu&quot;</span><span class="p">}]</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -441,7 +480,7 @@ for <code class="code docutils literal notranslate"><span class="pre">&quot;dock
 
 <span class="n">python_environment_system</span> <span class="o">=</span> <span class="n">IsolatedORTSystem</span><span class="p">(</span>
     <span class="n">python_environment_path</span> <span class="o">=</span> <span class="s2">&quot;/home/user/.virtualenvs/myenv/bin&quot;</span><span class="p">,</span>
-    <span class="n">device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span>
+    <span class="n">accelerators</span> <span class="o">=</span> <span class="p">[{</span><span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">}]</span>
 <span class="p">)</span>
 </pre></div>
 </div>

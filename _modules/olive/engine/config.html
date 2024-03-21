@@ -131,10 +131,11 @@
 <span class="c1"># Licensed under the MIT License.</span>
 <span class="c1"># --------------------------------------------------------------------------</span>
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">from</span> <span class="nn">olive.azureml.azureml_client</span> <span class="kn">import</span> <span class="n">AzureMLClientConfig</span>
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span>
+<span class="kn">from</span> <span class="nn">olive.common.pydantic_v1</span> <span class="kn">import</span> <span class="n">Extra</span>
 <span class="kn">from</span> <span class="nn">olive.engine.packaging.packaging_config</span> <span class="kn">import</span> <span class="n">PackagingConfig</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.olive_evaluator</span> <span class="kn">import</span> <span class="n">OliveEvaluatorConfig</span>
 <span class="kn">from</span> <span class="nn">olive.strategy.search_strategy</span> <span class="kn">import</span> <span class="n">SearchStrategyConfig</span>
@@ -148,11 +149,10 @@
 <span class="n">PRUNED_CONFIGS</span> <span class="o">=</span> <span class="p">(</span><span class="n">FAILED_CONFIG</span><span class="p">,</span> <span class="n">INVALID_CONFIG</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="EngineConfig"><a class="viewcode-back" href="../../../api/engine.html#olive.engine.EngineConfig">[docs]</a><span class="k">class</span> <span class="nc">EngineConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
+<div class="viewcode-block" id="EngineConfig"><a class="viewcode-back" href="../../../api/engine.html#olive.engine.EngineConfig">[docs]</a><span class="k">class</span> <span class="nc">EngineConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="n">Extra</span><span class="o">.</span><span class="n">forbid</span><span class="p">):</span>
     <span class="n">search_strategy</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">SearchStrategyConfig</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">host</span><span class="p">:</span> <span class="n">SystemConfig</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">target</span><span class="p">:</span> <span class="n">SystemConfig</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">execution_providers</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">evaluator</span><span class="p">:</span> <span class="n">OliveEvaluatorConfig</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">azureml_client_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">AzureMLClientConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">packaging_config</span><span class="p">:</span> <span class="n">PackagingConfig</span> <span class="o">=</span> <span class="kc">None</span>
