@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -9,7 +10,7 @@ from unittest.mock import patch
 import pytest
 
 from olive.common.config_utils import validate_config
-from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec, create_accelerators
+from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec, create_accelerators, normalize_accelerators
 from olive.systems.common import AcceleratorConfig, SystemType
 from olive.systems.python_environment.python_environment_system import PythonEnvironmentSystem
 from olive.systems.system_config import SystemConfig
@@ -38,46 +39,12 @@ def test_infer_accelerators_from_execution_provider(execution_providers_test):
     [
         # LocalSystem
         (
-            {"type": "LocalSystem"},
-            [("cpu", "CPUExecutionProvider")],
-            ["AzureExecutionProvider", "CPUExecutionProvider"],
-        ),
-        (
-            # openvino need device to be specified since it exists in both GPU and CPU
-            {"type": "LocalSystem", "config": {"accelerators": [{"device": "cpu"}]}},
-            [("CPU", "OpenVINOExecutionProvider"), ("cpu", "CPUExecutionProvider")],
-            ["OpenVINOExecutionProvider", "CPUExecutionProvider"],
-        ),
-        (
-            {"type": "LocalSystem"},
-            [("gpu", "TensorrtExecutionProvider"), ("gpu", "CUDAExecutionProvider"), ("gpu", "CPUExecutionProvider")],
-            ["TensorrtExecutionProvider", "CUDAExecutionProvider", "CPUExecutionProvider"],
-        ),
-        (
             {
                 "type": "LocalSystem",
                 "config": {"accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}]},
             },
             [("cpu", "CPUExecutionProvider")],
             ["CPUExecutionProvider"],
-        ),
-        (
-            {
-                "type": "LocalSystem",
-                "config": {"accelerators": [{"execution_providers": ["CPUExecutionProvider"]}]},
-            },
-            [("cpu", "CPUExecutionProvider")],
-            ["CPUExecutionProvider"],
-        ),
-        (
-            {
-                "type": "LocalSystem",
-                "config": {
-                    "accelerators": [{"execution_providers": ["CUDAExecutionProvider", "CPUExecutionProvider"]}]
-                },
-            },
-            [("gpu", "CUDAExecutionProvider"), ("gpu", "CPUExecutionProvider")],
-            ["CUDAExecutionProvider", "CPUExecutionProvider"],
         ),
         # PythonEnvironment
         (
@@ -171,6 +138,154 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
 
     accelerators = create_accelerators(system_config, skip_supported_eps_check=False)
     assert accelerators == expected_accelerator_specs
+    if python_mock:
+        python_mock.stop()
+
+
+@pytest.mark.parametrize(
+    ("system_config", "expected_accs", "expected_logs", "available_providers"),
+    [
+        (
+            # fill both device and ep.
+            {"type": "LocalSystem"},
+            [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
+            [
+                (
+                    "There is no any accelerator specified. Inferred accelerators: "
+                    "[AcceleratorConfig(device='cpu', execution_providers=['CPUExecutionProvider'])]"
+                )
+            ],
+            ["AzureExecutionProvider", "CPUExecutionProvider"],
+        ),
+        (
+            # fill both device and ep but with GPU
+            {"type": "LocalSystem"},
+            [
+                {
+                    "device": "gpu",
+                    "execution_providers": [
+                        "TensorrtExecutionProvider",
+                        "CUDAExecutionProvider",
+                        "CPUExecutionProvider",
+                    ],
+                }
+            ],
+            [],
+            ["TensorrtExecutionProvider", "CUDAExecutionProvider", "CPUExecutionProvider"],
+        ),
+        (
+            # fill the EPs.
+            {"type": "LocalSystem", "config": {"accelerators": [{"device": "cpu"}]}},
+            [{"device": "cpu", "execution_providers": ["OpenVINOExecutionProvider", "CPUExecutionProvider"]}],
+            [
+                "The following execution provider is not supported: DmlExecutionProvider.",
+                (
+                    "The accelerator execution providers is not specified for cpu. Use the inferred ones. "
+                    "['OpenVINOExecutionProvider', 'CPUExecutionProvider']"
+                ),
+            ],
+            ["OpenVINOExecutionProvider", "CPUExecutionProvider", "DmlExecutionProvider"],
+        ),
+        (
+            # user only specify EPs
+            {
+                "type": "LocalSystem",
+                "config": {"accelerators": [{"execution_providers": ["CPUExecutionProvider"]}]},
+            },
+            [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
+            ["the accelerator device is not specified. Inferred device: cpu."],
+            ["CPUExecutionProvider"],
+        ),
+        (
+            # deduce devide for GPU
+            {
+                "type": "LocalSystem",
+                "config": {
+                    "accelerators": [{"execution_providers": ["CUDAExecutionProvider", "CPUExecutionProvider"]}]
+                },
+            },
+            [
+                {
+                    "device": "gpu",
+                    "execution_providers": [
+                        "CUDAExecutionProvider",
+                        "CPUExecutionProvider",
+                    ],
+                }
+            ],
+            [],
+            ["CUDAExecutionProvider", "CPUExecutionProvider"],
+        ),
+        (
+            # dosn't fill both device and ep.
+            {
+                "type": "LocalSystem",
+                "config": {"accelerators": [{"device": "cpu", "execution_providers": ["OpenVINOExecutionProvider"]}]},
+            },
+            [{"device": "cpu", "execution_providers": ["OpenVINOExecutionProvider"]}],
+            [],
+            ["OpenVINOExecutionProvider", "CPUExecutionProvider"],
+        ),
+        (
+            # user specify invalid EPs.
+            {
+                "type": "LocalSystem",
+                "config": {
+                    "accelerators": [
+                        {
+                            "execution_providers": [
+                                "ROCMExecutionProvider",
+                                "CUDAExecutionProvider",
+                                "CPUExecutionProvider",
+                            ]
+                        }
+                    ]
+                },
+            },
+            [
+                {
+                    "device": "gpu",
+                    "execution_providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
+                }
+            ],
+            ["The following execution provider is not supported: ROCMExecutionProvider"],
+            ["CUDAExecutionProvider", "CPUExecutionProvider"],
+        ),
+    ],
+)
+@patch("onnxruntime.get_available_providers")
+def test_normalize_accelerators(
+    get_available_providers_mock,
+    caplog,
+    system_config,
+    expected_accs,
+    expected_logs,
+    available_providers,
+):
+    # capture logging
+    logger = logging.getLogger("olive")
+    logger.propagate = True
+
+    system_config = validate_config(system_config, SystemConfig)
+    python_mock = None
+    if system_config.type == SystemType.Local:
+        get_available_providers_mock.return_value = available_providers
+    elif system_config.type == SystemType.PythonEnvironment:
+        python_mock = patch.object(
+            PythonEnvironmentSystem, "get_supported_execution_providers", return_value=available_providers
+        )
+        python_mock.start()
+
+    normalized_accs = normalize_accelerators(system_config, skip_supported_eps_check=False)
+    assert len(normalized_accs.config.accelerators) == len(expected_accs)
+    for i, acc in enumerate(expected_accs):
+        assert normalized_accs.config.accelerators[i].device == acc["device"]
+        assert normalized_accs.config.accelerators[i].execution_providers == acc["execution_providers"]
+
+    if expected_logs:
+        for log in expected_logs:
+            assert log in caplog.text
+
     if python_mock:
         python_mock.stop()
 

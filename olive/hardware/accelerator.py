@@ -167,7 +167,7 @@ class AcceleratorLookup:
 
 
 def normalize_accelerators(system_config: "SystemConfig", skip_supported_eps_check: bool = True) -> "SystemConfig":
-    """Noralize the accelerators in the system config.
+    """Normalize the accelerators in the system config.
 
     * the accelerators is not specified, infer the device/ep based on the installed ORT in case of local/python system.
     * only device is specified, infer the execution providers based on the installed ORT in case of local/python system.
@@ -216,9 +216,9 @@ def normalize_accelerators(system_config: "SystemConfig", skip_supported_eps_che
                         inferred_device = AcceleratorLookup.infer_single_device_from_execution_providers(
                             accelerator.execution_providers
                         )
+                        logger.info("the accelerator device is not specified. Inferred device: %s.", inferred_device)
                         accelerator.device = inferred_device
-                    else:
-                        assert accelerator.device, "The device is not specified."
+                    elif not accelerator.execution_providers:
                         # User specify the device but missing the execution providers
                         execution_providers = (
                             AcceleratorLookup.get_execution_providers_for_device_by_available_providers(
@@ -239,6 +239,9 @@ def normalize_accelerators(system_config: "SystemConfig", skip_supported_eps_che
                             accelerator.device,
                             accelerator.execution_providers,
                         )
+                    else:
+                        # User specify both the device and execution providers
+                        pass
         else:
             # for AzureML and Docker System
             if not system_config.config.accelerators:
