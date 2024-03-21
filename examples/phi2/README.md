@@ -11,7 +11,7 @@ This folder contains an example of phi2 optimization with Olive workflow.
   In Linux, phi2 optimization requires the ONNXRuntime nightly package(>=1.18.0). In Windows, ONNXRuntime>=1.17.0 is recommended.
 
 ## Fine-tune phi2 Model using QLoRA
-This workflow fine-tunes [phi2 model](https://huggingface.co/microsoft/phi2) using [QLoRA](https://arxiv.org/abs/2305.14314) to generate text with given prompt.
+This workflow fine-tunes [phi2 model](https://huggingface.co/microsoft/phi-2) using [QLoRA](https://arxiv.org/abs/2305.14314) to generate text with given prompt.
 
 You need to install required packages according to qlora. Also we suggest to use gpu devices for fine-tune process.
 ```bash
@@ -53,7 +53,7 @@ Above commands will generate optimized models with given model_type and save the
 Besides, for better generation experience, this example also let use use [Optimum](https://huggingface.co/docs/optimum/v1.2.1/en/onnxruntime/modeling_ort) to generate optimized models.
 Then use can call `model.generate` easily to run inference with the optimized model.
 ```bash
-# optimum optimization. Please avoid to use optimum for fine-tune model which is not supported by now.
+# optimum optimization. Please avoid to use optimum for fine-tune model which is not supported by now in Olive.
 python phi2.py --model_type cpu_fp32 --optimum_optimization
 ```
 
