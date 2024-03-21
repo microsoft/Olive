@@ -241,7 +241,7 @@ def normalize_accelerators(system_config: "SystemConfig", skip_supported_eps_che
                         )
                     else:
                         # User specify both the device and execution providers
-                        pass
+                        logger.debug("The accelerator device and execution providers are specified, skipping deduce.")
         else:
             # for AzureML and Docker System
             if not system_config.config.accelerators:

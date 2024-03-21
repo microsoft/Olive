@@ -223,7 +223,7 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
                 "config": {"accelerators": [{"device": "cpu", "execution_providers": ["OpenVINOExecutionProvider"]}]},
             },
             [{"device": "cpu", "execution_providers": ["OpenVINOExecutionProvider"]}],
-            [],
+            ["The accelerator device and execution providers are specified, skipping deduce"],
             ["OpenVINOExecutionProvider", "CPUExecutionProvider"],
         ),
         (
@@ -265,6 +265,7 @@ def test_normalize_accelerators(
     # capture logging
     logger = logging.getLogger("olive")
     logger.propagate = True
+    caplog.set_level(logging.DEBUG, logger="olive")
 
     system_config = validate_config(system_config, SystemConfig)
     python_mock = None
