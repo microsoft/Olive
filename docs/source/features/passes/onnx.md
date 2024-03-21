@@ -267,15 +267,6 @@ Olive consolidates the Vitis™ AI quantization into a single pass called VitisA
 
 Please refer to [VitisAIQuantization](vitis_ai_quantization) for more details about the pass and its config parameters.
 
-### Quantize with Huggingface Optimum
-Olive also integrates [AutoGPTQ](https://github.com/AutoGPTQ/AutoGPTQ) for quantization.
-
-AutoGPTQ is an easy-to-use LLM quantization package with user-friendly APIs, based on GPTQ algorithm (weight-only quantization). With GPTQ quantization, you can quantize your favorite language model to 8, 4, 3 or even 2 bits. This comes without a big drop of performance and with faster inference speed. This is supported by most GPU hardwares.
-
-Olive consolidates the GPTQ quantization into a single pass called GptqQuantizer which supports tune GPTQ quantization with hyperparameters for trade-off between accuracy and speed.
-
-Please refer to [GptqQuantizer](gptq_quantizer) for more details about the pass and its config parameters.
-
 ### Example Configuration
 a. Tune the parameters of the OlivePass with pre-defined searchable values
 ```json

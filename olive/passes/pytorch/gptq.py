@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import tempfile
 from typing import Any, Callable, Dict, List, Union
 
 import torch
@@ -10,11 +9,9 @@ import torch
 from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.model import ONNXModelHandler, PyTorchModelHandler
-from olive.model.utils.onnx_utils import resolve_onnx_path
+from olive.model import PyTorchModelHandler
+from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
-from olive.passes.onnx.common import model_proto_to_olive_model
-from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.pass_config import PassConfigParam
 
 
@@ -116,32 +113,17 @@ class GptqQuantizer(Pass):
                 default_value=None,
                 description="Keyword arguments for dataloader_func. Default value is None.",
             ),
-            "use_dynamo_exporter": PassConfigParam(
-                type_=bool,
-                default_value=False,
-                description="Whether to use dynamo_export API to export ONNX model. Default value is False.",
-            ),
-            "target_opset": PassConfigParam(
-                type_=int,
-                default_value=13,
-                description="The version of the default (ai.onnx) opset to target. Default value is 13.",
-            ),
-            "export_device": PassConfigParam(
-                type_=str,
-                default_value="cpu",
-                description="The device to export the model. Default value is 'cpu'.",
-            ),
         }
 
     @torch.no_grad()
     def _run_for_config(
         self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> ONNXModelHandler:
+    ) -> PyTorchModelHandler:
         from auto_gptq import BaseQuantizeConfig
         from auto_gptq.modeling import BaseGPTQForCausalLM
         from auto_gptq.modeling.auto import GPTQ_CAUSAL_LM_MODEL_MAP
 
-        from olive.passes.onnx.gptq_utils import QuantLinearORT
+        from olive.passes.pytorch.gptq_utils import QuantLinearORT
 
         if self.accelerator_spec.accelerator_type != Device.GPU:
             raise ValueError("Please use GPU to run gptq quantization.")
@@ -215,16 +197,17 @@ class GptqQuantizer(Pass):
         quantized_model = quantized_model.model
         assert self.accelerator_spec.accelerator_type == Device.GPU
 
-        converted_onnx_model = OnnxConversion._export_pytorch_model(  # pylint: disable=protected-access
-            quantized_model,
-            model.get_dummy_inputs(),
-            model.get_io_config(),
-            config,
-            config["export_device"],
-            None,
-            tempfile.tempdir,
+        output_model_path = normalize_path_suffix(output_model_path, "model.pt")
+        torch.save(quantized_model, output_model_path)
+
+        model_config = model.to_json()["config"]
+        model_config["model_path"] = output_model_path
+        model_config.pop("model_loader", None)
+        if model.hf_config is not None:
+            hf_config = model.get_hf_model_config()
+            del model_config["hf_config"]
+            model_config["model_attributes"] = hf_config.to_dict()
+
+        return PyTorchModelHandler(
+            **model_config,
         )
-        output_model_path = resolve_onnx_path(output_model_path)
-        output_model = model_proto_to_olive_model(converted_onnx_model, output_model_path, config)
-        output_model.model_attributes = model.model_attributes
-        return output_model
