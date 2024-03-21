@@ -203,7 +203,10 @@ class HfFromPretrainedArgs(ConfigWithExtraArgs):
         config = config_cls.from_dict(config_dict, return_unused_kwargs=False)
         # we will do a manual check to see if there are unused kwargs
         # this works since config_cls is created as a dataclass
-        extras = set(config_dict.keys()) - set(config.__dict__.keys())
+        extras = set()
+        for k in config_dict:
+            if not hasattr(config, k):
+                extras.add(k)
         if extras:
             logger.warning("Unused kwargs in quantization_config: %s. Ignoring them", extras)
         return config

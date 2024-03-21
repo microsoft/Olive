@@ -671,7 +671,9 @@ class LoRABase(Pass):
         # save adapter weights
         adapter_path = Path(output_model_path) / "adapter"
         adapter_path.mkdir(parents=True, exist_ok=True)
-        model.save_pretrained(adapter_path)
+        # don't save embedding layers since only adapter weights are trained
+        # if we don't provide as False, it defaults to "auto" which checks if the vocab size changed
+        model.save_pretrained(adapter_path, save_embedding_layers=False)
 
         # remove loaded model
         output_model.model = None
@@ -693,7 +695,12 @@ class LoRABase(Pass):
     def smart_tokenizer_and_embedding_resize(
         special_tokens_dict: Dict, tokenizer: "PreTrainedTokenizer", model: "PreTrainedModel"
     ):
-        """Resize the tokenizer and the model embedding layer to take into account new special tokens."""
+        """Resize the tokenizer and the model embedding layer to take into account new special tokens.
+
+        NOTE: This is only used to ensure we have a pad token. The new embeddings don't get training signals
+        the pad tokens are masked out in the attention mask and loss calculation. Moreover, only the adapter weights
+        are set as trainable and saved in the final checkpoint.
+        """
         # resize tokenizer
         num_new_tokens = tokenizer.add_special_tokens(special_tokens_dict)
         # resize model embedding layer
