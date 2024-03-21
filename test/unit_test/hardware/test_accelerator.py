@@ -178,7 +178,7 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
             {"type": "LocalSystem", "config": {"accelerators": [{"device": "cpu"}]}},
             [{"device": "cpu", "execution_providers": ["OpenVINOExecutionProvider", "CPUExecutionProvider"]}],
             [
-                "The following execution provider is not supported: DmlExecutionProvider.",
+                "The following execution providers are filtered: DmlExecutionProvider.",
                 (
                     "The accelerator execution providers is not specified for cpu. Use the inferred ones. "
                     "['OpenVINOExecutionProvider', 'CPUExecutionProvider']"
@@ -248,7 +248,32 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
                     "execution_providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
                 }
             ],
-            ["The following execution provider is not supported: ROCMExecutionProvider"],
+            ["The following execution providers are not supported: ROCMExecutionProvider"],
+            ["CUDAExecutionProvider", "CPUExecutionProvider"],
+        ),
+        (
+            {
+                "type": "LocalSystem",
+                "config": {
+                    "accelerators": [
+                        {
+                            "device": "gpu",
+                            "execution_providers": [
+                                "ROCMExecutionProvider",
+                                "CUDAExecutionProvider",
+                                "CPUExecutionProvider",
+                            ],
+                        }
+                    ]
+                },
+            },
+            [
+                {
+                    "device": "gpu",
+                    "execution_providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
+                }
+            ],
+            ["The following execution providers are not supported: ROCMExecutionProvider"],
             ["CUDAExecutionProvider", "CPUExecutionProvider"],
         ),
     ],

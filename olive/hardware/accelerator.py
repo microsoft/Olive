@@ -229,7 +229,7 @@ def normalize_accelerators(system_config: "SystemConfig", skip_supported_eps_che
                         filtered_eps = [ep for ep in system_supported_eps if ep not in execution_providers]
                         if filtered_eps:
                             logger.warning(
-                                "The following execution provider is not supported: %s. "
+                                "The following execution providers are filtered: %s. "
                                 "Please raise issue in Olive site since it might be a bug. ",
                                 ",".join(filtered_eps),
                             )
@@ -286,7 +286,7 @@ def normalize_accelerators(system_config: "SystemConfig", skip_supported_eps_che
 
     if ep_not_supported:
         logger.warning(
-            "The following execution provider is not supported: %s. "
+            "The following execution providers are not supported: %s. "
             "Please consider installing an onnxruntime build that contains the relevant execution providers. ",
             ",".join(ep_not_supported),
         )
