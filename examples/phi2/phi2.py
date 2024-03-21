@@ -60,7 +60,15 @@ def get_args(raw_args):
         "--model_type",
         type=str,
         default="cpu_fp32",
+        choices=["cpu_fp32", "cpu_int4", "cuda_fp16", "cuda_int4"],
         help="Choose from cpu_fp32, cpu_int4, cuda_fp16, cuda_int4",
+    )
+    parser.add_argument(
+        "--finetune_method",
+        type=str,
+        default=None,
+        help="Finetune method before onnxruntime optimization, use 'qlora' as of now "
+        "it should be same with the pass name in phi2_optimize_template.json",
     )
     parser.add_argument(
         "--inference",
@@ -127,8 +135,6 @@ def main(raw_args=None):
     model_type = str(args.model_type)
     template_json["pass_flows"] = SUPPORTED_WORKFLOWS[model_type]
     if args.optimum_optimization:
-        # if args.model_type in ("cpu_int4", "cuda_int4"):
-        #     raise ValueError("Int4 optimization is not supported in phi2 optimum optimization")
         # set evaluator as None:
         template_json["engine"]["evaluate_input_model"] = False
         template_json["engine"]["evaluator"] = None
@@ -139,6 +145,10 @@ def main(raw_args=None):
                 pass_flow.remove("perf_tuning")
 
     # remove unused passes
+    pass_flows = SUPPORTED_WORKFLOWS[model_type]
+    if args.finetune_method is not None:
+        for pf in pass_flows:
+            pf.insert(0, args.finetune_method)
     used_passes = {pass_name for pass_flow in SUPPORTED_WORKFLOWS[model_type] for pass_name in pass_flow}
     for pass_name in list(template_json["passes"].keys()):
         if pass_name not in used_passes:
@@ -146,13 +156,13 @@ def main(raw_args=None):
             continue
 
     if "cuda" in model_type:
-        template_json["system"]["local_system"]["config"]["accelerators"][0]["device"] = "gpu"
-        template_json["system"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [
+        template_json["systems"]["local_system"]["config"]["accelerators"][0]["device"] = "gpu"
+        template_json["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [
             "CUDAExecutionProvider"
         ]
     if "cpu" in model_type:
         # no need to set device for CPU since default it is CPU
-        template_json["system"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [
+        template_json["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [
             "CPUExecutionProvider"
         ]
 
