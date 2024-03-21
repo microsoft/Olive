@@ -197,7 +197,7 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
             ["CPUExecutionProvider"],
         ),
         (
-            # deduce devide for GPU
+            # deduce device for GPU
             {
                 "type": "LocalSystem",
                 "config": {
