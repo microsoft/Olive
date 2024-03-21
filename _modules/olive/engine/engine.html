@@ -354,7 +354,7 @@
         <span class="n">input_model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
         <span class="n">accelerator_specs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="s2">&quot;AcceleratorSpec&quot;</span><span class="p">],</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">packaging_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">&quot;PackagingConfig&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">packaging_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="s2">&quot;PackagingConfig&quot;</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="s2">&quot;PackagingConfig&quot;</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">output_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">evaluate_input_model</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
@@ -425,6 +425,7 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">,</span>
                 <span class="n">outputs</span><span class="p">,</span>
                 <span class="n">output_dir</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;No packaging config provided, skip packaging artifacts&quot;</span><span class="p">)</span>
