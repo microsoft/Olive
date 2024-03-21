@@ -134,9 +134,9 @@ def main(raw_args=None):
     # add pass flows
     pass_flows = [[]]
     if args.finetune_method:
-        pass_flows[0].append("qlora")
+        pass_flows[0].append(args.finetune_method)
         template_json["systems"]["local_system"]["config"]["accelerators"][0]["device"] = "gpu"
-        # qlora does not require execution provider, just set it to CUDAExecutionProvider
+        # torch fine tuning does not require execution provider, just set it to CUDAExecutionProvider
         template_json["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [
             "CUDAExecutionProvider"
         ]

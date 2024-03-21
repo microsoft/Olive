@@ -392,7 +392,7 @@ class OnnxConversion(Pass):
         """Convert a PyTorchModelHandler to an ONNXModelHandler."""
         # load the model
         pytorch_model, model_attributes = self._load_pytorch_model(model, device, torch_dtype)
-        if model.adapter_path:
+        if is_peft_model(pytorch_model):
             # merge the adapter weights back to base model
             pytorch_model = pytorch_model.merge_and_unload()
         pytorch_model.eval()
