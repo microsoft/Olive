@@ -116,7 +116,10 @@ def main(raw_args=None):
     if not args.use_gqa:
         del template_json["evaluators"]["gqa_evaluator"]
 
-    template_json["engine"]["execution_providers"] = [DEVICE_TO_EP[device]]
+    template_json["systems"]["local_system"]["config"]["accelerators"][0]["device"] = device
+    template_json["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [
+        DEVICE_TO_EP[device]
+    ]
     template_json["engine"]["output_dir"] = f"models/{config_name}/{model_name}"
 
     # dump config

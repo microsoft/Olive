@@ -23,7 +23,7 @@ def update_cuda_config(config: Dict):
         # disable skip_group_norm fusion since there is a shape inference bug which leads to invalid models
         config["passes"]["optimize_cuda"]["config"]["optimization_options"] = {"enable_skip_group_norm": False}
     config["pass_flows"] = [["convert", "optimize_cuda"]]
-    config["engine"]["execution_providers"] = ["CUDAExecutionProvider"]
+    config["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = ["CUDAExecutionProvider"]
     return config
 
 

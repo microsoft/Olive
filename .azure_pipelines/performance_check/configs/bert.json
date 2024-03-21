@@ -78,7 +78,6 @@
         },
         "clean_cache": true,
         "evaluator": "common_evaluator",
-        "execution_providers": ["CPUExecutionProvider"],
         "cache_dir": "run_cache/olive/cache",
         "output_dir" : "run_cache/olive/bert_ptq"
     }

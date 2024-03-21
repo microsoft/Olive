@@ -3,10 +3,11 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase
+from olive.common.pydantic_v1 import Extra
 from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.strategy.search_strategy import SearchStrategyConfig
@@ -20,11 +21,10 @@ INVALID_CONFIG = "invalid-config"
 PRUNED_CONFIGS = (FAILED_CONFIG, INVALID_CONFIG)
 
 
-class EngineConfig(ConfigBase):
+class EngineConfig(ConfigBase, extra=Extra.forbid):
     search_strategy: Union[SearchStrategyConfig, bool] = None
     host: SystemConfig = None
     target: SystemConfig = None
-    execution_providers: List[str] = None
     evaluator: OliveEvaluatorConfig = None
     azureml_client_config: Optional[AzureMLClientConfig] = None
     packaging_config: PackagingConfig = None

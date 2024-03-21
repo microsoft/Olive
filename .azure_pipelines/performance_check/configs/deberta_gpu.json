@@ -22,6 +22,21 @@
             }
         }
     },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "device": "gpu",
+                        "execution_providers": [
+                            "CUDAExecutionProvider"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
     "evaluators": {
         "common_evaluator": {
             "metrics":[
@@ -81,7 +96,8 @@
         },
         "clean_cache": true,
         "evaluator": "common_evaluator",
-        "execution_providers": ["CUDAExecutionProvider"],
+        "host": "local_system",
+        "target": "local_system",
         "cache_dir": "run_cache/olive/cache",
         "output_dir" : "run_cache/olive/microsoft-deberta_cuda"
     }

@@ -11,14 +11,21 @@ import olive.systems.system_alias as system_alias
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.pydantic_v1 import root_validator, validator
-from olive.systems.common import AzureMLDockerConfig, AzureMLEnvironmentConfig, LocalDockerConfig, SystemType
+from olive.systems.common import (
+    AcceleratorConfig,
+    AzureMLDockerConfig,
+    AzureMLEnvironmentConfig,
+    LocalDockerConfig,
+    SystemType,
+)
 
 
 class TargetUserConfig(ConfigBase):
-    accelerators: List[str] = None
+    accelerators: List[AcceleratorConfig] = None
     hf_token: bool = None
 
-    __hash__ = object.__hash__
+    class Config:
+        validate_assignment = True
 
 
 class LocalTargetUserConfig(TargetUserConfig):
@@ -26,6 +33,7 @@ class LocalTargetUserConfig(TargetUserConfig):
 
 
 class DockerTargetUserConfig(TargetUserConfig):
+    # the local_docker_config is optional for managed environments and required for normal docker system
     local_docker_config: LocalDockerConfig = None
     is_dev: bool = False
     olive_managed_env: bool = False
@@ -138,7 +146,8 @@ class SystemConfig(ConfigBase):
         system_alias_class = getattr(system_alias, type_name, None)
         if system_alias_class:
             values["type"] = system_alias_class.system_type
-            values["config"]["accelerators"] = system_alias_class.accelerators
+            if system_alias_class.accelerators:
+                values["config"]["accelerators"] = [{"device": acc} for acc in system_alias_class.accelerators]
             # TODO(myguo): consider how to use num_cpus and num_gpus in distributed inference.
         return values
 
@@ -161,4 +170,6 @@ class SystemConfig(ConfigBase):
     def olive_managed_env(self):
         return getattr(self.config, "olive_managed_env", False)
 
+    # the __hash__ is needed so to create_managed_system_with_cache, otherwise the following error will be raised:
+    # unhashable type: 'SystemConfig'
     __hash__ = object.__hash__

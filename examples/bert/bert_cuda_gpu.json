@@ -16,6 +16,20 @@
             }
         }
     },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "execution_providers": [
+                            "CUDAExecutionProvider"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
     "evaluators": {
         "common_evaluator": {
             "metrics":[
@@ -75,8 +89,9 @@
                 "seed": 0
             }
         },
+        "host": "local_system",
+        "target": "local_system",
         "evaluator": "common_evaluator",
-        "execution_providers": ["CUDAExecutionProvider"],
         "cache_dir": "cache",
         "output_dir" : "models/bert_cuda"
     }

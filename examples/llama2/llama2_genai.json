@@ -9,6 +9,21 @@
             }
         }
     },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "device": "gpu",
+                        "execution_providers": [
+                            "CUDAExecutionProvider"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
     "passes": {
         "exporter": {
             "type": "GenAIModelExporter",
@@ -35,7 +50,8 @@
     "engine": {
         "log_severity_level": 0,
         "evaluate_input_model": false,
-        "execution_providers": ["CUDAExecutionProvider"],
+        "host": "local_system",
+        "target": "local_system",
         "cache_dir": "cache",
         "output_dir": "models/genai"
     }

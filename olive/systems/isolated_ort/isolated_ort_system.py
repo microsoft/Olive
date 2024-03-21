@@ -18,7 +18,7 @@ from olive.common.utils import run_subprocess
 from olive.evaluator.metric import get_latency_config_from_metric
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveModelOutput, OnnxEvaluatorMixin
 from olive.hardware import Device
-from olive.systems.common import SystemType
+from olive.systems.common import AcceleratorConfig, SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import IsolatedORTTargetUserConfig
 from olive.systems.utils import create_new_environ, run_available_providers_runner
@@ -40,23 +40,18 @@ class IsolatedORTSystem(OliveSystem):
         python_environment_path: Union[Path, str] = None,
         environment_variables: Dict[str, str] = None,
         prepend_to_path: List[str] = None,
-        accelerators: List[str] = None,
+        accelerators: List[AcceleratorConfig] = None,
         hf_token: bool = None,
     ):
         if python_environment_path is None:
             raise ValueError("python_environment_path is required for PythonEnvironmentSystem.")
 
-        super().__init__(accelerators=accelerators, olive_managed_env=False, hf_token=hf_token)
-        self.config = IsolatedORTTargetUserConfig(
+        super().__init__(accelerators=accelerators, hf_token=hf_token)
+        self.config = IsolatedORTTargetUserConfig(**locals())
+        self.environ = create_new_environ(
             python_environment_path=python_environment_path,
             environment_variables=environment_variables,
             prepend_to_path=prepend_to_path,
-            accelerators=accelerators,
-        )
-        self.environ = create_new_environ(
-            python_environment_path=self.config.python_environment_path,
-            environment_variables=self.config.environment_variables,
-            prepend_to_path=self.config.prepend_to_path,
         )
 
         # available eps. This will be populated the first time self.get_supported_execution_providers() is called.

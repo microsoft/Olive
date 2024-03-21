@@ -10,7 +10,14 @@
             "type": "IsolatedORT",
             "config": {
                 "python_environment_path": "<qnn_env_path>",
-                "accelerators": ["npu"],
+                "accelerators": [
+                    {
+                        "device": "npu",
+                        "execution_providers": [
+                            "QNNExecutionProvider"
+                        ]
+                    }
+                ],
                 "preprend_to_path": ["<qnn_lib_path>"]
             }
         }
@@ -74,7 +81,6 @@
         }
     },
     "engine": {
-        "execution_providers": ["QNNExecutionProvider"],
         "target": "<target>",
         "evaluator": "<evaluator>",
         "evaluate_input_model": false,

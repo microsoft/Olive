@@ -444,7 +444,7 @@ class OVStableDiffusionPipeline(DiffusionPipeline):
 def update_ov_config(config: Dict):
     config["pass_flows"] = [["ov_convert"]]
     config["engine"]["search_strategy"] = False
-    config["engine"]["execution_providers"] = ["CPUExecutionProvider"]
+    config["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = ["CPUExecutionProvider"]
     del config["evaluators"]
     del config["engine"]["evaluator"]
     return config

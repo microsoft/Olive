@@ -26,13 +26,14 @@ class TestOliveManagedDockerSystem:
         self.system_config = SystemConfig(
             type="Docker",
             config=DockerTargetUserConfig(
-                accelerators=["cpu"],
+                accelerators=[
+                    {"device": "cpu", "execution_providers": ["CPUExecutionProvider", "OpenVINOExecutionProvider"]}
+                ],
                 requirements_file=Path(__file__).parent / "requirements.txt",
                 olive_managed_env=True,
                 is_dev=True,
             ),
         )
-        self.execution_providers = ["CPUExecutionProvider", "OpenVINOExecutionProvider"]
         download_models()
         self.input_model_config = ModelConfig.parse_obj(
             {"type": "ONNXModel", "config": {"model_path": get_onnx_model()}}
@@ -49,7 +50,6 @@ class TestOliveManagedDockerSystem:
         cpu_res, openvino_res = create_and_run_workflow(
             tmp_path,
             self.system_config,
-            self.execution_providers,
             self.input_model_config,
             get_latency_metric(),
             only_target=True,

@@ -20,6 +20,21 @@
             }
         }
     },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "device": "gpu",
+                        "execution_providers": [
+                            "CUDAExecutionProvider"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
     "evaluators": {
         "common_evaluator": {
             "metrics":[
@@ -51,7 +66,8 @@
     },
     "engine": {
         "evaluator": "common_evaluator",
-        "execution_providers": ["CUDAExecutionProvider"],
+        "host": "local_system",
+        "target": "local_system",
         "cache_dir": "cache",
         "output_dir" : "models/falcon"
     }

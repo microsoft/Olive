@@ -152,11 +152,10 @@ def main(raw_args=None):
         if args.package_model:
             config["engine"]["packaging_config"] = {"type": "Zipfile", "name": f"whisper_{device}_{precision}"}
 
-        # set ep
-        config["engine"]["execution_providers"] = [DEVICE_TO_EP[device]]
-
         # set device for system
-        config["systems"]["local_system"]["config"]["accelerators"] = [device]
+        config["systems"]["local_system"]["config"]["accelerators"][0]["device"] = device
+        # set ep
+        config["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [DEVICE_TO_EP[device]]
 
         # add passes
         config["passes"] = {}

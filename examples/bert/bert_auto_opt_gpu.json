@@ -16,6 +16,22 @@
             }
         }
     },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "device": "gpu",
+                        "execution_providers": [
+                            "CUDAExecutionProvider",
+                            "TensorrtExecutionProvider"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
     "evaluators": {
         "common_evaluator": {
             "metrics":[
@@ -50,7 +66,8 @@
             }
         },
         "evaluator": "common_evaluator",
-        "execution_providers": ["CUDAExecutionProvider", "TensorrtExecutionProvider"],
+        "host": "local_system",
+        "target": "local_system",
         "cache_dir": "cache",
         "output_dir": "models/bert_gpu"
     },

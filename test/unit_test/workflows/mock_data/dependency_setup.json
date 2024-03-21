@@ -39,7 +39,7 @@
             "type": "LocalSystem",
             "config": {
                 "accelerators": [
-                    "gpu"
+                    {"device": "gpu"}
                 ]
             }
         },
@@ -47,7 +47,7 @@
             "type": "AzureML",
             "config": {
                 "accelerators": [
-                    "CPU"
+                    {"device": "CPU"}
                 ],
                 "aml_compute": "cpu-cluster",
                 "aml_docker_config": {
@@ -169,7 +169,6 @@
         "host": "local_system",
         "target": "local_system",
         "clean_cache": true,
-        "cache_dir": "cache",
-        "execution_providers": ["DmlExecutionProvider"]
+        "cache_dir": "cache"
     }
 }

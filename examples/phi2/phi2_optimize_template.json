@@ -14,6 +14,21 @@
             }
         }
     },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "device": "cpu",
+                        "execution_providers": [
+                            "CPUExecutionProvider"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
     "evaluators": {
         "common_evaluator": {
             "metrics": [
@@ -110,6 +125,8 @@
     "engine": {
         "evaluate_input_model": true,
         "evaluator": "common_evaluator",
+        "host": "local_system",
+        "target": "local_system",
         "cache_dir": "cache",
         "output_name": "phi2",
         "output_dir": "phi2",

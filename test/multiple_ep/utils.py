@@ -71,7 +71,7 @@ def get_onnx_model():
     return str(models_dir / "model.onnx")
 
 
-def create_and_run_workflow(tmp_path, system_config, execution_providers, model_config, metric, only_target=False):
+def create_and_run_workflow(tmp_path, system_config, model_config, metric, only_target=False):
     # use the olive managed python environment as the test environment
     output_dir = tmp_path / "output"
     output_dir.mkdir()
@@ -90,7 +90,7 @@ def create_and_run_workflow(tmp_path, system_config, execution_providers, model_
         evaluator_config=evaluator_config,
     )
     engine.register(OrtPerfTuning)
-    accelerator_specs = create_accelerators(system_config, execution_providers)
+    accelerator_specs = create_accelerators(system_config)
     output = engine.run(model_config, accelerator_specs, output_dir=output_dir, evaluate_input_model=True)
 
     results = [next(iter(output[accelerator].nodes.values())) for accelerator in accelerator_specs]

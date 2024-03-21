@@ -61,7 +61,12 @@ def prepare_whisper_config(audio_data, tmp_path):
                 }
             },
         },
-        "systems": {"local_system": {"type": "LocalSystem", "config": {"accelerators": ["cpu"]}}},
+        "systems": {
+            "local_system": {
+                "type": "LocalSystem",
+                "config": {"accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}]},
+            }
+        },
         "evaluators": {
             "common_evaluator": {
                 "metrics": [
@@ -108,7 +113,6 @@ def prepare_whisper_config(audio_data, tmp_path):
             "target": "local_system",
             "evaluator": "common_evaluator",
             "evaluate_input_model": False,
-            "execution_providers": ["CPUExecutionProvider"],
             "clean_cache": True,
             "cache_dir": str(tmp_path / "cache"),
             "output_dir": str(tmp_path / "models"),

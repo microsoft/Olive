@@ -33,8 +33,9 @@ from olive.resource_path import (
     ResourceType,
     create_resource_path,
 )
-from olive.systems.common import AzureMLDockerConfig, AzureMLEnvironmentConfig, SystemType
+from olive.systems.common import AcceleratorConfig, AzureMLDockerConfig, AzureMLEnvironmentConfig, SystemType
 from olive.systems.olive_system import OliveSystem
+from olive.systems.system_config import AzureMLTargetUserConfig
 
 if TYPE_CHECKING:
     from olive.hardware.accelerator import AcceleratorSpec
@@ -89,12 +90,14 @@ class AzureMLSystem(OliveSystem):
         resources: Dict = None,
         instance_count: int = 1,
         is_dev: bool = False,
-        accelerators: List[str] = None,
-        olive_managed_env: bool = False,
+        accelerators: List[AcceleratorConfig] = None,
         hf_token: bool = None,
         **kwargs,
     ):
-        super().__init__(accelerators, olive_managed_env=olive_managed_env, hf_token=hf_token)
+        super().__init__(accelerators, hf_token=hf_token)
+
+        self.config = AzureMLTargetUserConfig(**locals(), **kwargs)
+
         self.instance_count = instance_count
         self.tags = tags or {}
         self.resources = resources

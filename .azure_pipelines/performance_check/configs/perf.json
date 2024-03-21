@@ -8,7 +8,11 @@
         "local_system": {
             "type": "LocalSystem",
             "config": {
-                "accelerators": ["cpu"]
+                "accelerators": [
+                    {
+                        "device": "cpu"
+                    }
+                ]
             }
         }
     },

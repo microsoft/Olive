@@ -20,15 +20,14 @@ PROVIDER_PACKAGE_MAPPING = {
 }
 
 DEVICE_TO_EXECUTION_PROVIDERS = {
-    "cpu": ["CPUExecutionProvider", "OpenVINOExecutionProvider"],
+    "cpu": ["OpenVINOExecutionProvider"],
     "gpu": [
         "DmlExecutionProvider",
         "CUDAExecutionProvider",
         "ROCMExecutionProvider",
         "MIGraphXExecutionProvider",
         "TensorrtExecutionProvider",
-        "CPUExecutionProvider",
         "OpenVINOExecutionProvider",
     ],
-    "npu": ["QNNExecutionProvider", "CPUExecutionProvider"],
+    "npu": ["QNNExecutionProvider"],
 }
