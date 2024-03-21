@@ -35,7 +35,7 @@ class RunEngineConfig(EngineConfig):
     evaluate_input_model: bool = True
     output_dir: Union[Path, str] = None
     output_name: str = None
-    packaging_config: PackagingConfig = None
+    packaging_config: Union[PackagingConfig, List[PackagingConfig]] = None
     log_severity_level: int = 1
     ort_log_severity_level: int = 3
     ort_py_log_severity_level: int = 3

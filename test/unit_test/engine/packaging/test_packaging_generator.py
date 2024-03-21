@@ -7,21 +7,28 @@ import shutil
 import zipfile
 from pathlib import Path
 from test.unit_test.utils import get_accuracy_metric, get_pytorch_model_config
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import onnx
 import pytest
 
 from olive.engine import Engine
-from olive.engine.footprint import Footprint
-from olive.engine.packaging.packaging_config import PackagingConfig, PackagingType
+from olive.engine.footprint import Footprint, FootprintNode
+from olive.engine.packaging.packaging_config import (
+    AzureMLDataPackagingConfig,
+    AzureMLModelsPackagingConfig,
+    PackagingConfig,
+    PackagingType,
+)
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import AccuracySubType
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
+from olive.hardware.accelerator import AcceleratorSpec
 from olive.passes.onnx.conversion import OnnxConversion
 
 
+# TODO(team): no engine API envolved, use generate_output_artifacts API directly
 @patch("onnx.external_data_helper.sys.getsizeof")
 @pytest.mark.parametrize(
     ("save_as_external_data", "mocked_size_value"),
@@ -91,6 +98,7 @@ def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, m
     shutil.rmtree(output_dir)
 
 
+# TODO(team): no engine API envolved, use generate_output_artifacts API directly
 def test_generate_zipfile_artifacts_no_search(tmp_path):
     # setup
     options = {
@@ -131,6 +139,7 @@ def test_generate_zipfile_artifacts_no_search(tmp_path):
     shutil.rmtree(output_dir)
 
 
+# TODO(team): no engine API envolved, use generate_output_artifacts API directly
 def test_generate_zipfile_artifacts_mlflow(tmp_path):
     # setup
     options = {
@@ -146,7 +155,7 @@ def test_generate_zipfile_artifacts_mlflow(tmp_path):
     packaging_config = PackagingConfig()
     packaging_config.type = PackagingType.Zipfile
     packaging_config.name = "OutputModels"
-    packaging_config.export_in_mlflow_format = True
+    packaging_config.config.export_in_mlflow_format = True
 
     output_dir = tmp_path / "outputs"
 
@@ -213,6 +222,116 @@ def test_generate_zipfile_artifacts_zero_len_nodes(tmp_path):
     # assert
     artifacts_path = output_dir / "OutputModels.zip"
     assert not artifacts_path.exists()
+
+
+@patch("olive.engine.packaging.packaging_generator.retry_func")
+@patch("olive.engine.packaging.packaging_generator.create_resource_path")
+def test_generate_azureml_models(mock_create_resource_path, mock_retry_func):
+    from azure.ai.ml.constants import AssetTypes
+    from azure.ai.ml.entities import Model
+    from azure.core.exceptions import ServiceResponseError
+
+    version = "1.0"
+    description = "Test description"
+    name = "OutputModels"
+    model_id = "model_id"
+
+    packaging_config = PackagingConfig(
+        type=PackagingType.AzureMLModels,
+        config=AzureMLModelsPackagingConfig(version=version, description=description),
+        name=name,
+    )
+
+    model_path = "fake_model_file"
+
+    footprints = get_footprints(model_id, model_path)
+
+    azureml_client_config = Mock(max_operation_retries=3, operation_retry_interval=5)
+    ml_client_mock = Mock()
+    azureml_client_config.create_client.return_value = ml_client_mock
+    resource_path_mock = Mock()
+    mock_create_resource_path.return_value = resource_path_mock
+
+    model = Model(
+        path=model_path,
+        type=AssetTypes.CUSTOM_MODEL,
+        name=name,
+        version=version,
+        description=description,
+    )
+
+    # execute
+    generate_output_artifacts(
+        packaging_config, footprints, footprints, output_dir=None, azureml_client_config=azureml_client_config
+    )
+
+    # assert
+    assert mock_retry_func.call_once_with(
+        ml_client_mock.models.create_client,
+        [model],
+        max_tries=azureml_client_config.max_operation_retries,
+        delay=azureml_client_config.operation_retry_interval,
+        exceptions=ServiceResponseError,
+    )
+
+
+@patch("olive.engine.packaging.packaging_generator.retry_func")
+@patch("olive.engine.packaging.packaging_generator.create_resource_path")
+def test_generate_azureml_data(mock_create_resource_path, mock_retry_func):
+    from azure.ai.ml.constants import AssetTypes
+    from azure.ai.ml.entities import Data
+    from azure.core.exceptions import ServiceResponseError
+
+    version = "1.0"
+    description = "Test description"
+    name = "OutputModels"
+    model_id = "model_id"
+
+    packaging_config = PackagingConfig(
+        type=PackagingType.AzureMLData,
+        config=AzureMLDataPackagingConfig(version=version, description=description),
+        name=name,
+    )
+
+    model_path = "fake_model_file"
+
+    footprints = get_footprints(model_id, model_path)
+
+    azureml_client_config = Mock(max_operation_retries=3, operation_retry_interval=5)
+    ml_client_mock = Mock()
+    azureml_client_config.create_client.return_value = ml_client_mock
+    resource_path_mock = Mock()
+    mock_create_resource_path.return_value = resource_path_mock
+
+    data = Data(
+        path=model_path,
+        type=AssetTypes.URI_FILE,
+        name=name,
+        version=version,
+        description=description,
+    )
+
+    # execute
+    generate_output_artifacts(
+        packaging_config, footprints, footprints, output_dir=None, azureml_client_config=azureml_client_config
+    )
+
+    # assert
+    assert mock_retry_func.call_once_with(
+        ml_client_mock.models.create_client,
+        [data],
+        max_tries=azureml_client_config.max_operation_retries,
+        delay=azureml_client_config.operation_retry_interval,
+        exceptions=ServiceResponseError,
+    )
+
+
+def get_footprints(model_id, model_path):
+    acc_spec = AcceleratorSpec(accelerator_type="cpu", execution_provider="CPUExecutionProvider")
+    model_config = {"config": {"model_path": model_path}, "type": "ONNXModel"}
+    footprint_node = FootprintNode(model_id=model_id, is_pareto_frontier=True, model_config=model_config)
+    footprint = Footprint(nodes={model_id: footprint_node}, is_marked_pareto_frontier=True)
+    return {acc_spec: footprint}
 
 
 def verify_output_artifacts(output_dir):
