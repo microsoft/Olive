@@ -59,8 +59,16 @@ def get_args(raw_args):
     parser.add_argument(
         "--model_type",
         type=str,
-        default="cpu_fp32",
+        default=None,
+        choices=["cpu_fp32", "cpu_int4", "cuda_fp16", "cuda_int4"],
         help="Choose from cpu_fp32, cpu_int4, cuda_fp16, cuda_int4",
+    )
+    parser.add_argument(
+        "--finetune_method",
+        type=str,
+        default=None,
+        help="Finetune method before onnxruntime optimization, use 'qlora' as of now "
+        "it should be same with the pass name in phi2_optimize_template.json",
     )
     parser.add_argument(
         "--inference",
@@ -124,55 +132,64 @@ def main(raw_args=None):
         legacy_optimization_setting(template_json)
 
     # add pass flows
-    model_type = str(args.model_type)
-    template_json["pass_flows"] = SUPPORTED_WORKFLOWS[model_type]
-    if args.optimum_optimization:
-        # if args.model_type in ("cpu_int4", "cuda_int4"):
-        #     raise ValueError("Int4 optimization is not supported in phi2 optimum optimization")
+    pass_flows = [[]]
+    if args.finetune_method:
+        pass_flows[0].append("qlora")
+        template_json["systems"]["local_system"]["config"]["accelerators"][0]["device"] = "gpu"
+        # qlora does not require execution provider, just set it to CUDAExecutionProvider
+        template_json["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [
+            "CUDAExecutionProvider"
+        ]
+    if args.model_type:
+        model_type = str(args.model_type)
+        pass_flows[0].extend(SUPPORTED_WORKFLOWS[model_type][0])
+        template_json["pass_flows"] = pass_flows
+        if args.optimum_optimization:
+            legacy_optimization_setting(template_json)
+            for pass_flow in template_json["pass_flows"]:
+                pass_flow[0] = "optimum_convert"
+                if "perf_tuning" in pass_flow:
+                    pass_flow.remove("perf_tuning")
+
+        if "cuda" in model_type:
+            template_json["systems"]["local_system"]["config"]["accelerators"][0]["device"] = "gpu"
+            template_json["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [
+                "CUDAExecutionProvider"
+            ]
+        if "cpu" in model_type:
+            # no need to set device for CPU since default it is CPU
+            template_json["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [
+                "CPUExecutionProvider"
+            ]
+    if args.optimum_optimization or (args.finetune_method and not args.model_type):
         # set evaluator as None:
         template_json["engine"]["evaluate_input_model"] = False
         template_json["engine"]["evaluator"] = None
-        legacy_optimization_setting(template_json)
-        for pass_flow in template_json["pass_flows"]:
-            pass_flow[0] = "optimum_convert"
-            if "perf_tuning" in pass_flow:
-                pass_flow.remove("perf_tuning")
-
-    # remove unused passes
-    used_passes = {pass_name for pass_flow in SUPPORTED_WORKFLOWS[model_type] for pass_name in pass_flow}
+    used_passes = {pass_name for pass_flow in pass_flows for pass_name in pass_flow}
     for pass_name in list(template_json["passes"].keys()):
         if pass_name not in used_passes:
             del template_json["passes"][pass_name]
             continue
 
-    if "cuda" in model_type:
-        template_json["system"]["local_system"]["config"]["accelerators"][0]["device"] = "gpu"
-        template_json["system"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [
-            "CUDAExecutionProvider"
-        ]
-    if "cpu" in model_type:
-        # no need to set device for CPU since default it is CPU
-        template_json["system"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [
-            "CPUExecutionProvider"
-        ]
-
     with open("phi2_optimize.json", "w") as f:
         json.dump(template_json, f, indent=4)
 
+    # only evaluate onnx generate model
     footprints = olive_run(template_json)  # pylint: disable=not-callable
-    output_model_path = get_output_model_path(footprints)
-    if args.inference and model_type in SUPPORTED_INFERENCE_CONFIG:
-        from generate import run as generate_run
+    if args.model_type:
+        output_model_path = get_output_model_path(footprints)
+        if args.inference and model_type in SUPPORTED_INFERENCE_CONFIG:
+            from generate import run as generate_run
 
-        for text in generate_run(
-            args.prompt,
-            output_model_path,
-            **SUPPORTED_INFERENCE_CONFIG[model_type],
-            use_optimum=args.optimum_optimization,
-            max_length=args.max_length,
-        ):
-            print(f"Generation output: {text}")  # noqa: T201
-            print("*" * 50)  # noqa: T201
+            for text in generate_run(
+                args.prompt,
+                output_model_path,
+                **SUPPORTED_INFERENCE_CONFIG[model_type],
+                use_optimum=args.optimum_optimization,
+                max_length=args.max_length,
+            ):
+                print(f"Generation output: {text}")  # noqa: T201
+                print("*" * 50)  # noqa: T201
 
 
 def legacy_optimization_setting(config):

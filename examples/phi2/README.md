@@ -10,13 +10,31 @@ This folder contains an example of phi2 optimization with Olive workflow.
 * [ONNXRuntime nightly package](https://onnxruntime.ai/docs/install/#inference-install-table-for-all-languages)
   In Linux, phi2 optimization requires the ONNXRuntime nightly package(>=1.18.0). In Windows, ONNXRuntime>=1.17.0 is recommended.
 
+## Fine-tune phi2 Model using QLoRA
+This workflow fine-tunes [phi2 model](https://huggingface.co/microsoft/phi2) using [QLoRA](https://arxiv.org/abs/2305.14314) to generate text with given prompt.
+
+You need to install required packages according to qlora. Also we suggest to use gpu devices for fine-tune process.
+```bash
+pip install -r requirements-qlora.txt
+```
+
+Then, you can run the fine-tune using the following command:
+```bash
+python phi2.py --finetune_method qlora
+```
+Note that, to demonstrate the fine-tune process, we use a small training steps and a small dataset. For better performance, you can increase the training steps and use a larger dataset by updating
+`phi2_optimize_template.json`.
+We will consider to expose more parameters in the future to make it easier to customize the training process.
+
 ## Optimization Usage
 In this stage, we will use the `phi2.py` script to generate optimized models and do inference with the optimized models.
 
 Following are the model types that can be used for optimization:
 cpu_fp32
 ```bash
-python phi2.py --model_type cpu_fp32
+# optimize the fine-tuned model
+python phi2.py --finetune_method qlora --model_type cpu_fp32
+# optimize the original model
 ```
 cpu_int4
 ```bash
@@ -35,7 +53,7 @@ Above commands will generate optimized models with given model_type and save the
 Besides, for better generation experience, this example also let use use [Optimum](https://huggingface.co/docs/optimum/v1.2.1/en/onnxruntime/modeling_ort) to generate optimized models.
 Then use can call `model.generate` easily to run inference with the optimized model.
 ```bash
-# optimum optimization
+# optimum optimization. Please avoid to use optimum for fine-tune model which is not supported by now.
 python phi2.py --model_type cpu_fp32 --optimum_optimization
 ```
 

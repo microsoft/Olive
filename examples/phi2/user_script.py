@@ -4,13 +4,15 @@
 # --------------------------------------------------------------------------
 
 from itertools import chain
-from typing import TYPE_CHECKING, List, Tuple
+from typing import TYPE_CHECKING, List, Tuple, Union
 
 import numpy as np
 import torch
+from datasets import load_dataset
 from transformers import AutoConfig
 
 from olive.constants import Framework
+from olive.data.registry import Registry
 
 if TYPE_CHECKING:
     from transformers import PhiConfig
@@ -19,6 +21,12 @@ if TYPE_CHECKING:
 
 model_id = "microsoft/phi-2"
 config: "PhiConfig" = AutoConfig.from_pretrained(model_id, trust_remote_code=True)
+
+
+@Registry.register_dataset()
+def load_tiny_code_dataset(data_name: str, split: str, language: str, token: Union[bool, str] = True):
+    dataset = load_dataset(data_name, split=split, token=token)
+    return dataset.filter(lambda x: x["programming_language"] == language)
 
 
 def dummy_inputs(model):
