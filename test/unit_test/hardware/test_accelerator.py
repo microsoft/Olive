@@ -29,7 +29,7 @@ from olive.systems.system_config import SystemConfig
 )
 def test_infer_accelerators_from_execution_provider(execution_providers_test):
     execution_providers, expected_accelerators = execution_providers_test
-    actual_rls = AcceleratorLookup.infer_accelerators_from_execution_providers(execution_providers)
+    actual_rls = AcceleratorLookup.infer_devices_from_execution_providers(execution_providers)
     assert actual_rls == expected_accelerators
 
 
@@ -214,8 +214,7 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
             AssertionError,
             (
                 "Cannot infer the accelerators from the execution providers "
-                "['OpenVINOExecutionProvider', 'CPUExecutionProvider']. "
-                "Please specify the accelerator in the accelerator configs."
+                "['OpenVINOExecutionProvider', 'CPUExecutionProvider']."
             ),
         ),
         (
@@ -230,7 +229,6 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
             (
                 "Cannot infer the accelerators from the execution providers "
                 "['QNNExecutionProvider', 'CUDAExecutionProvider']. Multiple accelerators are inferred: ['npu', 'gpu']."
-                " Please specify the accelerator in the accelerator configs."
             ),
         ),
     ],
