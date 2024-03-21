@@ -83,12 +83,16 @@
 <li class="toctree-l4"><a class="reference internal" href="#id2">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#sparsegpt">SparseGPT</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#autogptq">AutoGPTQ</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id3">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#torchtrtconversion">TorchTRTConversion</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#sparsegpt">SparseGPT</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id4">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#torchtrtconversion">TorchTRTConversion</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id5">Example Configuration</a></li>
 </ul>
 </li>
 </ul>
@@ -285,6 +289,26 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 for an example implementation of <code class="docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;create_train_dataloader&quot;</span></code>.</p>
 </section>
 </section>
+<section id="autogptq">
+<h2>AutoGPTQ<a class="headerlink" href="#autogptq" title="Permalink to this heading">¶</a></h2>
+<p>Olive also integrates <a class="reference external" href="https://github.com/AutoGPTQ/AutoGPTQ">AutoGPTQ</a> for quantization.</p>
+<p>AutoGPTQ is an easy-to-use LLM quantization package with user-friendly APIs, based on GPTQ algorithm (weight-only quantization). With GPTQ quantization, you can quantize your favorite language model to 8, 4, 3 or even 2 bits. This comes without a big drop of performance and with faster inference speed. This is supported by most GPU hardwares.</p>
+<p>Olive consolidates the GPTQ quantization into a single pass called GptqQuantizer which supports tune GPTQ quantization with hyperparameters for trade-off between accuracy and speed.</p>
+<p>Please refer to <a class="reference internal" href="../../api/passes.html#gptq-quantizer"><span class="std std-ref">GptqQuantizer</span></a> for more details about the pass and its config parameters.</p>
+<section id="id3">
+<h3>Example Configuration<a class="headerlink" href="#id3" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GptqQuantizer&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;wikitext2_train&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Check out <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/llama2/llama2_template.json">this file</a>
+for an example implementation of <code class="docutils literal notranslate"><span class="pre">&quot;wikitext2_train&quot;</span></code>.</p>
+</section>
+</section>
 <section id="sparsegpt">
 <h2>SparseGPT<a class="headerlink" href="#sparsegpt" title="Permalink to this heading">¶</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">SparseGPT</span></code> prunes GPT like models using a pruning method called <a class="reference external" href="https://arxiv.org/abs/2301.00774">SparseGPT</a>. This one-shot pruning method can perform unstructured
@@ -293,8 +317,8 @@ as 2:4 and 4:8 patterns.</p>
 <p>Please refer to the original paper linked above for more details on the algorithm and performance results for different models, sparsities and datasets.</p>
 <p>This pass only supports Hugging Face transformers PyTorch models. Please refer to <a class="reference internal" href="../../api/passes.html#sparsegpt"><span class="std std-ref">SparseGPT</span></a> for more details on the types of transformers models supported.</p>
 <p><strong>Note:</strong> TensorRT can accelerate inference on 2:4 sparse models as described in <a class="reference external" href="https://developer.nvidia.com/blog/accelerating-inference-with-sparsity-using-ampere-and-tensorrt/">this blog</a>.</p>
-<section id="id3">
-<h3>Example Configuration<a class="headerlink" href="#id3" title="Permalink to this heading">¶</a></h3>
+<section id="id4">
+<h3>Example Configuration<a class="headerlink" href="#id4" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SparseGPT&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;sparsity&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.5</span><span class="p">}</span>
@@ -315,8 +339,8 @@ as 2:4 and 4:8 patterns.</p>
 applicable. <code class="docutils literal notranslate"><span class="pre">torch_tensorrt</span></code> is an extension to <code class="docutils literal notranslate"><span class="pre">torch</span></code> where TensorRT compiled engines can be used like regular <code class="docutils literal notranslate"><span class="pre">torch.nn.Module</span></code>s. This pass can be used to accelerate inference on transformer models
 with sparse weights by taking advantage of the 2:4 structured sparsity pattern supported by TensorRT.</p>
 <p>This pass only supports Hugging Face transformers PyTorch models. Please refer to <a class="reference internal" href="../../api/passes.html#torch-trt-conversion"><span class="std std-ref">TorchTRTConversion</span></a> for more details on the types of transformers models supported.</p>
-<section id="id4">
-<h3>Example Configuration<a class="headerlink" href="#id4" title="Permalink to this heading">¶</a></h3>
+<section id="id5">
+<h3>Example Configuration<a class="headerlink" href="#id5" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;TorchTRTConversion&quot;</span>
 <span class="p">}</span>

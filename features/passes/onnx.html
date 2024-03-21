@@ -96,7 +96,6 @@
 <li class="toctree-l4"><a class="reference internal" href="#quantize-with-onnxruntime">Quantize with onnxruntime</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#quantize-with-intel-neural-compressor">Quantize with Intel® Neural Compressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#quantize-with-amd-vitis-ai-quantizer">Quantize with AMD Vitis AI Quantizer</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#quantize-with-huggingface-optimum">Quantize with Huggingface Optimum</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#id6">Example Configuration</a></li>
 </ul>
 </li>
@@ -446,13 +445,6 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <p>The Vitis™ AI development environment accelerates AI inference on AMD® hardware platforms. The Vitis AI quantizer can reduce the computing complexity by converting the 32-bit floating-point weights and activations to fixed-point like INT8. The fixed-point network model requires less memory bandwidth, thus providing faster speed and higher power efficiency than the floating-point model.
 Olive consolidates the Vitis™ AI quantization into a single pass called VitisAIQuantization which supports power-of-2 scale quantization methods and supports Vitis AI Execution Provider.</p>
 <p>Please refer to <a class="reference internal" href="../../api/passes.html#vitis-ai-quantization"><span class="std std-ref">VitisAIQuantization</span></a> for more details about the pass and its config parameters.</p>
-</section>
-<section id="quantize-with-huggingface-optimum">
-<h3>Quantize with Huggingface Optimum<a class="headerlink" href="#quantize-with-huggingface-optimum" title="Permalink to this heading">¶</a></h3>
-<p>Olive also integrates <a class="reference external" href="https://github.com/AutoGPTQ/AutoGPTQ">AutoGPTQ</a> for quantization.</p>
-<p>AutoGPTQ is an easy-to-use LLM quantization package with user-friendly APIs, based on GPTQ algorithm (weight-only quantization). With GPTQ quantization, you can quantize your favorite language model to 8, 4, 3 or even 2 bits. This comes without a big drop of performance and with faster inference speed. This is supported by most GPU hardwares.</p>
-<p>Olive consolidates the GPTQ quantization into a single pass called GptqQuantizer which supports tune GPTQ quantization with hyperparameters for trade-off between accuracy and speed.</p>
-<p>Please refer to <a class="reference internal" href="../../api/passes.html#gptq-quantizer"><span class="std std-ref">GptqQuantizer</span></a> for more details about the pass and its config parameters.</p>
 </section>
 <section id="id6">
 <h3>Example Configuration<a class="headerlink" href="#id6" title="Permalink to this heading">¶</a></h3>

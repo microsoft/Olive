@@ -136,6 +136,28 @@ c. Run QAT training with default training loop.
 Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/resnet/user_script.py)
 for an example implementation of `"user_script.py"` and `"create_train_dataloader"`.
 
+## AutoGPTQ
+Olive also integrates [AutoGPTQ](https://github.com/AutoGPTQ/AutoGPTQ) for quantization.
+
+AutoGPTQ is an easy-to-use LLM quantization package with user-friendly APIs, based on GPTQ algorithm (weight-only quantization). With GPTQ quantization, you can quantize your favorite language model to 8, 4, 3 or even 2 bits. This comes without a big drop of performance and with faster inference speed. This is supported by most GPU hardwares.
+
+Olive consolidates the GPTQ quantization into a single pass called GptqQuantizer which supports tune GPTQ quantization with hyperparameters for trade-off between accuracy and speed.
+
+Please refer to [GptqQuantizer](gptq_quantizer) for more details about the pass and its config parameters.
+
+### Example Configuration
+```json
+{
+    "type": "GptqQuantizer",
+    "config": {
+        "data_config": "wikitext2_train"
+    }
+}
+```
+
+Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/llama2/llama2_template.json)
+for an example implementation of `"wikitext2_train"`.
+
 ## SparseGPT
 `SparseGPT` prunes GPT like models using a pruning method called [SparseGPT](https://arxiv.org/abs/2301.00774). This one-shot pruning method can perform unstructured
 sparsity upto 60% on large models like OPT-175B and BLOOM-176B efficiently with negligible perplexity increase. It also supports semi-structured sparsity patterns such
