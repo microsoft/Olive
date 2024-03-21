@@ -413,4 +413,10 @@ class OrtTransformersOptimization(Pass):
             )
             model.model.graph.node.remove(node)
             model.model.graph.node.extend([gqa_node])
+
+            opset_imports = [
+                onnx.helper.make_operatorsetid("com.microsoft", 1),
+            ]
+
+            model.model.opset_import.extend(opset_imports)
         return model

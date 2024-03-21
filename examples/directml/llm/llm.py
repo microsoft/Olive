@@ -227,7 +227,7 @@ def optimize(
                 optimized_olive_model = ONNXModelHandler(**optimizer_footprint["model_config"]["config"])
 
             # Create a copy of the model that will be used for the "cache" pass
-            print("Creating a cache version of the the model...")
+            print("Creating a past key/values version of the model...")
             model_path = optimized_olive_model.model_path
             model_with_past_path = create_cache_model(model_path)
 
