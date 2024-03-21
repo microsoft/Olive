@@ -107,23 +107,23 @@ class AcceleratorLookup:
         if not execution_providers:
             return None
 
-        ep_to_accelerator = {}
+        ep_to_devices = {}
         for ep in execution_providers:
             if ep == "CPUExecutionProvider":
                 # cannot infer device for CPUExecutionProvider since all ORT EP supports CPU
                 continue
 
-            inferered_accelerators = []
-            for accelerator, eps in DEVICE_TO_EXECUTION_PROVIDERS.items():
+            inferered_devices = []
+            for device, eps in DEVICE_TO_EXECUTION_PROVIDERS.items():
                 if ep in eps:
-                    inferered_accelerators.append(accelerator)
-            if inferered_accelerators:
-                ep_to_accelerator[ep] = inferered_accelerators
+                    inferered_devices.append(device)
+            if inferered_devices:
+                ep_to_devices[ep] = inferered_devices
             else:
-                ep_to_accelerator[ep] = None
+                ep_to_devices[ep] = None
 
         mapped_devices = []
-        for ep, inferred_device in ep_to_accelerator.items():
+        for ep, inferred_device in ep_to_devices.items():
             if inferred_device is None:
                 logger.warning(
                     "Execution provider %s is not able to be mapped to any device. "
@@ -152,18 +152,20 @@ class AcceleratorLookup:
             return None
 
         if execution_providers == ["CPUExecutionProvider"]:
-            inferred_accelerators = ["cpu"]
+            inferred_devices = ["cpu"]
         else:
-            inferred_accelerators = AcceleratorLookup.infer_devices_from_execution_providers(execution_providers)
-            assert (
-                inferred_accelerators
-            ), f"Cannot infer the accelerators from the execution providers {execution_providers}."
-            assert len(inferred_accelerators) == 1, (
-                f"Cannot infer the accelerators from the execution providers {execution_providers}. "
-                f"Multiple accelerators are inferred: {inferred_accelerators}."
+            inferred_devices = AcceleratorLookup.infer_devices_from_execution_providers(execution_providers)
+            assert inferred_devices, (
+                f"Cannot infer the devices from the execution providers {execution_providers}."
+                " Please specify the device in the accelerator configs."
+            )
+            assert len(inferred_devices) == 1, (
+                f"Cannot infer the devices from the execution providers {execution_providers}. "
+                f"Multiple devices are inferred: {inferred_devices}."
+                " Please specify the device in the accelerator configs."
             )
 
-        return inferred_accelerators[0]
+        return inferred_devices[0]
 
 
 def normalize_accelerators(system_config: "SystemConfig", skip_supported_eps_check: bool = True) -> "SystemConfig":
@@ -240,17 +242,15 @@ def normalize_accelerators(system_config: "SystemConfig", skip_supported_eps_che
                             accelerator.execution_providers,
                         )
                     else:
-                        # User specify both the device and execution providers
                         logger.debug("The accelerator device and execution providers are specified, skipping deduce.")
         else:
             # for AzureML and Docker System
             if not system_config.config.accelerators:
                 raise ValueError("AzureML and Docker system requires accelerators to be specified.")
             for accelerator in system_config.config.accelerators:
-                if not accelerator.execution_providers:
+                if not accelerator.device or not accelerator.execution_providers:
                     raise ValueError(
-                        "AzureML and Docker system requires execution providers to be specified for"
-                        f" {accelerator.device}"
+                        "AzureML and Docker system requires device and execution providers to be specified explicitly."
                     )
 
     ep_not_supported = []

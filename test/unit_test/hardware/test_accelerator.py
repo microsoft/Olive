@@ -217,7 +217,7 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
             ["CUDAExecutionProvider", "CPUExecutionProvider"],
         ),
         (
-            # dosn't fill both device and ep.
+            # doesn't fill both device and ep.
             {
                 "type": "LocalSystem",
                 "config": {"accelerators": [{"device": "cpu", "execution_providers": ["OpenVINOExecutionProvider"]}]},
@@ -323,7 +323,7 @@ def test_normalize_accelerators(
             {"type": "LocalSystem"},
             ["OpenVINOExecutionProvider", "CPUExecutionProvider"],
             AssertionError,
-            "Cannot infer the accelerators from the execution providers",
+            "Cannot infer the devices from the execution providers",
         ),
         (
             {"type": "PythonEnvironment", "config": {"olive_managed_env": True}},
@@ -354,7 +354,7 @@ def test_normalize_accelerators(
             ["CPUExecutionProvider"],
             AssertionError,
             (
-                "Cannot infer the accelerators from the execution providers "
+                "Cannot infer the devices from the execution providers "
                 "['OpenVINOExecutionProvider', 'CPUExecutionProvider']."
             ),
         ),
@@ -368,8 +368,8 @@ def test_normalize_accelerators(
             ["CPUExecutionProvider"],
             AssertionError,
             (
-                "Cannot infer the accelerators from the execution providers "
-                "['QNNExecutionProvider', 'CUDAExecutionProvider']. Multiple accelerators are inferred: ['npu', 'gpu']."
+                "Cannot infer the devices from the execution providers "
+                "['QNNExecutionProvider', 'CUDAExecutionProvider']. Multiple devices are inferred: ['npu', 'gpu']."
             ),
         ),
     ],
