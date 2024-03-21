@@ -799,7 +799,9 @@
         <span class="c1"># save adapter weights</span>
         <span class="n">adapter_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_model_path</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;adapter&quot;</span>
         <span class="n">adapter_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">model</span><span class="o">.</span><span class="n">save_pretrained</span><span class="p">(</span><span class="n">adapter_path</span><span class="p">)</span>
+        <span class="c1"># don&#39;t save embedding layers since only adapter weights are trained</span>
+        <span class="c1"># if we don&#39;t provide as False, it defaults to &quot;auto&quot; which checks if the vocab size changed</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">save_pretrained</span><span class="p">(</span><span class="n">adapter_path</span><span class="p">,</span> <span class="n">save_embedding_layers</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
         <span class="c1"># remove loaded model</span>
         <span class="n">output_model</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="kc">None</span>
@@ -821,7 +823,12 @@
     <span class="k">def</span> <span class="nf">smart_tokenizer_and_embedding_resize</span><span class="p">(</span>
         <span class="n">special_tokens_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">:</span> <span class="s2">&quot;PreTrainedTokenizer&quot;</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PreTrainedModel&quot;</span>
     <span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Resize the tokenizer and the model embedding layer to take into account new special tokens.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Resize the tokenizer and the model embedding layer to take into account new special tokens.</span>
+
+<span class="sd">        NOTE: This is only used to ensure we have a pad token. The new embeddings don&#39;t get training signals</span>
+<span class="sd">        the pad tokens are masked out in the attention mask and loss calculation. Moreover, only the adapter weights</span>
+<span class="sd">        are set as trainable and saved in the final checkpoint.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># resize tokenizer</span>
         <span class="n">num_new_tokens</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">add_special_tokens</span><span class="p">(</span><span class="n">special_tokens_dict</span><span class="p">)</span>
         <span class="c1"># resize model embedding layer</span>
