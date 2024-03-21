@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from pathlib import Path
 from typing import Any, Callable, Dict, List, Union
 
 import torch
@@ -11,6 +10,7 @@ from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import PyTorchModelHandler
+from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
 
@@ -197,7 +197,7 @@ class GptqQuantizer(Pass):
         quantized_model = quantized_model.model
         assert self.accelerator_spec.accelerator_type == Device.GPU
 
-        output_model_path = Path(output_model_path).with_suffix(".pt")
+        output_model_path = normalize_path_suffix(output_model_path, "model.pt")
         torch.save(quantized_model, output_model_path)
 
         model_config = model.to_json()["config"]
