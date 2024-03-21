@@ -202,7 +202,7 @@ class GptqQuantizer(Pass):
 
         model_config = model.to_json()["config"]
         model_config["model_path"] = output_model_path
-        model_config.pop("model_loader")
+        model_config.pop("model_loader", None)
         if model.hf_config is not None:
             hf_config = model.get_hf_model_config()
             del model_config["hf_config"]
