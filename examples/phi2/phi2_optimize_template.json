@@ -91,6 +91,7 @@
         "convert": {
             "type": "OnnxConversion",
             "config": {
+                "merge_adapter_weights": true,
                 "use_dynamo_exporter": true,
                 "torch_dtype": "float32",
                 "target_opset": 18,
