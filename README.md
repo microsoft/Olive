@@ -18,6 +18,7 @@ Olive enables an extensible framework that allows industry to easily plugin thei
 efficiently compose and tune integrated techniques for offering a ready-to-use E2E optimization solution.
 
 ## News
+- [ Mar 2024 ] [Fine-tune SLM with Microsoft Olive](https://techcommunity.microsoft.com/t5/educator-developer-blog/journey-series-for-generative-ai-application-architecture-fine/ba-p/4080813)
 - [ Jan 2024 ] [Accelerating SD Turbo and SDXL Turbo Inference with ONNX Runtime and Olive](https://huggingface.co/blog/sdxl_ort_inference)
 - [ Dec 2023 ] [Windows AI Studio - VS Code Extension that uses Olive to fine tune models](https://marketplace.visualstudio.com/items?itemName=ms-windows-ai-studio.windows-ai-studio&ssr=false#overview)
 - [ Nov 2023 ] [Elevating the developer experience on Windows with new AI tools and productivity tools](https://blogs.windows.com/windowsdeveloper/2023/11/15/elevating-the-developer-experience-on-windows-with-new-ai-tools-and-productivity-tools/)
