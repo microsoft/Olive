@@ -14,12 +14,13 @@ Olive is currently under pre-release, with constant updates and improvements to 
 ```
 # Clone Olive repo and install Olive from source
 git clone https://github.com/microsoft/olive
+cd olive
 python -m pip install .
 ```
 
 Once you've installed Olive, install the requirements for this sample matching the version of the library you are using:
 ```
-cd olive/examples/directml/phi
+cd examples/directml/phi
 pip install -r requirements.txt
 ```
 
@@ -28,7 +29,7 @@ pip install -r requirements.txt
 The easiest way to optimize the pipeline is with the `microsoft_phi.py` helper script:
 
 ```
-python microsoft_phi.py --optimize --model_path ["microsoft/phi-1" or "microsoft/phi-1_5"]
+python microsoft_phi.py --optimize --model ["microsoft/phi-1" or "microsoft/phi-1_5"]
 ```
 
 Once the script successfully completes, the optimized ONNX pipeline will be stored under `models/optimized/microsoft/phi-1` or `models/optimized/microsoft/phi-1_5`.
