@@ -107,6 +107,8 @@ def get_output_model_path(footprints):
 
 def main(raw_args=None):
     args = get_args(raw_args)
+    if not args.model_type and not args.finetune_method:
+        raise ValueError("Please specify either model_type or finetune_method")
 
     if not args.optimum_optimization and version.parse(OrtVersion) < version.parse("1.18.0"):
         # Check if onnxruntime version is supported
