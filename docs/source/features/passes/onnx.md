@@ -10,7 +10,7 @@ The `OnnxConversion` pass converts PyTorch models to ONNX using
 
 Please refer to [OnnxConversion](onnx_conversion) for more details about the pass and its config parameters.
 
-Besides, if you want to convert a existing ONNX model with another target opset, you can use [OnnxOpVersionConversion](onnx_op_version_conversion) pass, similar configs with above case:
+Besides, if you want to convert an existing ONNX model with another target opset, you can use [OnnxOpVersionConversion](onnx_op_version_conversion) pass, similar configs with above case:
 
 ### Example Configuration
 ```json
