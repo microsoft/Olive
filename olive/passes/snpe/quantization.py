@@ -10,8 +10,10 @@ from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import SNPEModelHandler
+from olive.passes.common import get_qualcomm_env_config
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import ParamCategory, PassConfigParam
+from olive.platform_sdk.qualcomm.runner import SNPESDKRunner as SNPERunner
 from olive.platform_sdk.qualcomm.snpe.tools.dev import quantize_dlc
 from olive.platform_sdk.qualcomm.utils.data_loader import FileListCommonDataLoader, FileListDataLoader
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, LocalFile
@@ -28,7 +30,7 @@ class SNPEQuantization(Pass):
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        return {
+        config = {
             "data_dir": PassConfigParam(
                 type_=OLIVE_RESOURCE_ANNOTATIONS,
                 required=False,
@@ -84,6 +86,8 @@ class SNPEQuantization(Pass):
                 ),
             ),
         }
+        config.update(get_qualcomm_env_config())
+        return config
 
     def _run_for_config(
         self, model: SNPEModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
@@ -106,5 +110,6 @@ class SNPEQuantization(Pass):
         if not isinstance(dataloader, FileListDataLoader):
             dataloader = FileListCommonDataLoader(dataloader, model.io_config)
 
-        quantize_dlc(model.model_path, dataloader.get_input_list(), config, output_model_path)
+        runner = SNPERunner(use_dev_tools=True, use_olive_env=config["use_olive_env"])
+        quantize_dlc(model.model_path, dataloader.get_input_list(), config, output_model_path, runner)
         return SNPEModelHandler(model_path=LocalFile({"path": output_model_path}), **model.io_config)

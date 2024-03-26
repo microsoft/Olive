@@ -22,14 +22,18 @@ class SDKRunner:
         use_dev_tools: bool = False,
         runs: int = 1,
         sleep: int = 0,
+        use_olive_env: bool = True,
     ):
         self.platform = platform
         # use_dev_tools: whether use dev tools under the sdk
         self.use_dev_tools = use_dev_tools
         self.runs = runs
         self.sleep = sleep
+        self.use_olive_env = use_olive_env
 
-        if self.platform not in ("SNPE", "QNN"):
+        if not self.use_olive_env:
+            self.sdk_env = None
+        elif self.platform not in ("SNPE", "QNN"):
             raise ValueError(f"Unsupported platform {platform}")
         elif self.platform == "SNPE":
             self.sdk_env = SNPESDKEnv(use_dev_tools=self.use_dev_tools)
@@ -37,16 +41,21 @@ class SDKRunner:
             self.sdk_env = QNNSDKEnv(use_dev_tools=self.use_dev_tools)
 
     def _resolve_cmd(self, cmd: str):
+        if not self.use_olive_env:
+            return cmd
         import platform
 
         if platform.system() == "Windows" and cmd.startswith(("snpe-", "qnn-")):
             logger.debug("Resolving command %s on Windows.", cmd)
-            cmd_path = Path(self.sdk_env.sdk_root_path) / "bin" / self.sdk_env.target_arch
+            cmd_dir = Path(self.sdk_env.sdk_root_path) / "bin" / self.sdk_env.target_arch
             cmd_name = cmd.split(" ")[0]
-            if (cmd_path / cmd_name).exists():
-                cmd = str(cmd_path / cmd_name) + cmd[len(cmd_name) :]
+            cmd_full_path = cmd_dir / cmd_name
+            if cmd_full_path.with_suffix(".exe").exists():
+                cmd_full_path = cmd_full_path.with_suffix(".exe")
+            if cmd_full_path.exists():
+                cmd = str(cmd_full_path) + cmd[len(cmd_name) :]
                 try:
-                    with (cmd_path / cmd_name).open() as f:
+                    with cmd_full_path.open() as f:
                         first_line = f.readline()
                         if "python" in first_line:
                             cmd = f"python {cmd}"
@@ -59,10 +68,10 @@ class SDKRunner:
             cmd[0] = shutil.which(cmd[0], path=self.sdk_env.env.get("PATH")) or cmd[0]
         return cmd
 
-    def run(self, cmd: str, use_olive_env: bool = True):
+    def run(self, cmd: str):
         cmd = self._resolve_cmd(cmd)
 
-        env = self.sdk_env.env if use_olive_env else None
+        env = getattr(self.sdk_env, "env", None)
         for run in range(self.runs):
             run_log_msg = "" if self.runs == 1 else f" (run {run + 1}/{self.runs})"
             logger.debug("Running %s command%s: ", self.platform, run_log_msg)
@@ -74,10 +83,10 @@ class SDKRunner:
 
 
 class SNPESDKRunner(SDKRunner):
-    def __init__(self, use_dev_tools: bool = False, runs: int = 1, sleep: int = 0):
-        super().__init__("SNPE", use_dev_tools, runs, sleep)
+    def __init__(self, use_dev_tools: bool = False, runs: int = 1, sleep: int = 0, use_olive_env: bool = True):
+        super().__init__("SNPE", use_dev_tools, runs, sleep, use_olive_env)
 
 
 class QNNSDKRunner(SDKRunner):
-    def __init__(self, use_dev_tools: bool = False, runs: int = 1, sleep: int = 0):
-        super().__init__("QNN", use_dev_tools, runs, sleep)
+    def __init__(self, use_dev_tools: bool = False, runs: int = 1, sleep: int = 0, use_olive_env: bool = True):
+        super().__init__("QNN", use_dev_tools, runs, sleep, use_olive_env)

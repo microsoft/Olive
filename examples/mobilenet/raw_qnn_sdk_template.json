@@ -5,6 +5,18 @@
             "model_path": "models/mobilenetv2-12.onnx"
         }
     },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "device": "cpu"
+                    }
+                ]
+            }
+        }
+    },
     "evaluators": {
         "common_evaluator":{
             "metrics":[
@@ -46,17 +58,22 @@
     },
     "passes": {
         "converter": {
-            "type": "QNNConversion"
+            "type": "QNNConversion",
+            "config": {
+                "use_olive_env": false
+            }
         },
         "quantization": {
             "type": "QNNConversion",
             "config": {
+                "use_olive_env": false,
                 "extra_args": "--input_list <input_list.txt>"
             }
         },
         "build_model_lib": {
             "type": "QNNModelLibGenerator",
             "config": {
+                "use_olive_env": false,
                 "lib_targets": "x86_64-linux-clang"
             }
         }
@@ -67,6 +84,8 @@
     ],
     "engine": {
         "log_severity_level": 0,
+        "host": "local_system",
+        "target": "local_system",
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
         "output_dir": "models",

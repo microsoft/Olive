@@ -11,9 +11,9 @@ from olive.constants import ModelFileFormat
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler, PyTorchModelHandler, QNNModelHandler, TensorFlowModelHandler
 from olive.model.utils import normalize_path_suffix
+from olive.passes.common import get_qualcomm_env_config
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import PassConfigParam
-from olive.passes.qnn.common import get_env_config
 from olive.platform_sdk.qualcomm.runner import QNNSDKRunner
 
 
@@ -63,7 +63,7 @@ class QNNConversion(Pass):
                 ),
             ),
         }
-        config.update(get_env_config())
+        config.update(get_qualcomm_env_config())
         return config
 
     def _run_for_config(
@@ -84,7 +84,7 @@ class QNNConversion(Pass):
             raise NotImplementedError(f"Unsupported model handler type: {type(model)}")
         converter_program = f"qnn-{converter_platform}-converter"
 
-        runner = QNNSDKRunner(use_dev_tools=True)
+        runner = QNNSDKRunner(use_dev_tools=True, use_olive_env=config["use_olive_env"])
         if platform.system() == "Windows":
             converter_program = "python " + str(
                 Path(runner.sdk_env.sdk_root_path) / "bin" / runner.sdk_env.target_arch / converter_program
@@ -115,5 +115,5 @@ class QNNConversion(Pass):
             " ".join([f"--out_node {o}" for o in out_nodes]) if out_nodes else "",
             config["extra_args"] or "",
         ]
-        runner.run(" ".join(cmd_list), use_olive_env=config["use_olive_env"])
+        runner.run(" ".join(cmd_list))
         return QNNModelHandler(output_model_path, model_file_format=ModelFileFormat.QNN_CPP)

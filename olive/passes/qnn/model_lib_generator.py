@@ -11,9 +11,9 @@ from typing import Any, Dict
 from olive.constants import ModelFileFormat
 from olive.hardware import AcceleratorSpec
 from olive.model import QNNModelHandler
+from olive.passes.common import get_qualcomm_env_config
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import PassConfigParam
-from olive.passes.qnn.common import get_env_config
 from olive.platform_sdk.qualcomm.runner import QNNSDKRunner
 
 logger = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ class QNNModelLibGenerator(Pass):
                 ),
             ),
         }
-        config.update(get_env_config())
+        config.update(get_qualcomm_env_config())
         return config
 
     def _run_for_config(
@@ -55,8 +55,8 @@ class QNNModelLibGenerator(Pass):
         output_model_path: str,
     ) -> QNNModelHandler:
         main_cmd = "qnn-model-lib-generator"
-        runner = QNNSDKRunner(use_dev_tools=True)
-        if platform.system() == "Windows":
+        runner = QNNSDKRunner(use_dev_tools=True, use_olive_env=config["use_olive_env"])
+        if platform.system() == "Windows" and not runner.use_olive_env:
             main_cmd = "python " + str(
                 Path(runner.sdk_env.sdk_root_path) / "bin" / runner.sdk_env.target_arch / main_cmd
             )
@@ -82,6 +82,5 @@ class QNNModelLibGenerator(Pass):
             f"-l {config['lib_name']}" if config.get("lib_name") else "",
             f"-o {output_model_path}",
         ]
-        runner = QNNSDKRunner(use_dev_tools=True)
-        runner.run(" ".join(cmd_list), use_olive_env=config["use_olive_env"])
+        runner.run(" ".join(cmd_list))
         return QNNModelHandler(output_model_path, model_file_format=ModelFileFormat.QNN_LIB)

@@ -8,9 +8,11 @@ from typing import Any, Callable, Dict, List, Union
 from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler, SNPEModelHandler, TensorFlowModelHandler
+from olive.passes.common import get_qualcomm_env_config
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import PassConfigParam
 from olive.platform_sdk.qualcomm.constants import InputLayout, InputType
+from olive.platform_sdk.qualcomm.runner import SNPESDKRunner as SNPERunner
 from olive.platform_sdk.qualcomm.snpe.tools.dev import get_dlc_io_config, to_dlc
 from olive.resource_path import LocalFile
 
@@ -46,7 +48,7 @@ class SNPEConversion(Pass):
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        return {
+        config = {
             "input_names": PassConfigParam(type_=List[str], required=True, description="List of input names."),
             "input_shapes": PassConfigParam(
                 type_=List[List[int]],
@@ -83,6 +85,8 @@ class SNPEConversion(Pass):
                 ),
             ),
         }
+        config.update(get_qualcomm_env_config())
+        return config
 
     @classmethod
     def _validators(cls) -> Dict[str, Callable]:
@@ -99,11 +103,12 @@ class SNPEConversion(Pass):
         config: Dict[str, Any],
         output_model_path: str,
     ) -> SNPEModelHandler:
-        config = self._config_class(**config)
 
         if Path(output_model_path).suffix != ".dlc":
             output_model_path += ".dlc"
 
-        to_dlc(model.model_path, model.framework, config.dict(), output_model_path)
-        io_config = get_dlc_io_config(output_model_path, config.input_names, config.output_names)
+        runner = SNPERunner(use_dev_tools=True, use_olive_env=config["use_olive_env"])
+
+        to_dlc(model.model_path, model.framework, config, output_model_path, runner=runner)
+        io_config = get_dlc_io_config(output_model_path, config["input_names"], config["output_names"])
         return SNPEModelHandler(model_path=LocalFile({"path": output_model_path}), **io_config)

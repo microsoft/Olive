@@ -45,6 +45,12 @@ class QNNSessionOptions(ConfigBase):
     # More details on the arguments can be found in the QNN documentation.
     # https://docs.qualcomm.com/bundle/publicresource/topics/80-63442-50/tools.html
     extra_args: str = None
+    # use_olive_env: whether to use olive environment which means once you have QNN SDK installed
+    # and set up, you can use following command to configure the python environment:
+    # python -m olive.platform_sdk.qualcomm.configure --py_version 3.8 --sdk qnn
+    # otherwise, when use_olive_env is False, you need to ensure your local python environment
+    # is set up correctly.
+    use_olive_env: bool = True
 
 
 class QNNInferenceSession:
@@ -70,7 +76,7 @@ class QNNInferenceSession:
         # pylint: disable=consider-using-with
         tmp_dir = tempfile.TemporaryDirectory(dir=Path.cwd(), prefix="olive_tmp_qnn_")
         tmp_dir_path = Path(tmp_dir.name)
-        runner = QNNSDKRunner(runs=runs, sleep=sleep)
+        runner = QNNSDKRunner(runs=runs, sleep=sleep, use_olive_env=self.session_options.use_olive_env)
         backend = runner.sdk_env.get_qnn_backend(self.session_options.backend)
 
         if self.model_file_format == ModelFileFormat.QNN_SERIALIZED_BIN:
@@ -148,7 +154,7 @@ class QNNInferenceSession:
             f"--input_log {tmp_dir_path / log_file_name}",
             f"--output {tmp_dir_path / 'qnn-profiling-data.log.csv'}",
         ]
-        runner = QNNSDKRunner()
+        runner = QNNSDKRunner(use_olive_env=self.session_options.use_olive_env)
         runner.run(" ".join(cmd))
 
         latencies = {"init": 0, "net_run": 0, "net_run_throughput": 0}

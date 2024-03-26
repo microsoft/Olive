@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import csv
+import platform
 import tempfile
 from pathlib import Path
 from typing import List
@@ -11,13 +12,6 @@ import onnx
 from onnx import TensorProto, helper
 
 from olive.platform_sdk.qualcomm.runner import SNPESDKRunner as SNPERunner
-
-
-def get_snpe_version() -> str:
-    """Get the version of the SNPE SDK at SNPE_ROOT."""
-    cmd = "snpe-net-run --version"
-    stdout, _ = SNPERunner().run(cmd)
-    return stdout.split("SNPE v")[1].strip()
 
 
 def get_dlc_info(dlc_path: str, csv_path: str = None) -> str:
@@ -137,7 +131,7 @@ def _get_conversion_arg_str(arg_type: str, input_names: List[str], input_values:
     return arg_str.lstrip()
 
 
-def to_dlc(model_file: str, model_framework: str, config: dict, output_file: str):
+def to_dlc(model_file: str, model_framework: str, config: dict, output_file: str, runner=None):
     """Convert a model into a SNPE DLC.
 
     model_file: path to the model file.
@@ -150,7 +144,9 @@ def to_dlc(model_file: str, model_framework: str, config: dict, output_file: str
         input_layouts: Union[None, List[Union[str, None]]] = list of input layouts.
             None means we don't specify the input layout.
         output_names: List[str] = list of output names.
+        use_olive_env: bool = whether to use the Olive environment.
     output_file: path to the output DLC file.
+    runner: an instance of SNPESDKRunner. If None, a new instance will be created.
     """
     if model_framework.lower() == "onnx":
         snpe_dlc_converter_tool_name = "snpe-onnx-to-dlc"
@@ -168,14 +164,16 @@ def to_dlc(model_file: str, model_framework: str, config: dict, output_file: str
     if config["extra_args"] is not None:
         cmd += " " + config["extra_args"]
 
-    _, stderr = SNPERunner(use_dev_tools=True).run(cmd)
+    if runner is None:
+        runner = SNPERunner(use_dev_tools=True, use_olive_env=config["use_olive_env"])
+    _, stderr = runner.run(cmd)
 
     # check if conversion succeeded
     if "Conversion completed successfully" not in stderr:
         raise RuntimeError(stderr)
 
 
-def quantize_dlc(dlc_path: str, input_list: str, config: dict, output_file: str):
+def quantize_dlc(dlc_path: str, input_list: str, config: dict, output_file: str, runner: SNPERunner = None):
     """Quantize a SNPE DLC.
 
     dlc_path: path to the DLC file.
@@ -185,18 +183,28 @@ def quantize_dlc(dlc_path: str, input_list: str, config: dict, output_file: str)
         enable_htp: bool = whether to enable HTP.
         htp_socs: List[str] = list of HTP SoCs.
         extra_args: str = extra arguments to pass to the quantizer.
+        use_olive_env: bool = whether to use the Olive environment.
+    output_file: path to the output quantized DLC file.
+    runner: an instance of SNPESDKRunner. If None, a new instance will be created.
     """
-    cmd = f"snpe-dlc-quantize --input_dlc {dlc_path} --input_list {input_list} --output_dlc {output_file}"
+    quant_cmd = "snpe-dlc-quantize"
+    if platform.system() == "Windows":
+        # snpe-dlc-quant is the Windows version of the quantizer tool
+        # and it does not support the --enable_htp flag
+        quant_cmd = "snpe-dlc-quant"
+    cmd = f"{quant_cmd} --input_dlc {dlc_path} --input_list {input_list} --output_dlc {output_file}"
     if config["use_enhanced_quantizer"]:
         cmd += " --use_enhanced_quantizer"
-    if config["enable_htp"]:
+    if config["enable_htp"] and quant_cmd == "snpe-dlc-quantize":
         cmd += " --enable_htp"
     if config["htp_socs"] is not None:
         cmd += f" --htp_socs {','.join(config['htp_socs'])}"
     if config["extra_args"] is not None:
         cmd += " " + config["extra_args"]
 
-    _, stderr = SNPERunner(use_dev_tools=True).run(cmd)
+    if runner is None:
+        runner = SNPERunner(use_dev_tools=True, use_olive_env=config["use_olive_env"])
+    _, stderr = runner.run(cmd)
 
     # check if quantization succeeded
     if not ("Writing quantized model" in stderr or "Saved quantized dlc" in stderr):

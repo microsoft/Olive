@@ -34,6 +34,18 @@
             }
         }
     },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "device": "cpu"
+                    }
+                ]
+            }
+        }
+    },
     "evaluators": {
         "common_evaluator": {
             "metrics": [
@@ -111,7 +123,6 @@
         "snpe_quantization": {
             "type": "SNPEQuantization",
             "config": {
-                "enable_htp": true,
                 "data_config": "raw_data"
             }
         }
@@ -120,6 +131,8 @@
         "log_severity_level": 0,
         "evaluate_input_model": false,
         "clean_cache": true,
+        "target": "local_system",
+        "host": "local_system",
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
         "output_dir": "outputs",
