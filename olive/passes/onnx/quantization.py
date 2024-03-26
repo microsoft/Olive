@@ -720,7 +720,7 @@ class OnnxMatMul4Quantizer(Pass):
                     weight_only_quant_config_class = DefaultWeightOnlyQuantConfig
                 elif config["algorithm"] == "HQQ":
                     weight_only_quant_config_class = HQQWeightOnlyQuantConfig
-            if version.parse(OrtVersion) < version.parse("1.18.0") and config["algorithm"] in ("HQQ", "DEFAULT"):
+            elif config["algorithm"] in ("HQQ", "DEFAULT"):
                 raise ValueError("HQQ and DEFAULT algorithm are only supported in onnxruntime >= 1.18.0")
 
             if weight_only_quant_config_class:
