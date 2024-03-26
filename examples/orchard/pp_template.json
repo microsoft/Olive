@@ -1,0 +1,26 @@
+{
+    "input_model": {
+        "type": "PyTorchModel",
+        "config": {
+            "model_path": "<model_name_placeholder>",
+            "model_loader": "load_model",
+            "model_script": "user_script.py"
+        }
+    },
+    "passes": {
+        "pipeline_parallel": {
+            "type": "PyTorchPipelineParallel",
+            "config": {
+                "nstages": "<nstages>"
+            }
+        }
+    },
+    "engine": {
+        "log_severity_level": 0,
+        "search_strategy": false,
+        "evaluate_input_model": false,
+        "execution_providers": ["CUDAExecutionProvider"],
+        "cache_dir": "cache/<model_name_placeholder>",
+        "output_dir": "models/<model_name_placeholder>/"
+    }
+}

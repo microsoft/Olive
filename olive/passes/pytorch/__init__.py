@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 from olive.passes.pytorch.gptq import GptqQuantizer
 from olive.passes.pytorch.lora import LoftQ, LoRA, QLoRA
+from olive.passes.pytorch.pipeline_parallel import PyTorchPipelineParallel
 from olive.passes.pytorch.quantization_aware_training import QuantizationAwareTraining
 from olive.passes.pytorch.sparsegpt import SparseGPT
 from olive.passes.pytorch.tensor_parallel import PyTorchTensorParallel
@@ -13,6 +14,7 @@ __all__ = [
     "GptqQuantizer",
     "LoftQ",
     "LoRA",
+    "PyTorchPipelineParallel",
     "PyTorchTensorParallel",
     "QLoRA",
     "QuantizationAwareTraining",
