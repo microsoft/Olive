@@ -252,6 +252,15 @@
 </dd></dl>
 
 <dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-merge_adapter_weights">
+<span class="sig-name descname"><span class="pre">merge_adapter_weights</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-merge_adapter_weights" title="Permalink to this definition">¶</a></dt>
+<dd><p>Whether to merge adapter weights before conversion. After merging, the model structure is consistent with base model. That is useful if you cannot run conversion for some fine-tuned models with adapter weights</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-save_as_external_data">
 <span class="sig-name descname"><span class="pre">save_as_external_data</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-save_as_external_data" title="Permalink to this definition">¶</a></dt>
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
