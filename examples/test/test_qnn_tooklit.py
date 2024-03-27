@@ -59,6 +59,8 @@ def setup_resource(use_olive_env):
         ]
         run_subprocess(cmd=" ".join(install_cmd), check=True)
     else:
+        packages = ["tensorflow==2.10.1", "numpy==1.23.5"]
+        retry_func(run_subprocess, kwargs={"cmd": f"python -m install {' '.join(packages)}", "check": True})
         os.environ["PYTHONPATH"] = str(Path(os.environ["QNN_SDK_ROOT"]) / "lib" / "python")
         if platform.system() == "Linux":
             os.environ["PATH"] = (
