@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import os
 import shlex
 import shutil
 import time
@@ -13,6 +14,9 @@ from olive.platform_sdk.qualcomm.qnn.env import QNNSDKEnv
 from olive.platform_sdk.qualcomm.snpe.env import SNPESDKEnv
 
 logger = logging.getLogger(__name__)
+
+USE_OLIVE_ENV = "USE_OLIVE_ENV"
+USE_OLIVE_ENV_DEFAULT_VALUE = "1"
 
 
 class SDKRunner:
@@ -36,17 +40,23 @@ class SDKRunner:
         elif self.platform == "QNN":
             self.sdk_env = QNNSDKEnv(use_dev_tools=self.use_dev_tools)
 
+    def _use_olive_env(self):
+        return os.environ.get(USE_OLIVE_ENV, USE_OLIVE_ENV_DEFAULT_VALUE) == USE_OLIVE_ENV_DEFAULT_VALUE
+
     def _resolve_cmd(self, cmd: str):
         import platform
 
         if platform.system() == "Windows" and cmd.startswith(("snpe-", "qnn-")):
             logger.debug("Resolving command %s on Windows.", cmd)
-            cmd_path = Path(self.sdk_env.sdk_root_path) / "bin" / self.sdk_env.target_arch
+            cmd_dir = Path(self.sdk_env.sdk_root_path) / "bin" / self.sdk_env.target_arch
             cmd_name = cmd.split(" ")[0]
-            if (cmd_path / cmd_name).exists():
-                cmd = str(cmd_path / cmd_name) + cmd[len(cmd_name) :]
+            cmd_full_path = cmd_dir / cmd_name
+            if cmd_full_path.with_suffix(".exe").exists():
+                cmd_full_path = cmd_full_path.with_suffix(".exe")
+            if cmd_full_path.exists():
+                cmd = str(cmd_full_path) + cmd[len(cmd_name) :]
                 try:
-                    with (cmd_path / cmd_name).open() as f:
+                    with cmd_full_path.open() as f:
                         first_line = f.readline()
                         if "python" in first_line:
                             cmd = f"python {cmd}"
@@ -56,13 +66,14 @@ class SDKRunner:
                     )
         if isinstance(cmd, str):
             cmd = shlex.split(cmd, posix=(platform.system() != "Windows"))
-            cmd[0] = shutil.which(cmd[0], path=self.sdk_env.env.get("PATH")) or cmd[0]
+            path_env = self.sdk_env.env.get("PATH") if self._use_olive_env() else None
+            cmd[0] = shutil.which(cmd[0], path=path_env) or cmd[0]
         return cmd
 
-    def run(self, cmd: str, use_olive_env: bool = True):
+    def run(self, cmd: str):
+        env = self.sdk_env.env if self._use_olive_env() else None
         cmd = self._resolve_cmd(cmd)
 
-        env = self.sdk_env.env if use_olive_env else None
         for run in range(self.runs):
             run_log_msg = "" if self.runs == 1 else f" (run {run + 1}/{self.runs})"
             logger.debug("Running %s command%s: ", self.platform, run_log_msg)

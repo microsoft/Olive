@@ -13,7 +13,6 @@ from olive.model import ONNXModelHandler, PyTorchModelHandler, QNNModelHandler, 
 from olive.model.utils import normalize_path_suffix
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import PassConfigParam
-from olive.passes.qnn.common import get_env_config
 from olive.platform_sdk.qualcomm.runner import QNNSDKRunner
 
 
@@ -26,7 +25,7 @@ class QNNConversion(Pass):
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        config = {
+        return {
             # input_network is required for qnn conversion, but we don't have it in the config.
             # The `input_network` will be set in the runtime.
             "input_dim": PassConfigParam(
@@ -63,8 +62,6 @@ class QNNConversion(Pass):
                 ),
             ),
         }
-        config.update(get_env_config())
-        return config
 
     def _run_for_config(
         self,
@@ -115,5 +112,5 @@ class QNNConversion(Pass):
             " ".join([f"--out_node {o}" for o in out_nodes]) if out_nodes else "",
             config["extra_args"] or "",
         ]
-        runner.run(" ".join(cmd_list), use_olive_env=config["use_olive_env"])
+        runner.run(" ".join(cmd_list))
         return QNNModelHandler(output_model_path, model_file_format=ModelFileFormat.QNN_CPP)

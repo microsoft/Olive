@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import csv
+import platform
 import tempfile
 from pathlib import Path
 from typing import List
@@ -186,7 +187,12 @@ def quantize_dlc(dlc_path: str, input_list: str, config: dict, output_file: str)
         htp_socs: List[str] = list of HTP SoCs.
         extra_args: str = extra arguments to pass to the quantizer.
     """
-    cmd = f"snpe-dlc-quantize --input_dlc {dlc_path} --input_list {input_list} --output_dlc {output_file}"
+    quant_cmd = "snpe-dlc-quantize"
+    if platform.system() == "Windows":
+        # snpe-dlc-quant is the Windows version of the quantizer tool
+        # and it does not support the --enable_htp flag
+        quant_cmd = "snpe-dlc-quant"
+    cmd = f"{quant_cmd} --input_dlc {dlc_path} --input_list {input_list} --output_dlc {output_file}"
     if config["use_enhanced_quantizer"]:
         cmd += " --use_enhanced_quantizer"
     if config["enable_htp"]:

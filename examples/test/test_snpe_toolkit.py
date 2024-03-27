@@ -6,6 +6,7 @@ import os
 import platform
 from pathlib import Path
 
+import pytest
 from utils import check_output, download_azure_blob
 
 from olive.common.utils import retry_func, run_subprocess
@@ -35,36 +36,55 @@ def download_snpe_sdk(target_path=None):
     return target_path
 
 
-def setup_resource():
+def setup_resource(use_olive_env):
     """Setups any state specific to the execution of the given module."""
     cur_dir = Path(__file__).resolve().parent.parent
     example_dir = cur_dir / "inception"
-    os.chdir(example_dir)
 
-    # prepare model and data
-    # retry since it fails randomly
-    run_subprocess(cmd="python -m olive.platform_sdk.qualcomm.configure --py_version 3.8 --sdk snpe", check=True)
-    # install dependencies
-    python_cmd = ""
-    if platform.system() == "Windows":
-        python_cmd = str(Path(os.environ["SNPE_ROOT"]) / "olive-pyenv" / "python.exe")
-    elif platform.system() == "Linux":
-        python_cmd = str(Path(os.environ["SNPE_ROOT"]) / "olive-pyenv" / "bin" / "python")
-    install_cmd = [
-        python_cmd,
-        str(Path(os.environ["SNPE_ROOT"]) / "bin" / "check-python-dependency"),
-    ]
-    run_subprocess(cmd=" ".join(install_cmd), check=True)
+    os.chdir(example_dir)
+    if use_olive_env:
+        os.environ["USE_OLIVE_ENV"] = "1"
+        # prepare model and data
+        # retry since it fails randomly
+        run_subprocess(cmd="python -m olive.platform_sdk.qualcomm.configure --py_version 3.8 --sdk snpe", check=True)
+        # install dependencies
+        python_cmd = ""
+        if platform.system() == "Windows":
+            python_cmd = str(Path(os.environ["SNPE_ROOT"]) / "olive-pyenv" / "python.exe")
+        elif platform.system() == "Linux":
+            python_cmd = str(Path(os.environ["SNPE_ROOT"]) / "olive-pyenv" / "bin" / "python")
+        install_cmd = [
+            python_cmd,
+            str(Path(os.environ["SNPE_ROOT"]) / "bin" / "check-python-dependency"),
+        ]
+        run_subprocess(cmd=" ".join(install_cmd), check=True)
+    else:
+        os.environ["USE_OLIVE_ENV"] = "0"
+        packages = ["tensorflow==2.10.1", "numpy==1.23.5"]
+        retry_func(run_subprocess, kwargs={"cmd": f"python -m pip install {' '.join(packages)}", "check": True})
+        os.environ["PYTHONPATH"] = str(Path(os.environ["SNPE_ROOT"]) / "lib" / "python")
+        if platform.system() == "Linux":
+            os.environ["PATH"] = (
+                str(Path(os.environ["SNPE_ROOT"]) / "bin" / "x86_64-linux-clang") + os.path.pathsep + os.environ["PATH"]
+            )
+            os.environ["LD_LIBRARY_PATH"] = str(Path(os.environ["SNPE_ROOT"]) / "lib" / "x86_64-linux-clang")
+        else:
+            os.environ["PATH"] = (
+                str(Path(os.environ["SNPE_ROOT"]) / "bin" / "x86_64-windows-msvc")
+                + os.path.pathsep
+                + str(Path(os.environ["SNPE_ROOT"]) / "lib" / "x86_64-windows-msvc")
+                + os.path.pathsep
+                + os.environ["PATH"]
+            )
     retry_func(run_subprocess, kwargs={"cmd": "python download_files.py", "check": True})
 
-    run_subprocess(cmd="python prepare_config.py", check=True)
 
-
-def test_inception_snpe(tmp_path):
+@pytest.mark.parametrize("use_olive_env", [True, False])
+def test_inception_snpe(use_olive_env, tmp_path):
     from olive.workflows import run as olive_run
 
     os.environ["SNPE_ROOT"] = str(download_snpe_sdk(tmp_path))
-    setup_resource()
+    setup_resource(use_olive_env)
 
     footprint = olive_run("inception_config.json")
     check_output(footprint)
