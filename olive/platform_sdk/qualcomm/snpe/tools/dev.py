@@ -144,7 +144,6 @@ def to_dlc(model_file: str, model_framework: str, config: dict, output_file: str
         input_layouts: Union[None, List[Union[str, None]]] = list of input layouts.
             None means we don't specify the input layout.
         output_names: List[str] = list of output names.
-        use_olive_env: bool = whether to use the Olive environment.
     output_file: path to the output DLC file.
     runner: an instance of SNPESDKRunner. If None, a new instance will be created.
     """
@@ -165,7 +164,7 @@ def to_dlc(model_file: str, model_framework: str, config: dict, output_file: str
         cmd += " " + config["extra_args"]
 
     if runner is None:
-        runner = SNPERunner(use_dev_tools=True, use_olive_env=config["use_olive_env"])
+        runner = SNPERunner(use_dev_tools=True)
     _, stderr = runner.run(cmd)
 
     # check if conversion succeeded
@@ -183,7 +182,6 @@ def quantize_dlc(dlc_path: str, input_list: str, config: dict, output_file: str,
         enable_htp: bool = whether to enable HTP.
         htp_socs: List[str] = list of HTP SoCs.
         extra_args: str = extra arguments to pass to the quantizer.
-        use_olive_env: bool = whether to use the Olive environment.
     output_file: path to the output quantized DLC file.
     runner: an instance of SNPESDKRunner. If None, a new instance will be created.
     """
@@ -203,7 +201,7 @@ def quantize_dlc(dlc_path: str, input_list: str, config: dict, output_file: str,
         cmd += " " + config["extra_args"]
 
     if runner is None:
-        runner = SNPERunner(use_dev_tools=True, use_olive_env=config["use_olive_env"])
+        runner = SNPERunner(use_dev_tools=True)
     _, stderr = runner.run(cmd)
 
     # check if quantization succeeded

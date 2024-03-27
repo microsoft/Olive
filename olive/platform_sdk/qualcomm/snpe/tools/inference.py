@@ -195,9 +195,7 @@ def snpe_net_run(
             initialized=android_initialized,
         )
     else:
-        # set use_olive_env as False since snpe-net-run is a executable binary not a python script
-        # only python scripts is allowed to use olive environment
-        SNPERunner(runs=runs, sleep=sleep, use_olive_env=False).run(cmd)
+        SNPERunner(runs=runs, sleep=sleep).run(cmd)
 
     output_dir = None
     if workspace is not None:
@@ -289,7 +287,7 @@ def snpe_net_run(
 
         snpe_diag_csv = tmp_dir_path / f"{snpe_diag_log.stem}.csv"
         cmd = f"snpe-diagview --input_log {snpe_diag_log} --output {snpe_diag_csv}"
-        SNPERunner(use_olive_env=False).run(cmd)
+        SNPERunner().run(cmd)
 
         diag_log = {"init": None, "avg_total_inference_time": None}
         with snpe_diag_csv.open() as f:
@@ -448,5 +446,5 @@ def snpe_throughput_net_run(
             cmd, android_target, data_dir, persist_ws=android_persist_ws, initialized=android_initialized
         )
     else:
-        stdout, _ = SNPERunner(use_olive_env=False).run(cmd)
+        stdout, _ = SNPERunner().run(cmd)
     return float(stdout.split("Total throughput: ")[1].split(" ")[0])
