@@ -24,6 +24,7 @@ from olive.common.utils import copy_dir, retry_func
 from olive.data.config import DataConfig
 from olive.evaluator.metric import Metric, MetricResult
 from olive.model import ModelConfig
+from olive.model.handler.base import OliveModelHandler
 from olive.resource_path import (
     AZUREML_RESOURCE_TYPES,
     LOCAL_RESOURCE_TYPES,
@@ -167,11 +168,11 @@ class AzureMLSystem(OliveSystem):
     def run_pass(
         self,
         the_pass: "Pass",
-        model_config: ModelConfig,
+        input_model: OliveModelHandler,
         data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
-    ) -> ModelConfig:
+    ) -> OliveModelHandler:
         """Run the pass on the model at a specific point in the search space."""
         ml_client = self.azureml_client_config.create_client()
         point = point or {}
@@ -179,7 +180,7 @@ class AzureMLSystem(OliveSystem):
         data_params = self._create_data_script_inputs_and_args(data_root, the_pass)
         pass_config = the_pass.to_json(check_object=True)
         pass_config["config"].update(the_pass.serialize_config(config, check_object=True))
-
+        model_config = ModelConfig.from_json(input_model.to_json())
         with tempfile.TemporaryDirectory() as tempdir:
             pipeline_job = self._create_pipeline_for_pass(
                 data_root, tempdir, model_config, pass_config, the_pass.path_params, data_params
@@ -559,7 +560,7 @@ class AzureMLSystem(OliveSystem):
             output_resource_path = create_resource_path(output_resource_path)
             model_json["config"][resource_name] = output_resource_path
 
-        return ModelConfig(**model_json)
+        return ModelConfig(**model_json).create_model()
 
     def _create_metric_inputs(self):
         return {
@@ -602,15 +603,16 @@ class AzureMLSystem(OliveSystem):
         }
 
     def evaluate_model(
-        self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: "AcceleratorSpec"
+        self, model: OliveModelHandler, data_root: str, metrics: List[Metric], accelerator: "AcceleratorSpec"
     ) -> MetricResult:
-        if model_config.type.lower() == "SNPEModel".lower():
+        if model.type.lower() == "SNPEModel".lower():
             raise NotImplementedError("SNPE model does not support azureml evaluation")
-        if model_config.type.lower() == "OpenVINOModel".lower():
+        if model.type.lower() == "OpenVINOModel".lower():
             raise NotImplementedError("OpenVINO model does not support azureml evaluation")
 
         with tempfile.TemporaryDirectory() as tempdir:
             ml_client = self.azureml_client_config.create_client()
+            model_config = ModelConfig.from_json(model.to_json())
             pipeline_job = self._create_pipeline_for_evaluation(data_root, tempdir, model_config, metrics, accelerator)
 
             # submit job

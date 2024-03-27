@@ -37,7 +37,12 @@ class OrtMixedPrecision(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self,
+        model: ONNXModelHandler,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+        enable_fast_mode: bool,
     ) -> ONNXModelHandler:
         """Convert model to mixed precision.
 
@@ -100,7 +105,9 @@ class OrtMixedPrecision(Pass):
         )
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
         config = self._config_class(**config)
-        return model_proto_to_olive_model(fp16_model, output_model_path, config.dict())
+        return model_proto_to_olive_model(
+            fp16_model, output_model_path, config.dict(), enable_fast_mode=enable_fast_mode
+        )
 
     def _convert_float_to_float16(self, model, use_symbolic_shape_infer=True, **kwargs):
         """Convert a model to half (default) or mixed precision.

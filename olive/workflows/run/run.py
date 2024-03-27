@@ -141,7 +141,8 @@ def dependency_setup(config: RunConfig):
 
 def run_engine(config: RunConfig, data_root: str = None):
     import onnxruntime as ort
-
+    from packaging import version
+    
     from olive.passes import Pass
 
     # for onnxruntime
@@ -159,6 +160,13 @@ def run_engine(config: RunConfig, data_root: str = None):
         config.engine.azureml_client_config = config.azureml_client
 
     engine = config.engine.create_engine()
+    
+    if engine.enable_fast_mode and version.parse(ort.__version__) < version.parse("1.18.0"):
+        logger.warning(
+            "Fast mode is not supported for onnxruntime version %s. Please upgrade to onnxruntime>=1.18.0. Fast mode is disabled.",
+            ort.__version__,
+        )
+        engine.enable_fast_mode = False
 
     # config file will be uploaded to AML job
     is_azureml_system = (config.engine.host is not None and config.engine.host.type == SystemType.AzureML) or (

@@ -81,7 +81,12 @@ class AppendPrePostProcessingOps(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self,
+        model: ONNXModelHandler,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+        enable_fast_mode: bool,
     ) -> ONNXModelHandler:
         from onnxruntime import __version__ as OrtVersion
 
@@ -139,7 +144,9 @@ class AppendPrePostProcessingOps(Pass):
             new_model_proto = self._run_prepost_pipeline(model, config)
             onnx_model = new_model_proto
 
-        olive_model = model_proto_to_olive_model(onnx_model, output_model_path, config)
+        olive_model = model_proto_to_olive_model(
+            onnx_model, output_model_path, config, enable_fast_mode=enable_fast_mode
+        )
         olive_model.use_ort_extensions = True
         return olive_model
 

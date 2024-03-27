@@ -12,7 +12,7 @@ from olive.systems.common import AcceleratorConfig, SystemType
 if TYPE_CHECKING:
     from olive.evaluator.metric import Metric, MetricResult
     from olive.hardware.accelerator import AcceleratorSpec
-    from olive.model import ModelConfig
+    from olive.model.handler.base import OliveModelHandler
     from olive.passes.olive_pass import Pass
 
 
@@ -39,17 +39,17 @@ class OliveSystem(ABC):
     def run_pass(
         self,
         the_pass: "Pass",
-        model_config: "ModelConfig",
+        input_model: "OliveModelHandler",
         data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
-    ) -> "ModelConfig":
+    ) -> OliveModelHandler:
         """Run the pass on the model at a specific point in the search space."""
         raise NotImplementedError
 
     @abstractmethod
     def evaluate_model(
-        self, model_config: "ModelConfig", data_root: str, metrics: List["Metric"], accelerator: "AcceleratorSpec"
+        self, model_config: "OliveModelHandler", data_root: str, metrics: List["Metric"], accelerator: "AcceleratorSpec"
     ) -> "MetricResult":
         """Evaluate the model."""
         raise NotImplementedError

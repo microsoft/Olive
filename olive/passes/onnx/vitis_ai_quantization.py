@@ -259,7 +259,12 @@ class VitisAIQuantization(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self,
+        model: ONNXModelHandler,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+        enable_fast_mode: bool,
     ) -> ONNXModelHandler:
         from onnxruntime.quantization.quant_utils import QuantFormat, QuantType
 
@@ -367,7 +372,7 @@ class VitisAIQuantization(Pass):
         tmp_dir.cleanup()
 
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(onnx_model, output_model_path, config)
+        return model_proto_to_olive_model(onnx_model, output_model_path, config, enable_fast_mode=enable_fast_mode)
 
     def _quant_preprocess(self, model: ONNXModelHandler, output_model_path: str) -> ONNXModelHandler:
         from onnxruntime.quantization.preprocess import quant_pre_process

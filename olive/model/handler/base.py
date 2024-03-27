@@ -34,10 +34,12 @@ class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin, CompositeM
         self,
         framework: Framework,
         model_file_format: ModelFileFormat,
+        model: Optional[object] = None,
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         model_attributes: Optional[Dict[str, Any]] = None,
     ):
         self.framework = framework
+        self.model = model
         self.model_file_format = model_file_format
         self.composite_parent = None
         self.model_attributes = model_attributes

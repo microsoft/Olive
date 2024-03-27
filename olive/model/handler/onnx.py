@@ -36,6 +36,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
 
     def __init__(
         self,
+        model: Optional[ModelProto] = None,
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         onnx_file_name: Optional[str] = None,
         inference_settings: Optional[dict] = None,
@@ -45,6 +46,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
         super().__init__(
             framework=Framework.ONNX,
             model_file_format=ModelFileFormat.ONNX,
+            model=model,
             model_path=model_path,
             model_attributes=model_attributes,
         )
@@ -65,7 +67,11 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
         return get_onnx_file_path(model_path, self.onnx_file_name) if model_path else None
 
     def load_model(self, rank: int = None) -> ModelProto:
-        return onnx.load(self.model_path)
+        if self.model is not None:
+            return self.model
+
+        self.model = onnx.load(self.model_path)
+        return self.model
 
     def prepare_session(
         self,
@@ -84,6 +90,8 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
         device_id = rank if device == Device.GPU else None
 
         try:
+            if self.model is not None:
+                return get_ort_inference_session(self.model, inference_settings, self.use_ort_extensions, device_id)
             return get_ort_inference_session(self.model_path, inference_settings, self.use_ort_extensions, device_id)
         except OrtSessionFallbackError as e:
             raise OliveEvaluationError(e) from e

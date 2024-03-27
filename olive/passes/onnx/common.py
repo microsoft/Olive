@@ -144,6 +144,7 @@ def model_proto_to_olive_model(
     output_model_path: Union[str, Path],
     external_data_config: dict,
     check_model: bool = False,
+    enable_fast_mode: bool = False,
 ) -> ONNXModelHandler:
     """Save the ONNX model to the specified path and return the ONNXModelHandler.
 
@@ -151,11 +152,14 @@ def model_proto_to_olive_model(
     :param output_model_path: The path to save the ONNX model to.
     :param external_data_config: The external data configuration. Must be a dictionary with keys
         "save_as_external_data", "all_tensors_to_one_file", and "external_data_name".
-    :param name: The name of the model.
-    :check_model: If True, run onnx.checker.check_model on the model before returning.
+    :param check_model: If True, run onnx.checker.check_model on the model before returning.
+    :param enable_fast_mode: If True, skip saving the model to file and return the ONNXModelHandler with in-memory loaded model directly.
 
     :return: The ONNXModelHandler.
     """
+    if enable_fast_mode:
+        return ONNXModelHandler(model=model_proto)
+
     config_keys = [
         "save_as_external_data",
         "all_tensors_to_one_file",
@@ -174,7 +178,7 @@ def model_proto_to_olive_model(
         model_path = LocalFile({"path": output_model_path})
         onnx_file_name = None
 
-    olive_model = ONNXModelHandler(model_path=model_path, onnx_file_name=onnx_file_name)
+    olive_model = ONNXModelHandler(model=model_proto, model_path=model_path, onnx_file_name=onnx_file_name)
 
     if check_model:
         onnx.checker.check_model(olive_model.model_path)

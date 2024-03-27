@@ -19,6 +19,7 @@ from olive.common.config_utils import ParamCategory, validate_config
 from olive.evaluator.metric import Metric, MetricResult
 from olive.hardware import Device
 from olive.model import ModelConfig
+from olive.model.handler.base import OliveModelHandler
 from olive.systems.common import AcceleratorConfig, LocalDockerConfig, SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import DockerTargetUserConfig
@@ -105,13 +106,14 @@ class DockerSystem(OliveSystem):
     def run_pass(
         self,
         the_pass: "Pass",
-        model_config: "ModelConfig",
+        input_model: "OliveModelHandler",
         data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
-    ) -> "ModelConfig":
+    ) -> OliveModelHandler:
         """Run the pass on the model at a specific point in the search space."""
         with tempfile.TemporaryDirectory() as tempdir:
+            model_config = ModelConfig.from_json(input_model.to_json())
             return self._run_pass_container(Path(tempdir), the_pass, model_config, data_root, output_model_path, point)
 
     def _run_pass_container(
@@ -122,7 +124,7 @@ class DockerSystem(OliveSystem):
         data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
-    ) -> "ModelConfig":
+    ) -> OliveModelHandler:
         point = point or {}
         config = the_pass.config_at_search_point(point)
 
@@ -212,16 +214,17 @@ class DockerSystem(OliveSystem):
                     output_model.config[resource_name] = candidate_resource_path
 
                 logger.debug("Model path is: %s", output_model.config["model_path"])
-                return output_model
+                return output_model.create_model()
         else:
             logger.error("Model output file %s not found.", model_output_json_file)
             return None
 
     def evaluate_model(
-        self, model_config: "ModelConfig", data_root: str, metrics: List[Metric], accelerator: "AcceleratorSpec"
+        self, model: "OliveModelHandler", data_root: str, metrics: List[Metric], accelerator: "AcceleratorSpec"
     ) -> Dict[str, Any]:
         container_root_path = Path("/olive-ws/")
         with tempfile.TemporaryDirectory() as tempdir:
+            model_config = ModelConfig.from_json(model.to_json())
             metric_json = self._run_eval_container(
                 tempdir, model_config, data_root, metrics, accelerator, container_root_path
             )

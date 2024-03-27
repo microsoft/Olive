@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Tuple, Union
 
 import numpy as np
+import onnx
 
 if TYPE_CHECKING:
     from onnxruntime import InferenceSession, IOBinding
@@ -28,14 +29,14 @@ class OrtSessionFallbackError(Exception):
 # For regular ONNX models, the recommended way to specify the device is to set the environment variable
 # `CUDA_VISIBLE_DEVICES` before runnning a workflow.
 def get_ort_inference_session(
-    model_path: Union[Path, str],
+    model: Union[Path, str, onnx.ModelProto],
     inference_settings: Dict[str, Any],
     use_ort_extensions: bool = False,
     device_id: Optional[int] = None,
 ):
     """Get an ONNXRuntime inference session.
 
-    :param model_path: Path to the ONNX model file.
+    :param model: Path to the ONNX model file.
     :param inference_settings: Inference settings for the session.
         session_options: dict, optional. Session options for the session.
         execution_provider: list. List of execution providers to use. Can be a list of provider names or a list of
@@ -99,8 +100,11 @@ def get_ort_inference_session(
         sess_options.enable_mem_pattern = False
 
     # create session
+    if isinstance(model, onnx.ModelProto):
+        model = model.SerializeToString()
+    print(f"model is {model}")
     session = ort.InferenceSession(
-        str(model_path), sess_options=sess_options, providers=providers, provider_options=provider_options
+        model, sess_options=sess_options, providers=providers, provider_options=provider_options
     )
     check_ort_fallback(session, providers)
     # set tuning results for tunable operators (currently only for ROCM EP)

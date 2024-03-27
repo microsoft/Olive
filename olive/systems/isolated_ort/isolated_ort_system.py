@@ -26,7 +26,8 @@ from olive.systems.utils import create_new_environ, run_available_providers_runn
 if TYPE_CHECKING:
     from olive.evaluator.metric import Metric, MetricResult
     from olive.hardware.accelerator import AcceleratorSpec
-    from olive.model import ModelConfig, ONNXModelHandler
+    from olive.model import ONNXModelHandler
+    from olive.model.handler.base import OliveModelHandler
     from olive.passes.olive_pass import Pass
 
 logger = logging.getLogger(__name__)
@@ -61,29 +62,30 @@ class IsolatedORTSystem(OliveSystem):
     def run_pass(
         self,
         the_pass: "Pass",
-        model_config: "ModelConfig",
+        input_model: "OliveModelHandler",
         data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
-    ) -> "ModelConfig":
+    ) -> "OliveModelHandler":
         """Run the pass on the model at a specific point in the search space."""
         logger.warning("IsolatedORTSystem does not support running passes.")
         raise NotImplementedError
 
     def evaluate_model(
-        self, model_config: "ModelConfig", data_root: str, metrics: List["Metric"], accelerator: "AcceleratorSpec"
+        self, input_model: "OliveModelHandler", data_root: str, metrics: List["Metric"], accelerator: "AcceleratorSpec"
     ) -> "MetricResult":
         """Evaluate the model."""
         # only onnx model handler is supported
-        if not model_config.type.lower() == "onnxmodel":
+        if not input_model.type.lower() == "onnxmodel":
             raise ValueError(f"IsolatedORTSystem only supports evaluation for ONNXModel, got {model_config.type}")
 
         device = accelerator.accelerator_type if accelerator else Device.CPU
         execution_providers = accelerator.execution_provider if accelerator else None
 
-        model = model_config.create_model()
         evaluator = IsolatedORTEvaluator(self.environ)
-        return evaluator.evaluate(model, data_root, metrics, device=device, execution_providers=execution_providers)
+        return evaluator.evaluate(
+            input_model, data_root, metrics, device=device, execution_providers=execution_providers
+        )
 
     def get_supported_execution_providers(self) -> List[str]:
         """Get the available execution providers."""

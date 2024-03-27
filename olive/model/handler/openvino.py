@@ -3,13 +3,19 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, create_resource_path
+
+if TYPE_CHECKING:
+    try:
+        from openvino import Model
+    except ImportError:
+        raise ImportError("Please install olive-ai[openvino] to use OpenVINO model") from None
 
 
 @model_handler_registry("OpenVINOModel")
@@ -19,11 +25,17 @@ class OpenVINOModelHandler(OliveModelHandler):
     The main responsibility of OpenVINOModelHandler is to provide the model loading for OpenVINO model.
     """
 
-    def __init__(self, model_path: OLIVE_RESOURCE_ANNOTATIONS, model_attributes: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        model_path: OLIVE_RESOURCE_ANNOTATIONS,
+        model: Optional["Model"] = None,
+        model_attributes: Optional[Dict[str, Any]] = None,
+    ):
         super().__init__(
             model_path=model_path,
             framework=Framework.OPENVINO,
             model_file_format=ModelFileFormat.OPENVINO_IR,
+            model=model,
             model_attributes=model_attributes,
         )
         # check if the model files (xml, bin) are in the same directory
@@ -54,12 +66,15 @@ class OpenVINOModelHandler(OliveModelHandler):
         }
 
     def load_model(self, rank: int = None):
+        if self.model is not None:
+            return self.model
+
         try:
             import openvino as ov
         except ImportError:
             raise ImportError("Please install olive-ai[openvino] to use OpenVINO model") from None
-        core = ov.Core()
-        return core.read_model(self.model_config["model"])
+        self.model = ov.Core().read_model(self.model_config["model"])
+        return self.model
 
     def prepare_session(
         self,

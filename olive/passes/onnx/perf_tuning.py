@@ -292,7 +292,12 @@ class OrtPerfTuning(Pass):
         }
 
     def _run_for_config(
-        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self,
+        model: ONNXModelHandler,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+        enable_fast_mode: bool,
     ) -> ONNXModelHandler:
         config = self._config_class(**config)
         # TODO(jambayk): decide on whether to ignore the output_model_path
@@ -409,6 +414,7 @@ class PerfTuningRunner:
         from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
 
         # prepare the inference_settings for metrics.
+        print(f"modelis in perf tuning {model}")
         tuning_result_file = None
         if test_params:
             assert "provider_options" in test_params, "provider_options should be in test_params"
@@ -440,6 +446,7 @@ class PerfTuningRunner:
 
             start_time = time.perf_counter()
             evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
+            print(f"evlautat model is {model.model}")
             metric_result = evaluator.evaluate(model, self.data_root, [latency_metric], self.config.device, None)
 
             end_time = time.perf_counter()

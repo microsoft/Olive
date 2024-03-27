@@ -320,7 +320,12 @@ class OnnxQuantization(Pass):
         return True
 
     def _run_for_config(
-        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self,
+        model: ONNXModelHandler,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+        enable_fast_mode: bool,
     ) -> ONNXModelHandler:
         from onnxruntime import __version__ as OrtVersion
         from onnxruntime.quantization import QuantFormat, QuantType, quantize_dynamic, quantize_static
@@ -424,6 +429,7 @@ class OnnxQuantization(Pass):
         new_tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
         tmp_model_path = str(Path(new_tmp_dir.name) / Path(output_model_path).name)
 
+        model_input = model.model if model.model else model.model_path
         if is_static:
             # get the dataloader
             # TODO(trajep): only use data config
@@ -445,7 +451,7 @@ class OnnxQuantization(Pass):
                 from onnxruntime.quantization.execution_providers.qnn import get_qnn_qdq_config
 
                 qnn_config = get_qnn_qdq_config(
-                    model_input=model.model_path,
+                    model_input=model_input,
                     calibration_data_reader=dataloader,
                     calibrate_method=run_config["calibrate_method"],
                     activation_type=run_config["activation_type"],
@@ -463,7 +469,7 @@ class OnnxQuantization(Pass):
                     del run_config[key]
             try:
                 quantize_static(
-                    model_input=model.model_path,
+                    model_input=model_input,
                     model_output=tmp_model_path,
                     calibration_data_reader=dataloader,
                     use_external_data_format=True,
@@ -474,7 +480,7 @@ class OnnxQuantization(Pass):
         else:
             try:
                 quantize_dynamic(
-                    model_input=model.model_path,
+                    model_input=model_input,
                     model_output=tmp_model_path,
                     use_external_data_format=True,
                     **run_config,
@@ -490,14 +496,15 @@ class OnnxQuantization(Pass):
         new_tmp_dir.cleanup()
 
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(onnx_model, output_model_path, config)
+        return model_proto_to_olive_model(onnx_model, output_model_path, config, enable_fast_mode=enable_fast_mode)
 
     def _quant_preprocess(self, model: ONNXModelHandler, output_model_path: Union[str, Path]) -> ONNXModelHandler:
         from onnxruntime.quantization.preprocess import quant_pre_process
 
         try:
+            input_model = model.model if model.model else model.model_path
             quant_pre_process(
-                input_model_path=model.model_path,
+                input_model_path=input_model,
                 output_model_path=str(output_model_path),
                 auto_merge=True,
                 save_as_external_data=True,
@@ -513,7 +520,7 @@ class OnnxQuantization(Pass):
                 "Failed to run quantization preprocessing with error of %s. Using original model.", e, exc_info=True
             )
             # save original model to output path
-            onnx_model = onnx.load(model.model_path)
+            onnx_model = model.model if model.model else onnx.load(model.model_path)
             model_proto_to_file(
                 onnx_model,
                 output_model_path,
@@ -631,7 +638,12 @@ class OnnxMatMul4Quantizer(Pass):
         }
 
     def _run_for_config(
-        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self,
+        model: ONNXModelHandler,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+        enable_fast_mode: bool,
     ) -> ONNXModelHandler:
         from onnxruntime import __version__ as OrtVersion
 
@@ -667,7 +679,9 @@ class OnnxMatMul4Quantizer(Pass):
         # quant.model._check_init is not needed since it's only meant for float8 quantization
 
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(quant.model.model, output_model_path, config)
+        return model_proto_to_olive_model(
+            quant.model.model, output_model_path, config, enable_fast_mode=enable_fast_mode
+        )
 
 
 def _validate_accuracy_level(v, values, field):

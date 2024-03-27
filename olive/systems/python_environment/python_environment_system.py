@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 from olive.common.utils import run_subprocess
 from olive.evaluator.metric import MetricResult
 from olive.model import ModelConfig
+from olive.model.handler.base import OliveModelHandler
 from olive.systems.common import AcceleratorConfig, SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import PythonEnvironmentTargetUserConfig
@@ -107,16 +108,17 @@ class PythonEnvironmentSystem(OliveSystem):
     def run_pass(
         self,
         the_pass: "Pass",
-        model_config: ModelConfig,
+        input_model: OliveModelHandler,
         data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
-    ) -> ModelConfig:
+    ) -> OliveModelHandler:
         """Run the pass on the model at a specific point in the search space."""
         point = point or {}
         config = the_pass.config_at_search_point(point)
         pass_config = the_pass.to_json(check_object=True)
         pass_config["config"].update(the_pass.serialize_config(config, check_object=True))
+        model_config = ModelConfig.from_json(input_model.to_json())
         config_jsons = {
             "model_config": model_config.to_json(check_object=True),
             "pass_config": pass_config,
@@ -128,12 +130,13 @@ class PythonEnvironmentSystem(OliveSystem):
             tempdir=tempfile.tempdir,
             output_model_path=output_model_path,
         )
-        return ModelConfig.parse_obj(output_model_json)
+        return ModelConfig.parse_obj(output_model_json).create_model()
 
     def evaluate_model(
-        self, model_config: ModelConfig, data_root: str, metrics: List["Metric"], accelerator: "AcceleratorSpec"
+        self, input_model: OliveModelHandler, data_root: str, metrics: List["Metric"], accelerator: "AcceleratorSpec"
     ) -> MetricResult:
         """Evaluate the model."""
+        model_config = ModelConfig.from_json(input_model.to_json())
         config_jsons = {
             "model_config": model_config.to_json(check_object=True),
             "metrics_config": [metric.to_json(check_object=True) for metric in metrics],
