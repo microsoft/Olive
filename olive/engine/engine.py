@@ -827,8 +827,9 @@ class Engine:
         model = model_config.create_model()
         model_ids = []
         pass_id = None
+        enable_fast_mode = self.enable_fast_mode
         for pass_id, pass_search_point in passes:
-            model, model_id = self._run_pass(pass_id, pass_search_point, model, model_id, data_root, accelerator_spec)
+            model, model_id = self._run_pass(pass_id, pass_search_point, model, model_id, data_root, accelerator_spec, enable_fast_mode)
             if model in PRUNED_MODELS:
                 should_prune = True
                 logger.debug("Pruned for pass %s", pass_id)
@@ -859,7 +860,7 @@ class Engine:
         input_model_id: str,
         data_root: str,
         accelerator_spec: "AcceleratorSpec",
-        enable_fast_mode: bool,
+        enable_fast_mode: bool = False,
     ):
         """Run a pass on the input model."""
         # pass
