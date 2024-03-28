@@ -27,6 +27,10 @@ class OliveSystem(ABC):
         accelerators: Union[List[AcceleratorConfig], List[Dict[str, Any]]] = None,
         hf_token: bool = None,
     ):
+        # TODO(anyone): Is it possible to expose the arguments to
+        # let user set the system environment in Olive config?
+        # For example, in some qualcomm cases, the user may need to set
+        # SDK root path outside of Olive.
         if accelerators:
             assert all(
                 isinstance(validate_config(accelerator, AcceleratorConfig), AcceleratorConfig)

@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import csv
+import logging
 import platform
 import tempfile
 from pathlib import Path
@@ -12,6 +13,8 @@ import onnx
 from onnx import TensorProto, helper
 
 from olive.platform_sdk.qualcomm.runner import SNPESDKRunner as SNPERunner
+
+logger = logging.getLogger(__name__)
 
 
 def get_snpe_version() -> str:
@@ -195,8 +198,11 @@ def quantize_dlc(dlc_path: str, input_list: str, config: dict, output_file: str)
     cmd = f"{quant_cmd} --input_dlc {dlc_path} --input_list {input_list} --output_dlc {output_file}"
     if config["use_enhanced_quantizer"]:
         cmd += " --use_enhanced_quantizer"
-    if config["enable_htp"] and platform.system() != "Windows":
-        cmd += " --enable_htp"
+    if config["enable_htp"]:
+        if platform.system() == "Windows":
+            logger.warning("--enable_htp is not supported on Windows")
+        else:
+            cmd += " --enable_htp"
     if config["htp_socs"] is not None:
         cmd += f" --htp_socs {','.join(config['htp_socs'])}"
     if config["extra_args"] is not None:
