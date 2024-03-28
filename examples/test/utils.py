@@ -77,6 +77,7 @@ def update_azureml_config(olive_config):
         "subscription_id": subscription_id,
         "resource_group": resource_group,
         "workspace_name": workspace_name,
+        "default_auth_params": {"exclude_managed_identity_credential": True},
     }
 
 
