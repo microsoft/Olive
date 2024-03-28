@@ -64,9 +64,6 @@ jobs:
         WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
         WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
         WORKSPACE_NAME: $(workspace-name)
-        AZURE_TENANT_ID: $(azure-tenant-id)
-        AZURE_CLIENT_ID: $(olive-rg-sp-id)
-        AZURE_CLIENT_SECRET: $(olive-rg-sp-secret)
   - ${{ else }}:
     - task: AzureCLI@1
       inputs:
@@ -84,9 +81,6 @@ jobs:
         WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
         WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
         WORKSPACE_NAME: $(workspace-name)
-        AZURE_TENANT_ID: $(azure-tenant-id)
-        AZURE_CLIENT_ID: $(olive-rg-sp-id)
-        AZURE_CLIENT_SECRET: $(olive-rg-sp-secret)
 
   - task: CredScan@3
     displayName: 'Run CredScan'
