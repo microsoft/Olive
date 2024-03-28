@@ -28,6 +28,7 @@ def get_args(raw_args):
         "--config_path", type=Path, required=True, help="Path to configuration for the inference to be run"
     )
     parser.add_argument("--model_path", type=Path, required=True, help="Path to onnx model")
+    parser.add_argument("--external_initializers_path", type=Path, help="Path to external initializers")
     parser.add_argument("--input_dir", type=Path, required=True, help="Path to input directory")
     parser.add_argument("--output_dir", type=Path, required=True, help="Path to output directory")
 
@@ -47,7 +48,10 @@ def main(raw_args=None):
 
     # create session
     session = get_ort_inference_session(
-        args.model_path, config["inference_settings"], config.get("use_ort_extensions", False)
+        args.model_path,
+        config["inference_settings"],
+        config.get("use_ort_extensions", False),
+        external_initializers_path=args.external_initializers_path,
     )
 
     # get first batch

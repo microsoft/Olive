@@ -127,6 +127,7 @@ class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_in
         model_path: Union[str, Path],
         input_dir: Union[str, Path],
         output_dir: Union[str, Path],
+        external_initializers_path: Optional[Union[str, Path]] = None,
     ):
         command = [
             self.executable,
@@ -140,6 +141,8 @@ class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_in
             "--output_dir",
             str(output_dir),
         ]
+        if external_initializers_path:
+            command.extend(["--external_initializers_path", str(external_initializers_path)])
         run_subprocess(command, self.environ, check=True)
 
     def _inference(
@@ -186,7 +189,7 @@ class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_in
             logger.debug("Inference config: %s", inference_config)
 
             # run inference
-            self._run_inference(config_path, model.model_path, input_dir, output_dir)
+            self._run_inference(config_path, model.model_path, input_dir, output_dir, model.external_initializers_path)
 
             # load and process output
             for idx in range(num_batches):

@@ -32,6 +32,7 @@ def get_ort_inference_session(
     inference_settings: Dict[str, Any],
     use_ort_extensions: bool = False,
     device_id: Optional[int] = None,
+    external_initializers_path: Optional[Union[Path, str]] = None,
 ):
     """Get an ONNXRuntime inference session.
 
@@ -52,6 +53,24 @@ def get_ort_inference_session(
         from onnxruntime_extensions import get_library_path
 
         sess_options.register_custom_ops_library(get_library_path())
+    if external_initializers_path:
+        from onnxruntime import OrtValue
+
+        # load external initializers
+        external_initializers = np.load(external_initializers_path)
+
+        # convert external initializers to OrtValue
+        initializer_names = []
+        initializer_values = []
+        for name, value in external_initializers.items():
+            initializer_names.append(name)
+            initializer_values.append(OrtValue.ortvalue_from_numpy(value))
+
+        # add external initializers to the session
+        sess_options.add_external_initializers(initializer_names, initializer_values)
+
+        # delete external initializers to free up memory
+        del external_initializers
 
     logger.debug("inference_settings: %s", inference_settings)
 
