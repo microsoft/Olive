@@ -451,7 +451,10 @@ class AzureMLDatastore(ResourcePath):
                 "azureml-fsspec is not installed. Please install azureml-fsspec to use AzureMLDatastore resource path."
             ) from None
         if fsspec is None:
-            fsspec = AzureMachineLearningFileSystem(self.get_path())
+            # provide mlclient so that it is used for authentication
+            fsspec = AzureMachineLearningFileSystem(
+                self.get_path(), ml_client=self.get_aml_client_config().create_client()
+            )
         return fsspec.info(self.get_relative_path()).get("type") == "file"
 
     def get_relative_path(self) -> str:
@@ -484,7 +487,8 @@ class AzureMLDatastore(ResourcePath):
         azureml_client_config = self.get_aml_client_config()
 
         # azureml file system
-        fs = AzureMachineLearningFileSystem(self.get_path())
+        # provide mlclient so that it is used for authentication
+        fs = AzureMachineLearningFileSystem(self.get_path(), ml_client=azureml_client_config.create_client())
         relative_path = Path(self.get_relative_path())
         is_file = self.is_file(fs)
         # path to save the resource to
