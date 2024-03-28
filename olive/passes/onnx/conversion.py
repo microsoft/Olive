@@ -97,6 +97,14 @@ class OnnxConversion(Pass):
                 default_value=False,
                 description="Whether to merge the converted components.",
             ),
+            "merge_adapter_weights": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Whether to merge adapter weights before conversion. "
+                "After merging, the model structure is consistent with base model. "
+                "That is useful if you cannot run conversion for some fine-tuned "
+                "models with adapter weights",
+            ),
         }
         config.update(get_external_data_config())
         return config
@@ -392,6 +400,9 @@ class OnnxConversion(Pass):
         """Convert a PyTorchModelHandler to an ONNXModelHandler."""
         # load the model
         pytorch_model, model_attributes = self._load_pytorch_model(model, device, torch_dtype)
+        if config["merge_adapter_weights"] and is_peft_model(pytorch_model):
+            logger.debug("Merging adapter weights into base model. This is specific to PeftModel.")
+            pytorch_model = pytorch_model.merge_and_unload()
         pytorch_model.eval()
 
         # get dummy inputs

@@ -176,7 +176,8 @@ def normalize_data_path(data_root: Union[str, Path], data_dir: Union[str, Path, 
             # change the data_root to azureml:/, which is not a valid path
             data_full_path = os.path.join(data_root, data_dir_str).replace("\\", "/")
         else:
-            data_full_path = data_dir_str
+            # will keep this as is so that we don't lose information inside ResourcePath
+            data_full_path = data_dir
 
     return create_resource_path(data_full_path)
 
