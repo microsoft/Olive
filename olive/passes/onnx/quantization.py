@@ -618,18 +618,21 @@ class OnnxMatMul4Quantizer(Pass):
             "algorithm": PassConfigParam(
                 type_=str,
                 default_value=None,
-                description="'RTN' and 'GPTQ' are available from onnxruntime>=1.17.0 "
-                "'DEFAULT', 'HQQ' are available from onnxruntime>=1.18.0 (default DEFAULT when not set). "
-                "For 4b quantize a model with RTN or GPTQ algorithm. Please refer to "
+                description="If 'None', the Matmul node with fp32 const weight will be quantize to int4."
+                "1. 'RTN' and 'GPTQ' are available from onnxruntime>=1.17.0 "
+                "- For 4b quantize a model with RTN or GPTQ algorithm. Please refer to "
                 "https://github.com/intel/neural-compressor/blob/master/docs/source/quantization_weight_only.md "
                 "for more details on weight only quantization using Intel® Neural Compressor. "
-                "For HQQ, please refer to onnxruntime for more details: "
-                "https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L102C1-L126C25",
+                "2. 'DEFAULT', 'HQQ' are available from onnxruntime>=1.18.0 "
+                "- `DEFAULT` takes the same effect as `None`"
+                "- For HQQ, please refer to onnxruntime for more details: "
+                "https://github.com/microsoft/onnxruntime/blob/7e613ee821405b1192d0b71b9434a4f94643f1e4/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L102C1-L126C25",
             ),
             "weight_only_quant_configs": PassConfigParam(
                 type_=dict,
                 default_value=None,
-                description="""Available from onnxruntime>=1.17.0
+                description="""Available from onnxruntime>=1.17.0, if None, the default behavior
+                of given algorithm will be used.
                 The config is binding to the algorithm with following map:
                 1. "algorithm" is "DEFAULT", by default, the weight_only_quant_configs is:
                     "weight_only_quant_configs": {
@@ -637,19 +640,19 @@ class OnnxMatMul4Quantizer(Pass):
                         "is_symmetric": False,
                         "accuracy_level": None
                     }
-                    https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L129C1-L140C45
+                    https://github.com/microsoft/onnxruntime/blob/7e613ee821405b1192d0b71b9434a4f94643f1e4/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L129C1-L140C45
                 2. "algorithm" is "HQQ", by default, the weight_only_quant_configs is:
                     "weight_only_quant_configs": {
                         "block_size": 128, // channel number in one block to execute a GPTQ quantization iteration.
                         "bits": 4, // how many bits to represent weight.
                         "axis": 1, // 0 or 1. which axis to quantize. https://arxiv.org/pdf/2309.15531.pdf
                     }
-                    https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L102C1-L126C25
+                    https://github.com/microsoft/onnxruntime/blob/7e613ee821405b1192d0b71b9434a4f94643f1e4/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L129C1-L140C45
                 3. "algorithm" is "RTN", by default, the weight_only_quant_configs is:
                     "weight_only_quant_configs": {
                         "ratios": None, // type: dict, percentile of clip. Defaults to None.
                     }
-                    https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L42C1-L60C29
+                    https://github.com/microsoft/onnxruntime/blob/7e613ee821405b1192d0b71b9434a4f94643f1e4/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L42C1-L60C29
                 4. "algorithm" is "GPTQ", by default, the weight_only_quant_configs is:
                     "weight_only_quant_configs": {
                         "percdamp": 0.01, // percent of the average Hessian diagonal to use for dampening.
@@ -660,7 +663,7 @@ class OnnxMatMul4Quantizer(Pass):
                     }
                     For GPTQ's "calibration_data_reader", you can provider a dataloader function or a
                     data config like what we do for onnx static quantization.
-                    https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L63C1-L99C37
+                    https://github.com/microsoft/onnxruntime/blob/7e613ee821405b1192d0b71b9434a4f94643f1e4/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L63C1-L99C37
                 """,
             ),
         }
