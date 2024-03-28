@@ -99,11 +99,9 @@ class SNPEConversion(Pass):
         config: Dict[str, Any],
         output_model_path: str,
     ) -> SNPEModelHandler:
-        config = self._config_class(**config)
-
         if Path(output_model_path).suffix != ".dlc":
             output_model_path += ".dlc"
 
-        to_dlc(model.model_path, model.framework, config.dict(), output_model_path)
-        io_config = get_dlc_io_config(output_model_path, config.input_names, config.output_names)
+        to_dlc(model.model_path, model.framework, config, output_model_path)
+        io_config = get_dlc_io_config(output_model_path, config["input_names"], config["output_names"])
         return SNPEModelHandler(model_path=LocalFile({"path": output_model_path}), **io_config)

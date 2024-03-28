@@ -68,7 +68,7 @@ class SNPEQuantization(Pass):
                 type_=bool,
                 default_value=False,
                 searchable_values=Boolean(),
-                description="Pack HTP information in quantized DLC.",
+                description="Pack HTP information in quantized DLC, which is not available in Windows.",
             ),
             "htp_socs": PassConfigParam(
                 type_=List[str], default_value=None, description="List of SoCs to generate HTP Offline cache for."

@@ -5,6 +5,18 @@
             "model_path": "models/mobilenetv2-12.onnx"
         }
     },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "device": "cpu"
+                    }
+                ]
+            }
+        }
+    },
     "evaluators": {
         "common_evaluator":{
             "metrics":[
@@ -67,6 +79,8 @@
     ],
     "engine": {
         "log_severity_level": 0,
+        "host": "local_system",
+        "target": "local_system",
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
         "output_dir": "models",
