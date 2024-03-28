@@ -262,7 +262,7 @@ def test_generate_azureml_models(mock_create_resource_path, mock_retry_func):
 
     # execute
     generate_output_artifacts(
-        packaging_config, footprints, footprints, output_dir=None, azureml_client_config=azureml_client_config
+        packaging_config, footprints, footprints, output_dir=Path("output"), azureml_client_config=azureml_client_config
     )
 
     # assert
@@ -313,7 +313,7 @@ def test_generate_azureml_data(mock_create_resource_path, mock_retry_func):
 
     # execute
     generate_output_artifacts(
-        packaging_config, footprints, footprints, output_dir=None, azureml_client_config=azureml_client_config
+        packaging_config, footprints, footprints, output_dir=Path("output"), azureml_client_config=azureml_client_config
     )
 
     # assert

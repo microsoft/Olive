@@ -98,10 +98,12 @@ def _package_candidate_models(
                     _copy_inference_config(inference_config_path, inference_config)
                     _copy_configurations(model_dir, footprint, model_id)
                     _copy_metrics(model_dir, input_node, node)
-                    _save_model(pf_footprint, model_id, model_dir, inference_config, export_in_mlflow_format)
+                    model_path = _save_model(
+                        pf_footprint, model_id, model_dir, inference_config, export_in_mlflow_format
+                    )
 
                     model_info_list = []
-                    model_info = _get_model_info(node, model_rank)
+                    model_info = _get_model_info(node, model_rank, tempdir, model_path, output_dir, output_name)
                     model_info_list.append(model_info)
                     _copy_model_info(model_dir, model_info)
 
@@ -170,10 +172,19 @@ def _upload_to_azureml_data(
     )
 
 
-def _get_model_info(node: "FootprintNode", model_rank: int):
+def _get_model_info(
+    node: "FootprintNode",
+    model_rank: int,
+    tempdir: Path,
+    model_path: Path,
+    output_dir: Path,
+    output_name: str,
+):
+    model_config = node.model_config
+    model_config["config"]["model_path"] = str(output_dir / output_name / model_path.relative_to(tempdir))
     return {
         "rank": model_rank,
-        "model_config": node.model_config,
+        "model_config": model_config,
         "metrics": node.metrics.value.to_json() if node.metrics else None,
     }
 
