@@ -195,7 +195,7 @@ def quantize_dlc(dlc_path: str, input_list: str, config: dict, output_file: str)
     cmd = f"{quant_cmd} --input_dlc {dlc_path} --input_list {input_list} --output_dlc {output_file}"
     if config["use_enhanced_quantizer"]:
         cmd += " --use_enhanced_quantizer"
-    if config["enable_htp"]:
+    if config["enable_htp"] and platform.system() != "Windows":
         cmd += " --enable_htp"
     if config["htp_socs"] is not None:
         cmd += f" --htp_socs {','.join(config['htp_socs'])}"

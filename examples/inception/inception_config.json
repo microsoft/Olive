@@ -123,6 +123,7 @@
         "snpe_quantization": {
             "type": "SNPEQuantization",
             "config": {
+                "enable_htp": true,
                 "data_config": "raw_data"
             }
         }
