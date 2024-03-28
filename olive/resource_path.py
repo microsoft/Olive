@@ -451,7 +451,10 @@ class AzureMLDatastore(ResourcePath):
                 "azureml-fsspec is not installed. Please install azureml-fsspec to use AzureMLDatastore resource path."
             ) from None
         if fsspec is None:
-            fsspec = AzureMachineLearningFileSystem(self.get_path())
+            # provide mlclient so that it is used for authentication
+            fsspec = AzureMachineLearningFileSystem(
+                self.get_path(), ml_client=self.get_aml_client_config().create_client()
+            )
         return fsspec.info(self.get_relative_path()).get("type") == "file"
 
     def get_relative_path(self) -> str:
@@ -461,14 +464,13 @@ class AzureMLDatastore(ResourcePath):
 
     def get_aml_client_config(self) -> AzureMLClientConfig:
         if self.config.datastore_url:
-            subscription_id = re.split("/subscriptions/", self.config.datastore_url)[-1].split("/")[0]
-            resource_group = re.split("/resourcegroups/", self.config.datastore_url)[-1].split("/")[0]
-            workspace_name = re.split("/workspaces/", self.config.datastore_url)[-1].split("/")[0]
-            return AzureMLClientConfig(
-                subscription_id=subscription_id,
-                resource_group=resource_group,
-                workspace_name=workspace_name,
-            )
+            # datastore_url is always created by validator
+            # so we should start with azureml_client if it is already there
+            client_config = self.config.azureml_client.dict() if self.config.azureml_client else {}
+            client_config["subscription_id"] = re.split("/subscriptions/", self.config.datastore_url)[-1].split("/")[0]
+            client_config["resource_group"] = re.split("/resourcegroups/", self.config.datastore_url)[-1].split("/")[0]
+            client_config["workspace_name"] = re.split("/workspaces/", self.config.datastore_url)[-1].split("/")[0]
+            return AzureMLClientConfig.parse_obj(client_config)
         return self.config.azureml_client
 
     def save_to_dir(self, dir_path: Union[Path, str], name: str = None, overwrite: bool = False) -> str:
@@ -485,7 +487,8 @@ class AzureMLDatastore(ResourcePath):
         azureml_client_config = self.get_aml_client_config()
 
         # azureml file system
-        fs = AzureMachineLearningFileSystem(self.get_path())
+        # provide mlclient so that it is used for authentication
+        fs = AzureMachineLearningFileSystem(self.get_path(), ml_client=azureml_client_config.create_client())
         relative_path = Path(self.get_relative_path())
         is_file = self.is_file(fs)
         # path to save the resource to

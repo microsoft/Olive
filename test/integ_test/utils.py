@@ -26,6 +26,9 @@ def get_olive_workspace_config():
         "subscription_id": subscription_id,
         "resource_group": resource_group,
         "workspace_name": workspace_name,
+        # pipeline agents have managed identities which take precedence over the Azure CLI credentials
+        # so we need to exclude managed identity credentials
+        "default_auth_params": {"exclude_managed_identity_credential": True},
     }
 
 
