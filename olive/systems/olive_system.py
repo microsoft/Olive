@@ -43,7 +43,7 @@ class OliveSystem(ABC):
         data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
-    ) -> OliveModelHandler:
+    ) -> "OliveModelHandler":
         """Run the pass on the model at a specific point in the search space."""
         raise NotImplementedError
 
