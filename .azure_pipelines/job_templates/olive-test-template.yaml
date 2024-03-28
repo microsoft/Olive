@@ -103,9 +103,8 @@ jobs:
       failTaskOnFailedTests: true
     displayName: Upload pipeline run test results
 
-  - task: PublishCodeCoverageResults@1
+  - task: PublishCodeCoverageResults@2
     inputs:
-      codeCoverageTool: 'Cobertura'
       summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
 
   - script: git clean -dfX
