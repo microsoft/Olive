@@ -10,6 +10,7 @@ from olive.common.utils import set_tempdir
 from olive.logging import set_verbosity_from_env
 from olive.model import ModelConfig
 from olive.passes.olive_pass import FullPassConfig
+from olive.workflows.run.config import OliveModuleConfig
 
 
 def get_args(raw_args):
@@ -33,7 +34,13 @@ def main(raw_args=None):
     set_tempdir(args.tempdir)
 
     model = ModelConfig.parse_file(args.model_config).create_model()
-    the_pass = FullPassConfig.parse_file(args.pass_config).create_pass()
+    pass_config = FullPassConfig.parse_file(args.pass_config)
+
+    # Import the pass package configuration from the module_config
+    module_config = OliveModuleConfig.parse_file(OliveModuleConfig.get_default_config_path())
+    module_config.import_pass_package(pass_config["type"])
+
+    the_pass = pass_config.create_pass()
 
     # run pass
     output_model = the_pass.run(model, args.data_root, args.output_model_path)

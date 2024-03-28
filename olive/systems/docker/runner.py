@@ -13,6 +13,7 @@ from olive.common.utils import huggingface_login
 from olive.logging import set_verbosity_from_env
 from olive.model import ModelConfig
 from olive.passes.olive_pass import FullPassConfig
+from olive.workflows.run.config import OliveModuleConfig
 
 logger = logging.getLogger("olive")
 
@@ -29,6 +30,11 @@ def runner_entry(config, output_path, output_name):
     model = ModelConfig.from_json(model_json).create_model()
 
     pass_config = config_json["pass"]
+
+    # Import the pass package configuration from the module_config
+    module_config = OliveModuleConfig.parse_file(OliveModuleConfig.get_default_config_path())
+    module_config.import_pass_package(pass_config["type"])
+
     the_pass = FullPassConfig.from_json(pass_config).create_pass()
     output_model = the_pass.run(model, None, output_path)
     # save model json

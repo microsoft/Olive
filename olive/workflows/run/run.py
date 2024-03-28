@@ -3,11 +3,10 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import importlib.metadata
-import json
 import logging
-import os
 import subprocess
 import sys
+from copy import deepcopy
 from pathlib import Path
 from typing import List, Union
 
@@ -15,15 +14,13 @@ from olive.auto_optimizer import AutoOptimizer
 from olive.hardware.accelerator import create_accelerators
 from olive.logging import enable_filelog, set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
 from olive.systems.common import SystemType
-from olive.workflows.run.config import RunConfig, RunPassConfig
+from olive.workflows.run.config import OliveModuleConfig, RunConfig, RunPassConfig
 
 logger = logging.getLogger(__name__)
 
 
-def dependency_setup(config: RunConfig):
-    here = os.path.abspath(os.path.dirname(__file__))
-    with open(os.path.join(here, "../../extra_dependencies.json")) as f:
-        extras = json.load(f)
+def dependency_setup(module_config: OliveModuleConfig, run_config: RunConfig):
+    extras = deepcopy(module_config.extra_dependencies)
 
     def get_system_extras(host_type, accelerators, execution_providers):
         extra_name = None
@@ -45,25 +42,9 @@ def dependency_setup(config: RunConfig):
         return extra_name
 
     def get_pass_extras(pass_type):
-        pass_to_extra = {
-            "OnnxFloatToFloat16": ["onnxconverter-common"],
-            "OrtPerfTuning": ["psutil"],
-            "QuantizationAwareTraining": ["pytorch-lightning"],
-            "GptqQuantizer": ["auto-gptq", "optimum"],
-        }
-
-        pass_to_extra_names = {
-            "OpenVINOConversion": ["openvino"],
-            "OpenVINOQuantization": ["openvino"],
-            "IncQuantization": ["inc"],
-            "IncDynamicQuantization": ["inc"],
-            "IncStaticQuantization": ["inc"],
-            "OptimumConversion": ["optimum"],
-            "OptimumMerging": ["optimum"],
-            "TorchTRTConversion": ["torch-tensorrt"],
-            "LoRA": ["lora"],
-            "QLoRA": ["bnb", "lora"],
-        }
+        pass_package_config = module_config.passes.get(pass_type)
+        pass_to_extra = pass_package_config.module_dependencies
+        pass_to_extra_names = pass_package_config.extra_dependencies
 
         extra_results = []
         extra_results.extend(pass_to_extra.get(pass_type, []))
@@ -71,15 +52,15 @@ def dependency_setup(config: RunConfig):
             extra_results.extend(extras.get(extra_name))
         return extra_results
 
-    ort_packages = ["onnxruntime", "onnxruntime-directml", "onnxruntime-gpu", "onnxruntime-openvino"]
+    ort_packages = extras.get("ort", [])
 
     local_packages = []
     remote_packages = []
 
     # add dependencies for passes
-    if config.passes:
-        for pass_config in config.passes.values():
-            host = pass_config.host or config.engine.host
+    if run_config.passes:
+        for pass_config in run_config.passes.values():
+            host = pass_config.host or run_config.engine.host
             if (host and host.type == SystemType.Local) or not host:
                 local_packages.extend(get_pass_extras(pass_config.type))
             else:
@@ -95,10 +76,10 @@ def dependency_setup(config: RunConfig):
     host_type = None
     accelerators = []
     execution_providers = []
-    if config.engine.host:
-        host_type = config.engine.host.type
-        if config.engine.host.config.accelerators:
-            for acc in config.engine.host.config.accelerators:
+    if run_config.engine.host:
+        host_type = run_config.engine.host.type
+        if run_config.engine.host.config.accelerators:
+            for acc in run_config.engine.host.config.accelerators:
                 accelerators.append(acc.device)
                 if acc.execution_providers:
                     execution_providers.extend(acc.execution_providers)
@@ -134,74 +115,80 @@ def dependency_setup(config: RunConfig):
     if remote_packages:
         logger.info(
             "Please make sure the following packages are installed in %s environment: %s",
-            config.engine.host.type,
+            run_config.engine.host.type,
             remote_packages,
         )
 
 
-def run_engine(config: RunConfig, data_root: str = None):
+def run_engine(module_config: OliveModuleConfig, run_config: RunConfig, data_root: str = None):
     import onnxruntime as ort
 
     from olive.passes import Pass
 
     # for onnxruntime
     # ort_py_log_severity_level: python logging levels
-    set_ort_logger_severity(config.engine.ort_py_log_severity_level)
+    set_ort_logger_severity(run_config.engine.ort_py_log_severity_level)
 
     # ort_log_severity_level: C++ logging levels
-    ort.set_default_logger_severity(config.engine.ort_log_severity_level)
+    ort.set_default_logger_severity(run_config.engine.ort_log_severity_level)
 
     # input model
-    input_model = config.input_model
+    input_model = run_config.input_model
 
     # Azure ML Client
-    if config.azureml_client:
-        config.engine.azureml_client_config = config.azureml_client
+    if run_config.azureml_client:
+        run_config.engine.azureml_client_config = run_config.azureml_client
 
-    engine = config.engine.create_engine()
+    engine = run_config.engine.create_engine()
 
-    # config file will be uploaded to AML job
-    is_azureml_system = (config.engine.host is not None and config.engine.host.type == SystemType.AzureML) or (
-        config.engine.target is not None and config.engine.target.type == SystemType.AzureML
+    # run_config file will be uploaded to AML job
+    is_azureml_system = (run_config.engine.host is not None and run_config.engine.host.type == SystemType.AzureML) or (
+        run_config.engine.target is not None and run_config.engine.target.type == SystemType.AzureML
     )
 
     if is_azureml_system:
         from olive.systems.azureml.aml_system import AzureMLSystem
 
-        AzureMLSystem.olive_config = config.to_json()
+        AzureMLSystem.olive_config = run_config.to_json()
 
     no_evaluation = (
         engine.evaluator_config is None
-        and config.passes
-        and all(pass_config.evaluator is None for pass_config in config.passes.values())
+        and run_config.passes
+        and all(pass_config.evaluator is None for pass_config in run_config.passes.values())
     )
     accelerator_specs = create_accelerators(engine.target_config, skip_supported_eps_check=no_evaluation)
 
     pass_list = []
     acc_list = []
     if (
-        not config.passes
-        and config.auto_optimizer_config is not None
-        and not config.auto_optimizer_config.disable_auto_optimizer
+        not run_config.passes
+        and run_config.auto_optimizer_config is not None
+        and not run_config.auto_optimizer_config.disable_auto_optimizer
     ):
         for acc_spec in accelerator_specs:
             _passes, pass_flows = AutoOptimizer(
                 input_model,
                 engine.evaluator_config,
                 acc_spec,
-                config.auto_optimizer_config,
-                config.data_configs,
+                run_config.auto_optimizer_config,
+                run_config.data_configs,
             ).suggest()
             pass_list.append(({k: RunPassConfig.parse_obj(v) for k, v in _passes.items()}, pass_flows))
             acc_list.append([acc_spec])
     else:
-        pass_list.append((config.passes, config.pass_flows))
+        pass_list.append((run_config.passes, run_config.pass_flows))
         acc_list.append(accelerator_specs)
 
     run_rls = {}
     for accelerator_spec, (passes, pass_flows) in zip(acc_list, pass_list):
         engine.reset_passes()
         if passes:
+            # First pass registers the necessary module implementation
+            for pass_config in passes.values():
+                logger.info("Importing pass package %s", pass_config.type)
+                module_config.import_pass_package(pass_config.type)
+
+            # Second pass, initializes the pass and registers it with the engine
             for pass_name, pass_config in passes.items():
                 host = pass_config.host.create_system() if pass_config.host is not None else None
                 engine.register(
@@ -217,7 +204,7 @@ def run_engine(config: RunConfig, data_root: str = None):
             engine.set_pass_flows(pass_flows)
 
         if data_root is None:
-            data_root = config.data_root
+            data_root = run_config.data_root
 
         # run
         run_rls.update(
@@ -225,34 +212,49 @@ def run_engine(config: RunConfig, data_root: str = None):
                 input_model,
                 accelerator_spec,
                 data_root,
-                config.engine.packaging_config,
-                config.engine.output_dir,
-                config.engine.output_name,
-                config.engine.evaluate_input_model,
+                run_config.engine.packaging_config,
+                run_config.engine.output_dir,
+                run_config.engine.output_name,
+                run_config.engine.evaluate_input_model,
             )
         )
     return run_rls
 
 
-def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = None):
+def run(
+    run_config: Union[str, Path, dict],
+    setup: bool = False,
+    data_root: str = None,
+    module_config: Union[str, Path, dict] = None,
+):
+    if module_config is None:
+        module_config = OliveModuleConfig.get_default_config_path()
+
     # we use parse_file and parse_obj to be safe. If implemented as expected, both should be equivalent.
-    if isinstance(config, (str, Path)):
-        config = RunConfig.parse_file(config)
+    logger.info("Loading Olive module configuration: %s", module_config)
+    if isinstance(module_config, (str, Path)):
+        module_config = OliveModuleConfig.parse_file(module_config)
     else:
-        config = RunConfig.parse_obj(config)
+        module_config = OliveModuleConfig.parse_obj(module_config)
+
+    logger.info("Loading run configuration: %s", run_config)
+    if isinstance(run_config, (str, Path)):
+        run_config = RunConfig.parse_file(run_config)
+    else:
+        run_config = RunConfig.parse_obj(run_config)
 
     # set log level for olive
-    set_default_logger_severity(config.engine.log_severity_level)
-    if config.engine.log_to_file:
-        enable_filelog(config.engine.log_severity_level)
+    set_default_logger_severity(run_config.engine.log_severity_level)
+    if run_config.engine.log_to_file:
+        enable_filelog(run_config.engine.log_severity_level)
 
     if setup:
         # set the log level to INFO for setup
         set_verbosity_info()
-        dependency_setup(config)
+        dependency_setup(module_config, run_config)
         return None
     else:
-        return run_engine(config, data_root)
+        return run_engine(module_config, run_config, data_root)
 
 
 def check_local_ort_installation(package_name: str):

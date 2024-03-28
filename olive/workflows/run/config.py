@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import importlib
 import logging
 from pathlib import Path
 from typing import Dict, List, Union
@@ -16,12 +17,41 @@ from olive.engine import Engine, EngineConfig
 from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
-from olive.passes import FullPassConfig, Pass
+from olive.passes import FullPassConfig
 from olive.passes.pass_config import PassParamDefault
 from olive.resource_path import AZUREML_RESOURCE_TYPES
 from olive.systems.system_config import SystemConfig
 
 logger = logging.getLogger(__name__)
+
+
+class PassPackageConfig(ConfigBase):
+    module_path: str
+    module_dependencies: List[str] = None
+    extra_dependencies: List[str] = None
+
+    @validator("module_path", pre=True)
+    def validate_module_path(cls, v, values):
+        if not v:
+            raise ValueError("module_path cannot be empty or None")
+        return v
+
+
+class OliveModuleConfig(ConfigBase):
+    passes: Dict[str, PassPackageConfig]
+    extra_dependencies: Dict[str, List[str]]
+
+    @staticmethod
+    def get_default_config_path() -> str:
+        return str(Path(__file__).parents[2] / "olive_config.json")
+
+    def import_pass_package(self, pass_type):
+        pass_package_config = self.passes.get(pass_type)
+        if pass_package_config:
+            module_path, class_name = pass_package_config.module_path.rsplit(".", 1)
+            importlib.import_module(module_path, class_name)
+        else:
+            raise ValueError(f"Package configuration for pass of type '{pass_type}' not found")
 
 
 class RunPassConfig(FullPassConfig):
@@ -220,32 +250,30 @@ class RunConfig(ConfigBase):
             disable_search = disable_search or False
 
         v["disable_search"] = disable_search
-        pass_cls = Pass.registry.get(v["type"].lower(), None)
-        if pass_cls:
-            if not v.get("config"):
-                return v
+        if not v.get("config"):
+            return v
 
-            searchable_configs = set()
-            for param_name in v["config"]:
-                if v["config"][param_name] == PassParamDefault.SEARCHABLE_VALUES:
-                    searchable_configs.add(param_name)
-                if param_name.endswith("data_config"):
-                    # we won't auto insert the input model data config for pass
-                    # user must explicitly set the data config to INPUT_MODEL_DATA_CONFIG if needed
-                    v["config"] = _resolve_data_config(v["config"], values, param_name, auto_insert=False)
+        searchable_configs = set()
+        for param_name in v["config"]:
+            if v["config"][param_name] == PassParamDefault.SEARCHABLE_VALUES:
+                searchable_configs.add(param_name)
+            if param_name.endswith("data_config"):
+                # we won't auto insert the input model data config for pass
+                # user must explicitly set the data config to INPUT_MODEL_DATA_CONFIG if needed
+                v["config"] = _resolve_data_config(v["config"], values, param_name, auto_insert=False)
 
-            data_dir_config = v["config"].get("data_dir", None)
-            if isinstance(data_dir_config, dict):
-                if _have_aml_client(data_dir_config, values):
-                    data_dir_config["config"]["azureml_client"] = values["azureml_client"]
-                v["config"]["data_dir"] = data_dir_config
+        data_dir_config = v["config"].get("data_dir", None)
+        if isinstance(data_dir_config, dict):
+            if _have_aml_client(data_dir_config, values):
+                data_dir_config["config"]["azureml_client"] = values["azureml_client"]
+            v["config"]["data_dir"] = data_dir_config
 
-            if disable_search and searchable_configs:
-                raise ValueError(
-                    f"You cannot disable search for {v['type']} and"
-                    f" set {searchable_configs} to SEARCHABLE_VALUES at the same time."
-                    " Please remove SEARCHABLE_VALUES or enable search(needs search strategy configs)."
-                )
+        if disable_search and searchable_configs:
+            raise ValueError(
+                f"You cannot disable search for {v['type']} and"
+                f" set {searchable_configs} to SEARCHABLE_VALUES at the same time."
+                " Please remove SEARCHABLE_VALUES or enable search(needs search strategy configs)."
+            )
         return v
 
     @validator("auto_optimizer_config", always=True)
