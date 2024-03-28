@@ -105,6 +105,7 @@ jobs:
 
   - task: PublishCodeCoverageResults@2
     inputs:
+      codeCoverageTool: 'Cobertura'
       summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
 
   - script: git clean -dfX
