@@ -99,7 +99,7 @@ def main(raw_args=None):
         config = json.load(f)
 
     # get ep and accelerator
-    ep = config["engine"]["execution_providers"][0]
+    ep = config["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"][0]
     ep_header = ep.replace("ExecutionProvider", "").lower()
     accelerator = "gpu" if ep_header == "cuda" else "cpu"
 
