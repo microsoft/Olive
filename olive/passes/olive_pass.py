@@ -230,6 +230,7 @@ class Pass(ABC):
             "type": self.__class__.__name__,
             "disable_search": True,
             "accelerator": self.accelerator_spec.to_json(),
+            "host_device": self.host_device,
             "config": self.serialize_config(self.config, check_object),
         }
 
@@ -420,7 +421,7 @@ class FullPassConfig(ConfigBase):
         return pass_cls(accelerator_spec, self.config, self.disable_search)
 
 
-# TODO(myguo): deprecate or remove this method by explicitly specify the accelerator_spec in the arguments
+# TODO(myguo): deprecate or remove this function by explicitly specify the accelerator_spec in the arguments
 # instead of using the default argument.
 def create_pass_from_dict(
     pass_cls: Type[Pass],
