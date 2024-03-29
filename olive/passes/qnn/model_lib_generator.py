@@ -13,7 +13,6 @@ from olive.hardware import AcceleratorSpec
 from olive.model import QNNModelHandler
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import PassConfigParam
-from olive.passes.qnn.common import get_env_config
 from olive.platform_sdk.qualcomm.runner import QNNSDKRunner
 
 logger = logging.getLogger(__name__)
@@ -27,7 +26,7 @@ class QNNModelLibGenerator(Pass):
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        config = {
+        return {
             "lib_targets": PassConfigParam(
                 type_=str,
                 required=False,
@@ -44,8 +43,6 @@ class QNNModelLibGenerator(Pass):
                 ),
             ),
         }
-        config.update(get_env_config())
-        return config
 
     def _run_for_config(
         self,
@@ -83,5 +80,5 @@ class QNNModelLibGenerator(Pass):
             f"-o {output_model_path}",
         ]
         runner = QNNSDKRunner(use_dev_tools=True)
-        runner.run(" ".join(cmd_list), use_olive_env=config["use_olive_env"])
+        runner.run(" ".join(cmd_list))
         return QNNModelHandler(output_model_path, model_file_format=ModelFileFormat.QNN_LIB)
