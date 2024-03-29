@@ -9,6 +9,7 @@ from pathlib import Path
 from test.unit_test.utils import get_accuracy_metric, get_pytorch_model_config
 from unittest.mock import Mock, patch
 
+import mlflow
 import onnx
 import pytest
 
@@ -76,7 +77,7 @@ def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, m
         zip_ref.extractall(output_dir)
     verify_output_artifacts(output_dir)
     models_rank_path = output_dir / "models_rank.json"
-    verify_models_rank_json_file(models_rank_path)
+    verify_models_rank_json_file(output_dir, models_rank_path, save_as_external_data=save_as_external_data)
 
     # contain the evaluation result
     candidate_model_path = output_dir / "CandidateModels" / "cpu-cpu" / "BestCandidateModel_1"
@@ -133,7 +134,7 @@ def test_generate_zipfile_artifacts_no_search(tmp_path):
         zip_ref.extractall(output_dir)
     verify_output_artifacts(output_dir)
     models_rank_path = output_dir / "models_rank.json"
-    verify_models_rank_json_file(models_rank_path)
+    verify_models_rank_json_file(output_dir, models_rank_path)
 
     # clean up
     shutil.rmtree(output_dir)
@@ -175,7 +176,7 @@ def test_generate_zipfile_artifacts_mlflow(tmp_path):
         zip_ref.extractall(output_dir)
     verify_output_artifacts(output_dir)
     models_rank_path = output_dir / "models_rank.json"
-    verify_models_rank_json_file(models_rank_path)
+    verify_models_rank_json_file(output_dir, models_rank_path, export_in_mlflow_format=True)
     assert (output_dir / "CandidateModels" / "cpu-cpu" / "BestCandidateModel_1" / "mlflow_model").exists()
 
     # clean up
@@ -341,7 +342,18 @@ def verify_output_artifacts(output_dir):
     assert (output_dir / "ONNXRuntimePackages").exists()
 
 
-def verify_models_rank_json_file(file_path):
+def verify_models_rank_json_file(output_dir, file_path, save_as_external_data=False, export_in_mlflow_format=False):
     with Path.open(file_path) as file:
         data = json.load(file)
+
     assert data is not None
+    # verify model path
+    for model_data in data:
+        model_path = output_dir / Path(model_data["model_config"]["config"]["model_path"])
+        assert model_path.exists(), "Model path in model rank file does not exist"
+        if export_in_mlflow_format:
+            assert mlflow.onnx.load_model(str(model_path)), "Model path in model rank file is not a valid MLflow model"
+        elif save_as_external_data:
+            assert onnx.load(str(model_path / "model.onnx")), "Model path in model rank file is not a valid ONNX model"
+        else:
+            assert onnx.load(str(model_path)), "Model path in model rank file is not a valid ONNX model"
