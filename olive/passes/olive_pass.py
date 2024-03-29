@@ -404,6 +404,7 @@ class FullPassConfig(ConfigBase):
     type: str
     disable_search: bool = False
     accelerator: Dict[str, str] = None
+    host_device: Optional[str] = None
     config: Dict[str, Any] = None
 
     @validator("type")
@@ -418,7 +419,7 @@ class FullPassConfig(ConfigBase):
 
         pass_cls = Pass.registry[self.type.lower()]
         accelerator_spec = AcceleratorSpec(**self.accelerator)  # pylint: disable=not-a-mapping
-        return pass_cls(accelerator_spec, self.config, self.disable_search)
+        return pass_cls(accelerator_spec, self.config, self.disable_search, self.host_device)
 
 
 # TODO(myguo): deprecate or remove this function by explicitly specify the accelerator_spec in the arguments
