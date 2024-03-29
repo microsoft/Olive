@@ -93,14 +93,72 @@ def test_qnn_quantization(tmp_path):
     version.parse(OrtVersion) < version.parse("1.16.2"),
     reason="matmul 4bit quantization is only supported in onnxruntime>=1.16.2",
 )
-def test_matmul_4bit_quantization(tmp_path):
+@pytest.mark.parametrize(
+    ("algorithm", "weight_only_quant_configs"),
+    [
+        (None, None),
+        ("RTN", {"ratios": {}}),
+    ],
+)
+def test_matmul_4bit_quantization_without_dataloader(tmp_path, algorithm, weight_only_quant_configs):
     input_model = get_onnx_model()
     config = {
         "block_size": 32,
         "is_symmetric": True,
         "nodes_to_exclude": [],
         "accuracy_level": 4,
-        "algorithm": "DEFAULT",
+        "algorithm": algorithm,
+        "weight_only_quant_configs": weight_only_quant_configs,
+    }
+    accelerator_spec = AcceleratorSpec(
+        accelerator_type="CPU",
+        execution_provider="CPUExecutionProvider",
+    )
+    p = create_pass_from_dict(OnnxMatMul4Quantizer, config, disable_search=True, accelerator_spec=accelerator_spec)
+    out = p.run(input_model, None, tmp_path)
+    assert out is not None
+
+
+@pytest.mark.skipif(
+    version.parse(OrtVersion) < version.parse("1.18.0"),
+    reason="matmul 4bit quantization with `DEFAULT` and `HQQ` is only supported in onnxruntime<1.18.0",
+)
+@pytest.mark.parametrize(
+    ("algorithm", "weight_only_quant_configs"),
+    [
+        ("DEFAULT", None),
+        ("HQQ", None),
+    ],
+)
+def test_matmul_4bit_quantization_without_dataloader_ort_1_18(tmp_path, algorithm, weight_only_quant_configs):
+    input_model = get_onnx_model()
+    config = {
+        "block_size": 32,
+        "is_symmetric": True,
+        "nodes_to_exclude": [],
+        "accuracy_level": 4,
+        "algorithm": algorithm,
+        "weight_only_quant_configs": weight_only_quant_configs,
+    }
+    accelerator_spec = AcceleratorSpec(
+        accelerator_type="CPU",
+        execution_provider="CPUExecutionProvider",
+    )
+    p = create_pass_from_dict(OnnxMatMul4Quantizer, config, disable_search=True, accelerator_spec=accelerator_spec)
+    out = p.run(input_model, None, tmp_path)
+    assert out is not None
+
+
+def test_matmul_gptq_with_dataloader(tmp_path):
+    input_model = get_onnx_model()
+    config = {
+        "block_size": 32,
+        "is_symmetric": True,
+        "nodes_to_exclude": [],
+        "accuracy_level": 4,
+        "algorithm": "GPTQ",
+        "dataloader_func": dummpy_dataloader_func,
+        "weight_only_quant_configs": {"percdamp": 0.01, "block_size": 128, "use_less_config": 1},
     }
     accelerator_spec = AcceleratorSpec(
         accelerator_type="CPU",
