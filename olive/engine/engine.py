@@ -372,14 +372,22 @@ class Engine:
         logger.debug("run_accelerator done")
         return output_footprint
 
+    def get_host_device(self):
+        if self.host_config.config.accelerators:
+            # for host device, we will always use the first accelerator device
+            return self.host_config.config.accelerators[0].device
+        else:
+            return None
+
     def setup_passes(self, accelerator_spec: "AcceleratorSpec"):
+        host_device = self.get_host_device()
         # clean the passes
         self.passes.clear()
         for name, config in self.pass_config.items():
             pass_cls: Type["Pass"] = config["type"]
             pass_cfg = config["config"]
             pass_cfg = pass_cls.generate_search_space(accelerator_spec, pass_cfg, config["disable_search"])
-            p = pass_cls(accelerator_spec, pass_cfg, config["disable_search"])
+            p = pass_cls(accelerator_spec, pass_cfg, config["disable_search"], host_device)
             self.register_pass(
                 p,
                 name=name,
