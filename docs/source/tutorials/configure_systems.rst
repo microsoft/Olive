@@ -321,6 +321,7 @@ Note:
 - Otherwise, Olive will create a new AzureML environment using the :code:`aml_docker_config` configuration.
 - The :code:`azureml_client_config` will be populdated from engine :code:`azureml_client` if not provided.
 - The :code:`requirements_file` is only used when :code:`olive_managed_env = True` to install the required packages in the AzureML environment.
+- The device and execution_providers for AzureML system is mandatory. Otherwise, Olive will raise an error.
 
 Prerequisites
 ^^^^^^^^^^^^^
@@ -435,6 +436,7 @@ A typical managed AzureML system can be configured by the following example:
 
 Please refer to this `example <https://github.com/microsoft/Olive/blob/main/examples/bert/conda.yaml>`__
 for :code:`"conda.yaml"`.
+
 Please refer to :ref:`azureml_system_config` for more details on the config options.
 
 
