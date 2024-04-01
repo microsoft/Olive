@@ -63,6 +63,8 @@ The local system only contains the accelerators attribute.
             )
 
 Note:
+
+- Local system doesn't support :code:`olive_managed_env`.
 - The accelerators attribute for local system is optional. If not provided, Olive will get the available execution providers installed in the current local machine and infer its device.
 - For each accelerator, either device or execution_providers is optional but not both if the accelerators are specified. If device or execution_providers is not provided, Olive will infer the device or execution_providers if possible.
 
@@ -261,7 +263,7 @@ From the time being, Olive only supports the following base Dockerfiles based on
 
 A typical managed Docker system can be configured by the following example:
 
- .. code-block:: json
+.. code-block:: json
 
     {
         "type": "Docker",
@@ -374,18 +376,19 @@ AzureML Readymade Systems
 """""""""""""""""""""""""
 
 There are some readymade systems available for AzureML. These systems are pre-configured with the necessary.
-    .. code-block:: json
 
-            {
-                "type": "AzureNDV2System",
-                "config": {
-                    "aml_compute": "gpu-cluster",
-                    "aml_docker_config": {
-                        "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
-                        "conda_file_path": "conda.yaml"
-                    }
-                }
+.. code-block:: json
+
+    {
+        "type": "AzureNDV2System",
+        "config": {
+            "aml_compute": "gpu-cluster",
+            "aml_docker_config": {
+                "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
+                "conda_file_path": "conda.yaml"
             }
+        }
+    }
 
 Please refer to :ref:`olive_system_alias` for the list of supported AzureML readymade systems.
 
