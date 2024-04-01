@@ -20,7 +20,7 @@ Accelerator Configuration
 -------------------------
 For each **host** or **tartet**, it will represent list of accelerators that are supported by the system. Each accelerator is represented by a dictionary with the following attributes:
 
-* :code:`device`: The device type of the accelerator. It could be "cpu", "gpu", "npu", etc. Please refer to the API documentation for the full list of supported devices.
+* :code:`device`: The device type of the accelerator. It could be "cpu", "gpu", "npu", etc. Please refer to :ref:`device` for the full list of supported devices.
 * :code:`execution_providers`: The execution provider list that are supported by the accelerator. For e.g. ["CUDAExecutionProvider", "CPUExecutionProvider"].
 
 The **host** only use the device attribute to run the passes. Instead, the **target** uses both device and execution_providers attributes to run passes or evaluate models.
@@ -477,7 +477,7 @@ The isolated ORT system is configured with the following attributes:
 
 Note:
 
-- Isolated ORT System does not support olive_managed_env and can only be used to evaluate ONNX models.
+- Isolated ORT System does not support :code:`olive_managed_env`` and can only be used to evaluate ONNX models.
 - The accelerators for Isolated ORT system is optional. If not provided, Olive will get the available execution providers installed in current virtual environment and infer its device.
 - For each accelerator, either device or execution_providers is optional but not both if the accelerators are specified. If device or execution_providers is not provided, Olive will infer the device or execution_providers if possible.
 

@@ -8,6 +8,7 @@ from typing import List, Optional, Union
 
 from olive.common.config_utils import ConfigBase
 from olive.common.pydantic_v1 import validator
+from olive.hardware.accelerator import Device
 
 
 class SystemType(str, Enum):
@@ -19,7 +20,7 @@ class SystemType(str, Enum):
 
 
 class AcceleratorConfig(ConfigBase):
-    device: str = None
+    device: Union[str, Device] = None
     execution_providers: List[str] = None
 
     @validator("execution_providers", always=True)
