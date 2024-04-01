@@ -103,7 +103,8 @@ def _package_candidate_models(
                     )
 
                     model_info_list = []
-                    model_info = _get_model_info(node, model_rank, tempdir, model_path, packaging_type)
+                    relative_path = str(model_path.relative_to(tempdir))
+                    model_info = _get_model_info(node, model_rank, relative_path, packaging_type)
                     model_info_list.append(model_info)
                     _copy_model_info(model_dir, model_info)
 
@@ -172,12 +173,10 @@ def _upload_to_azureml_data(
     )
 
 
-def _get_model_info(
-    node: "FootprintNode", model_rank: int, tempdir: Path, model_path: Path, packaging_type: PackagingType
-):
+def _get_model_info(node: "FootprintNode", model_rank: int, relative_path: str, packaging_type: PackagingType):
     model_config = node.model_config
     if packaging_type == PackagingType.Zipfile:
-        model_config["config"]["model_path"] = str(model_path.relative_to(tempdir))
+        model_config["config"]["model_path"] = relative_path
     return {
         "rank": model_rank,
         "model_config": model_config,
