@@ -14,6 +14,8 @@ In Olive, the system could be categorized into two kinds of system based on the 
 - Native System: This is the normal system. All kinds of systems can be configured as native system. The **Isolated ORT system** can only be used as **target** system for model evaluation.
 - Managed System: Olive will manage the environment by installing the required packages from the :code:`requirements_file` or Dockerfile in the environment. Only **Python environment system**, **Docker system**, **AzureML system** support managed system.
 
+Most of time, the **host** and **target** are the same, but they can be different in some cases. For example, you can run a Pass on a local machine with a CPU and evaluate a Model on a remote machine with a GPU.
+
 Accelerator Configuration
 -------------------------
 For each **host** or **tartet**, it will represent list of accelerators that are supported by the system. Each accelerator is represented by a dictionary with the following attributes:
@@ -22,8 +24,6 @@ For each **host** or **tartet**, it will represent list of accelerators that are
 * :code:`execution_providers`: The execution provider list that are supported by the accelerator. For e.g. ["CUDAExecutionProvider", "CPUExecutionProvider"].
 
 The **host** only use the device attribute to run the passes. Instead, the **target** uses both device and execution_providers attributes to run passes or evaluate models.
-Most of time, the **host** and **target** are the same, but they can be different in some cases. For example, you can run a Pass on a local machine with a CPU and evaluate a Model on a remote machine with a GPU.
-
 
 Local System
 -------------
@@ -475,10 +475,14 @@ The isolated ORT system is configured with the following attributes:
                 accelerators = [{"device": Device.CPU}]
             )
 
-IsolatedORTSystem does not support olive_managed_env and can only be used to evaluate ONNX models.
+Note:
+
+- Isolated ORT System does not support olive_managed_env and can only be used to evaluate ONNX models.
+- The accelerators for Isolated ORT system is optional. If not provided, Olive will get the available execution providers installed in current virtual environment and infer its device.
+- For each accelerator, either device or execution_providers is optional but not both if the accelerators are specified. If device or execution_providers is not provided, Olive will infer the device or execution_providers if possible.
 
 .. important::
 
-    The python environment must have the relevant ONNX runtime package installed!
+    The Isolated ORT environment must have the relevant ONNX runtime package installed!
 
 Please refer to :ref:`isolated_ort_system_config` for more details on the config options.
