@@ -3,7 +3,7 @@
 How To Configure System
 =========================
 
-A system is a environment concept(OS, hardware spec, device platform, supported EP) that a Pass is run in or a Model is evaluated on.
+A system is a environment concept (OS, hardware spec, device platform, supported EP) that a Pass is run in or a Model is evaluated on.
 
 There are two types of systems: **host** and **target**. A **host** is the environment where the Pass is run, and a **target** is the environment where the Model is evaluated.
 
@@ -21,13 +21,15 @@ Accelerator Configuration
 For each **host** or **tartet**, it will represent list of accelerators that are supported by the system. Each accelerator is represented by a dictionary with the following attributes:
 
 * :code:`device`: The device type of the accelerator. It could be "cpu", "gpu", "npu", etc. Please refer to :ref:`device` for the full list of supported devices.
-* :code:`execution_providers`: The execution provider list that are supported by the accelerator. For e.g. ["CUDAExecutionProvider", "CPUExecutionProvider"].
+* :code:`execution_providers`: The execution provider list that are supported by the accelerator. For e.g. ``["CUDAExecutionProvider", "CPUExecutionProvider"]``.
 
 The **host** only use the device attribute to run the passes. Instead, the **target** uses both device and execution_providers attributes to run passes or evaluate models.
 
 Local System
 -------------
-The local system only contains the accelerators attribute.
+The local system represents the local machine where the Pass is run or the Model is evaluated and it only contains the accelerators attribute.
+
+* :code:`accelerators`: The list of accelerators that are supported by the system.
 
 .. tabs::
     .. tab:: Config JSON
@@ -85,7 +87,7 @@ Please refer to :ref:`local_system_config` for more details on the config option
 Python Environment System
 --------------------------
 
-The python environment system is configured with the following attributes:
+The python environment system represents the python virtual environment. It can be configured as a native system or a managed system. The python environment system is configured with the following attributes:
 
 * :code:`accelerators`: The list of accelerators that are supported by the system.
 * :code:`python_environment_path`: The path to the python virtual environment, which is required for native python system.
@@ -181,7 +183,8 @@ Please refer to :ref:`python_environment_system_config` for more details on the 
 
 Docker System
 --------------
-The docker system is configured with the following attributes:
+
+The docker system represents the docker container where the Pass is run or the Model is evaluated. It can be configured as a native system or a managed system. The docker system is configured with the following attributes:
 
 * :code:`accelerators`: The list of accelerators that are supported by the system.
 * :code:`local_docker_config`: The configuration for the local docker system, which includes the following attributes:
@@ -195,7 +198,7 @@ The docker system is configured with the following attributes:
 
 Note:
 
-* the :code:`build_context_path`, :code:`dockerfile` and :code:`requirements_file` cannot be None at the same time.
+* the :code:`build_context_path`, :code:`dockerfile` and :code:`requirements_file` cannot be ``None`` at the same time.
 * The docker container must have :code:`olive-ai` installed.
 * The device and execution_providers for docker system is mandatory. Otherwise, Olive will raise an error.
 
@@ -289,7 +292,8 @@ A typical managed Docker system can be configured by the following example:
 
 AzureML System
 ---------------
-The AzureML system is configured with the following attributes:
+
+The AzureML system represents the Azure Machine Learning workspace where the Pass is run or the Model is evaluated. It can be configured as a native system or a managed system. The AzureML system is configured with the following attributes:
 
 * :code:`accelerators`: The list of accelerators that are supported by the system, which is required.
 * :code:`aml_compute`: The name of the AzureML compute, which is required.
@@ -322,7 +326,7 @@ The AzureML system is configured with the following attributes:
 
 Note:
 
-* Both :code:`aml_docker_config` and :code:`aml_environment_config` cannot be None at the same time.
+* Both :code:`aml_docker_config` and :code:`aml_environment_config` cannot be ``None`` at the same time.
 * If :code:`aml_environment_config` is provided, Olive will use the existing AzureML environment with the specified name, version and label.
 * Otherwise, Olive will create a new AzureML environment using the :code:`aml_docker_config` configuration.
 * The :code:`azureml_client_config` will be populdated from engine :code:`azureml_client` if not provided.
@@ -451,7 +455,7 @@ Please refer to :ref:`azureml_system_config` for more details on the config opti
 
 Isolated ORT System
 -------------------
-The isolated ORT system is configured with the following attributes:
+The isolated ORT system represents the isolated ONNX Runtime environment in which the ``olive-ai`` is not installed. It can only be configured as a target system. The isolated ORT system is configured with the following attributes:
 
 * :code:`accelerators`: The list of accelerators that are supported by the system.
 * :code:`python_environment_path`: The path to the python virtual environment.
