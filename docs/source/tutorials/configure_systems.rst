@@ -11,8 +11,8 @@ There are five systems: **local system**, **Python environment system**, **Docke
 
 In Olive, the system could be categorized into two kinds of system based on the :code:`olive_managed_env = True`.
 
-- Native System: This is the normal system. All kinds of systems can be configured as native system. The **Isolated ORT system** can only be used as **target** system for model evaluation.
-- Managed System: Olive will manage the environment by installing the required packages from the :code:`requirements_file` or Dockerfile in the environment. Only **Python environment system**, **Docker system**, **AzureML system** support managed system.
+* Native System: This is the normal system. All kinds of systems can be configured as native system. The **Isolated ORT system** can only be used as **target** system for model evaluation.
+* Managed System: Olive will manage the environment by installing the required packages from the :code:`requirements_file` or Dockerfile in the environment. Only **Python environment system**, **Docker system**, **AzureML system** support managed system.
 
 Most of time, the **host** and **target** are the same, but they can be different in some cases. For example, you can run a Pass on a local machine with a CPU and evaluate a Model on a remote machine with a GPU.
 
@@ -34,21 +34,23 @@ The local system only contains the accelerators attribute.
 
         .. code-block:: json
 
-            "system": {
-                "local_system" : {
-                    "type": "LocalSystem",
-                    "config": {
-                        "accelerators": [
-                            {
-                                "device": "cpu",
-                                "execution_providers": ["CPUExecutionProvider"]
-                            }
-                        ]
+            {
+                "system": {
+                    "local_system" : {
+                        "type": "LocalSystem",
+                        "config": {
+                            "accelerators": [
+                                {
+                                    "device": "cpu",
+                                    "execution_providers": ["CPUExecutionProvider"]
+                                }
+                            ]
+                        }
                     }
+                },
+                "engine": {
+                    "target": "local_system"
                 }
-            },
-            "engine": {
-                "target": "local_system"
             }
 
     .. tab:: Python Class
@@ -64,9 +66,9 @@ The local system only contains the accelerators attribute.
 
 Note:
 
-- Local system doesn't support :code:`olive_managed_env`.
-- The accelerators attribute for local system is optional. If not provided, Olive will get the available execution providers installed in the current local machine and infer its device.
-- For each accelerator, either device or execution_providers is optional but not both if the accelerators are specified. If device or execution_providers is not provided, Olive will infer the device or execution_providers if possible.
+* Local system doesn't support :code:`olive_managed_env`.
+* The accelerators attribute for local system is optional. If not provided, Olive will get the available execution providers installed in the current local machine and infer its device.
+* For each accelerator, either device or execution_providers is optional but not both if the accelerators are specified. If device or execution_providers is not provided, Olive will infer the device or execution_providers if possible.
 
 Most of time, the local system could be simplified as below:
 
@@ -103,25 +105,27 @@ Here are the examples of configuring the general Python Environment System.
 
         .. code-block:: json
 
-           "system"  : {
-                "python_system" : {
-                    "type": "PythonEnvironment",
-                    "config": {
-                        "python_environment_path": "/home/user/.virtualenvs/myenv/bin",
-                        "accelerators": [
-                            {
-                                "device": "cpu",
-                                "execution_providers": [
-                                    "CPUExecutionProvider",
-                                    "OpenVINOExecutionProvider"
-                                ]
-                            }
-                        ]
+            {
+                "system"  : {
+                    "python_system" : {
+                        "type": "PythonEnvironment",
+                        "config": {
+                            "python_environment_path": "/home/user/.virtualenvs/myenv/bin",
+                            "accelerators": [
+                                {
+                                    "device": "cpu",
+                                    "execution_providers": [
+                                        "CPUExecutionProvider",
+                                        "OpenVINOExecutionProvider"
+                                    ]
+                                }
+                            ]
+                        }
                     }
+                },
+                "engine": {
+                    "target": "python_system"
                 }
-            },
-            "engine": {
-                "target": "python_system"
             }
 
     .. tab:: Python Class
@@ -138,9 +142,9 @@ Here are the examples of configuring the general Python Environment System.
 
 Note:
 
-- The python environment must have :code:`olive-ai` installed if :code:`olive_managed_env = False`!
-- The accelerators for python system is optional. If not provided, Olive will get the available execution providers installed in current python virtual environment and infer its device.
-- For each accelerator, either device or execution_providers is optional but not both if the accelerators are specified. If device or execution_providers is not provided, Olive will infer the device or execution_providers if possible.
+* The python environment must have :code:`olive-ai` installed if :code:`olive_managed_env = False`!
+* The accelerators for python system is optional. If not provided, Olive will get the available execution providers installed in current python virtual environment and infer its device.
+* For each accelerator, either device or execution_providers is optional but not both if the accelerators are specified. If device or execution_providers is not provided, Olive will infer the device or execution_providers if possible.
 
 
 Managed Python Environment System
@@ -149,11 +153,11 @@ When :code:`olive_managed_env = True`, Olive will manage the python environment 
 
 For managed python environment system, Olive only infer the onnxruntime from the following onnxruntime execution providers:
 
-- CPUExecutionProvider: (onnxruntime)
-- CUDAExecutionProvider: (onnxruntime-gpu)
-- TensorrtExecutionProvider: (onnxruntime-gpu)
-- OpenVINOExecutionProvider: (onnxruntime-openvino)
-- DmlExecutionProvider: (onnxruntime-directml)
+* CPUExecutionProvider: (*onnxruntime*)
+* CUDAExecutionProvider: (*onnxruntime-gpu*)
+* TensorrtExecutionProvider: (*onnxruntime-gpu*)
+* OpenVINOExecutionProvider: (*onnxruntime-openvino*)
+* DmlExecutionProvider: (*onnxruntime-directml*)
 
 .. code-block:: json
 
@@ -191,9 +195,9 @@ The docker system is configured with the following attributes:
 
 Note:
 
-- the :code:`build_context_path`, :code:`dockerfile` and :code:`requirements_file` cannot be None at the same time.
-- The docker container must have :code:`olive-ai` installed.
-- The device and execution_providers for docker system is mandatory. Otherwise, Olive will raise an error.
+* the :code:`build_context_path`, :code:`dockerfile` and :code:`requirements_file` cannot be None at the same time.
+* The docker container must have :code:`olive-ai` installed.
+* The device and execution_providers for docker system is mandatory. Otherwise, Olive will raise an error.
 
 Prerequisites
 ^^^^^^^^^^^^^
@@ -256,10 +260,10 @@ Managed Docker System
 When :code:`olive_managed_env = True`, Olive will manage the docker environment by installing the required packages from the :code:`requirements_file` in the docker container if provided.
 From the time being, Olive only supports the following base Dockerfiles based on input execution providers:
 
-- CPUExecutionProvider: (Dockerfile.cpu)
-- CUDAExecutionProvider: (Dockerfile.gpu)
-- TensorrtExecutionProvider: (Dockerfile.gpu)
-- OpenVINOExecutionProvider: (Dockerfile.openvino)
+* CPUExecutionProvider: (*Dockerfile.cpu*)
+* CUDAExecutionProvider: (*Dockerfile.gpu*)
+* TensorrtExecutionProvider: (*Dockerfile.gpu*)
+* OpenVINOExecutionProvider: (*Dockerfile.openvino*)
 
 A typical managed Docker system can be configured by the following example:
 
@@ -318,12 +322,12 @@ The AzureML system is configured with the following attributes:
 
 Note:
 
-- Both :code:`aml_docker_config` and :code:`aml_environment_config` cannot be None at the same time.
-- If :code:`aml_environment_config` is provided, Olive will use the existing AzureML environment with the specified name, version and label.
-- Otherwise, Olive will create a new AzureML environment using the :code:`aml_docker_config` configuration.
-- The :code:`azureml_client_config` will be populdated from engine :code:`azureml_client` if not provided.
-- The :code:`requirements_file` is only used when :code:`olive_managed_env = True` to install the required packages in the AzureML environment.
-- The device and execution_providers for AzureML system is mandatory. Otherwise, Olive will raise an error.
+* Both :code:`aml_docker_config` and :code:`aml_environment_config` cannot be None at the same time.
+* If :code:`aml_environment_config` is provided, Olive will use the existing AzureML environment with the specified name, version and label.
+* Otherwise, Olive will create a new AzureML environment using the :code:`aml_docker_config` configuration.
+* The :code:`azureml_client_config` will be populdated from engine :code:`azureml_client` if not provided.
+* The :code:`requirements_file` is only used when :code:`olive_managed_env = True` to install the required packages in the AzureML environment.
+* The device and execution_providers for AzureML system is mandatory. Otherwise, Olive will raise an error.
 
 Prerequisites
 ^^^^^^^^^^^^^
@@ -400,41 +404,43 @@ When :code:`olive_managed_env = True`, Olive will manage the AzureML environment
 
 From the time being, Olive only supports the following base Dockerfiles based on input execution providers:
 
-- CPUExecutionProvider: (Dockerfile.cpu)
-- CUDAExecutionProvider: (Dockerfile.gpu)
-- TensorrtExecutionProvider: (Dockerfile.gpu)
-- OpenVINOExecutionProvider: (Dockerfile.openvino)
+* CPUExecutionProvider: (*Dockerfile.cpu*)
+* CUDAExecutionProvider: (*Dockerfile.gpu*)
+* TensorrtExecutionProvider: (*Dockerfile.gpu*)
+* OpenVINOExecutionProvider: (*Dockerfile.openvino*)
 
 A typical managed AzureML system can be configured by the following example:
 
 .. code-block:: json
 
-    "systems": {
-        "azureml_system": {
-            "type": "AzureML",
-            "config": {
-                "accelerators": [
-                    {
-                        "device": "cpu",
-                        "execution_providers": [
-                            "CPUExecutionProvider",
-                            "OpenVINOExecutionProvider"
-                        ]
-                    }
-                ],
-                "azureml_client_config": {
-                    "subscription_id": "subscription_id",
-                    "resource_group": "resource_group",
-                    "workspace_name": "workspace_name"
-                },
-                "aml_compute": "cpu-cluster",
-                "requirements_file": "mnist_requirements.txt",
-                "olive_managed_env": true,
+    {
+        "systems": {
+            "azureml_system": {
+                "type": "AzureML",
+                "config": {
+                    "accelerators": [
+                        {
+                            "device": "cpu",
+                            "execution_providers": [
+                                "CPUExecutionProvider",
+                                "OpenVINOExecutionProvider"
+                            ]
+                        }
+                    ],
+                    "azureml_client_config": {
+                        "subscription_id": "subscription_id",
+                        "resource_group": "resource_group",
+                        "workspace_name": "workspace_name"
+                    },
+                    "aml_compute": "cpu-cluster",
+                    "requirements_file": "mnist_requirements.txt",
+                    "olive_managed_env": true,
+                }
             }
+        },
+        "engine": {
+            "target": "azureml_system",
         }
-    },
-    "engine": {
-        "target": "azureml_system",
     }
 
 Please refer to this `example <https://github.com/microsoft/Olive/blob/main/examples/bert/conda.yaml>`__
@@ -480,9 +486,9 @@ The isolated ORT system is configured with the following attributes:
 
 Note:
 
-- Isolated ORT System does not support :code:`olive_managed_env`` and can only be used to evaluate ONNX models.
-- The accelerators for Isolated ORT system is optional. If not provided, Olive will get the available execution providers installed in current virtual environment and infer its device.
-- For each accelerator, either device or execution_providers is optional but not both if the accelerators are specified. If device or execution_providers is not provided, Olive will infer the device or execution_providers if possible.
+* Isolated ORT System does not support :code:`olive_managed_env` and can only be used to evaluate ONNX models.
+* The accelerators for Isolated ORT system is optional. If not provided, Olive will get the available execution providers installed in current virtual environment and infer its device.
+* For each accelerator, either device or execution_providers is optional but not both if the accelerators are specified. If device or execution_providers is not provided, Olive will infer the device or execution_providers if possible.
 
 .. important::
 
