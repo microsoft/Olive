@@ -13,6 +13,7 @@ In Olive, the system could be categorized into two kinds of system based on the 
 
 * Native System: This is the normal system. All kinds of systems can be configured as native system. The **Isolated ORT system** can only be used as **target** system for model evaluation.
 * Managed System: Olive will manage the environment by installing the required packages from the :code:`requirements_file` or Dockerfile in the environment. Only **Python environment system**, **Docker system**, **AzureML system** support managed system.
+  The ``device`` and ``execution_providers`` for managed system is mandatory. Otherwise, Olive will raise an error.
 
 Most of time, the **host** and **target** are the same, but they can be different in some cases. For example, you can run a Pass on a local machine with a CPU and evaluate a Model on a remote machine with a GPU.
 
@@ -25,7 +26,7 @@ For each **host** or **target**, it will represent list of accelerators that are
     * :code:`device`: The device type of the accelerator. It could be "cpu", "gpu", "npu", etc. Please refer to :ref:`device` for the full list of supported devices.
     * :code:`execution_providers`: The execution provider list that are supported by the accelerator. For e.g. ``["CUDAExecutionProvider", "CPUExecutionProvider"]``.
 
-The **host** only use the device attribute to run the passes. Instead, the **target** uses both device and execution_providers attributes to run passes or evaluate models.
+The **host** only use the ``device`` attribute to run the passes. Instead, the **target** uses both ``device`` and ``execution_providers`` attributes to run passes or evaluate models.
 
 Local System
 -------------
@@ -73,8 +74,8 @@ The local system represents the local machine where the Pass is run or the Model
 .. note::
 
     * Local system doesn't support :code:`olive_managed_env`.
-    * The accelerators attribute for local system is optional. If not provided, Olive will get the available execution providers installed in the current local machine and infer its device.
-    * For each accelerator, either device or execution_providers is optional but not both if the accelerators are specified. If device or execution_providers is not provided, Olive will infer the device or execution_providers if possible.
+    * The accelerators attribute for local system is optional. If not provided, Olive will get the available execution providers installed in the current local machine and infer its ``device``.
+    * For each accelerator, either ``device`` or ``execution_providers`` is optional but not both if the accelerators are specified. If ``device`` or ``execution_providers`` is not provided, Olive will infer the ``device`` or ``execution_providers`` if possible.
 
     Most of time, the local system could be simplified as below:
 
@@ -84,7 +85,7 @@ The local system represents the local machine where the Pass is run or the Model
             "type": "LocalSystem"
         }
 
-    In this case, Olive will infer the device and execution_providers based on the local machine. Please note the device attribute is required for **host** since it will not be inferred for host system.
+    In this case, Olive will infer the ``device`` and ``execution_providers`` based on the local machine. Please note the ``device`` attribute is required for **host** since it will not be inferred for host system.
 
 Please refer to :ref:`local_system_config` for more details on the config options.
 
@@ -151,8 +152,8 @@ Here are the examples of configuring the general Python Environment System.
 .. note::
 
     * The python environment must have :code:`olive-ai` installed if :code:`olive_managed_env = False`!
-    * The accelerators for python system is optional. If not provided, Olive will get the available execution providers installed in current python virtual environment and infer its device.
-    * For each accelerator, either device or execution_providers is optional but not both if the accelerators are specified. If device or execution_providers is not provided, Olive will infer the device or execution_providers if possible.
+    * The accelerators for python system is optional. If not provided, Olive will get the available execution providers installed in current python virtual environment and infer its ``device``.
+    * For each accelerator, either ``device`` or ``execution_providers`` is optional but not both if the accelerators are specified. If ``device`` or ``execution_providers`` is not provided, Olive will infer the ``device`` or ``execution_providers`` if possible.
 
 
 Managed Python Environment System
@@ -187,6 +188,10 @@ For managed python environment system, Olive only infer the onnxruntime from the
 
 Please refer to :ref:`python_environment_system_config` for more details on the config options.
 
+.. caution::
+    Please refer to this `example <https://github.com/microsoft/Olive/blob/main/examples/resnet/resnet_multiple_ep.json>`__
+    for how to use managed python environment system to optimize the model against different execution providers.
+
 Docker System
 --------------
 
@@ -208,7 +213,7 @@ The docker system represents the docker container where the Pass is run or the M
 
     * the :code:`build_context_path`, :code:`dockerfile` and :code:`requirements_file` cannot be ``None`` at the same time.
     * The docker container must have :code:`olive-ai` installed.
-    * The device and execution_providers for docker system is mandatory. Otherwise, Olive will raise an error.
+    * The ``device`` and ``execution_providers`` for docker system is mandatory. Otherwise, Olive will raise an error.
 
 Prerequisites
 ^^^^^^^^^^^^^
@@ -340,7 +345,7 @@ The AzureML system represents the Azure Machine Learning workspace where the Pas
     * Otherwise, Olive will create a new AzureML environment using the :code:`aml_docker_config` configuration.
     * The :code:`azureml_client_config` will be propagated from engine :code:`azureml_client` if not provided.
     * The :code:`requirements_file` is only used when :code:`olive_managed_env = True` to install the required packages in the AzureML environment.
-    * The device and execution_providers for AzureML system is mandatory. Otherwise, Olive will raise an error.
+    * The ``device`` and ``execution_providers`` for AzureML system is mandatory. Otherwise, Olive will raise an error.
 
 Prerequisites
 ^^^^^^^^^^^^^
@@ -511,7 +516,7 @@ The isolated ORT system represents the isolated ONNX Runtime environment in whic
 
     * Isolated ORT System does not support :code:`olive_managed_env` and can only be used to evaluate ONNX models.
     * The accelerators for Isolated ORT system is optional. If not provided, Olive will get the available execution providers installed in current virtual environment and infer its device.
-    * For each accelerator, either device or execution_providers is optional but not both if the accelerators are specified. If device or execution_providers is not provided, Olive will infer the device or execution_providers if possible.
+    * For each accelerator, either ``device`` or ``execution_providers`` is optional but not both if the accelerators are specified. If ``device`` or ``execution_providers`` is not provided, Olive will infer the ``device`` or ``execution_providers`` if possible.
 
 .. important::
 
