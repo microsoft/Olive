@@ -350,10 +350,14 @@ def verify_models_rank_json_file(output_dir, file_path, save_as_external_data=Fa
     # verify model path
     for model_data in data:
         model_path = output_dir / Path(model_data["model_config"]["config"]["model_path"])
-        assert model_path.exists(), "Model path in model rank file does not exist"
+        assert model_path.exists(), "Model path in model rank file does not exist."
         if export_in_mlflow_format:
-            assert mlflow.onnx.load_model(str(model_path)), "Model path in model rank file is not a valid MLflow model"
+            assert mlflow.onnx.load_model(
+                str(model_path)
+            ), "Model path in model rank file is not a valid MLflow model path."
         elif save_as_external_data:
-            assert onnx.load(str(model_path / "model.onnx")), "Model path in model rank file is not a valid ONNX model"
+            assert onnx.load(
+                str(model_path / "model.onnx")
+            ), "With external data, model path in model rank file is not a valid ONNX model path."
         else:
-            assert onnx.load(str(model_path)), "Model path in model rank file is not a valid ONNX model"
+            assert onnx.load(str(model_path)), "Model path in model rank file is not a valid ONNX model path."
