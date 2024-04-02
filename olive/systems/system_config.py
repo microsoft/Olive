@@ -147,7 +147,15 @@ class SystemConfig(ConfigBase):
         if system_alias_class:
             values["type"] = system_alias_class.system_type
             if system_alias_class.accelerators:
-                values["config"]["accelerators"] = [{"device": acc} for acc in system_alias_class.accelerators]
+                valid_accelerators = []
+                for device in system_alias_class.accelerators:
+                    valid_accelerators = [
+                        {"device": acc["device"], "execution_providers": acc.get("execution_providers")}
+                        for acc in values["config"]["accelerators"]
+                        if acc["device"].lower() == device.lower()
+                    ]
+
+                values["config"]["accelerators"] = valid_accelerators or None
             # TODO(myguo): consider how to use num_cpus and num_gpus in distributed inference.
         return values
 

@@ -294,7 +294,6 @@ A typical managed Docker system can be configured by the following example:
             ],
             "olive_managed_env": true,
             "requirements_file": "mnist_requirements.txt"
-            }
         }
     }
 
@@ -400,6 +399,10 @@ There are some readymade systems available for AzureML. These systems are pre-co
     {
         "type": "AzureNDV2System",
         "config": {
+            "accelerators": [
+                {"device": "gpu", "execution_providers": ["CUDAExecutionProvider"]},
+                {"device": "cpu", "execution_providers": ["CPUExecutionProvider"]},
+            ],
             "aml_compute": "gpu-cluster",
             "aml_docker_config": {
                 "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
@@ -407,6 +410,10 @@ There are some readymade systems available for AzureML. These systems are pre-co
             }
         }
     }
+
+.. note::
+    The accelerators specified in the readymade systems will be filtered against the devices supported by the readymade system. If the specified device is not supported by the readymade system, Olive will filter out the accelerator.
+    In above example, the readymade system supports only GPU. Therefore, the final accelerators will be ``[{"device": "gpu", "execution_providers": ["CUDAExecutionProvider"]}]`` and the CPU will be filtered out.
 
 Please refer to :ref:`olive_system_alias` for the list of supported AzureML readymade systems.
 
