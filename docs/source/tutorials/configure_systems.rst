@@ -31,7 +31,7 @@ Local System
 -------------
 The local system represents the local machine where the Pass is run or the Model is evaluated and it only contains the accelerators attribute.
 
-.. admonition:: Definition
+.. admonition:: Configuration
 
     * :code:`accelerators`: The list of accelerators that are supported by the system.
 
@@ -93,7 +93,7 @@ Python Environment System
 
 The python environment system represents the python virtual environment. It can be configured as a native system or a managed system. The python environment system is configured with the following attributes:
 
-.. admonition:: Definition
+.. admonition:: Configuration
 
     * :code:`accelerators`: The list of accelerators that are supported by the system.
     * :code:`python_environment_path`: The path to the python virtual environment, which is required for native python system.
@@ -192,7 +192,7 @@ Docker System
 
 The docker system represents the docker container where the Pass is run or the Model is evaluated. It can be configured as a native system or a managed system. The docker system is configured with the following attributes:
 
-.. admonition:: Definition
+.. admonition:: Configuration
 
     * :code:`accelerators`: The list of accelerators that are supported by the system.
     * :code:`local_docker_config`: The configuration for the local docker system, which includes the following attributes:
@@ -302,7 +302,7 @@ AzureML System
 
 The AzureML system represents the Azure Machine Learning workspace where the Pass is run or the Model is evaluated. It can be configured as a native system or a managed system. The AzureML system is configured with the following attributes:
 
-.. admonition:: Definition
+.. admonition:: Configuration
 
     * :code:`accelerators`: The list of accelerators that are supported by the system, which is required.
     * :code:`aml_compute`: The name of the AzureML compute, which is required.
@@ -474,7 +474,7 @@ Isolated ORT System
 -------------------
 The isolated ORT system represents the isolated ONNX Runtime environment in which the ``olive-ai`` is not installed. It can only be configured as a target system. The isolated ORT system is configured with the following attributes:
 
-.. admonition:: Definition
+.. admonition:: Configuration
 
     * :code:`accelerators`: The list of accelerators that are supported by the system.
     * :code:`python_environment_path`: The path to the python virtual environment.

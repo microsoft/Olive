@@ -36,3 +36,26 @@ def test_system_alias(accelerators, expected_accelerators):
     assert system_config.config.aml_compute == "gpu-cluster"
     assert system_config.config.aml_docker_config.base_image == "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04"
     assert system_config.config.accelerators == expected_accelerators
+
+
+def test_system_alias_no_accelerators():
+    config = {
+        "type": "AzureNDV2System",
+        "config": {
+            "aml_compute": "gpu-cluster",
+            "aml_docker_config": {
+                "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
+                "conda_file_path": "conda.yaml",
+            },
+        },
+    }
+    with pytest.raises(ValueError, match="accelerators is required for AzureML system"):
+        _ = SystemConfig.parse_obj(config)
+
+
+def test_surface_system_alias():
+    config = {"type": "SurfaceProSystem1796"}
+    system_config = SystemConfig.parse_obj(config)
+    assert system_config.type == "LocalSystem"
+    assert system_config.config.accelerators[0].device == "GPU"
+    assert system_config.config.accelerators[0].execution_providers is None
