@@ -18,7 +18,7 @@ Most of time, the **host** and **target** are the same, but they can be differen
 
 Accelerator Configuration
 -------------------------
-For each **host** or **tartet**, it will represent list of accelerators that are supported by the system. Each accelerator is represented by a dictionary with the following attributes:
+For each **host** or **target**, it will represent list of accelerators that are supported by the system. Each accelerator is represented by a dictionary with the following attributes:
 
 .. admonition:: AcceleratorConfig
 
@@ -338,7 +338,7 @@ The AzureML system represents the Azure Machine Learning workspace where the Pas
     * Both :code:`aml_docker_config` and :code:`aml_environment_config` cannot be ``None`` at the same time.
     * If :code:`aml_environment_config` is provided, Olive will use the existing AzureML environment with the specified name, version and label.
     * Otherwise, Olive will create a new AzureML environment using the :code:`aml_docker_config` configuration.
-    * The :code:`azureml_client_config` will be populdated from engine :code:`azureml_client` if not provided.
+    * The :code:`azureml_client_config` will be propagated from engine :code:`azureml_client` if not provided.
     * The :code:`requirements_file` is only used when :code:`olive_managed_env = True` to install the required packages in the AzureML environment.
     * The device and execution_providers for AzureML system is mandatory. Otherwise, Olive will raise an error.
 
