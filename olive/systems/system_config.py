@@ -146,13 +146,14 @@ class SystemConfig(ConfigBase):
         system_alias_class = getattr(system_alias, type_name, None)
         if system_alias_class:
             values["type"] = system_alias_class.system_type
+            if "config" not in values:
+                values["config"] = {}
+
             if values["type"] == SystemType.AzureML and not values["config"].get("accelerators"):
                 raise ValueError("accelerators is required for AzureML system")
 
             if system_alias_class.accelerators:
                 valid_accelerators = []
-                if "config" not in values:
-                    values["config"] = {}
 
                 if not values["config"].get("accelerators"):
                     valid_accelerators = [
