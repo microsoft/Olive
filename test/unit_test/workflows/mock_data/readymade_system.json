@@ -23,6 +23,12 @@
         "azureml_system": {
             "type": "AzureNDV2System",
             "config": {
+                "accelerators": [
+                    {
+                        "device": "gpu",
+                        "execution_providers": ["CUDAExecutionProvider"]
+                    }
+                ],
                 "aml_compute": "gpu-cluster",
                 "aml_docker_config": {
                     "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
