@@ -184,7 +184,7 @@ def run_engine(config: RunConfig, data_root: str = None):
         and config.auto_optimizer_config is not None
         and not config.auto_optimizer_config.disable_auto_optimizer
     ):
-        # For auto optimizer, Olive generate passes and pass_flows for each accelerator
+        # For auto optimizer, Olive generates passes and pass_flows for each accelerator
         # that means, the passes and pass_flows might be different for each accelerator
         for acc_spec in accelerator_specs:
             _passes, pass_flows = AutoOptimizer(
@@ -198,7 +198,7 @@ def run_engine(config: RunConfig, data_root: str = None):
             acc_list.append([acc_spec])
     else:
         # For non-auto-optimizer case, Olive uses the same passes and pass_flows for all accelerators
-        # if user need different passes and pass_flows for each accelerator, they need to write multiple
+        # if user needs different passes and pass_flows for each accelerator, they need to write multiple
         # config files.
         pass_list.append((config.passes, config.pass_flows))
         acc_list.append(accelerator_specs)
@@ -206,8 +206,8 @@ def run_engine(config: RunConfig, data_root: str = None):
     run_rls = {}
     # Note that, in Olive, there are two positions where the accelerator_specs are looped over:
     # 1. olive workflow run level: this is where the accelerator_specs are created and passed to
-    # the engine. In this level, accelerator spec can be used to generate passes and pass_flows.
-    # 2. engine level: this is where the accelerator_specs are looped over to run the model
+    # the engine. In this level, accelerator specs can be used to generate passes and pass_flows.
+    # 2. engine level: this is where the accelerator_specs are looped over to run the passes.
     # TODO(anyone): refactor the code to remove the engine level loop if possible.
     # For time being, we are keeping both loops, but in future, we might want to refactor the code
     # to remove engine level loop and pass the accelerator_specs to the engine directly.
