@@ -236,6 +236,7 @@ class OrtInferenceSession:
         shared_kv_buffer: bool = False,
         use_fp16: bool = False,
         input_feed: Optional[Dict[str, np.ndarray]] = None,
+        constant_inputs: Optional[Dict[str, np.ndarray]] = None,
     ):
         self.session = session
         self.io_bind = io_bind
@@ -243,6 +244,9 @@ class OrtInferenceSession:
         self.shared_kv_buffer = shared_kv_buffer
         self.use_fp16 = use_fp16
         self.kv_cache_ortvalues = {} if (self.shared_kv_buffer and self.use_fp16) else None
+        # TODO(jambayk): investigate if io binding can be run without having to bind constant
+        # inputs every time.
+        self.constant_inputs = constant_inputs or {}
 
         self.io_binding = None
         if self.io_bind:
@@ -251,7 +255,7 @@ class OrtInferenceSession:
                 assert input_feed is not None, "input_feed is required when shared_kv_buffer and use_fp16 are True"
                 bind_input_data(
                     self.io_binding,
-                    input_feed,
+                    {**input_feed, **self.constant_inputs},
                     self.use_fp16,
                     self.device,
                     shared_kv_buffer=self.shared_kv_buffer,
@@ -266,8 +270,13 @@ class OrtInferenceSession:
                 kv_cache_ortvalues=self.kv_cache_ortvalues,
             )
 
+    def get_full_input_feed(self, input_feed: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+        """Get the full input feed including constant inputs."""
+        return {**input_feed, **self.constant_inputs}
+
     def run(self, input_feed: Dict[str, np.ndarray]) -> Sequence[np.ndarray]:
         """Run inference with the given input data."""
+        input_feed = self.get_full_input_feed(input_feed)
         if self.io_bind and self.device == "gpu":
             bind_input_data(
                 self.io_binding,
@@ -290,6 +299,7 @@ class OrtInferenceSession:
         self, input_feed: Dict[str, np.ndarray], num_runs: int, num_warmup: int = 0, sleep_time: int = 0
     ) -> Sequence[float]:
         """Time inference runs with the given input data."""
+        input_feed = self.get_full_input_feed(input_feed)
         latencies = []
         if self.io_bind:
             bind_input_data(

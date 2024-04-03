@@ -28,14 +28,33 @@ logger = logging.getLogger(__name__)
 class ExtractAdapters(Pass):
     """Extract adapter weights from model and save them as external weights file.
 
-    Model proto is invalid after this pass as the adapter weights point to non-existing external files.
-    Inference session must be created by first loading the adapter weights using
+    If make_inputs is False, model proto is invalid after this pass as the adapter weights point to non-existant
+    external files. Inference session must be created by first loading the adapter weights using
     SessionOptions.add_external_initializers.
+
+    If make_inputs is True, the adapter weights are inputs to the model and must be provided during inference.
     """
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        return {}
+        return {
+            "make_inputs": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Convert adapter weights to inputs. If false, the adapter weights will be set as initializers with"
+                    " external data."
+                ),
+            ),
+            "pack_inputs": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                description=(
+                    "Pack adapter weights for the same module type into a single input tensor. Only used if make_inputs"
+                    " is True."
+                ),
+            ),
+        }
 
     def _run_for_config(
         self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
@@ -56,6 +75,9 @@ class ExtractAdapters(Pass):
 
         # dictionary to store adapter weights
         weights = {}
+        # keep track of float and quantized modules
+        float_modules = set()
+        quant_modules = set()
 
         # nodes to remove at the end
         nodes_to_remove = set()
@@ -83,6 +105,9 @@ class ExtractAdapters(Pass):
 
                 # change input to the new name
                 dag.replace_node_input(node_name, old_weight_name, new_weight_name)
+
+                # add the module to the float modules
+                float_modules.add(new_weight_name.replace(".weight", ""))
             elif dag.get_op_type(dag.get_producer(old_weight_name)) == "DequantizeLinear":
                 # weight is quantized
                 # get the dequantize node
@@ -124,9 +149,81 @@ class ExtractAdapters(Pass):
                 # add old dequantize node to remove
                 nodes_to_remove.add(old_dequantize_name)
 
+                # add the module to the quant modules
+                quant_modules.add(new_weight_name.replace(".weight", ".quant"))
+
         # remove old dequantize nodes
         for node_name in nodes_to_remove:
             dag.remove_node(node_name, check_no_consumers=True)
+
+        if config["make_inputs"] and not config["pack_inputs"]:
+            # create inputs for the weights
+            for weight_name in weights:
+                dag.convert_initializer_to_input(weight_name)
+        elif config["make_inputs"] and config["pack_inputs"]:
+            # what weights are packed together
+            packings = {}
+
+            def get_sort_key(module_name: str):
+                parts = module_name.split(".")
+                for i, part in enumerate(parts):
+                    try:
+                        # want the layers to be sorted by the number
+                        parts[i] = int(part)
+                    except ValueError:
+                        pass
+                return parts
+
+            # group by module type, sort by name and pack them together
+            for module_type in lora_modules:
+                for lora_i in ["lora_A", "lora_B"]:
+                    # base name to use for split node and input
+                    base_name = f"{module_type}.{lora_i}"
+
+                    matching_float_modules = sorted(
+                        [name for name in float_modules if module_type in name and lora_i in name], key=get_sort_key
+                    )
+                    if matching_float_modules:
+                        packings[f"{base_name}.weight.packed"] = [f"{name}.weight" for name in matching_float_modules]
+
+                    matching_quant_modules = sorted(
+                        [name for name in quant_modules if module_type in name and lora_i in name], key=get_sort_key
+                    )
+                    if matching_quant_modules:
+                        # zero point is optional so we need to check if it exists
+                        for suffix in [".weight", ".scale", ".zero_point"]:
+                            packings[f"{base_name}.{suffix}.packed"] = [
+                                name + suffix for name in matching_quant_modules if name + suffix in weights
+                            ]
+
+            # pack the weights, create inputs and split nodes
+            packed_weights = {}
+            for weight_name, to_pack in packings.items():
+                if not to_pack:
+                    continue
+                packed_weights[weight_name] = np.concatenate([np.atleast_1d(weights[name]) for name in to_pack], axis=0)
+
+                # input proto
+                input_proto = onnx.helper.make_tensor_value_info(
+                    name=weight_name,
+                    elem_type=onnx.helper.np_dtype_to_tensor_dtype(packed_weights[weight_name].dtype),
+                    shape=packed_weights[weight_name].shape,
+                )
+                # TODO(jambayk): check if graph_idx can be 0 even if they might be used in subgraphs
+                dag.add_input(input_proto, 0)
+
+                # split nodes
+                split_node_proto = onnx.helper.make_node(
+                    "Split",
+                    inputs=[weight_name],
+                    outputs=to_pack,
+                    name=f"{weight_name}.split",
+                    axis=0,
+                )
+                dag.add_node(split_node_proto, 0, overwrite_initializers=True)
+
+            # remove the original weights
+            weights = packed_weights
 
         # update the model with the changes
         dag.update()
@@ -142,10 +239,18 @@ class ExtractAdapters(Pass):
             dag.model,
             output_model_path,
             external_data_config={"save_as_external_data": True, "all_tensors_to_one_file": True},
-            external_initializers_name=weights_path.name,
+            external_initializers_name=weights_path.name if not config["make_inputs"] else None,
+            constant_inputs_name=weights_path.name if config["make_inputs"] else None,
         )
         output_model.model_attributes = deepcopy(model.model_attributes)
-        output_model.model_attributes["external_initializers"] = list(weights.keys())
+        # save information about the weights in the model attributes
+        weights_info = {name: [list(value.shape), str(value.dtype)] for name, value in weights.items()}
+        if not config["make_inputs"]:
+            output_model.model_attributes["external_initializers"] = weights_info
+        else:
+            output_model.model_attributes["constant_inputs"] = weights_info
+            if config["pack_inputs"]:
+                output_model.model_attributes["packed_inputs"] = packings
         return output_model
 
     @staticmethod

@@ -63,20 +63,18 @@ def get_onnx_file_path(model_path: str, onnx_file_name: Optional[str] = None) ->
         raise ValueError(f"No .onnx file found in the model folder {model_path}.")
 
 
-def get_external_initializers_path(model_dir: str, external_initializers_name: str) -> Optional[str]:
-    """Get the full path to the external initializers file.
+def get_additional_file_path(model_dir: str, file_name: str) -> Optional[str]:
+    """Get the full path to the additional file.
 
-    If external_initializers_name is specified, it is assumed to be a file in the model_dir and the full path
+    If file_name is specified, it is assumed to be a file in the model_dir and the full path
     is returned.
     """
-    if external_initializers_name:
+    if file_name:
         model_dir = Path(model_dir)
         assert model_dir.is_dir(), f"Model path {model_dir} is not a directory."
-        external_initializers_path = model_dir / external_initializers_name
-        assert (
-            external_initializers_path.exists()
-        ), f"External initializers {external_initializers_name} does not exist in model path directory {model_dir}."
-        return str(external_initializers_path)
+        file_path = model_dir / file_name
+        assert file_path.exists(), f"{file_name} does not exist in model path directory {model_dir}."
+        return str(file_path)
     return None
 
 

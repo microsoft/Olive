@@ -112,6 +112,7 @@ class OnnxDAG:
         ios: Dict[str, OnnxIO],
         connections: Dict[str, List[str]],
         graph_idx: int,
+        overwrite_initializers: bool = False,
     ):
         """Process a node and populate the nodes and connections attributes."""
         name = node_proto.name
@@ -140,12 +141,22 @@ class OnnxDAG:
                 continue
             if o not in ios:
                 ios[o] = OnnxIO(graph_idx=graph_idx)
-            elif ios[o].source is not None:
+            elif ios[o].source is not None and not (
+                overwrite_initializers and ios[o].source == SpecialInput.INITIALIZER
+            ):
+                # if the output's original source is an initializer, we can overwrite it
                 raise ValueError(f"Output {o} is already connected to another node.")
             ios[o].source = name
             for destination in ios[o].destination:
                 if destination != SpecialOutput.OUTPUT:
                     connections[name].append(destination)
+
+    def add_input(self, input_proto: ValueInfoProto, graph_idx: int):
+        """Add an input to the graph."""
+        if input_proto.name in self.ios:
+            raise ValueError(f"Input {input_proto.name} already exists in the graph.")
+
+        self.ios[input_proto.name] = OnnxIO(proto=input_proto, source=SpecialInput.INPUT, graph_idx=graph_idx)
 
     def add_initializer(self, initializer: TensorProto, graph_idx: int):
         """Add an initializer to the graph."""
@@ -154,12 +165,24 @@ class OnnxDAG:
 
         self.ios[initializer.name] = OnnxIO(proto=initializer, source=SpecialInput.INITIALIZER, graph_idx=graph_idx)
 
-    def add_node(self, node_proto: NodeProto, graph_idx: int):
+    def convert_initializer_to_input(self, initializer_name: str):
+        """Convert an initializer to an input."""
+        if not self.is_initializer(initializer_name):
+            raise ValueError(f"{initializer_name} is not an initializer.")
+
+        io = self.ios[initializer_name]
+
+        old_proto = io.proto
+        new_proto = onnx.helper.make_tensor_value_info(initializer_name, old_proto.data_type, old_proto.dims)
+        io.source = SpecialInput.INPUT
+        io.proto = new_proto
+
+    def add_node(self, node_proto: NodeProto, graph_idx: int, overwrite_initializers: bool = False):
         """Add a node to the graph.
 
         This adds the node to the `nodes` attribute and connects them using the `ios` attribute.
         """
-        self.process_node(node_proto, self.nodes, self.ios, self.connections, graph_idx)
+        self.process_node(node_proto, self.nodes, self.ios, self.connections, graph_idx, overwrite_initializers)
 
     def remove_node(self, node_name: str, check_no_consumers: bool = False):
         """Remove a node from the graph."""
@@ -228,6 +251,10 @@ class OnnxDAG:
         """Check if an input is an initializer."""
         return self.ios[name].source == SpecialInput.INITIALIZER
 
+    def is_output(self, name: str) -> bool:
+        """Check if an input is an output."""
+        return SpecialOutput.OUTPUT in self.ios[name].destination
+
     def get_producer(self, io_name: str) -> str:
         """Get the producer of an input/output."""
         return self.ios[io_name].source
@@ -292,18 +319,37 @@ class OnnxDAG:
                 and (len(self.get_consumers(name)) > 0 or self.is_output_producer(name))
             ]
 
-            # update the initializers in the graph proto
-            initializers = [
-                io.proto
-                for i, io in self.ios.items()
-                if io.source == SpecialInput.INITIALIZER and io.graph_idx == idx and len(self.get_consumers(i)) > 0
-            ]
+            # update the inputs, outputs, and initializers in the graph proto
+            inputs = []
+            outputs = []
+            initializers = []
+            for i, io in self.ios.items():
+                if io.graph_idx != idx:
+                    # not in the current graph
+                    continue
+                if self.is_output(i):
+                    # outputs are handled separately
+                    outputs.append(io.proto)
+                    continue
+
+                # inputs, initializers or intermediate connections
+                if len(self.get_consumers(i)) == 0:
+                    # no consumers, so don't add it to the graph proto
+                    continue
+                if self.is_input(i):
+                    inputs.append(io.proto)
+                elif self.is_initializer(i):
+                    initializers.append(io.proto)
 
             # update the graph proto
             graph.ClearField("node")
             graph.node.extend(nodes)
+            graph.ClearField("input")
+            graph.input.extend(inputs)
             graph.ClearField("initializer")
             graph.initializer.extend(initializers)
+            graph.ClearField("output")
+            graph.output.extend(outputs)
 
     @classmethod
     def from_model_path(cls, model_path: Union[str, Path]) -> "OnnxDAG":

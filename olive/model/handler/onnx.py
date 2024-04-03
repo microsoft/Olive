@@ -16,7 +16,7 @@ from olive.hardware.accelerator import AcceleratorLookup, Device
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
 from olive.model.handler.mixin import OnnxEpValidateMixin, OnnxGraphMixin
-from olive.model.utils.onnx_utils import get_external_initializers_path, get_onnx_file_path
+from olive.model.utils.onnx_utils import get_additional_file_path, get_onnx_file_path
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 logger = logging.getLogger(__name__)
@@ -37,6 +37,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
         "inference_settings",
         "use_ort_extensions",
         "external_initializers_name",
+        "constant_inputs_name",
     )
 
     def __init__(
@@ -47,6 +48,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
         use_ort_extensions: bool = False,
         model_attributes: Optional[Dict[str, Any]] = None,
         external_initializers_name: Optional[str] = None,
+        constant_inputs_name: Optional[str] = None,
     ):
         super().__init__(
             framework=Framework.ONNX,
@@ -58,15 +60,16 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
         self.use_ort_extensions = use_ort_extensions
         self.onnx_file_name = onnx_file_name
         self.external_initializers_name = external_initializers_name
+        self.constant_inputs_name = constant_inputs_name
 
         self.io_config = None
         self.graph = None
         self.all_graphs: Optional[List[GraphProto]] = None
 
-        # check for onnx file name since it will do validation
+        # check for onnx file names since it will do validation
         _ = self.model_path
-        # check for external initializers since it will do validation
         _ = self.external_initializers_path
+        _ = self.constant_inputs_path
 
     @property
     def model_path(self) -> str:
@@ -76,7 +79,12 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
     @property
     def external_initializers_path(self) -> Optional[str]:
         model_path = super().model_path
-        return get_external_initializers_path(model_path, self.external_initializers_name) if model_path else None
+        return get_additional_file_path(model_path, self.external_initializers_name) if model_path else None
+
+    @property
+    def constant_inputs_path(self) -> Optional[str]:
+        model_path = super().model_path
+        return get_additional_file_path(model_path, self.constant_inputs_name) if model_path else None
 
     def load_model(self, rank: int = None) -> ModelProto:
         return onnx.load(self.model_path)
