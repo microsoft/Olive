@@ -173,7 +173,7 @@ def normalize_accelerators(system_config: "SystemConfig", skip_supported_eps_che
 
     * the accelerators is not specified, infer the device/ep based on the installed ORT in case of local/python system.
     * only device is specified, infer the execution providers based on the installed ORT in case of local/python system.
-    * only EP is specified, infer the device based on the installed ORT in case of local/python sytemm.
+    * only EP is specified, infer the device based on the installed ORT in case of local/python system.
     * For AzureML and Docker system, the accelerators and execution providers must be specified.
     """
     from olive.systems.common import SystemType
