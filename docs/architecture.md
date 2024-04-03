@@ -35,7 +35,7 @@ Passes are the building blocks of an Olive workflow. Olive uses multiple Passes 
 The base class for Pass:
 ```python
 class Pass(ABC):
-    def __init__(self, accelerator_spec: AcceleratorSpec, config: Union[Dict[str, Any], BaseModel], disable_search: Optional[bool] = False):
+    def __init__(self, accelerator_spec: AcceleratorSpec, config: Union[Dict[str, Any], BaseModel], disable_search: Optional[bool] = False, host_device: Optional[str] = None):
         ...
 
     @classmethod

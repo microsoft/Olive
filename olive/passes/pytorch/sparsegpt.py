@@ -70,9 +70,9 @@ class SparseGPT(Pass):
                 description="Only prune layers whose name contains the given string(s).",
             ),
             # this is not the same as accelerator_spec.device which is the target device for inference
-            # compute_device is the device we want to run the algorithm on, does not affect the final model
-            # so accelerator_spec.device can be cpu but compute_device can be cuda for faster pass execution
-            "compute_device": PassConfigParam(
+            # device is the device we want to run the algorithm on, does not affect the final model
+            # so accelerator_spec.device can be cpu but device can be cuda for faster pass execution
+            "device": PassConfigParam(
                 type_=str,
                 default_value="auto",
                 description=(
@@ -108,7 +108,7 @@ class SparseGPT(Pass):
         n, m = sparsity if mode == "structured" else [0, 0]
 
         # get device to use for computations
-        device = config["compute_device"]
+        device = config["device"]
         if device == "auto":
             device = "cuda" if torch.cuda.is_available() else "cpu"
         logger.debug(

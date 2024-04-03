@@ -61,14 +61,22 @@ class Pass(ABC):
             cls.registry[cls.__name__.lower()] = cls
 
     def __init__(
-        self, accelerator_spec: AcceleratorSpec, config: Dict[str, Any], disable_search: Optional[bool] = False
+        self,
+        accelerator_spec: AcceleratorSpec,
+        config: Dict[str, Any],
+        disable_search: Optional[bool] = False,
+        host_device=None,
     ):
         """Initialize the pass.
 
-        :param config_class: the PassConfig class with the default value or default search values.
-        :type config_class: Type[PassConfigBase]
+        :param accelerator_spec: the accelerator spec for the pass.
+        :type accelerator_spec: AcceleratorSpec
         :param config: the configuration representing search space.
         :type config: Dict[str, Any]
+        :param disable_search: whether to disable search.
+        :type disable_search: Optional[bool]
+        :param host_device: the host device for the pass.
+        :type host_device: Optional[str]
         """
         assert accelerator_spec is not None, "Please specify the accelerator spec for the pass."
         assert config is not None, "Please specify the configuration for the pass."
@@ -76,6 +84,7 @@ class Pass(ABC):
         config_class, default_config = self.get_config_class(accelerator_spec, disable_search)
 
         self.accelerator_spec = accelerator_spec
+        self.host_device = host_device
 
         self._config_class = config_class
         self.config = config
@@ -221,6 +230,7 @@ class Pass(ABC):
             "type": self.__class__.__name__,
             "disable_search": True,
             "accelerator": self.accelerator_spec.to_json(),
+            "host_device": self.host_device,
             "config": self.serialize_config(self.config, check_object),
         }
 
@@ -394,6 +404,7 @@ class FullPassConfig(ConfigBase):
     type: str
     disable_search: bool = False
     accelerator: Dict[str, str] = None
+    host_device: Optional[str] = None
     config: Dict[str, Any] = None
 
     @validator("type")
@@ -408,17 +419,21 @@ class FullPassConfig(ConfigBase):
 
         pass_cls = Pass.registry[self.type.lower()]
         accelerator_spec = AcceleratorSpec(**self.accelerator)  # pylint: disable=not-a-mapping
-        return pass_cls(accelerator_spec, self.config, self.disable_search)
+        return pass_cls(accelerator_spec, self.config, self.disable_search, self.host_device)
 
 
-# TODO(myguo): deprecate or remove this method by explicitly specify the accelerator_spec in the arguments
+# TODO(myguo): deprecate or remove this function by explicitly specify the accelerator_spec in the arguments
 # instead of using the default argument.
 def create_pass_from_dict(
-    pass_cls: Type[Pass], config: Dict[str, Any] = None, disable_search=False, accelerator_spec: AcceleratorSpec = None
+    pass_cls: Type[Pass],
+    config: Dict[str, Any] = None,
+    disable_search=False,
+    accelerator_spec: AcceleratorSpec = None,
+    host_device=None,
 ) -> Pass:
     """Create a pass from a dictionary."""
     if accelerator_spec is None:
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
 
     config = pass_cls.generate_search_space(accelerator_spec, config, disable_search)
-    return pass_cls(accelerator_spec, config, disable_search)
+    return pass_cls(accelerator_spec, config, disable_search, host_device)
