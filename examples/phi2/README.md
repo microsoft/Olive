@@ -76,6 +76,8 @@ For better generation experience, here is the way to run inference with the opti
 python phi2.py --model_type cpu_fp32 --inference --optimum_optimization --prompt "Write a extremely long story starting with once upon a time"
 ```
 
+## Export output models in MLFlow format
+If you want to output the optimized models to a zip file in MLFlow format, add `--export_mlflow_format` argument. The MLFlow model will be packaged in a zip file named `mlflow_model` in the output folder.
 
 ## Limitations
 1. The latest ONNXRuntime implements specific fusion patterns for better performance but only works for ONNX model from TorchDynamo-based ONNX Exporter. And the TorchDynamo-based ONNX Exporter is only available on Linux.
