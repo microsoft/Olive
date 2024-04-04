@@ -58,6 +58,13 @@
         }
     },
     "passes": {
+        "slice": {
+            "type": "SliceGPT",
+            "config": {
+                "sparsity": 0.4,
+                "calibration_data_config": "wikitext2"
+            }
+        },
         "qlora": {
             "type": "QLoRA",
             "config": {
@@ -176,6 +183,21 @@
                         "corpus_strategy": "join",
                         "text_template": "### Question: {prompt} \n### Answer: {response}",
                         "source_max_len": 1024
+                    }
+                }
+            }
+        },
+        "wikitext2": {
+            "name": "wikitext2",
+            "type": "HuggingfaceContainer",
+            "params_config": {
+                "data_name": "wikitext",
+                "subset": "wikitext-2-raw-v1",
+                "split": "train",
+                "component_kwargs": {
+                    "pre_process_data": {
+                        "text_cols": ["text"],
+                        "source_max_len": 2048
                     }
                 }
             }
