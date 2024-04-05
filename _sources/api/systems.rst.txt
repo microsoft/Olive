@@ -82,7 +82,7 @@ PythonEnvironmentSystem
 
 IsolatedORTSystem
 ^^^^^^^^^^^^^^^^^^^^^^^^
-.. autoclass:: olive.systems.ort_evironment.IsolatedORTSystem
+.. autoclass:: olive.systems.isolated_ort.IsolatedORTSystem
 
 .. _olive_system_alias:
 

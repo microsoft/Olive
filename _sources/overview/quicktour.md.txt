@@ -31,6 +31,9 @@ olive_run("my_model_acceleration_description.json")
 
 You can use setup mode `python -m olive.workflows.run --config my_model_acceleration_description.json --setup` to identify list of additional packages you may need to install for your workflow.
 
+To include user implemented (or proprietary, or private) passes as part of workflow, clone olive_config.json and update it.
+Provide the path to the cloned _olive_config.json_ file at launch using the '--package-config' command line option.
+
 You can also change the default directory for temporary files and directories using `--tempdir` option.
 Set this to a local directory if you want to avoid using the default tempdir for reasons such as disk space and permissions.
 
