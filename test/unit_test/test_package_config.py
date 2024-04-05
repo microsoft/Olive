@@ -6,7 +6,7 @@
 from olive.package_config import OlivePackageConfig
 
 
-class TestModuleConfig:
+class TestPackageConfig:
     def test_passes_configuration(self):
         package_config = OlivePackageConfig.load_default_config()
         for pass_module_name, pass_module_config in package_config.passes.items():

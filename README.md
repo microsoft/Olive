@@ -66,8 +66,8 @@ pip install olive-ai[directml]
 ```
 
 ### Optional Dependencies
-Olive has optional dependencies that can be installed to enable additional features. Please refer to [extra dependencies](./olive/extra_dependencies.json) for
-the list of extras and their dependencies.
+Olive has optional dependencies that can be installed to enable additional features. Please refer to
+[Olive package config](./olive/olive_config.json) for the list of extras and their dependencies.
 
 ## Pipeline Status
 
