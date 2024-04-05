@@ -1,0 +1,234 @@
+{
+    "passes": {
+        "AppendPrePostProcessingOps": {
+            "module_path": "olive.passes.onnx.append_pre_post_processing_ops.AppendPrePostProcessingOps"
+        },
+        "DynamicToFixedShape": {
+            "module_path": "olive.passes.onnx.dynamic_to_fixed_shape.DynamicToFixedShape"
+        },
+        "GenAIModelExporter": {
+            "module_path": "olive.passes.onnx.genai_model_exporter.GenAIModelExporter"
+        },
+        "IncDynamicQuantization": {
+            "module_path": "olive.passes.onnx.inc_quantization.IncDynamicQuantization",
+            "extra_dependencies": [
+                "inc"
+            ]
+        },
+        "IncQuantization": {
+            "module_path": "olive.passes.onnx.inc_quantization.IncQuantization",
+            "extra_dependencies": [
+                "inc"
+            ]
+        },
+        "IncStaticQuantization": {
+            "module_path": "olive.passes.onnx.inc_quantization.IncStaticQuantization",
+            "extra_dependencies": [
+                "inc"
+            ]
+        },
+        "InsertBeamSearch": {
+            "module_path": "olive.passes.onnx.insert_beam_search.InsertBeamSearch"
+        },
+        "MoEExpertsDistributor": {
+            "module_path": "olive.passes.onnx.moe_experts_distributor.MoEExpertsDistributor"
+        },
+        "OnnxBnb4Quantization": {
+            "module_path": "olive.passes.onnx.bnb_quantization.OnnxBnb4Quantization"
+        },
+        "OnnxConversion": {
+            "module_path": "olive.passes.onnx.conversion.OnnxConversion"
+        },
+        "OnnxDynamicQuantization": {
+            "module_path": "olive.passes.onnx.quantization.OnnxDynamicQuantization"
+        },
+        "OnnxFloatToFloat16": {
+            "module_path": "olive.passes.onnx.float16_conversion.OnnxFloatToFloat16",
+            "module_dependencies": [
+                "onnxconverter-common"
+            ]
+        },
+        "OnnxMatMul4Quantizer": {
+            "module_path": "olive.passes.onnx.quantization.OnnxMatMul4Quantizer"
+        },
+        "OnnxModelOptimizer": {
+            "module_path": "olive.passes.onnx.model_optimizer.OnnxModelOptimizer"
+        },
+        "OnnxOpVersionConversion": {
+            "module_path": "olive.passes.onnx.conversion.OnnxOpVersionConversion"
+        },
+        "OnnxQuantization": {
+            "module_path": "olive.passes.onnx.quantization.OnnxQuantization"
+        },
+        "OnnxStaticQuantization": {
+            "module_path": "olive.passes.onnx.quantization.OnnxStaticQuantization"
+        },
+        "OptimumConversion": {
+            "module_path": "olive.passes.onnx.optimum_conversion.OptimumConversion",
+            "extra_dependencies": [
+                "optimum"
+            ]
+        },
+        "OptimumMerging": {
+            "module_path": "olive.passes.onnx.optimum_merging.OptimumMerging",
+            "extra_dependencies": [
+                "optimum"
+            ]
+        },
+        "OrtMixedPrecision": {
+            "module_path": "olive.passes.onnx.mixed_precision.OrtMixedPrecision"
+        },
+        "OrtPerfTuning": {
+            "module_path": "olive.passes.onnx.perf_tuning.OrtPerfTuning",
+            "module_dependencies": [
+                "psutil"
+            ]
+        },
+        "OrtTransformersOptimization": {
+            "module_path": "olive.passes.onnx.transformer_optimization.OrtTransformersOptimization"
+        },
+        "QNNPreprocess": {
+            "module_path": "olive.passes.onnx.qnn_preprocess.QNNPreprocess"
+        },
+        "VitisAIQuantization": {
+            "module_path": "olive.passes.onnx.vitis_ai_quantization.VitisAIQuantization"
+        },
+        "VitisQDQQuantizer": {
+            "module_path": "olive.passes.onnx.vitis_ai.quantizer.VitisQDQQuantizer"
+        },
+        "VitisQOpQuantizer": {
+            "module_path": "olive.passes.onnx.vitis_ai.quantizer.VitisQOpQuantizer"
+        },
+        "quantize_static": {
+            "module_path": "olive.passes.onnx.vitis_ai.quantize.quantize_static"
+        },
+        "PowerOfTwoMethod": {
+            "module_path": "olive.passes.onnx.vitis_ai.quant_utils.PowerOfTwoMethod"
+        },
+        "OpenVINOConversion": {
+            "module_path": "olive.passes.openvino.conversion.OpenVINOConversion",
+            "extra_dependencies": [
+                "openvino"
+            ]
+        },
+        "OpenVINOQuantization": {
+            "module_path": "olive.passes.openvino.quantization.OpenVINOQuantization",
+            "extra_dependencies": [
+                "openvino"
+            ]
+        },
+        "GptqQuantizer": {
+            "module_path": "olive.passes.pytorch.gptq.GptqQuantizer",
+            "module_dependencies": [
+                "auto-gptq",
+                "optimum"
+            ]
+        },
+        "LoftQ": {
+            "module_path": "olive.passes.pytorch.lora.LoftQ"
+        },
+        "LoRA": {
+            "module_path": "olive.passes.pytorch.lora.LoRA",
+            "extra_dependencies": [
+                "lora"
+            ]
+        },
+        "PyTorchTensorParallel": {
+            "module_path": "olive.passes.pytorch.tensor_parallel.PyTorchTensorParallel"
+        },
+        "QLoRA": {
+            "module_path": "olive.passes.pytorch.lora.QLoRA",
+            "extra_dependencies": [
+                "bnb",
+                "lora"
+            ]
+        },
+        "QuantizationAwareTraining": {
+            "module_path": "olive.passes.pytorch.quantization_aware_training.QuantizationAwareTraining",
+            "module_dependencies": [
+                "pytorch-lightning"
+            ]
+        },
+        "SparseGPT": {
+            "module_path": "olive.passes.pytorch.sparsegpt.SparseGPT"
+        },
+        "TorchTRTConversion": {
+            "module_path": "olive.passes.pytorch.torch_trt_conversion.TorchTRTConversion",
+            "extra_dependencies": [
+                "torch-tensorrt"
+            ]
+        },
+        "QNNConversion": {
+            "module_path": "olive.passes.qnn.conversion.QNNConversion"
+        },
+        "QNNModelLibGenerator": {
+            "module_path": "olive.passes.qnn.model_lib_generator.QNNModelLibGenerator"
+        },
+        "QNNContextBinaryGenerator": {
+            "module_path": "olive.passes.qnn.context_binary_generator.QNNContextBinaryGenerator"
+        },
+        "SNPEConversion": {
+            "module_path": "olive.passes.snpe.conversion.SNPEConversion"
+        },
+        "SNPEQuantization": {
+            "module_path": "olive.passes.snpe.quantization.SNPEQuantization"
+        },
+        "SNPEtoONNXConversion": {
+            "module_path": "olive.passes.snpe.snpe_to_onnx.SNPEtoONNXConversion"
+        }
+    },
+    "extra_dependencies": {
+        "azureml": [
+            "azure-ai-ml>=1.11.1",
+            "azure-keyvault-secrets",
+            "azure-identity",
+            "azureml-fsspec"
+        ],
+        "docker": [
+            "docker"
+        ],
+        "cpu": [
+            "onnxruntime"
+        ],
+        "gpu": [
+            "onnxruntime-gpu"
+        ],
+        "directml": [
+            "onnxruntime-directml"
+        ],
+        "openvino": [
+            "openvino==2023.2.0",
+            "nncf==2.7.0"
+        ],
+        "tf": [
+            "tensorflow==1.15.0"
+        ],
+        "inc": [
+            "neural-compressor"
+        ],
+        "optimum": [
+            "optimum"
+        ],
+        "torch-tensorrt": [
+            "torch-tensorrt"
+        ],
+        "lora": [
+            "accelerate",
+            "peft",
+            "scipy"
+        ],
+        "bnb": [
+            "bitsandbytes"
+        ],
+        "ort-training": [
+            "onnxruntime-training",
+            "torch-ort"
+        ],
+        "ort": [
+            "onnxruntime",
+            "onnxruntime-directml",
+            "onnxruntime-gpu",
+            "onnxruntime-openvino"
+        ]
+    }
+}

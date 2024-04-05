@@ -18,7 +18,6 @@ from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, Metr
 from olive.evaluator.metric_config import MetricGoal
 from olive.model import ModelConfig, ONNXModelHandler, PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx import OnnxConversion, OnnxDynamicQuantization
 
 ONNX_MODEL_PATH = Path(__file__).absolute().parent / "dummy_model.onnx"
 
@@ -256,6 +255,8 @@ def get_throughput_metric(*lat_subtype, user_config=None):
 
 
 def get_onnxconversion_pass(ignore_pass_config=True, target_opset=13):
+    from olive.passes.onnx.conversion import OnnxConversion
+
     onnx_conversion_config = {"target_opset": target_opset}
     p = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
     if ignore_pass_config:
@@ -266,6 +267,8 @@ def get_onnxconversion_pass(ignore_pass_config=True, target_opset=13):
 
 
 def get_onnx_dynamic_quantization_pass(disable_search=False):
+    from olive.passes.onnx.quantization import OnnxDynamicQuantization
+
     return create_pass_from_dict(OnnxDynamicQuantization, disable_search=disable_search)
 
 

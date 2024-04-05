@@ -10,7 +10,7 @@ import torch
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model.handler.pytorch import PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.pytorch import GptqQuantizer
+from olive.passes.pytorch.gptq import GptqQuantizer
 
 
 def get_dummy_dataloader_func():

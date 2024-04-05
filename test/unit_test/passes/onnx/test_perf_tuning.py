@@ -15,8 +15,7 @@ from olive.evaluator.metric import flatten_metric_result
 from olive.evaluator.olive_evaluator import OliveEvaluator, OnnxEvaluator
 from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR, AcceleratorSpec, Device
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx import OrtPerfTuning
-from olive.passes.onnx.perf_tuning import PERFTUNING_BASELINE, PerfTuningRunner, generate_test_name
+from olive.passes.onnx.perf_tuning import PERFTUNING_BASELINE, OrtPerfTuning, PerfTuningRunner, generate_test_name
 
 
 @pytest.mark.parametrize(
@@ -38,7 +37,7 @@ def test_ort_perf_tuning_pass(config, tmp_path):
     p.run(input_model, None, output_folder)
 
 
-@patch("olive.passes.onnx.OrtPerfTuning._run_for_config")
+@patch("olive.passes.onnx.perf_tuning.OrtPerfTuning._run_for_config")
 @pytest.mark.parametrize(
     "config",
     [

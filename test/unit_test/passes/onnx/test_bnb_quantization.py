@@ -12,7 +12,7 @@ from packaging import version
 
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx import OnnxBnb4Quantization
+from olive.passes.onnx.bnb_quantization import OnnxBnb4Quantization
 
 # pylint: disable=protected-access
 
