@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>olive.systems.azureml.aml_system &mdash; Olive  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/autodoc_pydantic.css" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/tabs.css?v=a5c4661c" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/width.css?v=b55249da" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js?v=b3ba4146"></script>
+        <script src="../../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../../_static/sphinx_highlight.js?v=4825356b"></script>
+        <script src="../../../../_static/tabs.js?v=3030b3cb"></script>
+        <script src="../../../../_static/js/custom_version.js?v=3856a39b"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Olive
+          </a>
+              <div class="version">
+                0.5.1
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">OVERVIEW</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../overview/olive.html">Olive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../overview/quicktour.html">Quick Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../overview/options.html">Olive Options</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">GET STARTED</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../getstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../getstarted/quickstart_examples.html">Quickstart Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/custom_scripts.html">Custom Scripts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/azureml_integration.html">Azure ML integration</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../extending_olive/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/configure_systems.html">How To Configure System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/configure_auto_optimizer.html">How To Configure Auto Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/configure_pass.html">How To Configure Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/configure_data.html">How To Configure Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/configure_model_path.html">How To Set Model Path</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/advanced_users.html">Advanced User Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/azure_arc.html">Self-hosted Kubernetes cluster</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/azureml_scripts.html">Azure ML scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/models.html">OliveModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/resource_path.html">ResourcePath</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/systems.html">OliveSystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/evaluator.html">OliveEvaluator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/metric.html">Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/search-algorithms.html">SearchAlgorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/engine.html">Engine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/passes.html">Passes</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Olive</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">olive.systems.azureml.aml_system</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for olive.systems.azureml.aml_system</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -------------------------------------------------------------------------</span>
+<span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
+<span class="c1"># Licensed under the MIT License.</span>
+<span class="c1"># --------------------------------------------------------------------------</span>
+<span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">import</span> <span class="nn">tempfile</span>
+<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">NamedTuple</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">from</span> <span class="nn">azure.ai.ml</span> <span class="kn">import</span> <span class="n">Input</span><span class="p">,</span> <span class="n">Output</span><span class="p">,</span> <span class="n">command</span>
+<span class="kn">from</span> <span class="nn">azure.ai.ml.constants</span> <span class="kn">import</span> <span class="n">AssetTypes</span>
+<span class="kn">from</span> <span class="nn">azure.ai.ml.dsl</span> <span class="kn">import</span> <span class="n">pipeline</span>
+<span class="kn">from</span> <span class="nn">azure.ai.ml.entities</span> <span class="kn">import</span> <span class="n">BuildContext</span><span class="p">,</span> <span class="n">Environment</span><span class="p">,</span> <span class="n">Model</span><span class="p">,</span> <span class="n">UserIdentityConfiguration</span>
+<span class="kn">from</span> <span class="nn">azure.core.exceptions</span> <span class="kn">import</span> <span class="n">HttpResponseError</span><span class="p">,</span> <span class="n">ServiceResponseError</span>
+
+<span class="kn">from</span> <span class="nn">olive.azureml.azureml_client</span> <span class="kn">import</span> <span class="n">AzureMLClientConfig</span>
+<span class="kn">from</span> <span class="nn">olive.cache</span> <span class="kn">import</span> <span class="n">normalize_data_path</span>
+<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ParamCategory</span><span class="p">,</span> <span class="n">validate_config</span>
+<span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">copy_dir</span><span class="p">,</span> <span class="n">retry_func</span>
+<span class="kn">from</span> <span class="nn">olive.data.config</span> <span class="kn">import</span> <span class="n">DataConfig</span>
+<span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">MetricResult</span>
+<span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span>
+<span class="kn">from</span> <span class="nn">olive.resource_path</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">AZUREML_RESOURCE_TYPES</span><span class="p">,</span>
+    <span class="n">LOCAL_RESOURCE_TYPES</span><span class="p">,</span>
+    <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span><span class="p">,</span>
+    <span class="n">AzureMLModel</span><span class="p">,</span>
+    <span class="n">ResourcePath</span><span class="p">,</span>
+    <span class="n">ResourceType</span><span class="p">,</span>
+    <span class="n">create_resource_path</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">AcceleratorConfig</span><span class="p">,</span> <span class="n">AzureMLDockerConfig</span><span class="p">,</span> <span class="n">AzureMLEnvironmentConfig</span><span class="p">,</span> <span class="n">SystemType</span>
+<span class="kn">from</span> <span class="nn">olive.systems.olive_system</span> <span class="kn">import</span> <span class="n">OliveSystem</span>
+<span class="kn">from</span> <span class="nn">olive.systems.system_config</span> <span class="kn">import</span> <span class="n">AzureMLTargetUserConfig</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">AcceleratorSpec</span>
+    <span class="kn">from</span> <span class="nn">olive.passes.olive_pass</span> <span class="kn">import</span> <span class="n">Pass</span>
+
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="n">RESOURCE_TYPE_TO_ASSET_TYPE</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">ResourceType</span><span class="o">.</span><span class="n">LocalFile</span><span class="p">:</span> <span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">,</span>
+    <span class="n">ResourceType</span><span class="o">.</span><span class="n">LocalFolder</span><span class="p">:</span> <span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FOLDER</span><span class="p">,</span>
+    <span class="n">ResourceType</span><span class="o">.</span><span class="n">StringName</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">ResourceType</span><span class="o">.</span><span class="n">AzureMLModel</span><span class="p">:</span> <span class="n">AssetTypes</span><span class="o">.</span><span class="n">CUSTOM_MODEL</span><span class="p">,</span>
+    <span class="n">ResourceType</span><span class="o">.</span><span class="n">AzureMLRegistryModel</span><span class="p">:</span> <span class="n">AssetTypes</span><span class="o">.</span><span class="n">CUSTOM_MODEL</span><span class="p">,</span>
+    <span class="n">ResourceType</span><span class="o">.</span><span class="n">AzureMLDatastore</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">ResourceType</span><span class="o">.</span><span class="n">AzureMLJobOutput</span><span class="p">:</span> <span class="n">AssetTypes</span><span class="o">.</span><span class="n">CUSTOM_MODEL</span><span class="p">,</span>
+<span class="p">}</span>
+
+
+<span class="k">class</span> <span class="nc">DataParams</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="n">data_inputs</span><span class="p">:</span> <span class="nb">dict</span>
+    <span class="n">data_args</span><span class="p">:</span> <span class="nb">dict</span>
+
+
+<span class="k">def</span> <span class="nf">get_asset_type_from_resource_path</span><span class="p">(</span><span class="n">resource_path</span><span class="p">:</span> <span class="n">ResourcePath</span><span class="p">):</span>
+    <span class="n">resource_path</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="n">resource_path</span><span class="p">)</span>  <span class="c1"># just in case</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">resource_path</span><span class="p">:</span>
+        <span class="c1"># this is a placeholder for optional input</span>
+        <span class="k">return</span> <span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span>
+
+    <span class="k">if</span> <span class="n">RESOURCE_TYPE_TO_ASSET_TYPE</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">resource_path</span><span class="o">.</span><span class="n">type</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">RESOURCE_TYPE_TO_ASSET_TYPE</span><span class="p">[</span><span class="n">resource_path</span><span class="o">.</span><span class="n">type</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">resource_path</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">ResourceType</span><span class="o">.</span><span class="n">AzureMLDatastore</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span> <span class="k">if</span> <span class="n">resource_path</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span> <span class="k">else</span> <span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FOLDER</span>
+
+    <span class="c1"># these won&#39;t be uploaded to azureml, so we use URI_FILE as a placeholder</span>
+    <span class="k">return</span> <span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span>
+
+
+<div class="viewcode-block" id="AzureMLSystem"><a class="viewcode-back" href="../../../../api/systems.html#olive.systems.azureml.AzureMLSystem">[docs]</a><span class="k">class</span> <span class="nc">AzureMLSystem</span><span class="p">(</span><span class="n">OliveSystem</span><span class="p">):</span>
+    <span class="n">system_type</span> <span class="o">=</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">AzureML</span>
+    <span class="n">olive_config</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">azureml_client_config</span><span class="p">:</span> <span class="n">AzureMLClientConfig</span><span class="p">,</span>
+        <span class="n">aml_compute</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">aml_docker_config</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">AzureMLDockerConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">aml_environment_config</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">AzureMLEnvironmentConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">tags</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">resources</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">instance_count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">is_dev</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">accelerators</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">AcceleratorConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">hf_token</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">accelerators</span><span class="p">,</span> <span class="n">hf_token</span><span class="o">=</span><span class="n">hf_token</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">AzureMLTargetUserConfig</span><span class="p">(</span><span class="o">**</span><span class="nb">locals</span><span class="p">(),</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">instance_count</span> <span class="o">=</span> <span class="n">instance_count</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tags</span> <span class="o">=</span> <span class="n">tags</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">resources</span> <span class="o">=</span> <span class="n">resources</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_dev</span> <span class="o">=</span> <span class="n">is_dev</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">compute</span> <span class="o">=</span> <span class="n">aml_compute</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">azureml_client_config</span><span class="p">,</span> <span class="n">AzureMLClientConfig</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">aml_docker_config</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">aml_environment_config</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;either aml_docker_config or aml_environment_config should be provided.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">environment</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">aml_environment_config</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">azure.core.exceptions</span> <span class="kn">import</span> <span class="n">ResourceNotFoundError</span>
+
+            <span class="n">aml_environment_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">aml_environment_config</span><span class="p">,</span> <span class="n">AzureMLEnvironmentConfig</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">environment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_enironment_from_config</span><span class="p">(</span><span class="n">aml_environment_config</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">ResourceNotFoundError</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">aml_docker_config</span><span class="p">:</span>
+                    <span class="k">raise</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">environment</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">aml_docker_config</span><span class="p">:</span>
+            <span class="n">aml_docker_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">aml_docker_config</span><span class="p">,</span> <span class="n">AzureMLDockerConfig</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">environment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_environment</span><span class="p">(</span><span class="n">aml_docker_config</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">env_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_hf_token_env</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">keyvault_name</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_token</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">temp_dirs</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span> <span class="nf">_get_hf_token_env</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyvault_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">keyvault_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;hf_token is set to True but keyvault name is not provided. &quot;</span>
+                <span class="s2">&quot;Please provide a keyvault name to use HF_TOKEN.&quot;</span>
+            <span class="p">)</span>
+        <span class="n">env_vars</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;HF_LOGIN&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
+        <span class="n">env_vars</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;KEYVAULT_NAME&quot;</span><span class="p">:</span> <span class="n">keyvault_name</span><span class="p">})</span>
+        <span class="k">return</span> <span class="n">env_vars</span>
+
+    <span class="k">def</span> <span class="nf">_get_enironment_from_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">aml_environment_config</span><span class="p">:</span> <span class="n">AzureMLEnvironmentConfig</span><span class="p">):</span>
+        <span class="n">ml_client</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">create_client</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">retry_func</span><span class="p">(</span>
+            <span class="n">ml_client</span><span class="o">.</span><span class="n">environments</span><span class="o">.</span><span class="n">get</span><span class="p">,</span>
+            <span class="p">[</span><span class="n">aml_environment_config</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">aml_environment_config</span><span class="o">.</span><span class="n">version</span><span class="p">,</span> <span class="n">aml_environment_config</span><span class="o">.</span><span class="n">label</span><span class="p">],</span>
+            <span class="n">max_tries</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">max_operation_retries</span><span class="p">,</span>
+            <span class="n">delay</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">operation_retry_interval</span><span class="p">,</span>
+            <span class="n">exceptions</span><span class="o">=</span><span class="n">ServiceResponseError</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_create_environment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">docker_config</span><span class="p">:</span> <span class="n">AzureMLDockerConfig</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">docker_config</span><span class="o">.</span><span class="n">build_context_path</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Environment</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">version</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">version</span><span class="p">,</span>
+                <span class="n">build</span><span class="o">=</span><span class="n">BuildContext</span><span class="p">(</span><span class="n">dockerfile_path</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">dockerfile</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">build_context_path</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">docker_config</span><span class="o">.</span><span class="n">base_image</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Environment</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">version</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">version</span><span class="p">,</span>
+                <span class="n">image</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">base_image</span><span class="p">,</span>
+                <span class="n">conda_file</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">conda_file_path</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Please specify DockerConfig.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_assert_not_none</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">obj</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">obj</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> is missing in the inputs!&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">run_pass</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">the_pass</span><span class="p">:</span> <span class="s2">&quot;Pass&quot;</span><span class="p">,</span>
+        <span class="n">model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
+        <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">point</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelConfig</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the pass on the model at a specific point in the search space.&quot;&quot;&quot;</span>
+        <span class="n">ml_client</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">create_client</span><span class="p">()</span>
+        <span class="n">point</span> <span class="o">=</span> <span class="n">point</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="n">the_pass</span><span class="o">.</span><span class="n">config_at_search_point</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
+        <span class="n">data_params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_data_script_inputs_and_args</span><span class="p">(</span><span class="n">data_root</span><span class="p">,</span> <span class="n">the_pass</span><span class="p">)</span>
+        <span class="n">pass_config</span> <span class="o">=</span> <span class="n">the_pass</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">pass_config</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">the_pass</span><span class="o">.</span><span class="n">serialize_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+
+        <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tempdir</span><span class="p">:</span>
+            <span class="n">pipeline_job</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_pipeline_for_pass</span><span class="p">(</span>
+                <span class="n">data_root</span><span class="p">,</span> <span class="n">tempdir</span><span class="p">,</span> <span class="n">model_config</span><span class="p">,</span> <span class="n">pass_config</span><span class="p">,</span> <span class="n">the_pass</span><span class="o">.</span><span class="n">path_params</span><span class="p">,</span> <span class="n">data_params</span>
+            <span class="p">)</span>
+
+            <span class="c1"># submit job</span>
+            <span class="n">named_outputs_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_job</span><span class="p">(</span>
+                <span class="n">ml_client</span><span class="p">,</span>
+                <span class="n">pipeline_job</span><span class="p">,</span>
+                <span class="s2">&quot;olive-pass&quot;</span><span class="p">,</span>
+                <span class="n">tempdir</span><span class="p">,</span>
+                <span class="n">tags</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;Pass&quot;</span><span class="p">:</span> <span class="n">pass_config</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]},</span>
+                <span class="n">output_name</span><span class="o">=</span><span class="s2">&quot;pipeline_output&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">pipeline_output_path</span> <span class="o">=</span> <span class="n">named_outputs_dir</span> <span class="o">/</span> <span class="s2">&quot;pipeline_output&quot;</span>
+
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_model</span><span class="p">(</span><span class="n">model_config</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">,</span> <span class="n">pipeline_output_path</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_create_model_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_resource_paths</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ResourcePath</span><span class="p">]):</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;model_config&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">)}</span>
+        <span class="c1"># loop through all the model resource paths</span>
+        <span class="c1"># create an input for each one using the resource type, with the name model_&lt;resource_name&gt;</span>
+        <span class="k">for</span> <span class="n">path_name</span><span class="p">,</span> <span class="n">resource_path</span> <span class="ow">in</span> <span class="n">model_resource_paths</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">inputs</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;model_</span><span class="si">{</span><span class="n">path_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">get_asset_type_from_resource_path</span><span class="p">(</span><span class="n">resource_path</span><span class="p">),</span> <span class="n">optional</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">inputs</span>
+
+    <span class="k">def</span> <span class="nf">_create_args_from_resource_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rp</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span><span class="p">):</span>
+        <span class="n">resource_path</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="n">rp</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">resource_path</span><span class="p">:</span>
+            <span class="c1"># no argument for this resource, placeholder for optional input</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">asset_type</span> <span class="o">=</span> <span class="n">get_asset_type_from_resource_path</span><span class="p">(</span><span class="n">resource_path</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">resource_path</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="n">AZUREML_RESOURCE_TYPES</span><span class="p">:</span>
+            <span class="c1"># ensure that the model is in the same workspace as the system</span>
+            <span class="n">model_workspace_config</span> <span class="o">=</span> <span class="n">resource_path</span><span class="o">.</span><span class="n">get_aml_client_config</span><span class="p">()</span><span class="o">.</span><span class="n">get_workspace_config</span><span class="p">()</span>
+            <span class="n">system_workspace_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">get_workspace_config</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">model_workspace_config</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">model_workspace_config</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">!=</span> <span class="n">system_workspace_config</span><span class="p">[</span><span class="n">key</span><span class="p">]:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Model workspace </span><span class="si">{</span><span class="n">model_workspace_config</span><span class="si">}</span><span class="s2"> is different from system workspace&quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">system_workspace_config</span><span class="si">}</span><span class="s2">. Olive will download the model to local storage, then upload it to&quot;</span>
+                        <span class="s2">&quot;the system workspace.&quot;</span>
+                    <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">resource_path</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">ResourceType</span><span class="o">.</span><span class="n">AzureMLJobOutput</span><span class="p">:</span>
+            <span class="c1"># there is no direct way to use the output of a job as input to another job</span>
+            <span class="c1"># so we create a dummy aml model and use it as input</span>
+            <span class="n">ml_client</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">create_client</span><span class="p">()</span>
+
+            <span class="c1"># create aml model</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Creating aml model for job output </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">resource_path</span><span class="p">)</span>
+            <span class="n">aml_model</span> <span class="o">=</span> <span class="n">retry_func</span><span class="p">(</span>
+                <span class="n">ml_client</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">create_or_update</span><span class="p">,</span>
+                <span class="p">[</span>
+                    <span class="n">Model</span><span class="p">(</span>
+                        <span class="n">path</span><span class="o">=</span><span class="n">resource_path</span><span class="o">.</span><span class="n">get_path</span><span class="p">(),</span>
+                        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;olive-backend-model&quot;</span><span class="p">,</span>
+                        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Model created by Olive backend. Ignore this model.&quot;</span><span class="p">,</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">CUSTOM_MODEL</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="p">],</span>
+                <span class="n">max_tries</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">max_operation_retries</span><span class="p">,</span>
+                <span class="n">delay</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">operation_retry_interval</span><span class="p">,</span>
+                <span class="n">exceptions</span><span class="o">=</span><span class="n">ServiceResponseError</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">resource_path</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span>
+                <span class="n">AzureMLModel</span><span class="p">(</span>
+                    <span class="p">{</span>
+                        <span class="s2">&quot;azureml_client&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="p">,</span>
+                        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">aml_model</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                        <span class="s2">&quot;version&quot;</span><span class="p">:</span> <span class="n">aml_model</span><span class="o">.</span><span class="n">version</span><span class="p">,</span>
+                    <span class="p">}</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="c1"># we keep the model path as a string in the config file</span>
+        <span class="k">if</span> <span class="n">resource_path</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="n">ResourceType</span><span class="o">.</span><span class="n">StringName</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">asset_type</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">resource_path</span><span class="o">.</span><span class="n">get_path</span><span class="p">())</span>
+
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">_create_model_args</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_json</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">model_resource_paths</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ResourcePath</span><span class="p">],</span> <span class="n">tmp_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">):</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="c1"># keep track of resource names in model_json that are uploaded/mounted</span>
+        <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;resource_names&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">resource_name</span><span class="p">,</span> <span class="n">resource_path</span> <span class="ow">in</span> <span class="n">model_resource_paths</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">arg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_args_from_resource_path</span><span class="p">(</span><span class="n">resource_path</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">arg</span><span class="p">:</span>
+                <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="n">resource_name</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;resource_names&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">resource_name</span><span class="p">)</span>
+            <span class="n">args</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;model_</span><span class="si">{</span><span class="n">resource_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">arg</span>
+
+        <span class="c1"># save the model json to a file</span>
+        <span class="n">model_config_path</span> <span class="o">=</span> <span class="n">tmp_dir</span> <span class="o">/</span> <span class="s2">&quot;model_config.json&quot;</span>
+        <span class="k">with</span> <span class="n">model_config_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">model_json</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="n">args</span><span class="p">[</span><span class="s2">&quot;model_config&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">model_config_path</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">args</span>
+
+    <span class="k">def</span> <span class="nf">_create_olive_config_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">olive_config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">olive_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">olive_config_path</span> <span class="o">=</span> <span class="n">tmp_dir</span> <span class="o">/</span> <span class="s2">&quot;olive_config.json&quot;</span>
+        <span class="k">with</span> <span class="n">olive_config_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">olive_config</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">olive_config_path</span>
+
+    <span class="k">def</span> <span class="nf">_create_pass_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pass_path_params</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">ParamCategory</span><span class="p">]]):</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;pass_config&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">)}</span>
+        <span class="k">for</span> <span class="n">param</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">pass_path_params</span><span class="p">:</span>
+            <span class="c1"># aml supports uploading file/folder even though this is typed as URI_FOLDER</span>
+            <span class="n">inputs</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;pass_</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FOLDER</span><span class="p">,</span> <span class="n">optional</span><span class="o">=</span><span class="ow">not</span> <span class="n">required</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">inputs</span>
+
+    <span class="k">def</span> <span class="nf">_create_pass_args</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">pass_config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">pass_path_params</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">ParamCategory</span><span class="p">]],</span> <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">:</span> <span class="n">Path</span>
+    <span class="p">):</span>
+        <span class="n">pass_args</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">param</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">category</span> <span class="ow">in</span> <span class="n">pass_path_params</span><span class="p">:</span>
+            <span class="n">param_val</span> <span class="o">=</span> <span class="n">pass_config</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">category</span> <span class="o">==</span> <span class="n">ParamCategory</span><span class="o">.</span><span class="n">DATA</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">param_val</span><span class="p">:</span>
+                    <span class="c1"># convert the dict to a resource path</span>
+                    <span class="n">param_val</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="n">param_val</span><span class="p">)</span>
+                <span class="n">param_val</span> <span class="o">=</span> <span class="n">normalize_data_path</span><span class="p">(</span><span class="n">data_root</span><span class="p">,</span> <span class="n">param_val</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">param_val</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">pass_args</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;pass_</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_args_from_resource_path</span><span class="p">(</span><span class="n">param_val</span><span class="p">)</span>
+            <span class="n">pass_config</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="n">pass_config_path</span> <span class="o">=</span> <span class="n">tmp_dir</span> <span class="o">/</span> <span class="s2">&quot;pass_config.json&quot;</span>
+        <span class="k">with</span> <span class="n">pass_config_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">pass_config</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;pass_config&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">pass_config_path</span><span class="p">),</span> <span class="o">**</span><span class="n">pass_args</span><span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">_create_step</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">,</span>
+        <span class="n">display_name</span><span class="p">,</span>
+        <span class="n">description</span><span class="p">,</span>
+        <span class="n">aml_environment</span><span class="p">,</span>
+        <span class="n">code</span><span class="p">,</span>
+        <span class="n">compute</span><span class="p">,</span>
+        <span class="n">resources</span><span class="p">,</span>
+        <span class="n">instance_count</span><span class="p">,</span>
+        <span class="n">inputs</span><span class="p">,</span>
+        <span class="n">outputs</span><span class="p">,</span>
+        <span class="n">script_name</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="c1"># create arguments for inputs and outputs</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="n">inputs</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">param</span><span class="p">,</span> <span class="n">job_input</span> <span class="ow">in</span> <span class="n">inputs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">job_input</span><span class="p">,</span> <span class="n">Input</span><span class="p">)</span> <span class="ow">and</span> <span class="n">job_input</span><span class="o">.</span><span class="n">optional</span><span class="p">:</span>
+                <span class="n">parameters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;$[[--</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="s2"> $</span><span class="se">{{{{</span><span class="s2">inputs.</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="se">}}}}</span><span class="s2">]]&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">parameters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;--</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="s2"> $</span><span class="se">{{{{</span><span class="s2">inputs.</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="se">}}}}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">outputs</span> <span class="o">=</span> <span class="n">outputs</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">parameters</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;--</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="s2"> $</span><span class="se">{{{{</span><span class="s2">outputs.</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="se">}}}}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">outputs</span><span class="p">])</span>
+
+        <span class="n">cmd_line</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;python </span><span class="si">{</span><span class="n">script_name</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">env_vars</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">env_vars</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">env_vars</span> <span class="k">else</span> <span class="p">{}</span>
+        <span class="n">env_vars</span><span class="p">[</span><span class="s2">&quot;OLIVE_LOG_LEVEL&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLevelName</span><span class="p">(</span><span class="n">logger</span><span class="o">.</span><span class="n">getEffectiveLevel</span><span class="p">())</span>
+
+        <span class="k">return</span> <span class="n">command</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">display_name</span><span class="o">=</span><span class="n">display_name</span><span class="p">,</span>
+            <span class="n">description</span><span class="o">=</span><span class="n">description</span><span class="p">,</span>
+            <span class="n">command</span><span class="o">=</span><span class="n">cmd_line</span><span class="p">,</span>
+            <span class="n">resources</span><span class="o">=</span><span class="n">resources</span><span class="p">,</span>
+            <span class="n">environment</span><span class="o">=</span><span class="n">aml_environment</span><span class="p">,</span>
+            <span class="n">environment_variables</span><span class="o">=</span><span class="n">env_vars</span><span class="p">,</span>
+            <span class="n">code</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">code</span><span class="p">),</span>
+            <span class="n">inputs</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span>
+            <span class="n">outputs</span><span class="o">=</span><span class="n">outputs</span><span class="p">,</span>
+            <span class="n">instance_count</span><span class="o">=</span><span class="n">instance_count</span><span class="p">,</span>
+            <span class="n">compute</span><span class="o">=</span><span class="n">compute</span><span class="p">,</span>
+            <span class="n">identity</span><span class="o">=</span><span class="n">UserIdentityConfiguration</span><span class="p">(),</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_create_pipeline_for_pass</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">tmp_dir</span><span class="p">,</span>
+        <span class="n">model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
+        <span class="n">pass_config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">pass_path_params</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">ParamCategory</span><span class="p">]],</span>
+        <span class="n">data_params</span><span class="p">:</span> <span class="n">DataParams</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="n">tmp_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tmp_dir</span><span class="p">)</span>
+
+        <span class="c1"># prepare code</span>
+        <span class="n">script_name</span> <span class="o">=</span> <span class="s2">&quot;aml_pass_runner.py&quot;</span>
+
+        <span class="n">cur_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span>
+        <span class="n">code_root</span> <span class="o">=</span> <span class="n">tmp_dir</span> <span class="o">/</span> <span class="s2">&quot;code&quot;</span>
+        <span class="n">code_files</span> <span class="o">=</span> <span class="p">[</span><span class="n">cur_dir</span> <span class="o">/</span> <span class="n">script_name</span><span class="p">]</span>
+
+        <span class="n">olive_config_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_olive_config_file</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">olive_config</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">olive_config_path</span><span class="p">:</span>
+            <span class="n">code_files</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">olive_config_path</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">copy_code</span><span class="p">(</span><span class="n">code_files</span><span class="p">,</span> <span class="n">code_root</span><span class="p">)</span>
+
+        <span class="n">accelerator_info</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;pass_accelerator_type&quot;</span><span class="p">:</span> <span class="n">pass_config</span><span class="p">[</span><span class="s2">&quot;accelerator&quot;</span><span class="p">][</span><span class="s2">&quot;accelerator_type&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;pass_execution_provider&quot;</span><span class="p">:</span> <span class="n">pass_config</span><span class="p">[</span><span class="s2">&quot;accelerator&quot;</span><span class="p">][</span><span class="s2">&quot;execution_provider&quot;</span><span class="p">],</span>
+        <span class="p">}</span>
+        <span class="c1"># prepare inputs</span>
+        <span class="n">model_resource_paths</span> <span class="o">=</span> <span class="n">model_config</span><span class="o">.</span><span class="n">get_resource_paths</span><span class="p">()</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_model_inputs</span><span class="p">(</span><span class="n">model_resource_paths</span><span class="p">),</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_pass_inputs</span><span class="p">(</span><span class="n">pass_path_params</span><span class="p">),</span>
+            <span class="o">**</span><span class="n">data_params</span><span class="o">.</span><span class="n">data_inputs</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">accelerator_info</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="c1"># prepare outputs</span>
+        <span class="n">outputs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;pipeline_output&quot;</span><span class="p">:</span> <span class="n">Output</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FOLDER</span><span class="p">)}</span>
+
+        <span class="c1"># pass type</span>
+        <span class="n">pass_type</span> <span class="o">=</span> <span class="n">pass_config</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span>
+
+        <span class="c1"># aml command object</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_step</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">pass_type</span><span class="p">,</span>
+            <span class="n">display_name</span><span class="o">=</span><span class="n">pass_type</span><span class="p">,</span>
+            <span class="n">description</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Run olive </span><span class="si">{</span><span class="n">pass_type</span><span class="si">}</span><span class="s2"> pass&quot;</span><span class="p">,</span>
+            <span class="n">aml_environment</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">environment</span><span class="p">,</span>
+            <span class="n">code</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">code_root</span><span class="p">),</span>
+            <span class="n">compute</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">compute</span><span class="p">,</span>
+            <span class="n">resources</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">resources</span><span class="p">,</span>
+            <span class="n">instance_count</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">instance_count</span><span class="p">,</span>
+            <span class="n">inputs</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span>
+            <span class="n">outputs</span><span class="o">=</span><span class="n">outputs</span><span class="p">,</span>
+            <span class="n">script_name</span><span class="o">=</span><span class="n">script_name</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># model json</span>
+        <span class="n">model_json</span> <span class="o">=</span> <span class="n">model_config</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># input argument values</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_model_args</span><span class="p">(</span><span class="n">model_json</span><span class="p">,</span> <span class="n">model_resource_paths</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">),</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_pass_args</span><span class="p">(</span><span class="n">pass_config</span><span class="p">,</span> <span class="n">pass_path_params</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">),</span>
+            <span class="o">**</span><span class="n">data_params</span><span class="o">.</span><span class="n">data_args</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">accelerator_info</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="nd">@pipeline</span><span class="p">()</span>
+        <span class="k">def</span> <span class="nf">pass_runner_pipeline</span><span class="p">():</span>
+            <span class="n">outputs</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">component</span> <span class="o">=</span> <span class="n">cmd</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">)</span>
+            <span class="n">outputs</span><span class="p">[</span><span class="s2">&quot;pipeline_output&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">component</span><span class="o">.</span><span class="n">outputs</span><span class="o">.</span><span class="n">pipeline_output</span>
+            <span class="k">return</span> <span class="n">outputs</span>
+
+        <span class="k">return</span> <span class="n">pass_runner_pipeline</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_create_data_script_inputs_and_args</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">the_pass</span><span class="p">:</span> <span class="s2">&quot;Pass&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataParams</span><span class="p">:</span>
+        <span class="n">data_inputs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">data_args</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">data_name_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+        <span class="k">def</span> <span class="nf">update_dicts</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">script_attr</span><span class="p">,</span> <span class="n">input_type</span><span class="p">):</span>
+            <span class="n">data_inputs</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">input_type</span><span class="p">,</span> <span class="n">optional</span><span class="o">=</span><span class="kc">True</span><span class="p">)})</span>
+            <span class="n">data_args</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">input_type</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">script_attr</span><span class="p">,</span> <span class="n">key</span><span class="p">))})</span>
+
+        <span class="k">def</span> <span class="nf">update_data_path</span><span class="p">(</span><span class="n">data_config</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">data_inputs</span><span class="p">,</span> <span class="n">data_args</span><span class="p">,</span> <span class="n">asset_type</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">data_config</span><span class="o">.</span><span class="n">params_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">):</span>
+                <span class="n">data_path_resource_path</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="n">data_config</span><span class="o">.</span><span class="n">params_config</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+                <span class="n">data_path_resource_path</span> <span class="o">=</span> <span class="n">normalize_data_path</span><span class="p">(</span><span class="n">data_root</span><span class="p">,</span> <span class="n">data_path_resource_path</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">data_path_resource_path</span><span class="p">:</span>
+                    <span class="n">data_path_resource_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_args_from_resource_path</span><span class="p">(</span><span class="n">data_path_resource_path</span><span class="p">)</span>
+                    <span class="n">data_inputs</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">data_config</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">asset_type</span><span class="p">,</span> <span class="n">optional</span><span class="o">=</span><span class="kc">True</span><span class="p">)})</span>
+                    <span class="n">data_args</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">data_config</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="n">data_path_resource_path</span><span class="p">})</span>
+
+        <span class="k">for</span> <span class="n">param</span><span class="p">,</span> <span class="n">param_config</span> <span class="ow">in</span> <span class="n">the_pass</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;data_config&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">param_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">data_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">param_config</span><span class="p">,</span> <span class="n">DataConfig</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">data_config</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">data_name_set</span><span class="p">:</span>
+                    <span class="n">data_name_set</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">data_config</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">data_config</span><span class="o">.</span><span class="n">user_script</span><span class="p">:</span>
+                        <span class="n">update_dicts</span><span class="p">(</span><span class="n">data_config</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;user_script&quot;</span><span class="p">,</span> <span class="n">data_config</span><span class="p">,</span> <span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">data_config</span><span class="o">.</span><span class="n">script_dir</span><span class="p">:</span>
+                        <span class="n">update_dicts</span><span class="p">(</span><span class="n">data_config</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;script_dir&quot;</span><span class="p">,</span> <span class="n">data_config</span><span class="p">,</span> <span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FOLDER</span><span class="p">)</span>
+                    <span class="n">update_data_path</span><span class="p">(</span><span class="n">data_config</span><span class="p">,</span> <span class="s2">&quot;data_dir&quot;</span><span class="p">,</span> <span class="n">data_inputs</span><span class="p">,</span> <span class="n">data_args</span><span class="p">,</span> <span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FOLDER</span><span class="p">)</span>
+                    <span class="n">update_data_path</span><span class="p">(</span><span class="n">data_config</span><span class="p">,</span> <span class="s2">&quot;data_files&quot;</span><span class="p">,</span> <span class="n">data_inputs</span><span class="p">,</span> <span class="n">data_args</span><span class="p">,</span> <span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">)</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Data inputs for pass: </span><span class="si">%s</span><span class="s2">, data args for pass: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">data_inputs</span><span class="p">,</span> <span class="n">data_args</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">DataParams</span><span class="p">(</span><span class="n">data_inputs</span><span class="p">,</span> <span class="n">data_args</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_run_job</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">ml_client</span><span class="p">,</span>
+        <span class="n">pipeline_job</span><span class="p">,</span>
+        <span class="n">experiment_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">tmp_dir</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
+        <span class="n">tags</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">output_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run a pipeline job and return the path to named-outputs.&quot;&quot;&quot;</span>
+        <span class="c1"># submit job</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Submitting pipeline&quot;</span><span class="p">)</span>
+        <span class="n">tags</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="p">,</span> <span class="o">**</span><span class="p">(</span><span class="n">tags</span> <span class="ow">or</span> <span class="p">{})}</span>
+        <span class="n">job</span> <span class="o">=</span> <span class="n">retry_func</span><span class="p">(</span>
+            <span class="n">ml_client</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">create_or_update</span><span class="p">,</span>
+            <span class="p">[</span><span class="n">pipeline_job</span><span class="p">],</span>
+            <span class="p">{</span><span class="s2">&quot;experiment_name&quot;</span><span class="p">:</span> <span class="n">experiment_name</span><span class="p">,</span> <span class="s2">&quot;tags&quot;</span><span class="p">:</span> <span class="n">tags</span><span class="p">},</span>
+            <span class="n">max_tries</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">max_operation_retries</span><span class="p">,</span>
+            <span class="n">delay</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">operation_retry_interval</span><span class="p">,</span>
+            <span class="n">exceptions</span><span class="o">=</span><span class="n">HttpResponseError</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Pipeline submitted. Job name: </span><span class="si">%s</span><span class="s2">. Job link: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">job</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">job</span><span class="o">.</span><span class="n">studio_url</span><span class="p">)</span>
+        <span class="n">ml_client</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">stream</span><span class="p">(</span><span class="n">job</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="c1"># get output</span>
+        <span class="n">output_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tmp_dir</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;pipeline_output&quot;</span>
+        <span class="n">output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># whether to download a single output or all outputs</span>
+        <span class="n">output_arg</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;download_path&quot;</span><span class="p">:</span> <span class="n">output_dir</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">output_name</span><span class="p">:</span>
+            <span class="n">output_arg</span><span class="p">[</span><span class="s2">&quot;output_name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_name</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">output_arg</span><span class="p">[</span><span class="s2">&quot;all&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Downloading pipeline output to </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">)</span>
+        <span class="n">retry_func</span><span class="p">(</span>
+            <span class="n">ml_client</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">download</span><span class="p">,</span>
+            <span class="p">[</span><span class="n">job</span><span class="o">.</span><span class="n">name</span><span class="p">],</span>
+            <span class="n">output_arg</span><span class="p">,</span>
+            <span class="n">max_tries</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">max_operation_retries</span><span class="p">,</span>
+            <span class="n">delay</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">operation_retry_interval</span><span class="p">,</span>
+            <span class="n">exceptions</span><span class="o">=</span><span class="n">ServiceResponseError</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;named-outputs&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">,</span> <span class="n">pipeline_output_path</span><span class="p">):</span>
+        <span class="n">model_json_path</span> <span class="o">=</span> <span class="n">pipeline_output_path</span> <span class="o">/</span> <span class="s2">&quot;output_model_config.json&quot;</span>
+        <span class="k">with</span> <span class="n">model_json_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">model_json</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+        <span class="c1"># set the resources that are the same as the input model</span>
+        <span class="n">same_resources_as_input</span> <span class="o">=</span> <span class="n">model_json</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;same_resources_as_input&quot;</span><span class="p">)</span>
+        <span class="n">input_resource_paths</span> <span class="o">=</span> <span class="n">input_model_config</span><span class="o">.</span><span class="n">get_resource_paths</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">resource_name</span> <span class="ow">in</span> <span class="n">same_resources_as_input</span><span class="p">:</span>
+            <span class="c1"># get the resource path from the input model</span>
+            <span class="c1"># do direct indexing to catch errors, should never happen</span>
+            <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="n">resource_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">input_resource_paths</span><span class="p">[</span><span class="n">resource_name</span><span class="p">]</span>
+        <span class="c1"># resolve resource names that are relative paths and save them to the output folder</span>
+        <span class="n">relative_resource_names</span> <span class="o">=</span> <span class="n">model_json</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;resource_names&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">resource_name</span> <span class="ow">in</span> <span class="n">relative_resource_names</span><span class="p">:</span>
+            <span class="n">resource_json</span> <span class="o">=</span> <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="n">resource_name</span><span class="p">]</span>
+            <span class="c1"># can only be local file or folder</span>
+            <span class="n">resource_type</span> <span class="o">=</span> <span class="n">resource_json</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span>
+            <span class="k">assert</span> <span class="n">resource_type</span> <span class="ow">in</span> <span class="n">LOCAL_RESOURCE_TYPES</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Expected local file or folder, got </span><span class="si">{</span><span class="n">resource_type</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="c1"># to be safe when downloading we will use the whole of output_model_path as a directory</span>
+            <span class="c1"># and create subfolders for each resource</span>
+            <span class="c1"># this is fine since the engine calls the system with a unique output_model_path which is a folder</span>
+            <span class="n">output_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_model_path</span><span class="p">)</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+            <span class="n">output_name</span> <span class="o">=</span> <span class="n">resource_name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;_path&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+            <span class="c1"># if the model is downloaded from job, we need to copy it to the output folder</span>
+            <span class="c1"># get the downloaded model path</span>
+            <span class="n">downloaded_path</span> <span class="o">=</span> <span class="n">pipeline_output_path</span> <span class="o">/</span> <span class="n">resource_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;path&quot;</span><span class="p">]</span>
+            <span class="c1"># create a resource path object for the downloaded path</span>
+            <span class="n">downloaded_resource_path</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">resource_json</span><span class="p">)</span>
+            <span class="n">downloaded_resource_path</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">downloaded_path</span><span class="p">)</span>
+            <span class="n">downloaded_resource_path</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="n">downloaded_resource_path</span><span class="p">)</span>
+            <span class="c1"># save the downloaded model to the output folder</span>
+            <span class="n">output_path</span> <span class="o">=</span> <span class="n">downloaded_resource_path</span><span class="o">.</span><span class="n">save_to_dir</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">output_name</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+            <span class="c1"># create a resource path object for the output model</span>
+            <span class="n">output_resource_path</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">resource_json</span><span class="p">)</span>
+            <span class="n">output_resource_path</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">output_path</span><span class="p">)</span>
+            <span class="n">output_resource_path</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="n">output_resource_path</span><span class="p">)</span>
+            <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="n">resource_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_resource_path</span>
+
+        <span class="k">return</span> <span class="n">ModelConfig</span><span class="p">(</span><span class="o">**</span><span class="n">model_json</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_create_metric_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;metric_config&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">),</span>
+            <span class="s2">&quot;metric_user_script&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">,</span> <span class="n">optional</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+            <span class="s2">&quot;metric_script_dir&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FOLDER</span><span class="p">,</span> <span class="n">optional</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+            <span class="s2">&quot;metric_data_dir&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FOLDER</span><span class="p">,</span> <span class="n">optional</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">_create_metric_args</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">metric_config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">dict</span><span class="p">]:</span>
+        <span class="n">metric_user_script</span> <span class="o">=</span> <span class="n">metric_config</span><span class="p">[</span><span class="s2">&quot;user_config&quot;</span><span class="p">][</span><span class="s2">&quot;user_script&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">metric_user_script</span><span class="p">:</span>
+            <span class="n">metric_user_script</span> <span class="o">=</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">metric_user_script</span><span class="p">)</span>
+            <span class="n">metric_config</span><span class="p">[</span><span class="s2">&quot;user_config&quot;</span><span class="p">][</span><span class="s2">&quot;user_script&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="n">metric_script_dir</span> <span class="o">=</span> <span class="n">metric_config</span><span class="p">[</span><span class="s2">&quot;user_config&quot;</span><span class="p">][</span><span class="s2">&quot;script_dir&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">metric_script_dir</span><span class="p">:</span>
+            <span class="n">metric_script_dir</span> <span class="o">=</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FOLDER</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">metric_script_dir</span><span class="p">)</span>
+            <span class="n">metric_config</span><span class="p">[</span><span class="s2">&quot;user_config&quot;</span><span class="p">][</span><span class="s2">&quot;script_dir&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="n">metric_data_dir</span> <span class="o">=</span> <span class="n">metric_config</span><span class="p">[</span><span class="s2">&quot;user_config&quot;</span><span class="p">][</span><span class="s2">&quot;data_dir&quot;</span><span class="p">]</span>
+        <span class="c1"># convert the dict to a resource path object</span>
+        <span class="n">metric_data_dir</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="n">metric_data_dir</span><span class="p">)</span>
+        <span class="n">metric_data_dir</span> <span class="o">=</span> <span class="n">normalize_data_path</span><span class="p">(</span><span class="n">data_root</span><span class="p">,</span> <span class="n">metric_data_dir</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">metric_data_dir</span><span class="p">:</span>
+            <span class="n">metric_data_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_args_from_resource_path</span><span class="p">(</span><span class="n">metric_data_dir</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">metric_data_dir</span><span class="p">:</span>
+                <span class="n">metric_config</span><span class="p">[</span><span class="s2">&quot;user_config&quot;</span><span class="p">][</span><span class="s2">&quot;data_dir&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="n">metric_config_path</span> <span class="o">=</span> <span class="n">tmp_dir</span> <span class="o">/</span> <span class="s2">&quot;metric_config.json&quot;</span>
+        <span class="k">with</span> <span class="n">metric_config_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">metric_config</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="n">metric_config</span> <span class="o">=</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">metric_config_path</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;metric_config&quot;</span><span class="p">:</span> <span class="n">metric_config</span><span class="p">,</span>
+            <span class="s2">&quot;metric_user_script&quot;</span><span class="p">:</span> <span class="n">metric_user_script</span><span class="p">,</span>
+            <span class="s2">&quot;metric_script_dir&quot;</span><span class="p">:</span> <span class="n">metric_script_dir</span><span class="p">,</span>
+            <span class="s2">&quot;metric_data_dir&quot;</span><span class="p">:</span> <span class="n">metric_data_dir</span><span class="p">,</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">evaluate_model</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span> <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span> <span class="n">accelerator</span><span class="p">:</span> <span class="s2">&quot;AcceleratorSpec&quot;</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">model_config</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;SNPEModel&quot;</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;SNPE model does not support azureml evaluation&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">model_config</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;OpenVINOModel&quot;</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;OpenVINO model does not support azureml evaluation&quot;</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tempdir</span><span class="p">:</span>
+            <span class="n">ml_client</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">create_client</span><span class="p">()</span>
+            <span class="n">pipeline_job</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_pipeline_for_evaluation</span><span class="p">(</span><span class="n">data_root</span><span class="p">,</span> <span class="n">tempdir</span><span class="p">,</span> <span class="n">model_config</span><span class="p">,</span> <span class="n">metrics</span><span class="p">,</span> <span class="n">accelerator</span><span class="p">)</span>
+
+            <span class="c1"># submit job</span>
+            <span class="n">named_outputs_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_job</span><span class="p">(</span><span class="n">ml_client</span><span class="p">,</span> <span class="n">pipeline_job</span><span class="p">,</span> <span class="s2">&quot;olive-evaluation&quot;</span><span class="p">,</span> <span class="n">tempdir</span><span class="p">)</span>
+
+            <span class="n">metric_results</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">:</span>
+                <span class="n">metric_json</span> <span class="o">=</span> <span class="n">named_outputs_dir</span> <span class="o">/</span> <span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="o">/</span> <span class="s2">&quot;metric_result.json&quot;</span>
+                <span class="k">if</span> <span class="n">metric_json</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+                    <span class="k">with</span> <span class="n">metric_json</span><span class="o">.</span><span class="n">open</span><span class="p">()</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                        <span class="n">metric_results</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">))</span>
+
+            <span class="k">return</span> <span class="n">MetricResult</span><span class="o">.</span><span class="n">parse_obj</span><span class="p">(</span><span class="n">metric_results</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_create_pipeline_for_evaluation</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">tmp_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
+        <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span>
+        <span class="n">accelerator</span><span class="p">:</span> <span class="s2">&quot;AcceleratorSpec&quot;</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="n">tmp_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tmp_dir</span><span class="p">)</span>
+
+        <span class="c1"># model json</span>
+        <span class="n">model_json</span> <span class="o">=</span> <span class="n">model_config</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">resource_paths</span> <span class="o">=</span> <span class="n">model_config</span><span class="o">.</span><span class="n">get_resource_paths</span><span class="p">()</span>
+        <span class="c1"># model args</span>
+        <span class="n">model_args</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_model_args</span><span class="p">(</span><span class="n">model_json</span><span class="p">,</span> <span class="n">resource_paths</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">)</span>
+
+        <span class="n">accelerator_config_path</span><span class="p">:</span> <span class="n">Path</span> <span class="o">=</span> <span class="n">tmp_dir</span> <span class="o">/</span> <span class="s2">&quot;accelerator.json&quot;</span>
+        <span class="k">with</span> <span class="n">accelerator_config_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">accelerator</span><span class="o">.</span><span class="n">to_json</span><span class="p">(),</span> <span class="n">f</span><span class="p">,</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="nd">@pipeline</span>
+        <span class="k">def</span> <span class="nf">evaluate_pipeline</span><span class="p">():</span>
+            <span class="n">outputs</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">:</span>
+                <span class="n">metric_tmp_dir</span> <span class="o">=</span> <span class="n">tmp_dir</span> <span class="o">/</span> <span class="n">metric</span><span class="o">.</span><span class="n">name</span>
+                <span class="n">metric_component</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_metric_component</span><span class="p">(</span>
+                    <span class="n">data_root</span><span class="p">,</span>
+                    <span class="n">metric_tmp_dir</span><span class="p">,</span>
+                    <span class="n">metric</span><span class="p">,</span>
+                    <span class="n">model_args</span><span class="p">,</span>
+                    <span class="n">resource_paths</span><span class="p">,</span>
+                    <span class="n">accelerator_config_path</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">outputs</span><span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">metric_component</span><span class="o">.</span><span class="n">outputs</span><span class="o">.</span><span class="n">pipeline_output</span>
+            <span class="k">return</span> <span class="n">outputs</span>
+
+        <span class="n">pipeline_job</span> <span class="o">=</span> <span class="n">evaluate_pipeline</span><span class="p">()</span>
+        <span class="n">pipeline_job</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">default_compute</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute</span>
+
+        <span class="k">return</span> <span class="n">pipeline_job</span>
+
+    <span class="k">def</span> <span class="nf">_create_metric_component</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">tmp_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+        <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
+        <span class="n">model_args</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Input</span><span class="p">],</span>
+        <span class="n">model_resource_paths</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ResourcePath</span><span class="p">],</span>
+        <span class="n">accelerator_config_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="n">metric_json</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># prepare code</span>
+        <span class="n">script_name</span> <span class="o">=</span> <span class="s2">&quot;aml_evaluation_runner.py&quot;</span>
+        <span class="n">tmp_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">cur_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span>
+        <span class="n">code_root</span> <span class="o">=</span> <span class="n">tmp_dir</span> <span class="o">/</span> <span class="s2">&quot;code&quot;</span>
+        <span class="n">code_files</span> <span class="o">=</span> <span class="p">[</span><span class="n">cur_dir</span> <span class="o">/</span> <span class="n">script_name</span><span class="p">]</span>
+
+        <span class="n">olive_config_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_olive_config_file</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">olive_config</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">olive_config_path</span><span class="p">:</span>
+            <span class="n">code_files</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">olive_config_path</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">copy_code</span><span class="p">(</span><span class="n">code_files</span><span class="p">,</span> <span class="n">code_root</span><span class="p">)</span>
+
+        <span class="c1"># prepare inputs</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_model_inputs</span><span class="p">(</span><span class="n">model_resource_paths</span><span class="p">),</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_metric_inputs</span><span class="p">(),</span>
+            <span class="s2">&quot;accelerator_config&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">),</span>
+        <span class="p">}</span>
+        <span class="c1"># prepare outputs</span>
+        <span class="n">outputs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;pipeline_output&quot;</span><span class="p">:</span> <span class="n">Output</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FOLDER</span><span class="p">)}</span>
+
+        <span class="c1"># metric type</span>
+        <span class="n">metric_type</span> <span class="o">=</span> <span class="n">metric_json</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">metric_json</span><span class="p">[</span><span class="s2">&quot;sub_types&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">sub_type_name</span> <span class="o">=</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">st</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">st</span> <span class="ow">in</span> <span class="n">metric_json</span><span class="p">[</span><span class="s2">&quot;sub_types&quot;</span><span class="p">]])</span>
+            <span class="n">metric_type</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">metric_type</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">sub_type_name</span><span class="si">}</span><span class="s2">&quot;</span>
+
+        <span class="c1"># aml command object</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_step</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">metric_type</span><span class="p">,</span>
+            <span class="n">display_name</span><span class="o">=</span><span class="n">metric_type</span><span class="p">,</span>
+            <span class="n">description</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Run olive </span><span class="si">{</span><span class="n">metric_type</span><span class="si">}</span><span class="s2"> evaluation&quot;</span><span class="p">,</span>
+            <span class="n">aml_environment</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">environment</span><span class="p">,</span>
+            <span class="n">code</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">code_root</span><span class="p">),</span>
+            <span class="n">compute</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">compute</span><span class="p">,</span>
+            <span class="n">resources</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">resources</span><span class="p">,</span>
+            <span class="n">instance_count</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">instance_count</span><span class="p">,</span>
+            <span class="n">inputs</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span>
+            <span class="n">outputs</span><span class="o">=</span><span class="n">outputs</span><span class="p">,</span>
+            <span class="n">script_name</span><span class="o">=</span><span class="n">script_name</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># input argument values</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="o">**</span><span class="n">model_args</span><span class="p">,</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_metric_args</span><span class="p">(</span><span class="n">data_root</span><span class="p">,</span> <span class="n">metric_json</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">),</span>
+            <span class="s2">&quot;accelerator_config&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">accelerator_config_path</span><span class="p">),</span>
+        <span class="p">}</span>
+
+        <span class="c1"># metric component</span>
+        <span class="k">return</span> <span class="n">cmd</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">copy_code</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">code_files</span><span class="p">:</span> <span class="n">List</span><span class="p">,</span> <span class="n">target_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">):</span>
+        <span class="n">target_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">code_file</span> <span class="ow">in</span> <span class="n">code_files</span><span class="p">:</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">copy2</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">code_file</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">target_path</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_dev</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;Dev mode is only enabled for CI pipeline! &quot;</span>
+                <span class="s2">&quot;It will overwrite the Olive package in AML computer with latest code.&quot;</span>
+            <span class="p">)</span>
+            <span class="n">cur_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span>
+            <span class="n">project_folder</span> <span class="o">=</span> <span class="n">cur_dir</span><span class="o">.</span><span class="n">parents</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">copy_dir</span><span class="p">(</span><span class="n">project_folder</span><span class="p">,</span> <span class="n">target_path</span> <span class="o">/</span> <span class="s2">&quot;olive&quot;</span><span class="p">,</span> <span class="n">ignore</span><span class="o">=</span><span class="n">shutil</span><span class="o">.</span><span class="n">ignore_patterns</span><span class="p">(</span><span class="s2">&quot;__pycache__&quot;</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temp_dirs</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;AzureML system cleanup temp dirs.&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">temp_dir</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">temp_dirs</span><span class="p">:</span>
+                <span class="n">temp_dir</span><span class="o">.</span><span class="n">cleanup</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">temp_dirs</span> <span class="o">=</span> <span class="p">[]</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, olivedevteam@microsoft.com.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ResourcePath &mdash; Olive  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
+      <link rel="stylesheet" type="text/css" href="../_static/tabs.css?v=a5c4661c" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/width.css?v=b55249da" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+        <script src="../_static/js/custom_version.js?v=3856a39b"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="OliveSystems" href="systems.html" />
+    <link rel="prev" title="OliveModels" href="models.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Olive
+          </a>
+              <div class="version">
+                0.5.1
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">OVERVIEW</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview/olive.html">Olive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/quicktour.html">Quick Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/options.html">Olive Options</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">GET STARTED</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getstarted/quickstart_examples.html">Quickstart Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/custom_scripts.html">Custom Scripts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/azureml_integration.html">Azure ML integration</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../extending_olive/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_systems.html">How To Configure System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_auto_optimizer.html">How To Configure Auto Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_pass.html">How To Configure Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_data.html">How To Configure Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_model_path.html">How To Set Model Path</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/advanced_users.html">Advanced User Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/azure_arc.html">Self-hosted Kubernetes cluster</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/azureml_scripts.html">Azure ML scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="models.html">OliveModels</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">ResourcePath</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#resourcetype">ResourceType</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#olive.resource_path.ResourceType"><code class="docutils literal notranslate"><span class="pre">ResourceType</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#olive.resource_path.ResourceType.AzureMLDatastore"><code class="docutils literal notranslate"><span class="pre">ResourceType.AzureMLDatastore</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#olive.resource_path.ResourceType.AzureMLJobOutput"><code class="docutils literal notranslate"><span class="pre">ResourceType.AzureMLJobOutput</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#olive.resource_path.ResourceType.AzureMLModel"><code class="docutils literal notranslate"><span class="pre">ResourceType.AzureMLModel</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#olive.resource_path.ResourceType.AzureMLRegistryModel"><code class="docutils literal notranslate"><span class="pre">ResourceType.AzureMLRegistryModel</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#olive.resource_path.ResourceType.LocalFile"><code class="docutils literal notranslate"><span class="pre">ResourceType.LocalFile</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#olive.resource_path.ResourceType.LocalFolder"><code class="docutils literal notranslate"><span class="pre">ResourceType.LocalFolder</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#olive.resource_path.ResourceType.StringName"><code class="docutils literal notranslate"><span class="pre">ResourceType.StringName</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#localfile">LocalFile</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#localfolder">LocalFolder</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#stringname">StringName</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#azuremlmodel">AzureMLModel</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#olive.azureml.azureml_client.AzureMLClientConfig"><code class="docutils literal notranslate"><span class="pre">AzureMLClientConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#azuremldatastore">AzureMLDatastore</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#azuremljoboutput">AzureMLJobOutput</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="systems.html">OliveSystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="evaluator.html">OliveEvaluator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="metric.html">Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="search-algorithms.html">SearchAlgorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="engine.html">Engine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="passes.html">Passes</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Olive</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">ResourcePath</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/resource_path.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="resourcepath">
+<span id="resource-path"></span><h1>ResourcePath<a class="headerlink" href="#resourcepath" title="Permalink to this heading">¶</a></h1>
+<p>The following are the resource paths available in Olive.</p>
+<section id="resourcetype">
+<h2>ResourceType<a class="headerlink" href="#resourcetype" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="olive.resource_path.ResourceType">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">olive.resource_path.</span></span><span class="sig-name descname"><span class="pre">ResourceType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/olive/resource_path.html#ResourceType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.resource_path.ResourceType" title="Permalink to this definition">¶</a></dt>
+<dd><p>An enumeration.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="olive.resource_path.ResourceType.AzureMLDatastore">
+<span class="sig-name descname"><span class="pre">AzureMLDatastore</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'azureml_datastore'</span></em><a class="headerlink" href="#olive.resource_path.ResourceType.AzureMLDatastore" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="olive.resource_path.ResourceType.AzureMLJobOutput">
+<span class="sig-name descname"><span class="pre">AzureMLJobOutput</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'azureml_job_output'</span></em><a class="headerlink" href="#olive.resource_path.ResourceType.AzureMLJobOutput" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="olive.resource_path.ResourceType.AzureMLModel">
+<span class="sig-name descname"><span class="pre">AzureMLModel</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'azureml_model'</span></em><a class="headerlink" href="#olive.resource_path.ResourceType.AzureMLModel" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="olive.resource_path.ResourceType.AzureMLRegistryModel">
+<span class="sig-name descname"><span class="pre">AzureMLRegistryModel</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'azureml_registry_model'</span></em><a class="headerlink" href="#olive.resource_path.ResourceType.AzureMLRegistryModel" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="olive.resource_path.ResourceType.LocalFile">
+<span class="sig-name descname"><span class="pre">LocalFile</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'file'</span></em><a class="headerlink" href="#olive.resource_path.ResourceType.LocalFile" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="olive.resource_path.ResourceType.LocalFolder">
+<span class="sig-name descname"><span class="pre">LocalFolder</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'folder'</span></em><a class="headerlink" href="#olive.resource_path.ResourceType.LocalFolder" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="olive.resource_path.ResourceType.StringName">
+<span class="sig-name descname"><span class="pre">StringName</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'string_name'</span></em><a class="headerlink" href="#olive.resource_path.ResourceType.StringName" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<p>Each resource path is followed by a description of the path and a list of the its configuration options.</p>
+<section id="localfile">
+<h3>LocalFile<a class="headerlink" href="#localfile" title="Permalink to this heading">¶</a></h3>
+<p>Local file resource path.</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-path">
+<span class="sig-name descname"><span class="pre">path</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-path" title="Permalink to this definition">¶</a></dt>
+<dd><p>Path to the resource.</p>
+<p><strong>type:</strong> pathlib.Path | str</p>
+<p><strong>required:</strong> True</p>
+</dd></dl>
+
+</section>
+<section id="localfolder">
+<h3>LocalFolder<a class="headerlink" href="#localfolder" title="Permalink to this heading">¶</a></h3>
+<p>Local folder resource path.</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-0">
+<span class="sig-name descname"><span class="pre">path</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-0" title="Permalink to this definition">¶</a></dt>
+<dd><p>Path to the resource.</p>
+<p><strong>type:</strong> pathlib.Path | str</p>
+<p><strong>required:</strong> True</p>
+</dd></dl>
+
+</section>
+<section id="stringname">
+<h3>StringName<a class="headerlink" href="#stringname" title="Permalink to this heading">¶</a></h3>
+<p>String name resource path.</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-name">
+<span class="sig-name descname"><span class="pre">name</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Name of the resource.</p>
+<p><strong>type:</strong> str</p>
+<p><strong>required:</strong> True</p>
+</dd></dl>
+
+</section>
+<section id="azuremlmodel">
+<h3>AzureMLModel<a class="headerlink" href="#azuremlmodel" title="Permalink to this heading">¶</a></h3>
+<p>AzureML Model resource path.</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-azureml_client">
+<span class="sig-name descname"><span class="pre">azureml_client</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-azureml_client" title="Permalink to this definition">¶</a></dt>
+<dd><p>AzureML client config.</p>
+<p><strong>type:</strong> olive.azureml.azureml_client.AzureMLClientConfig</p>
+<p><strong>required:</strong> True</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-1">
+<span class="sig-name descname"><span class="pre">name</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-1" title="Permalink to this definition">¶</a></dt>
+<dd><p>Name of the model.</p>
+<p><strong>type:</strong> str</p>
+<p><strong>required:</strong> True</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-version">
+<span class="sig-name descname"><span class="pre">version</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Version of the model.</p>
+<p><strong>type:</strong> int | str</p>
+<p><strong>required:</strong> True</p>
+</dd></dl>
+
+<p><strong>AzureMLClientConfig</strong></p>
+<dl class="py class pydantic_settings">
+<dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig">
+<em class="property"><span class="pre">pydantic</span> <span class="pre">settings</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">olive.azureml.azureml_client.</span></span><span class="sig-name descname"><span class="pre">AzureMLClientConfig</span></span><a class="reference internal" href="../_modules/olive/azureml/azureml_client.html#AzureMLClientConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.subscription_id">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">subscription_id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.subscription_id" title="Permalink to this definition">¶</a></dt>
+<dd><p>Azure subscription id. Required if aml_config_path is not provided.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.resource_group">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">resource_group</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.resource_group" title="Permalink to this definition">¶</a></dt>
+<dd><p>Azure resource group. Required if aml_config_path is not provided.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.workspace_name">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">workspace_name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.workspace_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Azure workspace name. Required if aml_config_path is not provided.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.aml_config_path">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">aml_config_path</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.aml_config_path" title="Permalink to this definition">¶</a></dt>
+<dd><p>Path to AzureML config file. If provided, other fields are ignored.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.read_timeout">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">read_timeout</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">60</span></em><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.read_timeout" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read timeout in seconds for HTTP requests.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.max_operation_retries">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">max_operation_retries</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">3</span></em><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.max_operation_retries" title="Permalink to this definition">¶</a></dt>
+<dd><p>Max number of retries for AzureML operations like resource creation or download.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.operation_retry_interval">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">operation_retry_interval</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">5</span></em><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.operation_retry_interval" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initial interval in seconds between retries for AzureML operations like resource creation or download. The interval doubles after each retry.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.default_auth_params">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">default_auth_params</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.default_auth_params" title="Permalink to this definition">¶</a></dt>
+<dd><p>Default auth config for AzureML client. Please refer to <a class="reference external" href="https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python#parameters">https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python#parameters</a> for more details.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.keyvault_name">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">keyvault_name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.keyvault_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Name of the keyvault to use. If provided, the keyvault will be used to retrieve secrets.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.get_workspace_config">
+<span class="sig-name descname"><span class="pre">get_workspace_config</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/olive/azureml/azureml_client.html#AzureMLClientConfig.get_workspace_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.get_workspace_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the workspace config as a dict.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.create_client">
+<span class="sig-name descname"><span class="pre">create_client</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/olive/azureml/azureml_client.html#AzureMLClientConfig.create_client"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.create_client" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create an MLClient instance.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.create_registry_client">
+<span class="sig-name descname"><span class="pre">create_registry_client</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">registry_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/olive/azureml/azureml_client.html#AzureMLClientConfig.create_registry_client"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.create_registry_client" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create an MLClient instance.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="azuremldatastore">
+<h3>AzureMLDatastore<a class="headerlink" href="#azuremldatastore" title="Permalink to this heading">¶</a></h3>
+<p>AzureML DataStore resource path.</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-2">
+<span class="sig-name descname"><span class="pre">azureml_client</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-2" title="Permalink to this definition">¶</a></dt>
+<dd><p>AzureML client config.</p>
+<p><strong>type:</strong> olive.azureml.azureml_client.AzureMLClientConfig</p>
+<p><strong>default_value:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-datastore_name">
+<span class="sig-name descname"><span class="pre">datastore_name</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-datastore_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Name of the datastore.</p>
+<p><strong>type:</strong> str</p>
+<p><strong>default_value:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-relative_path">
+<span class="sig-name descname"><span class="pre">relative_path</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-relative_path" title="Permalink to this definition">¶</a></dt>
+<dd><p>Relative path to the resource.</p>
+<p><strong>type:</strong> str</p>
+<p><strong>default_value:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-datastore_url">
+<span class="sig-name descname"><span class="pre">datastore_url</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-datastore_url" title="Permalink to this definition">¶</a></dt>
+<dd><p>URL of the datastore.</p>
+<p><strong>type:</strong> str</p>
+<p><strong>default_value:</strong> None</p>
+</dd></dl>
+
+</section>
+<section id="azuremljoboutput">
+<h3>AzureMLJobOutput<a class="headerlink" href="#azuremljoboutput" title="Permalink to this heading">¶</a></h3>
+<p>AzureML job output resource path.</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-3">
+<span class="sig-name descname"><span class="pre">azureml_client</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-3" title="Permalink to this definition">¶</a></dt>
+<dd><p>AzureML client config.</p>
+<p><strong>type:</strong> olive.azureml.azureml_client.AzureMLClientConfig</p>
+<p><strong>required:</strong> True</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-job_name">
+<span class="sig-name descname"><span class="pre">job_name</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-job_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Name of the job.</p>
+<p><strong>type:</strong> str</p>
+<p><strong>required:</strong> True</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-output_name">
+<span class="sig-name descname"><span class="pre">output_name</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-output_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Name of the output.</p>
+<p><strong>type:</strong> str</p>
+<p><strong>required:</strong> True</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-4">
+<span class="sig-name descname"><span class="pre">relative_path</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-4" title="Permalink to this definition">¶</a></dt>
+<dd><p>Relative path to the resource.</p>
+<p><strong>type:</strong> str</p>
+<p><strong>required:</strong> True</p>
+</dd></dl>
+
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="models.html" class="btn btn-neutral float-left" title="OliveModels" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="systems.html" class="btn btn-neutral float-right" title="OliveSystems" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, olivedevteam@microsoft.com.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
