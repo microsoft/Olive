@@ -242,14 +242,14 @@ def run(
         package_config = OlivePackageConfig.get_default_config_path()
 
     # we use parse_file and parse_obj to be safe. If implemented as expected, both should be equivalent.
-    logger.info("Loading Olive module configuration: %s", package_config)
     if isinstance(package_config, (str, Path)):
+        logger.info("Loading Olive module configuration from: %s", package_config)
         package_config = OlivePackageConfig.parse_file(package_config)
     else:
         package_config = OlivePackageConfig.parse_obj(package_config)
 
-    logger.info("Loading run configuration: %s", run_config)
     if isinstance(run_config, (str, Path)):
+        logger.info("Loading run configuration from: %s", run_config)
         run_config = RunConfig.parse_file(run_config)
     else:
         run_config = RunConfig.parse_obj(run_config)
