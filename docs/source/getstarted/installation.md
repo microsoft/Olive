@@ -62,5 +62,6 @@ pip install -e .
 ```
 
 ## Optional Dependencies
-Olive has optional dependencies that can be installed to enable additional features. Please refer to [extra dependencies](https://github.com/microsoft/Olive/blob/main/olive/extra_dependencies.json)
-for the list of extras and their dependencies.
+Olive has optional dependencies that can be installed to enable additional features. Please refer to
+[Olive package config](https://github.com/microsoft/Olive/blob/main/olive/olive_config.json) for the list of extras
+and their dependencies.

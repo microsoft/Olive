@@ -13,7 +13,7 @@ from olive.common.utils import get_attr
 from olive.data.template import huggingface_data_config_template
 from olive.model import PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.pytorch import TorchTRTConversion
+from olive.passes.pytorch.torch_trt_conversion import TorchTRTConversion
 
 # pylint: disable=abstract-method
 

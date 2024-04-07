@@ -78,7 +78,12 @@ def get_args(raw_args):
     parser.add_argument(
         "--optimum_optimization",
         action="store_true",
-        help="Run inference with optimized model",
+        help="Use optimum optimization",
+    )
+    parser.add_argument(
+        "--export_mlflow_format",
+        action="store_true",
+        help="Export the model in mlflow format.",
     )
     parser.add_argument(
         "--prompt",
@@ -172,6 +177,15 @@ def main(raw_args=None):
         if pass_name not in used_passes:
             del template_json["passes"][pass_name]
             continue
+
+    if args.export_mlflow_format:
+        template_json["engine"]["packaging_config"] = [
+            {
+                "type": "Zipfile",
+                "name": "mlflow_model",
+                "config": {"export_in_mlflow_format": True},
+            }
+        ]
 
     with open("phi2_optimize.json", "w") as f:
         json.dump(template_json, f, indent=4)

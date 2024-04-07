@@ -5,7 +5,7 @@
 from olive.data.template import huggingface_data_config_template
 from olive.model import PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.pytorch import SparseGPT
+from olive.passes.pytorch.sparsegpt import SparseGPT
 
 
 def test_sparsegpt(tmp_path):

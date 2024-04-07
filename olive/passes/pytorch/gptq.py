@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 from typing import Any, Callable, Dict, List, Union
 
 import torch
@@ -13,6 +14,8 @@ from olive.model import PyTorchModelHandler
 from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
+
+logger = logging.getLogger(__name__)
 
 
 class GptqQuantizer(Pass):
@@ -125,8 +128,13 @@ class GptqQuantizer(Pass):
 
         from olive.passes.pytorch.gptq_utils import QuantLinearORT
 
-        if self.accelerator_spec.accelerator_type != Device.GPU:
+        if not torch.cuda.is_available():
             raise ValueError("Please use GPU to run gptq quantization.")
+        elif self.host_device != Device.GPU:
+            logger.warning(
+                "GPTQ quantization requires GPU but the host device is %s, will ignore the host device",
+                self.host_device,
+            )
 
         dataset = None
         if config["dataloader_func"]:
@@ -195,7 +203,6 @@ class GptqQuantizer(Pass):
             auto_gptq.modeling._utils.dynamically_import_QuantLinear = original  # pylint: disable=protected-access
 
         quantized_model = quantized_model.model
-        assert self.accelerator_spec.accelerator_type == Device.GPU
 
         output_model_path = normalize_path_suffix(output_model_path, "model.pt")
         torch.save(quantized_model, output_model_path)

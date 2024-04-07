@@ -15,16 +15,19 @@ from sphinx.util.typing import stringify_annotation
 
 from olive.common.auto_config import AutoConfigClass
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
+from olive.package_config import OlivePackageConfig
 from olive.passes import Pass
 
 # pylint: skip-file
 
 
-def import_class(class_name: str):
-    module_name = ".".join(class_name.split(".")[:-1])
-    class_name = class_name.split(".")[-1]
-    module = import_module(module_name)
-    return getattr(module, class_name)
+def import_class(class_name: str, package_config: OlivePackageConfig):
+    module_path, module_name = class_name.rsplit(".", 1)
+    if module_name in package_config.passes:
+        return package_config.import_pass_module(module_name)
+
+    module = import_module(module_path)
+    return getattr(module, module_name)
 
 
 class AutoConfigDirective(Directive):
@@ -68,7 +71,8 @@ class AutoConfigDirective(Directive):
 
     def run(self):
         (class_name,) = self.arguments
-        auto_config_class = import_class(class_name)
+        package_config = OlivePackageConfig.load_default_config()
+        auto_config_class = import_class(class_name, package_config)
         assert issubclass(auto_config_class, AutoConfigClass) or issubclass(
             auto_config_class, Pass
         ), f"{class_name} is not a subclass of AutoConfigClass or Pass"

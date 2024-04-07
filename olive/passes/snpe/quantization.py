@@ -51,7 +51,6 @@ class SNPEQuantization(Pass):
             ),
             "data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
-                required=True,
                 description="Data config for quantization, required if dataloader_func is None",
             ),
             "use_enhanced_quantizer": PassConfigParam(

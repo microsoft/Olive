@@ -17,6 +17,7 @@ from olive.data.config import DataConfig
 from olive.hardware import AcceleratorSpec
 from olive.logging import set_verbosity_from_env
 from olive.model import ModelConfig
+from olive.package_config import OlivePackageConfig
 from olive.passes import REGISTRY as PASS_REGISTRY
 from olive.passes import FullPassConfig, Pass
 from olive.resource_path import create_resource_path
@@ -107,6 +108,10 @@ def main(raw_args=None):
     with open(pass_config_arg.pass_config) as f:
         pass_config = json.load(f)
     pass_type = pass_config["type"].lower()
+
+    # Import the pass package configuration from the package_config
+    package_config = OlivePackageConfig.load_default_config()
+    package_config.import_pass_module(pass_config["type"])
 
     if version.parse(ort_version) < version.parse("1.16.0"):
         # In onnxruntime, the following PRs will make the optimize_model save external data in the temporary folder

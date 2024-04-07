@@ -72,7 +72,7 @@ class OnnxConversion(Pass):
             "use_dynamo_exporter": PassConfigParam(
                 type_=bool, default_value=False, description="Whether to use dynamo_export API to export ONNX model."
             ),
-            "use_device": PassConfigParam(
+            "device": PassConfigParam(
                 type_=str,
                 description=(
                     "The device to use for conversion, e.g., 'cuda' or 'cpu'. If not specified, will use 'cpu' for"
@@ -114,14 +114,14 @@ class OnnxConversion(Pass):
     ) -> Union[CompositeModelHandler, DistributedOnnxModelHandler, ONNXModelHandler]:
         # get the device to use for conversion
         # default to "cpu" for PyTorchModelHandler and "cuda" for DistributedPyTorchModel
-        device = config["use_device"] or "cpu"
+        device = config["device"] or "cpu"
         # get the dtype to use for conversion
         torch_dtype = resolve_torch_dtype(config["torch_dtype"]) if config["torch_dtype"] else None
         if torch_dtype == torch.float16 and device == "cpu":
             raise ValueError("Conversion to float16 is not supported for CPU.")
 
         if isinstance(model, DistributedPyTorchModelHandler):
-            if not config["use_device"]:
+            if not config["device"]:
                 device = "cuda"
             return self._convert_distributed_model_on_device(
                 model, data_root, config, output_model_path, device, torch_dtype
@@ -342,7 +342,7 @@ class OnnxConversion(Pass):
             logger.warning(
                 "Loading model on CPU, but the model loading args specify dtype float16 which is not supported  for"
                 " conversion on CPU. The dtype is changed to float32. If float16 model is desired, please specify"
-                " use_device as 'cuda' or use OrtTransformerOptimization/OnnxFloatToFloat16 pass after conversion to"
+                " device as 'cuda' or use OrtTransformerOptimization/OnnxFloatToFloat16 pass after conversion to"
                 " convert the model to float16."
             )
             new_from_pretrained_args["torch_dtype"] = torch.float32
