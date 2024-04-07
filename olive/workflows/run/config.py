@@ -10,6 +10,7 @@ from olive.auto_optimizer import AutoOptimizerConfig
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.pydantic_v1 import validator
+from olive.common.utils import exclude_keys
 from olive.data.config import DataConfig
 from olive.data.container.huggingface_container import HuggingfaceContainer
 from olive.engine import Engine, EngineConfig
@@ -53,8 +54,7 @@ class RunEngineConfig(EngineConfig):
             "ort_py_log_severity_level",
             "log_to_file",
         ]
-        for key in to_del:
-            del config[key]
+        config = exclude_keys(config, to_del)
         return Engine(config)
 
 
