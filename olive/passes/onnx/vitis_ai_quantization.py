@@ -11,7 +11,7 @@ from typing import Any, Callable, Dict, Union
 import onnx
 
 from olive.cache import get_local_path_from_root
-from olive.common.utils import hash_string
+from olive.common.utils import exclude_keys, hash_string
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
@@ -326,9 +326,7 @@ class VitisAIQuantization(Pass):
         )
 
         # remove keys not needed for quantization
-        for key in to_delete:
-            if key in run_config:
-                del run_config[key]
+        run_config = exclude_keys(run_config, to_delete)
 
         # to be safe, run the quantizer with use_external_data_format set to `True` and
         # `model_output` to a temporary directory

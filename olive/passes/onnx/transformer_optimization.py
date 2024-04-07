@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Union
 
 import onnx
 
+from olive.common.utils import exclude_keys
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModelHandler
 from olive.model.utils import HIDDEN_SIZE_NAMES, MODEL_TYPE_MAPPING, NUM_HEADS_NAMES, resolve_onnx_path
@@ -220,8 +221,7 @@ class OrtTransformersOptimization(Pass):
             "input_int32",
         ]
         keys_to_remove += get_external_data_config()
-        for key in keys_to_remove:
-            del run_config[key]
+        run_config = exclude_keys(run_config, keys_to_remove)
 
         if model.model_attributes:
             model_attributes = model.model_attributes

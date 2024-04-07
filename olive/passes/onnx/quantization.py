@@ -15,7 +15,7 @@ from packaging import version
 from olive.cache import get_local_path_from_root
 from olive.common.config_utils import validate_config
 from olive.common.pydantic_v1 import validator
-from olive.common.utils import hash_string
+from olive.common.utils import exclude_keys, hash_string
 from olive.data.config import DataConfig
 from olive.exception import OlivePassError
 from olive.hardware.accelerator import AcceleratorSpec
@@ -423,9 +423,7 @@ class OnnxQuantization(Pass):
             )
 
         # remove keys not needed for quantization
-        for key in to_delete:
-            if key in run_config:
-                del run_config[key]
+        run_config = exclude_keys(run_config, to_delete)
 
         # for ORT version < 1.16.0, set optimize_model to False
         # always set it to False since it is not recommended and is removed in ORT 1.16.0
@@ -463,9 +461,7 @@ class OnnxQuantization(Pass):
                 # remove the calibration_data_reader from run_config
                 run_config.pop("calibration_data_reader", None)
 
-            for key in ("calibration_data_reader", "use_external_data_format"):
-                if key in run_config:
-                    del run_config[key]
+            run_config = exclude_keys(run_config, ("calibration_data_reader", "use_external_data_format"))
             try:
                 quantize_static(
                     model_input=model.model_path,

@@ -13,6 +13,7 @@ from packaging import version
 
 from olive.cache import get_local_path_from_root
 from olive.common.config_utils import validate_config
+from olive.common.utils import exclude_keys
 from olive.data.config import DataConfig
 from olive.evaluator.metric import Metric, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
@@ -534,9 +535,7 @@ class IncQuantization(Pass):
             "weight_only_config",
         ]
         to_delete += list(get_external_data_config().keys())
-        for key in to_delete:
-            if key in run_config:
-                del run_config[key]
+        run_config = exclude_keys(run_config, to_delete)
 
         run_config["op_type_dict"] = (
             run_config["op_type_dict"] or {".*": {"weight": weight_only_config}}

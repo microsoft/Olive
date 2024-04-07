@@ -15,6 +15,7 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
+from typing import Dict
 
 logger = logging.getLogger(__name__)
 
@@ -341,3 +342,7 @@ def set_tempdir(tempdir: str = None):
     # setting as string to be safe
     logger.debug("Setting tempdir to %s from %s", tempdir, tempfile.tempdir)
     tempfile.tempdir = str(tempdir)
+
+
+def exclude_keys(original_dict: Dict, keys_to_exclude):
+    return {k: v for k, v in original_dict.items() if k not in keys_to_exclude}

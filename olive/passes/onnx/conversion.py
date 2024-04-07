@@ -15,7 +15,7 @@ import torch
 from packaging import version
 
 from olive.common.config_utils import validate_config
-from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device
+from olive.common.utils import exclude_keys, find_submodules, resolve_torch_dtype, tensor_data_to_device
 from olive.hardware import AcceleratorSpec
 from olive.model import (
     CompositeModelHandler,
@@ -254,8 +254,7 @@ class OnnxConversion(Pass):
         else:
             # Standard ONNX export
             if isinstance(dummy_inputs, dict):
-                for key in unused_keys:
-                    del dummy_inputs[key]
+                dummy_inputs = exclude_keys(dummy_inputs, unused_keys)
 
             output_names = io_config.output_names
             dynamic_axes = io_config.dynamic_axes
