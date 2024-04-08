@@ -1,10 +1,13 @@
 from test.unit_test.utils import get_onnx_model
 from unittest.mock import ANY, MagicMock, patch
 
+import numpy as np
+import onnx
 import pytest
 
 from olive.exception import OliveEvaluationError
 from olive.hardware.accelerator import Device
+from olive.model import ONNXModelHandler
 
 
 @patch("onnxruntime.InferenceSession")
@@ -260,4 +263,68 @@ def test_distributed_rank_prepare_session(get_available_providers_mock, inferenc
     _ = model.prepare_session(None, Device.GPU, execution_providers, rank=1)
     inference_session_mock.assert_called_once_with(
         model.model_path, sess_options=ANY, providers=execution_providers, provider_options=provider_options
+    )
+
+
+@patch("onnxruntime.InferenceSession")
+@patch("onnxruntime.get_available_providers")
+@patch("onnxruntime.SessionOptions")
+@patch("onnxruntime.OrtValue")
+def test_model_prepare_session_with_external_initializers(
+    ort_value_mock, session_options_mock, get_available_providers_mock, inference_session_mock, tmp_path
+):
+    # eps
+    eps = ["CPUExecutionProvider"]
+
+    # model
+    model_proto = get_onnx_model().load_model()
+    external_initializers = {}
+    for initializer in model_proto.graph.initializer:
+        external_initializers[initializer.name] = onnx.numpy_helper.to_array(initializer)
+
+    # save model with external data
+    onnx_file_name = "model.onnx"
+    onnx.save(model_proto, tmp_path / onnx_file_name, save_as_external_data=True, location="model.onnx.data")
+
+    # external initializers
+    external_initializers_name = "external_initializers.npz"
+    np.savez(tmp_path / external_initializers_name, **external_initializers)
+
+    # create model
+    olive_model = ONNXModelHandler(
+        tmp_path, onnx_file_name=onnx_file_name, external_initializers_name=external_initializers_name
+    )
+
+    # mock
+    get_available_providers_mock.return_value = eps
+
+    # mock session options object so that we can check its method calls
+    session_options = MagicMock()
+    session_options_mock.return_value = session_options
+
+    # mock ort value object so that we can check it was passed to add_external_initializers
+    ort_value = MagicMock()
+    ort_value_mock.ortvalue_from_numpy.return_value = ort_value
+
+    # mock inference session object so that we can override the providers
+    session = MagicMock()
+    session.get_providers.return_value = eps
+    inference_session_mock.return_value = session
+
+    # test
+    _ = olive_model.prepare_session(None, Device.CPU, eps, rank=1)
+
+    # assert
+    # check that the external initializers were added to the session options
+    session_options.add_external_initializers.assert_called_once_with(
+        list(external_initializers.keys()), [ort_value] * len(external_initializers)
+    )
+    # check that the correct external initializers were passed to the ortvalue_from_numpy method
+    for actual_weight, expected_weight in zip(
+        ort_value_mock.ortvalue_from_numpy.call_args_list, external_initializers.values()
+    ):
+        np.testing.assert_array_equal(actual_weight[0][0], expected_weight)
+    # check that the session was created with the correct parameters
+    inference_session_mock.assert_called_once_with(
+        olive_model.model_path, sess_options=session_options, providers=eps, provider_options=[{}]
     )
