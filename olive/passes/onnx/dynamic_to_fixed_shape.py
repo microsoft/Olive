@@ -66,10 +66,11 @@ class DynamicToFixedShape(Pass):
         data_root: str,
         config: Dict[str, Any],
         output_model_path: str,
+        enable_fast_mode: bool = False,
     ) -> ONNXModelHandler:
         from onnxruntime.tools.onnx_model_utils import fix_output_shapes, make_dim_param_fixed, make_input_shape_fixed
 
-        onnx_model = model.load_model()
+        onnx_model = model.load_model(enable_fast_mode=enable_fast_mode)
         output_model_path = resolve_onnx_path(output_model_path)
 
         if config["dim_param"]:
@@ -80,7 +81,7 @@ class DynamicToFixedShape(Pass):
                 make_input_shape_fixed(onnx_model.graph, name, shape)
         # update the output shapes to make them fixed
         fix_output_shapes(onnx_model)
-        return model_proto_to_olive_model(onnx_model, output_model_path, config)
+        return model_proto_to_olive_model(onnx_model, output_model_path, config, enable_fast_mode=enable_fast_mode)
 
 
 def _jointly_validate_configs(cls, values):

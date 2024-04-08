@@ -51,6 +51,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
         self,
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         model_file_format: ModelFileFormat = ModelFileFormat.PYTORCH_ENTIRE_MODEL,
+        model: Optional[torch.nn.Module] = None,
         model_loader: Union[str, Callable] = None,
         model_script: Union[str, Path] = None,
         script_dir: Union[str, Path] = None,
@@ -71,10 +72,10 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
             )
 
         self.model_loader = model_loader
-        self.model = None
         super().__init__(
             framework=Framework.PYTORCH,
             model_file_format=model_file_format,
+            model=model,
             model_path=model_path,
             model_attributes=model_attributes,
         )
@@ -122,7 +123,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
     def adapter_path(self) -> str:
         return self.get_resource("adapter_path")
 
-    def load_model(self, rank: int = None) -> torch.nn.Module:
+    def load_model(self, rank: int = None, enable_fast_mode: bool = False) -> torch.nn.Module:
         if self.model is not None:
             return self.model
 
@@ -154,6 +155,9 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
         self.model = model
 
         return model
+
+    def save_model_to_path(self, save_path: Union[str, Path], model_name: Optional[str] = None):
+        raise NotImplementedError
 
     def get_component_model(self, component: HfComponent, rank: Optional[int] = None) -> "PyTorchModelHandler":
         if component.component_func is None:
@@ -342,7 +346,7 @@ class DistributedPyTorchModelHandler(OliveModelHandler, HfConfigMixin):
     def ranked_model_path(self, rank: int) -> Union[Path, str]:
         return Path(self.model_path) / self.ranked_model_name(rank)
 
-    def load_model(self, rank: int = None) -> PyTorchModelHandler:
+    def load_model(self, rank: int = None, enable_fast_mode: bool = False) -> PyTorchModelHandler:
         return PyTorchModelHandler(
             model_path=self.ranked_model_path(rank),
             model_file_format=ModelFileFormat.PYTORCH_ENTIRE_MODEL,

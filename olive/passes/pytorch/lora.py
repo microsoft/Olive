@@ -787,7 +787,12 @@ class LoRA(LoRABase):
         return config
 
     def _run_for_config(
-        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self,
+        model: PyTorchModelHandler,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+        enable_fast_mode: bool = False,
     ) -> PyTorchModelHandler:
         # convert config to pass config class
         # this will validate the config and convert to the correct types
@@ -843,7 +848,12 @@ class QLoRABase(LoRABase):
         return config
 
     def _run_for_config(
-        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self,
+        model: PyTorchModelHandler,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+        enable_fast_mode: bool = False,
     ) -> PyTorchModelHandler:
         # convert config to pass config class
         # this will validate the config and convert to the correct types

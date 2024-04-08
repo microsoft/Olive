@@ -11,12 +11,13 @@ from typing import Any, Callable, Dict, Union
 import onnx
 
 from olive.cache import get_local_path_from_root
+from olive.common.onnx_utils import model_proto_to_file
 from olive.common.utils import exclude_keys, hash_string
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_config, model_proto_to_file, model_proto_to_olive_model
+from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import ParamCategory, PassConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, LocalFile
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional
@@ -259,7 +260,12 @@ class VitisAIQuantization(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self,
+        model: ONNXModelHandler,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+        enable_fast_mode: bool = False,
     ) -> ONNXModelHandler:
         from onnxruntime.quantization.quant_utils import QuantFormat, QuantType
 
@@ -269,7 +275,8 @@ class VitisAIQuantization(Pass):
         # start with a copy of the config
         run_config = deepcopy(config)
 
-        output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
+        if model.model_path:
+            output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
         # extra config
         extra_options = deepcopy(config["extra_options"]) if config["extra_options"] else {}
@@ -289,17 +296,19 @@ class VitisAIQuantization(Pass):
         # we hash the entire path of the input model to ensure we are not accidentally using a preprocessed model
         # from a different model
         preprocessed_temp_model_path = (
-            Path(self.tmp_dir.name) / f"{hash_string(str(Path(model.model_path).resolve()))}" / "preprocessed.onnx"
+            (Path(self.tmp_dir.name) / f"{hash_string(str(Path(model.model_path).resolve()))}" / "preprocessed.onnx")
+            if model.model_path
+            else Path(self.tmp_dir.name) / "preprocessed.onnx"
         )
         preprocessed_temp_model_path.parent.mkdir(exist_ok=True, parents=True)
         if run_config["quant_preprocess"]:
             if not preprocessed_temp_model_path.exists():
                 # overwrite the model path with the preprocessed model path
                 logger.info("Preprocessing model for quantization")
-                model = self._quant_preprocess(model, preprocessed_temp_model_path)
+                model = self._quant_preprocess(model, preprocessed_temp_model_path, enable_fast_mode)
             else:
                 logger.info("Already processed model for quantization, skipping preprocessing")
-                model = ONNXModelHandler(LocalFile({"path": preprocessed_temp_model_path}))
+                model = ONNXModelHandler(model_path=LocalFile({"path": preprocessed_temp_model_path}))
 
         # keys not needed for quantization
         to_delete = [
@@ -352,8 +361,9 @@ class VitisAIQuantization(Pass):
 
         execution_provider = self.accelerator_spec.execution_provider
 
+        model_input = model.model if enable_fast_mode and model.model else model.model_path
         quantize_static(
-            model_input=model.model_path,
+            model_input=model_input,
             model_output=tmp_model_path,
             calibration_data_reader=dataloader,
             execution_providers=[execution_provider],
@@ -365,14 +375,17 @@ class VitisAIQuantization(Pass):
         tmp_dir.cleanup()
 
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(onnx_model, output_model_path, config)
+        return model_proto_to_olive_model(onnx_model, output_model_path, config, enable_fast_mode=enable_fast_mode)
 
-    def _quant_preprocess(self, model: ONNXModelHandler, output_model_path: str) -> ONNXModelHandler:
+    def _quant_preprocess(
+        self, model: ONNXModelHandler, output_model_path: str, enable_fast_mode: bool
+    ) -> ONNXModelHandler:
         from onnxruntime.quantization.preprocess import quant_pre_process
 
         try:
+            model_input = model.model if enable_fast_mode and model.model else model.model_path
             quant_pre_process(
-                input_model_path=model.model_path,
+                input_model=model_input,
                 output_model_path=str(output_model_path),
                 auto_merge=True,
                 save_as_external_data=True,
@@ -385,12 +398,11 @@ class VitisAIQuantization(Pass):
 
             logger.warning("Failed to run quantization preprocessing with error of %s. Using original model.", e)
             # save original model to output path
-            onnx_model = onnx.load(model.model_path)
             model_proto_to_file(
-                onnx_model,
+                model.load_model(enable_fast_mode=enable_fast_mode),
                 output_model_path,
                 save_as_external_data=True,  # always save as external data to avoid failures due to large models
             )
 
         # since this is only used internally, we will just treat it as a model file
-        return ONNXModelHandler(LocalFile({"path": output_model_path}))
+        return ONNXModelHandler(model_path=LocalFile({"path": output_model_path}))

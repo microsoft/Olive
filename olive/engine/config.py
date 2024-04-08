@@ -26,6 +26,7 @@ class EngineConfig(ConfigBase, extra=Extra.forbid):
     host: SystemConfig = None
     target: SystemConfig = None
     evaluator: OliveEvaluatorConfig = None
+    enable_fast_mode: bool = False
     azureml_client_config: Optional[AzureMLClientConfig] = None
     packaging_config: PackagingConfig = None
     cache_dir: Union[Path, str] = ".olive-cache"

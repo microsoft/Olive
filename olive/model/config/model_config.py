@@ -2,6 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from typing import Any
+
 from olive.common.config_utils import ConfigBase
 from olive.common.pydantic_v1 import validator
 from olive.model.config.registry import get_model_handler, is_valid_model_type
@@ -88,6 +90,8 @@ class ModelConfig(ConfigBase):
 
     type: str
     config: dict
+    # For enable_fast_mode only. Otherwise, it will be None.
+    loaded_model: Any = None
 
     @validator("type")
     def validate_type(cls, v):
@@ -107,3 +111,7 @@ class ModelConfig(ConfigBase):
     def create_model(self):
         cls = get_model_handler(self.type)
         return cls(**self.config)
+
+    def to_json(self, check_object: bool = False) -> dict:
+        self.loaded_model = None
+        return super().to_json(check_object)

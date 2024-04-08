@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from olive.common.config_utils import serialize_to_json
@@ -39,7 +40,10 @@ class SNPEModelHandler(OliveModelHandler):
             "output_shapes": output_shapes,
         }
 
-    def load_model(self, rank: int = None):
+    def load_model(self, rank: int = None, enable_fast_mode: bool = False):
+        raise NotImplementedError
+
+    def save_model_to_path(self, save_path: Union[str, Path], model_name: Optional[str] = None):
         raise NotImplementedError
 
     def prepare_session(

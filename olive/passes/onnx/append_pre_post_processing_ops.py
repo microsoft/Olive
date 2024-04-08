@@ -81,7 +81,12 @@ class AppendPrePostProcessingOps(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self,
+        model: ONNXModelHandler,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+        enable_fast_mode: bool = False,
     ) -> ONNXModelHandler:
         from onnxruntime import __version__ as OrtVersion
 
@@ -100,7 +105,7 @@ class AppendPrePostProcessingOps(Pass):
 
                 tool_command_args = config.get("tool_command_args") or {}
                 onnx_model = add_pre_post_processing_to_model(
-                    model.load_model(), config["target_opset"], **tool_command_args
+                    model.load_model(enable_fast_mode=enable_fast_mode), config["target_opset"], **tool_command_args
                 )
             else:
                 # Use the pre-defined helper to add pre/post processing to model.
@@ -136,14 +141,16 @@ class AppendPrePostProcessingOps(Pass):
                     onnx_model = onnx.load(tmp_model_path)
         else:
             # Handle args pre and post
-            new_model_proto = self._run_prepost_pipeline(model, config)
+            new_model_proto = self._run_prepost_pipeline(model, config, enable_fast_mode)
             onnx_model = new_model_proto
 
-        olive_model = model_proto_to_olive_model(onnx_model, output_model_path, config)
+        olive_model = model_proto_to_olive_model(
+            onnx_model, output_model_path, config, enable_fast_mode=enable_fast_mode
+        )
         olive_model.use_ort_extensions = True
         return olive_model
 
-    def _run_prepost_pipeline(self, model: ONNXModelHandler, config: Dict[str, Any]):
+    def _run_prepost_pipeline(self, model: ONNXModelHandler, config: Dict[str, Any], enable_fast_mode: bool):
         from onnxruntime_extensions.tools.pre_post_processing import PrePostProcessor
 
         from olive.passes.onnx.pipeline.step_utils import create_named_value, parse_steps
@@ -151,7 +158,7 @@ class AppendPrePostProcessingOps(Pass):
         # Initialize pre/post step instance list
         pre_steps = []
         pre = config.get("pre")
-        model_proto = model.load_model()
+        model_proto = model.load_model(enable_fast_mode=enable_fast_mode)
         if pre:
             steps = parse_steps(model_proto, pre)
             pre_steps = [self.create_step_from_config(step_name, step_param) for step_name, step_param in steps]

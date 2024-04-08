@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from copy import deepcopy
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from olive.common.config_utils import serialize_to_json, validate_config
@@ -66,7 +67,10 @@ class CompositeModelHandler(OliveModelHandler):
     def get_model_components(self) -> List[Tuple[str, OliveModelHandler]]:
         return zip(self.model_component_names, self.model_components)
 
-    def load_model(self, rank: int = None):
+    def load_model(self, rank: int = None, enable_fast_mode: bool = False):
+        raise NotImplementedError
+
+    def save_model_to_path(self, save_path: Union[str, Path], model_name: Optional[str] = None):
         raise NotImplementedError
 
     def prepare_session(

@@ -252,7 +252,7 @@ def _save_model(
                 # file_name for .onnx file is model.onnx, otherwise keep the original file name
                 model_config = pf_footprint.get_model_config(model_id)
                 onnx_file_name = model_config.get("onnx_file_name")
-                onnx_model = ONNXModelHandler(temp_resource_path, onnx_file_name)
+                onnx_model = ONNXModelHandler(model_path=temp_resource_path, onnx_file_name=onnx_file_name)
                 model_name = Path(onnx_model.model_path).name
                 for file in Path(temp_resource_path.get_path()).iterdir():
                     if file.name == model_name:

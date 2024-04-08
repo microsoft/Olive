@@ -71,7 +71,7 @@ class OnnxGraphMixin:
         # external data is not needed for io config parsing
         # the .onnx model already contains all of the graph information
         # this method works whether the external data is in the same directory or not
-        model = onnx.load(self.model_path, load_external_data=False)
+        model = self.model or onnx.load(self.model_path, load_external_data=False)
         io_config = {
             "input_names": [],
             "input_shapes": [],

@@ -316,7 +316,12 @@ class InsertBeamSearch(Pass):
         model.graph.input.insert(1, mask)
 
     def _run_for_config(
-        self, model: OliveModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self,
+        model: OliveModelHandler,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+        enable_fast_mode: bool = False,
     ) -> ONNXModelHandler:
         from onnxruntime import __version__ as OrtVersion
         from onnxruntime.transformers import onnx_model as ort_onnx_model
@@ -360,4 +365,6 @@ class InsertBeamSearch(Pass):
         )
         # save the model to the output path and return the model
         output_model_path = resolve_onnx_path(output_model_path, "model_with_beam_search.onnx")
-        return model_proto_to_olive_model(combined_model, output_model_path, config, True)
+        return model_proto_to_olive_model(
+            combined_model, output_model_path, config, True, enable_fast_mode=enable_fast_mode
+        )

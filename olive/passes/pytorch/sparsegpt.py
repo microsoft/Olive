@@ -92,7 +92,12 @@ class SparseGPT(Pass):
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self,
+        model: PyTorchModelHandler,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+        enable_fast_mode: bool = False,
     ) -> PyTorchModelHandler:
         model_type = model.model_attributes["model_type"]
         if model_type not in supported_models:

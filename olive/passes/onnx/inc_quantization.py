@@ -343,7 +343,7 @@ class IncQuantization(Pass):
         config.update(get_external_data_config())
         return config
 
-    def _set_eval_func(self, accuracy_metric, sub_type, data_root):
+    def _set_eval_func(self, accuracy_metric, sub_type, data_root, enable_fast_mode):
         # set eval_func for INC according to Olive accuracy metric
         def eval_func(model):
             # eval_func for Intel® Neural Compressor quantization take model as input,
@@ -364,6 +364,7 @@ class IncQuantization(Pass):
                     "all_tensors_to_one_file": True,
                     "external_data_name": None,
                 },
+                enable_fast_mode=enable_fast_mode,
             )
 
             # create evaluator for model
@@ -408,7 +409,7 @@ class IncQuantization(Pass):
 
         return higher_is_better, criterion, tolerable_loss
 
-    def _set_tuning_config(self, run_config, data_root):
+    def _set_tuning_config(self, run_config, data_root, enable_fast_mode):
         # set criterion and eval func for INC
         # INC quantization without accuracy aware tuning situation:
         #  1. 'metric' is not set
@@ -450,7 +451,7 @@ class IncQuantization(Pass):
             if len(accuracy_metric.sub_types) != 0:
                 sub_type = accuracy_metric.sub_types[0]
             if sub_type is not None and sub_type.goal is not None:
-                eval_func = self._set_eval_func(accuracy_metric, sub_type, data_root)
+                eval_func = self._set_eval_func(accuracy_metric, sub_type, data_root, enable_fast_mode)
 
                 higher_is_better, criterion, tolerable_loss = self._set_accuracy_criterion(sub_type)
                 accuracy_criterion = AccuracyCriterion(
@@ -478,7 +479,12 @@ class IncQuantization(Pass):
         return {"bits": bits, "group_size": group_size, "scheme": scheme, "algorithm": algo}
 
     def _run_for_config(
-        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self,
+        model: ONNXModelHandler,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+        enable_fast_mode: bool = False,
     ) -> ONNXModelHandler:
         if "LOGLEVEL" not in os.environ:
             # set the log level for neural-compressor
@@ -512,7 +518,9 @@ class IncQuantization(Pass):
 
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
-        eval_func, accuracy_criterion, tuning_criterion = self._set_tuning_config(run_config, data_root)
+        eval_func, accuracy_criterion, tuning_criterion = self._set_tuning_config(
+            run_config, data_root, enable_fast_mode
+        )
         weight_only_config = self._set_woq_config(run_config)
 
         workspace = run_config.pop("workspace", None)
@@ -591,7 +599,7 @@ class IncQuantization(Pass):
             load_external_data_for_model(q_model.model, os.path.dirname(q_model._model_path))
 
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(q_model.model, output_model_path, config)
+        return model_proto_to_olive_model(q_model.model, output_model_path, config, enable_fast_mode=enable_fast_mode)
 
 
 class IncDynamicQuantization(IncQuantization):

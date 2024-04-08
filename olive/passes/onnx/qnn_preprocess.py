@@ -78,6 +78,7 @@ class QNNPreprocess(Pass):
         data_root: str,
         config: Dict[str, Any],
         output_model_path: str,
+        enable_fast_mode: bool = False,
     ) -> ONNXModelHandler:
         from onnxruntime import __version__ as OrtVersion
         from packaging import version

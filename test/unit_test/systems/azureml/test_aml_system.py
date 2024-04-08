@@ -524,7 +524,7 @@ class TestAzureMLSystem:
 
         # mock output
         shutil.copy(ONNX_MODEL_PATH, output_dir)
-        mock_conversion_run.return_value = ONNXModelHandler(output_dir / ONNX_MODEL_PATH.name)
+        mock_conversion_run.return_value = ONNXModelHandler(model_path=(output_dir / ONNX_MODEL_PATH.name))
 
         # execute
         args = [

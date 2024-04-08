@@ -50,6 +50,7 @@ class QNNModelLibGenerator(Pass):
         data_root: str,
         config: Dict[str, Any],
         output_model_path: str,
+        enable_fast_mode: bool = False,
     ) -> QNNModelHandler:
         main_cmd = "qnn-model-lib-generator"
         runner = QNNSDKRunner(use_dev_tools=True)

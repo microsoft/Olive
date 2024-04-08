@@ -69,6 +69,7 @@ class QNNConversion(Pass):
         data_root: str,
         config: Dict[str, Any],
         output_model_path: str,
+        enable_fast_mode: bool = False,
     ) -> QNNModelHandler:
         if isinstance(model, TensorFlowModelHandler):
             converter_platform = "tensorflow"

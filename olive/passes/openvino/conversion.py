@@ -69,6 +69,7 @@ class OpenVINOConversion(Pass):
         data_root: str,
         config: Dict[str, Any],
         output_model_path: str,
+        enable_fast_mode: bool = False,
     ) -> OpenVINOModelHandler:
         try:
             import openvino as ov
@@ -103,6 +104,9 @@ class OpenVINOConversion(Pass):
         }
 
         ov_model = ov.convert_model(**args)
+
+        if enable_fast_mode:
+            return OpenVINOModelHandler(model=ov_model)
 
         model_name = "ov_model"
         output_dir = Path(output_model_path) / config.get("output_model", model_name)

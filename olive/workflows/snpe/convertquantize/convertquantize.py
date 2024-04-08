@@ -46,7 +46,7 @@ def convertquantize(
     model_file = Path(model).resolve()
     if model_file.suffix == ".onnx":
         logger.info("Loading model...")
-        model = ONNXModelHandler(model_file)
+        model = ONNXModelHandler(model_path=model_file)
     elif model_file.suffix == ".pb":
         logger.info("Loading model...")
         model = TensorFlowModelHandler(model_file)

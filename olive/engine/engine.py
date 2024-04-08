@@ -100,6 +100,7 @@ class Engine:
 
         self.footprints = defaultdict(Footprint)
         self.azureml_client_config = self._config.azureml_client_config
+        self.enable_fast_mode = self._config.enable_fast_mode
         self._initialized = False
 
     def initialize(self):
@@ -320,6 +321,13 @@ class Engine:
         self.footprints[accelerator_spec].record(model_id=input_model_id)
         prefix_output_name = Engine._get_prefix_output_name(output_name, accelerator_spec)
 
+        if SystemType.Local not in (self.host.system_type, self.target.system_type):
+            logger.warning("Fast mode is disabled as host and target are not local systems.")
+            self.enable_fast_mode = False
+
+        if self.target.system_type != SystemType.AzureML:
+            input_model_config = self._prepare_non_local_model(input_model_config)
+
         try:
             if evaluate_input_model and not self.evaluator_config:
                 logger.debug(
@@ -418,7 +426,7 @@ class Engine:
         input_model_id: str,
         data_root: str,
         accelerator_spec: "AcceleratorSpec",
-        output_dir: str = None,
+        output_dir: Path = None,
         output_name: str = None,
     ):
         """Run all the registered Olive pass flows in no-search mode."""
@@ -435,11 +443,11 @@ class Engine:
             # run all the passes in the pass flow
             logger.debug("Running %s with no search ...", pass_flow)
             should_prune, signal, model_ids = self._run_passes(
-                passes_to_run, input_model_config, input_model_id, data_root, accelerator_spec
+                passes_to_run, input_model_config, input_model_id, data_root, accelerator_spec, output_dir
             )
-
+            model_ids_len = len(model_ids)
             if should_prune:
-                failed_pass = pass_flow[len(model_ids)]
+                failed_pass = pass_flow[model_ids_len]
                 logger.warning(
                     "Flow %s is pruned due to failed or invalid config for pass '%s'", pass_flow, failed_pass
                 )
@@ -450,7 +458,7 @@ class Engine:
             pass_output_names = [f"{name}_{accelerator_spec}" if name else None for name in pass_output_names]
 
             # output dir with pass flow
-            output_dir_with_pf = Path(output_dir) / "-".join(pass_flow)
+            output_dir_with_pf = output_dir / "-".join(pass_flow)
 
             if not pass_output_names[-1] or output_name:
                 # if the last pass does not have output name, use the prefix output name
@@ -493,7 +501,7 @@ class Engine:
         input_model_id: str,
         data_root: str,
         accelerator_spec: "AcceleratorSpec",
-        output_dir: str = None,
+        output_dir: Path = None,
         output_name: str = None,
     ):
         """Run all the registered Olive passes in search model where search strategy is not None."""
@@ -538,7 +546,12 @@ class Engine:
 
             # run all the passes in the step
             should_prune, signal, model_ids = self._run_passes(
-                next_step["passes"], model_config, model_id, data_root, accelerator_spec
+                next_step["passes"],
+                model_config,
+                model_id,
+                data_root,
+                accelerator_spec,
+                output_dir,
             )
 
             # record feedback signal
@@ -822,6 +835,7 @@ class Engine:
         model_id: str,
         data_root: str,
         accelerator_spec: "AcceleratorSpec",
+        output_dir: Path = None,
     ):
         """Run all the passes in the order they were registered.
 
@@ -831,9 +845,10 @@ class Engine:
         # run all the passes in the step
         model_ids = []
         pass_id = None
+        enable_fast_mode = self.enable_fast_mode
         for pass_id, pass_search_point in passes:
             model_config, model_id = self._run_pass(
-                pass_id, pass_search_point, model_config, model_id, data_root, accelerator_spec
+                pass_id, pass_search_point, model_config, model_id, data_root, accelerator_spec, enable_fast_mode
             )
             if model_config in PRUNED_CONFIGS:
                 should_prune = True
@@ -855,6 +870,14 @@ class Engine:
             signal = None
             logger.warning("Skipping evaluation as model was pruned")
 
+        # if enable_fast_mode, save the final model
+        if enable_fast_mode and model_config not in PRUNED_CONFIGS:
+            model = model_config.create_model()
+            model.model = model_config.loaded_model
+            output_dir = output_dir or "olive_output"
+            model.save_model_to_path(output_dir, str(accelerator_spec))
+            logger.info("Fast mode saves model to %s", output_dir)
+
         return should_prune, signal, model_ids
 
     def _run_pass(
@@ -865,6 +888,7 @@ class Engine:
         input_model_id: str,
         data_root: str,
         accelerator_spec: "AcceleratorSpec",
+        enable_fast_mode: bool = False,
     ):
         """Run a pass on the input model."""
         # pass
@@ -884,28 +908,31 @@ class Engine:
             # this helps reusing cached models for different accelerator specs
             return output_model_config, None
 
-        # load run from cache if it exists
         run_accel = None if p.is_accelerator_agnostic(accelerator_spec) else accelerator_spec
-        run_cache = self._load_run(input_model_id, pass_name, pass_config, run_accel)
-        output_model_id = run_cache.get("output_model_id", None)
-        if output_model_id is not None:
-            logger.debug("Loading model from cache ...")
-            output_model_config = self._load_model(output_model_id)
-            if output_model_config is not None:
-                # footprint model and run
-                self.footprints[accelerator_spec].record(
-                    model_id=output_model_id,
-                    model_config=(
-                        output_model_config.to_json() if output_model_config != FAILED_CONFIG else {"is_pruned": True}
-                    ),
-                    parent_model_id=input_model_id,
-                    from_pass=pass_name,
-                    pass_run_config=pass_config,
-                    start_time=run_cache.get("run_start_time", 0),
-                    end_time=run_cache.get("run_end_time", 0),
-                )
-                logger.info("Loaded model from cache: %s from %s", output_model_id, self._run_cache_path)
-                return output_model_config, output_model_id
+        if not enable_fast_mode:
+            # load run from cache if it exists
+            run_cache = self._load_run(input_model_id, pass_name, pass_config, run_accel)
+            output_model_id = run_cache.get("output_model_id", None)
+            if output_model_id is not None:
+                logger.debug("Loading model from cache ...")
+                output_model_config = self._load_model(output_model_id)
+                if output_model_config is not None:
+                    # footprint model and run
+                    self.footprints[accelerator_spec].record(
+                        model_id=output_model_id,
+                        model_config=(
+                            output_model_config.to_json()
+                            if output_model_config != FAILED_CONFIG
+                            else {"is_pruned": True}
+                        ),
+                        parent_model_id=input_model_id,
+                        from_pass=pass_name,
+                        pass_run_config=pass_config,
+                        start_time=run_cache.get("run_start_time", 0),
+                        end_time=run_cache.get("run_end_time", 0),
+                    )
+                    logger.info("Loaded model from cache: %s from %s", output_model_id, self._run_cache_path)
+                    return output_model_config, output_model_id
 
         # new model id
         input_model_number = input_model_id.split("_")[0]
@@ -927,7 +954,7 @@ class Engine:
 
         # run pass
         host = self.host_for_pass(pass_id)
-        if host.system_type != SystemType.AzureML:
+        if host.system_type != SystemType.AzureML and input_model_config.loaded_model is None:
             input_model_config = self._prepare_non_local_model(input_model_config)
 
         run_start_time = datetime.now().timestamp()
@@ -940,7 +967,9 @@ class Engine:
                 else:
                     host = self.target
 
-            output_model_config = host.run_pass(p, input_model_config, data_root, output_model_path, pass_search_point)
+            output_model_config = host.run_pass(
+                p, input_model_config, data_root, output_model_path, pass_search_point, enable_fast_mode
+            )
         except OlivePassError:
             logger.exception("Pass run_pass failed")
             output_model_config = FAILED_CONFIG
@@ -960,13 +989,13 @@ class Engine:
         logger.info("Pass %s:%s finished in %f seconds", pass_id, pass_name, run_end_time - run_start_time)
 
         # cache model
+        loaded_model = output_model_config.loaded_model if output_model_config != FAILED_CONFIG else None
         self._cache_model(output_model_config, output_model_id)
 
         # cache run
         self._cache_run(
             pass_name, pass_config, input_model_id, output_model_id, run_accel, run_start_time, run_end_time
         )
-
         # footprint model and run
         self.footprints[accelerator_spec].record(
             model_id=output_model_id,
@@ -977,6 +1006,9 @@ class Engine:
             start_time=run_start_time,
             end_time=run_end_time,
         )
+        if output_model_config != FAILED_CONFIG:
+            output_model_config.loaded_model = loaded_model
+
         return output_model_config, output_model_id
 
     def get_evaluation_json_path(self, model_id: str):

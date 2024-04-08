@@ -224,7 +224,12 @@ class OnnxModelOptimizer(Pass):
         return get_external_data_config()
 
     def _run_for_config(
-        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self,
+        model: ONNXModelHandler,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+        enable_fast_mode: bool = False,
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
@@ -238,4 +243,6 @@ class OnnxModelOptimizer(Pass):
         model_optimizer.fuse_reshape_operations()
 
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(model_optimizer.model, output_model_path, config)
+        return model_proto_to_olive_model(
+            model_optimizer.model, output_model_path, config, enable_fast_mode=enable_fast_mode
+        )

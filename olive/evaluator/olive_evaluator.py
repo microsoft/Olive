@@ -576,7 +576,7 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
             for provider in execution_providers
         ]
 
-        model = ONNXModelHandler(model_path, inference_settings=inference_settings)
+        model = ONNXModelHandler(model_path=model_path, inference_settings=inference_settings)
         dataloader, _, post_func = OnnxEvaluator.get_user_config(model.framework, data_root, metric)
 
         session = model.prepare_session(inference_settings=inference_settings, device=Device.GPU, rank=int(local_rank))
@@ -662,7 +662,7 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
             for provider in execution_providers
         ]
 
-        model = ONNXModelHandler(model_path, inference_settings=inference_settings)
+        model = ONNXModelHandler(model_path=model_path, inference_settings=inference_settings)
         dataloader, _, _ = OnnxEvaluator.get_user_config(model.framework, data_root, metric)
         session = model.prepare_session(inference_settings=inference_settings, device=Device.GPU, rank=int(local_rank))
         io_config = model.get_io_config()

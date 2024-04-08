@@ -174,7 +174,12 @@ class Pass(ABC):
         return True
 
     def run(
-        self, model: OliveModelHandler, data_root: str, output_model_path: str, point: Optional[Dict[str, Any]] = None
+        self,
+        model: OliveModelHandler,
+        data_root: str,
+        output_model_path: str,
+        point: Optional[Dict[str, Any]] = None,
+        enable_fast_mode: bool = False,
     ) -> OliveModelHandler:
         """Run the pass on the model at a specific point in the search space."""
         point = point or {}
@@ -189,7 +194,7 @@ class Pass(ABC):
             for rank in range(model.num_ranks):
                 input_ranked_model = model.load_model(rank)
                 ranked_output_path = Path(output_model_path).with_suffix("") / model.ranked_model_name(rank)
-                self._run_for_config(input_ranked_model, data_root, config, str(ranked_output_path))
+                self._run_for_config(input_ranked_model, data_root, config, str(ranked_output_path), enable_fast_mode)
 
             output_model = DistributedOnnxModelHandler(
                 model_path=str(Path(output_model_path).with_suffix("")),
@@ -204,7 +209,7 @@ class Pass(ABC):
             for component_name, component_model in model.get_model_components():
                 component_output_path = Path(output_model_path).with_suffix("") / component_name
                 output_model_component = self._run_for_config(
-                    component_model, data_root, config, str(component_output_path)
+                    component_model, data_root, config, str(component_output_path), enable_fast_mode=enable_fast_mode
                 )
                 output_model_component.model_attributes = (
                     output_model_component.model_attributes or component_model.model_attributes
@@ -213,7 +218,9 @@ class Pass(ABC):
                 component_names.append(component_name)
             output_model = CompositeModelHandler(components, component_names)
         else:
-            output_model = self._run_for_config(model, data_root, config, output_model_path)
+            output_model = self._run_for_config(
+                model, data_root, config, output_model_path, enable_fast_mode=enable_fast_mode
+            )
         # assumption: the model attributes from passes, if any, are more important than
         # the input model attributes, we should not update/extend anymore outside of the pass run
         output_model.model_attributes = output_model.model_attributes or model.model_attributes
@@ -392,7 +399,12 @@ class Pass(ABC):
 
     @abstractmethod
     def _run_for_config(
-        self, model: OliveModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self,
+        model: OliveModelHandler,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+        enable_fast_mode: bool = False,
     ) -> OliveModelHandler:
         """Run the pass on the model with the given configuration."""
         raise NotImplementedError

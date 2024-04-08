@@ -57,7 +57,7 @@ def test_dynamic_to_fixed_shape_validator(pass_config, err_msg):
 def test_dynamic_to_fixed_shape(pass_config, tmp_path):
     dynamic_shape_model_path = tmp_path / "input_model.onnx"
     create_onnx_model_with_dynamic_axis(dynamic_shape_model_path)
-    input_model = ONNXModelHandler(dynamic_shape_model_path)
+    input_model = ONNXModelHandler(model_path=dynamic_shape_model_path)
     input_onnx_model = input_model.load_model()
     assert input_onnx_model.graph.input[0].type.tensor_type.shape.dim[0].dim_param == "batch_size"
     assert input_onnx_model.graph.output[0].type.tensor_type.shape.dim[0].dim_param == "batch_size"

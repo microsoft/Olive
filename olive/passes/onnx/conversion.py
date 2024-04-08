@@ -110,7 +110,12 @@ class OnnxConversion(Pass):
         return config
 
     def _run_for_config(
-        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self,
+        model: PyTorchModelHandler,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+        enable_fast_mode: bool = False,
     ) -> Union[CompositeModelHandler, DistributedOnnxModelHandler, ONNXModelHandler]:
         # get the device to use for conversion
         # default to "cpu" for PyTorchModelHandler and "cuda" for DistributedPyTorchModel
@@ -128,14 +133,16 @@ class OnnxConversion(Pass):
             )
 
         if not model.hf_config or not model.hf_config.components:
-            return self._convert_model_on_device(model, data_root, config, output_model_path, device, torch_dtype)
+            return self._convert_model_on_device(
+                model, data_root, config, output_model_path, device, enable_fast_mode, torch_dtype
+            )
 
         onnx_models = []
         component_names = []
         for component_name, component_model in model.get_hf_components():
             component_output_path = str(Path(output_model_path).with_suffix("") / component_name)
             output_model_component = self._convert_model_on_device(
-                component_model, data_root, config, component_output_path, device, torch_dtype
+                component_model, data_root, config, component_output_path, device, enable_fast_mode, torch_dtype
             )
             # inherit model attributes from the input model if the output model does not have model attributes
             output_model_component.model_attributes = output_model_component.model_attributes or model.model_attributes
@@ -144,7 +151,9 @@ class OnnxConversion(Pass):
 
         if config["merge_components"] and len(onnx_models) == 2:
             merged_model = merge_decoders(onnx_models[0].model_path, onnx_models[1].model_path)
-            return model_proto_to_olive_model(merged_model, resolve_onnx_path(output_model_path), config)
+            return model_proto_to_olive_model(
+                merged_model, resolve_onnx_path(output_model_path), config, enable_fast_mode=enable_fast_mode
+            )
 
         return CompositeModelHandler(onnx_models, component_names)
 
@@ -394,6 +403,7 @@ class OnnxConversion(Pass):
         config: Dict[str, Any],
         output_model_path: str,
         device: str,
+        enable_fast_mode: bool,
         torch_dtype: Optional[torch.dtype] = None,
     ) -> ONNXModelHandler:
         """Convert a PyTorchModelHandler to an ONNXModelHandler."""
@@ -414,7 +424,9 @@ class OnnxConversion(Pass):
 
         # save the model to the output path and return the model
         output_model_path = resolve_onnx_path(output_model_path)
-        output_model = model_proto_to_olive_model(converted_onnx_model, output_model_path, config)
+        output_model = model_proto_to_olive_model(
+            converted_onnx_model, output_model_path, config, enable_fast_mode=enable_fast_mode
+        )
         output_model.model_attributes = model_attributes
         return output_model
 
@@ -478,7 +490,7 @@ class OnnxConversion(Pass):
                 else:
                     raise RuntimeError("DistributedOnnxModelHandler can handle exactly 2 components.")
             else:
-                olive_pytorch_model = input_model.load_model(local_rank)
+                olive_pytorch_model = input_model.load_model(rank=local_rank)
                 dummy_inputs = olive_pytorch_model.get_dummy_inputs()
                 io_config = None if pass_config["use_dynamo_exporter"] else olive_pytorch_model.get_io_config()
                 pytorch_model = olive_pytorch_model.prepare_session(rank=local_rank)
@@ -564,10 +576,15 @@ class OnnxOpVersionConversion(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self,
+        model: ONNXModelHandler,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+        enable_fast_mode: bool = False,
     ) -> ONNXModelHandler:
         # get current models's opset version
-        model_proto = model.load_model()
+        model_proto = model.load_model(enable_fast_mode=enable_fast_mode)
         model_opset_version = model_proto.opset_import[0].version
         if model_opset_version == config["target_opset"]:
             logger.info("Model is already in target opset version %s.", config["target_opset"])
@@ -575,4 +592,4 @@ class OnnxOpVersionConversion(Pass):
 
         output_model_path = resolve_onnx_path(output_model_path)
         model_proto = onnx.version_converter.convert_version(model_proto, config["target_opset"])
-        return model_proto_to_olive_model(model_proto, output_model_path, config)
+        return model_proto_to_olive_model(model_proto, output_model_path, config, enable_fast_mode=enable_fast_mode)

@@ -1,5 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from olive.constants import Framework, ModelFileFormat
@@ -34,10 +35,12 @@ class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin, CompositeM
         self,
         framework: Framework,
         model_file_format: ModelFileFormat,
+        model: Optional[object] = None,
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         model_attributes: Optional[Dict[str, Any]] = None,
     ):
         self.framework = framework
+        self.model = model
         self.model_file_format = model_file_format
         self.composite_parent = None
         self.model_attributes = model_attributes
@@ -57,7 +60,7 @@ class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin, CompositeM
         return self.get_resource("model_path")
 
     @abstractmethod
-    def load_model(self, rank: int = None) -> object:
+    def load_model(self, rank: int = None, enable_fast_mode: bool = False) -> object:
         """Load model from disk, return in-memory model object.
 
         Derived class should implement its specific logic if needed.
@@ -73,6 +76,14 @@ class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin, CompositeM
         rank: Optional[int] = None,
     ):
         """Prepare inference session for Olive model, return in-memory inference session.
+
+        Derived class should implement its specific logic if needed.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def save_model_to_path(self, save_path: Union[str, Path], model_name: Optional[str] = None):
+        """Save model to disk.
 
         Derived class should implement its specific logic if needed.
         """

@@ -164,7 +164,6 @@ def parse_step_params(model: onnx.ModelProto, step_config: Dict):
 
     params = {}
     for param_name, param_value in step_params.items():
-        # print(param_name, param_value)
         if isinstance(param_value, list):
             resolved_params = []
             for p_v in param_value:

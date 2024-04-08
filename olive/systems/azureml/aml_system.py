@@ -171,6 +171,7 @@ class AzureMLSystem(OliveSystem):
         data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
+        enable_fast_mode: bool = False,
     ) -> ModelConfig:
         """Run the pass on the model at a specific point in the search space."""
         ml_client = self.azureml_client_config.create_client()

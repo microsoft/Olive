@@ -109,6 +109,7 @@ class DockerSystem(OliveSystem):
         data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
+        enable_fast_mode: bool = False,
     ) -> "ModelConfig":
         """Run the pass on the model at a specific point in the search space."""
         with tempfile.TemporaryDirectory() as tempdir:

@@ -394,7 +394,12 @@ class MoEExpertsDistributor(Pass):
         return {"validate_distributor_config": validator("world_size", allow_reuse=True)(cls._validate_world_size)}
 
     def _run_for_config(
-        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self,
+        model: ONNXModelHandler,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+        enable_fast_mode: bool = False,
     ) -> DistributedOnnxModelHandler:
         # huggingface/tokenizers: The current process just got forked, after parallelism has already been used.
         # Disabling parallelism to avoid deadlocks...

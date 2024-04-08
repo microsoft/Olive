@@ -205,7 +205,12 @@ class OrtTransformersOptimization(Pass):
         run_config["optimization_options"] = fusion_options
 
     def _run_for_config(
-        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self,
+        model: ONNXModelHandler,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+        enable_fast_mode: bool = False,
     ) -> ONNXModelHandler:
         from onnxruntime.transformers import optimizer as transformers_optimizer
 
@@ -253,7 +258,8 @@ class OrtTransformersOptimization(Pass):
                 "OrtTransformersOptimization.config"
             )
 
-        output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
+        if not enable_fast_mode:
+            output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
         optimization_options = config["optimization_options"]
 
@@ -281,7 +287,9 @@ class OrtTransformersOptimization(Pass):
                     "ExecutionProvider", ""
                 ).lower()
 
-        optimizer = transformers_optimizer.optimize_model(input=model.model_path, **run_config)
+        input_model = model.model if enable_fast_mode and model.model else model.model_path
+
+        optimizer = transformers_optimizer.optimize_model(input=input_model, **run_config)
 
         if config["float16"]:
             optimizer.convert_float_to_float16(
@@ -314,7 +322,7 @@ class OrtTransformersOptimization(Pass):
         optimizer.topological_sort()
 
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(optimizer.model, output_model_path, config)
+        return model_proto_to_olive_model(optimizer.model, output_model_path, config, enable_fast_mode=enable_fast_mode)
 
     @staticmethod
     def _replace_mha_with_gqa(

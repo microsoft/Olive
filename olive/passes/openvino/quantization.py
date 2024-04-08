@@ -221,7 +221,12 @@ class OpenVINOQuantizationBase(Pass):
 class OpenVINOQuantization(OpenVINOQuantizationBase):
 
     def _run_for_config(
-        self, model: OpenVINOModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self,
+        model: OpenVINOModelHandler,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+        enable_fast_mode: bool = False,
     ) -> OpenVINOModelHandler:
         try:
             import nncf
@@ -236,6 +241,9 @@ class OpenVINOQuantization(OpenVINOQuantizationBase):
         extra_params = self._get_extra_params(config)
 
         quantized_model = nncf.quantize(model, calibration_dataset, **extra_params)
+
+        if enable_fast_mode:
+            return OpenVINOModelHandler(model=quantized_model)
 
         model_name = "ov_model"
         output_dir = Path(output_model_path) / model_name
@@ -281,7 +289,12 @@ class OpenVINOQuantizationWithAccuracy(OpenVINOQuantizationBase):
         return config
 
     def _run_for_config(
-        self, model: OliveModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self,
+        model: OliveModelHandler,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+        enable_fast_mode: bool = False,
     ) -> OliveModelHandler:
         try:
             import nncf

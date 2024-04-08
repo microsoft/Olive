@@ -41,7 +41,12 @@ class GenAIModelExporter(Pass):
         }
 
     def _run_for_config(
-        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self,
+        model: PyTorchModelHandler,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+        enable_fast_mode: bool = False,
     ) -> ONNXModelHandler:
         from onnxruntime_genai.models.builder import create_model
 
@@ -85,4 +90,4 @@ class GenAIModelExporter(Pass):
             filename=str(output_model_filepath.name),
         )
 
-        return ONNXModelHandler(output_model_filepath.parent, onnx_file_name=output_model_filepath.name)
+        return ONNXModelHandler(model_path=output_model_filepath.parent, onnx_file_name=output_model_filepath.name)

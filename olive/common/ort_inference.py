@@ -6,12 +6,14 @@
 # Import them lazily since onnxruntime is not a required dependency for Olive.
 # Import in TYPE_CHECKING block for type hinting is fine.
 import collections
+import copy
 import logging
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Tuple, Union
 
 import numpy as np
+import onnx
 
 if TYPE_CHECKING:
     from onnxruntime import InferenceSession, IOBinding
@@ -28,22 +30,26 @@ class OrtSessionFallbackError(Exception):
 # For regular ONNX models, the recommended way to specify the device is to set the environment variable
 # `CUDA_VISIBLE_DEVICES` before runnning a workflow.
 def get_ort_inference_session(
-    model_path: Union[Path, str],
     inference_settings: Dict[str, Any],
+    model: Optional[onnx.ModelProto] = None,
+    model_path: Optional[Union[Path, str]] = None,
     use_ort_extensions: bool = False,
     device_id: Optional[int] = None,
 ):
     """Get an ONNXRuntime inference session.
 
-    :param model_path: Path to the ONNX model file.
     :param inference_settings: Inference settings for the session.
         session_options: dict, optional. Session options for the session.
         execution_provider: list. List of execution providers to use. Can be a list of provider names or a list of
             (provider name, provider options) tuples.
         provider_options: list, optional. List of provider options for the execution providers.
+    :param model: Optional ModelProto.
+    :param model_path: Optional path to the ONNX model file.
     :param use_ort_extensions: Whether to use onnxruntime-extensions. Default is False.
     :param device_id: Optional device id to use for CUDA or DML execution providers.
     """
+    assert model or model_path, "model or model_path must be provided."
+
     import onnxruntime as ort
 
     sess_options = ort.SessionOptions()
@@ -99,8 +105,11 @@ def get_ort_inference_session(
         sess_options.enable_mem_pattern = False
 
     # create session
+    model_infer = _get_model_infer(sess_options, model, model_path)
+    assert model_infer is not None, "model_infer is None. Please provide a valid model or model_path."
+
     session = ort.InferenceSession(
-        str(model_path), sess_options=sess_options, providers=providers, provider_options=provider_options
+        model_infer, sess_options=sess_options, providers=providers, provider_options=provider_options
     )
     check_ort_fallback(session, providers)
     # set tuning results for tunable operators (currently only for ROCM EP)
@@ -109,6 +118,36 @@ def get_ort_inference_session(
         assert isinstance(tuning_op_result, list)
         session.set_tuning_results(tuning_op_result)
     return session
+
+
+def _get_model_infer(sess_options, model: onnx.ModelProto, model_path: Union[Path, str]):
+    if isinstance(model, onnx.ModelProto):
+        from onnxruntime import __version__ as OrtVersion
+        from packaging import version
+
+        if version.parse(OrtVersion) < version.parse("1.18.0"):
+            logger.error(
+                "onnxruntime>=1.18.0 is required for loading ModelProto directly "
+                "for onnxruntime inference session. Default to use model_path instead of ModelProto."
+            )
+            return model_path
+        from onnxruntime.transformers.onnx_utils import extract_raw_data_from_model, has_external_data
+
+        if has_external_data(model):
+            logger.error(
+                "ModelProto has external data not loaded into memory, ORT cannot create session. "
+                "Please load external data before calling this function. "
+                "See https://onnx.ai/onnx/repo-docs/ExternalData.html for more information."
+                "Default to use model_path instead of ModelProto."
+            )
+            return model_path
+        # create a new model
+        model_infer = copy.deepcopy(model)
+        external_names, external_values = extract_raw_data_from_model(model_infer)
+        if external_names and external_values:
+            sess_options.add_external_initializers(list(external_names), list(external_values))
+        return model_infer.SerializeToString()
+    return model_path
 
 
 def check_and_normalize_provider_args(

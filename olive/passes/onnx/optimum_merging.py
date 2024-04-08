@@ -44,7 +44,12 @@ class OptimumMerging(Pass):
         return config
 
     def _run_for_config(
-        self, model: CompositeModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self,
+        model: CompositeModelHandler,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+        enable_fast_mode: bool = False,
     ) -> Union[ONNXModelHandler, CompositeModelHandler]:
         import onnxruntime
 
@@ -74,7 +79,9 @@ class OptimumMerging(Pass):
         # onnx.save will fail if the directory doesn't already exist
         output_model_path = resolve_onnx_path(output_model_path, "decoder_model_merged.onnx")
 
-        olive_model = model_proto_to_olive_model(merged_model, output_model_path, config)
+        olive_model = model_proto_to_olive_model(
+            merged_model, output_model_path, config, enable_fast_mode=enable_fast_mode
+        )
 
         # Doing a dry run of ORT allows us to remove the initializers that were orphaned by the merging step
         sess_options = onnxruntime.SessionOptions()

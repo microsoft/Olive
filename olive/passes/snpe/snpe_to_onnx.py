@@ -51,7 +51,12 @@ class SNPEtoONNXConversion(Pass):
         }
 
     def _run_for_config(
-        self, model: SNPEModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self,
+        model: SNPEModelHandler,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+        enable_fast_mode: bool = False,
     ) -> ONNXModelHandler:
         config = self._config_class(**config)
 
@@ -61,4 +66,6 @@ class SNPEtoONNXConversion(Pass):
         onnx_model = dlc_to_onnx(model.model_path, config.dict(), **model.io_config)
 
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(onnx_model, output_model_path, config.dict())
+        return model_proto_to_olive_model(
+            onnx_model, output_model_path, config.dict(), enable_fast_mode=enable_fast_mode
+        )

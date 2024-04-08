@@ -5,7 +5,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 from olive.model.utils.path_utils import normalize_path_suffix
 
@@ -27,7 +27,7 @@ def resolve_onnx_path(file_or_dir_path: str, model_filename: str = "model.onnx")
     return normalize_path_suffix(file_or_dir_path, model_filename)
 
 
-def get_onnx_file_path(model_path: str, onnx_file_name: Optional[str] = None) -> str:
+def get_onnx_file_path(model_path: Union[str, Path], onnx_file_name: Optional[str] = None) -> str:
     """Get the path to the ONNX model file.
 
     If model_path is a file, it is returned as is. If model_path is a

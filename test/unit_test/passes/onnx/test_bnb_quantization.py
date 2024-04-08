@@ -29,7 +29,7 @@ def get_onnx_matmul_model(model_path, model_attributes=None):
         output_names=["output"],
         opset_version=13,
     )
-    return ONNXModelHandler(model_path, model_attributes=model_attributes)
+    return ONNXModelHandler(model_path=model_path, model_attributes=model_attributes)
 
 
 def get_onnx_gemm_model(model_path=None, model_attributes=None):

@@ -48,7 +48,12 @@ class OnnxBnb4Quantization(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self,
+        model: ONNXModelHandler,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+        enable_fast_mode: bool = False,
     ) -> ONNXModelHandler:
         from onnxruntime import __version__ as OrtVersion
 
@@ -58,7 +63,8 @@ class OnnxBnb4Quantization(Pass):
 
         from onnxruntime.quantization.matmul_bnb4_quantizer import MatMulBnb4Quantizer
 
-        output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
+        if model.model_path:
+            output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
         quant_type = config["quant_type"]
         quantized_modules = config["quantized_modules"]
@@ -84,7 +90,7 @@ class OnnxBnb4Quantization(Pass):
         quant_type_enum = getattr(MatMulBnb4Quantizer, quant_type.upper())
 
         # load the model
-        onnx_model = model.load_model()
+        onnx_model = model.load_model(enable_fast_mode=enable_fast_mode)
 
         # get nodes to exclude from quantization
         nodes_to_exclude = config["nodes_to_exclude"] or []
@@ -108,7 +114,7 @@ class OnnxBnb4Quantization(Pass):
         quantizer.model.topological_sort()
 
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(onnx_model, output_model_path, config)
+        return model_proto_to_olive_model(onnx_model, output_model_path, config, enable_fast_mode=enable_fast_mode)
 
     @classmethod
     def _find_matmul_nodes(cls, graph: onnx.GraphProto) -> List[str]:

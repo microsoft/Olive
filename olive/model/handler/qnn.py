@@ -77,8 +77,11 @@ class QNNModelHandler(OliveModelHandler):
             raise ValueError(f"Unsupported model file format {self.model_file_format}")
         return model_path
 
-    def load_model(self, rank: int = None):
+    def load_model(self, rank: int = None, enable_fast_mode: bool = False):
         raise NotImplementedError("QNNModelHandler does not support load_model")
+
+    def save_model_to_path(self, save_path: Union[str, Path], model_name: Optional[str] = None):
+        raise NotImplementedError
 
     def prepare_session(
         self,
