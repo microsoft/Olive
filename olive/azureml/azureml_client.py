@@ -143,4 +143,4 @@ def set_azure_logging_if_noset():
     azure_identity_logger = logging.getLogger("azure.identity")
     # only set the level if it is not set, to avoid changing the level set by the user
     if not azure_identity_logger.level:
-        azure_identity_logger.setLevel(logging.ERROR)
+        azure_identity_logger.setLevel(logging.WARNING)

@@ -81,7 +81,11 @@ def update_azureml_config(olive_config):
         "workspace_name": workspace_name,
         # pipeline agents have managed identities which take precedence over the Azure CLI credentials
         # so we need to exclude managed identity credentials
-        "default_auth_params": {"exclude_managed_identity_credential": True},
+        "default_auth_params": {
+            "exclude_environment_credential": True,
+            "exclude_managed_identity_credential": True,
+            "exclude_shared_token_cache_credential": True,
+        },
     }
 
 
