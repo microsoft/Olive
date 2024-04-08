@@ -154,10 +154,7 @@ def download_azure_blob(container, blob, download_path):
 
 
 def set_azure_identity_logging():
-    from azure.identity import DefaultAzureCredential  # noqa: F401
-
     identity_logger = logging.getLogger("azure.identity")
     identity_logger.setLevel(logging.DEBUG)
-    if not (identity_logger.handlers and isinstance(identity_logger.handlers[0], logging.StreamHandler)):
-        handler = logging.StreamHandler(stream=sys.stdout)
-        identity_logger.addHandler(handler)
+    handler = logging.StreamHandler(stream=sys.stdout)
+    identity_logger.addHandler(handler)
