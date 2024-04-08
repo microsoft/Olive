@@ -126,6 +126,8 @@ class AzureMLClientConfig(ConfigBase):
         from azure.identity import DefaultAzureCredential, InteractiveBrowserCredential
 
         logger.debug("Getting credentials for MLClient")
+        identity_logger = logging.getLogger("azure.identity._credentials.chained")
+        identity_logger.setLevel(logging.DEBUG)
         try:
             default_auth_params = self.default_auth_params or {}
             credential = DefaultAzureCredential(**default_auth_params)
