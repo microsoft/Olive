@@ -46,7 +46,7 @@ jobs:
       displayName: Install ${{ parameters.onnxruntime }}
 
   - ${{ if and(eq(variables.WINDOWS, 'True'), eq(variables.testType, 'multiple_ep')) }}:
-    - task: AzureCLI@2
+    - task: AzureCLI@1
       inputs:
         azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
         scriptLocation: 'inlineScript'
@@ -65,7 +65,7 @@ jobs:
         WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
         WORKSPACE_NAME: $(workspace-name)
   - ${{ else }}:
-    - task: AzureCLI@2
+    - task: AzureCLI@1
       inputs:
         azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
         scriptLocation: 'inlineScript'
