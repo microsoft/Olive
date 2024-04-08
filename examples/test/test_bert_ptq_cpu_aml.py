@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 import pytest
-from utils import check_output, patch_config
+from utils import check_output, patch_config, set_azure_identity_logging
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -15,6 +15,7 @@ def setup():
     cur_dir = Path(__file__).resolve().parent.parent
     example_dir = cur_dir / "bert"
     os.chdir(example_dir)
+    set_azure_identity_logging()
     yield
     os.chdir(cur_dir)
 

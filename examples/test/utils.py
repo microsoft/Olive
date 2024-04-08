@@ -3,7 +3,9 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
+import logging
 import os
+import sys
 
 # pylint: disable=broad-exception-raised
 
@@ -149,3 +151,11 @@ def download_azure_blob(container, blob, download_path):
     with open(download_path, "wb") as my_blob:
         blob_data = blob.download_blob()
         blob_data.readinto(my_blob)
+
+
+def set_azure_identity_logging():
+    identity_logger = logging.getLogger("azure.identity")
+    identity_logger.setLevel(logging.DEBUG)
+    if not (identity_logger.handlers and isinstance(identity_logger.handlers[0], logging.StreamHandler)):
+        handler = logging.StreamHandler(stream=sys.stdout)
+        identity_logger.addHandler(handler)
