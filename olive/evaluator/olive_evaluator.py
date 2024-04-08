@@ -450,7 +450,7 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
         # load constant inputs if any
         constant_inputs = None
         if model.constant_inputs_path:
-            constant_inputs = np.load(model.constant_inputs_path)
+            constant_inputs = OnnxEvaluator.format_input(dict(np.load(model.constant_inputs_path)), io_config)
 
         # create session wrapper
         session_wrapper = OrtInferenceSession(

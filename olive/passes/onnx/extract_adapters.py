@@ -83,7 +83,7 @@ class ExtractAdapters(Pass):
         nodes_to_remove = set()
 
         for node_name in list(dag.nodes.keys()):
-            if dag.get_op_type(node_name) != "MatMul" or not any(
+            if dag.get_node_op_type(node_name) != "MatMul" or not any(
                 re.match(pattern, node_name) for pattern in lora_name_patterns
             ):
                 # not a lora module
@@ -108,11 +108,11 @@ class ExtractAdapters(Pass):
 
                 # add the module to the float modules
                 float_modules.add(new_weight_name.replace(".weight", ""))
-            elif dag.get_op_type(dag.get_producer(old_weight_name)) == "DequantizeLinear":
+            elif dag.get_node_op_type(dag.get_producer(old_weight_name)) == "DequantizeLinear":
                 # weight is quantized
                 # get the dequantize node
                 old_dequantize_name = dag.get_producer(old_weight_name)
-                old_dequantize_node = dag.nodes[old_dequantize_name]
+                old_dequantize_node = dag.get_node(old_dequantize_name)
 
                 # new names for the dequantize node inputs
                 suffixes = ["quant.weight", "quant.scale", "quant.zero_point"]
@@ -141,7 +141,7 @@ class ExtractAdapters(Pass):
                 new_dequantize_proto.output[0] = new_weight_name
 
                 # add new dequantize node
-                dag.add_node(new_dequantize_proto, dag.nodes[old_dequantize_name].graph_idx)
+                dag.add_node(new_dequantize_proto, old_dequantize_node.graph_idx)
 
                 # replace input to the new name
                 dag.replace_node_input(node_name, old_weight_name, new_weight_name)
@@ -257,13 +257,13 @@ class ExtractAdapters(Pass):
     def remove_identity_nodes(dag: OnnxDAG):
         """Remove unnecessary identity nodes from the graph."""
         nodes_to_remove = set()
-        for node_name in list(dag.nodes.keys()):
-            if dag.get_op_type(node_name) != "Identity" or dag.is_output_producer(node_name):
+        for node_name in dag.get_node_names():
+            if dag.get_node_op_type(node_name) != "Identity" or dag.is_output_producer(node_name):
                 continue
 
             # change the input of consumers to the input of the identity node
             for consumer in dag.get_consumers(node_name):
-                dag.replace_node_input(consumer, dag.nodes[node_name].outputs[0], dag.nodes[node_name].inputs[0])
+                dag.replace_node_input(consumer, dag.get_node_outputs(node_name)[0], dag.get_node_inputs(node_name)[0])
 
             # remove the identity node
             nodes_to_remove.add(node_name)
@@ -324,7 +324,7 @@ class ExtractAdapters(Pass):
         """
         assert dag.is_initializer(old_name), f"{old_name} is not an initializer"
 
-        old_proto = dag.ios[old_name].proto
+        old_proto = dag.get_io(old_name).proto
 
         # store the weight in a dictionary
         weights[new_name] = onnx.numpy_helper.to_array(old_proto)
@@ -332,4 +332,4 @@ class ExtractAdapters(Pass):
         # copy initializer
         new_initializer = cls._copy_initializer(old_proto, new_name)
         # add the new initializer to the graph
-        dag.add_initializer(new_initializer, dag.ios[old_name].graph_idx)
+        dag.add_initializer(new_initializer, dag.get_io(old_name).graph_idx)

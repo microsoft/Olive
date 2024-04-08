@@ -73,7 +73,11 @@ class OnnxDAG:
 
     @staticmethod
     def get_all_graphs(model: "ModelProto") -> List[GraphProto]:
-        """Get all graphs in the model."""
+        """Get all graphs in the model.
+
+        :param model: ONNX model.
+        :return: list of graphs in the model.
+        """
         all_graphs = []
         graph_queue = [model.graph]
         while graph_queue:
@@ -92,9 +96,13 @@ class OnnxDAG:
 
     @classmethod
     def process_io(cls, graph: GraphProto, ios: Dict[str, OnnxIO], graph_idx: int):
-        """Process inputs, outputs, initializers, and value_info.
+        """Process inputs, outputs, and initializers in the graph.
 
         This will populate ios. Should be called before adding nodes.
+
+        :param graph: ONNX graph.
+        :param ios: dictionary to store the inputs, outputs, and initializers.
+        :param graph_idx: index of the graph in the model.
         """
         for i in graph.input:
             ios[i.name] = OnnxIO(proto=i, source=SpecialInput.INPUT, graph_idx=graph_idx)
@@ -114,7 +122,16 @@ class OnnxDAG:
         graph_idx: int,
         overwrite_initializers: bool = False,
     ):
-        """Process a node and populate the nodes and connections attributes."""
+        """Process a node and populate the nodes and connections attributes.
+
+        :param node_proto: ONNX node.
+        :param nodes: dictionary to store the nodes.
+        :param ios: dictionary to store the inputs, outputs, and initializers.
+        :param connections: dictionary to store the connections between nodes.
+        :param graph_idx: index of the graph in the model.
+        :param overwrite_initializers: whether to overwrite the initializers if a node output is already present
+            as an initializer. If False, it will raise an error.
+        """
         name = node_proto.name
         onnx_node = OnnxNode(
             proto=node_proto,
@@ -152,21 +169,32 @@ class OnnxDAG:
                     connections[name].append(destination)
 
     def add_input(self, input_proto: ValueInfoProto, graph_idx: int):
-        """Add an input to the graph."""
+        """Add an input to the graph.
+
+        :param input_proto: ValueInfoProto of the input.
+        :param graph_idx: index of the graph in the model.
+        """
         if input_proto.name in self.ios:
             raise ValueError(f"Input {input_proto.name} already exists in the graph.")
 
         self.ios[input_proto.name] = OnnxIO(proto=input_proto, source=SpecialInput.INPUT, graph_idx=graph_idx)
 
     def add_initializer(self, initializer: TensorProto, graph_idx: int):
-        """Add an initializer to the graph."""
+        """Add an initializer to the graph.
+
+        :param initializer: TensorProto of the initializer.
+        :param graph_idx: index of the graph in the model.
+        """
         if initializer.name in self.ios:
             raise ValueError(f"Initializer {initializer.name} already exists in the graph.")
 
         self.ios[initializer.name] = OnnxIO(proto=initializer, source=SpecialInput.INITIALIZER, graph_idx=graph_idx)
 
     def convert_initializer_to_input(self, initializer_name: str):
-        """Convert an initializer to an input."""
+        """Convert an initializer to an input.
+
+        :param initializer_name: name of the initializer to convert to an input.
+        """
         if not self.is_initializer(initializer_name):
             raise ValueError(f"{initializer_name} is not an initializer.")
 
@@ -181,11 +209,21 @@ class OnnxDAG:
         """Add a node to the graph.
 
         This adds the node to the `nodes` attribute and connects them using the `ios` attribute.
+
+        :param node_proto: ONNX node.
+        :param graph_idx: index of the graph in the model.
+        :param overwrite_initializers: whether to overwrite the initializers if a node output is already present
+            as an initializer. If false, it will raise an error.
         """
         self.process_node(node_proto, self.nodes, self.ios, self.connections, graph_idx, overwrite_initializers)
 
     def remove_node(self, node_name: str, check_no_consumers: bool = False):
-        """Remove a node from the graph."""
+        """Remove a node from the graph.
+
+        :param node_name: name of the node to remove.
+        :param check_no_consumers: whether to check if the node has consumers.
+            If True, it will raise an error if the node has consumers.
+        """
         if node_name not in self.nodes:
             raise ValueError(f"Node {node_name} does not exist in the graph.")
 
@@ -193,6 +231,8 @@ class OnnxDAG:
             raise ValueError(f"Node {node_name} has consumers.")
 
         node = self.nodes.pop(node_name)
+
+        # remove node from the connections
         for i in node.inputs:
             self.ios[i].destination.remove(node_name)
             parent = self.ios[i].source
@@ -205,7 +245,12 @@ class OnnxDAG:
         del self.connections[node_name]
 
     def replace_node_input(self, node_name: str, old_input: str, new_input: str):
-        """Replace an input of a node."""
+        """Replace an input of a node.
+
+        :param node_name: name of the node.
+        :param old_input: name of the input to replace.
+        :param new_input: name of the new input.
+        """
         if node_name not in self.nodes:
             raise ValueError(f"Node {node_name} does not exist in the graph.")
         if old_input not in self.nodes[node_name].inputs:
@@ -239,30 +284,90 @@ class OnnxDAG:
         if num_updated < 1:
             raise ValueError(f"Input {old_input} does not exist in node {node_name} proto.")
 
-    def get_op_type(self, node_name: str) -> str:
-        """Get the operator type of a node."""
+    def get_node_names(self) -> List[str]:
+        """Get the names of all nodes in the graph.
+
+        :return: list of node names.
+        """
+        return list(self.nodes.keys())
+
+    def get_node(self, node_name: str) -> OnnxNode:
+        """Get the node object.
+
+        :param node_name: name of the node.
+        :return: OnnxNode object.
+        """
+        return self.nodes[node_name]
+
+    def get_node_op_type(self, node_name: str) -> str:
+        """Get the operator type of a node.
+
+        :param node_name: name of the node.
+        :return: operator type of the node.
+        """
         return self.nodes[node_name].op_type
 
-    def is_input(self, name: str) -> bool:
-        """Check if an input is a user input."""
-        return self.ios[name].source == SpecialInput.INPUT
+    def get_node_inputs(self, node_name: str) -> List[str]:
+        """Get the input names of a node.
 
-    def is_initializer(self, name: str) -> bool:
-        """Check if an input is an initializer."""
-        return self.ios[name].source == SpecialInput.INITIALIZER
+        :param node_name: name of the node.
+        :return: list of input names.
+        """
+        return list(self.nodes[node_name].inputs)
 
-    def is_output(self, name: str) -> bool:
-        """Check if an input is an output."""
-        return SpecialOutput.OUTPUT in self.ios[name].destination
+    def get_node_outputs(self, node_name: str) -> List[str]:
+        """Get the output names of a node.
+
+        :param node_name: name of the node.
+        :return: list of output names.
+        """
+        return list(self.nodes[node_name].outputs)
+
+    def get_io(self, io_name: str) -> OnnxIO:
+        """Get the input/output object.
+
+        :param io_name: name of the input/output.
+        :return: OnnxIO object.
+        """
+        return self.ios[io_name]
+
+    def is_input(self, io_name: str) -> bool:
+        """Check if an input/output is a user input.
+
+        :param io_name: name of the input/output.
+        :return: True if the input/output is a user input.
+        """
+        return self.ios[io_name].source == SpecialInput.INPUT
+
+    def is_initializer(self, io_name: str) -> bool:
+        """Check if an input/output is an initializer.
+
+        :param io_name: name of the input/output.
+        :return: True if the input/output is an initializer.
+        """
+        return self.ios[io_name].source == SpecialInput.INITIALIZER
+
+    def is_output(self, io_name: str) -> bool:
+        """Check if an input/output is an output.
+
+        :param io_name: name of the input/output.
+        :return: True if the input/output is an output.
+        """
+        return SpecialOutput.OUTPUT in self.ios[io_name].destination
 
     def get_producer(self, io_name: str) -> str:
-        """Get the producer of an input/output."""
+        """Get the producer of an input/output.
+
+        :param io_name: name of the input/output.
+        :return: name of node that produces the input/output.
+        """
         return self.ios[io_name].source
 
     def get_consumers(self, node_name: str) -> List[str]:
         """Get the consumers of a node.
 
         :param node_name: name of the node. It can also be an input or initializer.
+        :return: list of names of nodes that consume one/more outputs of the node.
         """
         if node_name in self.ios and self.ios[node_name].source in [SpecialInput.INPUT, SpecialInput.INITIALIZER]:
             return list(self.ios[node_name].destination)
@@ -270,10 +375,18 @@ class OnnxDAG:
         return list(self.connections[node_name])
 
     def is_output_producer(self, node_name: str) -> bool:
-        """Check if a node is an output producer."""
+        """Check if a node is an output producer.
+
+        :param node_name: name of the node.
+        :return: True if the node produces one/more outputs that are also model outputs.
+        """
         return any(SpecialOutput.OUTPUT in self.ios[o].destination for o in self.nodes[node_name].outputs)
 
     def _topological_sort_util(self, v: str, visited: Set[str], order: List[str]):
+        """Do depth-first search starting from node v.
+
+        Iterative instead of recursive to avoid stack overflow for large graphs.
+        """
         # keep track of the nodes to visit
         stack = [v]
 
@@ -291,11 +404,10 @@ class OnnxDAG:
             else:
                 order.insert(0, v)
 
-    def topological_sort(self):
+    def topological_sort(self) -> List[str]:
         """Sort the nodes in topological order.
 
-        :param include_inputs: include model inputs in the order.
-        :param include_initializers: include model initializers in the order.
+        :return: list of node names in topological order.
         """
         visited = set()
         order = []
@@ -307,7 +419,7 @@ class OnnxDAG:
         return order
 
     def update(self):
-        """Update the graph proto with the latest nodes and connections."""
+        """Update the graph proto with the latest inputs, outputs, initializers, and nodes."""
         node_order = self.topological_sort()
 
         for idx, graph in enumerate(self.graphs):
@@ -353,5 +465,9 @@ class OnnxDAG:
 
     @classmethod
     def from_model_path(cls, model_path: Union[str, Path]) -> "OnnxDAG":
-        """Load an ONNX model and create an DAG."""
+        """Load an ONNX model and create an DAG.
+
+        :param model_path: path to the ONNX model.
+        :return: OnnxDAG object.
+        """
         return cls(onnx.load(model_path))

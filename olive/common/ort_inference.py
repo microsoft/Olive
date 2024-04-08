@@ -44,6 +44,7 @@ def get_ort_inference_session(
         provider_options: list, optional. List of provider options for the execution providers.
     :param use_ort_extensions: Whether to use onnxruntime-extensions. Default is False.
     :param device_id: Optional device id to use for CUDA or DML execution providers.
+    :param external_initializers_path: Optional path to the external initializers file.
     """
     import onnxruntime as ort
 
@@ -238,6 +239,20 @@ class OrtInferenceSession:
         input_feed: Optional[Dict[str, np.ndarray]] = None,
         constant_inputs: Optional[Dict[str, np.ndarray]] = None,
     ):
+        """Initialize self.
+
+        :param session: ONNXRuntime InferenceSession
+        :param io_bind: Whether to use IO binding. Default is False.
+        :param device: Device to run inference on. Default is "cpu".
+        :param shared_kv_buffer: Whether to share the key/value buffer across multiple runs.
+            Default is False. Only valid if io_bind is True.
+        :param use_fp16: Whether to use fp16. Default is False. Both shared_kv_buffer and use_fp16 must be True
+            at the same time to use shared key/value buffer.
+        :param input_feed: Optional input feed for the session. Required when shared_kv_buffer and use_fp16 are True.
+        :param constant_inputs: Optional constant inputs for the session. These will be passed to the session every
+            inference run.
+        """
+        # TODO(anyone): use_fp16 is redundant with shared_kv_buffer. Remove it.
         self.session = session
         self.io_bind = io_bind
         self.device = device
@@ -395,6 +410,7 @@ def prepare_io_bindings(
     shared_kv_buffer: whether to share the key/value buffer across multiple runs, it is False by default,
         and only used when we observe kv cache and fp16 is used.
         TODO(trajep): how shared_kv_buffer works with generation task
+    kv_cache_ortvalues: dict of OrtValue for shared kv cache, it is None by default.
     """
     use_fp16 = any(v.dtype == np.float16 for v in input_data.values())
     io_bind_op = session.io_binding()
