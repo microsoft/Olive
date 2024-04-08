@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import json
 import logging
+import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -11,6 +12,11 @@ from olive.common.config_utils import ConfigBase
 from olive.common.pydantic_v1 import Field, validator
 
 logger = logging.getLogger(__name__)
+
+identity_logger = logging.getLogger("azure.identity")
+identity_logger.setLevel(logging.DEBUG)
+handler = logging.StreamHandler(stream=sys.stdout)
+identity_logger.addHandler(handler)
 
 
 class AzureMLClientConfig(ConfigBase):
@@ -126,12 +132,6 @@ class AzureMLClientConfig(ConfigBase):
         from azure.identity import AzureCliCredential, InteractiveBrowserCredential
 
         logger.debug("Getting credentials for MLClient")
-        import sys
-
-        identity_logger = logging.getLogger("azure.identity")
-        identity_logger.setLevel(logging.DEBUG)
-        handler = logging.StreamHandler(stream=sys.stdout)
-        identity_logger.addHandler(handler)
 
         try:
             # default_auth_params = self.default_auth_params or {}
