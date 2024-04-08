@@ -30,7 +30,7 @@ def setup():
 
 @pytest.mark.parametrize("search_algorithm", ["random"])
 @pytest.mark.parametrize("execution_order", ["pass-by-pass"])
-@pytest.mark.parametrize("system", ["local_system", "aml_system"])
+@pytest.mark.parametrize("system", ["aml_system", "local_system"])
 @pytest.mark.parametrize("olive_json", ["resnet_ptq_cpu.json", "resnet_ptq_cpu_aml_dataset.json"])
 @pytest.mark.skipif(
     version.parse(OrtVersion) == version.parse("1.16.0"),

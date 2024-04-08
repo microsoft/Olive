@@ -43,7 +43,7 @@ jobs:
       displayName: Set exampleRequirements
       condition: eq(variables['exampleRequirements'], '')
 
-    - task: AzureCLI@1
+    - task: AzureCLI@2
       inputs:
         azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
         scriptLocation: 'inlineScript'
