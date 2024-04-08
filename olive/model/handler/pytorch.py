@@ -360,6 +360,9 @@ class DistributedPyTorchModelHandler(OliveModelHandler, HfConfigMixin):
             model_attributes=self.model_attributes,
         )
 
+    def save_model_to_path(self, save_path: Union[str, Path], model_name: Optional[str] = None):
+        raise NotImplementedError
+
     def get_component_model(self, component: HfComponent, rank: int = 0) -> PyTorchModelHandler:
         # TODO(shaahji): Add support for 'HfComponent.component_func'
         hf_config = deepcopy(self.hf_config).dict()
