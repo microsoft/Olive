@@ -133,7 +133,7 @@ class AzureMLClientConfig(ConfigBase):
             credential.get_token("https://management.azure.com/.default")
             logger.debug("Using DefaultAzureCredential")
         except Exception:
-            logger.debug("Using InteractiveBrowserCredential since of default credential errors", exc_info=True)
+            logger.warning("Using InteractiveBrowserCredential since of default credential errors", exc_info=True)
             # Fall back to InteractiveBrowserCredential in case DefaultAzureCredential not work
             credential = InteractiveBrowserCredential()
 
