@@ -123,7 +123,7 @@ class AzureMLClientConfig(ConfigBase):
         2. DefaultAzureCredential
         3. InteractiveBrowserCredential
         """
-        from azure.identity import DefaultAzureCredential, InteractiveBrowserCredential
+        from azure.identity import AzureCliCredential, InteractiveBrowserCredential
 
         logger.debug("Getting credentials for MLClient")
         import sys
@@ -134,11 +134,12 @@ class AzureMLClientConfig(ConfigBase):
         identity_logger.addHandler(handler)
 
         try:
-            default_auth_params = self.default_auth_params or {}
-            credential = DefaultAzureCredential(**default_auth_params)
+            # default_auth_params = self.default_auth_params or {}
+            # credential = DefaultAzureCredential(**default_auth_params)
+            credential = AzureCliCredential(process_timeout=10)
             # Check if given credential can get token successfully.
             credential.get_token("https://management.azure.com/.default")
-            logger.debug("Using DefaultAzureCredential")
+            logger.debug("Using AzureCliCredential")
         except Exception:
             logger.warning("Using InteractiveBrowserCredential since of default credential errors", exc_info=True)
             # Fall back to InteractiveBrowserCredential in case DefaultAzureCredential not work
