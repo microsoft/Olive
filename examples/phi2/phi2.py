@@ -79,7 +79,7 @@ def get_args(raw_args):
         "--optimum_optimization",
         action="store_true",
         help="Use optimum optimization",
-    ),
+    )
     parser.add_argument(
         "--genai_optimization",
         action="store_true",
@@ -120,7 +120,7 @@ def main(raw_args=None):
     if not args.model_type and not args.finetune_method:
         raise ValueError("Please specify either model_type or finetune_method")
 
-    model_type = str(args.model_type) or None
+    model_type = str(args.model_type) or ""
 
     if args.genai_optimization:
         json_file_template = "phi2_genai.json"
