@@ -31,7 +31,7 @@ def get_olive_workspace_config():
         "resource_group": resource_group,
         "workspace_name": workspace_name,
         # pipeline agents have multiple managed identities, so we need to specify the client_id
-        "default_auth_params": {"client_id": client_id},
+        "default_auth_params": {"managed_identity_client_id": client_id},
     }
 
 
