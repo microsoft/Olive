@@ -16,7 +16,7 @@ from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import model_proto_to_olive_model
-from olive.passes.onnx.utils import OnnxDAG
+from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import PassConfigParam
 
 if TYPE_CHECKING:
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 class ExtractAdapters(Pass):
     """Extract adapter weights from model and save them as external weights file.
 
-    If make_inputs is False, model proto is invalid after this pass as the adapter weights point to non-existant
+    If make_inputs is False, model proto is invalid after this pass as the adapter weights point to non-existent
     external files. Inference session must be created by first loading the adapter weights using
     SessionOptions.add_external_initializers.
 
@@ -151,6 +151,7 @@ class ExtractAdapters(Pass):
 
                 # add the module to the quant modules
                 quant_modules.add(new_weight_name.replace(".weight", ".quant"))
+            # TODO(jambayk): Add int4 quantization support
 
         # remove old dequantize nodes
         for node_name in nodes_to_remove:
@@ -192,7 +193,7 @@ class ExtractAdapters(Pass):
                     if matching_quant_modules:
                         # zero point is optional so we need to check if it exists
                         for suffix in [".weight", ".scale", ".zero_point"]:
-                            packings[f"{base_name}.{suffix}.packed"] = [
+                            packings[f"{base_name}.quant{suffix}.packed"] = [
                                 name + suffix for name in matching_quant_modules if name + suffix in weights
                             ]
 
