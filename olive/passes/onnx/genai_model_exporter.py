@@ -30,6 +30,9 @@ class GenAIModelExporter(Pass):
         FP16 = "fp16"
         INT4 = "int4"
 
+        def __str__(self) -> str:
+            return self.value
+
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
@@ -52,7 +55,7 @@ class GenAIModelExporter(Pass):
             in AcceleratorLookup.get_execution_providers_for_device(Device.CPU)
             else Device.GPU
         )
-        if precision == self.Precision.FP16 and device == Device.CPU:
+        if precision == GenAIModelExporter.Precision.FP16 and device == Device.CPU:
             logger.info(
                 "FP16 is not supported on CPU. Valid precision + execution"
                 "provider combinations are: FP32 CPU, FP32 CUDA, FP16 CUDA, INT4 CPU, INT4 CUDA"
@@ -78,7 +81,7 @@ class GenAIModelExporter(Pass):
         output_model_filepath = Path(resolve_onnx_path(output_model_path))
 
         precision = config["precision"]
-        execution_provider = (
+        target_execution_provider = (
             "cpu"
             if self.accelerator_spec.execution_provider
             in AcceleratorLookup.get_execution_providers_for_device(Device.CPU)
@@ -98,8 +101,8 @@ class GenAIModelExporter(Pass):
             model_name=str(model.model_path or model.hf_config.model_name),
             input_path="",  # empty string for now
             output_dir=str(output_model_filepath.parent),
-            precision=precision.value,
-            execution_provider=execution_provider,
+            precision=precision,
+            execution_provider=target_execution_provider,
             cache_dir=str(cache_dir),
             filename=str(output_model_filepath.name),
         )
