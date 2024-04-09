@@ -53,8 +53,18 @@ jobs:
       inputs:
         azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
         scriptLocation: 'inlineScript'
+        addSpnToEnvironment: true
         inlineScript: |
-          python -m pytest -v -s --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test_examples-TestOlive.xml $(Build.SourcesDirectory)/examples/test/test_$(exampleName).py
+          echo "##vso[task.setvariable variable=ARM_CLIENT_ID]$servicePrincipalId"
+          echo "##vso[task.setvariable variable=ARM_CLIENT_SECRET]$servicePrincipalKey"
+          echo "##vso[task.setvariable variable=ARM_TENANT_ID]$tenantId"
+          echo "##vso[task.setvariable variable=ARM_OIDC_TOKEN]$idToken"
+          echo "##vso[task.setvariable variable=ARM_USE_OIDC]true"
+      displayName: Set Azure CLI login credentials
+
+    - bash: |
+        az login --service-principal --username $(ARM_CLIENT_ID) --tenant $(ARM_TENANT_ID) --federated-token $(ARM_OIDC_TOKEN)
+        python -m pytest -v -s --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test_examples-TestOlive.xml $(Build.SourcesDirectory)/examples/test/test_$(exampleName).py
       displayName: Test Examples
       env:
         OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)
