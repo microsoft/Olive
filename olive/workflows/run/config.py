@@ -10,7 +10,6 @@ from olive.auto_optimizer import AutoOptimizerConfig
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.pydantic_v1 import validator
-from olive.common.utils import exclude_keys
 from olive.data.config import DataConfig
 from olive.data.container.huggingface_container import HuggingfaceContainer
 from olive.engine import Engine, EngineConfig
@@ -42,20 +41,9 @@ class RunEngineConfig(EngineConfig):
     ort_py_log_severity_level: int = 3
     log_to_file: bool = False
 
-    def create_engine(self):
-        config = self.dict()
-        to_del = [
-            "evaluate_input_model",
-            "output_dir",
-            "output_name",
-            "packaging_config",
-            "log_severity_level",
-            "ort_log_severity_level",
-            "ort_py_log_severity_level",
-            "log_to_file",
-        ]
-        config = exclude_keys(config, to_del)
-        return Engine(config)
+    def create_engine(self, azureml_client_config):
+        config = self.dict(include=EngineConfig.__fields__.keys())
+        return Engine(config, azureml_client_config=azureml_client_config)
 
 
 INPUT_MODEL_DATA_CONFIG = "__input_model_data_config__"

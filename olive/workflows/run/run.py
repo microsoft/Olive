@@ -135,10 +135,7 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig, data_r
     input_model = run_config.input_model
 
     # Azure ML Client
-    if run_config.azureml_client:
-        run_config.engine.azureml_client_config = run_config.azureml_client
-
-    engine = run_config.engine.create_engine()
+    engine = run_config.engine.create_engine(run_config.azureml_client)
 
     # run_config file will be uploaded to AML job
     is_azureml_system = (run_config.engine.host is not None and run_config.engine.host.type == SystemType.AzureML) or (

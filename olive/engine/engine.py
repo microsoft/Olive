@@ -48,6 +48,8 @@ class Engine:
         host_config: Optional[SystemConfig] = None,
         target_config: Optional[SystemConfig] = None,
         evaluator_config: Optional["OliveEvaluatorConfig"] = None,
+        *,
+        azureml_client_config=None,
     ):
         self._config = validate_config(config, EngineConfig)
 
@@ -99,7 +101,7 @@ class Engine:
         self.pass_flows_search_spaces = None
 
         self.footprints = defaultdict(Footprint)
-        self.azureml_client_config = self._config.azureml_client_config
+        self.azureml_client_config = azureml_client_config
         self._initialized = False
 
     def initialize(self):
