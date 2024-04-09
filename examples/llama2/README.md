@@ -54,23 +54,30 @@ Run the following command to execute the workflow:
 python -m olive.workflows.run --config lamma2_genai.json
 ```
 Snippet below shows an example run of generated llama2 model.
-```
-import onnxruntime_genai as ortgenai
+```python
+import onnxruntime_genai as og
 
-model = ortgenai.Model("llama2-7b-chat-int4-cpu", ortgenai.DeviceType.CPU)
-tokenizer = model.create_tokenizer()
+model = og.Model("model_path")
+tokenizer = og.Tokenizer(model)
+tokenizer_stream = tokenizer.create_stream()
 
-while True:
-    prompt = input("Input: ")
-    input_tokens = tokenizer.encode(prompt)
+prompt = '''def print_prime(n):
+    """
+    Print all primes between 1 and n
+    """'''
 
-    params = ortgenai.GeneratorParams(model)
-    params.max_length = 64
-    params.input_ids = input_tokens
+tokens = tokenizer.encode(prompt)
 
-    output_tokens = model.generate(params)[0]
+params = og.GeneratorParams(model)
+params.set_search_options({"max_length":200})
+params.input_ids = tokens
 
-    print("Output: ", tokenizer.decode(output_tokens))
+output_tokens = model.generate(params)
+
+text = tokenizer.decode(output_tokens)
+
+print("Output:")
+print(text)
 ```
 
 ### Quantization using GPTQ and do text generation using ONNX Runtime with Optimum

@@ -79,6 +79,11 @@ def get_args(raw_args):
         "--optimum_optimization",
         action="store_true",
         help="Use optimum optimization",
+    ),
+    parser.add_argument(
+        "--genai_optimization",
+        action="store_true",
+        help="Use optimum optimization",
     )
     parser.add_argument(
         "--export_mlflow_format",
@@ -115,84 +120,104 @@ def main(raw_args=None):
     if not args.model_type and not args.finetune_method:
         raise ValueError("Please specify either model_type or finetune_method")
 
-    if not args.optimum_optimization and version.parse(OrtVersion) < version.parse("1.18.0"):
-        # Check if onnxruntime version is supported
-        # in linux, it requires the
-        # 1. model_type as `phi`
-        # 2. "optimization_options": {"attention_op_type": "MultiHeadAttention"}
-        # in windows, it requires the
-        # 1. model_type as `gpt2`
-        # 2. "optimization_options": {"attention_op_type": "MultiHeadAttention"}
-        # and `phi` and `MultiHeadAttention` requires ort-nightly version >= 1.18.0
-        raise ValueError(
-            "Please use onnxruntime>=1.18.0 for phi2 optimization in Linux, you can refer to "
-            "https://onnxruntime.ai/docs/install/#inference-install-table-for-all-languages "
-            "for ort-nightly installation. If you are optimizing phi2 model in GPU, only cuda11 "
-            "is supported in onnxruntime>=1.18.0"
-        )
+    model_type = str(args.model_type) or None
 
-    json_file_template = "phi2_optimize_template.json"
-    with open(json_file_template) as f:
-        template_json = json.load(f)
+    if args.genai_optimization:
+        json_file_template = "phi2_genai.json"
+        with open(json_file_template) as f:
+            template_json = json.load(f)
+            ep_str, precision = model_type.split("_")
+            device = "GPU" if ep_str == "cuda" else "CPU"
+            template_json["passes"]["genai_exporter"]["config"]["precision"] = precision
+            template_json["systems"]["local_system"]["config"]["accelerators"] = [
+                {"device": device, "execution_providers": [DEVICE_TO_EP[device.lower()]]}
+            ]
 
-    if platform.system() == "Windows":
-        legacy_optimization_setting(template_json)
+        new_json_file = f"phi2_genai_{device.lower()}.json"
+        with open(new_json_file, "w") as f:
+            json.dump(template_json, f, indent=4)
 
-    # add pass flows
-    pass_flows = [[]]
-    if args.finetune_method:
-        pass_flows[0].append(args.finetune_method)
-        template_json["systems"]["local_system"]["config"]["accelerators"][0]["device"] = "gpu"
-        # torch fine tuning does not require execution provider, just set it to CUDAExecutionProvider
-        template_json["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [
-            "CUDAExecutionProvider"
-        ]
-    if args.model_type:
-        model_type = str(args.model_type)
-        pass_flows[0].extend(SUPPORTED_WORKFLOWS[model_type][0])
-        template_json["pass_flows"] = pass_flows
-        if args.optimum_optimization:
+    else:
+        if not args.optimum_optimization and version.parse(OrtVersion) < version.parse("1.18.0"):
+            # Check if onnxruntime version is supported
+            # in linux, it requires the
+            # 1. model_type as `phi`
+            # 2. "optimization_options": {"attention_op_type": "MultiHeadAttention"}
+            # in windows, it requires the
+            # 1. model_type as `gpt2`
+            # 2. "optimization_options": {"attention_op_type": "MultiHeadAttention"}
+            # and `phi` and `MultiHeadAttention` requires ort-nightly version >= 1.18.0
+            raise ValueError(
+                "Please use onnxruntime>=1.18.0 for phi2 optimization in Linux, you can refer to "
+                "https://onnxruntime.ai/docs/install/#inference-install-table-for-all-languages "
+                "for ort-nightly installation. If you are optimizing phi2 model in GPU, only cuda11 "
+                "is supported in onnxruntime>=1.18.0"
+            )
+
+        json_file_template = "phi2_optimize_template.json"
+        with open(json_file_template) as f:
+            template_json = json.load(f)
+
+        if platform.system() == "Windows":
             legacy_optimization_setting(template_json)
-            for pass_flow in template_json["pass_flows"]:
-                pass_flow[0] = "optimum_convert"
-                if "perf_tuning" in pass_flow:
-                    pass_flow.remove("perf_tuning")
 
-        if "cuda" in model_type:
+        # add pass flows
+        pass_flows = [[]]
+        if args.finetune_method:
+            pass_flows[0].append(args.finetune_method)
             template_json["systems"]["local_system"]["config"]["accelerators"][0]["device"] = "gpu"
+            # torch fine tuning does not require execution provider, just set it to CUDAExecutionProvider
             template_json["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [
                 "CUDAExecutionProvider"
             ]
-        if "cpu" in model_type:
-            # no need to set device for CPU since default it is CPU
-            template_json["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [
-                "CPUExecutionProvider"
+        if model_type:
+            pass_flows[0].extend(SUPPORTED_WORKFLOWS[model_type][0])
+            template_json["pass_flows"] = pass_flows
+            if args.optimum_optimization:
+                legacy_optimization_setting(template_json)
+                for pass_flow in template_json["pass_flows"]:
+                    pass_flow[0] = "optimum_convert"
+                    if "perf_tuning" in pass_flow:
+                        pass_flow.remove("perf_tuning")
+
+            if "cuda" in model_type:
+                template_json["systems"]["local_system"]["config"]["accelerators"][0]["device"] = "gpu"
+                template_json["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [
+                    "CUDAExecutionProvider"
+                ]
+            if "cpu" in model_type:
+                # no need to set device for CPU since default it is CPU
+                template_json["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [
+                    "CPUExecutionProvider"
+                ]
+        if args.optimum_optimization or (args.finetune_method and not model_type):
+            # set evaluator as None:
+            template_json["engine"]["evaluate_input_model"] = False
+            template_json["engine"]["evaluator"] = None
+        used_passes = {pass_name for pass_flow in pass_flows for pass_name in pass_flow}
+        for pass_name in list(template_json["passes"].keys()):
+            if pass_name not in used_passes:
+                del template_json["passes"][pass_name]
+                continue
+
+        if args.export_mlflow_format:
+            template_json["engine"]["packaging_config"] = [
+                {
+                    "type": "Zipfile",
+                    "name": "mlflow_model",
+                    "config": {"export_in_mlflow_format": True},
+                }
             ]
-    if args.optimum_optimization or (args.finetune_method and not args.model_type):
-        # set evaluator as None:
-        template_json["engine"]["evaluate_input_model"] = False
-        template_json["engine"]["evaluator"] = None
-    used_passes = {pass_name for pass_flow in pass_flows for pass_name in pass_flow}
-    for pass_name in list(template_json["passes"].keys()):
-        if pass_name not in used_passes:
-            del template_json["passes"][pass_name]
-            continue
 
-    if args.export_mlflow_format:
-        template_json["engine"]["packaging_config"] = [
-            {
-                "type": "Zipfile",
-                "name": "mlflow_model",
-                "config": {"export_in_mlflow_format": True},
-            }
-        ]
-
-    with open("phi2_optimize.json", "w") as f:
-        json.dump(template_json, f, indent=4)
+        new_json_file = f"phi2_{model_type}.json"
+        with open(new_json_file, "w") as f:
+            json.dump(template_json, f, indent=4)
 
     # only evaluate onnx generate model
-    footprints = olive_run(template_json)  # pylint: disable=not-callable
-    if args.model_type:
+    footprints = olive_run(new_json_file)  # pylint: disable=not-callable
+    if args.genai_optimization and args.inference:
+        print("GenAI optimization does not support inference")  # noqa: T201
+    elif model_type:
         output_model_path = get_output_model_path(footprints)
         if args.inference and model_type in SUPPORTED_INFERENCE_CONFIG:
             from generate import run as generate_run
