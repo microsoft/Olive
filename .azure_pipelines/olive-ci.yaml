@@ -100,6 +100,9 @@ jobs:
       resnet_ptq_cpu_aml:
         exampleFolder: resnet
         exampleName: resnet_ptq_cpu_aml
+      resnet_ptq_cpu_aml_dataset:
+        exampleFolder: resnet
+        exampleName: resnet_ptq_cpu_aml_dataset
       resnet_vitis_ai_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_vitis_ai_ptq_cpu
@@ -135,6 +138,9 @@ jobs:
       resnet_ptq_cpu_aml:
         exampleFolder: resnet
         exampleName: resnet_ptq_cpu_aml
+      resnet_ptq_cpu_aml_dataset:
+        exampleFolder: resnet
+        exampleName: resnet_ptq_cpu_aml_dataset
       resnet_qat:
         exampleFolder: resnet
         exampleName: resnet_qat

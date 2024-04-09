@@ -33,7 +33,8 @@ def setup():
 @pytest.mark.parametrize(
     ("olive_json", "search_algorithm", "execution_order", "system"),
     [
-        ("resnet_ptq_cpu.json", "random", "pass-by-pass", "aml_system"),
+        ("resnet_ptq_cpu_aml_dataset.json", False, None, "local_system"),
+        ("resnet_ptq_cpu_aml_dataset.json", False, None, "aml_system"),
     ],
 )
 @pytest.mark.skipif(
