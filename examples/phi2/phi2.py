@@ -18,6 +18,7 @@ SUPPORTED_WORKFLOWS = {
     "cpu_int4": [["convert", "optimize_cpu", "blockwise_quant_int4", "perf_tuning"]],
     "cuda_fp16": [["convert", "optimize_cuda", "perf_tuning"]],
     "cuda_int4": [["convert", "optimize_cuda", "blockwise_quant_int4", "perf_tuning"]],
+    "slicegpt": [["slice"]],
 }
 SUPPORTED_INFERENCE_CONFIG = {
     "cpu_fp32": {
@@ -86,6 +87,11 @@ def get_args(raw_args):
         help="Use optimum optimization",
     )
     parser.add_argument(
+        "--slicegpt",
+        action="store_true",
+        help="Use slicegpt compression",
+    )
+    parser.add_argument(
         "--export_mlflow_format",
         action="store_true",
         help="Export the model in mlflow format.",
@@ -117,8 +123,8 @@ def get_output_model_path(footprints):
 
 def main(raw_args=None):
     args = get_args(raw_args)
-    if not args.model_type and not args.finetune_method:
-        raise ValueError("Please specify either model_type or finetune_method")
+    if not args.model_type and not args.finetune_method and not args.slicegpt:
+        raise ValueError("Please specify either model_type or finetune_method or args.slicegpt")
 
     model_type = str(args.model_type) or ""
 
@@ -138,7 +144,7 @@ def main(raw_args=None):
             json.dump(template_json, f, indent=4)
 
     else:
-        if not args.optimum_optimization and version.parse(OrtVersion) < version.parse("1.18.0"):
+        if not args.optimum_optimization and not args.slicegpt and version.parse(OrtVersion) < version.parse("1.18.0"):
             # Check if onnxruntime version is supported
             # in linux, it requires the
             # 1. model_type as `phi`
@@ -165,11 +171,15 @@ def main(raw_args=None):
         pass_flows = [[]]
         if args.finetune_method:
             pass_flows[0].append(args.finetune_method)
-            template_json["systems"]["local_system"]["config"]["accelerators"][0]["device"] = "gpu"
             # torch fine tuning does not require execution provider, just set it to CUDAExecutionProvider
-            template_json["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [
-                "CUDAExecutionProvider"
-            ]
+            update_accelerator(template_json, "gpu")
+        if args.slicegpt:
+            pass_flows[0].extend(SUPPORTED_WORKFLOWS["slicegpt"][0])
+            update_accelerator(template_json, "gpu")
+            del template_json["input_model"]["config"]["model_script"]
+            del template_json["input_model"]["config"]["dummy_inputs_func"]
+            del template_json["input_model"]["config"]["io_config"]
+
         if model_type:
             pass_flows[0].extend(SUPPORTED_WORKFLOWS[model_type][0])
             template_json["pass_flows"] = pass_flows
@@ -181,19 +191,16 @@ def main(raw_args=None):
                         pass_flow.remove("perf_tuning")
 
             if "cuda" in model_type:
-                template_json["systems"]["local_system"]["config"]["accelerators"][0]["device"] = "gpu"
-                template_json["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [
-                    "CUDAExecutionProvider"
-                ]
+                update_accelerator(template_json, "gpu")
+
             if "cpu" in model_type:
-                # no need to set device for CPU since default it is CPU
-                template_json["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [
-                    "CPUExecutionProvider"
-                ]
-        if args.optimum_optimization or (args.finetune_method and not model_type):
+                update_accelerator(template_json, "cpu")
+
+        if args.optimum_optimization or (args.finetune_method and not args.model_type) or args.slicegpt:
             # set evaluator as None:
             template_json["engine"]["evaluate_input_model"] = False
-            template_json["engine"]["evaluator"] = None
+            del template_json["engine"]["evaluator"]
+
         used_passes = {pass_name for pass_flow in pass_flows for pass_name in pass_flow}
         for pass_name in list(template_json["passes"].keys()):
             if pass_name not in used_passes:
@@ -217,7 +224,7 @@ def main(raw_args=None):
     footprints = olive_run(new_json_file)  # pylint: disable=not-callable
     if args.genai_optimization and args.inference:
         print("GenAI optimization does not support inference")  # noqa: T201
-    elif model_type:
+    elif model_type and not args.slicegpt:
         output_model_path = get_output_model_path(footprints)
         if args.inference and model_type in SUPPORTED_INFERENCE_CONFIG:
             from generate import run as generate_run
@@ -231,6 +238,11 @@ def main(raw_args=None):
             ):
                 print(f"Generation output: {text}")  # noqa: T201
                 print("*" * 50)  # noqa: T201
+
+
+def update_accelerator(config, device):
+    config["systems"]["local_system"]["config"]["accelerators"][0]["device"] = device
+    config["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [DEVICE_TO_EP[device]]
 
 
 def legacy_optimization_setting(config):

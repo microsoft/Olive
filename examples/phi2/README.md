@@ -157,3 +157,14 @@ When using Windows, this example will fallback to the default PyTorch ONNX Expor
 Therefore, it is recommended to use Linux for phi2 optimization.
 
 2. For Optimum optimization, the dynamo model is not supported very well. So we use legacy Pytorch ONNX Exporter to run optimization like what we do in Windows.
+
+## Transformer Compression with SliceGPT
+This workflow compresses a model to improve performance and reduce memory footprint. Specific details about the algorithm can be found in the linked [paper](https://arxiv.org/abs/2401.15024).
+
+## Prerequisites
+[slicegpt](https://github.com/microsoft/TransformerCompression)
+
+To run the workflow,
+```bash
+python phi2.py --slicegpt
+```
