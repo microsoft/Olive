@@ -208,9 +208,7 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create an MLClient instance.&quot;&quot;&quot;</span>
         <span class="kn">from</span> <span class="nn">azure.ai.ml</span> <span class="kn">import</span> <span class="n">MLClient</span>
 
-        <span class="c1"># set logger level to error to avoid too many logs from azure sdk</span>
-        <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;azure.ai.ml&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
-        <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;azure.identity&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
+        <span class="n">set_azure_logging_if_noset</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">aml_config_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">subscription_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -237,9 +235,7 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create an MLClient instance.&quot;&quot;&quot;</span>
         <span class="kn">from</span> <span class="nn">azure.ai.ml</span> <span class="kn">import</span> <span class="n">MLClient</span>
 
-        <span class="c1"># set logger level to error to avoid too many logs from azure sdk</span>
-        <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;azure.ai.ml&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
-        <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;azure.identity&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
+        <span class="n">set_azure_logging_if_noset</span><span class="p">()</span>
 
         <span class="k">return</span> <span class="n">MLClient</span><span class="p">(</span><span class="n">credential</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_credentials</span><span class="p">(),</span> <span class="n">registry_name</span><span class="o">=</span><span class="n">registry_name</span><span class="p">)</span></div>
 
@@ -266,6 +262,18 @@
             <span class="n">credential</span> <span class="o">=</span> <span class="n">InteractiveBrowserCredential</span><span class="p">()</span>
 
         <span class="k">return</span> <span class="n">credential</span></div>
+
+
+<span class="k">def</span> <span class="nf">set_azure_logging_if_noset</span><span class="p">():</span>
+    <span class="c1"># set logger level to error to avoid too many logs from azure sdk</span>
+    <span class="n">azure_ml_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;azure.ai.ml&quot;</span><span class="p">)</span>
+    <span class="c1"># only set the level if it is not set, to avoid changing the level set by the user</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">azure_ml_logger</span><span class="o">.</span><span class="n">level</span><span class="p">:</span>
+        <span class="n">azure_ml_logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
+    <span class="n">azure_identity_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;azure.identity&quot;</span><span class="p">)</span>
+    <span class="c1"># only set the level if it is not set, to avoid changing the level set by the user</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">azure_identity_logger</span><span class="o">.</span><span class="n">level</span><span class="p">:</span>
+        <span class="n">azure_identity_logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
 </pre></div>
 
            </div>
