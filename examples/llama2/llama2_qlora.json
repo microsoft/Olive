@@ -125,17 +125,13 @@
                 "opt_level": 0,
                 "only_onnxruntime": false,
                 "keep_io_types": false,
-                "float16": true,
-                "optimization_options": {
-                    "enable_rotary_embeddings": false
-                }
+                "float16": true
             }
         },
-        "bnb_quantization": {
-            "type": "OnnxBnb4Quantization",
+        "extract": {
+            "type": "ExtractAdapters",
             "config": {
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true
+                "make_inputs": true
             }
         }
     },
