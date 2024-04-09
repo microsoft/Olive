@@ -43,11 +43,7 @@ jobs:
       displayName: Set exampleRequirements
       condition: eq(variables['exampleRequirements'], '')
 
-    - task: AzureCLI@1
-      inputs:
-        azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
-        scriptLocation: 'inlineScript'
-        inlineScript: |
+    - script: |
           python -m pip install pytest
           python -m pip install azure-storage-blob tabulate
           python -m pip install -r $(Build.SourcesDirectory)/examples/$(exampleFolder)/$(exampleRequirements)
@@ -58,6 +54,7 @@ jobs:
         WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
         WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
         WORKSPACE_NAME: $(workspace-name)
+        WORKSPACE_CLIENT_ID: $(olive-1es-identity-client-id)
 
     - task: ComponentGovernanceComponentDetection@0
       inputs:
