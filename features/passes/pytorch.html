@@ -91,8 +91,12 @@
 <li class="toctree-l4"><a class="reference internal" href="#id4">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#torchtrtconversion">TorchTRTConversion</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#slicegpt">SliceGPT</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id5">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#torchtrtconversion">TorchTRTConversion</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id6">Example Configuration</a></li>
 </ul>
 </li>
 </ul>
@@ -333,14 +337,32 @@ as 2:4 and 4:8 patterns.</p>
 </div>
 </section>
 </section>
+<section id="slicegpt">
+<h2>SliceGPT<a class="headerlink" href="#slicegpt" title="Permalink to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">SliceGPT</span></code> is post-training sparsification scheme that makes transformer networks smaller by applying orthogonal transformations to each transformer layer that reduces the model size by slicing off the least-significant rows and columns of the weight matrices. This results in speedups and a reduced memory footprint.</p>
+<p>Please refer to the original <a class="reference external" href="https://arxiv.org/abs/2401.15024">paper</a> for more details on the algorithm and expected results for different models, sparsities and datasets.</p>
+<p>This pass only supports HuggingFace transformer PyTorch models. Please refer to <a class="reference internal" href="../../api/passes.html#slicegpt"><span class="std std-ref">SliceGPT</span></a> for more details on the types of transformers models supported.</p>
+<section id="id5">
+<h3>Example Configuration<a class="headerlink" href="#id5" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SliceGPT&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;sparsity&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.4</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;calibration_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;wikitext2&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
 <section id="torchtrtconversion">
 <h2>TorchTRTConversion<a class="headerlink" href="#torchtrtconversion" title="Permalink to this heading">¶</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">TorchTRTConversion</span></code> converts the <code class="docutils literal notranslate"><span class="pre">torch.nn.Linear</span></code> modules in the transformer layers in a Hugging Face PyTorch model to <code class="docutils literal notranslate"><span class="pre">TRTModules</span></code> from <code class="docutils literal notranslate"><span class="pre">torch_tensorrt</span></code> with fp16 precision and sparse weights, if
 applicable. <code class="docutils literal notranslate"><span class="pre">torch_tensorrt</span></code> is an extension to <code class="docutils literal notranslate"><span class="pre">torch</span></code> where TensorRT compiled engines can be used like regular <code class="docutils literal notranslate"><span class="pre">torch.nn.Module</span></code>s. This pass can be used to accelerate inference on transformer models
 with sparse weights by taking advantage of the 2:4 structured sparsity pattern supported by TensorRT.</p>
 <p>This pass only supports Hugging Face transformers PyTorch models. Please refer to <a class="reference internal" href="../../api/passes.html#torch-trt-conversion"><span class="std std-ref">TorchTRTConversion</span></a> for more details on the types of transformers models supported.</p>
-<section id="id5">
-<h3>Example Configuration<a class="headerlink" href="#id5" title="Permalink to this heading">¶</a></h3>
+<section id="id6">
+<h3>Example Configuration<a class="headerlink" href="#id6" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;TorchTRTConversion&quot;</span>
 <span class="p">}</span>
