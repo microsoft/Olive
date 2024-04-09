@@ -60,7 +60,7 @@ jobs:
         WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
         WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
         WORKSPACE_NAME: $(workspace-name)
-        WORKSPACE_CLIENT_ID: $(olive-1es-identity-client-id)
+        MANAGED_IDENTITY_CLIENT_ID: $(olive-1es-identity-client-id)
   - ${{ else }}:
     - script: |
           python -m pip install pytest
@@ -74,7 +74,7 @@ jobs:
         WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
         WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
         WORKSPACE_NAME: $(workspace-name)
-        WORKSPACE_CLIENT_ID: $(olive-1es-identity-client-id)
+        MANAGED_IDENTITY_CLIENT_ID: $(olive-1es-identity-client-id)
 
   - task: CredScan@3
     displayName: 'Run CredScan'

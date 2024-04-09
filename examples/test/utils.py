@@ -73,9 +73,9 @@ def update_azureml_config(olive_config):
     if workspace_name is None:
         raise Exception("Please set the environment variable WORKSPACE_NAME")
 
-    client_id = os.environ.get("WORKSPACE_CLIENT_ID")
+    client_id = os.environ.get("MANAGED_IDENTITY_CLIENT_ID")
     if client_id is None:
-        raise Exception("Please set the environment variable WORKSPACE_CLIENT_ID")
+        raise Exception("Please set the environment variable MANAGED_IDENTITY_CLIENT_ID")
 
     olive_config["azureml_client"] = {
         "subscription_id": subscription_id,
