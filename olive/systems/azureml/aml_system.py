@@ -349,8 +349,10 @@ class AzureMLSystem(OliveSystem):
         env_vars = copy.deepcopy(self.env_vars) if self.env_vars else {}
         env_vars["OLIVE_LOG_LEVEL"] = logging.getLevelName(logger.getEffectiveLevel())
 
+        # the name need to be lowercase
+        # https://github.com/Azure/azure-sdk-for-python/blob/8b5217499caedba762b47fa6a118e51209f6f604/sdk/ml/azure-ai-ml/azure/ai/ml/entities/_builders/base_node.py#L217
         return command(
-            name=name,
+            name=name.lower(),  # convert to lowercase to avoid AzureML name restrictions
             display_name=display_name,
             description=description,
             command=cmd_line,
