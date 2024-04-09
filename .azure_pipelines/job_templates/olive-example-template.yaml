@@ -62,7 +62,7 @@ jobs:
           echo "##vso[task.setvariable variable=ARM_USE_OIDC]true"
       displayName: Set Azure CLI login credentials
 
-    - bash: |
+    - script: |
         az login --service-principal --username $(ARM_CLIENT_ID) --tenant $(ARM_TENANT_ID) --federated-token $(ARM_OIDC_TOKEN)
         python -m pytest -v -s --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test_examples-TestOlive.xml $(Build.SourcesDirectory)/examples/test/test_$(exampleName).py
       displayName: Test Examples
