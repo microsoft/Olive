@@ -49,8 +49,9 @@ def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, m
             "search_algorithm": "random",
         },
         "clean_evaluation_cache": True,
+        "evaluator": evaluator_config,
     }
-    engine = Engine(options, evaluator_config=evaluator_config)
+    engine = Engine(options)
     engine.register(OnnxConversion, {"save_as_external_data": save_as_external_data})
 
     input_model_config = get_pytorch_model_config()
