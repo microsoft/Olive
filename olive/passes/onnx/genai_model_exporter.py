@@ -30,6 +30,9 @@ class GenAIModelExporter(Pass):
         FP16 = "fp16"
         INT4 = "int4"
 
+        def __str__(self) -> str:
+            return self.value
+
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
@@ -39,6 +42,30 @@ class GenAIModelExporter(Pass):
                 description="Precision of model.",
             )
         }
+
+    def validate_search_point(
+        self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
+    ) -> bool:
+        if with_fixed_value:
+            search_point = self.config_at_search_point(search_point or {})
+        precision = search_point.get("precision")
+        device = (
+            Device.CPU
+            if self.accelerator_spec.execution_provider
+            in AcceleratorLookup.get_execution_providers_for_device(Device.CPU)
+            else Device.GPU
+        )
+        if precision == GenAIModelExporter.Precision.FP16 and device == Device.CPU:
+            logger.info(
+                "FP16 is not supported on CPU. Valid precision + execution"
+                "provider combinations are: FP32 CPU, FP32 CUDA, FP16 CUDA, INT4 CPU, INT4 CUDA"
+            )
+            return False
+        return True
+
+    @staticmethod
+    def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
+        return False
 
     def _run_for_config(
         self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
@@ -54,17 +81,12 @@ class GenAIModelExporter(Pass):
         output_model_filepath = Path(resolve_onnx_path(output_model_path))
 
         precision = config["precision"]
-        device = (
-            Device.CPU
+        target_execution_provider = (
+            "cpu"
             if self.accelerator_spec.execution_provider
             in AcceleratorLookup.get_execution_providers_for_device(Device.CPU)
-            else Device.GPU
+            else "cuda"
         )
-
-        logger.info(
-            "Valid precision + execution provider combinations are: FP32 CPU, FP32 CUDA, FP16 CUDA, INT4 CPU, INT4 CUDA"
-        )
-
         # Select cache location based on priority
         # HF_CACHE (HF >= v5) -> TRANSFORMERS_CACHE (HF < v5) -> local dir
         cache_dir = os.environ.get("HF_HOME", None)
@@ -79,8 +101,8 @@ class GenAIModelExporter(Pass):
             model_name=str(model.model_path or model.hf_config.model_name),
             input_path="",  # empty string for now
             output_dir=str(output_model_filepath.parent),
-            precision=str(precision),
-            execution_provider=str(device),
+            precision=precision,
+            execution_provider=target_execution_provider,
             cache_dir=str(cache_dir),
             filename=str(output_model_filepath.name),
         )

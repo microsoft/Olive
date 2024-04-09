@@ -1,0 +1,42 @@
+{
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "hf_config": {
+                "model_name": "microsoft/phi-2",
+                "task": "text-generation"
+            }
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "device": "GPU",
+                        "execution_providers": [
+                            "CPUExecutionProvider",
+                            "CUDAExecutionProvider"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
+    "passes": {
+        "genai_exporter": {
+            "type": "GenAIModelExporter",
+            "config": {
+                "precision": "int4"
+            }
+        }
+    },
+    "engine": {
+        "log_severity_level": 0,
+        "host": "local_system",
+        "target": "local_system",
+        "cache_dir": "cache",
+        "output_dir": "models/genai"
+    }
+}
