@@ -3,7 +3,9 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
+import logging
 import os
+import sys
 
 # pylint: disable=broad-exception-raised
 
@@ -73,13 +75,16 @@ def update_azureml_config(olive_config):
     if workspace_name is None:
         raise Exception("Please set the environment variable WORKSPACE_NAME")
 
+    client_id = os.environ.get("MANAGED_IDENTITY_CLIENT_ID")
+    if client_id is None:
+        raise Exception("Please set the environment variable MANAGED_IDENTITY_CLIENT_ID")
+
     olive_config["azureml_client"] = {
         "subscription_id": subscription_id,
         "resource_group": resource_group,
         "workspace_name": workspace_name,
-        # pipeline agents have managed identities which take precedence over the Azure CLI credentials
-        # so we need to exclude managed identity credentials
-        "default_auth_params": {"exclude_managed_identity_credential": True},
+        # pipeline agents have multiple managed identities, so we need to specify the client_id
+        "default_auth_params": {"managed_identity_client_id": client_id},
     }
 
 
@@ -149,3 +154,10 @@ def download_azure_blob(container, blob, download_path):
     with open(download_path, "wb") as my_blob:
         blob_data = blob.download_blob()
         blob_data.readinto(my_blob)
+
+
+def set_azure_identity_logging():
+    identity_logger = logging.getLogger("azure.identity")
+    identity_logger.setLevel(logging.DEBUG)
+    handler = logging.StreamHandler(stream=sys.stdout)
+    identity_logger.addHandler(handler)

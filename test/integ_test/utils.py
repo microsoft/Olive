@@ -22,13 +22,16 @@ def get_olive_workspace_config():
     if workspace_name is None:
         raise Exception("Please set the environment variable WORKSPACE_NAME")
 
+    client_id = os.environ.get("MANAGED_IDENTITY_CLIENT_ID")
+    if client_id is None:
+        raise Exception("Please set the environment variable MANAGED_IDENTITY_CLIENT_ID")
+
     return {
         "subscription_id": subscription_id,
         "resource_group": resource_group,
         "workspace_name": workspace_name,
-        # pipeline agents have managed identities which take precedence over the Azure CLI credentials
-        # so we need to exclude managed identity credentials
-        "default_auth_params": {"exclude_managed_identity_credential": True},
+        # pipeline agents have multiple managed identities, so we need to specify the client_id
+        "default_auth_params": {"managed_identity_client_id": client_id},
     }
 
 

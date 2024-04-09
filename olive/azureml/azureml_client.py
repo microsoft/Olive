@@ -80,9 +80,7 @@ class AzureMLClientConfig(ConfigBase):
         """Create an MLClient instance."""
         from azure.ai.ml import MLClient
 
-        # set logger level to error to avoid too many logs from azure sdk
-        logging.getLogger("azure.ai.ml").setLevel(logging.ERROR)
-        logging.getLogger("azure.identity").setLevel(logging.ERROR)
+        set_azure_logging_if_noset()
 
         if self.aml_config_path is None:
             if self.subscription_id is None:
@@ -109,9 +107,7 @@ class AzureMLClientConfig(ConfigBase):
         """Create an MLClient instance."""
         from azure.ai.ml import MLClient
 
-        # set logger level to error to avoid too many logs from azure sdk
-        logging.getLogger("azure.ai.ml").setLevel(logging.ERROR)
-        logging.getLogger("azure.identity").setLevel(logging.ERROR)
+        set_azure_logging_if_noset()
 
         return MLClient(credential=self._get_credentials(), registry_name=registry_name)
 
@@ -133,8 +129,20 @@ class AzureMLClientConfig(ConfigBase):
             credential.get_token("https://management.azure.com/.default")
             logger.debug("Using DefaultAzureCredential")
         except Exception:
+            logger.warning("Using InteractiveBrowserCredential since of default credential errors", exc_info=True)
             # Fall back to InteractiveBrowserCredential in case DefaultAzureCredential not work
             credential = InteractiveBrowserCredential()
-            logger.debug("Using InteractiveBrowserCredential")
 
         return credential
+
+
+def set_azure_logging_if_noset():
+    # set logger level to error to avoid too many logs from azure sdk
+    azure_ml_logger = logging.getLogger("azure.ai.ml")
+    # only set the level if it is not set, to avoid changing the level set by the user
+    if not azure_ml_logger.level:
+        azure_ml_logger.setLevel(logging.ERROR)
+    azure_identity_logger = logging.getLogger("azure.identity")
+    # only set the level if it is not set, to avoid changing the level set by the user
+    if not azure_identity_logger.level:
+        azure_identity_logger.setLevel(logging.ERROR)
