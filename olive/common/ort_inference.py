@@ -69,9 +69,6 @@ def get_ort_inference_session(
         # add external initializers to the session
         sess_options.add_external_initializers(initializer_names, initializer_values)
 
-        # delete external initializers to free up memory
-        del external_initializers
-
     logger.debug("inference_settings: %s", inference_settings)
 
     # session options
