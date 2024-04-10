@@ -67,7 +67,7 @@ class ExtractAdapters(Pass):
         # create a dag from the model
         dag = OnnxDAG.from_model_path(model.model_path)
         # remove unnecessary identity nodes
-        self.remove_identity_nodes(dag)
+        dag.remove_identity_nodes()
 
         # get lora modules
         lora_modules = model.model_attributes["lora_modules"]
@@ -82,7 +82,7 @@ class ExtractAdapters(Pass):
         # nodes to remove at the end
         nodes_to_remove = set()
 
-        for node_name in list(dag.nodes.keys()):
+        for node_name in dag.get_node_names():
             if dag.get_node_op_type(node_name) != "MatMul" or not any(
                 re.match(pattern, node_name) for pattern in lora_name_patterns
             ):
@@ -93,7 +93,7 @@ class ExtractAdapters(Pass):
             new_weight_name = self._create_new_weight_name(node_name)
 
             # original weight name
-            old_weight_name = dag.nodes[node_name].inputs[1]
+            old_weight_name = dag.get_node_inputs(node_name)[1]
 
             if dag.is_input(old_weight_name):
                 # nothing we can do here
@@ -240,8 +240,8 @@ class ExtractAdapters(Pass):
             dag.model,
             output_model_path,
             external_data_config={"save_as_external_data": True, "all_tensors_to_one_file": True},
-            external_initializers_name=weights_path.name if not config["make_inputs"] else None,
-            constant_inputs_name=weights_path.name if config["make_inputs"] else None,
+            external_initializers_file_name=weights_path.name if not config["make_inputs"] else None,
+            constant_inputs_file_name=weights_path.name if config["make_inputs"] else None,
         )
         output_model.model_attributes = deepcopy(model.model_attributes)
         # save information about the weights in the model attributes
@@ -253,25 +253,6 @@ class ExtractAdapters(Pass):
             if config["pack_inputs"]:
                 output_model.model_attributes["packed_inputs"] = packings
         return output_model
-
-    @staticmethod
-    def remove_identity_nodes(dag: OnnxDAG):
-        """Remove unnecessary identity nodes from the graph."""
-        nodes_to_remove = set()
-        for node_name in dag.get_node_names():
-            if dag.get_node_op_type(node_name) != "Identity" or dag.is_output_producer(node_name):
-                continue
-
-            # change the input of consumers to the input of the identity node
-            for consumer in dag.get_consumers(node_name):
-                dag.replace_node_input(consumer, dag.get_node_outputs(node_name)[0], dag.get_node_inputs(node_name)[0])
-
-            # remove the identity node
-            nodes_to_remove.add(node_name)
-
-        for node_name in nodes_to_remove:
-            dag.remove_node(node_name, check_no_consumers=True)
-        logger.debug("Removed %d Identity nodes", len(nodes_to_remove))
 
     @staticmethod
     def _get_lora_name_patterns(lora_modules: List[str]) -> List[str]:

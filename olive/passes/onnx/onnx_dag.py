@@ -67,9 +67,9 @@ class OnnxDAG:
 
         # traverse the graphs and populate nodes, ios, and connections
         for idx, graph in enumerate(self.graphs):
-            self.process_io(graph, self.ios, idx)
+            self._process_io(graph, self.ios, idx)
             for node in graph.node:
-                self.process_node(node, self.nodes, self.ios, self.connections, idx)
+                self._process_node(node, self.nodes, self.ios, self.connections, idx)
 
     @staticmethod
     def get_all_graphs(model: "ModelProto") -> List[GraphProto]:
@@ -94,8 +94,8 @@ class OnnxDAG:
                             graph_queue.append(g)
         return all_graphs
 
-    @classmethod
-    def process_io(cls, graph: GraphProto, ios: Dict[str, OnnxIO], graph_idx: int):
+    @staticmethod
+    def _process_io(graph: GraphProto, ios: Dict[str, OnnxIO], graph_idx: int):
         """Process inputs, outputs, and initializers in the graph.
 
         This will populate ios. Should be called before adding nodes.
@@ -112,9 +112,8 @@ class OnnxDAG:
             ios[initializer.name] = OnnxIO(proto=initializer, source=SpecialInput.INITIALIZER, graph_idx=graph_idx)
         return ios
 
-    @classmethod
-    def process_node(
-        cls,
+    @staticmethod
+    def _process_node(
         node_proto: NodeProto,
         nodes: Dict[str, OnnxNode],
         ios: Dict[str, OnnxIO],
@@ -215,7 +214,7 @@ class OnnxDAG:
         :param overwrite_initializers: whether to overwrite the initializers if a node output is already present
             as an initializer. If false, it will raise an error.
         """
-        self.process_node(node_proto, self.nodes, self.ios, self.connections, graph_idx, overwrite_initializers)
+        self._process_node(node_proto, self.nodes, self.ios, self.connections, graph_idx, overwrite_initializers)
 
     def remove_node(self, node_name: str, check_no_consumers: bool = False):
         """Remove a node from the graph.
@@ -463,9 +462,29 @@ class OnnxDAG:
             graph.ClearField("output")
             graph.output.extend(outputs)
 
+    def remove_identity_nodes(self):
+        """Remove identity nodes from the graph."""
+        nodes_to_remove = set()
+        for node_name in self.get_node_names():
+            if self.get_node_op_type(node_name) != "Identity" or self.is_output_producer(node_name):
+                continue
+
+            # change the input of consumers to the input of the identity node
+            for consumer in self.get_consumers(node_name):
+                self.replace_node_input(
+                    consumer, self.get_node_outputs(node_name)[0], self.get_node_inputs(node_name)[0]
+                )
+
+            # remove the identity node
+            nodes_to_remove.add(node_name)
+
+        for node_name in nodes_to_remove:
+            self.remove_node(node_name, check_no_consumers=True)
+        logger.debug("Removed %d Identity nodes", len(nodes_to_remove))
+
     @classmethod
     def from_model_path(cls, model_path: Union[str, Path]) -> "OnnxDAG":
-        """Load an ONNX model and create an DAG.
+        """Load an ONNX model and create an self.
 
         :param model_path: path to the ONNX model.
         :return: OnnxDAG object.

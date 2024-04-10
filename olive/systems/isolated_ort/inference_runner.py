@@ -52,7 +52,7 @@ def main(raw_args=None):
         args.model_path,
         config["inference_settings"],
         config.get("use_ort_extensions", False),
-        external_initializers_path=args.external_initializers_path,
+        external_initializers=np.load(args.external_initializers_path) if args.external_initializers_path else None,
     )
 
     # load constant inputs

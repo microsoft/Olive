@@ -287,12 +287,12 @@ def test_model_prepare_session_with_external_initializers(
     onnx.save(model_proto, tmp_path / onnx_file_name, save_as_external_data=True, location="model.onnx.data")
 
     # external initializers
-    external_initializers_name = "external_initializers.npz"
-    np.savez(tmp_path / external_initializers_name, **external_initializers)
+    external_initializers_file_name = "external_initializers.npz"
+    np.savez(tmp_path / external_initializers_file_name, **external_initializers)
 
     # create model
     olive_model = ONNXModelHandler(
-        tmp_path, onnx_file_name=onnx_file_name, external_initializers_name=external_initializers_name
+        tmp_path, onnx_file_name=onnx_file_name, external_initializers_file_name=external_initializers_file_name
     )
 
     # mock
