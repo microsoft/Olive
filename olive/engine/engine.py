@@ -25,7 +25,7 @@ from olive.model import ModelConfig
 from olive.strategy.search_strategy import SearchStrategy, SearchStrategyConfig
 from olive.systems.common import SystemType
 from olive.systems.olive_system import OliveSystem
-from olive.systems.system_config import LocalTargetUserConfig, SystemConfig
+from olive.systems.system_config import SystemConfig
 from olive.systems.utils import create_managed_system_with_cache
 
 if TYPE_CHECKING:
@@ -44,13 +44,14 @@ class Engine:
     def __init__(
         self,
         search_strategy: Optional[Union[Dict[str, Any], SearchStrategyConfig]] = None,
-        host: Optional[Union[Dict[str, Any], SystemConfig]] = None,
-        target: Optional[Union[Dict[str, Any], SystemConfig]] = None,
+        host: Optional[Union[Dict[str, Any], "SystemConfig"]] = None,
+        target: Optional[Union[Dict[str, Any], "SystemConfig"]] = None,
         evaluator: Optional[Union[Dict[str, Any], "OliveEvaluatorConfig"]] = None,
         cache_dir=".olive-cache",
         clean_cache=False,
         clean_evaluation_cache=False,
         plot_pareto_frontier=False,
+        *,
         azureml_client_config=None,
     ):
         self.no_search = False
@@ -63,25 +64,17 @@ class Engine:
             self.search_strategy = SearchStrategy(search_strategy)
 
         # default host
-        if host is not None:
-            self.host_config = validate_config(host, SystemConfig)
-        else:
-            # host accelerator is not used, so no need to specify it
-            self.host_config = SystemConfig(type=SystemType.Local, config=LocalTargetUserConfig())
+        host = host or {"type": SystemType.Local}
+        self.host_config = validate_config(host, SystemConfig)
         self.host = None
 
         # engine target
-        if target is not None:
-            self.target_config = validate_config(target, SystemConfig)
-        else:
-            self.target_config = SystemConfig(type=SystemType.Local, config=LocalTargetUserConfig())
+        target = target or {"type": SystemType.Local}
+        self.target_config = validate_config(target, SystemConfig)
         self.target = None
 
         # default evaluator
-        if evaluator:
-            self.evaluator_config = validate_config(evaluator, OliveEvaluatorConfig)
-        else:
-            self.evaluator_config = None
+        self.evaluator_config = validate_config(evaluator, OliveEvaluatorConfig) if evaluator else None
 
         self.cache_dir = cache_dir
         self.clean_cache = clean_cache
