@@ -89,7 +89,7 @@ def configure(py_version: str, sdk: str):
     :param py_version: Python version, use 3.6 for tensorflow 1.15 and 3.8 otherwise
     :param sdk: Qualcomm SDK, snpe or qnn
     """
-    configure_dev(sdk, py_version)
+    configure_dev(py_version, sdk)
     configure_eval(sdk)
 
 
