@@ -101,7 +101,7 @@ engine_config = {
     }
 }
 
-engine = Engine(engine_config, evaluator_config=evaluator_config)
+engine = Engine(**engine_config, evaluator=evaluator_config)
 ```
 
 ## Register Passes

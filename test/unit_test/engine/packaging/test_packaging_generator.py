@@ -51,7 +51,7 @@ def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, m
         "clean_evaluation_cache": True,
         "evaluator": evaluator_config,
     }
-    engine = Engine(options)
+    engine = Engine(**options)
     engine.register(OnnxConversion, {"save_as_external_data": save_as_external_data})
 
     input_model_config = get_pytorch_model_config()
@@ -108,7 +108,7 @@ def test_generate_zipfile_artifacts_no_search(tmp_path):
         "clean_cache": True,
         "clean_evaluation_cache": True,
     }
-    engine = Engine(options)
+    engine = Engine(**options)
     engine.register(OnnxConversion)
 
     input_model_config = get_pytorch_model_config()
@@ -149,7 +149,7 @@ def test_generate_zipfile_artifacts_mlflow(tmp_path):
         "clean_cache": True,
         "clean_evaluation_cache": True,
     }
-    engine = Engine(options)
+    engine = Engine(**options)
     engine.register(OnnxConversion)
 
     input_model_config = get_pytorch_model_config()

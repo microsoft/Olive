@@ -86,7 +86,7 @@ def create_and_run_workflow(tmp_path, system_config, model_config, metric, only_
         "host": system_config if not only_target else None,
         "evaluator": evaluator_config,
     }
-    engine = Engine(config=config)
+    engine = Engine(**config)
     engine.register(OrtPerfTuning)
     accelerator_specs = create_accelerators(system_config)
     output = engine.run(model_config, accelerator_specs, output_dir=output_dir, evaluate_input_model=True)

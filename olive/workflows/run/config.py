@@ -43,7 +43,7 @@ class RunEngineConfig(EngineConfig):
 
     def create_engine(self, azureml_client_config):
         config = self.dict(include=EngineConfig.__fields__.keys())
-        return Engine(config, azureml_client_config=azureml_client_config)
+        return Engine(**config, azureml_client_config=azureml_client_config)
 
 
 INPUT_MODEL_DATA_CONFIG = "__input_model_data_config__"
