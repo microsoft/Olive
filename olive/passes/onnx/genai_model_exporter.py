@@ -6,6 +6,7 @@
 # --------------------------------------------------------------------------
 import logging
 import os
+import tempfile
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict
@@ -93,7 +94,8 @@ class GenAIModelExporter(Pass):
         if not cache_dir:
             cache_dir = os.environ.get("TRANSFORMERS_CACHE", None)
         if not cache_dir:
-            cache_dir = output_model_filepath.parent / "genai_cache_dir"
+            # please do not clean up the cache dir as it may contain model's data
+            os.environ["HF_HOME"] = str(Path(tempfile.gettempdir()) / "hf_cache")
 
         # currently we only support regular hf models so we can pass the name_or_path directly to model_name
         # could also check if it is a locally saved model and pass the path to input_path but it is not necessary
