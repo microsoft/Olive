@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 
 import olive.cache as cache_utils
-from olive.common.config_utils import ConfigBase, validate_config
+from olive.common.config_utils import validate_config
 from olive.common.utils import hash_dict
 from olive.engine.config import FAILED_CONFIG, INVALID_CONFIG, PRUNED_CONFIGS
 from olive.engine.footprint import Footprint, FootprintNodeMetric
@@ -22,7 +22,7 @@ from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.exception import EXCEPTIONS_TO_RAISE, OlivePassError
 from olive.hardware import AcceleratorSpec
 from olive.model import ModelConfig
-from olive.strategy.search_strategy import SearchStrategy
+from olive.strategy.search_strategy import SearchStrategy, SearchStrategyConfig
 from olive.systems.common import SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import LocalTargetUserConfig, SystemConfig
@@ -43,7 +43,7 @@ class Engine:
 
     def __init__(
         self,
-        search_strategy: Optional[Union[Dict[str, Any], SearchStrategy]] = None,
+        search_strategy: Optional[Union[Dict[str, Any], SearchStrategyConfig]] = None,
         host: Optional[Union[Dict[str, Any], SystemConfig]] = None,
         target: Optional[Union[Dict[str, Any], SystemConfig]] = None,
         evaluator: Optional[Union[Dict[str, Any], "OliveEvaluatorConfig"]] = None,
@@ -54,17 +54,13 @@ class Engine:
         azureml_client_config=None,
     ):
         self.no_search = False
-        # default search strategy
-        self.search_strategy = SearchStrategy({"execution_order": "joint", "search_algorithm": "exhaustive"})
-        if isinstance(search_strategy, (ConfigBase, dict)):
-            # if search strategy is provided in config, use it
-            self.search_strategy = SearchStrategy(search_strategy)
-        elif not search_strategy:
+        if not search_strategy:
             # if search strategy is None or False, disable search
             self.no_search = True
+            self.search_strategy = None
         else:
-            # if search strategy is provided, use it. It takes precedence
-            self.search_strategy = search_strategy
+            # if search strategy is provided in config, use it
+            self.search_strategy = SearchStrategy(search_strategy)
 
         # default host
         if host is not None:
