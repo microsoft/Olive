@@ -40,7 +40,9 @@ class OnnxNode(ConfigBase):
     inputs: List[str]
     outputs: List[str]
     graph_idx: int
-    proto: NodeProto  # reference to the node in the model graph
+    # reference to the node in the model graph
+    # can't be serialized to JSON, but we don't need it
+    proto: NodeProto
 
 
 class OnnxIO(ConfigBase):
@@ -52,6 +54,8 @@ class OnnxIO(ConfigBase):
     source: str = None
     destination: List[str] = Field(default_factory=list)
     graph_idx: int
+    # reference to the protobuf object
+    # can't be serialized to JSON, but we don't need it
     proto: Union[ValueInfoProto, TensorProto] = None
 
 
