@@ -183,6 +183,24 @@ This pass only supports Hugging Face transformers PyTorch models. Please refer t
 }
 ```
 
+## SliceGPT
+`SliceGPT` is post-training sparsification scheme that makes transformer networks smaller by applying orthogonal transformations to each transformer layer that reduces the model size by slicing off the least-significant rows and columns of the weight matrices. This results in speedups and a reduced memory footprint.
+
+Please refer to the original [paper](https://arxiv.org/abs/2401.15024) for more details on the algorithm and expected results for different models, sparsities and datasets.
+
+This pass only supports HuggingFace transformer PyTorch models. Please refer to [SliceGPT](slicegpt) for more details on the types of transformers models supported.
+
+### Example Configuration
+```json
+{
+    "type": "SliceGPT",
+    "config": {
+        "sparsity": 0.4,
+        "calibration_data_config": "wikitext2"
+    }
+}
+```
+
 ## TorchTRTConversion
 `TorchTRTConversion` converts the `torch.nn.Linear` modules in the transformer layers in a Hugging Face PyTorch model to `TRTModules` from `torch_tensorrt` with fp16 precision and sparse weights, if
 applicable. `torch_tensorrt` is an extension to `torch` where TensorRT compiled engines can be used like regular `torch.nn.Module`s. This pass can be used to accelerate inference on transformer models

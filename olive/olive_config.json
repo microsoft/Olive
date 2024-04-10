@@ -158,6 +158,9 @@
         "SparseGPT": {
             "module_path": "olive.passes.pytorch.sparsegpt.SparseGPT"
         },
+        "SliceGPT": {
+            "module_path": "olive.passes.pytorch.slicegpt.SliceGPT"
+        },
         "TorchTRTConversion": {
             "module_path": "olive.passes.pytorch.torch_trt_conversion.TorchTRTConversion",
             "extra_dependencies": [

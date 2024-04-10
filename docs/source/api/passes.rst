@@ -199,6 +199,12 @@ SparseGPT
 --------------------
 .. autoconfigclass:: olive.passes.SparseGPT
 
+.. _slicegpt:
+
+SliceGPT
+--------------------
+.. autoconfigclass:: olive.passes.SliceGPT
+
 .. _gptq_quantizer:
 
 GptqQuantizer

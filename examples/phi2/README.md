@@ -49,6 +49,78 @@ cuda_int4
 python phi2.py --model_type cuda_int4
 ```
 
+### GenAI Optimization
+For using ONNX runtime GenAI to optimize, follow build and installation instructions [here](https://github.com/microsoft/onnxruntime-genai).
+Run the following command to execute the workflow:
+```bash
+python -m olive.workflows.run --config phi2_genai.json
+```
+This `phi2_genai.json` config file will generate optimized models for `cpu_int4` and `cuda_int4` model types as onnxruntime-gpu support cpu ep and cuda ep both.
+If you only want cpu or cuda model, you can modify the config file by remove the unwanted execution providers.
+```json
+# CPU
+"accelerators": [
+  {
+      "device": "CPU",
+      "execution_providers": [
+          "CPUExecutionProvider",
+      ]
+  }
+]
+# CPU: this is same with above as onnxruntime-gpu support cpu ep
+"accelerators": [
+  {
+      "device": "GPU",
+      "execution_providers": [
+          "CPUExecutionProvider",
+      ]
+  }
+]
+# CUDA
+"accelerators": [
+  {
+      "device": "GPU",
+      "execution_providers": [
+          "CUDAExecutionProvider",
+      ]
+  }
+]
+```
+
+or you can use `ph2.py` to generate optimized models separately by running the following commands:
+```bash
+python phi2.py --model_type cpu_int4 --genai_optimization
+python phi2.py --model_type cuda_int4 --genai_optimization
+```
+
+Snippet below shows an example run of generated phi2 model.
+```python
+import onnxruntime_genai as og
+
+model = og.Model("model_path")
+tokenizer = og.Tokenizer(model)
+tokenizer_stream = tokenizer.create_stream()
+
+prompt = '''def print_prime(n):
+    """
+    Print all primes between 1 and n
+    """'''
+
+tokens = tokenizer.encode(prompt)
+
+params = og.GeneratorParams(model)
+params.set_search_options({"max_length":200})
+params.input_ids = tokens
+
+output_tokens = model.generate(params)
+
+text = tokenizer.decode(output_tokens)
+
+print("Output:")
+print(text)
+```
+
+### Optimum Optimization
 Above commands will generate optimized models with given model_type and save them in the `phi2` folder. These optimized models can be wrapped by ONNXRuntime for inference.
 Besides, for better generation experience, this example also let use use [Optimum](https://huggingface.co/docs/optimum/v1.2.1/en/onnxruntime/modeling_ort) to generate optimized models.
 Then use can call `model.generate` easily to run inference with the optimized model.
@@ -85,3 +157,14 @@ When using Windows, this example will fallback to the default PyTorch ONNX Expor
 Therefore, it is recommended to use Linux for phi2 optimization.
 
 2. For Optimum optimization, the dynamo model is not supported very well. So we use legacy Pytorch ONNX Exporter to run optimization like what we do in Windows.
+
+## Transformer Compression with SliceGPT
+This workflow compresses a model to improve performance and reduce memory footprint. Specific details about the algorithm can be found in the linked [paper](https://arxiv.org/abs/2401.15024).
+
+## Prerequisites
+[slicegpt](https://github.com/microsoft/TransformerCompression)
+
+To run the workflow,
+```bash
+python phi2.py --slicegpt
+```
