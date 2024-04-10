@@ -105,7 +105,7 @@ class GenAIModelExporter(Pass):
             output_dir=str(output_model_filepath.parent),
             precision=precision,
             execution_provider=target_execution_provider,
-            cache_dir=str(cache_dir),
+            cache_dir=cache_dir,
             filename=str(output_model_filepath.name),
         )
 
