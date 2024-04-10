@@ -16,6 +16,9 @@ pt_to_np = {
 }
 
 
+# flake8: noqa: T201
+
+
 class ORTGenerator:
     def __init__(self, decoder_path):
         self.onnx_decoder_path = decoder_path
@@ -265,6 +268,60 @@ class ORTGenerator:
         return self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
 
 
+def genai_run(prompt, model_path, max_length=200):
+    import time
+
+    import onnxruntime_genai as og
+
+    print("Loading model...")
+    app_started_timestamp = time.time()
+    model = og.Model(model_path)
+    model_loaded_timestamp = time.time()
+    print("Model loaded in {:.2f} seconds".format(model_loaded_timestamp - app_started_timestamp))
+    tokenizer = og.Tokenizer(model)
+    tokenizer_stream = tokenizer.create_stream()
+    input_tokens = tokenizer.encode(prompt)
+    started_timestamp = time.time()
+
+    print("Creating generator ...")
+    params = og.GeneratorParams(model)
+    params.set_search_options(
+        {
+            "do_sample": False,
+            "max_length": max_length,
+            "min_length": 0,
+            "top_p": 0.9,
+            "top_k": 40,
+            "temperature": 1.0,
+            "repetition_penalty": 1.0,
+        }
+    )
+    params.input_ids = input_tokens
+    generator = og.Generator(model, params)
+    print("Generator created")
+
+    first = True
+    new_tokens = []
+
+    while not generator.is_done():
+        generator.compute_logits()
+        generator.generate_next_token()
+        if first:
+            first_token_timestamp = time.time()
+            first = False
+
+        new_token = generator.get_next_tokens()[0]
+        print(tokenizer_stream.decode(new_token), end="")
+        new_tokens.append(new_token)
+
+    run_time = time.time() - started_timestamp
+    print(
+        f"Prompt tokens: {len(input_tokens)}, New tokens: {len(new_tokens)},"
+        f" Time to first: {(first_token_timestamp - started_timestamp):.2f}s,"
+        f" New tokens per second: {len(new_tokens)/run_time:.2f} tps"
+    )
+
+
 def run(
     prompt,
     onnx_model_path,
@@ -284,5 +341,5 @@ def run(
         texts = generator.optimum_generate(prompt, max_length=max_length)
 
     for i, text in enumerate(texts):
-        print(f"Prompt: {prompt[i]}")  # noqa: T201
+        print(f"Prompt: {prompt[i]}")
         yield text

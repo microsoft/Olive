@@ -13,6 +13,9 @@ from packaging import version
 
 import olive.workflows.run as olive_run
 
+# flake8: noqa: T201
+
+
 SUPPORTED_WORKFLOWS = {
     "cpu_fp32": [["convert", "optimize_cpu", "perf_tuning"]],
     "cpu_int4": [["convert", "optimize_cpu", "blockwise_quant_int4", "perf_tuning"]],
@@ -222,10 +225,15 @@ def main(raw_args=None):
 
     # only evaluate onnx generate model
     footprints = olive_run(new_json_file)  # pylint: disable=not-callable
+    output_model_path = get_output_model_path(footprints)
     if args.genai_optimization and args.inference:
-        print("GenAI optimization does not support inference")  # noqa: T201
+        from generate import genai_run
+
+        prompts = args.prompt if isinstance(args.prompt, list) else [args.prompt]
+        for prompt in prompts:
+            for text in genai_run(prompt, str(output_model_path.parent)):
+                print(f"Generation output: {text}")
     elif model_type and not args.slicegpt:
-        output_model_path = get_output_model_path(footprints)
         if args.inference and model_type in SUPPORTED_INFERENCE_CONFIG:
             from generate import run as generate_run
 
@@ -236,8 +244,8 @@ def main(raw_args=None):
                 use_optimum=args.optimum_optimization,
                 max_length=args.max_length,
             ):
-                print(f"Generation output: {text}")  # noqa: T201
-                print("*" * 50)  # noqa: T201
+                print(f"Generation output: {text}")
+                print("*" * 50)
 
 
 def update_accelerator(config, device):
