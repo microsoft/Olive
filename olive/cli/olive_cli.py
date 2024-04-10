@@ -6,16 +6,14 @@ import sys
 from argparse import ArgumentParser
 from warnings import warn
 
-from olive.command.configure_qualcomm_sdk import ConfigureQualcommSDKCommand
-from olive.command.export_adapters import ExportAdaptersCommand
-from olive.command.manage_aml_compute import ManageAMLComputeCommand
-from olive.command.run import WorkflowRunCommand
+from olive.cli.configure_qualcomm_sdk import ConfigureQualcommSDKCommand
+from olive.cli.export_adapters import ExportAdaptersCommand
+from olive.cli.manage_aml_compute import ManageAMLComputeCommand
+from olive.cli.run import WorkflowRunCommand
 
 
 def main(raw_args=None, called_as_console_script: bool = True):
-    parser = ArgumentParser(
-        "Olive CLI tool", usage="olive-cli" if called_as_console_script else "python -m olive.command"
-    )
+    parser = ArgumentParser("Olive CLI tool", usage="olive-cli" if called_as_console_script else "python -m olive.cli")
     commands_parser = parser.add_subparsers()
 
     # Register commands
@@ -45,7 +43,7 @@ def legacy_call(deprecated_module: str, command_name: str):
     """
     warn(
         f"Running `python -m {deprecated_module}` is deprecated and might be removed in the future. Please use"
-        f" `olive-cli {command_name}` or `python -m olive.command {command_name}` instead.",
+        f" `olive-cli {command_name}` or `python -m olive.cli {command_name}` instead.",
         FutureWarning,
     )
 

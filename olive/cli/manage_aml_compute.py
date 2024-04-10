@@ -6,7 +6,7 @@ import logging
 from argparse import ArgumentParser
 from pathlib import Path
 
-from olive.command.base import BaseOliveCLICommand
+from olive.cli.base import BaseOliveCLICommand
 
 logger = logging.getLogger(__name__)
 

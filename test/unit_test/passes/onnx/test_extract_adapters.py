@@ -168,7 +168,7 @@ def test_extract_adapters_as_inputs(tmp_path, input_model_info, pack_inputs, mod
 
 @pytest.mark.parametrize("pack_weights", [True, False])
 def test_export_adapters_command(tmp_path, input_model_info, pack_weights):
-    from olive.command.olive_cli import main as cli_main
+    from olive.cli.olive_cli import main as cli_main
 
     # args
     exported_adapters_path = tmp_path / "exported-adapters.npz"

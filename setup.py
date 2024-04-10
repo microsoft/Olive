@@ -90,6 +90,6 @@ setup(
     },
     data_files=[],
     entry_points={
-        "console_scripts": ["olive-cli=olive.command.olive_cli:main"],
+        "console_scripts": ["olive-cli=olive.cli.olive_cli:main"],
     },
 )

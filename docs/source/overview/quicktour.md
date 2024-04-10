@@ -20,7 +20,7 @@ The last step is the simplest one. You just need to run following simple command
 ```
 olive-cli run --config my_model_acceleration_description.json
 ```
-**Note:** If `olive-cli` cannot be found in your path, you can use `python -m olive.command` instead.
+**Note:** If `olive-cli` cannot be found in your path, you can use `python -m olive.cli` instead.
 
 or in python code:
 ```python

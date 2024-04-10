@@ -6,7 +6,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict
 
-from olive.command.base import BaseOliveCLICommand
+from olive.cli.base import BaseOliveCLICommand
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray

@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 from argparse import ArgumentParser
 
-from olive.command.base import BaseOliveCLICommand
+from olive.cli.base import BaseOliveCLICommand
 
 
 class WorkflowRunCommand(BaseOliveCLICommand):

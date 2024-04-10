@@ -23,7 +23,7 @@ olive-cli configure-qualcomm-sdk --py_version 3.8 --sdk snpe
 # only when the tensorflow 1.15.0 is needed, use python 3.6
 olive-cli configure-qualcomm-sdk --py_version 3.6 --sdk snpe
 ```
-**Note:** If `olive-cli` cannot be found in your path, you can use `python -m olive.command` instead.
+**Note:** If `olive-cli` cannot be found in your path, you can use `python -m olive.cli` instead.
 
 ## Model Conversion
 `SNPEConversion` converts ONNX or TensorFlow models to SNPE DLC. The DLC file can be loaded into the SNPE runtime for inference
