@@ -13,22 +13,12 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.awq import AwqQuantizer
 
 
-def get_dummy_dataloader_func():
-    return [
-        {
-            "input_ids": torch.randint(10, 100, (1, 128), dtype=torch.long),
-            "attention_mask": torch.ones(1, 128, dtype=torch.long),
-        }
-        for _ in range(128)
-    ]
-
-
 @pytest.mark.skipif(
     not torch.cuda.is_available(),
     reason="gptq requires GPU.",
 )
 @pytest.mark.parametrize("pack_model_for_onnx_conversion", [True, False])
-def test_gptq_default(pack_model_for_onnx_conversion, tmp_path: Path):
+def test_awq(pack_model_for_onnx_conversion, tmp_path: Path):
     # setup
     input_model = PyTorchModelHandler(
         hf_config={

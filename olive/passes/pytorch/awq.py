@@ -126,7 +126,9 @@ class AwqQuantizer(Pass):
 
         loading_args = self._resolve_load_args(model.hf_config.get_loading_args_from_pretrained())
         model_path = model.model_path or model.hf_config.model_name
+        # autoawq load the model with fp16, so we need to convert it to fp32 when saving
         awq_model = AutoAWQForCausalLM.from_pretrained(model_path, **loading_args)
+        awq_model.model = awq_model.model.float()
         tokenizer = AutoTokenizer.from_pretrained(model_path, **loading_args)
         try:
             awq_model_base.AwqQuantizer = quantizer
