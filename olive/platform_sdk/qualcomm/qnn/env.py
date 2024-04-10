@@ -27,7 +27,7 @@ class QNNSDKEnv(SDKEnv):
             if not Path(python_env_bin_path).exists():
                 raise FileNotFoundError(
                     f"Path {python_env_bin_path} does not exist. Please run"
-                    " 'python -m olive.platform_sdk.qualcomm.configure --py_version 3.8 --sdk qnn'"
+                    " 'olive-cli configure-qualcomm-sdk --py_version 3.8 --sdk qnn'"
                     " to add the missing file."
                 )
             env["PATH"] = python_env_bin_path + delimiter + env["PATH"]

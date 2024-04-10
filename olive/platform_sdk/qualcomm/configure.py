@@ -4,11 +4,11 @@
 # --------------------------------------------------------------------------
 
 import logging
+import os
 import platform
 import shutil
 from importlib import resources
 from pathlib import Path
-import os
 
 from olive.common.utils import run_subprocess
 from olive.platform_sdk.qualcomm.constants import SDKTargetDevice
@@ -18,7 +18,7 @@ from olive.platform_sdk.qualcomm.snpe.env import SNPESDKEnv
 logger = logging.getLogger(__name__)
 
 
-def configure_dev(sdk: str, py_version: str):
+def configure_dev(py_version: str, sdk: str):
     """Configure Qualcomm SDK for model development."""
     os.environ["PIP_EXTRA_ARGS"] = "--no-cache-dir"
 
@@ -83,11 +83,11 @@ def configure_eval(sdk: str):
     logger.info("Done")
 
 
-def configure(sdk: str, py_version: str):
+def configure(py_version: str, sdk: str):
     """Configure Qualcomm SDK for Olive.
 
+    :param py_version: Python version, use 3.6 for tensorflow 1.15 and 3.8 otherwise
     :param sdk: Qualcomm SDK, snpe or qnn
-    :param py_version: Python version, use 3.6 for tensorflow 1.15. Otherwise 3.8
     """
     configure_dev(sdk, py_version)
     configure_eval(sdk)

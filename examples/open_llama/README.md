@@ -263,12 +263,12 @@ The optimization techniques to run are specified in the relevant config json fil
 
 First, install required packages according to passes.
 ```
-python -m olive.workflows.run --config <config_file>.json --setup
+olive-cli run --config <config_file>.json --setup
 ```
 
 Then, optimize the model
 ```
-python -m olive.workflows.run --config <config_file>.json
+olive-cli run --config <config_file>.json
 ```
 
 or run simply with python code:

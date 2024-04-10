@@ -15,22 +15,23 @@ class ConfigureQualcommSDKCommand(BaseOliveCLICommand):
             help="Configure Qualcomm SDK for Olive",
         )
         sub_parser.add_argument(
-            "--sdk",
-            type=str,
-            help="Qualcomm SDK: snpe or qnn",
-            required=True,
-            choices=["snpe", "qnn"],
-        )
-        sub_parser.add_argument(
             "--py_version",
             type=str,
             help="Python version: Use 3.6 for tensorflow 1.15 and 3.8 otherwise",
             required=True,
             choices=["3.6", "3.8"],
         )
+        sub_parser.add_argument(
+            "--sdk",
+            type=str,
+            help="Qualcomm SDK: snpe or qnn",
+            required=True,
+            choices=["snpe", "qnn"],
+        )
+
         sub_parser.set_defaults(func=ConfigureQualcommSDKCommand)
 
     def run(self):
         from olive.platform_sdk.qualcomm.configure import configure
 
-        configure(self.args.sdk, self.args.py_version)
+        configure(self.args.py_version, self.args.sdk)

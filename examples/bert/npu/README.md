@@ -14,13 +14,13 @@ Unzip the file and set the unzipped directory path as environment variable `SNPE
 
 ### Configure SNPE
 ```sh
-python -m olive.platform_sdk.qualcomm.configure --py_version 3.8 --sdk snpe
+olive-cli configure-qualcomm-sdk --py_version 3.8 --sdk snpe
 ```
 
 ## Run sample
 Run the conversion and quantization locally.
 ```
-python -m olive.workflows.run --config bert_snpe.json
+olive-cli run --config bert_snpe.json
 ```
 
 ## Issues

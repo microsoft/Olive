@@ -34,7 +34,7 @@ python -m pip install -r requirements.txt
 
 ### Run sample using config
 ```sh
-python -m olive.workflows.run --config config.json
+olive-cli run --config config.json
 ```
 
 or run simply with python code:

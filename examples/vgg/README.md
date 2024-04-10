@@ -15,9 +15,9 @@ Unzip the file and set the unzipped directory path as environment variable `SNPE
 ### Configure SNPE
 ```sh
 # in general, python 3.8 is recommended
-python -m olive.platform_sdk.qualcomm.configure --py_version 3.8 --sdk snpe
+olive-cli configure-qualcomm-sdk --py_version 3.8 --sdk snpe
 # only when the tensorflow 1.15.0 is needed, use python 3.6
-python -m olive.platform_sdk.qualcomm.configure --py_version 3.8 --sdk snpe
+olive-cli configure-qualcomm-sdk --py_version 3.8 --sdk snpe
 ```
 
 ### Pip requirements
@@ -44,7 +44,7 @@ python prepare_config.py
 ## Run sample
 Run the conversion and quantization locally. Only supports `x64-Linux`.
 ```
-python -m olive.workflows.run --config vgg_config.json
+olive-cli run --config vgg_config.json
 ```
 
 ## Issues

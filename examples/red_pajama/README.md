@@ -30,7 +30,7 @@ pip install -r requirements.txt
 
 The easiest way to optimize is by running the olive pipeline for the example:
 ```
-python -m olive.workflows.run --config config.json
+olive-cli run --config config.json
 ```
 The Red Pajama model is very large, and the optimization process is resource intensive. To run the process on low-end machines, you can increase your paging file size accordingly. Be warned, with the overhead of paging, the conversion process might take significantly longer to complete.
 

@@ -48,7 +48,7 @@ class TestQnnToolkit:
             os.environ["USE_OLIVE_ENV"] = "1"
             # prepare model and data
             # retry since it fails randomly
-            run_subprocess(cmd="python -m olive.platform_sdk.qualcomm.configure --py_version 3.8 --sdk qnn", check=True)
+            run_subprocess(cmd="olive-cli configure-qualcomm-sdk --py_version 3.8 --sdk qnn", check=True)
             # install dependencies
             python_cmd = ""
             if platform.system() == "Windows":

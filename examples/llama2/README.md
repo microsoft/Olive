@@ -54,7 +54,7 @@ Pre-existing adapters can be exported directly using the following command:
 ```bash
 # change the adapter_path to the path of the adapter you want to export
 # ensure that the target modules are the same as those of the above fine-tuned model
-python -m olive.scripts.export_adapters --adapter_path Mikael110/llama-2-7b-guanaco-qlora --dtype float16 --pack_weights --output_path models/guanaco_fp16_packed.npz
+olive-cli export-adapters --adapter_path Mikael110/llama-2-7b-guanaco-qlora --dtype float16 --pack_weights --output_path models/guanaco_fp16_packed.npz
 ```
 
 Snippet below shows an example runs of the generated fine-tuned model using two different adapters.
@@ -114,7 +114,7 @@ For using ONNX runtime GenAI to optimize, follow build and installation instruct
 
 Run the following command to execute the workflow:
 ```bash
-python -m olive.workflows.run --config lamma2_genai.json
+olive-cli run --config lamma2_genai.json
 ```
 
 Snippet below shows an example run of generated llama2 model.
@@ -229,7 +229,7 @@ python llama2.py --model_name meta-llama/Llama-2-7b-hf --gpu --use_gptq
 ### Fine-tune on a code generation dataset using QLoRA and optimize using ONNX Runtime Tools
 Run the following command to execute the workflow:
 ```bash
-python -m olive.workflows.run --config lamma2_qlora.json
+olive-cli run --config lamma2_qlora.json
 ```
 
 # License
