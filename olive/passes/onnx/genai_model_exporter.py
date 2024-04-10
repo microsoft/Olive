@@ -95,7 +95,7 @@ class GenAIModelExporter(Pass):
             cache_dir = os.environ.get("TRANSFORMERS_CACHE", None)
         if not cache_dir:
             # please do not clean up the cache dir as it may contain model's data
-            os.environ["HF_HOME"] = str(Path(tempfile.gettempdir()) / "hf_cache")
+            cache_dir = str(Path(tempfile.gettempdir()) / "hf_cache")
 
         # currently we only support regular hf models so we can pass the name_or_path directly to model_name
         # could also check if it is a locally saved model and pass the path to input_path but it is not necessary
