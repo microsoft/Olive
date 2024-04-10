@@ -52,7 +52,6 @@ class Engine:
         clean_evaluation_cache=False,
         plot_pareto_frontier=False,
         azureml_client_config=None,
-        **kwargs,
     ):
         self.no_search = False
         # default search strategy
@@ -103,7 +102,6 @@ class Engine:
         self.pass_flows_search_spaces = None
 
         self.footprints = defaultdict(Footprint)
-        assert not kwargs
 
         self._initialized = False
 
