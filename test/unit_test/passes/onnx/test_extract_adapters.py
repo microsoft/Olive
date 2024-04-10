@@ -18,7 +18,6 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.extract_adapters import ExtractAdapters
 from olive.passes.onnx.quantization import OnnxStaticQuantization
-from olive.scripts.export_adapters import main as export_adapters_main
 
 
 class LlamaCalibrationDataLoader(CalibrationDataReader):
@@ -168,19 +167,25 @@ def test_extract_adapters_as_inputs(tmp_path, input_model_info, pack_inputs, mod
 
 
 @pytest.mark.parametrize("pack_weights", [True, False])
-def test_export_adapters_script(tmp_path, input_model_info, pack_weights):
+def test_export_adapters_command(tmp_path, input_model_info, pack_weights):
+    from olive.command.olive_cli import main as cli_main
+
     # args
+    exported_adapters_path = tmp_path / "exported-adapters.npz"
     args = [
+        "export-adapters",
         "--adapter_path",
         str(input_model_info["adapter_path"]),
         "--output_path",
-        str(tmp_path / "exported-adapters"),
+        str(exported_adapters_path),
     ]
     if pack_weights:
         args.append("--pack_weights")
 
-    exported_adapters_path = export_adapters_main(args)
+    # execute
+    cli_main(args)
 
+    assert Path(exported_adapters_path).is_file()
     expected_weights = set(
         input_model_info["float"]["packed_weights"] if pack_weights else input_model_info["float"]["all_weights"]
     )
