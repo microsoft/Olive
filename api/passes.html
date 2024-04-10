@@ -118,6 +118,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#vitisaiquantization">VitisAIQuantization</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#appendprepostprocessingops">AppendPrePostProcessingOps</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#insertbeamsearch">InsertBeamSearch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#extractadapters">ExtractAdapters</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#lora">LoRA</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#qlora">QLoRA</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#loftq">LoftQ</a><ul>
@@ -3392,6 +3393,36 @@
 <dd><p>Effective only if save_as_external_data is True. If true, convert all tensors to external data If false, convert only non-attribute tensors to external data</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+</section>
+<section id="extractadapters">
+<span id="extract-adapters"></span><h2>ExtractAdapters<a class="headerlink" href="#extractadapters" title="Permalink to this heading">¶</a></h2>
+<p>Extract adapter weights from model and save them as external weights file.
+
+    If make_inputs is False, model proto is invalid after this pass as the adapter weights point to non-existent
+    external files. Inference session must be created by first loading the adapter weights using
+    SessionOptions.add_external_initializers.
+
+    If make_inputs is True, the adapter weights are inputs to the model and must be provided during inference.</p>
+<p><strong>Input:</strong> handler.onnx.ONNXModelHandler</p>
+<p><strong>Output:</strong> handler.onnx.ONNXModelHandler</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-make_inputs">
+<span class="sig-name descname"><span class="pre">make_inputs</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-make_inputs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert adapter weights to inputs. If false, the adapter weights will be set as initializers with external data.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-pack_inputs">
+<span class="sig-name descname"><span class="pre">pack_inputs</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-pack_inputs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pack adapter weights for the same module type into a single input tensor. Only used if make_inputs is True.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> True</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 

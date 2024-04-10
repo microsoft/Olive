@@ -633,34 +633,37 @@ the <code class="docutils literal notranslate"><span class="pre">output_name</sp
 <tr class="row-even"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#dynamic-to-fixed-shape"><span class="std std-ref">DynamicToFixedShape</span></a></p></td>
 <td class="text-left"><p>Convert dynamic shape to fixed shape for ONNX model</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="#onnx_quantization_aware_training"><span class="xref myst">QuantizationAwareTraining</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#extract-adapters"><span class="std std-ref">ExtractAdapters</span></a></p></td>
+<td class="text-left"><p>Extract adapters from ONNX model</p></td>
+</tr>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="#onnx_quantization_aware_training"><span class="xref myst">QuantizationAwareTraining</span></a></p></td>
 <td class="text-left"><p>Run quantization aware training on PyTorch model.</p></td>
 </tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#openvino-conversion"><span class="std std-ref">OpenVINOConversion</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#openvino-conversion"><span class="std std-ref">OpenVINOConversion</span></a></p></td>
 <td class="text-left"><p>Converts PyTorch, ONNX or TensorFlow Model to OpenVino Model.</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#openvino-quantization"><span class="std std-ref">OpenVINOQuantization</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#openvino-quantization"><span class="std std-ref">OpenVINOQuantization</span></a></p></td>
 <td class="text-left"><p>Post-training quantization for OpenVINO model.</p></td>
 </tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#snpe-conversion"><span class="std std-ref">SNPEConversion</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#snpe-conversion"><span class="std std-ref">SNPEConversion</span></a></p></td>
 <td class="text-left"><p>Convert ONNX or TensorFlow model to SNPE DLC. Uses snpe-tensorflow-to-dlc or snpe-onnx-to-dlc tools from the SNPE SDK.</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#snpe-quantization"><span class="std std-ref">SNPEQuantization</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#snpe-quantization"><span class="std std-ref">SNPEQuantization</span></a></p></td>
 <td class="text-left"><p>Quantize SNPE model. Uses snpe-dlc-quantize tool from the SNPE SDK.</p></td>
 </tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#snpe-to-onnx-conversion"><span class="std std-ref">SNPEtoONNXConversion</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#snpe-to-onnx-conversion"><span class="std std-ref">SNPEtoONNXConversion</span></a></p></td>
 <td class="text-left"><p>Convert a SNPE DLC to ONNX to use with SNPE Execution Provider. Creates a ONNX graph with the SNPE DLC as a node.</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#vitis-ai-quantization"><span class="std std-ref">VitisAIQuantization</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#vitis-ai-quantization"><span class="std std-ref">VitisAIQuantization</span></a></p></td>
 <td class="text-left"><p>AMD-Xilinx Vitis-AI Quantization Pass.</p></td>
 </tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#gptq-quantizer"><span class="std std-ref">GptqQuantizer</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#gptq-quantizer"><span class="std std-ref">GptqQuantizer</span></a></p></td>
 <td class="text-left"><p>GPTQ quantization Pass On Pytorch Model.</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#optimum-conversion"><span class="std std-ref">OptimumConversion</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#optimum-conversion"><span class="std std-ref">OptimumConversion</span></a></p></td>
 <td class="text-left"><p>Convert huggingface models to ONNX via the Optimum library.</p></td>
 </tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#optimum-merging"><span class="std std-ref">OptimumMerging</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#optimum-merging"><span class="std std-ref">OptimumMerging</span></a></p></td>
 <td class="text-left"><p>Merge 2 models together with an <code class="docutils literal notranslate"><span class="pre">if</span></code> node via the Optimum library.</p></td>
 </tr>
 </tbody>

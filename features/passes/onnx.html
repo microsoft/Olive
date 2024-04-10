@@ -115,6 +115,10 @@
 <li class="toctree-l4"><a class="reference internal" href="#id10">Example Configuration</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#extract-adapters">Extract Adapters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id11">Example Configuration</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="openvino.html">OpenVINO</a></li>
@@ -624,6 +628,37 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 </div>
 <p>Note: The <code class="docutils literal notranslate"><span class="pre">input_dim</span></code> and <code class="docutils literal notranslate"><span class="pre">dim_value</span></code> should have the same length, and the <code class="docutils literal notranslate"><span class="pre">input_name</span></code> and <code class="docutils literal notranslate"><span class="pre">input_shape</span></code> should have the same length. Also the <code class="docutils literal notranslate"><span class="pre">input_dim</span> <span class="pre">&amp;</span> <span class="pre">dim_value</span></code> and <code class="docutils literal notranslate"><span class="pre">input_name</span> <span class="pre">&amp;</span> <span class="pre">input_shape</span></code> should be exclusive to each other, user cannot specify both of them at the same time.</p>
 <p>More details about the pass and its config parameters can be found <a class="reference external" href="https://onnxruntime.ai/docs/tutorials/mobile/helpers/make-dynamic-shape-fixed.html">here</a>.</p>
+</section>
+</section>
+<section id="extract-adapters">
+<h2>Extract Adapters<a class="headerlink" href="#extract-adapters" title="Permalink to this heading">¶</a></h2>
+<p>LoRA, QLoRA and related techniques allow us to fine-tune a pre-trained model by adding a small number of trainable matrices called adapters. The same base model can be used for multiple tasks by adding different adapters for each task. To support using multiple adapters with the same optimized onnx model, the <code class="docutils literal notranslate"><span class="pre">ExtractAdapters</span></code> pass extracts the adapters weights from the model and saves them to a separate file. The model graph is then modified in one of the following ways:</p>
+<ul class="simple">
+<li><p>Adapters weights are set as external tensors pointing to a non-existent file. The onnx model is thus invalid by itself as it cannot be loaded. In order to create an inference session using this model, the adapter weights must be added to a sessions options object using <code class="docutils literal notranslate"><span class="pre">add_initializer</span></code> or <code class="docutils literal notranslate"><span class="pre">add_external_initializers</span></code>.</p></li>
+<li><p>Adapter weights are converted into model inputs. The onnx model is valid. During inference, the adapter weights must be provided as part of the inputs. We call them constant inputs here since these weights don’t change between runs when using the one set of adapters.</p></li>
+</ul>
+<section id="id11">
+<h3>Example Configuration<a class="headerlink" href="#id11" title="Permalink to this heading">¶</a></h3>
+<p>a. As external initializers</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ExtractAdapters&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;make_inputs&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>b. As constant inputs with packed weights</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ExtractAdapters&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;make_inputs&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;pack_inputs&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Please refer to <a class="reference internal" href="../../api/passes.html#extract-adapters"><span class="std std-ref">ExtractAdapters</span></a> for more details about the pass and its config parameters.</p>
 </section>
 </section>
 </section>

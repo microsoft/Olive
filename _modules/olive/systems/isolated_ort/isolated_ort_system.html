@@ -249,25 +249,16 @@
             <span class="s2">&quot;use_fp16&quot;</span><span class="p">:</span> <span class="nb">any</span><span class="p">(</span><span class="n">v</span> <span class="o">==</span> <span class="s2">&quot;float16&quot;</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">get_io_config</span><span class="p">()[</span><span class="s2">&quot;input_types&quot;</span><span class="p">]),</span>
         <span class="p">}</span>
 
-    <span class="k">def</span> <span class="nf">_run_inference</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">config_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
-        <span class="n">model_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
-        <span class="n">input_dir</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
-        <span class="n">output_dir</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
-    <span class="p">):</span>
-        <span class="n">command</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">executable</span><span class="p">,</span>
-            <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">inference_runner_path</span><span class="p">),</span>
-            <span class="s2">&quot;--config_path&quot;</span><span class="p">,</span>
-            <span class="nb">str</span><span class="p">(</span><span class="n">config_path</span><span class="p">),</span>
-            <span class="s2">&quot;--model_path&quot;</span><span class="p">,</span>
-            <span class="nb">str</span><span class="p">(</span><span class="n">model_path</span><span class="p">),</span>
-            <span class="s2">&quot;--input_dir&quot;</span><span class="p">,</span>
-            <span class="nb">str</span><span class="p">(</span><span class="n">input_dir</span><span class="p">),</span>
-            <span class="s2">&quot;--output_dir&quot;</span><span class="p">,</span>
-            <span class="nb">str</span><span class="p">(</span><span class="n">output_dir</span><span class="p">),</span>
-        <span class="p">]</span>
+    <span class="k">def</span> <span class="nf">_run_inference</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run inference using the inference runner.</span>
+
+<span class="sd">        :param kwargs: arguments to be passed to the inference runner</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">command</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">executable</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">inference_runner_path</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">command</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;--</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">value</span><span class="p">)])</span>
         <span class="n">run_subprocess</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_inference</span><span class="p">(</span>
@@ -314,7 +305,14 @@
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Inference config: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">inference_config</span><span class="p">)</span>
 
             <span class="c1"># run inference</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_run_inference</span><span class="p">(</span><span class="n">config_path</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="n">input_dir</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_run_inference</span><span class="p">(</span>
+                <span class="n">config_path</span><span class="o">=</span><span class="n">config_path</span><span class="p">,</span>
+                <span class="n">model_path</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span>
+                <span class="n">input_dir</span><span class="o">=</span><span class="n">input_dir</span><span class="p">,</span>
+                <span class="n">output_dir</span><span class="o">=</span><span class="n">output_dir</span><span class="p">,</span>
+                <span class="n">external_initializers_path</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">external_initializers_path</span><span class="p">,</span>
+                <span class="n">constant_inputs_path</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">constant_inputs_path</span><span class="p">,</span>
+            <span class="p">)</span>
 
             <span class="c1"># load and process output</span>
             <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_batches</span><span class="p">):</span>
@@ -395,7 +393,14 @@
                 <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">inference_config</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
 
             <span class="c1"># run inference</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_run_inference</span><span class="p">(</span><span class="n">config_path</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="n">input_dir</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_run_inference</span><span class="p">(</span>
+                <span class="n">config_path</span><span class="o">=</span><span class="n">config_path</span><span class="p">,</span>
+                <span class="n">model_path</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span>
+                <span class="n">input_dir</span><span class="o">=</span><span class="n">input_dir</span><span class="p">,</span>
+                <span class="n">output_dir</span><span class="o">=</span><span class="n">output_dir</span><span class="p">,</span>
+                <span class="n">external_initializers_path</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">external_initializers_path</span><span class="p">,</span>
+                <span class="n">constant_inputs_path</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">constant_inputs_path</span><span class="p">,</span>
+            <span class="p">)</span>
 
             <span class="c1"># load output</span>
             <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;output.npy&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
