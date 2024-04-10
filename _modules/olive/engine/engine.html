@@ -152,13 +152,13 @@
 <span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span>
 <span class="kn">from</span> <span class="nn">olive.strategy.search_strategy</span> <span class="kn">import</span> <span class="n">SearchStrategy</span><span class="p">,</span> <span class="n">SearchStrategyConfig</span>
 <span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">SystemType</span>
-<span class="kn">from</span> <span class="nn">olive.systems.olive_system</span> <span class="kn">import</span> <span class="n">OliveSystem</span>
-<span class="kn">from</span> <span class="nn">olive.systems.system_config</span> <span class="kn">import</span> <span class="n">LocalTargetUserConfig</span><span class="p">,</span> <span class="n">SystemConfig</span>
+<span class="kn">from</span> <span class="nn">olive.systems.system_config</span> <span class="kn">import</span> <span class="n">SystemConfig</span>
 <span class="kn">from</span> <span class="nn">olive.systems.utils</span> <span class="kn">import</span> <span class="n">create_managed_system_with_cache</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
     <span class="kn">from</span> <span class="nn">olive.engine.packaging.packaging_config</span> <span class="kn">import</span> <span class="n">PackagingConfig</span>
     <span class="kn">from</span> <span class="nn">olive.passes.olive_pass</span> <span class="kn">import</span> <span class="n">Pass</span>
+    <span class="kn">from</span> <span class="nn">olive.systems.olive_system</span> <span class="kn">import</span> <span class="n">OliveSystem</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
@@ -172,13 +172,14 @@
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">search_strategy</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">SearchStrategyConfig</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">host</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">SystemConfig</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">target</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">SystemConfig</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">host</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="s2">&quot;SystemConfig&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">target</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="s2">&quot;SystemConfig&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">evaluator</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="s2">&quot;OliveEvaluatorConfig&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">cache_dir</span><span class="o">=</span><span class="s2">&quot;.olive-cache&quot;</span><span class="p">,</span>
         <span class="n">clean_cache</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="n">clean_evaluation_cache</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="n">plot_pareto_frontier</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
         <span class="n">azureml_client_config</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span> <span class="o">=</span> <span class="kc">False</span>
@@ -191,25 +192,17 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span> <span class="o">=</span> <span class="n">SearchStrategy</span><span class="p">(</span><span class="n">search_strategy</span><span class="p">)</span>
 
         <span class="c1"># default host</span>
-        <span class="k">if</span> <span class="n">host</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">host_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">host</span><span class="p">,</span> <span class="n">SystemConfig</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># host accelerator is not used, so no need to specify it</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">host_config</span> <span class="o">=</span> <span class="n">SystemConfig</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">SystemType</span><span class="o">.</span><span class="n">Local</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">LocalTargetUserConfig</span><span class="p">())</span>
+        <span class="n">host</span> <span class="o">=</span> <span class="n">host</span> <span class="ow">or</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">Local</span><span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">host_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">host</span><span class="p">,</span> <span class="n">SystemConfig</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">host</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="c1"># engine target</span>
-        <span class="k">if</span> <span class="n">target</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">target_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">SystemConfig</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">target_config</span> <span class="o">=</span> <span class="n">SystemConfig</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">SystemType</span><span class="o">.</span><span class="n">Local</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">LocalTargetUserConfig</span><span class="p">())</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="n">target</span> <span class="ow">or</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">Local</span><span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">target_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">SystemConfig</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">target</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="c1"># default evaluator</span>
-        <span class="k">if</span> <span class="n">evaluator</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">evaluator</span><span class="p">,</span> <span class="n">OliveEvaluatorConfig</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">evaluator</span><span class="p">,</span> <span class="n">OliveEvaluatorConfig</span><span class="p">)</span> <span class="k">if</span> <span class="n">evaluator</span> <span class="k">else</span> <span class="kc">None</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span> <span class="o">=</span> <span class="n">cache_dir</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">clean_cache</span> <span class="o">=</span> <span class="n">clean_cache</span>
@@ -272,7 +265,7 @@
         <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">disable_search</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">host</span><span class="p">:</span> <span class="n">OliveSystem</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">host</span><span class="p">:</span> <span class="s2">&quot;OliveSystem&quot;</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">evaluator_config</span><span class="p">:</span> <span class="s2">&quot;OliveEvaluatorConfig&quot;</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">clean_run_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">output_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -304,7 +297,7 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">p</span><span class="p">:</span> <span class="s2">&quot;Pass&quot;</span><span class="p">,</span>
         <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">host</span><span class="p">:</span> <span class="n">OliveSystem</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">host</span><span class="p">:</span> <span class="s2">&quot;OliveSystem&quot;</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">evaluator_config</span><span class="p">:</span> <span class="s2">&quot;OliveEvaluatorConfig&quot;</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">output_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
