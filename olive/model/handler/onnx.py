@@ -68,6 +68,8 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
         self.all_graphs: Optional[List[GraphProto]] = None
 
         # check for file names since it will automatically validate the paths
+        # these call the property methods which in turn validate the paths using get_onnx_file_path
+        # and get_additional_file_path
         to_check = ["model_path", "external_initializers_path", "constant_inputs_path"]
         for attr in to_check:
             getattr(self, attr)
