@@ -158,6 +158,23 @@ Please refer to [GptqQuantizer](gptq_quantizer) for more details about the pass 
 Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/llama2/llama2_template.json)
 for an example implementation of `"wikitext2_train"`.
 
+## AutoAWQ
+Olive integrates [AutoAWQ](https://github.com/casper-hansen/AutoAWQ) for quantization and make it possible to convert the AWQ quantized torch model to onnx model.
+
+AutoAWQ is an easy-to-use package for 4-bit quantized models. AutoAWQ speeds up models by 3x and reduces memory requirements by 3x compared to FP16. AutoAWQ implements the Activation-aware Weight Quantization (AWQ) algorithm for quantizing LLMs. AutoAWQ was created and improved upon from the original work from MIT.
+
+Please refer to [AwqQuantizer](awq_quantizer) for more details about the pass and its config parameters.
+
+### Example Configuration
+```json
+{
+    "type": "AwqQuantizer",
+    "config": {
+        "w_bit": 4
+    }
+}
+```
+
 ## SparseGPT
 `SparseGPT` prunes GPT like models using a pruning method called [SparseGPT](https://arxiv.org/abs/2301.00774). This one-shot pruning method can perform unstructured
 sparsity upto 60% on large models like OPT-175B and BLOOM-176B efficiently with negligible perplexity increase. It also supports semi-structured sparsity patterns such

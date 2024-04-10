@@ -28,41 +28,60 @@ class AwqQuantizer(Pass):
             "zero_point": PassConfigParam(
                 type_=bool,
                 default_value=True,
-                # TODO(anyone): update description
-                description="",
+                description=(
+                    "Whether to use zero point quantization to calculate the scales and zeros. "
+                    "If False, it use the symmetric quantization."
+                ),
             ),
             "q_group_size": PassConfigParam(
                 type_=int,
                 default_value=128,
-                description="",
+                description=(
+                    "The group size to use for quantization. Recommended value is "
+                    "128 and -1 uses per-column quantization."
+                ),
             ),
             "w_bit": PassConfigParam(
                 type_=int,
                 default_value=4,
-                description="",
+                description="The number of bits to quantize to.",
             ),
             "version": PassConfigParam(
                 type_=str,
                 default_value="gemm",
-                description="",
+                description=(
+                    "The version of the quantization algorithm to use. gemm is better "
+                    "for big batch_size (e.g. >= 8) otherwise, gemv is better (e.g. < 8 ). "
+                    "gemm models are compatible with Exllama kernels."
+                ),
             ),
             "duo_scaling": PassConfigParam(
                 type_=bool,
                 default_value=True,
-                description="Whether to scale using both w/x or just x.",
+                description="Whether to scale using both w/x(True) or just x(False).",
+            ),
+            "modules_to_not_convert": PassConfigParam(
+                type_=list,
+                default_value=[],
+                description=(
+                    "The list of modules to not quantize, useful for quantizing models that explicitly "
+                    "require to have some modules left in their original precision (e.g. Whisper encoder, "
+                    "Llava encoder, Mixtral gate layers). Please refer to AutoAWQ documentation for "
+                    "quantizing HF models."
+                ),
             ),
             "export_compatible": PassConfigParam(
                 type_=bool,
                 default_value=False,
-                description="This argument avoids real quantization by only applying"
-                " the scales without quantizing down to FP16.",
+                description=(
+                    "If True, this argument avoids real quantization by only applying "
+                    "the scales quantizing down to FP16."
+                ),
             ),
             "data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
                 default_value=None,
-                description="""
-                    Data config for quantization. Default value is None.
-                """,
+                description="Data config for quantization. Default value is None.",
             ),
             "pack_model_for_onnx_conversion": PassConfigParam(
                 type_=bool,
@@ -88,9 +107,16 @@ class AwqQuantizer(Pass):
                 self.host_device,
             )
 
+        data_kwargs = {}
         if config["data_config"]:
-            # TODO(trajep): Implement data config for quantization
-            ...
+            # set default values for data config
+            data_kwargs.update(
+                {
+                    "calib_data": config["data_config"].params_config.get("data_name"),
+                    "split": config["data_config"].params_config.get("split"),
+                    "text_column": config["data_config"].params_config.get("input_cols"),
+                }
+            )
 
         quantizer = (
             self._pack_model_for_onnx_conversion(config)
@@ -111,7 +137,11 @@ class AwqQuantizer(Pass):
                     "q_group_size": config["q_group_size"],
                     "w_bit": config["w_bit"],
                     "version": config["version"],
+                    "modules_to_not_convert": config["modules_to_not_convert"],
                 },
+                duo_scaling=config["duo_scaling"],
+                export_compatible=config["export_compatible"],
+                **data_kwargs,
             )
         finally:
             awq_model_base.AwqQuantizer = AutoAwqQuantizer
