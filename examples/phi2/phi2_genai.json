@@ -33,7 +33,6 @@
         }
     },
     "engine": {
-        "log_severity_level": 0,
         "host": "local_system",
         "target": "local_system",
         "cache_dir": "cache",
