@@ -8,7 +8,7 @@ from warnings import warn
 
 from olive.command.configure_qualcomm_sdk import ConfigureQualcommSDKCommand
 from olive.command.export_adapters import ExportAdaptersCommand
-from olive.command.manage_compute import ManageAMLComputeCommand
+from olive.command.manage_aml_compute import ManageAMLComputeCommand
 from olive.command.run import WorkflowRunCommand
 
 
