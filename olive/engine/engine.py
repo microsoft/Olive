@@ -24,13 +24,13 @@ from olive.hardware import AcceleratorSpec
 from olive.model import ModelConfig
 from olive.strategy.search_strategy import SearchStrategy, SearchStrategyConfig
 from olive.systems.common import SystemType
-from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import SystemConfig
 from olive.systems.utils import create_managed_system_with_cache
 
 if TYPE_CHECKING:
     from olive.engine.packaging.packaging_config import PackagingConfig
     from olive.passes.olive_pass import Pass
+    from olive.systems.olive_system import OliveSystem
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +137,7 @@ class Engine:
         config: Dict[str, Any] = None,
         disable_search=False,
         name: str = None,
-        host: OliveSystem = None,
+        host: "OliveSystem" = None,
         evaluator_config: "OliveEvaluatorConfig" = None,
         clean_run_cache: bool = False,
         output_name: str = None,
@@ -169,7 +169,7 @@ class Engine:
         self,
         p: "Pass",
         name: str = None,
-        host: OliveSystem = None,
+        host: "OliveSystem" = None,
         evaluator_config: "OliveEvaluatorConfig" = None,
         output_name: str = None,
     ):
