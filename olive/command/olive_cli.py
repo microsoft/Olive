@@ -10,8 +10,10 @@ from olive.command.manage_compute import ManageAMLComputeCommand
 from olive.command.run import WorkflowRunCommand
 
 
-def main(raw_args=None):
-    parser = ArgumentParser(prog="olive-cli", usage="olive-cli")
+def main(raw_args=None, called_as_console_script: bool = True):
+    parser = ArgumentParser(
+        "Olive CLI tool", usage="olive-cli" if called_as_console_script else "python -m olive.command"
+    )
     commands_parser = parser.add_subparsers()
 
     # Register commands
@@ -31,4 +33,4 @@ def main(raw_args=None):
 
 
 if __name__ == "__main__":
-    main()
+    main(called_as_console_script=False)

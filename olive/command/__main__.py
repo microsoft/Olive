@@ -8,4 +8,4 @@
 from olive.command.olive_cli import main
 
 if __name__ == "__main__":
-    main()
+    main(called_as_console_script=False)

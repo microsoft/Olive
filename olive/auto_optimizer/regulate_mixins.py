@@ -104,7 +104,7 @@ class RegulatePassConfigMixin:
         return pass_config, pass_flows
 
     def regulate_data_config(self, pass_config, pass_flows):
-        from olive.workflows.run.config import INPUT_MODEL_DATA_CONFIG
+        from olive.workflows.config import INPUT_MODEL_DATA_CONFIG
 
         data_configs = self.data_configs.get(INPUT_MODEL_DATA_CONFIG)
         if not data_configs:

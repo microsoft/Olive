@@ -15,7 +15,7 @@ from olive.hardware.accelerator import create_accelerators
 from olive.logging import enable_filelog, set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
 from olive.package_config import OlivePackageConfig
 from olive.systems.common import SystemType
-from olive.workflows.run.config import RunConfig, RunPassConfig
+from olive.workflows.config import RunConfig, RunPassConfig
 
 logger = logging.getLogger(__name__)
 
@@ -263,23 +263,6 @@ def run(
         return None
     else:
         return run_engine(package_config, run_config, data_root)
-
-
-def add_run_args(parser):
-    parser.add_argument(
-        "--package-config",
-        type=str,
-        required=False,
-        help=(
-            "For advanced users. Path to optional package (json) config file with location "
-            "of individual pass module implementation and corresponding dependencies."
-            "Configuration might also include user owned/proprietary/private pass implementations."
-        ),
-    )
-    parser.add_argument("--run-config", "--config", type=str, help="Path to json config file", required=True)
-    parser.add_argument("--setup", help="Whether run environment setup", action="store_true")
-    parser.add_argument("--data-root", "--data_root", help="The data root path for optimization", required=False)
-    parser.add_argument("--tempdir", type=str, help="Root directory for tempfile directories and files", required=False)
 
 
 def check_local_ort_installation(package_name: str):

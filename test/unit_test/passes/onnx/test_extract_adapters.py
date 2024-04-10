@@ -185,6 +185,7 @@ def test_export_adapters_command(tmp_path, input_model_info, pack_weights):
     # execute
     cli_main(args)
 
+    # assert
     assert Path(exported_adapters_path).is_file()
     expected_weights = set(
         input_model_info["float"]["packed_weights"] if pack_weights else input_model_info["float"]["all_weights"]
