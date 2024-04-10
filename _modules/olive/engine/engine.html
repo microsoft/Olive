@@ -140,16 +140,17 @@
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">import</span> <span class="nn">olive.cache</span> <span class="k">as</span> <span class="nn">cache_utils</span>
-<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">validate_config</span>
+<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">validate_config</span>
 <span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">hash_dict</span>
-<span class="kn">from</span> <span class="nn">olive.engine.config</span> <span class="kn">import</span> <span class="n">FAILED_CONFIG</span><span class="p">,</span> <span class="n">INVALID_CONFIG</span><span class="p">,</span> <span class="n">PRUNED_CONFIGS</span><span class="p">,</span> <span class="n">EngineConfig</span>
+<span class="kn">from</span> <span class="nn">olive.engine.config</span> <span class="kn">import</span> <span class="n">FAILED_CONFIG</span><span class="p">,</span> <span class="n">INVALID_CONFIG</span><span class="p">,</span> <span class="n">PRUNED_CONFIGS</span>
 <span class="kn">from</span> <span class="nn">olive.engine.footprint</span> <span class="kn">import</span> <span class="n">Footprint</span><span class="p">,</span> <span class="n">FootprintNodeMetric</span>
 <span class="kn">from</span> <span class="nn">olive.engine.packaging.packaging_generator</span> <span class="kn">import</span> <span class="n">generate_output_artifacts</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">MetricResult</span><span class="p">,</span> <span class="n">joint_metric_key</span>
+<span class="kn">from</span> <span class="nn">olive.evaluator.olive_evaluator</span> <span class="kn">import</span> <span class="n">OliveEvaluatorConfig</span>
 <span class="kn">from</span> <span class="nn">olive.exception</span> <span class="kn">import</span> <span class="n">EXCEPTIONS_TO_RAISE</span><span class="p">,</span> <span class="n">OlivePassError</span>
 <span class="kn">from</span> <span class="nn">olive.hardware</span> <span class="kn">import</span> <span class="n">AcceleratorSpec</span>
 <span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span>
-<span class="kn">from</span> <span class="nn">olive.strategy.search_strategy</span> <span class="kn">import</span> <span class="n">SearchStrategy</span>
+<span class="kn">from</span> <span class="nn">olive.strategy.search_strategy</span> <span class="kn">import</span> <span class="n">SearchStrategy</span><span class="p">,</span> <span class="n">SearchStrategyConfig</span>
 <span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">SystemType</span>
 <span class="kn">from</span> <span class="nn">olive.systems.olive_system</span> <span class="kn">import</span> <span class="n">OliveSystem</span>
 <span class="kn">from</span> <span class="nn">olive.systems.system_config</span> <span class="kn">import</span> <span class="n">LocalTargetUserConfig</span><span class="p">,</span> <span class="n">SystemConfig</span>
@@ -157,7 +158,6 @@
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
     <span class="kn">from</span> <span class="nn">olive.engine.packaging.packaging_config</span> <span class="kn">import</span> <span class="n">PackagingConfig</span>
-    <span class="kn">from</span> <span class="nn">olive.evaluator.olive_evaluator</span> <span class="kn">import</span> <span class="n">OliveEvaluatorConfig</span>
     <span class="kn">from</span> <span class="nn">olive.passes.olive_pass</span> <span class="kn">import</span> <span class="n">Pass</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
@@ -171,52 +171,51 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">config</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">EngineConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">search_strategy</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SearchStrategy</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">host_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SystemConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">target_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SystemConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">evaluator_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">&quot;OliveEvaluatorConfig&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">search_strategy</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">SearchStrategyConfig</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">host</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">SystemConfig</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">target</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">SystemConfig</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">evaluator</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="s2">&quot;OliveEvaluatorConfig&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">cache_dir</span><span class="o">=</span><span class="s2">&quot;.olive-cache&quot;</span><span class="p">,</span>
+        <span class="n">clean_cache</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">clean_evaluation_cache</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">plot_pareto_frontier</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">azureml_client_config</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">EngineConfig</span><span class="p">)</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="c1"># default search strategy</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span> <span class="o">=</span> <span class="n">SearchStrategy</span><span class="p">({</span><span class="s2">&quot;execution_order&quot;</span><span class="p">:</span> <span class="s2">&quot;joint&quot;</span><span class="p">,</span> <span class="s2">&quot;search_algorithm&quot;</span><span class="p">:</span> <span class="s2">&quot;exhaustive&quot;</span><span class="p">})</span>
-        <span class="k">if</span> <span class="n">search_strategy</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="c1"># if search strategy is provided, use it. It takes precedence</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span> <span class="o">=</span> <span class="n">search_strategy</span>
-        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">search_strategy</span><span class="p">,</span> <span class="p">(</span><span class="n">ConfigBase</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)):</span>
-            <span class="c1"># if search strategy is provided in config, use it</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span> <span class="o">=</span> <span class="n">SearchStrategy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">search_strategy</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">search_strategy</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">search_strategy</span><span class="p">:</span>
             <span class="c1"># if search strategy is None or False, disable search</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># if search strategy is provided in config, use it</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span> <span class="o">=</span> <span class="n">SearchStrategy</span><span class="p">(</span><span class="n">search_strategy</span><span class="p">)</span>
 
         <span class="c1"># default host</span>
-        <span class="k">if</span> <span class="n">host_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">host_config</span> <span class="o">=</span> <span class="n">host_config</span>
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">host</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">host_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">host</span>
+        <span class="k">if</span> <span class="n">host</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">host_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">host</span><span class="p">,</span> <span class="n">SystemConfig</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># host accelerator is not used, so no need to specify it</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">host_config</span> <span class="o">=</span> <span class="n">SystemConfig</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">SystemType</span><span class="o">.</span><span class="n">Local</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">LocalTargetUserConfig</span><span class="p">())</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">host</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="c1"># engine target</span>
-        <span class="k">if</span> <span class="n">target_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">target_config</span> <span class="o">=</span> <span class="n">target_config</span>
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">target</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">target_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">target</span>
+        <span class="k">if</span> <span class="n">target</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">target_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">SystemConfig</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">target_config</span> <span class="o">=</span> <span class="n">SystemConfig</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">SystemType</span><span class="o">.</span><span class="n">Local</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">LocalTargetUserConfig</span><span class="p">())</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">target</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="c1"># default evaluator</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">evaluator_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span> <span class="o">=</span> <span class="n">evaluator_config</span>
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">evaluator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">evaluator</span>
+        <span class="k">if</span> <span class="n">evaluator</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">evaluator</span><span class="p">,</span> <span class="n">OliveEvaluatorConfig</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span> <span class="o">=</span> <span class="n">cache_dir</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">clean_cache</span> <span class="o">=</span> <span class="n">clean_cache</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">clean_evaluation_cache</span> <span class="o">=</span> <span class="n">clean_evaluation_cache</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">plot_pareto_frontier</span> <span class="o">=</span> <span class="n">plot_pareto_frontier</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span> <span class="o">=</span> <span class="n">azureml_client_config</span>
 
         <span class="c1"># dictionary of passes</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">pass_config</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
@@ -227,24 +226,23 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">pass_flows_search_spaces</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="n">Footprint</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">azureml_client_config</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">_initialized</span> <span class="o">=</span> <span class="kc">False</span>
 
     <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize engine state. This should be done before running the registered passes.&quot;&quot;&quot;</span>
         <span class="c1"># pylint: disable=attribute-defined-outside-init</span>
 
-        <span class="n">cache_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">cache_dir</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">clean_cache</span><span class="p">:</span>
-            <span class="n">cache_utils</span><span class="o">.</span><span class="n">clean_cache</span><span class="p">(</span><span class="n">cache_dir</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">clean_evaluation_cache</span><span class="p">:</span>
-            <span class="n">cache_utils</span><span class="o">.</span><span class="n">clean_evaluation_cache</span><span class="p">(</span><span class="n">cache_dir</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">clean_cache</span><span class="p">:</span>
+            <span class="n">cache_utils</span><span class="o">.</span><span class="n">clean_cache</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">clean_evaluation_cache</span><span class="p">:</span>
+            <span class="n">cache_utils</span><span class="o">.</span><span class="n">clean_evaluation_cache</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">)</span>
 
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Using cache directory: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">cache_dir</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Using cache directory: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_model_cache_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_cache_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluation_cache_path</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">cache_utils</span><span class="o">.</span><span class="n">get_cache_sub_dirs</span><span class="p">(</span>
-            <span class="n">cache_dir</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span>
         <span class="p">)</span>
-        <span class="n">cache_utils</span><span class="o">.</span><span class="n">create_cache</span><span class="p">(</span><span class="n">cache_dir</span><span class="p">)</span>
+        <span class="n">cache_utils</span><span class="o">.</span><span class="n">create_cache</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">)</span>
 
         <span class="c1"># initialize counters</span>
         <span class="c1"># we do this before cleaning pass run caches to ensure we don&#39;t reuse model numbers even if the model was</span>
@@ -263,7 +261,7 @@
         <span class="k">for</span> <span class="n">pass_config</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pass_config</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
             <span class="n">clean_run_cache</span> <span class="o">=</span> <span class="n">pass_config</span><span class="p">[</span><span class="s2">&quot;clean_run_cache&quot;</span><span class="p">]</span>
             <span class="k">if</span> <span class="n">clean_run_cache</span><span class="p">:</span>
-                <span class="n">cache_utils</span><span class="o">.</span><span class="n">clean_pass_run_cache</span><span class="p">(</span><span class="n">pass_config</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">cache_dir</span><span class="p">)</span>
+                <span class="n">cache_utils</span><span class="o">.</span><span class="n">clean_pass_run_cache</span><span class="p">(</span><span class="n">pass_config</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">set_pass_flows</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pass_flows</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_initialized</span> <span class="o">=</span> <span class="kc">True</span>
@@ -594,7 +592,7 @@
                     <span class="n">output_dir</span><span class="o">=</span><span class="n">output_dir_with_pf</span><span class="p">,</span>
                     <span class="n">output_name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pass_output_name</span><span class="si">}</span><span class="s2">_model&quot;</span><span class="p">,</span>
                     <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                    <span class="n">cache_dir</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">,</span>
+                    <span class="n">cache_dir</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">,</span>
                 <span class="p">)</span>
                 <span class="c1"># it is not supported to save compositepytorchmodel/compositemodel again</span>
                 <span class="c1"># so the output_model_json could be None</span>
@@ -685,7 +683,7 @@
             <span class="k">return</span> <span class="kc">None</span>
         <span class="n">pf_footprints</span><span class="o">.</span><span class="n">to_file</span><span class="p">(</span><span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix_output_name</span><span class="si">}</span><span class="s2">_pareto_frontier_footprints.json&quot;</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">plot_pareto_frontier</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">plot_pareto_frontier</span><span class="p">:</span>
             <span class="n">pf_footprints</span><span class="o">.</span><span class="n">plot_pareto_frontier_to_html</span><span class="p">(</span>
                 <span class="n">save_path</span><span class="o">=</span><span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix_output_name</span><span class="si">}</span><span class="s2">_pareto_frontier_footprints_chart.html&quot;</span>
             <span class="p">)</span>
@@ -868,7 +866,7 @@
         <span class="k">for</span> <span class="n">resource_name</span><span class="p">,</span> <span class="n">resource_path</span> <span class="ow">in</span> <span class="n">resource_paths</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">resource_path</span> <span class="ow">or</span> <span class="n">resource_path</span><span class="o">.</span><span class="n">is_local_resource_or_string_name</span><span class="p">():</span>
                 <span class="k">continue</span>
-            <span class="n">downloaded_resource_path</span> <span class="o">=</span> <span class="n">cache_utils</span><span class="o">.</span><span class="n">download_resource</span><span class="p">(</span><span class="n">resource_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">)</span>
+            <span class="n">downloaded_resource_path</span> <span class="o">=</span> <span class="n">cache_utils</span><span class="o">.</span><span class="n">download_resource</span><span class="p">(</span><span class="n">resource_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">downloaded_resource_path</span><span class="p">:</span>
                 <span class="c1"># set local resource path</span>
                 <span class="n">model_config</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="n">resource_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">downloaded_resource_path</span>
