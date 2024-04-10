@@ -6,12 +6,11 @@
 import json
 import logging
 import sys
-from typing import Any, Dict, Union
+from typing import Any, Dict
 
 import torch
 
 from olive.constants import ModelFileFormat
-from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import PyTorchModelHandler
 from olive.model.utils.path_utils import normalize_path_suffix
@@ -32,10 +31,12 @@ class SliceGPT(Pass):
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
-            "calibration_data_config": PassConfigParam(
-                type_=Union[DataConfig, Dict],
+            "calibration_dataset": PassConfigParam(
+                type_=str,
                 required=True,
-                description=("Data config for Dataset to calibrate and calculate perplexity on."),
+                description=(
+                    "Dataset to calibrate and calculate perplexity on. Choose from wikitext2, ptb, c4, or alpaca"
+                ),
             ),
             "calibration_nsamples": PassConfigParam(
                 type_=int,
@@ -128,7 +129,7 @@ class SliceGPT(Pass):
             100 * (1 - new_embedding_dim / model_adapter.hidden_size),
         )
 
-        train_dataset = get_dataset(config.calibration_data_config.name)["train"]
+        train_dataset = get_dataset(config.calibration_dataset)["train"]
         train_loader = prepare_dataloader(
             dataset=train_dataset,
             tokenizer=tokenizer,

@@ -6,7 +6,6 @@ import sys
 
 import pytest
 
-from olive.data.template import huggingface_data_config_template
 from olive.model import PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 
@@ -19,22 +18,9 @@ def test_slicegpt(tmp_path):
     model_name = "facebook/opt-125m"
     task = "text-generation"
     input_model = PyTorchModelHandler(hf_config={"model_name": model_name, "task": task})
-    dataset = {
-        "data_name": "wikitext",
-        "subset": "wikitext-2-raw-v1",
-        "split": "train",
-        "component_kwargs": {
-            "pre_process_data": {
-                "text_cols": ["text"],
-                "source_max_len": 2048,
-            }
-        },
-    }
-    data_config = huggingface_data_config_template(model_name=model_name, task=task, **dataset)
-    data_config.name = "wikitext2"
     config = {
         "sparsity": 0.4,
-        "calibration_data_config": data_config,
+        "calibration_dataset": "wikitext2",
     }
 
     p = create_pass_from_dict(SliceGPT, config, disable_search=True)

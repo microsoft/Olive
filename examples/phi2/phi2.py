@@ -174,6 +174,7 @@ def main(raw_args=None):
             # torch fine tuning does not require execution provider, just set it to CUDAExecutionProvider
             update_accelerator(template_json, "gpu")
         if args.slicegpt:
+            model_type = "slicegpt"
             pass_flows[0].extend(SUPPORTED_WORKFLOWS["slicegpt"][0])
             update_accelerator(template_json, "gpu")
             del template_json["input_model"]["config"]["model_script"]

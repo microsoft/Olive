@@ -62,7 +62,7 @@
             "type": "SliceGPT",
             "config": {
                 "sparsity": 0.4,
-                "calibration_data_config": "wikitext2"
+                "calibration_dataset": "wikitext2"
             }
         },
         "qlora": {
