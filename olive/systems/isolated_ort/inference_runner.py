@@ -28,6 +28,8 @@ def get_args(raw_args):
         "--config_path", type=Path, required=True, help="Path to configuration for the inference to be run"
     )
     parser.add_argument("--model_path", type=Path, required=True, help="Path to onnx model")
+    parser.add_argument("--external_initializers_path", type=Path, help="Path to external initializers")
+    parser.add_argument("--constant_inputs_path", type=Path, help="Path to constant inputs")
     parser.add_argument("--input_dir", type=Path, required=True, help="Path to input directory")
     parser.add_argument("--output_dir", type=Path, required=True, help="Path to output directory")
 
@@ -47,8 +49,16 @@ def main(raw_args=None):
 
     # create session
     session = get_ort_inference_session(
-        args.model_path, config["inference_settings"], config.get("use_ort_extensions", False)
+        args.model_path,
+        config["inference_settings"],
+        config.get("use_ort_extensions", False),
+        external_initializers=np.load(args.external_initializers_path) if args.external_initializers_path else None,
     )
+
+    # load constant inputs
+    constant_inputs = None
+    if args.constant_inputs_path:
+        constant_inputs = np.load(args.constant_inputs_path)
 
     # get first batch
     input_feed = load_batch(args.input_dir, "input_0.npz" if config["mode"] == "inference" else "input.npz")
@@ -59,6 +69,7 @@ def main(raw_args=None):
         shared_kv_buffer=config.get("shared_kv_buffer", False),
         use_fp16=config.get("use_fp16", False),
         input_feed=input_feed,
+        constant_inputs=constant_inputs,
     )
 
     # run inference

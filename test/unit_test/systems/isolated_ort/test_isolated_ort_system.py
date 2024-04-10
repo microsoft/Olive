@@ -233,7 +233,9 @@ class TestIsolatedORTEvaluator:
         inference_runner_main(args)
 
         # assert
-        mock_get_session.assert_called_once_with(Path(model), config["inference_settings"], False)
+        mock_get_session.assert_called_once_with(
+            Path(model), config["inference_settings"], False, external_initializers=None
+        )
         mock_wrapper_class.assert_called_once_with(
             mock_get_session.return_value,
             io_bind=False,
@@ -241,6 +243,7 @@ class TestIsolatedORTEvaluator:
             shared_kv_buffer=False,
             use_fp16=False,
             input_feed={"input": np.array([0])},
+            constant_inputs=None,
         )
         if mode == "inference":
             assert mock_wrapper.run.call_count == num_batches

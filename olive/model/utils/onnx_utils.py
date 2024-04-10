@@ -63,6 +63,21 @@ def get_onnx_file_path(model_path: str, onnx_file_name: Optional[str] = None) ->
         raise ValueError(f"No .onnx file found in the model folder {model_path}.")
 
 
+def get_additional_file_path(model_dir: str, file_name: str) -> Optional[str]:
+    """Get the full path to the additional file.
+
+    If file_name is specified, it is assumed to be a file in the model_dir and the full path
+    is returned.
+    """
+    if file_name:
+        model_dir = Path(model_dir)
+        assert model_dir.is_dir(), f"Model path {model_dir} is not a directory."
+        file_path = model_dir / file_name
+        assert file_path.exists(), f"{file_name} does not exist in model path directory {model_dir}."
+        return str(file_path)
+    return None
+
+
 def dump_tuning_result(session, tuning_result_path):
     assert tuning_result_path.endswith(".json")
     tuning_result = session.get_tuning_results()

@@ -100,10 +100,12 @@ class OnnxConversion(Pass):
             "merge_adapter_weights": PassConfigParam(
                 type_=bool,
                 default_value=False,
-                description="Whether to merge adapter weights before conversion. "
-                "After merging, the model structure is consistent with base model. "
-                "That is useful if you cannot run conversion for some fine-tuned "
-                "models with adapter weights",
+                description=(
+                    "Whether to merge adapter weights before conversion. "
+                    "After merging, the model structure is consistent with base model. "
+                    "That is useful if you cannot run conversion for some fine-tuned "
+                    "models with adapter weights"
+                ),
             ),
         }
         config.update(get_external_data_config())
@@ -319,73 +321,77 @@ class OnnxConversion(Pass):
                 - the onnx model must be quantized using OnnxBnb4Quantization pass after conversion
         Model attributes is None if the output model should inherit the model attributes from the input model.
         """
+        pytorch_model = None
+        model_attributes = deepcopy(model.model_attributes or {})
         if not model.is_model_loaded_from_hf_config() or not model.hf_config.from_pretrained_args:
             # if the model is not loaded from hf config, or the model loading args is not specified,
             # we can load the model directly
-            return model.load_model(), None
+            pytorch_model = model.load_model()
+        else:
+            from_pretrained_args = model.hf_config.from_pretrained_args
+            model_dtype = from_pretrained_args.get_torch_dtype()
+            new_from_pretrained_args = deepcopy(from_pretrained_args.dict())
+            if torch_dtype and torch_dtype != model_dtype:
+                # if the model loading args specify a different dtype, update the model loading args
+                logger.debug(
+                    "Changing torch_dtype in model loading args from %s to %s.",
+                    from_pretrained_args.get_torch_dtype(),
+                    torch_dtype,
+                )
+                new_from_pretrained_args["torch_dtype"] = torch_dtype
+                model_attributes["torch_dtype"] = str(torch_dtype).replace("torch.", "")
+            elif model_dtype == torch.float16 and device == "cpu":
+                logger.warning(
+                    "Loading model on CPU, but the model loading args specify dtype float16 which is not supported  for"
+                    " conversion on CPU. The dtype is changed to float32. If float16 model is desired, please specify"
+                    " device as 'cuda' or use OrtTransformerOptimization/OnnxFloatToFloat16 pass after conversion to"
+                    " convert the model to float16."
+                )
+                new_from_pretrained_args["torch_dtype"] = torch.float32
+                model_attributes["torch_dtype"] = "float32"
 
-        from_pretrained_args = model.hf_config.from_pretrained_args
-        model_dtype = from_pretrained_args.get_torch_dtype()
-        new_from_pretrained_args = deepcopy(from_pretrained_args.dict())
-        new_model_attributes = model.model_attributes or {}
-        if torch_dtype and torch_dtype != model_dtype:
-            # if the model loading args specify a different dtype, update the model loading args
-            logger.debug(
-                "Changing torch_dtype in model loading args from %s to %s.",
-                from_pretrained_args.get_torch_dtype(),
-                torch_dtype,
-            )
-            new_from_pretrained_args["torch_dtype"] = torch_dtype
-            new_model_attributes["torch_dtype"] = str(torch_dtype).replace("torch.", "")
-        elif model_dtype == torch.float16 and device == "cpu":
-            logger.warning(
-                "Loading model on CPU, but the model loading args specify dtype float16 which is not supported  for"
-                " conversion on CPU. The dtype is changed to float32. If float16 model is desired, please specify"
-                " device as 'cuda' or use OrtTransformerOptimization/OnnxFloatToFloat16 pass after conversion to"
-                " convert the model to float16."
-            )
-            new_from_pretrained_args["torch_dtype"] = torch.float32
-            new_model_attributes["torch_dtype"] = "float32"
+            if (
+                from_pretrained_args.quantization_method == "bitsandbytes"
+                and from_pretrained_args.quantization_config["load_in_4bit"]
+            ):
+                logger.warning(
+                    "Bitsandbytes 4bit quantization is not supported for conversion. The quantization config is removed"
+                    " from the model loading args. Use OnnxBnb4Quantization pass after conversion to quantize the"
+                    " model."
+                )
+                new_from_pretrained_args["quantization_method"] = None
+                new_from_pretrained_args["quantization_config"] = None
+                model_attributes["quantization_config"] = from_pretrained_args.quantization_config
+                if "quantized_modules" not in model_attributes:
+                    # find and add quantized modules to the model attributes
+                    # the QLoRA pass already adds quantized_modules to the model attributes, so this will not be
+                    # executed if the model was generated by QLoRA
+                    quantized_model = model.load_model()
 
-        if (
-            from_pretrained_args.quantization_method == "bitsandbytes"
-            and from_pretrained_args.quantization_config["load_in_4bit"]
-        ):
-            logger.warning(
-                "Bitsandbytes 4bit quantization is not supported for conversion. The quantization config is removed"
-                " from the model loading args. Use OnnxBnb4Quantization pass after conversion to quantize the model."
-            )
-            new_from_pretrained_args["quantization_method"] = None
-            new_from_pretrained_args["quantization_config"] = None
-            new_model_attributes["quantization_config"] = from_pretrained_args.quantization_config
-            if "quantized_modules" not in new_model_attributes:
-                # find and add quantized modules to the model attributes
-                # the QLoRA pass already adds quantized_modules to the model attributes, so this will not be executed
-                # if the model was generated by QLoRA
-                quantized_model = model.load_model()
+                    # if PeftModel, need to unload adapter before finding quantized modules
+                    if is_peft_model(quantized_model):
+                        quantized_model = quantized_model.unload()
 
-                # if PeftModel, need to unload adapter before finding quantized modules
-                if is_peft_model(quantized_model):
-                    quantized_model = quantized_model.unload()
+                    import bitsandbytes as bnb
 
-                import bitsandbytes as bnb
+                    model_attributes["quantized_modules"] = find_submodules(quantized_model, bnb.nn.Linear4bit)
 
-                new_model_attributes["quantized_modules"] = find_submodules(quantized_model, bnb.nn.Linear4bit)
+                    # required for peft models since unloading changes the model
+                    # for others, do this to free gpu memory as quantized model is always on gpu
+                    del quantized_model
+                    model.model = None
 
-                # required for peft models since unloading changes the model
-                # for others, do this to free gpu memory as quantized model is always on gpu
-                del quantized_model
-                model.model = None
-
-        # load the model with the updated model loading args
-        new_hf_config = deepcopy(model.hf_config)
-        new_hf_config.from_pretrained_args = HfFromPretrainedArgs(**new_from_pretrained_args)
-        return (
-            PyTorchModelHandler(
+            # load the model with the updated model loading args
+            new_hf_config = deepcopy(model.hf_config)
+            new_hf_config.from_pretrained_args = HfFromPretrainedArgs(**new_from_pretrained_args)
+            pytorch_model = PyTorchModelHandler(
                 model_path=model.model_path, adapter_path=model.adapter_path, hf_config=new_hf_config
-            ).load_model(),
-            new_model_attributes,
-        )
+            ).load_model()
+
+        if is_peft_model(pytorch_model):
+            model_attributes["lora_modules"] = list(pytorch_model.peft_config["default"].target_modules)
+
+        return pytorch_model, model_attributes
 
     def _convert_model_on_device(
         self,

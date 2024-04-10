@@ -121,25 +121,16 @@ class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_in
             "use_fp16": any(v == "float16" for v in model.get_io_config()["input_types"]),
         }
 
-    def _run_inference(
-        self,
-        config_path: Union[str, Path],
-        model_path: Union[str, Path],
-        input_dir: Union[str, Path],
-        output_dir: Union[str, Path],
-    ):
-        command = [
-            self.executable,
-            str(self.inference_runner_path),
-            "--config_path",
-            str(config_path),
-            "--model_path",
-            str(model_path),
-            "--input_dir",
-            str(input_dir),
-            "--output_dir",
-            str(output_dir),
-        ]
+    def _run_inference(self, **kwargs):
+        """Run inference using the inference runner.
+
+        :param kwargs: arguments to be passed to the inference runner
+        """
+        command = [self.executable, str(self.inference_runner_path)]
+        for key, value in kwargs.items():
+            if not value:
+                continue
+            command.extend([f"--{key}", str(value)])
         run_subprocess(command, self.environ, check=True)
 
     def _inference(
@@ -186,7 +177,14 @@ class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_in
             logger.debug("Inference config: %s", inference_config)
 
             # run inference
-            self._run_inference(config_path, model.model_path, input_dir, output_dir)
+            self._run_inference(
+                config_path=config_path,
+                model_path=model.model_path,
+                input_dir=input_dir,
+                output_dir=output_dir,
+                external_initializers_path=model.external_initializers_path,
+                constant_inputs_path=model.constant_inputs_path,
+            )
 
             # load and process output
             for idx in range(num_batches):
@@ -267,7 +265,14 @@ class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_in
                 json.dump(inference_config, f)
 
             # run inference
-            self._run_inference(config_path, model.model_path, input_dir, output_dir)
+            self._run_inference(
+                config_path=config_path,
+                model_path=model.model_path,
+                input_dir=input_dir,
+                output_dir=output_dir,
+                external_initializers_path=model.external_initializers_path,
+                constant_inputs_path=model.constant_inputs_path,
+            )
 
             # load output
             return np.load(output_dir / "output.npy").tolist()

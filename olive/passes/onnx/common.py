@@ -139,6 +139,8 @@ def model_proto_to_olive_model(
     output_model_path: Union[str, Path],
     external_data_config: dict,
     check_model: bool = False,
+    external_initializers_file_name: Optional[str] = None,
+    constant_inputs_file_name: Optional[str] = None,
 ) -> ONNXModelHandler:
     """Save the ONNX model to the specified path and return the ONNXModelHandler.
 
@@ -146,8 +148,9 @@ def model_proto_to_olive_model(
     :param output_model_path: The path to save the ONNX model to.
     :param external_data_config: The external data configuration. Must be a dictionary with keys
         "save_as_external_data", "all_tensors_to_one_file", and "external_data_name".
-    :param name: The name of the model.
-    :check_model: If True, run onnx.checker.check_model on the model before returning.
+    :param check_model: If True, run onnx.checker.check_model on the model before returning.
+    :param external_initializers_file_name: The name of the external initializers file.
+    :param constant_inputs_file_name: The name of the constant inputs file.
 
     :return: The ONNXModelHandler.
     """
@@ -161,7 +164,7 @@ def model_proto_to_olive_model(
     has_external_data = model_proto_to_file(
         model_proto, output_model_path, **{k: external_data_config[k] for k in config_keys if k in external_data_config}
     )
-    if has_external_data:
+    if has_external_data or external_initializers_file_name or constant_inputs_file_name:
         model_path = LocalFolder({"path": Path(output_model_path).parent})
 
         onnx_file_name = Path(output_model_path).name
@@ -169,7 +172,12 @@ def model_proto_to_olive_model(
         model_path = LocalFile({"path": output_model_path})
         onnx_file_name = None
 
-    olive_model = ONNXModelHandler(model_path=model_path, onnx_file_name=onnx_file_name)
+    olive_model = ONNXModelHandler(
+        model_path=model_path,
+        onnx_file_name=onnx_file_name,
+        external_initializers_file_name=external_initializers_file_name,
+        constant_inputs_file_name=constant_inputs_file_name,
+    )
 
     if check_model:
         onnx.checker.check_model(olive_model.model_path)
