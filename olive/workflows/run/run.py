@@ -15,7 +15,7 @@ from olive.hardware.accelerator import create_accelerators
 from olive.logging import enable_filelog, set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
 from olive.package_config import OlivePackageConfig
 from olive.systems.common import SystemType
-from olive.workflows.config import RunConfig, RunPassConfig
+from olive.workflows.run.config import RunConfig, RunPassConfig
 
 logger = logging.getLogger(__name__)
 
@@ -313,10 +313,3 @@ def get_local_ort_packages() -> List[str]:
         if package_name.startswith(("onnxruntime", "ort-nightly")):
             local_ort_packages.append(package_name)
     return local_ort_packages
-
-
-if __name__ == "__main__":
-    # there is no circular dependency since run is imported lazily by the command runner
-    from olive.cli.launcher import legacy_call
-
-    legacy_call("olive.workflows.run", "run")

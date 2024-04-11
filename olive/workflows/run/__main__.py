@@ -2,6 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from olive.workflows.run.run import run
+if __name__ == "__main__":
+    # there is no circular dependency since run is imported lazily by the command runner
+    from olive.cli.launcher import legacy_call
 
-__all__ = ["run"]
+    legacy_call("olive.workflows.run", "run")
