@@ -387,6 +387,63 @@ def test_create_accelerator_with_error(
         assert error_message in str(exp.value)
 
 
+@pytest.mark.parametrize(
+    ("system_config", "expected_acc_specs"),
+    [
+        # LocalSystem
+        (
+            {
+                "type": "LocalSystem",
+                "config": {"accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}]},
+            },
+            [("cpu", "CPUExecutionProvider")],
+        ),
+        # doesn't specify the accelerator
+        (
+            {
+                "type": "LocalSystem",
+            },
+            [("cpu", None)],
+        ),
+        # only specify the device
+        (
+            {
+                "type": "LocalSystem",
+                "config": {"accelerators": [{"device": "gpu"}]},
+            },
+            [("gpu", None)],
+        ),
+        # only specify the EP
+        (
+            {
+                "type": "LocalSystem",
+                "config": {"accelerators": [{"execution_providers": ["CPUExecutionProvider"]}]},
+            },
+            [("cpu", None)],
+        ),
+        (
+            {
+                "type": "AzureML",
+                "config": {
+                    "aml_compute": "aml_compute",
+                    "olive_managed_env": False,
+                    "accelerators": [{"device": "gpu"}],
+                },
+            },
+            [("gpu", None)],
+        ),
+    ],
+)
+def test_create_accelerator_without_ep(system_config, expected_acc_specs):
+    system_config = validate_config(system_config, SystemConfig)
+    expected_accelerator_specs = [
+        AcceleratorSpec(accelerator_type=acc_spec[0].lower(), execution_provider=acc_spec[1])
+        for acc_spec in expected_acc_specs
+    ]
+    accelerators = create_accelerators(system_config, skip_supported_eps_check=False, is_ep_required=False)
+    assert accelerators == expected_accelerator_specs
+
+
 def test_accelerator_config():
     acc_cfg1 = AcceleratorConfig.parse_obj({"device": "cpu"})
     assert acc_cfg1.execution_providers is None
