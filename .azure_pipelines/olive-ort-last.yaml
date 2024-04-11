@@ -69,6 +69,7 @@ jobs:
       whisper:
         exampleFolder: whisper
         exampleName: whisper
+      # TODO(anyone): add mobilenet_qnn_ep when last version is 1.17.x
 
 # # Windows examples test
 - template: job_templates/olive-example-template.yaml
@@ -89,6 +90,7 @@ jobs:
       whisper:
         exampleFolder: whisper
         exampleName: whisper
+      # TODO(anyone): add mobilenet_qnn_ep when last version is 1.17.x
 
 # Linux GPU examples testing.
 - template: job_templates/olive-example-template.yaml

@@ -147,12 +147,24 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig, data_r
 
         AzureMLSystem.olive_config = run_config.to_json()
 
-    no_evaluation = (
+    # Register passes since we need to know whether they need to run on target
+    for pass_config in (run_config.passes or {}).values():
+        logger.debug("Registering pass %s", pass_config.type)
+        package_config.import_pass_module(pass_config.type)
+
+    target_not_used = (
+        # no evaluator given (also implies no search)
         engine.evaluator_config is None
+        # not using auto optimizer
         and run_config.passes
+        # no pass specific evaluator
         and all(pass_config.evaluator is None for pass_config in run_config.passes.values())
+        # no pass needs to run on target
+        and all(
+            Pass.registry[pass_config.type.lower()].run_on_target is False for pass_config in run_config.passes.values()
+        )
     )
-    accelerator_specs = create_accelerators(engine.target_config, skip_supported_eps_check=no_evaluation)
+    accelerator_specs = create_accelerators(engine.target_config, skip_supported_eps_check=target_not_used)
 
     pass_list = []
     acc_list = []
@@ -193,7 +205,11 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig, data_r
         if passes:
             # First pass registers the necessary module implementation
             for pass_config in passes.values():
-                logger.info("Importing pass module %s", pass_config.type)
+                if pass_config.type.lower() in Pass.registry:
+                    logger.debug("Pass %s already registered", pass_config.type)
+                    continue
+                # auto optimizer scenario
+                logger.debug("Registering pass %s", pass_config.type)
                 package_config.import_pass_module(pass_config.type)
 
             # Second pass, initializes the pass and registers it with the engine

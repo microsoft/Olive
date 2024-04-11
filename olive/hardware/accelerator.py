@@ -175,6 +175,10 @@ def normalize_accelerators(system_config: "SystemConfig", skip_supported_eps_che
     * only device is specified, infer the execution providers based on the installed ORT in case of local/python system.
     * only EP is specified, infer the device based on the installed ORT in case of local/python system.
     * For AzureML and Docker system, the accelerators and execution providers must be specified.
+
+    :param system_config: The system config to be normalized.
+    :param skip_supported_eps_check: Whether to skip the check that the system supported eps are compatible with the
+        accelerators in the system config. This is True when target is not used for evaluation or pass runs.
     """
     from olive.systems.common import SystemType
 
@@ -263,10 +267,15 @@ def normalize_accelerators(system_config: "SystemConfig", skip_supported_eps_che
             system_config.type in (SystemType.Local, SystemType.PythonEnvironment, SystemType.IsolatedORT)
             and not skip_supported_eps_check
         ):
-            # don't need to check the supported execution providers if there is no evaluation
-            # target is only used for evaluation
+            # skip_supported_eps_check is True here
+            # target is used so we need to check that the system supported eps are compatible with the accelerators
             available_eps = system_supported_eps
         else:
+            # AzureML and Docker system: These are required to be specified by the user.
+            # Local, PythonEnvironment, IsolatedORT: skip_supported_eps_check is True
+            # the target is not used so no need to check the compatibility between the system supported eps and
+            # the accelerators
+            # since availiable_eps == accelerator.execution_providers, the check will always pass
             available_eps = accelerator.execution_providers
 
         supported_eps = AcceleratorLookup.get_execution_providers_for_device_by_available_providers(
