@@ -1,5 +1,4 @@
 accelerate
-auto-gptq
 azure-ai-ml
 azure-identity
 azure-storage-blob

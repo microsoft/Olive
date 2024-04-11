@@ -174,7 +174,7 @@ class AwqQuantizer(Pass):
                 for name, old_linear_layer in named_linears.items():
                     # NOTE: small regression in perplexity if linear layer uses .cpu().float()
                     linear_layer = old_linear_layer.to(get_best_device()).half()
-                    linear_layer.weight.data, scales, zeros = self.pseudo_quantize_tensor(linear_layer.weight.data)
+                    linear_layer.weight.data, _, _ = self.pseudo_quantize_tensor(linear_layer.weight.data)
                     q_linear = QuantLinearORT(
                         bits=config["w_bit"],
                         groupsize=config["q_group_size"],
