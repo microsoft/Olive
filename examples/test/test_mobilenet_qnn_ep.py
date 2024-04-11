@@ -27,7 +27,8 @@ def setup():
 def test_mobilenet_qnn_ep():
     from mobilenet_qnn_ep import main as mobilenet_qnn_ep_main
 
-    result = mobilenet_qnn_ep_main(["--skip_data_download"])
+    # need to pass [] since the parser reads from sys.argv
+    result = mobilenet_qnn_ep_main([])
 
     expected_accelerator_spec = AcceleratorSpec(accelerator_type="npu", execution_provider="QNNExecutionProvider")
     # make sure it only ran for npu-qnn
