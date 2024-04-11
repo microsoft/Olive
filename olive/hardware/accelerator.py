@@ -275,7 +275,7 @@ def normalize_accelerators(system_config: "SystemConfig", skip_supported_eps_che
             # Local, PythonEnvironment, IsolatedORT: skip_supported_eps_check is True
             # the target is not used so no need to check the compatibility between the system supported eps and
             # the accelerators
-            # since availiable_eps == accelerator.execution_providers, the check will always pass
+            # since available_eps == accelerator.execution_providers, the check will always pass
             available_eps = accelerator.execution_providers
 
         supported_eps = AcceleratorLookup.get_execution_providers_for_device_by_available_providers(
