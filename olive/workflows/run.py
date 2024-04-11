@@ -317,6 +317,6 @@ def get_local_ort_packages() -> List[str]:
 
 if __name__ == "__main__":
     # there is no circular dependency since run is imported lazily by the command runner
-    from olive.cli.olive_cli import legacy_call
+    from olive.cli.launcher import legacy_call
 
     legacy_call("olive.workflows.run", "run")

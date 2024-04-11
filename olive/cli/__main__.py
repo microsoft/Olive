@@ -6,6 +6,6 @@
 # is not available in the PATH.
 # Example: python -m olive.cli
 if __name__ == "__main__":
-    from olive.cli.olive_cli import main
+    from olive.cli.launcher import main
 
     main(called_as_console_script=False)
