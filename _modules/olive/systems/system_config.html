@@ -274,8 +274,28 @@
         <span class="n">system_alias_class</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">system_alias</span><span class="p">,</span> <span class="n">type_name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">system_alias_class</span><span class="p">:</span>
             <span class="n">values</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">system_alias_class</span><span class="o">.</span><span class="n">system_type</span>
+            <span class="k">if</span> <span class="s2">&quot;config&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">values</span><span class="p">:</span>
+                <span class="n">values</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+            <span class="k">if</span> <span class="n">values</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">AzureML</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">values</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;accelerators&quot;</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;accelerators is required for AzureML system&quot;</span><span class="p">)</span>
+
             <span class="k">if</span> <span class="n">system_alias_class</span><span class="o">.</span><span class="n">accelerators</span><span class="p">:</span>
-                <span class="n">values</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;accelerators&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[{</span><span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="n">acc</span><span class="p">}</span> <span class="k">for</span> <span class="n">acc</span> <span class="ow">in</span> <span class="n">system_alias_class</span><span class="o">.</span><span class="n">accelerators</span><span class="p">]</span>
+                <span class="n">valid_accelerators</span> <span class="o">=</span> <span class="p">[]</span>
+
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">values</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;accelerators&quot;</span><span class="p">):</span>
+                    <span class="n">valid_accelerators</span> <span class="o">=</span> <span class="p">[</span>
+                        <span class="p">{</span><span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="n">acc</span><span class="p">,</span> <span class="s2">&quot;execution_providers&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">}</span> <span class="k">for</span> <span class="n">acc</span> <span class="ow">in</span> <span class="n">system_alias_class</span><span class="o">.</span><span class="n">accelerators</span>
+                    <span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">device</span> <span class="ow">in</span> <span class="n">system_alias_class</span><span class="o">.</span><span class="n">accelerators</span><span class="p">:</span>
+                        <span class="n">valid_accelerators</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+                            <span class="p">{</span><span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="n">acc</span><span class="p">[</span><span class="s2">&quot;device&quot;</span><span class="p">],</span> <span class="s2">&quot;execution_providers&quot;</span><span class="p">:</span> <span class="n">acc</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;execution_providers&quot;</span><span class="p">)}</span>
+                            <span class="k">for</span> <span class="n">acc</span> <span class="ow">in</span> <span class="n">values</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;accelerators&quot;</span><span class="p">]</span>
+                            <span class="k">if</span> <span class="n">acc</span><span class="p">[</span><span class="s2">&quot;device&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="n">device</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+                        <span class="p">)</span>
+
+                <span class="n">values</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;accelerators&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">valid_accelerators</span> <span class="ow">or</span> <span class="kc">None</span>
             <span class="c1"># TODO(myguo): consider how to use num_cpus and num_gpus in distributed inference.</span>
         <span class="k">return</span> <span class="n">values</span>
 
