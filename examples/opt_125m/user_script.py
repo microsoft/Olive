@@ -48,7 +48,7 @@ def get_io_config(model):
         "logits",
         *list(chain.from_iterable((f"present_key_{i}", f"present_value_{i}") for i in range(config.num_hidden_layers))),
     ]
-    input_types = ["int32", "int32"] + ["float32", "float32"] * config.num_hidden_layers
+    input_types = ["int32", "int32"] + ["float16", "float16"] * config.num_hidden_layers
     dynamic_axes = get_merged_model_dynamic_axes(input_names, output_names)
     return {
         "input_names": input_names,
