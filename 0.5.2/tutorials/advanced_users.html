@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Advanced User Tour &mdash; Olive  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
+      <link rel="stylesheet" type="text/css" href="../_static/tabs.css?v=a5c4661c" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/width.css?v=b55249da" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+        <script src="../_static/js/custom_version.js?v=3856a39b"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Self-hosted Kubernetes cluster" href="azure_arc.html" />
+    <link rel="prev" title="How To Set Model Path" href="configure_model_path.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Olive
+          </a>
+              <div class="version">
+                0.5.2
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">OVERVIEW</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview/olive.html">Olive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/quicktour.html">Quick Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/options.html">Olive Options</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">GET STARTED</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getstarted/quickstart_examples.html">Quickstart Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/custom_scripts.html">Custom Scripts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/azureml_integration.html">Azure ML integration</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../extending_olive/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="configure_systems.html">How To Configure System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configure_auto_optimizer.html">How To Configure Auto Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configure_pass.html">How To Configure Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configure_data.html">How To Configure Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configure_model_path.html">How To Set Model Path</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Advanced User Tour</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#input-model">Input Model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#host-and-target-systems">Host and Target Systems</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#evaluator">Evaluator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#engine">Engine</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#register-passes">Register Passes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#run-the-engine">Run the engine</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="azure_arc.html">Self-hosted Kubernetes cluster</a></li>
+<li class="toctree-l1"><a class="reference internal" href="azureml_scripts.html">Azure ML scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/models.html">OliveModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/resource_path.html">ResourcePath</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/systems.html">OliveSystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/evaluator.html">OliveEvaluator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/metric.html">Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/search-algorithms.html">SearchAlgorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/engine.html">Engine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/passes.html">Passes</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Olive</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Advanced User Tour</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/tutorials/advanced_users.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="advanced-user-tour">
+<h1>Advanced User Tour<a class="headerlink" href="#advanced-user-tour" title="Permalink to this heading">¶</a></h1>
+<p>Olive provides simple  Python and command line interface to optimize the input model. See <a class="reference internal" href="../overview/quicktour.html"><span class="std std-doc">Quick Tour</span></a> for more information.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>olive.workflows.run<span class="w"> </span>--config<span class="w"> </span>user_provided_info.json
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.workflows</span> <span class="kn">import</span> <span class="n">run</span> <span class="k">as</span> <span class="n">olive_run</span>
+<span class="n">olive_run</span><span class="p">(</span><span class="n">user_provided_info_json_file</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Olive provides Python interface to advanced user to instantiate, register and run individual optimization techniques. These
+approach may not take advantage of all the features supported by standard Olive interface.</p>
+<p>Now, let’s take a look at how you can use advance Python interface.</p>
+<section id="input-model">
+<h2>Input Model<a class="headerlink" href="#input-model" title="Permalink to this heading">¶</a></h2>
+<p>Start by creating an instance of an OliveModelHandler to represent the model to be optimized. Depending on the model framework, the
+model can be loaded from file or using a model loader function. For a complete of available models and their initialization options, refer to <a class="reference internal" href="../api/models.html#models"><span class="std std-ref">OliveModels api reference</span></a>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.models</span> <span class="kn">import</span> <span class="n">Modelconfig</span>
+
+<span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;PyTorchModel&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;config&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;model_path&quot;</span><span class="p">:</span> <span class="s2">&quot;resnet.pt&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;io_config&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;input_names&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;input_shapes&quot;</span><span class="p">:</span> <span class="p">[[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">]],</span>
+            <span class="s2">&quot;output_names&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;output&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;dynamic_axes&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;input&quot;</span><span class="p">:</span> <span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="s2">&quot;batch_size&quot;</span><span class="p">},</span> <span class="s2">&quot;output&quot;</span><span class="p">:</span> <span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="s2">&quot;batch_size&quot;</span><span class="p">}},</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+<span class="n">input_model</span> <span class="o">=</span> <span class="n">ModelConfig</span><span class="o">.</span><span class="n">parse_obj</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="host-and-target-systems">
+<h2>Host and Target Systems<a class="headerlink" href="#host-and-target-systems" title="Permalink to this heading">¶</a></h2>
+<p>An optimization technique, which we call a Pass, can be run on a variety of <strong>host</strong> systems and the resulting model evaluated
+on desired <strong>target</strong> systems. More details for the available systems can be found at <a class="reference internal" href="../api/systems.html#systems"><span class="std std-ref">OliveSystems api reference</span></a>.</p>
+<p>In this guide, you will use your local system as both the hosts for passes and target for evaluation.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.systems.local</span> <span class="kn">import</span> <span class="n">LocalSystem</span>
+
+<span class="n">local_system</span> <span class="o">=</span> <span class="n">LocalSystem</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="evaluator">
+<h2>Evaluator<a class="headerlink" href="#evaluator" title="Permalink to this heading">¶</a></h2>
+<p>In order to chose the set of Pass configuration parameters that lead to the “best” model, Olive requires an evaluator that
+returns metrics values for each output model.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">LatencySubType</span><span class="p">,</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">MetricType</span>
+<span class="kn">from</span> <span class="nn">olive.evaluator.olive_evaluator</span> <span class="kn">import</span> <span class="n">OliveEvaluatorConfig</span>
+
+<span class="c1"># create latency metric instance</span>
+<span class="n">latency_metric</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;latency&quot;</span><span class="p">,</span>
+    <span class="nb">type</span><span class="o">=</span><span class="n">MetricType</span><span class="o">.</span><span class="n">LATENCY</span><span class="p">,</span>
+        <span class="n">sub_types</span><span class="o">=</span><span class="p">[{</span>
+        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">LatencySubType</span><span class="o">.</span><span class="n">AVG</span><span class="p">,</span>
+        <span class="s2">&quot;priority&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="s2">&quot;metric_config&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;warmup_num&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;repeat_test_num&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;sleep_num&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">},</span>
+    <span class="p">}],</span>
+    <span class="n">user_config</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;user_script&quot;</span><span class="p">:</span> <span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;data_dir&quot;</span><span class="p">:</span> <span class="s2">&quot;data&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;dataloader_func&quot;</span><span class="p">:</span> <span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">16</span><span class="p">,</span>
+    <span class="p">}</span>
+<span class="p">)</span>
+
+<span class="c1"># create evaluator configuration</span>
+<span class="n">evaluator_config</span> <span class="o">=</span>  <span class="n">OliveEvaluatorConfig</span><span class="p">(</span><span class="n">metrics</span><span class="o">=</span><span class="p">[</span><span class="n">latency_metric</span><span class="p">])</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">latency_metric</span></code> requires you to provide a function as value for <code class="docutils literal notranslate"><span class="pre">dataloader_func</span></code> that returns a dataloader object when called on <code class="docutils literal notranslate"><span class="pre">data_dir</span></code>, <code class="docutils literal notranslate"><span class="pre">batch_size</span></code>, optional positional argument list and keyword argument dictionary. You can provide the function object directly but here, let’s give it a function name <code class="docutils literal notranslate"><span class="pre">&quot;create_dataloader&quot;</span></code> that can be imported from <code class="docutils literal notranslate"><span class="pre">user_script</span></code>.</p>
+<p><a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/resnet/user_script.py">This file</a> for
+has an example of how to write user scripts.</p>
+<!-- Refer to [User Scripts and Script Dir]() for more details on how Olive handles user scripts. -->
+<p>You can provide more than one metric to the evaluator <code class="docutils literal notranslate"><span class="pre">metrics</span></code> list.</p>
+</section>
+<section id="engine">
+<h2>Engine<a class="headerlink" href="#engine" title="Permalink to this heading">¶</a></h2>
+<p>You are now ready create the engine which handles the auto-tuning process.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.engine</span> <span class="kn">import</span> <span class="n">Engine</span>
+
+<span class="c1"># configuration options for engine</span>
+<span class="n">engine_config</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;cache_dir&quot;</span><span class="p">:</span> <span class="s2">&quot;.cache&quot;</span>
+    <span class="s2">&quot;search_strategy&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;execution_order&quot;</span><span class="p">:</span> <span class="s2">&quot;joint&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;search_algorithm&quot;</span><span class="p">:</span> <span class="s2">&quot;exhaustive&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="n">engine</span> <span class="o">=</span> <span class="n">Engine</span><span class="p">(</span><span class="o">**</span><span class="n">engine_config</span><span class="p">,</span> <span class="n">evaluator</span><span class="o">=</span><span class="n">evaluator_config</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="register-passes">
+<h2>Register Passes<a class="headerlink" href="#register-passes" title="Permalink to this heading">¶</a></h2>
+<p>The engine has now been created. You need to register the Passes that you want to apply on the input model. In this example,
+let us first convert the pytorch model to ONNX and quantize it. More information about the
+Passes available in Olive can be found at …</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.passes</span> <span class="kn">import</span> <span class="n">OnnxConversion</span><span class="p">,</span> <span class="n">OnnxQuantization</span>
+
+<span class="c1"># Onnx conversion pass</span>
+<span class="n">onnx_conversion_config</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;target_opset&quot;</span><span class="p">:</span> <span class="mi">13</span><span class="p">,</span>
+<span class="p">}</span>
+<span class="c1"># override the default host with pass specific host</span>
+<span class="n">engine</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">OnnxConversion</span><span class="p">,</span> <span class="n">onnx_conversion_config</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="n">host</span><span class="o">=</span><span class="n">LocalSystem</span><span class="p">())</span>
+
+<span class="c1"># onnx quantization pass</span>
+<span class="n">quantization_config</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;user_script&quot;</span><span class="p">:</span> <span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;data_dir&quot;</span><span class="p">:</span> <span class="s2">&quot;data&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;dataloader_func&quot;</span><span class="p">:</span> <span class="s2">&quot;resnet_calibration_reader&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;weight_type&quot;</span> <span class="p">:</span> <span class="s2">&quot;QUInt8&quot;</span>
+<span class="p">}</span>
+<span class="c1"># search over the values for the other config parameters</span>
+<span class="n">engine</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">OnnxQuantization</span><span class="p">,</span> <span class="n">quantization_config</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="run-the-engine">
+<h2>Run the engine<a class="headerlink" href="#run-the-engine" title="Permalink to this heading">¶</a></h2>
+<p>Finally, run the engine on your input model. The output will be the best set of parameters for the passes and the output
+model. Note: the engine run result will be updated soon.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">best_execution</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">input_model</span><span class="p">,</span> <span class="p">[</span><span class="n">DEFAULT_CPU_ACCELERATOR</span><span class="p">])</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="configure_model_path.html" class="btn btn-neutral float-left" title="How To Set Model Path" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="azure_arc.html" class="btn btn-neutral float-right" title="Self-hosted Kubernetes cluster" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, olivedevteam@microsoft.com.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

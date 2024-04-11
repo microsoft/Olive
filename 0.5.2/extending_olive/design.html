@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Design &mdash; Olive  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
+      <link rel="stylesheet" type="text/css" href="../_static/tabs.css?v=a5c4661c" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/width.css?v=b55249da" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+        <script src="../_static/js/custom_version.js?v=3856a39b"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="How to add new optimization Pass" href="how_to_add_optimization_pass.html" />
+    <link rel="prev" title="Azure ML integration" href="../features/azureml_integration.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Olive
+          </a>
+              <div class="version">
+                0.5.2
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">OVERVIEW</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview/olive.html">Olive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/quicktour.html">Quick Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/options.html">Olive Options</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">GET STARTED</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getstarted/quickstart_examples.html">Quickstart Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/custom_scripts.html">Custom Scripts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/azureml_integration.html">Azure ML integration</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Design</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#pass">Pass</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#system">System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#evaluator">Evaluator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#engine">Engine</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#search-strategy">Search Strategy</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#execution-order">Execution Order</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#search-algorithm">Search Algorithm</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_systems.html">How To Configure System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_auto_optimizer.html">How To Configure Auto Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_pass.html">How To Configure Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_data.html">How To Configure Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_model_path.html">How To Set Model Path</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/advanced_users.html">Advanced User Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/azure_arc.html">Self-hosted Kubernetes cluster</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/azureml_scripts.html">Azure ML scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/models.html">OliveModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/resource_path.html">ResourcePath</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/systems.html">OliveSystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/evaluator.html">OliveEvaluator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/metric.html">Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/search-algorithms.html">SearchAlgorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/engine.html">Engine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/passes.html">Passes</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Olive</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Design</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/extending_olive/design.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="design">
+<h1>Design<a class="headerlink" href="#design" title="Permalink to this heading">¶</a></h1>
+<p>In this section, we discuss the core design concepts of Olive. Olive is composed of modular components
+that are composed to construct a model optimization workflow.</p>
+<p>The workflow which is run by the <strong>Engine</strong> is composed of <strong>Passes</strong> that are executed in a specific order.
+Each Pass is responsible for performing a specific optimization on the model. Each Pass might have a set of parameters that
+can be tuned to achieve the best metrics, say accuracy and latency, that are evaluated by the respective <strong>Evaluator</strong>.
+The Engine employs a <strong>Search Strategy</strong> that uses a <strong>Search Algorithm</strong> to auto-tune each Pass one by one or set of Passes
+together.</p>
+<p>Each Pass can be run on any host <strong>System</strong> and its output model can be evaluated on the desired target <strong>System</strong>.</p>
+<p>Olive can be used to find the “best” candidate model, pareto frontier models (for multi-objective search), or the first model
+that meets some metric goals.</p>
+<p>The following diagram illustrates the relationship between the different components:</p>
+<a class="reference internal image-reference" href="../_images/olive-design.png"><img alt="olive-design" class="align-center" src="../_images/olive-design.png" style="width: 1000px;" /></a>
+<section id="pass">
+<h2>Pass<a class="headerlink" href="#pass" title="Permalink to this heading">¶</a></h2>
+<p>Passes are the building blocks of an Olive workflow. A Pass performs a specific model optimization technique such as ONNX
+conversion or ONNX quantization.</p>
+<p>Each pass is configured using a set of required and optional parameters. A Pass config parameter might have a
+default value and default searchable values. When initializing a pass, the user can chose to set the values of parameters to
+their default value (no search), default searchable values (search for the best value from the possible options) or a
+combination of the two (fix some parameters to a certain value, default or user provided, and/or search for other parameters).</p>
+</section>
+<section id="system">
+<h2>System<a class="headerlink" href="#system" title="Permalink to this heading">¶</a></h2>
+<p>A system is the environment (OS, hardware spec, device platform, supported EP) that a Pass is run in or a Model is
+evaluated on. It can thus be the <strong>host</strong> of a Pass or the <strong>target</strong> of an evaluation.</p>
+<p>The Pass <strong>host</strong> provides an environment with the required OS platform and packages to execute the optimization
+technique.</p>
+<p>The Evaluator <strong>target</strong> will ideally have the same specs as the desired deployment environment.</p>
+<p>Olive supports five main types of Systems:</p>
+<ul class="simple">
+<li><p><strong>LocalSystem:</strong> The local machine and environment. The Pass or model evaluation is run in the active python environment on
+the host machine.</p></li>
+<li><p><strong>AzureMLSystem:</strong> An AzureML workspace compute and environment.</p></li>
+<li><p><strong>DockerSystem:</strong> A docker container running on the host machine.</p></li>
+<li><p><strong>PythonEnvironmentSystem:</strong> A python environment on the host machine.</p></li>
+<li><p><strong>IsolatedORTSystem:</strong> A light-weight python environment on the host machine with ONNX Runtime installed. Only supports evaluation of ONNX models.</p></li>
+</ul>
+</section>
+<section id="evaluator">
+<h2>Evaluator<a class="headerlink" href="#evaluator" title="Permalink to this heading">¶</a></h2>
+<p>An Evaluator is used to evaluate a model on a specific <strong>target</strong> and return values for some <strong>metrics</strong>.</p>
+<p>To initialize an Evaluator, the user must provide a list of <strong>Metrics</strong> and the <strong>target</strong> system.</p>
+<p>Olive provides three in-build <strong>Metrics</strong>, accuracy, latency(ms) and throughput(tps, token per second), along with the options of the user to provide their own
+<strong>custom</strong> metric.</p>
+</section>
+<section id="engine">
+<h2>Engine<a class="headerlink" href="#engine" title="Permalink to this heading">¶</a></h2>
+<p>The <strong>Engine</strong> executes an Olive workflow and is responsible for</p>
+<ul class="simple">
+<li><p>Managing and executing the passes</p></li>
+<li><p>Managing input, output and intermediate models</p></li>
+<li><p>Evaluating intermediate or final output models as needed</p></li>
+</ul>
+<p>The Engine uses a <strong>Search Strategy</strong> to auto-tune the Passes one by one or the set of Passes together. The Search Strategy in
+turn employs a search algorithm to sample the search spaces of the Passes.</p>
+<p>The user configures the engine using a configuration dictionary that also selects the search strategy to use. Passes are then
+created and <strong>registered</strong> along with their host system and evaluators if any.</p>
+<p>The engine also maintains a cache directory to cache pass runs, models and evaluations.</p>
+</section>
+<section id="search-strategy">
+<h2>Search Strategy<a class="headerlink" href="#search-strategy" title="Permalink to this heading">¶</a></h2>
+<p>Search strategy provides an optimization pipeline that finds the best search point from the search space of one or more passes.</p>
+<p>It consists of two sub-components – <code class="docutils literal notranslate"><span class="pre">execution_order</span></code> and <code class="docutils literal notranslate"><span class="pre">search_algorithm</span></code>.</p>
+<section id="execution-order">
+<h3>Execution Order<a class="headerlink" href="#execution-order" title="Permalink to this heading">¶</a></h3>
+<p>The execution order defines the order in which the passes are optimized.</p>
+<p>Currently, we support two execution orders:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">joint</span></code>: The search spaces of all passes are combined and searched together to find the best search point. Each search point
+that is evaluated has parameters for the search parameters of all passes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pass-by-pass</span></code>: The search space of each pass is searched and optimized independently in order.</p></li>
+</ul>
+</section>
+<section id="search-algorithm">
+<h3>Search Algorithm<a class="headerlink" href="#search-algorithm" title="Permalink to this heading">¶</a></h3>
+<p>Search algorithm operates over a search space and provides samples/trials (search points) from the search space to execute and evaluate.</p>
+<p>The following search algorithms have been implemented:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">exhaustive</span></code>: Exhaustively iterates over the search space.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">random</span></code>: Randomly samples points from the search space without replacement.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tpe</span></code>: ample using TPE (Tree-structured Parzen Estimator) algorithm to sample from the search space.</p></li>
+</ul>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../features/azureml_integration.html" class="btn btn-neutral float-left" title="Azure ML integration" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="how_to_add_optimization_pass.html" class="btn btn-neutral float-right" title="How to add new optimization Pass" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, olivedevteam@microsoft.com.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
