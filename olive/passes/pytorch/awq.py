@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+from enum import Enum
 from typing import Any, Dict, Union
 
 import torch
@@ -22,9 +23,32 @@ class AwqQuantizer(Pass):
 
     _requires_user_script = True
 
+    class ModelDtype(str, Enum):
+        # input model's data type, we can assume the model is all float type
+        # sometime, the model is in double type, but we can convert it to float type
+        # before quantization
+        FP32 = "fp32"
+        FP16 = "fp16"
+        FP64 = "fp64"
+
+        def __str__(self) -> str:
+            return self.value
+
+        def get_torch_dtype(self):
+            return {
+                AwqQuantizer.ModelDtype.FP32: torch.float32,
+                AwqQuantizer.ModelDtype.FP16: torch.float16,
+                AwqQuantizer.ModelDtype.FP64: torch.float64,
+            }[self]
+
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
+            "input_model_dtype": PassConfigParam(
+                type_=AwqQuantizer.ModelDtype,
+                default_value=AwqQuantizer.ModelDtype.FP16,
+                description="The input model data type.",
+            ),
             "zero_point": PassConfigParam(
                 type_=bool,
                 default_value=True,
@@ -126,9 +150,8 @@ class AwqQuantizer(Pass):
 
         loading_args = self._resolve_load_args(model.hf_config.get_loading_args_from_pretrained())
         model_path = model.model_path or model.hf_config.model_name
-        # autoawq load the model with fp16, so we need to convert it to fp32 when saving
+        # autoawq load the model with fp16 by default and they did not expose the interface to change it
         awq_model = AutoAWQForCausalLM.from_pretrained(model_path, **loading_args)
-        awq_model.model = awq_model.model.float()
         tokenizer = AutoTokenizer.from_pretrained(model_path, **loading_args)
         try:
             awq_model_base.AwqQuantizer = quantizer
@@ -181,6 +204,7 @@ class AwqQuantizer(Pass):
                         infeatures=linear_layer.in_features,
                         outfeatures=linear_layer.out_features,
                         bias=linear_layer.bias is not None,
+                        input_model_dtype=config["input_model_dtype"].get_torch_dtype(),
                     )
                     linear_layer.cpu()
                     q_linear.to(next(module.parameters()).device)
