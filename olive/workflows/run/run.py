@@ -8,7 +8,7 @@ import subprocess
 import sys
 from copy import deepcopy
 from pathlib import Path
-from typing import Generator, List, Union
+from typing import Generator, Generator, List, Union
 
 from olive.auto_optimizer import AutoOptimizer
 from olive.hardware.accelerator import create_accelerators
@@ -125,16 +125,8 @@ def get_pass_module_path(pass_type: str, package_config: OlivePackageConfig) -> 
 
 
 def is_execution_provider_required(run_config: RunConfig, package_config: OlivePackageConfig) -> bool:
-    passes = set()
-    if run_config.pass_flows:
-        for pass_flow in run_config.pass_flows:
-            for pass_name in pass_flow:
-                passes.add(run_config.passes[pass_name].type)
-
-    if not passes:
-        passes = {p.type for p in run_config.passes.values()}
-
-    return any(get_pass_module_path(p, package_config).startswith("olive.passes.onnx") for p in passes)
+    passes = get_used_passes(run_config)
+    return any(get_pass_module_path(p.type, package_config).startswith("olive.passes.onnx") for p in passes)
 
 
 def run_engine(package_config: OlivePackageConfig, run_config: RunConfig, data_root: str = None):
@@ -357,6 +349,18 @@ def get_local_ort_packages() -> List[str]:
         if package_name.startswith(("onnxruntime", "ort-nightly")):
             local_ort_packages.append(package_name)
     return local_ort_packages
+
+
+def get_used_passes(run_config: RunConfig) -> Generator["RunPassConfig", None, None]:
+    if run_config.pass_flows:
+        passes = set()
+        for pass_flow in run_config.pass_flows:
+            for pass_name in pass_flow:
+                if run_config.passes[pass_name].type not in passes:
+                    passes.add(run_config.passes[pass_name].type)
+                    yield run_config.passes[pass_name]
+    elif run_config.passes:
+        yield from run_config.passes.values()
 
 
 def get_used_passes(run_config: RunConfig) -> Generator[RunPassConfig, None, None]:
