@@ -148,7 +148,7 @@ class QuantLinearORT(nn.Module):
         self.orig_fp_weight = None
         self.maxq = 2**self.bits - 1
         self.groupsize = groupsize if groupsize != -1 else infeatures
-        self.input_model_dtype = kwargs.get("input_model_dtype", torch.fp16)
+        self.input_model_dtype = kwargs.get("input_model_dtype", torch.float16)
 
         self.register_buffer(
             "qweight",
