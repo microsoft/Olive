@@ -158,7 +158,7 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig, data_r
         # no evaluator given (also implies no search)
         engine.evaluator_config is None
         # not using auto optimizer
-        and run_config.passes
+        and used_passes
         # no pass specific evaluator
         # no pass needs to run on target
         and all(
