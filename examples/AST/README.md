@@ -12,12 +12,12 @@ The `ast.json` is used on CPU optimization which tries to quantize the model and
 
 First, install required packages according to passes.
 ```sh
-olive-cli run --config ast.json --setup
+olive run --config ast.json --setup
 ```
 
 Then, optimize the model
 ```sh
-olive-cli run --config ast.json
+olive run --config ast.json
 ```
 
 or run simply with python code:

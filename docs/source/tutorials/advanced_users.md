@@ -2,7 +2,7 @@
 
 Olive provides simple  Python and command line interface to optimize the input model. See [Quick Tour](../overview/quicktour.md) for more information.
 ```bash
-olive-cli run --config user_provided_info.json
+olive run --config user_provided_info.json
 ```
 
 ```python

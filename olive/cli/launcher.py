@@ -13,7 +13,7 @@ from olive.cli.run import WorkflowRunCommand
 
 
 def main(raw_args=None, called_as_console_script: bool = True):
-    parser = ArgumentParser("Olive CLI tool", usage="olive-cli" if called_as_console_script else "python -m olive.cli")
+    parser = ArgumentParser("Olive CLI tool", usage="olive" if called_as_console_script else "python -m olive")
     commands_parser = parser.add_subparsers()
 
     # Register commands
@@ -43,7 +43,7 @@ def legacy_call(deprecated_module: str, command_name: str):
     """
     warn(
         f"Running `python -m {deprecated_module}` is deprecated and might be removed in the future. Please use"
-        f" `olive-cli {command_name}` or `python -m olive.cli {command_name}` instead.",
+        f" `olive {command_name}` or `python -m olive {command_name}` instead.",
         FutureWarning,
     )
 

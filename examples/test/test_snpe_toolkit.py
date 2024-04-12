@@ -47,7 +47,7 @@ class TestSnpeToolkit:
             os.environ["USE_OLIVE_ENV"] = "1"
             # prepare model and data
             # retry since it fails randomly
-            run_subprocess(cmd="olive-cli configure-qualcomm-sdk --py_version 3.8 --sdk snpe", check=True)
+            run_subprocess(cmd="olive configure-qualcomm-sdk --py_version 3.8 --sdk snpe", check=True)
             # install dependencies
             python_cmd = ""
             if platform.system() == "Windows":

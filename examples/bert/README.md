@@ -118,12 +118,12 @@ The optimization techniques to run are specified in the relevant config json fil
 
 First, install required packages according to passes.
 ```sh
-olive-cli run --config <config_file>.json --setup
+olive run --config <config_file>.json --setup
 ```
 
 Then, optimize the model
 ```sh
-olive-cli run --config <config_file>.json
+olive run --config <config_file>.json
 ```
 
 or run simply with python code:

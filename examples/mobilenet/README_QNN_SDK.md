@@ -12,7 +12,7 @@ Set the environment variable `QNN_SDK_ROOT` as `<qnn-sdk-unzipped-path>`
 
 ### Create an python environment for conversion/model library building
 ```
-olive-cli configure-qualcomm-sdk --py_version 3.8 --sdk qnn
+olive configure-qualcomm-sdk --py_version 3.8 --sdk qnn
 ```
 
 ### Prepare workflow config json
@@ -36,7 +36,7 @@ python download_files.py
 In your x64 python Olive environment:
 
 ```
-olive-cli run --config raw_qnn_sdk_config.json
+olive run --config raw_qnn_sdk_config.json
 ```
 
 or run simply with python code:

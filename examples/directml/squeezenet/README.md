@@ -10,11 +10,11 @@ Outputs the best metrics, model, and corresponding Olive config.
 ## Optimize SqueezeNet
 First, install required packages according to passes.
 ```
-olive-cli run --config squeezenet_config.json --setup
+olive run --config squeezenet_config.json --setup
 ```
 Then, optimize the model
 ```
-olive-cli run --config squeezenet_config.json
+olive run --config squeezenet_config.json
 ```
 
 or run simply with python code:

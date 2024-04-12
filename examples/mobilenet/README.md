@@ -65,5 +65,5 @@ python mobilenet_qnn_ep.py --evaluate
 
 The configuration file will be saved as `mobilenet_qnn_ep_{eval|no_eval}.json` in the current directory and can be run using the Olive CLI.
 ```bash
-olive-cli run --config mobilenet_qnn_ep_{eval|no_eval}.json
+olive run --config mobilenet_qnn_ep_{eval|no_eval}.json
 ```
