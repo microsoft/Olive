@@ -10,7 +10,7 @@ from unittest.mock import patch
 import pytest
 
 from olive.common.config_utils import validate_config
-from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec, create_accelerators, normalize_accelerators
+from olive.hardware.accelerator import AcceleratorLookup, AcceleratorNormalizer, AcceleratorSpec, create_accelerators
 from olive.systems.common import AcceleratorConfig, SystemType
 from olive.systems.python_environment.python_environment_system import PythonEnvironmentSystem
 from olive.systems.system_config import SystemConfig
@@ -302,7 +302,7 @@ def test_normalize_accelerators(
         )
         python_mock.start()
 
-    normalized_accs = normalize_accelerators(system_config, skip_supported_eps_check=False)
+    normalized_accs = AcceleratorNormalizer(system_config, skip_supported_eps_check=False).normalize()
     assert len(normalized_accs.config.accelerators) == len(expected_accs)
     for i, acc in enumerate(expected_accs):
         assert normalized_accs.config.accelerators[i].device == acc["device"]
@@ -337,7 +337,7 @@ def test_normalize_accelerators(
 )
 def test_normalize_accelerators_skip_ep_check(system_config, expected_acc):
     system_config = validate_config(system_config, SystemConfig)
-    normalized_accs = normalize_accelerators(system_config, skip_supported_eps_check=True)
+    normalized_accs = AcceleratorNormalizer(system_config, skip_supported_eps_check=True).normalize()
     assert normalized_accs.config.accelerators[0].device == expected_acc[0]
     assert normalized_accs.config.accelerators[0].execution_providers == expected_acc[1]
 
