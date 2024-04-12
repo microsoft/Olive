@@ -8,7 +8,7 @@ import subprocess
 import sys
 from copy import deepcopy
 from pathlib import Path
-from typing import Generator, Generator, List, Union
+from typing import Generator, List, Union
 
 from olive.auto_optimizer import AutoOptimizer
 from olive.hardware.accelerator import create_accelerators
@@ -352,18 +352,6 @@ def get_local_ort_packages() -> List[str]:
 
 
 def get_used_passes(run_config: RunConfig) -> Generator["RunPassConfig", None, None]:
-    if run_config.pass_flows:
-        passes = set()
-        for pass_flow in run_config.pass_flows:
-            for pass_name in pass_flow:
-                if run_config.passes[pass_name].type not in passes:
-                    passes.add(run_config.passes[pass_name].type)
-                    yield run_config.passes[pass_name]
-    elif run_config.passes:
-        yield from run_config.passes.values()
-
-
-def get_used_passes(run_config: RunConfig) -> Generator[RunPassConfig, None, None]:
     if run_config.pass_flows:
         passes = set()
         for pass_flow in run_config.pass_flows:
