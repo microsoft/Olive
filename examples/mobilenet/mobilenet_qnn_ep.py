@@ -61,7 +61,7 @@ def main(raw_args=None):
         del config["systems"]["local_system"]
     else:
         # set target to local_system
-        # it is QNN EP as the target EP even though local environment has
+        # QNN EP is the target EP even though local environment has
         # cpu package installed
         # this is okay since there is no evaluation done in this case
         config["engine"]["target"] = "local_system"
