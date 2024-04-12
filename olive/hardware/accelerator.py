@@ -172,6 +172,7 @@ class AcceleratorLookup:
 
 
 def fill_device(system_config: "SystemConfig"):
+    """Fill only the device in the system config accelerators and leave the execution providers None."""
     if not system_config.config.accelerators:
         system_config.config.accelerators = [{"device": "cpu"}]
     else:
@@ -183,6 +184,14 @@ def fill_device(system_config: "SystemConfig"):
 
 
 def fill_accelerators(system_config: "SystemConfig", system_supported_eps: List[str]):
+    """Fill the accelerators including device and execution providers in the system config.
+
+    * If the accelerators are not specified, fill the device and execution providers based on the installed ORT for
+      local/python system.
+    * If the device is specified but the execution providers are not, fill the execution providers based on the
+      installed ORT for local/python system.
+    * If the execution providers are specified but the device is not, fill the device based on the installed ORT.
+    """
     if not system_config.config.accelerators:
         # User does not specify the accelerators.
         inferred_device = AcceleratorLookup.infer_single_device_from_execution_providers(system_supported_eps)
@@ -227,6 +236,68 @@ def fill_accelerators(system_config: "SystemConfig", system_supported_eps: List[
     return system_config
 
 
+def check_execution_providers(
+    system_config: "SystemConfig", system_supported_eps: List[str], skip_supported_eps_check: bool = True
+):
+    """Check the execution providers are supported by the device and remove the unsupported ones.
+
+    If the skip_supported_eps_check is True, the check will be skipped and the accelerators will be filtered against
+    the device.
+    """
+    from olive.systems.common import SystemType
+
+    # check the execution providers are supported
+    # TODO(myguo): should we cleanup the EPs if ep is not used?
+    ep_not_supported = []
+    for accelerator in system_config.config.accelerators:
+        device = Device(accelerator.device.lower())
+        eps_per_device = AcceleratorLookup.get_managed_supported_execution_providers(device)
+
+        if system_config.olive_managed_env:
+            available_eps = eps_per_device
+        elif (
+            system_config.type in (SystemType.Local, SystemType.PythonEnvironment, SystemType.IsolatedORT)
+            and not skip_supported_eps_check
+        ):
+            # skip_supported_eps_check is False here
+            # target is used so we need to check that the system supported eps are compatible with the accelerators
+            available_eps = system_supported_eps
+        else:
+            # AzureML and Docker system: These are required to be specified by the user.
+            # Local, PythonEnvironment, IsolatedORT: skip_supported_eps_check is True
+            # the target is not used so no need to check the compatibility between the system supported eps and
+            # the accelerators (available_eps == accelerator.execution_providers, the check will always pass)
+            # Example scenario: to run optimization workflow for qnn-ep on x86 machine, the pass (onnxquantization)
+            # needs to know qnn-ep is the target ep, but ort-qnn is not available on x86 machine.
+            # we can still run the workflow using cpu ORT package as the target is not used for evaluation or
+            # pass runs (= no inference sesion is created). The ort tools don't need the ep to be available.
+            eps = AcceleratorLookup.filter_execution_providers(accelerator.execution_providers, eps_per_device)
+            available_eps = eps or ["CPUExecutionProvider"]
+
+        supported_eps = AcceleratorLookup.get_execution_providers_for_device_by_available_providers(
+            device, available_eps
+        )
+        logger.debug("Supported execution providers for device %s: %s", device, supported_eps)
+
+        eps = []
+        for ep in accelerator.execution_providers:
+            if ep not in supported_eps:
+                ep_not_supported.append(ep)
+            else:
+                eps.append(ep)
+
+        # remove the unsupported execution providers
+        accelerator.execution_providers = eps or ["CPUExecutionProvider"]
+
+    if ep_not_supported:
+        logger.warning(
+            "The following execution providers are not supported: '%s' by the device: '%s' and will be ignored. "
+            "Please consider installing an onnxruntime build that contains the relevant execution providers. ",
+            ",".join(ep_not_supported),
+            ",".join([accelerator.device for accelerator in system_config.config.accelerators]),
+        )
+
+
 def normalize_accelerators(
     system_config: "SystemConfig", skip_supported_eps_check: bool = True, is_ep_required=True
 ) -> "SystemConfig":
@@ -253,6 +324,7 @@ def normalize_accelerators(
                     f"Managed environment requires execution providers to be specified for {accelerator.device}"
                 )
     else:
+        system_supported_eps = None
         if system_config.type in (SystemType.Local, SystemType.PythonEnvironment, SystemType.IsolatedORT):
             if is_ep_required:
                 target = system_config.create_system()
@@ -278,57 +350,9 @@ def normalize_accelerators(
                         "AzureML and Docker system requires device and execution providers to be specified explicitly."
                     )
 
-    if is_ep_required:
-        # check the execution providers are supported
-        # TODO(myguo): should we cleanup the EPs if ep is not used?
-        ep_not_supported = []
-        for accelerator in system_config.config.accelerators:
-            device = Device(accelerator.device.lower())
-            eps_per_device = AcceleratorLookup.get_managed_supported_execution_providers(device)
+        if is_ep_required:
+            check_execution_providers(system_config, system_supported_eps, skip_supported_eps_check)
 
-            if system_config.olive_managed_env:
-                available_eps = eps_per_device
-            elif (
-                system_config.type in (SystemType.Local, SystemType.PythonEnvironment, SystemType.IsolatedORT)
-                and not skip_supported_eps_check
-            ):
-                # skip_supported_eps_check is False here
-                # target is used so we need to check that the system supported eps are compatible with the accelerators
-                available_eps = system_supported_eps
-            else:
-                # AzureML and Docker system: These are required to be specified by the user.
-                # Local, PythonEnvironment, IsolatedORT: skip_supported_eps_check is True
-                # the target is not used so no need to check the compatibility between the system supported eps and
-                # the accelerators (available_eps == accelerator.execution_providers, the check will always pass)
-                # Example scenario: to run optimization workflow for qnn-ep on x86 machine, the pass (onnxquantization)
-                # needs to know qnn-ep is the target ep, but ort-qnn is not available on x86 machine.
-                # we can still run the workflow using cpu ORT package as the target is not used for evaluation or
-                # pass runs (= no inference sesion is created). The ort tools don't need the ep to be available.
-                eps = AcceleratorLookup.filter_execution_providers(accelerator.execution_providers, eps_per_device)
-                available_eps = eps or ["CPUExecutionProvider"]
-
-            supported_eps = AcceleratorLookup.get_execution_providers_for_device_by_available_providers(
-                device, available_eps
-            )
-            logger.debug("Supported execution providers for device %s: %s", device, supported_eps)
-
-            eps = []
-            for ep in accelerator.execution_providers:
-                if ep not in supported_eps:
-                    ep_not_supported.append(ep)
-                else:
-                    eps.append(ep)
-
-            # remove the unsupported execution providers
-            accelerator.execution_providers = eps or ["CPUExecutionProvider"]
-
-        if ep_not_supported:
-            logger.warning(
-                "The following execution providers are not supported: '%s' by the device: '%s' and will be ignored. "
-                "Please consider installing an onnxruntime build that contains the relevant execution providers. ",
-                ",".join(ep_not_supported),
-                ",".join([accelerator.device for accelerator in system_config.config.accelerators]),
-            )
     return system_config
 
 
