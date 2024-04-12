@@ -280,7 +280,7 @@ class QuantPosManager(object):
         DPU compiler constraints of shift_bias:
         1. 0 <= shift_read <= 15
         """
-        for i, node in enumerate(self.model.model.graph.node):
+        for index, node in enumerate(self.model.model.graph.node):
             if node.op_type not in ["Add"] or node.op_type not in ["Mul"]:
                 continue
             ipos_layers = []
@@ -363,7 +363,6 @@ class QuantPosManager(object):
                     "Fail to get quantize position for layer {}(output:0), "
                     "skip adjust_shift_write for it.".format(node.name)
                 )
-            skip = True
             if skip:
                 continue
 

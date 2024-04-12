@@ -72,11 +72,14 @@ class SearchSpace:
             options = param.get_support(parent_vals)
         elif isinstance(param, Categorical):
             options = param.get_support()
-        for option in options:
-            if option == SpecialParamValue.INVALID:
-                continue
-            search_point[space_name][param_name] = option
-            yield from self._iterate_util(full_iter_order, search_point, index + 1)
+        else:
+            options = None
+        if options:
+            for option in options:
+                if option == SpecialParamValue.INVALID:
+                    continue
+                search_point[space_name][param_name] = option
+                yield from self._iterate_util(full_iter_order, search_point, index + 1)
 
     def iterate(self) -> Iterator[Dict[str, Dict[str, Any]]]:
         """Iterate over all possible configurations in the search space."""

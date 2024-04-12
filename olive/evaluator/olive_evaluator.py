@@ -924,7 +924,6 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
             # as the SNPE inference will return a list of outputs which is beyond the model output shape
             # we need to squeeze the fist dimensions of output to get right accuracy metrics
             for idx, output in enumerate(result.get("results")):
-                post_output = output
                 if post_func:
                     post_output = post_func(output)
                 else:
@@ -1064,7 +1063,6 @@ class QNNEvaluator(OliveEvaluator, framework=Framework.QNN):
         for data_dir, input_list, labels in dataloader:
             result = session(input_list, data_dir)
             for idx, output in enumerate(result.get("result")):
-                post_output = output
                 if post_func:
                     post_output = post_func(output)
                 else:

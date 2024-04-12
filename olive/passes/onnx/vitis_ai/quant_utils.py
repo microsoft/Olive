@@ -90,6 +90,8 @@ def vitis_quantize_data(data, bit_width=8, method=PowerOfTwoMethod.NonOverflow):
         pos = get_pos_overflow(data)
     elif method == PowerOfTwoMethod.MinMSE:
         pos = get_pos_min_mse(data)
+    else:
+        raise ValueError(f"Unsupported method: {method}")
 
     scale, lower_bound, upper_bound = get_bound_and_scale(pos)
     zero_point = 0
@@ -362,8 +364,6 @@ def quantize_data_pof2s(data, qType, symmetric, reduce_range=False, method=Power
     if is_ort_version_below_1_17():
         rmin = 0
         rmax = 0
-        zero_point = 0
-        scale = 1.0
         if isinstance(data, np.ndarray):
             rmin = data.min()
             rmax = data.max()

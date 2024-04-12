@@ -11,8 +11,8 @@ import sys
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
 
-import olive.workflows.run as olive_run
 from olive.common.utils import set_tempdir
+from olive.workflows import run as olive_run
 
 SUPPORTED_WORKFLOWS = {
     "cpu": [
