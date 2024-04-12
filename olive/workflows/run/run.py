@@ -8,7 +8,7 @@ import subprocess
 import sys
 from copy import deepcopy
 from pathlib import Path
-from typing import List, Union
+from typing import Generator, List, Union
 
 from olive.auto_optimizer import AutoOptimizer
 from olive.hardware.accelerator import create_accelerators
@@ -148,20 +148,22 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig, data_r
         AzureMLSystem.olive_config = run_config.to_json()
 
     # Register passes since we need to know whether they need to run on target
-    for pass_config in (run_config.passes or {}).values():
+    for pass_config in get_used_passes(run_config):
         logger.debug("Registering pass %s", pass_config.type)
         package_config.import_pass_module(pass_config.type)
 
+    # check if target is not used
     target_not_used = (
         # no evaluator given (also implies no search)
         engine.evaluator_config is None
         # not using auto optimizer
         and run_config.passes
         # no pass specific evaluator
-        and all(pass_config.evaluator is None for pass_config in run_config.passes.values())
+        and all(pass_config.evaluator is None for pass_config in get_used_passes(run_config))
         # no pass needs to run on target
         and all(
-            Pass.registry[pass_config.type.lower()].run_on_target is False for pass_config in run_config.passes.values()
+            Pass.registry[pass_config.type.lower()].run_on_target is False
+            for pass_config in get_used_passes(run_config)
         )
     )
     accelerator_specs = create_accelerators(engine.target_config, skip_supported_eps_check=target_not_used)
@@ -329,3 +331,15 @@ def get_local_ort_packages() -> List[str]:
         if package_name.startswith(("onnxruntime", "ort-nightly")):
             local_ort_packages.append(package_name)
     return local_ort_packages
+
+
+def get_used_passes(run_config: RunConfig) -> Generator[RunPassConfig, None, None]:
+    if run_config.pass_flows:
+        passes = set()
+        for pass_flow in run_config.pass_flows:
+            for pass_name in pass_flow:
+                if run_config.passes[pass_name].type not in passes:
+                    passes.add(run_config.passes[pass_name].type)
+                    yield run_config.passes[pass_name]
+    else:
+        yield from run_config.passes.values()
