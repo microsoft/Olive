@@ -303,6 +303,10 @@
 <span class="sd">    * only device is specified, infer the execution providers based on the installed ORT in case of local/python system.</span>
 <span class="sd">    * only EP is specified, infer the device based on the installed ORT in case of local/python system.</span>
 <span class="sd">    * For AzureML and Docker system, the accelerators and execution providers must be specified.</span>
+
+<span class="sd">    :param system_config: The system config to be normalized.</span>
+<span class="sd">    :param skip_supported_eps_check: Whether to skip the check that the system supported eps are compatible with the</span>
+<span class="sd">        accelerators in the system config. This is True when target system is not used for evaluation or pass runs.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">SystemType</span>
 
@@ -391,10 +395,18 @@
             <span class="n">system_config</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="p">(</span><span class="n">SystemType</span><span class="o">.</span><span class="n">Local</span><span class="p">,</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">PythonEnvironment</span><span class="p">,</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">IsolatedORT</span><span class="p">)</span>
             <span class="ow">and</span> <span class="ow">not</span> <span class="n">skip_supported_eps_check</span>
         <span class="p">):</span>
-            <span class="c1"># don&#39;t need to check the supported execution providers if there is no evaluation</span>
-            <span class="c1"># target is only used for evaluation</span>
+            <span class="c1"># skip_supported_eps_check is False here</span>
+            <span class="c1"># target is used so we need to check that the system supported eps are compatible with the accelerators</span>
             <span class="n">available_eps</span> <span class="o">=</span> <span class="n">system_supported_eps</span>
         <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># AzureML and Docker system: These are required to be specified by the user.</span>
+            <span class="c1"># Local, PythonEnvironment, IsolatedORT: skip_supported_eps_check is True</span>
+            <span class="c1"># the target is not used so no need to check the compatibility between the system supported eps and</span>
+            <span class="c1"># the accelerators (available_eps == accelerator.execution_providers, the check will always pass)</span>
+            <span class="c1"># Example scenario: to run optimization workflow for qnn-ep on x86 machine, the pass (like onnxquantization)</span>
+            <span class="c1"># needs to know qnn-ep is the target ep, but ort-qnn is not available on x86 machine.</span>
+            <span class="c1"># we can still run the workflow using cpu ORT package as the target is not used for evaluation or</span>
+            <span class="c1"># pass runs (= no inference sesion is created). The ort tools don&#39;t need the ep to be available.</span>
             <span class="n">available_eps</span> <span class="o">=</span> <span class="n">accelerator</span><span class="o">.</span><span class="n">execution_providers</span>
 
         <span class="n">supported_eps</span> <span class="o">=</span> <span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">get_execution_providers_for_device_by_available_providers</span><span class="p">(</span>
