@@ -76,7 +76,7 @@ class AcceleratorLookup:
 
     @staticmethod
     def get_execution_providers_for_device_by_available_providers(device: Device, available_providers):
-        eps_per_device = [*DEVICE_TO_EXECUTION_PROVIDERS.get(device), "CPUExecutionProvider"]
+        eps_per_device = AcceleratorLookup.get_managed_supported_execution_providers(device)
         return AcceleratorLookup.get_execution_providers(eps_per_device, available_providers)
 
     @staticmethod
@@ -284,9 +284,10 @@ def normalize_accelerators(
         ep_not_supported = []
         for accelerator in system_config.config.accelerators:
             device = Device(accelerator.device.lower())
+            eps_per_device = AcceleratorLookup.get_managed_supported_execution_providers(device)
 
             if system_config.olive_managed_env:
-                available_eps = AcceleratorLookup.get_managed_supported_execution_providers(device)
+                available_eps = eps_per_device
             elif (
                 system_config.type in (SystemType.Local, SystemType.PythonEnvironment, SystemType.IsolatedORT)
                 and not skip_supported_eps_check
@@ -295,7 +296,8 @@ def normalize_accelerators(
                 # target is only used for evaluation
                 available_eps = system_supported_eps
             else:
-                available_eps = accelerator.execution_providers
+                eps = AcceleratorLookup.filter_execution_providers(accelerator.execution_providers, eps_per_device)
+                available_eps = eps or ["CPUExecutionProvider"]
 
             supported_eps = AcceleratorLookup.get_execution_providers_for_device_by_available_providers(
                 device, available_eps
@@ -310,13 +312,14 @@ def normalize_accelerators(
                     eps.append(ep)
 
             # remove the unsupported execution providers
-            accelerator.execution_providers = eps
+            accelerator.execution_providers = eps or ["CPUExecutionProvider"]
 
         if ep_not_supported:
             logger.warning(
-                "The following execution providers are not supported: %s. "
+                "The following execution providers are not supported: '%s' by the device: '%s' and will be ignored. "
                 "Please consider installing an onnxruntime build that contains the relevant execution providers. ",
                 ",".join(ep_not_supported),
+                ",".join([accelerator.device for accelerator in system_config.config.accelerators]),
             )
     return system_config
 

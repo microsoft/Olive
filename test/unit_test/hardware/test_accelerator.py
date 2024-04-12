@@ -248,7 +248,7 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
                     "execution_providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
                 }
             ],
-            ["The following execution providers are not supported: ROCMExecutionProvider"],
+            ["The following execution providers are not supported: 'ROCMExecutionProvider'"],
             ["CUDAExecutionProvider", "CPUExecutionProvider"],
         ),
         (
@@ -273,7 +273,7 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
                     "execution_providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
                 }
             ],
-            ["The following execution providers are not supported: ROCMExecutionProvider"],
+            ["The following execution providers are not supported: 'ROCMExecutionProvider'"],
             ["CUDAExecutionProvider", "CPUExecutionProvider"],
         ),
     ],
@@ -314,6 +314,32 @@ def test_normalize_accelerators(
 
     if python_mock:
         python_mock.stop()
+
+
+@pytest.mark.parametrize(
+    ("system_config", "expected_acc"),
+    [
+        (
+            {
+                "type": "LocalSystem",
+                "config": {"accelerators": [{"device": "cpu", "execution_providers": ["CUDAExecutionProvider"]}]},
+            },
+            ("cpu", ["CPUExecutionProvider"]),
+        ),
+        (
+            {
+                "type": "LocalSystem",
+                "config": {"accelerators": [{"execution_providers": ["QNNExecutionProvider"]}]},
+            },
+            ("npu", ["QNNExecutionProvider"]),
+        ),
+    ],
+)
+def test_normalize_accelerators_skip_ep_check(system_config, expected_acc):
+    system_config = validate_config(system_config, SystemConfig)
+    normalized_accs = normalize_accelerators(system_config, skip_supported_eps_check=True)
+    assert normalized_accs.config.accelerators[0].device == expected_acc[0]
+    assert normalized_accs.config.accelerators[0].execution_providers == expected_acc[1]
 
 
 @pytest.mark.parametrize(
