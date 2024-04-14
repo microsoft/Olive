@@ -25,7 +25,14 @@
         "local_system": {
             "type": "LocalSystem",
             "config": {
-                "accelerators": ["gpu"]
+                "accelerators": [
+                    {
+                        "device": "gpu",
+                        "execution_providers": [
+                            "DmlExecutionProvider"
+                        ]
+                    }
+                ]
             }
         }
     },
@@ -49,13 +56,17 @@
         "convert": {
             "type": "OnnxConversion",
             "config": {
-                "target_opset": 17
+                "target_opset": 17,
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true
             }
         },
         "optimize": {
             "type": "OrtTransformersOptimization",
             "disable_search": true,
             "config": {
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true,
                 "model_type": "gpt2",
                 "opt_level": 0,
                 "num_heads": 32,
@@ -100,7 +111,6 @@
         "target": "local_system",
         "cache_dir": "cache",
         "output_name": "",
-        "output_dir": "footprints",
-        "execution_providers": ["DmlExecutionProvider"]
+        "output_dir": "footprints"
     }
 }

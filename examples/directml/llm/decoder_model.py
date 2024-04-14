@@ -292,8 +292,14 @@ class SelfAttention(torch.nn.Module):
             # Partial rotary embedding
             partial_dim = int(config.partial_rotary_factor * self.head_dim)
 
-            query_rot, query_pass = torch.split(query, [partial_dim, self.head_dim - partial_dim], dim=-1)
-            key_rot, key_pass = torch.split(key, [partial_dim, self.head_dim - partial_dim], dim=-1)
+            query_rot, query_pass = (
+                query[..., :partial_dim],
+                query[..., partial_dim:],
+            )
+            key_rot, key_pass = (
+                key[..., :partial_dim],
+                key[..., partial_dim:],
+            )
 
             query_rot = self.rotary_embedding(query_rot, cos, sin, position_ids)
             key_rot = self.rotary_embedding(key_rot, cos, sin, position_ids)

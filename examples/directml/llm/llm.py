@@ -146,7 +146,7 @@ def optimize(
                     "weight_only_config": {"bits": 4, "algorithm": "AWQ"},
                     "dataloader_func": "calib_dataloader",
                     "calibration_sampling_size": [8],
-                    "save_as_external_data": False,
+                    "save_as_external_data": True,
                     "all_tensors_to_one_file": True,
                     "user_script": "user_script.py",
                 },
@@ -155,7 +155,7 @@ def optimize(
             print(f"Unknown quantization strategy {quant_strategy}")
             exit(1)
 
-        olive_config["engine"]["execution_providers"] = {
+        olive_config["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = {
             "dml": ["DmlExecutionProvider"],
             "cuda": ["CUDAExecutionProvider"],
         }[device]
