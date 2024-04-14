@@ -15,11 +15,11 @@ class DecoderModel(torch.nn.Module):
         super().__init__()
         self.use_embeddings = use_embeddings
         self.model = Model(use_embeddings)
-        self.lm_head = torch.nn.Linear(config.hidden_size, config.vocab_size, bias=config.use_bias)
+        self.lm_head = torch.nn.Linear(config.hidden_size, config.vocab_size, bias=config.has_lm_head_bias)
 
-    def forward_common(self, use_cache, tokens_or_embeddings, position_ids_increment, attention_mask, cache):
+    def forward_common(self, use_cache, tokens_or_embeddings, position_ids_increment, attention_mask, past_key_values):
         hidden_states, k_caches, v_caches = self.model(
-            use_cache, tokens_or_embeddings, position_ids_increment, attention_mask, cache
+            use_cache, tokens_or_embeddings, position_ids_increment, attention_mask, past_key_values
         )
         logits = self.lm_head(hidden_states)
 
@@ -31,21 +31,21 @@ class DecoderModel(torch.nn.Module):
 
         return return_values
 
-    def forward_no_cache_tokens(self, tokens, position_ids, attention_mask, cache):
+    def forward_no_cache_tokens(self, input_ids, position_ids, attention_mask, past_key_values):
         use_cache = False
-        return self.forward_common(use_cache, tokens, position_ids, attention_mask, cache)
+        return self.forward_common(use_cache, input_ids, position_ids, attention_mask, past_key_values)
 
-    def forward_no_cache_embeddings(self, embeddings, position_ids, attention_mask, cache):
+    def forward_no_cache_embeddings(self, embeddings, position_ids, attention_mask, past_key_values):
         use_cache = False
-        return self.forward_common(use_cache, embeddings, position_ids, attention_mask, cache)
+        return self.forward_common(use_cache, embeddings, position_ids, attention_mask, past_key_values)
 
-    def forward_use_cache_tokens(self, tokens_increment, position_ids_increment, attention_mask, cache):
+    def forward_use_cache_tokens(self, input_ids_increment, position_ids_increment, attention_mask, past_key_values):
         use_cache = True
-        return self.forward_common(use_cache, tokens_increment, position_ids_increment, attention_mask, cache)
+        return self.forward_common(use_cache, input_ids_increment, position_ids_increment, attention_mask, past_key_values)
 
-    def forward_use_cache_embeddings(self, embeddings_increment, position_ids_increment, attention_mask, cache):
+    def forward_use_cache_embeddings(self, embeddings_increment, position_ids_increment, attention_mask, past_key_values):
         use_cache = True
-        return self.forward_common(use_cache, embeddings_increment, position_ids_increment, attention_mask, cache)
+        return self.forward_common(use_cache, embeddings_increment, position_ids_increment, attention_mask, past_key_values)
 
     def set_use_cache(self, use_cache):
         if self.use_embeddings:
@@ -67,7 +67,7 @@ class Model(torch.nn.Module):
         self.embed_tokens = torch.nn.Embedding(config.vocab_size, config.hidden_size)
 
         self.norm = {
-            "layer_norm": torch.nn.LayerNorm(config.hidden_size, config.epsilon),
+            "layer_norm": torch.nn.LayerNorm(config.hidden_size, config.epsilon, bias=config.has_norm_bias),
             "rms": RMSNorm(config.hidden_size, config.epsilon),
         }[config.normalization_type]
 
@@ -76,15 +76,15 @@ class Model(torch.nn.Module):
             layer = TransformerLayer()
             self.layers.append(layer)
 
-    def forward(self, use_cache, tokens_or_embeddings, position_ids, attention_mask, cache):
+    def forward(self, use_cache, tokens_or_embeddings, position_ids, attention_mask, past_key_values):
         k_caches = []
         v_caches = []
 
         x = tokens_or_embeddings if self.use_embeddings else self.embed_tokens(tokens_or_embeddings)
 
         for layer_idx, layer in enumerate(self.layers):
-            k_cache = cache[layer_idx]["key"].clone().detach()
-            v_cache = cache[layer_idx]["value"].clone().detach()
+            k_cache = past_key_values[layer_idx]["key"].clone().detach()
+            v_cache = past_key_values[layer_idx]["value"].clone().detach()
 
             x, k_cache, v_cache = layer(use_cache, x, position_ids, attention_mask, k_cache, v_cache)
 
@@ -135,13 +135,13 @@ class TransformerLayer(torch.nn.Module):
         super().__init__()
 
         self.input_layernorm = {
-            "layer_norm": torch.nn.LayerNorm(config.hidden_size, config.epsilon),
+            "layer_norm": torch.nn.LayerNorm(config.hidden_size, config.epsilon, bias=config.has_input_layernorm_bias),
             "rms": RMSNorm(config.hidden_size, config.epsilon),
         }[config.normalization_type]
 
         if config.apply_residual_connection_post_layernorm:
             self.post_attention_layernorm = {
-                "layer_norm": torch.nn.LayerNorm(config.hidden_size, config.epsilon),
+                "layer_norm": torch.nn.LayerNorm(config.hidden_size, config.epsilon, bias=config.has_input_layernorm_bias),
                 "rms": RMSNorm(config.hidden_size, config.epsilon),
             }[config.normalization_type]
 
@@ -159,7 +159,7 @@ class TransformerLayer(torch.nn.Module):
         k_cache: torch.Tensor,
         v_cache: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        # Dimension of x is [batch_size, seq_len, hidden_size] Dimension of
+        # Dimension of x is [batch_size, sequence_length, hidden_size] Dimension of
         # k_cache and v_cache is [batch_size, num_layers, pos, num_heads, head_dim]
         attn_norm_output = self.input_layernorm(x)
         h, k_out, v_out = self.self_attn(
@@ -180,15 +180,15 @@ class ApplyMask(torch.nn.Module):
     ) -> None:
         super().__init__()
 
-    def forward(self, use_cache, score, attention_mask, seq_len, dtype=torch.float32):
+    def forward(self, use_cache, score, attention_mask, sequence_length, dtype=torch.float32):
         # The mask contains 1's for values that should stay intact, and 0's for values that should get added to -10000
-        expanded_mask = attention_mask[:, None, None, :].expand(-1, 1, seq_len, -1).to(dtype)
+        expanded_mask = attention_mask[:, None, None, :].expand(-1, 1, sequence_length, -1).to(dtype)
         inverted_mask = 1.0 - expanded_mask
         mask_score = inverted_mask.masked_fill(inverted_mask.to(torch.bool), torch.finfo(torch.float16).min)
 
         if not use_cache:
             batch_size, max_seq_len = attention_mask.size()
-            causal_mask = torch.tril(torch.ones((batch_size, 1, seq_len, max_seq_len)), diagonal=max_seq_len - seq_len)
+            causal_mask = torch.tril(torch.ones((batch_size, 1, sequence_length, max_seq_len)), diagonal=max_seq_len - sequence_length)
             inverted_causal_mask = 1.0 - causal_mask
             mask_score += inverted_causal_mask.masked_fill(
                 inverted_causal_mask.to(torch.bool), torch.finfo(torch.float16).min
@@ -211,8 +211,8 @@ def apply_rope(x, cos, sin, position_ids):
     head_dim = x.shape[-1]
     cos = cos[:, :head_dim]
     sin = sin[:, :head_dim]
-    cos = cos[position_ids].unsqueeze(1)  # [bs, 1, seq_len, dim]
-    sin = sin[position_ids].unsqueeze(1)  # [bs, 1, seq_len, dim]
+    cos = cos[position_ids].unsqueeze(1)  # [bs, 1, sequence_length, dim]
+    sin = sin[position_ids].unsqueeze(1)  # [bs, 1, sequence_length, dim]
     return (x * cos) + (rotate_half(x) * sin)
 
 
@@ -267,25 +267,19 @@ class SelfAttention(torch.nn.Module):
         value = self.v_proj(x)
 
         batch_size = x.shape[0]
-        seq_len = x.shape[1]
+        sequence_length = x.shape[1]
 
         # Split the attention heads
-        query = torch.reshape(query, [batch_size, seq_len, config.num_heads, self.head_dim]).transpose(1, 2)
-        key = torch.reshape(key, [batch_size, seq_len, config.num_key_value_heads, self.head_dim]).transpose(1, 2)
-        value = torch.reshape(value, [batch_size, seq_len, config.num_key_value_heads, self.head_dim]).transpose(1, 2)
+        query = torch.reshape(query, [batch_size, sequence_length, config.num_heads, self.head_dim]).transpose(1, 2)
+        key = torch.reshape(key, [batch_size, sequence_length, config.num_key_value_heads, self.head_dim]).transpose(1, 2)
+        value = torch.reshape(value, [batch_size, sequence_length, config.num_key_value_heads, self.head_dim]).transpose(1, 2)
 
         if config.partial_rotary_factor != 1.0:
             # Partial rotary embedding
             partial_dim = int(config.partial_rotary_factor * self.head_dim)
 
-            query_rot, query_pass = (
-                query[..., :partial_dim],
-                query[..., partial_dim:],
-            )
-            key_rot, key_pass = (
-                key[..., :partial_dim],
-                key[..., partial_dim:],
-            )
+            query_rot, query_pass = torch.split(query, [partial_dim, self.head_dim - partial_dim], dim=-1)
+            key_rot, key_pass = torch.split(key, [partial_dim, self.head_dim - partial_dim], dim=-1)
 
             query_rot = self.rotary_embedding(query_rot, cos, sin, position_ids)
             key_rot = self.rotary_embedding(key_rot, cos, sin, position_ids)
@@ -316,14 +310,14 @@ class SelfAttention(torch.nn.Module):
         score = torch.matmul(query, key) / np.sqrt(self.head_dim)
 
         # Apply the mask
-        score = self.apply_mask(use_cache, score, attention_mask, seq_len)
+        score = self.apply_mask(use_cache, score, attention_mask, sequence_length)
 
         # Calculate attention values
         prob = torch.nn.functional.softmax(score, dim=-1)
         attn = torch.matmul(prob, value)
 
         # Merge attention heads
-        attn = attn.permute([0, 2, 1, 3]).reshape([batch_size, seq_len, config.hidden_size])
+        attn = attn.permute([0, 2, 1, 3]).reshape([batch_size, sequence_length, config.hidden_size])
 
         return self.o_proj(attn), k_cache, v_cache
 
@@ -331,25 +325,30 @@ class SelfAttention(torch.nn.Module):
 class MLP(torch.nn.Module):
     def __init__(self) -> None:
         super().__init__()
-        self.gate_proj = torch.nn.Linear(config.hidden_size, config.intermediate_size, bias=config.use_bias)
+
+        if config.use_split_sigmoid:
+            self.gate_proj = torch.nn.Linear(config.hidden_size, 2 * config.intermediate_size, bias=config.use_bias)
+        else:
+            self.gate_proj = torch.nn.Linear(config.hidden_size, config.intermediate_size, bias=config.use_bias)
+
         self.down_proj = torch.nn.Linear(config.intermediate_size, config.hidden_size, bias=config.use_bias)
 
         self.act = {
-            "silu": None,
+            "silu": SILUActivation(),
             "gelu_new": NewGELUActivation(),
             "gelu": torch.nn.GELU(),
         }[config.hidden_act]
 
-        if self.act is None:
+        if config.has_up_proj:
             self.up_proj = torch.nn.Linear(config.hidden_size, config.intermediate_size, bias=config.use_bias)
 
     def forward(self, x):
         w1x = self.gate_proj(x)
 
-        if self.act is not None:
-            return self.down_proj(self.act(w1x))
+        if config.has_up_proj:
+            return self.down_proj(self.act(w1x) * self.up_proj(x))
         else:
-            return self.down_proj(w1x * torch.sigmoid(w1x) * self.up_proj(x))
+            return self.down_proj(self.act(w1x))
 
 
 class NewGELUActivation(torch.nn.Module):
@@ -360,3 +359,12 @@ class NewGELUActivation(torch.nn.Module):
 
     def forward(self, x):
         return 0.5 * x * (1.0 + torch.tanh(math.sqrt(2.0 / math.pi) * (x + 0.044715 * torch.pow(x, 3.0))))
+
+
+class SILUActivation(torch.nn.Module):
+    def forward(self, x):
+        if config.use_split_sigmoid:
+            y, gate = torch.split(x, [config.intermediate_size, config.intermediate_size], dim=-1)
+            return y * gate * torch.sigmoid(gate)
+        else:
+            return x * torch.sigmoid(x)

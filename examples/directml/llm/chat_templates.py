@@ -126,13 +126,16 @@ FALCON_CHAT_TEMPLATE = """
 {{ eos_token }}
 """
 
-PHI_CHAT_TEMPLATE = """"{% for message in messages %}"
-{% if message['role'] == 'user' %}
-Human: {{ message['content'] }}\nAI:{% endif %}
-{% if message['role'] == 'assistant' %}
-{{ message['content'] }}
-{% endif %}
-{% endfor %}"""
+PHI_2_CHAT_TEMPLATE = (
+    "{% for message in messages %}"
+    "{% if message['role'] == 'user' %}"
+    "Human: {{ message['content'] }}\nAI:"
+    "{% endif %}"
+    "{% if message['role'] == 'assistant' %}"
+    "{{ message['content'] }}\n"
+    "{% endif %}"
+    "{% endfor %}"
+)
 
 
 def get_chat_template(model_type: str):
@@ -148,5 +151,5 @@ def get_chat_template(model_type: str):
         "neural-chat-7b-v3.1": NEURALCHAT_CHAT_TEMPLATE,
         "tinyllama-1.1b-chat-v0.6": ZEPHYR_CHAT_TEMPLATE,
         "falcon-7b-chat": FALCON_CHAT_TEMPLATE,
-        "phi-2": PHI_CHAT_TEMPLATE,
+        "phi-2": PHI_2_CHAT_TEMPLATE,
     }.get(model_type)

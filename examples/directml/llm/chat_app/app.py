@@ -5,7 +5,7 @@ from pathlib import Path
 
 import gradio as gr
 from app_modules.overwrites import postprocess
-from app_modules.presets import description, description_top, small_and_beautiful_theme, title
+from app_modules.presets import description, small_and_beautiful_theme, title
 from app_modules.utils import cancel_outputing, delete_last_conversation, reset_state, reset_textbox, transfer_input
 from interface.hddr_llm_onnx_dml_interface import LLMOnnxDmlInterface
 
@@ -78,7 +78,6 @@ def launch_chat_app(expose_locally: bool = False, device: str = "dml"):
         with gr.Row():
             gr.HTML(title)
             status_display = gr.Markdown("Success", elem_id="status_display")
-        gr.Markdown(description_top)
 
         with gr.Row():
             with gr.Column(scale=5):

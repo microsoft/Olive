@@ -39,6 +39,16 @@ def get_or_create_decoder_model():
     # Not doing so would result identical weights having different names in both models, which makes merging them
     # very difficult.
     if config.decoder_model is None:
+        if config.model_type == "falcon":
+            config.state_dict = convert_falcon_weights()
+        elif config.model_type in {"phi"}:
+            config.state_dict = convert_phi_weights()
+
+        config.has_up_proj = ("model.layers.0.mlp.up_proj.weight" in config.state_dict) or ("language_model.model.layers.0.mlp.up_proj.weight" in config.state_dict)
+        config.has_input_layernorm_bias = "model.layers.0.input_layernorm.bias" in config.state_dict
+        config.has_norm_bias = "model.norm.bias" in config.state_dict
+        config.has_lm_head_bias = ("language_model.lm_head.bias" in config.state_dict) or ("lm_head.bias" in config.state_dict)
+
         if config.model_type == "llava":
             llava_config = AutoConfig.from_pretrained(config.model_id)
             config.decoder_model = LlavaModel(llava_config)
@@ -46,14 +56,7 @@ def get_or_create_decoder_model():
             config.decoder_model = DecoderModel()
         config.decoder_model.eval()
 
-        if config.model_type == "falcon":
-            new_dict = convert_falcon_weights()
-            config.decoder_model.load_state_dict(new_dict, strict=config.strict_weights_loading)
-        elif config.model_type == "phi":
-            new_dict = convert_phi_weights()
-            config.decoder_model.load_state_dict(new_dict, strict=config.strict_weights_loading)
-        else:
-            config.decoder_model.load_state_dict(config.state_dict, strict=config.strict_weights_loading)
+        config.decoder_model.load_state_dict(config.state_dict, strict=config.strict_weights_loading)
         decoder_model = config.decoder_model
 
         # Release the memory since we don't need it anymore
@@ -78,13 +81,13 @@ def load_decoder_model(model_path):
 def decoder_torch_inputs(model):
     batch_size = 2
     past_seq_len = 0
-    seq_len = 10
-    max_seq_len = past_seq_len + seq_len
+    sequence_length = 10
+    max_seq_len = past_seq_len + sequence_length
     head_size = config.hidden_size // config.num_heads
 
     inputs = {
         "attention_mask": torch.zeros((batch_size, max_seq_len), dtype=torch.int64),
-        "cache": [
+        "past_key_values": [
             {
                 "key": torch.rand(
                     (batch_size, config.num_key_value_heads, past_seq_len, head_size), dtype=torch.float32
@@ -103,33 +106,30 @@ def decoder_torch_inputs(model):
         inputs["pixel_values"] = torch.zeros((batch_size, channel_count, image_size, image_size), dtype=torch.float32)
 
         # 32000 is the value for the image token and needs to be be there for the model to be successfully generated
-        inputs["tokens"] = torch.nn.functional.pad(
-            torch.zeros((batch_size, seq_len - 1), dtype=torch.int64), (0, 1), value=32000
+        inputs["input_ids"] = torch.nn.functional.pad(
+            torch.zeros((batch_size, sequence_length - 1), dtype=torch.int64), (0, 1), value=32000
         )
     else:
-        inputs["position_ids"] = torch.zeros((batch_size, seq_len), dtype=torch.int64)
-        inputs["tokens"] = torch.zeros((batch_size, seq_len), dtype=torch.int64)
+        inputs["position_ids"] = torch.zeros((batch_size, sequence_length), dtype=torch.int64)
+        inputs["input_ids"] = torch.zeros((batch_size, sequence_length), dtype=torch.int64)
 
     return inputs
 
 
 def decoder_ort_inputs(batch_size):
-    past_seq_len = 0
-    seq_len = 10
-    max_seq_len = past_seq_len + seq_len
+    sequence_length = 10
+    max_seq_len = 1024
     head_size = config.hidden_size // config.num_heads
 
     inputs = {
         "attention_mask": torch.zeros((batch_size, max_seq_len), dtype=torch.int64),
-        "seqlens_k": torch.ones((batch_size,), dtype=torch.int32) * past_seq_len,
-        "total_seq_len": torch.ones((1,), dtype=torch.int32) * max_seq_len,
     }
 
     for layer_idx in range(config.num_layers):
-        inputs[f"cache.{layer_idx}.key"] = torch.rand(
+        inputs[f"past_key_values.{layer_idx}.key"] = torch.rand(
             (batch_size, config.num_key_value_heads, max_seq_len, head_size), dtype=torch.float32
         )
-        inputs[f"cache.{layer_idx}.value"] = torch.rand(
+        inputs[f"past_key_values.{layer_idx}.value"] = torch.rand(
             (batch_size, config.num_key_value_heads, max_seq_len, head_size), dtype=torch.float32
         )
 
@@ -139,12 +139,12 @@ def decoder_ort_inputs(batch_size):
         inputs["pixel_values"] = torch.zeros((batch_size, channel_count, image_size, image_size), dtype=torch.float32)
 
         # 32000 is the value for the image token and needs to be be there for the model to be successfully generated
-        inputs["tokens"] = torch.nn.functional.pad(
-            torch.zeros((batch_size, seq_len - 1), dtype=torch.int64), (0, 1), value=32000
+        inputs["input_ids"] = torch.nn.functional.pad(
+            torch.zeros((batch_size, sequence_length - 1), dtype=torch.int64), (0, 1), value=32000
         )
     else:
-        inputs["position_ids"] = torch.zeros((batch_size, seq_len), dtype=torch.int64)
-        inputs["tokens"] = torch.zeros((batch_size, seq_len), dtype=torch.int64)
+        inputs["position_ids"] = torch.zeros((batch_size, sequence_length), dtype=torch.int64)
+        inputs["input_ids"] = torch.zeros((batch_size, sequence_length), dtype=torch.int64)
 
     return inputs
 
@@ -192,20 +192,20 @@ class PileDataloader:
                 token_end = token_start + self.seqlen
                 input_ids = sample[token_start:token_end].unsqueeze(0).cpu().numpy().astype("int64")
 
-                seqlens_k = np.array(0, dtype=np.int32, ndmin=1)
                 initial_position_ids = np.arange(self.seqlen, dtype=np.int64).reshape((1, self.seqlen))
+                attention_mask = np.pad(np.ones((1, self.seqlen), dtype=np.int64), ((0, 0), (0, self.max_seq_len - self.seqlen)))
 
                 initial_inputs = {
-                    "tokens": input_ids,
+                    "input_ids": input_ids,
                     "position_ids": initial_position_ids,
-                    "seqlens_k": seqlens_k,
+                    "attention_mask": attention_mask,
                 }
 
                 for layer_index in range(config.num_layers):
-                    initial_inputs[f"cache.{layer_index}.key"] = np.zeros(
+                    initial_inputs[f"past_key_values.{layer_index}.key"] = np.zeros(
                         (1, config.num_key_value_heads, self.max_seq_len, self.head_size), dtype=np.float16
                     )
-                    initial_inputs[f"cache.{layer_index}.value"] = np.zeros(
+                    initial_inputs[f"past_key_values.{layer_index}.value"] = np.zeros(
                         (1, config.num_key_value_heads, self.max_seq_len, self.head_size), dtype=np.float16
                     )
 

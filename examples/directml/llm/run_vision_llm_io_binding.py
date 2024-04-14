@@ -12,7 +12,6 @@ import numpy as np
 import onnxruntime
 from PIL import Image
 from transformers import AutoProcessor
-from chat_templates import get_chat_template
 from model_type_mapping import get_supported_lvlm_models, get_model_dir
 
 
@@ -45,10 +44,6 @@ def run_vision_llm_io_binding(
 
     model_dir = get_model_dir(model_type)
     llm_session_options = onnxruntime.SessionOptions()
-    llm_session_options.add_free_dimension_override_by_name("batch_size", 1)
-    llm_session_options.add_free_dimension_override_by_name("attention_mask_sequence_length", max_seq_len)
-    llm_session_options.add_free_dimension_override_by_name("max_seq_len", max_seq_len)
-    llm_session_options.add_free_dimension_override_by_name("seq_len_increment", 1)
     llm_session = onnxruntime.InferenceSession(
         os.path.join(model_dir, "decoder_model_merged.onnx"),
         sess_options=llm_session_options,
@@ -58,7 +53,7 @@ def run_vision_llm_io_binding(
     data_type = np.float16
     num_layers = 0
     for inputs_meta in llm_session._inputs_meta:
-        if inputs_meta.name.startswith("cache.") and inputs_meta.name.endswith(".key"):
+        if inputs_meta.name.startswith("past_key_values.") and inputs_meta.name.endswith(".key"):
             num_layers += 1
             num_key_value_heads = inputs_meta.shape[1]
             head_dim = inputs_meta.shape[3]
@@ -69,16 +64,16 @@ def run_vision_llm_io_binding(
 
     processed_prompt = f"USER: {prompt}\n<image>\nASSISTANT:"
     processed_inputs = processor(text=processed_prompt, images=image, return_tensors="np")
-    tokens = processed_inputs["input_ids"]
+    input_ids = processed_inputs["input_ids"]
     pixel_values = processed_inputs["pixel_values"].astype(np.float16)
 
-    tokens = np.asarray(tokens, dtype=np.int64)
-    tokens = onnxruntime.OrtValue.ortvalue_from_numpy(tokens, device)
-    tokens_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, 1), np.int64, device)
-    seq_len = tokens.shape()[1]
+    input_ids = np.asarray(input_ids, dtype=np.int64)
+    input_ids = onnxruntime.OrtValue.ortvalue_from_numpy(input_ids, device)
+    input_ids_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, 1), np.int64, device)
+    sequence_length = input_ids.shape()[1]
 
     attention_mask = np.zeros((1, max_seq_len), dtype=np.int64)
-    attention_mask[:, :seq_len] = 1
+    attention_mask[:, :sequence_length] = 1
 
     # Create the LLM model's I/O binding
     llm_io_binding = llm_session.io_binding()
@@ -96,8 +91,8 @@ def run_vision_llm_io_binding(
     llm_io_binding.bind_cpu_input("pixel_values", pixel_values)
     llm_io_binding.bind_cpu_input("use_cache_branch", np.zeros([1], dtype=np.bool_))
     llm_io_binding.bind_output("logits", device)
-    llm_io_binding.bind_ortvalue_input("tokens", tokens)
-    llm_io_binding.bind_ortvalue_input("tokens_increment", tokens_increment)
+    llm_io_binding.bind_ortvalue_input("input_ids", input_ids)
+    llm_io_binding.bind_ortvalue_input("input_ids_increment", input_ids_increment)
 
     before_time = time.perf_counter()
 
@@ -107,10 +102,10 @@ def run_vision_llm_io_binding(
         llm_io_binding.bind_cpu_input("attention_mask", attention_mask)
 
         for layer_idx in range(num_layers):
-            llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.key", k_caches[layer_idx])
-            llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.value", v_caches[layer_idx])
-            llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.key", k_caches[layer_idx])
-            llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.value", v_caches[layer_idx])
+            llm_io_binding.bind_ortvalue_input(f"past_key_values.{layer_idx}.key", k_caches[layer_idx])
+            llm_io_binding.bind_ortvalue_input(f"past_key_values.{layer_idx}.value", v_caches[layer_idx])
+            llm_io_binding.bind_ortvalue_output(f"present.{layer_idx}.key", k_caches[layer_idx])
+            llm_io_binding.bind_ortvalue_output(f"present.{layer_idx}.value", v_caches[layer_idx])
 
         # Run the LLM
         llm_session.run_with_iobinding(llm_io_binding)
@@ -122,7 +117,7 @@ def run_vision_llm_io_binding(
         output_tokens.append(next_token.item())
 
         # Set the token for the next iteration
-        llm_io_binding.bind_cpu_input("tokens_increment", next_token)
+        llm_io_binding.bind_cpu_input("input_ids_increment", next_token)
 
         # Stop if/when we get an ENDOFTEXT token before reaching maximum sequence length
         if not ignore_eos and output_tokens[-1] == processor.tokenizer.eos_token_id:
@@ -131,13 +126,13 @@ def run_vision_llm_io_binding(
         if idx == 0:
             llm_io_binding.bind_cpu_input("use_cache_branch", np.ones([1], dtype=np.bool_))
             llm_io_binding.bind_output("logits", device)
-            seq_len = logits.shape[1]
+            sequence_length = logits.shape[1]
             attention_mask = np.zeros((1, max_seq_len), dtype=np.int64)
-            attention_mask[:, :seq_len] = 1
+            attention_mask[:, :sequence_length] = 1
 
-        if seq_len < max_seq_len:
-            attention_mask[:, seq_len] = 1
-            seq_len += 1
+        if sequence_length < max_seq_len:
+            attention_mask[:, sequence_length] = 1
+            sequence_length += 1
 
     after_time = time.perf_counter()
     duration = after_time - before_time

@@ -6,15 +6,16 @@
             "model_script": "user_script.py",
             "io_config": {
                 "input_names": [
-                    "tokens"
+                    "input_ids"
                 ],
                 "output_names": [
                     "logits"
                 ],
                 "dynamic_axes": {
-                    "tokens": { "0": "batch_size", "1": "seq_len" },
-                    "position_ids": { "0": "batch_size", "1": "seq_len" },
-                    "attention_mask": { "0": "batch_size", "1": "sequence_length" }
+                    "input_ids": { "0": "batch_size", "1": "sequence_length" },
+                    "attention_mask": { "0": "batch_size", "1": "total_sequence_length" },
+                    "position_ids": { "0": "batch_size", "1": "sequence_length" },
+                    "logits": { "0": "batch_size", "1": "sequence_length" }
                 }
             },
             "dummy_inputs_func": "decoder_torch_inputs"
@@ -64,7 +65,6 @@
                 "keep_io_types": false,
                 "use_gqa": true,
                 "num_key_value_heads": 32,
-                "replace_attn_mask_input_with_seq_len": true,
                 "optimization_options": {
                     "enable_gelu": false,
                     "enable_layer_norm": true,

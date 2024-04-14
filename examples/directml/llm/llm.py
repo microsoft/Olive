@@ -8,6 +8,8 @@ import json
 import os
 import shutil
 import warnings
+import sys
+import shutil
 from pathlib import Path
 from typing import Optional
 
@@ -15,7 +17,6 @@ import config
 import torch
 import transformers
 from chat_app.app import launch_chat_app
-from custom_passes import create_cache_model, merge_models
 from huggingface_hub import hf_hub_download
 from model_type_mapping import (
     get_all_supported_models,
@@ -38,7 +39,7 @@ def set_config_parameters(tokenizer: transformers.AutoTokenizer, repo_id: str, n
         main_model = hugggingface_model
     else:
         pipeline = transformers.pipeline(
-            "text-generation", model=repo_id, tokenizer=tokenizer, torch_dtype=torch.float32, device="cpu"
+            "text-generation", model=repo_id, tokenizer=tokenizer, torch_dtype=torch.float32, device="cpu", trust_remote_code=True
         )
         llm_model = pipeline.model
         main_model = pipeline.model
@@ -59,7 +60,9 @@ def set_config_parameters(tokenizer: transformers.AutoTokenizer, repo_id: str, n
 
     config.use_bias = llm_model.config.model_type == "phi"
 
-    if hasattr(llm_model.config, "hidden_act"):
+    if hasattr(llm_model.config, "architecture"):
+        config.hidden_act = llm_model.config.architecture["mlp"]["act_fn"]
+    elif hasattr(llm_model.config, "hidden_act"):
         config.hidden_act = llm_model.config.hidden_act
     elif hasattr(llm_model.config, "activation_function"):
         config.hidden_act = llm_model.config.activation_function
@@ -70,13 +73,17 @@ def set_config_parameters(tokenizer: transformers.AutoTokenizer, repo_id: str, n
 
     if hasattr(llm_model.config, "intermediate_size"):
         config.intermediate_size = llm_model.config.intermediate_size
+    elif hasattr(llm_model.config, "architecture"):
+        config.intermediate_size = llm_model.config.architecture["mlp"]["n_inner"]
     else:
         config.intermediate_size = llm_model.config.hidden_size * 4
 
     if hasattr(llm_model.config, "multi_query") and llm_model.config.multi_query:
         config.num_key_value_heads = 1
-    else:
+    elif hasattr(llm_model.config, "num_key_value_heads"):
         config.num_key_value_heads = llm_model.config.num_key_value_heads
+    else:
+        config.num_key_value_heads = config.num_heads
 
     if hasattr(llm_model.config, "rms_norm_eps"):
         config.normalization_type = "rms"
@@ -91,6 +98,9 @@ def set_config_parameters(tokenizer: transformers.AutoTokenizer, repo_id: str, n
         raise ValueError("Normalization epsilon value was not found")
 
     config.model_id = repo_id
+
+    # TODO (pavignol): Set use_split_sigmoid for the right models
+    config.use_split_sigmoid = False
     config.normalization_type = "rms" if hasattr(llm_model.config, "rms_norm_eps") else "layer_norm"
     config.partial_rotary_factor = getattr(llm_model.config, "partial_rotary_factor", 1.0)
     config.max_position_embeddings = (
@@ -114,7 +124,8 @@ def optimize(
     set_config_parameters(tokenizer, repo_id, num_layers)
 
     script_dir = Path(__file__).resolve().parent
-    model_info = {}
+    shutil.rmtree(script_dir / "footprints", ignore_errors=True)
+    shutil.rmtree(script_dir / "cache", ignore_errors=True)
 
     with Path.open(script_dir / "config_llm.json") as fin:
         olive_config = json.load(fin)
@@ -152,30 +163,26 @@ def optimize(
         # Some models are too fragile and need layer norm to be performed in fp32 to keep their accuracy.
         # bfloat16 could fix this, but since DML doesn't support it we need to fall back to fp32.
         models_that_need_fp32_layer_norm = ["llava-hf_llava-1.5-7b-hf", "tiiuae_falcon-7b-instruct"]
-        models_that_need_fp32_mha = ["llava-hf_llava-1.5-7b-hf", "microsoft_phi-2"]
+        vision_models = ["llava-hf_llava-1.5-7b-hf"]
 
         force_fp32_ops = olive_config["passes"]["optimize"]["config"].get("force_fp32_ops", [])
 
         if model_name in models_that_need_fp32_layer_norm:
             force_fp32_ops.extend(["SimplifiedLayerNormalization", "LayerNormalization"])
 
-        if model_name in models_that_need_fp32_mha:
-            force_fp32_ops.extend(["MultiHeadAttention"])
-
-        if repo_id == "llava-hf/llava-1.5-7b-hf":
-            olive_config["passes"]["optimize"]["config"]["replace_attn_mask_input_with_seq_len"] = False
+        is_vision_model = model_name in vision_models
 
         olive_config["passes"]["optimize"]["config"]["force_fp32_ops"] = force_fp32_ops
 
         # Set the input names and dynamic axes
         io_config = olive_config["input_model"]["config"]["io_config"]
 
-        if repo_id != "llava-hf/llava-1.5-7b-hf":
+        if not is_vision_model:
             io_config["input_names"].append("position_ids")
 
         io_config["input_names"].append("attention_mask")
 
-        if repo_id == "llava-hf/llava-1.5-7b-hf":
+        if is_vision_model:
             io_config["input_names"].append("pixel_values")
             io_config["dynamic_axes"]["pixel_values"] = {
                 "0": "batch_size",
@@ -185,17 +192,29 @@ def optimize(
             }
 
         for layer_idx in range(config.num_layers):
-            io_config["input_names"].append(f"cache.{layer_idx}.key")
-            io_config["input_names"].append(f"cache.{layer_idx}.value")
-            io_config["output_names"].append(f"cache_out.{layer_idx}.key")
-            io_config["output_names"].append(f"cache_out.{layer_idx}.value")
-            io_config["dynamic_axes"][f"cache.{layer_idx}.key"] = {
+            io_config["input_names"].append(f"past_key_values.{layer_idx}.key")
+            io_config["input_names"].append(f"past_key_values.{layer_idx}.value")
+            io_config["output_names"].append(f"present.{layer_idx}.key")
+            io_config["output_names"].append(f"present.{layer_idx}.value")
+
+            # Name the input cache dynamic axes
+            io_config["dynamic_axes"][f"past_key_values.{layer_idx}.key"] = {
                 "0": "batch_size",
-                "2": "max_seq_len",
+                "2": "past_sequence_length",
             }
-            io_config["dynamic_axes"][f"cache.{layer_idx}.value"] = {
+            io_config["dynamic_axes"][f"past_key_values.{layer_idx}.value"] = {
                 "0": "batch_size",
-                "2": "max_seq_len",
+                "2": "past_sequence_length",
+            }
+
+            # Name the output cache dynamic axes
+            io_config["dynamic_axes"][f"present.{layer_idx}.key"] = {
+                "0": "batch_size",
+                "2": "total_sequence_length",
+            }
+            io_config["dynamic_axes"][f"present.{layer_idx}.value"] = {
+                "0": "batch_size",
+                "2": "total_sequence_length",
             }
 
         olive_run(olive_config)
@@ -226,36 +245,21 @@ def optimize(
             else:
                 optimized_olive_model = ONNXModelHandler(**optimizer_footprint["model_config"]["config"])
 
-            # Create a copy of the model that will be used for the "cache" pass
-            print("Creating a past key/values version of the model...")
-            model_path = optimized_olive_model.model_path
-            model_with_past_path = create_cache_model(model_path)
-
-            # Merge the 2 models together
-            print("Merging the 2 models together...")
-            merged_model_path = merge_models(model_path, model_with_past_path)
-            merged_model_path = Path(merged_model_path)
-
-            model_info[model_name] = {
-                "optimized": {
-                    "path": merged_model_path,
-                },
-            }
-
-            print(f"Optimized Model   : {merged_model_path}")
+            model_path = Path(optimized_olive_model.model_path)
+            print(f"Optimized Model   : {model_path}")
 
     print("Copying optimized model...")
 
     # Copy the ONNX models
-    src_path = merged_model_path
+    src_path = model_path
     dst_path = model_dir / src_path.name
     os.makedirs(os.path.dirname(dst_path), exist_ok=True)
     shutil.copyfile(src_path, dst_path)
 
     # Copy the weights
-    src_weights_path = src_path.with_suffix(".onnx_data")
+    src_weights_path = src_path.with_suffix(".onnx.data")
     if src_weights_path.is_file():
-        dst_weights_path = dst_path.with_suffix(".onnx_data")
+        dst_weights_path = dst_path.with_suffix(".onnx.data")
         shutil.copyfile(src_weights_path, dst_weights_path)
 
     # Copy the tokenizer files
@@ -263,7 +267,8 @@ def optimize(
 
     # Copy the preprocessor config file
     if config.model_type == "llava":
-        src_preprocessor_config_path = hf_hub_download(repo_id=repo_id, filename="preprocessor_config.json")
+        # src_preprocessor_config_path = hf_hub_download(repo_id=repo_id, filename="preprocessor_config.json")
+        src_preprocessor_config_path = hf_hub_download(repo_id="llava-hf/llava-1.5-7b-hf", filename="preprocessor_config.json")
         dst_preprocessor_config_path = dst_path.parents[0] / "preprocessor_config.json"
         shutil.copyfile(src_preprocessor_config_path, dst_preprocessor_config_path)
 
@@ -309,11 +314,11 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    model_name = get_model_name(args.model_type)
     model_dir = get_model_dir(args.model_type)
-    repo_id = get_model_repo_id(args.model_type)
 
     if args.optimize or not (model_dir).exists():
+        repo_id = get_model_repo_id(args.model_type)
+        model_name = get_model_name(args.model_type)
         optimize(model_dir, repo_id, model_name, args.device, args.num_layers, args.quant_strategy)
 
     if not args.optimize:

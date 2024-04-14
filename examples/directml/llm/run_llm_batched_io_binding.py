@@ -42,13 +42,15 @@ def run_llm_io_binding(
         )
     ]
 
+    if device == "cuda":
+        providers[0][1]["enable_cuda_graph"] = True
+
     model_dir = get_model_dir(model_type)
     llm_session_options = onnxruntime.SessionOptions()
-    llm_session_options.add_free_dimension_override_by_name("batch_size", len(prompts))
-    llm_session_options.add_free_dimension_override_by_name("max_seq_len", max_seq_len)
-    llm_session_options.add_free_dimension_override_by_name("seq_len_increment", 1)
+    llm_session_options.add_session_config_entry("ep.dml.enable_graph_capture", "1")
+
     llm_session = onnxruntime.InferenceSession(
-        os.path.join(model_dir, "decoder_model_merged.onnx"),
+        os.path.join(model_dir, "model.onnx"),
         sess_options=llm_session_options,
         providers=providers,
     )
@@ -56,7 +58,7 @@ def run_llm_io_binding(
     data_type = np.float16
     num_layers = 0
     for inputs_meta in llm_session._inputs_meta:
-        if inputs_meta.name.startswith("cache.") and inputs_meta.name.endswith(".key"):
+        if inputs_meta.name.startswith("past_key_values.") and inputs_meta.name.endswith(".key"):
             num_layers += 1
             num_key_value_heads = inputs_meta.shape[1]
             head_dim = inputs_meta.shape[3]
@@ -68,10 +70,11 @@ def run_llm_io_binding(
     batch_size = len(prompts)
 
     batched_tokens = []
+    attention_mask = np.zeros((len(prompts), max_seq_len), dtype=np.int64)
     seq_lens = []
     past_seq_lens = [0] * batch_size
     max_tokens_len = 0
-    for prompt in prompts:
+    for batch_idx, prompt in enumerate(prompts):
         # Generate the tokens
         prompt_tokens = tokenizer.apply_chat_template([{"role": "user", "content": prompt}], return_tensors="np")
         prompt_tokens = np.asarray(prompt_tokens, dtype=np.int64)
@@ -79,6 +82,9 @@ def run_llm_io_binding(
 
         # Generate the mask
         token_count = prompt_tokens.shape[1]
+        for token_idx in range(token_count):
+            attention_mask[batch_idx, token_idx] = 1
+
         seq_lens.append(token_count)
 
     max_tokens_len = max(seq_lens)
@@ -87,48 +93,43 @@ def run_llm_io_binding(
     for idx in range(len(batched_tokens)):
         batched_tokens[idx] = np.pad(batched_tokens[idx], ((0, 0), (0, max_tokens_len - batched_tokens[idx].shape[1])))
 
-    tokens = np.concatenate(batched_tokens, axis=0)
+    initial_input_ids = np.concatenate(batched_tokens, axis=0)
+    initial_input_ids = np.asarray(initial_input_ids, dtype=np.int64)
+    initial_input_ids = onnxruntime.OrtValue.ortvalue_from_numpy(initial_input_ids, device)
 
-    # When we reach this point, tokens is an array of shape [batch_size, max_tokens_len] that looks like this:
-    #
-    # [ 0,    0,   0, 131,  15]
-    # [ 0,   37,  94,  16,  20]
-    # [65, 5341, 894, 365,  24]
-    # [ 0,    0, 524,  25, 124]
-    #
-    # Where 0 represents padding that was added for prompts that were shorter, which will be masked out in the model
-    tokens = onnxruntime.OrtValue.ortvalue_from_numpy(tokens, device)
-    tokens_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type((batch_size, 1), np.int64, device)
+    position_ids_ortvalue = onnxruntime.OrtValue.ortvalue_from_shape_and_type((batch_size, 1), np.int64, device)
+    attention_mask_ortvalue = onnxruntime.OrtValue.ortvalue_from_shape_and_type((batch_size, max_seq_len), np.int64, device)
+    input_ids_ortvalue = onnxruntime.OrtValue.ortvalue_from_shape_and_type((batch_size, 1), np.int64, device)
 
     # Create the LLM model's I/O binding
-    logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
-        (batch_size, max_tokens_len, tokenizer.vocab_size), data_type, device
-    )
     llm_io_binding = llm_session.io_binding()
-    llm_io_binding.bind_ortvalue_output("logits", logits)
 
     # Create the K and V caches.
     cache_shape = (batch_size, num_key_value_heads, max_seq_len, head_dim)
     initial_cache = np.zeros(cache_shape, dtype=data_type)
     k_caches = []
     v_caches = []
-    k_caches_out = []
-    v_caches_out = []
 
     for _ in range(num_layers):
         k_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, device))
         v_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, device))
-        k_caches_out.append(
-            onnxruntime.OrtValue.ortvalue_from_shape_and_type(initial_cache.shape, initial_cache.dtype, device)
-        )
-        v_caches_out.append(
-            onnxruntime.OrtValue.ortvalue_from_shape_and_type(initial_cache.shape, initial_cache.dtype, device)
-        )
 
-    llm_io_binding.bind_cpu_input("use_cache_branch", np.zeros([1], dtype=np.bool_))
     llm_io_binding.bind_output("logits", device)
-    llm_io_binding.bind_ortvalue_input("tokens", tokens)
-    llm_io_binding.bind_ortvalue_input("tokens_increment", tokens_increment)
+    llm_io_binding.bind_ortvalue_input("input_ids", initial_input_ids)
+
+    initial_position_ids = np.arange(max_tokens_len, dtype=np.int64).reshape((1, max_tokens_len))
+    initial_position_ids = np.broadcast_to(initial_position_ids, (batch_size, max_tokens_len))
+    llm_io_binding.bind_cpu_input("position_ids", initial_position_ids)
+
+    for layer_idx in range(num_layers):
+        llm_io_binding.bind_ortvalue_input(f"past_key_values.{layer_idx}.key", k_caches[layer_idx])
+        llm_io_binding.bind_ortvalue_input(f"past_key_values.{layer_idx}.value", v_caches[layer_idx])
+        llm_io_binding.bind_ortvalue_output(f"present.{layer_idx}.key", k_caches[layer_idx])
+        llm_io_binding.bind_ortvalue_output(f"present.{layer_idx}.value", v_caches[layer_idx])
+
+    llm_io_binding.bind_ortvalue_input("attention_mask", attention_mask_ortvalue)
+
+    run_options = onnxruntime.RunOptions()
 
     before_time = time.perf_counter()
 
@@ -140,25 +141,26 @@ def run_llm_io_binding(
     eos_found = [False] * batch_size
     eos_count = 0
     for idx in range(max_gen_len):
-        if idx == 0:
-            position_ids = np.arange(max_tokens_len, dtype=np.int64).reshape((1, max_tokens_len))
-            position_ids = np.broadcast_to(position_ids, (batch_size, max_tokens_len))
-            llm_io_binding.bind_cpu_input("position_ids", position_ids)
-        else:
-            position_ids_increment = np.array(seq_lens, dtype=np.int64).reshape((batch_size, 1))
-            llm_io_binding.bind_cpu_input("position_ids_increment", position_ids_increment)
+        if idx > 0:
+            position_ids = np.array(seq_lens, dtype=np.int64).reshape((batch_size, 1))
+            position_ids_ortvalue.update_inplace(position_ids)
 
-        seqlens_k = np.array(past_seq_lens, dtype=np.int32, ndmin=1)
-        llm_io_binding.bind_cpu_input("seqlens_k", seqlens_k)
+        if idx == 1:
+            llm_io_binding.bind_ortvalue_input("position_ids", position_ids_ortvalue)
+            llm_io_binding.bind_ortvalue_input("input_ids", input_ids_ortvalue)
 
-        for layer_idx in range(num_layers):
-            llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.key", k_caches[layer_idx])
-            llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.value", v_caches[layer_idx])
-            llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.key", k_caches[layer_idx])
-            llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.value", v_caches[layer_idx])
+        for batch_idx, seq_len in enumerate(seq_lens):
+            attention_mask[batch_idx, seq_len - 1] = 1
+
+        attention_mask_ortvalue.update_inplace(attention_mask)
 
         # Run the LLM
-        llm_session.run_with_iobinding(llm_io_binding)
+        if idx == 0:
+            run_options.add_run_config_entry("gpu_graph_id", "-1")
+        elif idx == 1:
+            run_options.add_run_config_entry("gpu_graph_id", "1")
+
+        llm_session.run_with_iobinding(llm_io_binding, run_options)
 
         # Decide the next token using your preferred sampling strategy.
         if idx == 0:
@@ -171,13 +173,12 @@ def run_llm_io_binding(
         next_tokens = np.argmax(logits, axis=-1, keepdims=False).reshape(batch_size, 1)
 
         # Set the token for the next iteration
-        llm_io_binding.bind_cpu_input("tokens_increment", next_tokens)
+        input_ids_ortvalue.update_inplace(next_tokens)
 
         tokens_list = next_tokens.tolist()
         for output_token_idx in range(len(tokens_list)):
             output_token = tokens_list[output_token_idx][0]
 
-            # print(output_token)
             if not eos_found[output_token_idx] and output_token == tokenizer.eos_token_id:
                 eos_found[output_token_idx] = True
                 eos_count += 1
@@ -190,12 +191,12 @@ def run_llm_io_binding(
             break
 
         if idx == 0:
-            llm_io_binding.bind_cpu_input("use_cache_branch", np.ones([1], dtype=np.bool_))
             llm_io_binding.bind_output("logits", device)
 
         for seq_len_idx in range(len(seq_lens)):
             past_seq_lens[seq_len_idx] = seq_lens[seq_len_idx]
             seq_lens[seq_len_idx] += 1
+            seq_lens[seq_len_idx] = min(seq_lens[seq_len_idx], max_seq_len)
 
     after_time = time.perf_counter()
     duration = after_time - before_time

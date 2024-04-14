@@ -14,15 +14,16 @@
 
 import torch
 from decoder_model import DecoderModel
-from transformers import AutoModel, LlavaConfig
+from transformers import AutoModel, LlavaConfig, CLIPVisionModel
 
 
 class LlavaMultiModalProjector(torch.nn.Module):
-    def __init__(self, config: LlavaConfig):
+    def __init__(self, config: LlavaConfig, vision_config):
         super().__init__()
 
-        self.linear_1 = torch.nn.Linear(config.vision_config.hidden_size, config.text_config.hidden_size, bias=True)
-        self.linear_2 = torch.nn.Linear(config.text_config.hidden_size, config.text_config.hidden_size, bias=True)
+        text_hidden_size = config.text_config.hidden_size if hasattr(config, "text_config") else config.n_embd
+        self.linear_1 = torch.nn.Linear(vision_config.hidden_size, text_hidden_size, True)
+        self.linear_2 = torch.nn.Linear(text_hidden_size, text_hidden_size, True)
 
     def forward(self, image_features):
         hidden_states = self.linear_1(image_features)
@@ -34,9 +35,13 @@ class LlavaModel(torch.nn.Module):
     def __init__(self, llava_config: LlavaConfig):
         super().__init__()
         self.llava_config = llava_config
-        self.vision_tower = AutoModel.from_config(llava_config.vision_config)
 
-        self.multi_modal_projector = LlavaMultiModalProjector(llava_config)
+        if hasattr(llava_config, "vision_config"):
+            self.vision_tower = AutoModel.from_config(llava_config.vision_config)
+        else:
+            self.vision_tower = CLIPVisionModel.from_pretrained(llava_config.img_processor["model_name"])
+
+        self.multi_modal_projector = LlavaMultiModalProjector(llava_config, self.vision_tower.config)
         self.vocab_size = llava_config.vocab_size
         self.language_model = DecoderModel(use_embeddings=True)
 
@@ -49,11 +54,12 @@ class LlavaModel(torch.nn.Module):
         batch_size, sequence_length = input_ids.shape
         left_padding = not torch.sum(input_ids[:, -1] == torch.tensor(self.pad_token_id))
         # 1. Create a mask to know where special image tokens are
-        special_image_token_mask = input_ids == self.llava_config.image_token_index
+        image_token_index = getattr(self.llava_config, "image_token_index", 32000)
+        special_image_token_mask = input_ids == image_token_index
         num_special_image_tokens = torch.sum(special_image_token_mask, dim=-1)
         # Compute the maximum embed dimension
         max_embed_dim = (num_special_image_tokens.max() * (num_image_patches - 1)) + sequence_length
-        batch_indices, non_image_indices = torch.where(input_ids != self.llava_config.image_token_index)
+        batch_indices, non_image_indices = torch.where(input_ids != image_token_index)
 
         # 2. Compute the positions where text should be written
         # Calculate new positions for text tokens in merged image-text sequence.
@@ -108,32 +114,34 @@ class LlavaModel(torch.nn.Module):
 
         return final_embedding, final_attention_mask, position_ids
 
-    def forward_no_cache(self, tokens, attention_mask, pixel_values, cache):
+    def forward_no_cache(self, input_ids, attention_mask, pixel_values, past_key_values):
         # 1. Extract the input embeddings
-        inputs_embeds = self.language_model.get_embeddings()(tokens)
+        inputs_embeds = self.language_model.get_embeddings()(input_ids)
 
         # 2. Merge text and images
         image_outputs = self.vision_tower(pixel_values, output_hidden_states=True)
         # this is not memory efficient at all (output_hidden_states=True) will save all the hidden stated.
-        selected_image_feature = image_outputs.hidden_states[self.llava_config.vision_feature_layer]
+        # layer_idx = getattr(self.llava_config, "vision_feature_layer", -2)
+        layer_idx = getattr(self.llava_config, "vision_feature_layer", -2)
+        selected_image_feature = image_outputs.hidden_states[layer_idx]
 
-        if self.llava_config.vision_feature_select_strategy == "default":
+        if getattr(self.llava_config, "vision_feature_select_strategy", "default") == "default":
             selected_image_feature = selected_image_feature[:, 1:]
         elif self.llava_config.vision_feature_select_strategy != "full":
             raise ValueError(f"Unexpected select feature strategy: {self.llava_config.vision_feature_select_strategy}")
 
         image_features = self.multi_modal_projector(selected_image_feature)
         inputs_embeds, attention_mask, position_ids = self._merge_input_ids_with_image_features(
-            image_features, inputs_embeds, tokens, attention_mask
+            image_features, inputs_embeds, input_ids, attention_mask
         )
 
-        return self.language_model(inputs_embeds, position_ids, attention_mask, cache)
+        return self.language_model(inputs_embeds, position_ids, attention_mask, past_key_values)
 
-    def forward_use_cache(self, tokens_increment, attention_mask, cache):
+    def forward_use_cache(self, input_ids_increment, attention_mask, past_key_values):
         # 1. Extract the input embeddings
-        inputs_embeds = self.language_model.get_embeddings()(tokens_increment)
+        inputs_embeds = self.language_model.get_embeddings()(input_ids_increment)
         position_ids = torch.sum(attention_mask, dim=1).unsqueeze(-1) - 1
-        return self.language_model(inputs_embeds, position_ids, attention_mask, cache)
+        return self.language_model(inputs_embeds, position_ids, attention_mask, past_key_values)
 
     def set_use_cache(self, use_cache):
         self.forward = self.forward_use_cache if use_cache else self.forward_no_cache

@@ -1,13 +1,12 @@
 
-gradio==3.42.0 # Gradio 3.47 breaks the UI and versions between 3.42 and 3.47 haven't been tested
 huggingface-hub
 markdown
 mdtex2html
-neural-compressor @ git+https://github.com/PatriceVignola/neural-compressor@6334308
+neural-compressor
 optimum
 protobuf==3.20.3 # protobuf 4.x aborts with OOM when optimizing large models
 Pygments
 sentencepiece
 tabulate
 torch
-transformers
+onnxruntime-directml>=1.17.4
