@@ -58,6 +58,16 @@ If you only want to run the inference sample (possible after the model has been 
 python run_llm_io_binding.py --model_type=llama-2-7b-chat --prompt=<any_prompt_you_choose>
 ```
 
+# AWQ Quantization
+
+AWQ quantization is very resource intensive and currently requires a decent Nvidia GPU (at least 4090). Even with an RTX 4090, it will take several hours. If you want to quantize a model, install a fork of the Intel Neural Compressor and convert the model with the `--quant_strategy=awq` option:
+
+```
+pip install git+https://github.com/PatriceVignola/neural-compressor@41acbc
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+python llm.py --model_type=mistral-7b-chat --quant_strategy=awq
+```
+
 # Running the Interactive Chat App Example
 
 Before running the chat app, you need to need to install the gradio requirements:
@@ -73,3 +83,11 @@ python .\chat_app\app.py
 ```
 
 Note that the chat app is for demo purposes only and only has basic functionalities. It only supports argmax sampling and will simply stop working when the cache is full.
+
+# Supporting a New Model
+
+To support a new model with similar architecture to the existing LLaMA/Mistral/Phi-2 models, simply add it to the lists in `model_type_mapping.py`, as well as adding the chat template in `chat_templates.py`. The models in this list have all been tested with DirectML and we confirmed that they are accurate and fast, but it doesn't mean that other models won't work. In fact, most models that we added to the list except for the initial LLaMA, Mistral and Phi-2 models worked without changing anything in the architecture.
+
+# Coming Soon
+
+You may have noticed that we do not use the modeling files from the transformers library directly when converting models. This is because we found out that some of their pytorch models do not have a pattern that is able to get fused by the onnxruntime transformers optimizer, but this is only a temporary solution. The long-term plan is to get rid of this custom `decoder_model.py` architecture and instead consume models directly from the transformers libraries. In fact, many models already work with it out of the box, but some of them need changes in onnxruntime to make sure that the fusions are applied.
