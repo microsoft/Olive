@@ -18,6 +18,8 @@ Olive enables an extensible framework that allows industry to easily plugin thei
 efficiently compose and tune integrated techniques for offering a ready-to-use E2E optimization solution.
 
 ## News
+- [ Mar 2024 ] [Fine-tune SLM with Microsoft Olive](https://techcommunity.microsoft.com/t5/educator-developer-blog/journey-series-for-generative-ai-application-architecture-fine/ba-p/4080813)
+- [ Jan 2024 ] [Accelerating SD Turbo and SDXL Turbo Inference with ONNX Runtime and Olive](https://huggingface.co/blog/sdxl_ort_inference)
 - [ Dec 2023 ] [Windows AI Studio - VS Code Extension that uses Olive to fine tune models](https://marketplace.visualstudio.com/items?itemName=ms-windows-ai-studio.windows-ai-studio&ssr=false#overview)
 - [ Nov 2023 ] [Elevating the developer experience on Windows with new AI tools and productivity tools](https://blogs.windows.com/windowsdeveloper/2023/11/15/elevating-the-developer-experience-on-windows-with-new-ai-tools-and-productivity-tools/)
 - [ Nov 2023 ] [Accelerating LLaMA-2 Inference with ONNX Runtime using Olive](https://onnxruntime.ai/blogs/accelerating-llama-2)
@@ -26,6 +28,7 @@ efficiently compose and tune integrated techniques for offering a ready-to-use E
 - [ Nov 2023 ] [Running Olive Optimized Llama2 with Microsoft DirectML on AMD Radeon Graphics](https://community.amd.com/t5/ai/how-to-running-optimized-llama2-with-microsoft-directml-on-amd/ba-p/645190)
 - [ Oct 2023 ] [AMD Microsoft Olive Optimizations for Stable Diffusion Performance Analysis](https://www.pugetsystems.com/labs/articles/amd-microsoft-olive-optimizations-for-stable-diffusion-performance-analysis/)
 - [ Sep 2023 ] [Running Optimized Automatic1111 Stable Diffusion WebUI on AMD GPUs](https://community.amd.com/t5/ai/updated-how-to-running-optimized-automatic1111-stable-diffusion/ba-p/630252)
+- [ Jul 2023 ] [Build accelerated AI apps for NPUs with Olive](https://www.infoworld.com/article/3701452/build-accelerated-ai-apps-for-npus-with-olive.html)
 - [ Jun 2023 ] [Olive: A user-friendly toolchain for hardware-aware model optimization](https://cloudblogs.microsoft.com/opensource/2023/06/26/olive-a-user-friendly-toolchain-for-hardware-aware-model-optimization/)
 - [ May 2023 ] [Optimize DirectML performance with Olive](https://devblogs.microsoft.com/directx/optimize-directml-performance-with-olive/)
 - [ May 2023 ] [Optimize Stable Diffusion Using Olive](https://devblogs.microsoft.com/directx/dml-stable-diffusion/)
@@ -63,8 +66,8 @@ pip install olive-ai[directml]
 ```
 
 ### Optional Dependencies
-Olive has optional dependencies that can be installed to enable additional features. Please refer to [extra dependencies](./olive/extra_dependencies.json) for
-the list of extras and their dependencies.
+Olive has optional dependencies that can be installed to enable additional features. Please refer to
+[Olive package config](./olive/olive_config.json) for the list of extras and their dependencies.
 
 ## Pipeline Status
 

@@ -7,7 +7,25 @@
             "dummy_inputs_func": "get_merged_decoder_with_past_dummy_inputs",
             "hf_config": {
                 "model_name": "meta-llama/Llama-2-7b-hf",
-                "task": "text-generation"
+                "task": "text-generation",
+                "from_pretrained_args": {
+                    "_attn_implementation": "eager"
+                }
+            }
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "device": "gpu",
+                        "execution_providers": [
+                            "CUDAExecutionProvider"
+                        ]
+                    }
+                ]
             }
         }
     },
@@ -100,7 +118,6 @@
         },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
-            "disable_search": true,
             "config": {
                 "save_as_external_data": true,
                 "all_tensors_to_one_file": true,
@@ -108,24 +125,20 @@
                 "opt_level": 0,
                 "only_onnxruntime": false,
                 "keep_io_types": false,
-                "float16": true,
-                "optimization_options": {
-                    "enable_rotary_embeddings": false
-                }
+                "float16": true
             }
         },
-        "bnb_quantization": {
-            "type": "OnnxBnb4Quantization",
+        "extract": {
+            "type": "ExtractAdapters",
             "config": {
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true
+                "make_inputs": true
             }
         }
     },
     "engine": {
-        "search_strategy": false,
         "evaluator": "merged_evaluator",
-        "execution_providers": ["CUDAExecutionProvider"],
+        "host": "local_system",
+        "target": "local_system",
         "cache_dir": "cache",
         "output_dir" : "models/qlora"
     }

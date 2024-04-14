@@ -41,11 +41,17 @@ class DecoderModel(torch.nn.Module):
 
     def forward_use_cache_tokens(self, input_ids_increment, position_ids_increment, attention_mask, past_key_values):
         use_cache = True
-        return self.forward_common(use_cache, input_ids_increment, position_ids_increment, attention_mask, past_key_values)
+        return self.forward_common(
+            use_cache, input_ids_increment, position_ids_increment, attention_mask, past_key_values
+        )
 
-    def forward_use_cache_embeddings(self, embeddings_increment, position_ids_increment, attention_mask, past_key_values):
+    def forward_use_cache_embeddings(
+        self, embeddings_increment, position_ids_increment, attention_mask, past_key_values
+    ):
         use_cache = True
-        return self.forward_common(use_cache, embeddings_increment, position_ids_increment, attention_mask, past_key_values)
+        return self.forward_common(
+            use_cache, embeddings_increment, position_ids_increment, attention_mask, past_key_values
+        )
 
     def set_use_cache(self, use_cache):
         if self.use_embeddings:
@@ -141,7 +147,9 @@ class TransformerLayer(torch.nn.Module):
 
         if config.apply_residual_connection_post_layernorm:
             self.post_attention_layernorm = {
-                "layer_norm": torch.nn.LayerNorm(config.hidden_size, config.epsilon, bias=config.has_input_layernorm_bias),
+                "layer_norm": torch.nn.LayerNorm(
+                    config.hidden_size, config.epsilon, bias=config.has_input_layernorm_bias
+                ),
                 "rms": RMSNorm(config.hidden_size, config.epsilon),
             }[config.normalization_type]
 
@@ -188,7 +196,9 @@ class ApplyMask(torch.nn.Module):
 
         if not use_cache:
             batch_size, max_seq_len = attention_mask.size()
-            causal_mask = torch.tril(torch.ones((batch_size, 1, sequence_length, max_seq_len)), diagonal=max_seq_len - sequence_length)
+            causal_mask = torch.tril(
+                torch.ones((batch_size, 1, sequence_length, max_seq_len)), diagonal=max_seq_len - sequence_length
+            )
             inverted_causal_mask = 1.0 - causal_mask
             mask_score += inverted_causal_mask.masked_fill(
                 inverted_causal_mask.to(torch.bool), torch.finfo(torch.float16).min
@@ -271,8 +281,12 @@ class SelfAttention(torch.nn.Module):
 
         # Split the attention heads
         query = torch.reshape(query, [batch_size, sequence_length, config.num_heads, self.head_dim]).transpose(1, 2)
-        key = torch.reshape(key, [batch_size, sequence_length, config.num_key_value_heads, self.head_dim]).transpose(1, 2)
-        value = torch.reshape(value, [batch_size, sequence_length, config.num_key_value_heads, self.head_dim]).transpose(1, 2)
+        key = torch.reshape(key, [batch_size, sequence_length, config.num_key_value_heads, self.head_dim]).transpose(
+            1, 2
+        )
+        value = torch.reshape(
+            value, [batch_size, sequence_length, config.num_key_value_heads, self.head_dim]
+        ).transpose(1, 2)
 
         if config.partial_rotary_factor != 1.0:
             # Partial rotary embedding

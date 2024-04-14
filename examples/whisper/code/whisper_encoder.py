@@ -40,6 +40,7 @@ class WhisperEncoderInputs:
 
         Returns:
             WhisperEncoderInputs: dummy inputs for encoder
+
         """
         input_features = torch.randn(
             size=(batch_size, feature_size, sequence_length),

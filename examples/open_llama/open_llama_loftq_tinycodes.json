@@ -1,0 +1,84 @@
+{
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "hf_config": {
+                "model_name": "openlm-research/open_llama_7b_v2",
+                "task": "text-generation"
+            }
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "device": "gpu",
+                        "execution_providers": [
+                            "CPUExecutionProvider"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
+    "data_configs": {
+        "tiny_codes_train": {
+            "name": "tiny_codes_train",
+            "type": "HuggingfaceContainer",
+            "user_script": "lora_user_script.py",
+            "components": {
+                "load_dataset": {
+                    "type": "load_tiny_code_dataset"
+                }
+            },
+            "params_config": {
+                "data_name": "nampdn-ai/tiny-codes",
+                "split": "train",
+                "component_kwargs": {
+                    "load_dataset": {
+                        "language": "Python",
+                        "token": true
+                    },
+                    "pre_process_data": {
+                        "corpus_strategy": "join",
+                        "text_template": "### Question: {prompt} \n### Answer: {response}",
+                        "source_max_len": 1024
+                    }
+                }
+            }
+        }
+    },
+    "passes": {
+        "loftq": {
+            "type": "LoftQ",
+            "config": {
+                "lora_dropout": 0.1,
+                "train_data_config": "tiny_codes_train",
+                "eval_dataset_size": 1024,
+                "training_args": {
+                    "per_device_train_batch_size": 16,
+                    "per_device_eval_batch_size": 16,
+                    "gradient_accumulation_steps": 1,
+                    "max_steps": 1500,
+                    "logging_steps": 100,
+                    "save_steps": 100,
+                    "evaluation_strategy": "steps",
+                    "adam_beta2": 0.999,
+                    "max_grad_norm": 0.3,
+                    "load_best_model_at_end": true
+                }
+            }
+        }
+    },
+    "engine": {
+        "log_severity_level": 0,
+        "search_strategy": false,
+        "evaluate_input_model": false,
+        "host": "local_system",
+        "target": "local_system",
+        "cache_dir": "cache",
+        "output_dir" : "models/open_llama_loftq_tinycodes"
+    }
+}

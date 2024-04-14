@@ -66,14 +66,12 @@
         },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
-            "disable_search": true,
             "config": {
                 "model_type": "vit"
             }
         },
         "quantization": {
             "type": "OnnxQuantization",
-            "disable_search": true,
             "config": {
                 "quant_mode": "static",
                 "quant_preprocess": true,
@@ -90,16 +88,7 @@
         }
     },
     "engine": {
-        "search_strategy": {
-            "execution_order": "joint",
-            "search_algorithm": "tpe",
-            "search_algorithm_config": {
-                "num_samples": 3,
-                "seed": 0
-            }
-        },
         "evaluator": "common_evaluator",
-        "execution_providers": ["CPUExecutionProvider"],
         "cache_dir": "cache",
         "output_dir" : "models/ast_cpu"
     }

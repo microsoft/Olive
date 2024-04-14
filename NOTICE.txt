@@ -2962,7 +2962,6 @@ Copyright 2022 The Open AI Team
 Copyright 2023 HuggingFace Inc.
 Copyright 2023 The Meta AI Team
 Copyright 2023, HuggingFace Inc.
-Copyright 2022 SwitchTransformers
 Copyright 2022 Google LLC., LongT5
 Copyright 2022 The Salesforce Team
 Copyright 2023 The Salesforce Team

@@ -1,5 +1,3 @@
 datasets
 einops
 sentencepiece
-# transformers >= 4.35.0 has breaking change for gradient checkpointing
-transformers==4.34.1

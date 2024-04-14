@@ -21,12 +21,15 @@ logger = logging.getLogger(__name__)
 
 
 class InsertBeamSearch(Pass):
-    """Insert Beam Search Op."""
+    """Insert Beam Search Op. Only used for whisper models.
+
+    Uses WhisperBeamSearch contrib op if ORT version >= 1.17.1, else uses BeamSearch contrib op.
+    """
 
     _accepts_composite_model = True
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         use_gpu = accelerator_spec.accelerator_type == Device.GPU
         config = {
             "no_repeat_ngram_size": PassConfigParam(
@@ -34,12 +37,42 @@ class InsertBeamSearch(Pass):
                 default_value=0,
                 description=" If set to int > 0, all ngrams of that size can only occur once.",
             ),
+            "use_vocab_mask": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Use vocab_mask as an extra graph input to the beam search op. Only supported in ORT >= 1.16.0"
+                ),
+            ),
+            "use_prefix_vocab_mask": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Use prefix_vocab_mask as an extra graph input to the beam search op. Only supported in ORT >="
+                    " 1.16.0"
+                ),
+            ),
             "use_forced_decoder_ids": PassConfigParam(
                 type_=bool,
                 default_value=False,
                 description=(
                     "Use decoder_input_ids as an extra graph input to the beam search op. Only supported in ORT >="
                     " 1.16.0"
+                ),
+            ),
+            "use_logits_processor": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Use logits_processor as an extra graph input to the beam search op. Only supported in ORT >="
+                    " 1.16.0"
+                ),
+            ),
+            "use_temperature": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Use temperature as an extra graph input to the beam search op. Only supported in ORT >= 1.17.1"
                 ),
             ),
             "fp16": PassConfigParam(
@@ -64,6 +97,8 @@ class InsertBeamSearch(Pass):
 
         # version check
         version_1_16 = version.parse(OrtVersion) >= version.parse("1.16.0")
+        version_1_17_1 = version.parse(OrtVersion) >= version.parse("1.17.1")
+        # NOTE: will ignore cross qk related options for now
 
         # Chain two models (model_A and model_B) by inserting beam search op in between.
         model_A.graph.name = f"{model_A_name} subgraph"
@@ -77,14 +112,25 @@ class InsertBeamSearch(Pass):
             "num_return_sequences",
             "length_penalty_fp16" if options["fp16"] else "length_penalty",
             "repetition_penalty_fp16" if options["fp16"] else "repetition_penalty",
-            "",
-            "",
+            "vocab_mask" if (version_1_16 and options["use_vocab_mask"]) else "",
+            "prefix_vocab_mask" if (version_1_16 and options["use_prefix_vocab_mask"]) else "",
             "" if version_1_16 else "attention_mask",
         ]
         if version_1_16:
-            beam_inputs.extend(["decoder_input_ids" if options["use_forced_decoder_ids"] else "", ""])
+            beam_inputs.extend(["decoder_input_ids" if options["use_forced_decoder_ids"] else ""])
+            beam_inputs.extend(["logits_processor" if options["use_logits_processor"] else ""])
+        if version_1_17_1:
+            beam_inputs.extend(["", ""])
+            beam_inputs.extend(
+                [("temperature_fp16" if options["fp16"] else "temperature") if options["use_temperature"] else ""]
+            )
+        # remove empty string from the end of beam_inputs
+        # otherwise, the model gives error when the last input is empty
+        while beam_inputs[-1] == "":
+            beam_inputs.pop()
 
-        input_features_cast_node, len_pen_cast_node, rep_pen_cast_node = None, None, None
+        # Cast input features to fp16 if required
+        graph_nodes = []
         if options["fp16"]:
             input_features_cast_node = helper.make_node(
                 "Cast",
@@ -107,23 +153,64 @@ class InsertBeamSearch(Pass):
                 name="CastRepetitionPenaltyToFp16",
                 to=TensorProto.FLOAT16,
             )
+            graph_nodes.extend([input_features_cast_node, len_pen_cast_node, rep_pen_cast_node])
+
+            if version_1_17_1 and options["use_temperature"]:
+                temperature_cast_node = helper.make_node(
+                    "Cast",
+                    inputs=["temperature"],
+                    outputs=["temperature_fp16"],
+                    name="CastTemperatureToFp16",
+                    to=TensorProto.FLOAT16,
+                )
+                graph_nodes.append(temperature_cast_node)
 
         beam_outputs = ["sequences"]
 
-        node = helper.make_node("BeamSearch", inputs=beam_inputs, outputs=beam_outputs, name="BeamSearch_node")
-        node.domain = "com.microsoft"
-        node.attribute.extend(
-            [
-                helper.make_attribute("eos_token_id", model_config["eos_token_id"]),
-                helper.make_attribute("pad_token_id", model_config["pad_token_id"]),
-                helper.make_attribute("decoder_start_token_id", model_config["decoder_start_token_id"]),
-                helper.make_attribute("no_repeat_ngram_size", options["no_repeat_ngram_size"]),
-                helper.make_attribute("early_stopping", True),
-                helper.make_attribute("model_type", 2),
-            ]
-        )
+        # beam search op attributes
+        beam_search_attrs = [
+            helper.make_attribute("eos_token_id", model_config["eos_token_id"]),
+            helper.make_attribute("pad_token_id", model_config["pad_token_id"]),
+            helper.make_attribute("decoder_start_token_id", model_config["decoder_start_token_id"]),
+            helper.make_attribute("no_repeat_ngram_size", options["no_repeat_ngram_size"]),
+            helper.make_attribute("early_stopping", True),
+            helper.make_attribute("model_type", 2),
+        ]
+        if version_1_17_1:
+            from transformers import AutoTokenizer
 
-        # beam graph inputs
+            # get tokenizer
+            # can get the base name of the model from the config
+            tokenizer = AutoTokenizer.from_pretrained(model_config["_name_or_path"])
+
+            beam_search_attrs.extend(
+                [
+                    helper.make_attribute("translate_token_id", tokenizer.convert_tokens_to_ids(["<|translate|>"])[0]),
+                    helper.make_attribute(
+                        "transcribe_token_id", tokenizer.convert_tokens_to_ids(["<|transcribe|>"])[0]
+                    ),
+                    helper.make_attribute(
+                        "start_of_lm_token_id", tokenizer.convert_tokens_to_ids(["<|startoflm|>"])[0]
+                    ),
+                    helper.make_attribute(
+                        "no_timestamps_token_id", tokenizer.convert_tokens_to_ids(["<|notimestamps|>"])[0]
+                    ),
+                    helper.make_attribute(
+                        "beginning_timestamp_token_id", tokenizer.convert_tokens_to_ids(["<|0.00|>"])[0]
+                    ),
+                ]
+            )
+
+        node = helper.make_node(
+            "WhisperBeamSearch" if version_1_17_1 else "BeamSearch",
+            inputs=beam_inputs,
+            outputs=beam_outputs,
+            name="BeamSearch_node",
+            domain="com.microsoft",
+        )
+        node.attribute.extend(beam_search_attrs)
+
+        # Graph inputs
         input_features = helper.make_tensor_value_info(
             "input_features", TensorProto.FLOAT, ["batch_size", "feature_size", "sequence_length"]
         )
@@ -148,18 +235,40 @@ class InsertBeamSearch(Pass):
                 "attention_mask", TensorProto.INT32, ["batch_size", "feature_size", "sequence_length"]
             )
             graph_inputs.append(attention_mask)
-        if version_1_16 and options["use_forced_decoder_ids"]:
-            decoder_input_ids = helper.make_tensor_value_info(
-                "decoder_input_ids", TensorProto.INT32, ["batch_size", "initial_sequence_length"]
-            )
-            graph_inputs.append(decoder_input_ids)
+        else:
+            if options["use_vocab_mask"]:
+                vocab_mask = helper.make_tensor_value_info(
+                    "vocab_mask", TensorProto.INT32, [model_config["vocab_size"]]
+                )
+                graph_inputs.append(vocab_mask)
 
-        # graph outputs
+            if options["use_prefix_vocab_mask"]:
+                prefix_vocab_mask = helper.make_tensor_value_info(
+                    "prefix_vocab_mask", TensorProto.INT32, ["batch_size", model_config["vocab_size"]]
+                )
+                graph_inputs.append(prefix_vocab_mask)
+
+            if options["use_forced_decoder_ids"]:
+                decoder_input_ids = helper.make_tensor_value_info(
+                    "decoder_input_ids", TensorProto.INT32, ["batch_size", "initial_sequence_length"]
+                )
+                graph_inputs.append(decoder_input_ids)
+
+            if options["use_logits_processor"]:
+                logits_processor = helper.make_tensor_value_info("logits_processor", TensorProto.INT32, [1])
+                graph_inputs.append(logits_processor)
+
+            if version_1_17_1 and options["use_temperature"]:
+                temperature = helper.make_tensor_value_info("temperature", TensorProto.FLOAT, [1])
+                graph_inputs.append(temperature)
+
+        # Graph outputs
         sequences = helper.make_tensor_value_info(
             "sequences", TensorProto.INT32, ["batch_size", "num_return_sequences", "max_length"]
         )
         graph_outputs = [sequences]
 
+        # Replace MultiHeadAttention with DecoderMaskedMultiHeadAttention for CUDA EP inference
         if options["use_gpu"] and version_1_16:
             from onnxruntime.transformers.convert_generation import (
                 update_decoder_subgraph_share_buffer_and_use_decoder_masked_mha as update_decoder_with_ort,
@@ -179,17 +288,18 @@ class InsertBeamSearch(Pass):
                 helper.make_attribute("encoder", model_A.graph),
             ]
         )
+
         opset_import = [
             helper.make_opsetid(domain="com.microsoft", version=1),
             helper.make_opsetid(domain="", version=17),
         ]
-        graph_nodes = (
-            [input_features_cast_node, len_pen_cast_node, rep_pen_cast_node, node] if options["fp16"] else [node]
-        )
 
+        graph_nodes.append(node)
+
+        # Make graph with BeamSearch/WhisperBeamSearch op
         beam_graph = helper.make_graph(graph_nodes, "beam-search-test", graph_inputs, graph_outputs, initializers)
         assert model_A.ir_version == model_B.ir_version
-        logger.debug(f"Using IR version {model_A.ir_version} for chained model")
+        logger.debug("Using IR version %s for chained model", model_A.ir_version)
 
         # Set IR version of chained model to IR version of subgraphs in order to generate a working E2E model
         return helper.make_model_gen_version(

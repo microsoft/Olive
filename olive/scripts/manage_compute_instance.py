@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import argparse
+import logging
 from pathlib import Path
 
 try:
@@ -17,6 +18,8 @@ except ImportError:
     raise ImportError(
         "azure-identity is not installed. Please install azure-identity packages to use this script."
     ) from None
+
+logger = logging.getLogger(__name__)
 
 
 def get_args():
@@ -55,7 +58,7 @@ def get_args():
 
 
 def main():
-    print("Running create new compute script...")
+    logger.info("Running create new compute script...")
     args = get_args()
     aml_config_path = args.aml_config_path
     subscription_id = args.subscription_id
@@ -67,7 +70,7 @@ def main():
     is_create = args.create
     is_delete = args.delete
     if is_create:
-        print(f"Creating compute {compute_name}...")
+        logger.info("Creating compute %s...", compute_name)
         vm_size = args.vm_size
         location = args.location
         min_nodes = args.min_nodes
@@ -87,15 +90,20 @@ def main():
             idle_time_before_scale_down=idle_time_before_scale_down,
         )
         ml_client.begin_create_or_update(cluster_basic).result()
-        print(
-            f"Successfully created compute: {compute_name} at {location} with \
-                vm_size:{vm_size} and min_nodes={min_nodes} \
-                and max_nodes={max_nodes} and idle_time_before_scale_down={idle_time_before_scale_down}"
+        logger.info(
+            "Successfully created compute: %s at %s with vm_size:%s and "
+            "min_nodes=%d and max_nodes=%d and idle_time_before_scale_down=%d",
+            compute_name,
+            location,
+            vm_size,
+            min_nodes,
+            max_nodes,
+            idle_time_before_scale_down,
         )
     elif is_delete:
-        print(f"Deleting compute {compute_name}...")
+        logger.info("Deleting compute %s...", compute_name)
         ml_client.compute.begin_delete(compute_name).wait()
-        print(f"Successfully deleted compute: {compute_name}")
+        logger.info("Successfully deleted compute: %s", compute_name)
 
 
 def get_ml_client(aml_config_path, subscription_id, resource_group, workspace_name):
@@ -121,21 +129,21 @@ def get_ml_client(aml_config_path, subscription_id, resource_group, workspace_na
 
 
 def get_credentials():
-    print("Getting credentials for MLClient")
+    logger.info("Getting credentials for MLClient")
     try:
         credential = AzureCliCredential()
         credential.get_token("https://management.azure.com/.default")
-        print("Using AzureCliCredential")
+        logger.info("Using AzureCliCredential")
     except Exception:
         try:
             credential = DefaultAzureCredential()
             # Check if given credential can get token successfully.
             credential.get_token("https://management.azure.com/.default")
-            print("Using DefaultAzureCredential")
+            logger.info("Using DefaultAzureCredential")
         except Exception:
             # Fall back to InteractiveBrowserCredential in case DefaultAzureCredential not work
             credential = InteractiveBrowserCredential()
-            print("Using InteractiveBrowserCredential")
+            logger.info("Using InteractiveBrowserCredential")
 
     return credential
 

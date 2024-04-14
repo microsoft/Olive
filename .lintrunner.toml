@@ -265,7 +265,7 @@ init_command = [
 [[linter]]
 code = 'REQUIREMENTS-TXT'
 is_formatter = true
-include_patterns = ['requirements*.txt']
+include_patterns = ['**/requirements*.txt']
 exclude_patterns = []
 command = [
   'python',

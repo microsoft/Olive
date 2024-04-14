@@ -28,7 +28,7 @@ git clone https://github.com/microsoft/olive --branch v0.4.0
 
 Once you've installed Olive, install the requirements for this sample matching the version of the library you are using:
 ```
-cd olive/examples/directml/stable_diffusion
+cd olive/examples/stable_diffusion
 pip install -r requirements.txt
 ```
 

@@ -18,7 +18,7 @@ def setup():
     cur_dir = Path(__file__).resolve().parent.parent
     example_dir = str(cur_dir / "whisper")
     os.chdir(example_dir)
-    sys.path.append(example_dir)
+    sys.path.insert(0, example_dir)
 
     # prepare configs
     from prepare_whisper_configs import main as prepare_whisper_configs
@@ -39,7 +39,7 @@ def test_whisper(device_precision):
 
     device, precision = device_precision
     config_file = f"whisper_{device}_{precision}.json"
-    with open(config_file) as f:  # noqa: PTH123
+    with open(config_file) as f:
         olive_config = json.load(f)
 
     # test workflow
@@ -50,5 +50,4 @@ def test_whisper(device_precision):
     from test_transcription import main as test_transcription
 
     transcription = test_transcription(["--config", config_file])
-    print(transcription)
     assert len(transcription) > 0

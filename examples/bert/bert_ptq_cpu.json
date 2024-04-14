@@ -16,6 +16,22 @@
             }
         }
     },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "device": "cpu",
+                        "execution_providers": [
+                            "CPUExecutionProvider",
+                            "OpenVINOExecutionProvider"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
     "evaluators": {
         "common_evaluator": {
             "metrics":[
@@ -32,7 +48,7 @@
                     "name": "latency",
                     "type": "latency",
                     "sub_types": [
-                        {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 5}},
+                        {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 0.1}},
                         {"name": "max"},
                         {"name": "min"}
                     ]
@@ -87,7 +103,8 @@
             }
         },
         "evaluator": "common_evaluator",
-        "execution_providers": ["CPUExecutionProvider", "OpenVINOExecutionProvider"],
+        "host": "local_system",
+        "target": "local_system",
         "cache_dir": "cache",
         "output_dir" : "models/bert_ptq_cpu"
     }

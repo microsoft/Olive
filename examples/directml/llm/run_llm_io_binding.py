@@ -3,6 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+# ruff: noqa: T201
+
 # This program will run the ONNX version of the LLM.
 import argparse
 import os
@@ -10,9 +12,9 @@ import time
 
 import numpy as np
 import onnxruntime
-from transformers import AutoTokenizer
 from chat_templates import get_chat_template
-from model_type_mapping import get_supported_llm_models, get_model_dir
+from model_type_mapping import get_model_dir, get_supported_llm_models
+from transformers import AutoTokenizer
 
 
 def run_llm_io_binding(

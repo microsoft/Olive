@@ -33,12 +33,12 @@ class ResourceType(str, Enum):
         return self.value
 
 
-LOCAL_RESOURCE_TYPES = [ResourceType.LocalFile, ResourceType.LocalFolder]
-AZUREML_RESOURCE_TYPES = [
+LOCAL_RESOURCE_TYPES = (ResourceType.LocalFile, ResourceType.LocalFolder)
+AZUREML_RESOURCE_TYPES = (
     ResourceType.AzureMLModel,
     ResourceType.AzureMLDatastore,
     ResourceType.AzureMLJobOutput,
-]
+)
 
 
 class ResourcePath(AutoConfigClass):
@@ -49,7 +49,7 @@ class ResourcePath(AutoConfigClass):
         return self.get_path()
 
     @property
-    def type(self) -> ResourceType:  # noqa: A003
+    def type(self) -> ResourceType:
         return self.name
 
     @abstractmethod
@@ -92,7 +92,7 @@ class ResourcePath(AutoConfigClass):
 
 
 class ResourcePathConfig(ConfigBase):
-    type: ResourceType = Field(..., description="Type of the resource.")  # noqa: A003
+    type: ResourceType = Field(..., description="Type of the resource.")
     config: ConfigBase = Field(..., description="Config of the resource.")
 
     @validator("config", pre=True)
@@ -101,7 +101,7 @@ class ResourcePathConfig(ConfigBase):
             raise ValueError("Invalid type.")
 
         config_class = ResourcePath.registry[values["type"]].get_config_class()
-        return validate_config(v, ConfigBase, config_class)
+        return validate_config(v, config_class)
 
     def create_resource_path(self) -> ResourcePath:
         return ResourcePath.registry[self.type](self.config)
@@ -153,7 +153,7 @@ def create_resource_path(
     if is_local_file and isinstance(resource_path, Path) and not resource_path.exists():
         raise ValueError(f"Resource path {resource_path} of type Path does not exist.")
 
-    logger.debug(f"Resource path {resource_path} is inferred to be of type {resource_type}.")
+    logger.debug("Resource path %s is inferred to be of type %s.", resource_path, resource_type)
     return ResourcePathConfig(type=resource_type, config={config_key: resource_path}).create_resource_path()
 
 
@@ -187,14 +187,14 @@ def _validate_path(v):
 class LocalResourcePath(ResourcePath):
     """Base class for a local resource path."""
 
-    @staticmethod
-    def _default_config() -> Dict[str, Any]:
+    @classmethod
+    def _default_config(cls) -> Dict[str, Any]:
         return {
             "path": ConfigParam(type_=Union[Path, str], required=True, description="Path to the resource."),
         }
 
-    @staticmethod
-    def _validators() -> Dict[str, Callable]:
+    @classmethod
+    def _validators(cls) -> Dict[str, Callable]:
         return {"validate_path": validator("path", allow_reuse=True)(_validate_path)}
 
     def get_path(self) -> str:
@@ -236,9 +236,9 @@ class LocalFile(LocalResourcePath):
 
     name = ResourceType.LocalFile
 
-    @staticmethod
-    def _validators() -> Dict[str, Callable[..., Any]]:
-        validators = LocalResourcePath._validators()
+    @classmethod
+    def _validators(cls) -> Dict[str, Callable[..., Any]]:
+        validators = super()._validators()
         validators.update({"validate_file_path": validator("path", allow_reuse=True)(_validate_file_path)})
         return validators
 
@@ -255,9 +255,9 @@ class LocalFolder(LocalResourcePath):
 
     name = ResourceType.LocalFolder
 
-    @staticmethod
-    def _validators() -> Dict[str, Callable[..., Any]]:
-        validators = LocalResourcePath._validators()
+    @classmethod
+    def _validators(cls) -> Dict[str, Callable[..., Any]]:
+        validators = super()._validators()
         validators.update({"validate_folder_path": validator("path", allow_reuse=True)(_validate_folder_path)})
         return validators
 
@@ -267,8 +267,8 @@ class StringName(ResourcePath):
 
     name = ResourceType.StringName
 
-    @staticmethod
-    def _default_config() -> Dict[str, Any]:
+    @classmethod
+    def _default_config(cls) -> Dict[str, Any]:
         return {
             "name": ConfigParam(type_=str, required=True, description="Name of the resource."),
         }
@@ -321,7 +321,7 @@ class AzureMLResource(ResourcePath):
         _overwrite_helper(new_path, overwrite)
 
         # download the resource to the new path
-        logger.debug(f"Downloading model {self.config.name} version {self.config.version} to {new_path}.")
+        logger.debug("Downloading model %s version %s to %s.", self.config.name, self.config.version, new_path)
         from azure.core.exceptions import ServiceResponseError
 
         with tempfile.TemporaryDirectory(dir=dir_path, prefix="olive_tmp") as tempdir:
@@ -344,8 +344,8 @@ class AzureMLModel(AzureMLResource):
 
     name = ResourceType.AzureMLModel
 
-    @staticmethod
-    def _default_config() -> Dict[str, Any]:
+    @classmethod
+    def _default_config(cls) -> Dict[str, Any]:
         return {
             "azureml_client": ConfigParam(
                 type_=AzureMLClientConfig, required=True, description="AzureML client config."
@@ -370,8 +370,8 @@ class AzureMLRegistryModel(AzureMLResource):
 
     name = ResourceType.AzureMLRegistryModel
 
-    @staticmethod
-    def _default_config() -> Dict[str, Any]:
+    @classmethod
+    def _default_config(cls) -> Dict[str, Any]:
         return {
             "azureml_client": ConfigParam(
                 type_=AzureMLClientConfig, required=False, description="AzureML client config."
@@ -414,9 +414,9 @@ class AzureMLDatastore(ResourcePath):
 
     name = ResourceType.AzureMLDatastore
 
-    @staticmethod
-    def _validators() -> Dict[str, Callable[..., Any]]:
-        validators = ResourcePath._validators()
+    @classmethod
+    def _validators(cls) -> Dict[str, Callable[..., Any]]:
+        validators = super()._validators()
         validators.update(
             {
                 "validate_datastore_url": validator("datastore_url", allow_reuse=True)(_datastore_url_validator),
@@ -424,8 +424,8 @@ class AzureMLDatastore(ResourcePath):
         )
         return validators
 
-    @staticmethod
-    def _default_config() -> Dict[str, Any]:
+    @classmethod
+    def _default_config(cls) -> Dict[str, Any]:
         return {
             "azureml_client": ConfigParam(type_=AzureMLClientConfig, description="AzureML client config."),
             "datastore_name": ConfigParam(type_=str, description="Name of the datastore."),
@@ -451,7 +451,10 @@ class AzureMLDatastore(ResourcePath):
                 "azureml-fsspec is not installed. Please install azureml-fsspec to use AzureMLDatastore resource path."
             ) from None
         if fsspec is None:
-            fsspec = AzureMachineLearningFileSystem(self.get_path())
+            # provide mlclient so that it is used for authentication
+            fsspec = AzureMachineLearningFileSystem(
+                self.get_path(), ml_client=self.get_aml_client_config().create_client()
+            )
         return fsspec.info(self.get_relative_path()).get("type") == "file"
 
     def get_relative_path(self) -> str:
@@ -461,14 +464,13 @@ class AzureMLDatastore(ResourcePath):
 
     def get_aml_client_config(self) -> AzureMLClientConfig:
         if self.config.datastore_url:
-            subscription_id = re.split("/subscriptions/", self.config.datastore_url)[-1].split("/")[0]
-            resource_group = re.split("/resourcegroups/", self.config.datastore_url)[-1].split("/")[0]
-            workspace_name = re.split("/workspaces/", self.config.datastore_url)[-1].split("/")[0]
-            return AzureMLClientConfig(
-                subscription_id=subscription_id,
-                resource_group=resource_group,
-                workspace_name=workspace_name,
-            )
+            # datastore_url is always created by validator
+            # so we should start with azureml_client if it is already there
+            client_config = self.config.azureml_client.dict() if self.config.azureml_client else {}
+            client_config["subscription_id"] = re.split("/subscriptions/", self.config.datastore_url)[-1].split("/")[0]
+            client_config["resource_group"] = re.split("/resourcegroups/", self.config.datastore_url)[-1].split("/")[0]
+            client_config["workspace_name"] = re.split("/workspaces/", self.config.datastore_url)[-1].split("/")[0]
+            return AzureMLClientConfig.parse_obj(client_config)
         return self.config.azureml_client
 
     def save_to_dir(self, dir_path: Union[Path, str], name: str = None, overwrite: bool = False) -> str:
@@ -485,7 +487,8 @@ class AzureMLDatastore(ResourcePath):
         azureml_client_config = self.get_aml_client_config()
 
         # azureml file system
-        fs = AzureMachineLearningFileSystem(self.get_path())
+        # provide mlclient so that it is used for authentication
+        fs = AzureMachineLearningFileSystem(self.get_path(), ml_client=azureml_client_config.create_client())
         relative_path = Path(self.get_relative_path())
         is_file = self.is_file(fs)
         # path to save the resource to
@@ -501,7 +504,7 @@ class AzureMLDatastore(ResourcePath):
         dir_path.mkdir(parents=True, exist_ok=True)
 
         # download artifacts to a temporary directory
-        logger.debug(f"Downloading aml resource for datastore {self.config.datastore_name} path {relative_path}.")
+        logger.debug("Downloading aml resource for datastore %s path %s.", self.config.datastore_name, relative_path)
 
         with tempfile.TemporaryDirectory(dir=dir_path, prefix="olive_tmp") as temp_dir:
             retry_func(
@@ -527,8 +530,8 @@ class AzureMLJobOutput(ResourcePath):
 
     name = ResourceType.AzureMLJobOutput
 
-    @staticmethod
-    def _default_config() -> Dict[str, Any]:
+    @classmethod
+    def _default_config(cls) -> Dict[str, Any]:
         return {
             "azureml_client": ConfigParam(
                 type_=AzureMLClientConfig, required=True, description="AzureML client config."
@@ -558,7 +561,9 @@ class AzureMLJobOutput(ResourcePath):
 
         # download the resource to the new path
         ml_client = self.config.azureml_client.create_client()
-        logger.debug(f"Downloading job output {self.config.job_name} output {self.config.output_name} to {new_path}.")
+        logger.debug(
+            "Downloading job output %s output %s to %s.", self.config.job_name, self.config.output_name, new_path
+        )
         from azure.core.exceptions import ServiceResponseError
 
         with tempfile.TemporaryDirectory(dir=dir_path, prefix="olive_tmp") as tempdir:

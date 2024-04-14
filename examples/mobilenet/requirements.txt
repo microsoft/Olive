@@ -1,0 +1,4 @@
+packaging
+pillow
+scipy
+torchvision

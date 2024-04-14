@@ -31,6 +31,7 @@ class Registry:
 
         Returns:
             Callable: the decorator function
+
         """
 
         def decorator(component):
@@ -39,7 +40,7 @@ class Registry:
                 # don't want to warn here since user script is loaded everytime data config is initialized
                 # there is nothing user can do to fix this warning
                 logger.debug(
-                    f"Component {component_name} already registered in {sub_type.value}, will override the old one."
+                    "Component %s already registered in %s, will override the old one.", component_name, sub_type.value
                 )
             cls._REGISTRY[sub_type.value][component_name] = component
             return component
@@ -55,6 +56,7 @@ class Registry:
 
         Returns:
             Callable: the decorator function
+
         """
         return cls.register(DataComponentType.LOAD_DATASET, name)
 
@@ -67,6 +69,7 @@ class Registry:
 
         Returns:
             Callable: the decorator function
+
         """
         return cls.register(DataComponentType.PRE_PROCESS_DATA, name)
 
@@ -79,6 +82,7 @@ class Registry:
 
         Returns:
             Callable: the decorator function
+
         """
         return cls.register(DataComponentType.POST_PROCESS_DATA, name)
 
@@ -91,6 +95,7 @@ class Registry:
 
         Returns:
             Callable: the decorator function
+
         """
         return cls.register(DataComponentType.DATALOADER, name)
 
@@ -100,6 +105,7 @@ class Registry:
 
         Returns:
             Callable: the decorator function
+
         """
         return cls.register_dataset(DefaultDataComponent.LOAD_DATASET.value)
 
@@ -109,6 +115,7 @@ class Registry:
 
         Returns:
             Callable: the decorator function
+
         """
         return cls.register_pre_process(DefaultDataComponent.PRE_PROCESS_DATA.value)
 
@@ -118,6 +125,7 @@ class Registry:
 
         Returns:
             Callable: the decorator function
+
         """
         return cls.register_post_process(DefaultDataComponent.POST_PROCESS_DATA.value)
 
@@ -127,6 +135,7 @@ class Registry:
 
         Returns:
             Callable: the decorator function
+
         """
         return cls.register_dataloader(DefaultDataComponent.DATALOADER.value)
 
@@ -140,6 +149,7 @@ class Registry:
 
         Returns:
             Type: the component class
+
         """
         return cls._REGISTRY[sub_type][name]
 
@@ -156,6 +166,7 @@ class Registry:
 
         Returns:
             Type: the dataset component class
+
         """
         return cls.get_component(DataComponentType.LOAD_DATASET.value, name)
 
@@ -168,6 +179,7 @@ class Registry:
 
         Returns:
             Type: the pre-process component class
+
         """
         return cls.get_component(DataComponentType.PRE_PROCESS_DATA.value, name)
 
@@ -180,6 +192,7 @@ class Registry:
 
         Returns:
             Type: the post-process component class
+
         """
         return cls.get_component(DataComponentType.POST_PROCESS_DATA.value, name)
 
@@ -192,6 +205,7 @@ class Registry:
 
         Returns:
             Type: the dataloader component class
+
         """
         return cls.get_component(DataComponentType.DATALOADER.value, name)
 
@@ -201,6 +215,7 @@ class Registry:
 
         Returns:
             Dict[str, Type]: the data container classes
+
         """
         name = name or DefaultDataContainer.DATA_CONTAINER.value
         return cls._REGISTRY[DataContainerType.DATA_CONTAINER.value][name]
@@ -211,6 +226,7 @@ class Registry:
 
         Returns:
             Type: the default dataset component class
+
         """
         return cls.get_load_dataset_component(DefaultDataComponent.LOAD_DATASET.value)
 
@@ -220,6 +236,7 @@ class Registry:
 
         Returns:
             Type: the default pre-process component class
+
         """
         return cls.get_pre_process_component(DefaultDataComponent.PRE_PROCESS_DATA.value)
 
@@ -229,6 +246,7 @@ class Registry:
 
         Returns:
             Type: the default post-process component class
+
         """
         return cls.get_post_process_component(DefaultDataComponent.POST_PROCESS_DATA.value)
 
@@ -238,5 +256,6 @@ class Registry:
 
         Returns:
             Type: the default dataloader component class
+
         """
         return cls.get_dataloader_component(DefaultDataComponent.DATALOADER.value)

@@ -17,8 +17,8 @@ class MetricBackend(AutoConfigClass):
     def __init__(self, config: Union[ConfigBase, Dict[str, Any]] = None) -> None:
         super().__init__(config)
 
-    @staticmethod
-    def _default_config() -> Dict[str, ConfigParam]:
+    @classmethod
+    def _default_config(cls) -> Dict[str, ConfigParam]:
         return {}
 
     @abstractmethod
@@ -60,8 +60,8 @@ class HuggingfaceMetrics(MetricBackend):
             raise ImportError("Please install the huggingface/evaluate package to use huggingface metrics.") from None
         self.evaluate_module = evaluate
 
-    @staticmethod
-    def _default_config() -> Dict[str, ConfigParam]:
+    @classmethod
+    def _default_config(cls) -> Dict[str, ConfigParam]:
         return {
             "load_params": ConfigParam(
                 type_=Dict[str, Any], default_value=None, description="The parameters to load the metric."

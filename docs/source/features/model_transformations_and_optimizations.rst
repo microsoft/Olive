@@ -20,3 +20,4 @@ native model as an output.
    passes/onnx
    passes/openvino
    passes/snpe
+   passes/qnn

@@ -15,9 +15,11 @@ from olive.common.config_utils import ParamCategory, validate_config
 from olive.common.utils import aml_runner_hf_login, copy_dir
 from olive.data.config import DataConfig
 from olive.hardware import AcceleratorSpec
+from olive.logging import set_verbosity_from_env
 from olive.model import ModelConfig
+from olive.package_config import OlivePackageConfig
 from olive.passes import REGISTRY as PASS_REGISTRY
-from olive.passes import FullPassConfig
+from olive.passes import FullPassConfig, Pass
 from olive.resource_path import create_resource_path
 from olive.systems.utils import get_common_args
 
@@ -58,32 +60,44 @@ def create_pass(pass_config, pass_args):
     return FullPassConfig.from_json(pass_config).create_pass()
 
 
-def update_data_config(p, extra_args):
-    data_script_map = {}
-    for param, param_config in p._config.items():
+def parse_data_item(data_name, item, extra_args):
+    data_config_parser = argparse.ArgumentParser(f"Data {item} parser")
+    data_config_parser.add_argument(f"--{data_name}_{item}", type=str, help=f"{data_name} {item}")
+
+    item_args, extra_args = data_config_parser.parse_known_args(extra_args)
+
+    for key, value in vars(item_args).items():
+        if item in key:
+            return value
+    return None
+
+
+def update_data_config(p: "Pass", extra_args):
+    data_map = {}
+    for param, param_config in p.config.items():
         if param.endswith("data_config") and param_config is not None:
             data_name = param_config["name"]
-            if data_script_map.get(data_name):
-                user_script, script_dir = data_script_map[data_name]
+            if data_map.get(data_name):
+                user_script, script_dir, data_dir, data_files = data_map[data_name]
             else:
-                data_config_parser = argparse.ArgumentParser("Data user script and script dir parser")
-                data_config_parser.add_argument(f"--{data_name}_user_script", type=str, help=f"{data_name} user script")
-                data_config_parser.add_argument(f"--{data_name}_script_dir", type=str, help=f"{data_name} script dir")
-                data_config_args, extra_args = data_config_parser.parse_known_args(extra_args)
-
-                for key, value in vars(data_config_args).items():
-                    if "user_script" in key:
-                        user_script = value
-                    if "script_dir" in key:
-                        script_dir = value
+                user_script = parse_data_item(data_name, "user_script", extra_args)
+                script_dir = parse_data_item(data_name, "script_dir", extra_args)
+                data_dir = parse_data_item(data_name, "data_dir", extra_args)
+                data_files = parse_data_item(data_name, "data_files", extra_args)
+                data_map[data_name] = (user_script, script_dir, data_dir, data_files)
 
             param_config["user_script"] = user_script
             param_config["script_dir"] = script_dir
-            data_script_map[data_name] = (user_script, script_dir)
-            p._config[param] = validate_config(param_config, DataConfig)
+            if param_config.get("params_config"):
+                param_config["params_config"]["data_dir"] = data_dir
+                param_config["params_config"]["data_files"] = data_files
+
+            p.config[param] = validate_config(param_config, DataConfig)
 
 
 def main(raw_args=None):
+    set_verbosity_from_env()
+
     # login to hf if HF_LOGIN is set to True
     aml_runner_hf_login()
 
@@ -91,9 +105,13 @@ def main(raw_args=None):
     pass_config_arg, extra_args = parse_pass_config_arg(extra_args)
 
     # pass config
-    with open(pass_config_arg.pass_config) as f:  # noqa: PTH123
+    with open(pass_config_arg.pass_config) as f:
         pass_config = json.load(f)
     pass_type = pass_config["type"].lower()
+
+    # Import the pass package configuration from the package_config
+    package_config = OlivePackageConfig.load_default_config()
+    package_config.import_pass_module(pass_config["type"])
 
     if version.parse(ort_version) < version.parse("1.16.0"):
         # In onnxruntime, the following PRs will make the optimize_model save external data in the temporary folder

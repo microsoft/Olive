@@ -8,7 +8,7 @@ import pytest
 
 from olive.common.pydantic_v1 import ValidationError
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
-from olive.passes.onnx import OrtPerfTuning
+from olive.passes.onnx.perf_tuning import OrtPerfTuning
 
 
 class TestUserScriptConfig:

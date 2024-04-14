@@ -50,6 +50,7 @@ class Categorical(SearchParameter):
     Examples
     --------
     >>> Categorical([1, 2, 3])
+
     """
 
     def __init__(self, support: Union[List[str], List[int], List[float], List[bool]]):
@@ -72,6 +73,7 @@ class Boolean(Categorical):
     Examples
     --------
     >>> Boolean()
+
     """
 
     def __init__(self):
@@ -111,6 +113,7 @@ class Conditional(SearchParameter):
             },
             default=Conditional.get_ignored_choice()
         )
+
     """
 
     def __init__(
@@ -223,6 +226,7 @@ class ConditionalDefault(Conditional):
             parents=("parent1", "parent2"),
             support={("value1", "value2"): 1}
         )
+
     """
 
     def __init__(self, parents: Tuple[str], support: Dict[Tuple[Any], Any], default: Any = SpecialParamValue.INVALID):

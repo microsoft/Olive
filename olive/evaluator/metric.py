@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class MetricType(str, Enum):
+    # TODO(trajep): support throughput
     ACCURACY = "accuracy"
     LATENCY = "latency"
     THROUGHPUT = "throughput"
@@ -94,11 +95,19 @@ class SubMetric(ConfigBase):
 
 class Metric(ConfigBase):
     name: str
-    type: MetricType  # noqa: A003
+    type: MetricType
     backend: Optional[str] = "torch_metrics"
     sub_types: List[SubMetric]
     user_config: ConfigBase = None
     data_config: Optional[DataConfig] = None
+
+    def get_inference_settings(self, framework):
+        if self.user_config is None:
+            return None
+        if self.user_config.inference_settings:
+            return self.user_config.inference_settings.get(framework)
+        else:
+            return None
 
     def get_sub_type_info(self, info_name, no_priority_filter=True, callback=lambda x: x):
         sub_type_info = {}
@@ -169,7 +178,7 @@ class Metric(ConfigBase):
         elif values["type"] == MetricType.THROUGHPUT:
             v["higher_is_better"] = v.get("higher_is_better", True)
             metric_config_cls = ThroughputMetricConfig
-        v["metric_config"] = validate_config(v.get("metric_config", {}), ConfigBase, metric_config_cls)
+        v["metric_config"] = validate_config(v.get("metric_config", {}), metric_config_cls)
 
         return v
 
@@ -179,7 +188,7 @@ class Metric(ConfigBase):
             raise ValueError("Invalid type")
 
         user_config_class = get_user_config_class(values["type"])
-        return validate_config(v, ConfigBase, user_config_class)
+        return validate_config(v, user_config_class)
 
 
 class SubMetricResult(ConfigBase):

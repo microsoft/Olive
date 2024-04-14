@@ -3,7 +3,9 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
+import logging
 import os
+import sys
 
 # pylint: disable=broad-exception-raised
 
@@ -19,7 +21,7 @@ def check_output(footprints):
 
 def patch_config(config_json_path: str, search_algorithm: str, execution_order: str, system: str, is_gpu: bool = False):
     """Load the config json file and patch it with the given search algorithm, execution order and system."""
-    with open(config_json_path) as fin:  # noqa: PTH123
+    with open(config_json_path) as fin:
         olive_config = json.load(fin)
     # set default logger severity
     olive_config["engine"]["log_severity_level"] = 0
@@ -30,8 +32,10 @@ def patch_config(config_json_path: str, search_algorithm: str, execution_order: 
     if not search_algorithm:
         olive_config["engine"]["search_strategy"] = False
     else:
-        olive_config["engine"]["search_strategy"]["search_algorithm"] = search_algorithm
-        olive_config["engine"]["search_strategy"]["execution_order"] = execution_order
+        olive_config["engine"]["search_strategy"] = {
+            "search_algorithm": search_algorithm,
+            "execution_order": execution_order,
+        }
         if search_algorithm in ("random", "tpe"):
             olive_config["engine"]["search_strategy"]["search_algorithm_config"] = {"num_samples": 3, "seed": 0}
 
@@ -44,6 +48,7 @@ def patch_config(config_json_path: str, search_algorithm: str, execution_order: 
     elif system == "docker_system":
         # set docker_system
         set_docker_system(olive_config)
+        olive_config["engine"]["host"] = system
         olive_config["engine"]["target"] = system
         # reduce agent size for docker system
 
@@ -70,10 +75,16 @@ def update_azureml_config(olive_config):
     if workspace_name is None:
         raise Exception("Please set the environment variable WORKSPACE_NAME")
 
+    client_id = os.environ.get("MANAGED_IDENTITY_CLIENT_ID")
+    if client_id is None:
+        raise Exception("Please set the environment variable MANAGED_IDENTITY_CLIENT_ID")
+
     olive_config["azureml_client"] = {
         "subscription_id": subscription_id,
         "resource_group": resource_group,
         "workspace_name": workspace_name,
+        # pipeline agents have multiple managed identities, so we need to specify the client_id
+        "default_auth_params": {"managed_identity_client_id": client_id},
     }
 
 
@@ -86,7 +97,7 @@ def set_aml_system(olive_config, is_gpu=False):
         olive_config["systems"]["aml_system"] = {
             "type": "AzureML",
             "config": {
-                "accelerators": ["GPU"],
+                "accelerators": [{"device": "GPU", "execution_providers": ["CUDAExecutionProvider"]}],
                 "aml_compute": "gpu-cluster",
                 "aml_docker_config": {
                     "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.6-cudnn8-ubuntu20.04",
@@ -100,7 +111,7 @@ def set_aml_system(olive_config, is_gpu=False):
         olive_config["systems"]["aml_system"] = {
             "type": "AzureML",
             "config": {
-                "accelerators": ["CPU"],
+                "accelerators": [{"device": "CPU", "execution_providers": ["CPUExecutionProvider"]}],
                 "aml_compute": "cpu-cluster",
                 "aml_docker_config": {
                     "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
@@ -119,6 +130,7 @@ def set_docker_system(olive_config):
     olive_config["systems"]["docker_system"] = {
         "type": "Docker",
         "config": {
+            "accelerators": [{"device": "CPU", "execution_providers": ["CPUExecutionProvider"]}],
             "local_docker_config": {
                 "image_name": "olive-image",
                 "build_context_path": "docker",
@@ -127,3 +139,25 @@ def set_docker_system(olive_config):
             "is_dev": True,
         },
     }
+
+
+def download_azure_blob(container, blob, download_path):
+    from azure.storage.blob import BlobClient
+
+    try:
+        conn_str = os.environ["OLIVEWHEELS_STORAGE_CONNECTION_STRING"]
+    except KeyError as e:
+        raise Exception("Please set the environment variable OLIVEWHEELS_STORAGE_CONNECTION_STRING") from e
+
+    blob = BlobClient.from_connection_string(conn_str=conn_str, container_name=container, blob_name=blob)
+
+    with open(download_path, "wb") as my_blob:
+        blob_data = blob.download_blob()
+        blob_data.readinto(my_blob)
+
+
+def set_azure_identity_logging():
+    identity_logger = logging.getLogger("azure.identity")
+    identity_logger.setLevel(logging.DEBUG)
+    handler = logging.StreamHandler(stream=sys.stdout)
+    identity_logger.addHandler(handler)

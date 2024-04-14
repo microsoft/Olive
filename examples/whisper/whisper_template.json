@@ -27,7 +27,14 @@
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": {"accelerators": ["<place_holder>"]}
+            "config": {
+                "accelerators": [
+                    {
+                        "device": "<place_holder>",
+                        "execution_providers": "<place_holder>"
+                    }
+                ]
+            }
         }
     },
     "evaluators": {
@@ -43,7 +50,13 @@
                         "user_script": "code/user_script.py",
                         "script_dir": "code",
                         "data_dir": "data",
-                        "dataloader_func": "<place_holder>"
+                        "dataloader_func": "whisper_dataloader",
+                        "func_kwargs": {
+                            "dataloader_func": {
+                                "model_name" : "<place_holder>",
+                                "use_audio_decoder" : "<place_holder>"
+                            }
+                        }
                     }
                 }
             ]
@@ -58,7 +71,6 @@
         },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
-            "disable_search": true,
             "config": {
                 "optimization_options": {"use_multi_head_attention": true},
                 "use_gpu": "<place_holder>"
@@ -72,7 +84,6 @@
         },
         "onnx_dynamic_quantization": {
             "type": "OnnxDynamicQuantization",
-            "disable_search": true,
             "config": {
                 "per_channel": false,
                 "reduce_range": false,
@@ -81,13 +92,13 @@
             }
         },
         "inc_dynamic_quantization": {
-            "type": "IncDynamicQuantization",
-            "disable_search": true
+            "type": "IncDynamicQuantization"
         },
         "insert_beam_search" : {
             "type" : "InsertBeamSearch",
             "config": {
-                "use_forced_decoder_ids": "<place_holder>"
+                "use_forced_decoder_ids": "<place_holder>",
+                "use_logits_processor": "<place_holder>"
             }
         },
         "prepost": {
@@ -104,12 +115,10 @@
     },
     "engine": {
         "log_severity_level": 0,
-        "search_strategy": false,
         "host": "local_system",
         "target": "local_system",
         "evaluator": "common_evaluator",
         "evaluate_input_model": false,
-        "execution_providers": "<place_holder>",
         "clean_cache": false,
         "cache_dir": "cache",
         "output_dir": "models",

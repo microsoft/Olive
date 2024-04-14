@@ -198,7 +198,7 @@ class RawDataset(BaseDataset):
             )
             self.input_files = input_files
         else:
-            with open(self.data_dir / input_order_file) as f:  # noqa: PTH123
+            with open(self.data_dir / input_order_file) as f:
                 self.input_files = [line.strip() for line in f.readlines()]
 
         # get annotations

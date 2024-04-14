@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Union
 
+from olive.auto_optimizer import AutoOptimizerConfig
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.pydantic_v1 import validator
@@ -15,7 +16,8 @@ from olive.engine import Engine, EngineConfig
 from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
-from olive.passes import FullPassConfig, Pass
+from olive.passes import FullPassConfig
+from olive.passes.pass_config import PassParamDefault
 from olive.resource_path import AZUREML_RESOURCE_TYPES
 from olive.systems.system_config import SystemConfig
 
@@ -33,27 +35,15 @@ class RunEngineConfig(EngineConfig):
     evaluate_input_model: bool = True
     output_dir: Union[Path, str] = None
     output_name: str = None
-    packaging_config: PackagingConfig = None
+    packaging_config: Union[PackagingConfig, List[PackagingConfig]] = None
     log_severity_level: int = 1
     ort_log_severity_level: int = 3
     ort_py_log_severity_level: int = 3
     log_to_file: bool = False
 
-    def create_engine(self):
-        config = self.dict()
-        to_del = [
-            "evaluate_input_model",
-            "output_dir",
-            "output_name",
-            "packaging_config",
-            "log_severity_level",
-            "ort_log_severity_level",
-            "ort_py_log_severity_level",
-            "log_to_file",
-        ]
-        for key in to_del:
-            del config[key]
-        return Engine(config)
+    def create_engine(self, azureml_client_config):
+        config = self.dict(include=EngineConfig.__fields__.keys())
+        return Engine(**config, azureml_client_config=azureml_client_config)
 
 
 INPUT_MODEL_DATA_CONFIG = "__input_model_data_config__"
@@ -69,6 +59,7 @@ class RunConfig(ConfigBase):
     engine: RunEngineConfig = None
     pass_flows: List[List[str]] = None
     passes: Dict[str, RunPassConfig] = None
+    auto_optimizer_config: AutoOptimizerConfig = None
 
     @validator("input_model", pre=True)
     def insert_aml_client(cls, v, values):
@@ -115,7 +106,7 @@ class RunConfig(ConfigBase):
             # won't override if value was set to False explicitly
             # will keep as list of keys for future extension
             for key in ["trust_remote_code"]:
-                if hf_config.get("from_pretrained_args", {}).get(key, None) and params_config.get(key, None) is None:
+                if hf_config.get("from_pretrained_args", {}).get(key) and params_config.get(key) is None:
                     params_config[key] = hf_config["from_pretrained_args"][key]
             v[INPUT_MODEL_DATA_CONFIG] = {
                 "name": INPUT_MODEL_DATA_CONFIG,
@@ -204,30 +195,49 @@ class RunConfig(ConfigBase):
         if "engine" not in values:
             raise ValueError("Invalid engine")
 
+        disable_search = v.get("disable_search")
         if not values["engine"].search_strategy:
-            # disable search if search_strategy is None/False/{}, user cannot override
-            disable_search = True
+            if disable_search is False:
+                raise ValueError("You cannot set disable_search is False if search strategy is None/False/{}")
+            # disable search if search_strategy is None/False/{}, user cannot override it.
+            # If user explicitly set, raise error when disable_search is False and search_strategy is None/False/{}
+            if disable_search is None:
+                disable_search = True
         else:
             # disable search if user explicitly set disable_search to True
-            disable_search = v.get("disable_search", False)
+            disable_search = disable_search or False
 
         v["disable_search"] = disable_search
-        pass_cls = Pass.registry.get(v["type"].lower(), None)
-        if pass_cls:
-            if not v.get("config"):
-                return v
+        if not v.get("config"):
+            return v
 
-            for param_name in v["config"]:
-                if param_name.endswith("data_config"):
-                    # we won't auto insert the input model data config for pass
-                    # user must explicitly set the data config to INPUT_MODEL_DATA_CONFIG if needed
-                    v["config"] = _resolve_data_config(v["config"], values, param_name, auto_insert=False)
+        searchable_configs = set()
+        for param_name in v["config"]:
+            if v["config"][param_name] == PassParamDefault.SEARCHABLE_VALUES:
+                searchable_configs.add(param_name)
+            if param_name.endswith("data_config"):
+                # we won't auto insert the input model data config for pass
+                # user must explicitly set the data config to INPUT_MODEL_DATA_CONFIG if needed
+                v["config"] = _resolve_data_config(v["config"], values, param_name, auto_insert=False)
 
-            data_dir_config = v["config"].get("data_dir", None)
-            if isinstance(data_dir_config, dict):
-                if _have_aml_client(data_dir_config, values):
-                    data_dir_config["config"]["azureml_client"] = values["azureml_client"]
-                v["config"]["data_dir"] = data_dir_config
+        data_dir_config = v["config"].get("data_dir", None)
+        if isinstance(data_dir_config, dict):
+            if _have_aml_client(data_dir_config, values):
+                data_dir_config["config"]["azureml_client"] = values["azureml_client"]
+            v["config"]["data_dir"] = data_dir_config
+
+        if disable_search and searchable_configs:
+            raise ValueError(
+                f"You cannot disable search for {v['type']} and"
+                f" set {searchable_configs} to SEARCHABLE_VALUES at the same time."
+                " Please remove SEARCHABLE_VALUES or enable search(needs search strategy configs)."
+            )
+        return v
+
+    @validator("auto_optimizer_config", always=True)
+    def validate_auto_optimizer_config(cls, v, values):
+        if not v:
+            v = AutoOptimizerConfig()
         return v
 
 

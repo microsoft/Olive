@@ -4,11 +4,15 @@
 # --------------------------------------------------------------------------
 import json
 import platform
-import subprocess
+import shutil
 import venv
 from pathlib import Path
 
 import pytest
+
+from olive.common.utils import run_subprocess
+
+# pylint: disable=redefined-outer-name
 
 
 class DependencySetupEnvBuilder(venv.EnvBuilder):
@@ -16,7 +20,7 @@ class DependencySetupEnvBuilder(venv.EnvBuilder):
         super().post_setup(context)
         # Install Olive only
         olive_root = str(Path(__file__).parents[3].resolve())
-        subprocess.check_output([context.env_exe, "-Im", "pip", "install", olive_root], stderr=subprocess.STDOUT)
+        run_subprocess([context.env_exe, "-Im", "pip", "install", olive_root], check=True)
 
 
 @pytest.fixture()
@@ -28,7 +32,7 @@ def config_json(tmp_path):
 
     with (Path(__file__).parent / "mock_data" / "dependency_setup.json").open() as f:
         config = json.load(f)
-        config["engine"]["execution_providers"] = [ep]
+        config["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [ep]
 
     config_json_file = tmp_path / "config.json"
     with config_json_file.open("w") as f:
@@ -57,15 +61,11 @@ def test_dependency_setup(tmp_path, config_json):
         str(user_script_config_file),
         "--setup",
     ]
-    # pylint: disable=subprocess-run-check
-    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)  # noqa: PLW1510
 
-    if result.returncode != 0:
-        pytest.fail(result.stdout.decode())
-    else:
-        print(result.stdout.decode())
+    return_code, _, stderr = run_subprocess(cmd, check=True)
+    if return_code != 0:
+        pytest.fail(stderr)
 
-    outputs = subprocess.check_output([python_path, "-Im", "pip", "list"])
-    outputs = outputs.decode()
-    print(outputs)
+    _, outputs, _ = run_subprocess([python_path, "-Im", "pip", "list"], check=True)
     assert ort_extra in outputs
+    shutil.rmtree(tmp_path, ignore_errors=True)

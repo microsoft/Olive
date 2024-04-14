@@ -11,8 +11,9 @@ import numpy as np
 
 from olive.hardware import Device
 from olive.model import SNPEModelHandler
-from olive.snpe import SNPEProcessedDataLoader
-from olive.snpe.utils.local import get_snpe_target_arch
+from olive.platform_sdk.qualcomm.constants import SDKTargetDevice
+from olive.platform_sdk.qualcomm.snpe.env import SNPESDKEnv
+from olive.platform_sdk.qualcomm.utils.data_loader import FileListProcessedDataLoader
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ def evaluate(model: str, config: Union[str, Dict], data: str, input_list_file: O
         config (str): Either the path of json config file or an already loaded json file as a `dict`.
         data (str): Path to the evaluation data.
         input_list_file (str, optional): Name of input list file. Optional if it is 'input_list.txt'.
+
     """
     data_dir = Path(data).resolve()
     if isinstance(config, str):
@@ -36,7 +38,7 @@ def evaluate(model: str, config: Union[str, Dict], data: str, input_list_file: O
 
     # Devices to evaluate on
     devices = [Device.CPU]
-    if get_snpe_target_arch() == "ARM64-Windows":
+    if SNPESDKEnv().target_arch == SDKTargetDevice.arm64x_windows:
         devices.append(Device.NPU)
 
     config["inference_settings"]["return_numpy_results"] = True
@@ -44,23 +46,23 @@ def evaluate(model: str, config: Union[str, Dict], data: str, input_list_file: O
     # devices.append(Device.NPU)
 
     # Data
-    data = SNPEProcessedDataLoader(data_dir, input_list_file=input_list_file)
+    data = FileListProcessedDataLoader(data_dir, input_list_file=input_list_file)
     input_list = data.get_input_list()
 
     # Run inference
     results = []
     for device in devices:
-        logger.info(f"Running inference on {device}...")
+        logger.info("Running inference on %s...", device)
         session = model.prepare_session(config["inference_settings"], device=device)
         out = session(input_list, data_dir)
         logger.info(
-            "Latencies:\n"
-            f"Init: {round(out['latencies']['init'][0] * 1000, 3)} ms\n"
-            f"Total Inference: {round(out['latencies']['total_inference_time'][0] * 1000, 3)} ms"
+            "Latencies:\nInit: %f ms\nTotal Inference: %f ms",
+            round(out["latencies"]["init"][0] * 1000, 3),
+            round(out["latencies"]["total_inference_time"][0] * 1000, 3),
         )
         results.append(out["results"])
         throughput = session.throughput(5, input_list, data_dir)
-        logger.info(f"Throughput: {throughput} infs/sec")
+        logger.info("Throughput: %s infs/sec", throughput)
 
     # Compare results
     if len(results) > 1:
@@ -71,4 +73,4 @@ def evaluate(model: str, config: Union[str, Dict], data: str, input_list_file: O
             results_1 = results[1][key].reshape(batch_size, -1)
             avg_distances[key] = np.linalg.norm(results_0 - results_1, axis=1)
             avg_distances[key] = avg_distances[key].mean()
-        logger.info(f"Average distances between outputs: {avg_distances}")
+        logger.info("Average distances between outputs: %s", avg_distances)

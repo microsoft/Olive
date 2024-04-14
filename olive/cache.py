@@ -7,7 +7,7 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 
 from olive.common.config_utils import serialize_to_json
 from olive.common.utils import hash_dict
@@ -78,8 +78,8 @@ def _delete_run(run_id: str, cache_dir: Union[str, Path] = ".olive-cache"):
         # output model and children
         output_model_number = run_data["output_model_id"].split("_")[0]
         _delete_model(output_model_number, cache_dir)
-    except Exception as e:
-        logger.exception(e)
+    except Exception:
+        logger.exception("delete model failed.")
     finally:
         run_json.unlink()
 
@@ -113,7 +113,7 @@ def download_resource(resource_path: ResourcePath, cache_dir: Union[str, Path] =
 
     # check if resource path is cached
     if resource_path_json.exists():
-        logger.debug(f"Using cached resource path {resource_path.to_json()}")
+        logger.debug("Using cached resource path %s", resource_path.to_json())
         with resource_path_json.open("r") as f:
             resource_path_data = json.load(f)["dest"]
         return create_resource_path(resource_path_data)
@@ -126,11 +126,11 @@ def download_resource(resource_path: ResourcePath, cache_dir: Union[str, Path] =
     save_dir.mkdir(parents=True, exist_ok=True)
 
     # download resource to save directory
-    logger.debug(f"Downloading non-local resource {resource_path.to_json()} to {save_dir}")
+    logger.debug("Downloading non-local resource %s to %s", resource_path.to_json(), save_dir)
     local_resource_path = create_resource_path(resource_path.save_to_dir(save_dir))
 
     # cache resource path
-    logger.debug(f"Caching resource path {resource_path}")
+    logger.debug("Caching resource path %s", resource_path)
     with resource_path_json.open("w") as f:
         data = {"source": resource_path.to_json(), "dest": local_resource_path.to_json()}
         json.dump(data, f, indent=4)
@@ -176,7 +176,8 @@ def normalize_data_path(data_root: Union[str, Path], data_dir: Union[str, Path, 
             # change the data_root to azureml:/, which is not a valid path
             data_full_path = os.path.join(data_root, data_dir_str).replace("\\", "/")
         else:
-            data_full_path = data_dir_str
+            # will keep this as is so that we don't lose information inside ResourcePath
+            data_full_path = data_dir
 
     return create_resource_path(data_full_path)
 
@@ -197,7 +198,7 @@ def save_model(
     output_name: Union[str, Path] = None,
     overwrite: bool = False,
     cache_dir: Union[str, Path] = ".olive-cache",
-):
+) -> Optional[Dict]:
     """Save a model from the cache to a given path."""
     # This function should probably be outside of the cache module
     # just to be safe, import lazily to avoid any future circular imports
@@ -216,7 +217,7 @@ def save_model(
         model_json = serialize_to_json(json.load(f))
 
     if model_json["type"].lower() in ("compositemodel", "compositepytorchmodel"):
-        logger.warning(f"Saving models of type '{model_json['type']}' is not supported yet.")
+        logger.warning("Saving models of type '%s' is not supported yet.", model_json["type"])
         return None
 
     # create model object so that we can get the resource paths

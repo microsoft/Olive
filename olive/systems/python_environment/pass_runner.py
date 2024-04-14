@@ -4,68 +4,50 @@
 # --------------------------------------------------------------------------
 import argparse
 import json
-import sys
 from pathlib import Path
 
+from olive.common.utils import set_tempdir
+from olive.logging import set_verbosity_from_env
 from olive.model import ModelConfig
+from olive.package_config import OlivePackageConfig
 from olive.passes.olive_pass import FullPassConfig
-
-ort_inference_utils_parent = Path(__file__).resolve().parent.parent.parent / "common"
-sys.path.append(str(ort_inference_utils_parent))
-
-# ruff: noqa: PTH123
 
 
 def get_args(raw_args):
     parser = argparse.ArgumentParser(description="Onnx model inference")
 
-    parser.add_argument("--model_json_path", type=str, required=True, help="Path to input model json file")
-    parser.add_argument("--pass_json_path", type=str, required=True, help="Path to pass json file")
-    parser.add_argument("--point_json_path", type=str, default=None, help="Path to point json file")
-    parser.add_argument("--data_root", type=str, default=None, help="Path to data root")
+    parser.add_argument("--model_config", type=str, required=True, help="Path to input model json file")
+    parser.add_argument("--pass_config", type=str, required=True, help="Path to pass json file")
+    parser.add_argument("--data_root", type=str, required=False, help="Path to data root")
+    parser.add_argument("--tempdir", type=str, required=False, help="Root directory for tempfile directories and files")
     parser.add_argument("--output_model_path", type=str, required=True, help="Path to output model file")
-    parser.add_argument("--output_model_json_path", type=str, required=True, help="Path to output model json file")
+    parser.add_argument("--output_path", type=str, required=True, help="Path to output model json file")
 
     return parser.parse_args(raw_args)
 
 
 def main(raw_args=None):
+    set_verbosity_from_env()
+
     args = get_args(raw_args)
-    args.model_json_path = Path(args.model_json_path)
-    args.pass_json_path = Path(args.pass_json_path)
-    args.output_model_path = Path(args.output_model_path)
-    args.output_model_json_path = Path(args.output_model_json_path)
 
-    with open(args.model_json_path) as f:
-        model_json = json.load(f)
-    with open(args.pass_json_path) as f:
-        pass_json = json.load(f)
+    set_tempdir(args.tempdir)
 
-    if args.point_json_path:
-        args.point_json_path = Path(args.point_json_path)
-        with open(args.point_json_path) as f:
-            point = json.load(f)
-    else:
-        point = None
+    model = ModelConfig.parse_file(args.model_config).create_model()
+    pass_config = FullPassConfig.parse_file(args.pass_config)
 
-    if args.data_root:
-        args.data_root = Path(args.data_root)
-    else:
-        args.data_root = None
+    # Import the pass package configuration from the package_config
+    package_config = OlivePackageConfig.load_default_config()
+    package_config.import_pass_module(pass_config.type)
 
-    model = ModelConfig.from_json(model_json).create_model()
-    the_pass = FullPassConfig.from_json(pass_json).create_pass()
+    the_pass = pass_config.create_pass()
 
     # run pass
-    output_model = the_pass.run(model, args.data_root, args.output_model_path, point)
+    output_model = the_pass.run(model, args.data_root, args.output_model_path)
 
     # save model json
-    output_json = output_model.to_json()
-
-    with args.output_model_json_path.open("w") as f:
-        json.dump(output_json, f, indent=4)
-
-    return args.output_model_json_path
+    with Path(args.output_path).open("w") as f:
+        json.dump(output_model.to_json(), f, indent=4)
 
 
 if __name__ == "__main__":

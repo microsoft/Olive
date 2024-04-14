@@ -16,6 +16,25 @@ SystemType
     :members:
     :undoc-members:
 
+.. _device:
+
+Device
+^^^^^^^
+
+.. autoclass:: olive.hardware.accelerator.Device
+    :members:
+    :undoc-members:
+
+.. _accelerator_config:
+
+AcceleratorConfig
+^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: olive.systems.common.AcceleratorConfig
+    :members:
+    :undoc-members:
+    :exclude-members: validate_device_and_execution_providers
+
 .. _local_system_config:
 
 LocalTargetUserConfig
@@ -53,6 +72,13 @@ PythonEnvironmentTargetUserConfig
 
 .. autopydantic_settings:: olive.systems.system_config.PythonEnvironmentTargetUserConfig
 
+.. _isolated_ort_system_config:
+
+IsolatedORTTargetUserConfig
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autopydantic_settings:: olive.systems.system_config.IsolatedORTTargetUserConfig
+
 
 Classes
 ---------
@@ -65,7 +91,6 @@ AzureMLSystem
 ^^^^^^^^^^^^^
 .. autoclass:: olive.systems.azureml.AzureMLSystem
 
-
 DockerSystem
 ^^^^^^^^^^^^^
 .. autoclass:: olive.systems.docker.DockerSystem
@@ -73,6 +98,10 @@ DockerSystem
 PythonEnvironmentSystem
 ^^^^^^^^^^^^^^^^^^^^^^^^
 .. autoclass:: olive.systems.python_environment.PythonEnvironmentSystem
+
+IsolatedORTSystem
+^^^^^^^^^^^^^^^^^^^^^^^^
+.. autoclass:: olive.systems.isolated_ort.IsolatedORTSystem
 
 .. _olive_system_alias:
 

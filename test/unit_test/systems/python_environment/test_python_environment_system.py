@@ -2,75 +2,118 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import pickle
-import sys
+import json
+import platform
+import shutil
+import tempfile
+import venv
 from pathlib import Path
-from test.unit_test.utils import get_accuracy_metric, get_latency_metric, get_onnx_model, get_onnx_model_config
-from unittest import mock
+from test.unit_test.utils import (
+    get_glue_accuracy_metric,
+    get_glue_latency_metric,
+    get_hf_model_with_past,
+    get_onnx_model,
+    get_onnxconversion_pass,
+)
 from unittest.mock import MagicMock, patch
 
-import numpy as np
 import pytest
-import torch
 
-from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricResult, MetricType, joint_metric_key
+from olive.common.utils import run_subprocess
+from olive.evaluator.metric import MetricResult, joint_metric_key
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
-from olive.systems.local import LocalSystem
+from olive.model import ModelConfig
 from olive.systems.python_environment import PythonEnvironmentSystem
-from olive.systems.python_environment.available_eps import main as available_eps_main
-from olive.systems.python_environment.inference_runner import main as inference_runner_main
-from olive.systems.python_environment.is_valid_ep import main as is_valid_ep_main
+from olive.systems.python_environment.evaluation_runner import main as evaluation_runner_main
+from olive.systems.python_environment.pass_runner import main as pass_runner_main
+from olive.systems.system_config import PythonEnvironmentTargetUserConfig, SystemConfig
+from olive.systems.utils import create_managed_system, create_managed_system_with_cache
 
-# pylint: disable=no-value-for-parameter, attribute-defined-outside-init
+# pylint: disable=no-value-for-parameter, attribute-defined-outside-init, protected-access
 
 
 class TestPythonEnvironmentSystem:
     @pytest.fixture(autouse=True)
-    def setup(self):
+    def setup(self, tmp_path):
+        # create a virtual environment with no packages installed
+        venv_path = tmp_path / "venv"
+        venv.create(venv_path, with_pip=True)
+        # python path
+        if platform.system() == "Windows":
+            self.python_environment_path = Path(venv_path) / "Scripts"
+        else:
+            self.python_environment_path = Path(venv_path) / "bin"
         # use the current python environment as the test environment
-        executable_parent = Path(sys.executable).parent.resolve().as_posix()
-        self.system = PythonEnvironmentSystem(executable_parent)
+        self.system = PythonEnvironmentSystem(self.python_environment_path)
+        yield
+        shutil.rmtree(venv_path)
 
     def test_get_supported_execution_providers(self):
-        import onnxruntime as ort
+        python_path = shutil.which("python", path=self.python_environment_path)
+        # install only onnxruntime
+        run_subprocess([python_path, "-m", "pip", "install", "onnxruntime"], env=self.system.environ)
 
-        assert set(self.system.get_supported_execution_providers()) == set(ort.get_available_providers())
+        # for GPU ort, the get_available_providers will return ["CUDAExecutionProvider", "DmlExecutionProvider"]
+        assert set(self.system.get_supported_execution_providers()) == {
+            "AzureExecutionProvider",
+            "CPUExecutionProvider",
+        }
 
-    @patch("olive.systems.python_environment.PythonEnvironmentSystem.evaluate_accuracy")
-    @patch("olive.systems.python_environment.PythonEnvironmentSystem.evaluate_latency")
-    # mock generate_metric_user_config_with_model_io to return the input metric
-    @patch(
-        "olive.evaluator.olive_evaluator.OliveEvaluator.generate_metric_user_config_with_model_io",
-        side_effect=lambda x, _: x,
-    )
-    def test_evaluate_model(self, _, mock_evaluate_latency, mock_evaluate_accuracy):
+    @patch("olive.systems.python_environment.python_environment_system.run_subprocess")
+    @patch("olive.systems.python_environment.python_environment_system.tempfile.TemporaryDirectory")
+    def test__run_command(self, mock_temp_dir, mock_run_subprocess, tmp_path):
         # setup
-        model = get_onnx_model()
-        model_config = MagicMock()
-        model_config.type = "ONNXModel"
-        model_config.create_model.return_value = model
-        metrics = [get_accuracy_metric(AccuracySubType.ACCURACY_SCORE), get_latency_metric(LatencySubType.AVG)]
+        mock_temp_dir.return_value = tmp_path.resolve()
+        # input
+        script_path = "dummy_script.py"
+        config_jsons = {"dummy_config": {"dummy_key": "dummy_value"}}
+        extra_args = {"dummy_arg": "dummy_arg_value"}
+        # output
+        dummy_output_path = tmp_path / "output.json"
+        dummy_output = {"dummy_out_key": "dummy_out_value"}
+        with dummy_output_path.open("w") as f:
+            json.dump(dummy_output, f)
 
+        mock_run_subprocess.return_value = (0, "test", "")
+
+        # execute
+        res = self.system._run_command(script_path, config_jsons, **extra_args)
+
+        # assert
+        assert res == dummy_output
+        python_path = shutil.which("python", path=self.python_environment_path)
+        expected_command = [
+            python_path,
+            str(script_path),
+            "--dummy_config",
+            str(tmp_path / "dummy_config.json"),
+            "--dummy_arg",
+            "dummy_arg_value",
+            "--output_path",
+            str(tmp_path / "output.json"),
+        ]
+        mock_run_subprocess.assert_called_once_with(expected_command, env=self.system.environ, check=True)
+        with (tmp_path / "dummy_config.json").open("r") as f:
+            assert json.load(f) == config_jsons["dummy_config"]
+
+    @patch("olive.systems.python_environment.python_environment_system.PythonEnvironmentSystem._run_command")
+    def test_evaluate_model(self, mock__run_command):
+        # setup
+        model_config = MagicMock()
+        dummy_model_config = {"dummy_key": "dummy_value"}
+        model_config.to_json.return_value = dummy_model_config
+        metrics = [get_glue_accuracy_metric(), get_glue_latency_metric()]
+
+        # mock return value
         metrics_key = [
             joint_metric_key(metric.name, sub_metric.name) for metric in metrics for sub_metric in metric.sub_types
         ]
-
-        mock_return_value = {
-            sub_metric.name: {
-                "value": 0.9 if metric.type == MetricType.ACCURACY else 10,
-                "priority": sub_metric.priority,
-                "higher_is_better": sub_metric.higher_is_better,
-            }
-            for metric in metrics
-            for sub_metric in metric.sub_types
-        }
-
-        mock_evaluate_accuracy.return_value = MetricResult.parse_obj(
-            {AccuracySubType.ACCURACY_SCORE: mock_return_value[AccuracySubType.ACCURACY_SCORE]}
-        )
-        mock_evaluate_latency.return_value = MetricResult.parse_obj(
-            {LatencySubType.AVG: mock_return_value[LatencySubType.AVG]}
-        )
+        metrics_values = [
+            {"value": 0.9, "priority": 1, "higher_is_better": True},
+            {"value": 10, "priority": 2, "higher_is_better": False},
+        ]
+        mock_return_value = dict(key_value for key_value in zip(metrics_key, metrics_values))
+        mock__run_command.return_value = mock_return_value
 
         # execute
         res = self.system.evaluate_model(model_config, None, metrics, DEFAULT_CPU_ACCELERATOR)
@@ -78,240 +121,216 @@ class TestPythonEnvironmentSystem:
         # assert
         assert res[metrics_key[0]].value == 0.9
         assert res[metrics_key[1]].value == 10
-        mock_evaluate_accuracy.assert_called_once_with(model, None, metrics[0], DEFAULT_CPU_ACCELERATOR)
-        mock_evaluate_latency.assert_called_once_with(model, None, metrics[1], DEFAULT_CPU_ACCELERATOR)
-
-    @patch("olive.evaluator.olive_evaluator.OliveEvaluator.compute_accuracy")
-    def test_evaluate_accuracy(self, mock_compute_accuracy):
-        # setup
-        model_config = get_onnx_model_config()
-        metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, random_dataloader=False)
-        mock_value = MetricResult.parse_obj(
+        mock__run_command.assert_called_once_with(
+            self.system.evaluation_runner_path,
             {
-                AccuracySubType.ACCURACY_SCORE: {
-                    "value": 0.9,
-                    "priority": 1,
-                    "higher_is_better": True,
-                }
-            }
-        )
-        mock_compute_accuracy.return_value = mock_value
-
-        # expected result
-        local_system = LocalSystem()
-        expected_res = local_system.evaluate_model(model_config, None, [metric], DEFAULT_CPU_ACCELERATOR)[
-            "accuracy-accuracy_score"
-        ]
-
-        # execute
-        actual_res = self.system.evaluate_model(model_config, None, [metric], DEFAULT_CPU_ACCELERATOR)[
-            "accuracy-accuracy_score"
-        ]
-
-        # assert
-        assert actual_res == expected_res
-        assert mock_compute_accuracy.call_count == 2
-        # local system call
-        expected_call = mock_compute_accuracy.mock_calls[0]
-        # python environment call
-        actual_call = mock_compute_accuracy.mock_calls[1]
-        assert actual_call.args[0] == expected_call.args[0]
-        assert torch.equal(actual_call.args[1].preds, expected_call.args[1].preds)
-        assert torch.equal(actual_call.args[1].logits, expected_call.args[1].logits)
-        assert torch.equal(actual_call.args[2], expected_call.args[2])
-
-    @patch("olive.evaluator.olive_evaluator.OliveEvaluator.compute_latency")
-    def test_evaluate_latency(self, mock_compute_latency):
-        # setup
-        model_config = get_onnx_model_config()
-        metric = get_latency_metric(LatencySubType.AVG)
-        metric_config = metric.sub_types[0].metric_config
-        metric_config.repeat_test_num = 5
-
-        mock_value = MetricResult.parse_obj(
-            {
-                LatencySubType.AVG: {
-                    "value": 10,
-                    "priority": 1,
-                    "higher_is_better": True,
-                }
-            }
+                "model_config": dummy_model_config,
+                "metrics_config": [metric.to_json() for metric in metrics],
+                "accelerator_config": DEFAULT_CPU_ACCELERATOR.to_json(),
+            },
+            data_root=None,
+            tempdir=tempfile.tempdir,
         )
 
-        mock_compute_latency.return_value = mock_value
-        # expected result
-        expected_res = 10
-
-        # execute
-        actual_res = self.system.evaluate_latency(model_config.create_model(), None, metric, DEFAULT_CPU_ACCELERATOR)
-
-        # assert
-        assert actual_res[LatencySubType.AVG].value == expected_res
-        assert len(mock_compute_latency.call_args.args[1]) == metric_config.repeat_test_num
-        assert all(latency > 0 for latency in mock_compute_latency.call_args.args[1])
-
-    @patch("onnxruntime.get_available_providers")
-    def test_available_eps_script(self, mock_get_providers, tmp_path):
-        mock_get_providers.return_value = ["CPUExecutionProvider"]
-        output_path = tmp_path / "available_eps.pkl"
-
-        # command
-        args = ["--output_path", str(output_path)]
-
-        # execute
-        available_eps_main(args)
-
-        # assert
-        assert output_path.exists()
-        mock_get_providers.assert_called_once()
-        with output_path.open("rb") as f:
-            assert pickle.load(f) == ["CPUExecutionProvider"]
-
-    @pytest.mark.parametrize("valid", [True, False])
-    @patch("olive.systems.python_environment.is_valid_ep.get_ort_inference_session")
-    def test_is_valid_ep_script(self, mock_get_session, tmp_path, valid):
-        if valid:
-            mock_get_session.return_value = None
-        else:
-            mock_get_session.side_effect = Exception("Mock Failure")
-        output_path = tmp_path / "is_valid_ep.pkl"
-
-        # command
-        args = ["--model_path", "model.onnx", "--ep", "CPUExecutionProvider", "--output_path", str(output_path)]
-
-        # execute
-        is_valid_ep_main(args)
-
-        # assert
-        assert output_path.exists()
-        mock_get_session.assert_called_once_with("model.onnx", {"execution_provider": "CPUExecutionProvider"})
-        with output_path.open("rb") as f:
-            if valid:
-                assert pickle.load(f) == {"valid": True}
-            else:
-                assert pickle.load(f) == {"valid": False, "error": "Mock Failure"}
-
-    @patch("olive.systems.python_environment.inference_runner.get_ort_inference_session")
-    def test_inference_runner_script_accuracy(self, mock_get_session, tmp_path):
+    @patch("olive.systems.python_environment.python_environment_system.PythonEnvironmentSystem._run_command")
+    @patch("olive.systems.python_environment.python_environment_system.ModelConfig.parse_obj")
+    def test_run_pass(self, mock_model_config_parse_obj, mock__run_command):
         # setup
-        mock_inference_session = MagicMock()
-        dummy_output = np.array([1, 2, 3])
-        mock_inference_session.run.return_value = dummy_output
-        mock_get_session.return_value = mock_inference_session
+        model_config = MagicMock()
+        dummy_model_config = {"dummy_model_key": "dummy_model_value"}
+        model_config.to_json.return_value = dummy_model_config
+        the_pass = MagicMock()
+        dummy_pass_config = {
+            "type": "DummyPass",
+            "config": {
+                "dummy_param_1": "dummy_param_1_value",
+                "dummy_param_2": "dummy_param_2_value",
+            },
+        }
+        full_config = {
+            "dummy_param_1": "dummy_param_1_value",
+            "dummy_param_2": "dummy_param_2_value2",
+        }
+        expected_pass_config = {"type": "DummyPass", "config": full_config}
+        the_pass.to_json.return_value = dummy_pass_config
+        the_pass.serialize_config.return_value = full_config
 
-        model = "model.onnx"
-        inference_settings = {"execution_provider": "CPUExecutionProvider"}
-        inference_settings_path = tmp_path / "inference_settings.pkl"
-        with inference_settings_path.open("wb") as f:
-            pickle.dump(inference_settings, f)
-        input_dir = tmp_path / "input"
-        input_dir.mkdir(parents=True, exist_ok=True)
-        num_batches = 2
-        for i in range(num_batches):
-            np.savez(input_dir / f"input_{i}.npz", input=np.array([i]))
-        output_dir = tmp_path / "output"
-        output_dir.mkdir(parents=True, exist_ok=True)
+        # mock return value
+        mock_return_value = {"dummy_output_model_key": "dummy_output_model_value"}
+        mock__run_command.return_value = mock_return_value
 
-        # command
-        args = [
-            "--type",
-            "accuracy",
-            "--model_path",
-            model,
-            "--input_dir",
-            str(input_dir),
-            "--output_dir",
-            str(output_dir),
-            "--inference_settings_path",
-            str(inference_settings_path),
-            "--num_batches",
-            str(num_batches),
-        ]
+        mock_output_model_config = MagicMock()
+        mock_model_config_parse_obj.return_value = mock_output_model_config
+
+        dummy_output_model_path = "dummy_output_model_path"
 
         # execute
-        inference_runner_main(args)
+        res = self.system.run_pass(the_pass, model_config, None, dummy_output_model_path)
 
         # assert
-        mock_get_session.assert_called_once_with(model, inference_settings)
-        assert mock_inference_session.run.call_count == num_batches
-        assert mock_inference_session.run.mock_calls == [
-            mock.call(input_feed={"input": np.array([i])}, output_names=None) for i in range(num_batches)
-        ]
-        for i in range(num_batches):
-            assert (output_dir / f"output_{i}.npy").exists()
-            assert np.array_equal(np.load(output_dir / f"output_{i}.npy"), dummy_output)
+        assert res == mock_output_model_config
+        mock_model_config_parse_obj.assert_called_once_with(mock_return_value)
+        mock__run_command.assert_called_once_with(
+            self.system.pass_runner_path,
+            {"model_config": dummy_model_config, "pass_config": expected_pass_config},
+            data_root=None,
+            tempdir=tempfile.tempdir,
+            output_model_path=dummy_output_model_path,
+        )
 
-    @pytest.mark.parametrize("io_bind", [True, False])
-    @patch("olive.systems.python_environment.inference_runner.get_ort_inference_session")
-    def test_inference_runner_script_latency(self, mock_get_session, tmp_path, io_bind):
-        # setup
-        # inference session
-        mock_inference_session = MagicMock()
-        mock_inference_session.run.return_value = None
-        mock_inference_session.run_with_iobinding.return_value = None
-        # io binding
-        io_bind_op = MagicMock()
-        mock_inference_session.io_binding.return_value = io_bind_op
-        # get session
-        mock_get_session.return_value = mock_inference_session
+    @patch("olive.evaluator.olive_evaluator.OliveEvaluator.evaluate")
+    def test_evaluation_runner(self, mock_evaluate, tmp_path):
+        # create model_config.json
+        model_config = ModelConfig.parse_obj(get_onnx_model().to_json()).to_json()
+        with (tmp_path / "model_config.json").open("w") as f:
+            json.dump(model_config, f)
 
-        model = "model.onnx"
-        inference_settings = {"execution_provider": "CPUExecutionProvider"}
-        inference_settings_path = tmp_path / "inference_settings.pkl"
-        with inference_settings_path.open("wb") as f:
-            pickle.dump(inference_settings, f)
-        input_dir = tmp_path / "input"
-        input_dir.mkdir(parents=True, exist_ok=True)
-        np.savez(input_dir / "input.npz", input=np.array([1]))
-        output_dir = tmp_path / "output"
-        output_dir.mkdir(parents=True, exist_ok=True)
-        warmup_num = 1
-        repeat_test_num = 3
+        # create metrics_config.json
+        metrics_config = [get_glue_accuracy_metric().to_json()]
+        with (tmp_path / "metrics_config.json").open("w") as f:
+            json.dump(metrics_config, f)
 
-        # command
-        args = [
-            "--type",
-            "latency",
-            "--model_path",
-            model,
-            "--input_dir",
-            str(input_dir),
-            "--output_dir",
-            str(output_dir),
-            "--inference_settings_path",
-            str(inference_settings_path),
-            "--warmup_num",
-            str(warmup_num),
-            "--repeat_test_num",
-            str(repeat_test_num),
-        ]
-        if io_bind:
-            args += ["--io_bind", "--device", "cpu"]
+        # create accelerator_config.json
+        accelerator_config = DEFAULT_CPU_ACCELERATOR.to_json()
+        with (tmp_path / "accelerator_config.json").open("w") as f:
+            json.dump(accelerator_config, f)
+
+        ouptut_path = tmp_path / "output.json"
+
+        # mock output
+        mock_evaluation_result = MetricResult.parse_obj(
+            {"accuracy-accuracy_score": {"value": 0.5, "priority": 1, "higher_is_better": True}}
+        )
+        mock_evaluate.return_value = mock_evaluation_result
 
         # execute
-        inference_runner_main(args)
+        args = [
+            "--model_config",
+            str(tmp_path / "model_config.json"),
+            "--metrics_config",
+            str(tmp_path / "metrics_config.json"),
+            "--accelerator_config",
+            str(tmp_path / "accelerator_config.json"),
+            "--output_path",
+            str(ouptut_path),
+        ]
+        evaluation_runner_main(args)
 
         # assert
-        total_num = warmup_num + repeat_test_num
-        mock_get_session.assert_called_once_with(model, inference_settings)
-        if not io_bind:
-            assert mock_inference_session.run.call_count == total_num
-            assert mock_inference_session.run.mock_calls == [
-                mock.call(input_feed={"input": np.array([1])}, output_names=None) for _ in range(total_num)
-            ]
-        else:
-            assert mock_inference_session.run_with_iobinding.call_count == total_num
-            assert mock_inference_session.run_with_iobinding.mock_calls == [
-                mock.call(io_bind_op) for _ in range(total_num)
-            ]
+        mock_evaluate.assert_called_once()
+        with ouptut_path.open("r") as f:
+            assert json.load(f) == mock_evaluation_result.to_json()
 
-    @patch("olive.systems.utils.create_new_system")
-    def test_create_new_system_with_cache(self, mock_create_new_system):
-        from olive.systems.utils import create_new_system_with_cache
+    @patch("olive.passes.onnx.conversion.OnnxConversion.run")
+    def test_pass_runner(self, mock_conversion_run, tmp_path):
+        # create model_config.json
+        model_config = ModelConfig.parse_obj(get_hf_model_with_past().to_json()).to_json()
+        with (tmp_path / "model_config.json").open("w") as f:
+            json.dump(model_config, f)
 
-        origin_system = PythonEnvironmentSystem(olive_managed_env=True)
-        create_new_system_with_cache(origin_system, DEFAULT_CPU_ACCELERATOR)
-        create_new_system_with_cache(origin_system, DEFAULT_CPU_ACCELERATOR)
-        assert mock_create_new_system.call_count == 1
-        create_new_system_with_cache.cache_clear()
-        assert create_new_system_with_cache.cache_info().currsize == 0
+        # create pass_config.json
+        the_pass = get_onnxconversion_pass()
+        config = the_pass.config_at_search_point({})
+        pass_config = the_pass.to_json(check_object=True)
+        pass_config["config"].update(the_pass.serialize_config(config, check_object=True))
+        with (tmp_path / "pass_config.json").open("w") as f:
+            json.dump(pass_config, f)
+
+        output_path = tmp_path / "output.json"
+
+        # mock output
+        dummy_output_model_path = "dummy_output_model_path"
+        mock_conversion_run.return_value = get_onnx_model()
+
+        # execute
+        args = [
+            "--model_config",
+            str(tmp_path / "model_config.json"),
+            "--pass_config",
+            str(tmp_path / "pass_config.json"),
+            "--output_model_path",
+            dummy_output_model_path,
+            "--output_path",
+            str(output_path),
+        ]
+        pass_runner_main(args)
+
+        # assert
+        mock_conversion_run.assert_called_once()
+        with output_path.open("r") as f:
+            assert json.load(f) == get_onnx_model().to_json()
+
+    @patch("olive.systems.utils.misc.create_managed_system")
+    def test_create_new_system_with_cache(self, mock_create_managed_system):
+        system_config = SystemConfig(
+            type="PythonEnvironment",
+            config=PythonEnvironmentTargetUserConfig(
+                olive_managed_env=True,
+            ),
+        )
+        create_managed_system_with_cache(system_config, DEFAULT_CPU_ACCELERATOR)
+        create_managed_system_with_cache(system_config, DEFAULT_CPU_ACCELERATOR)
+        assert mock_create_managed_system.call_count == 1
+        create_managed_system_with_cache.cache_clear()
+        assert create_managed_system_with_cache.cache_info().currsize == 0
+
+    def test_create_managed_env(self):
+        system_config = SystemConfig(
+            type="PythonEnvironment",
+            config=PythonEnvironmentTargetUserConfig(
+                olive_managed_env=True,
+            ),
+        )
+        system = create_managed_system(system_config, DEFAULT_CPU_ACCELERATOR)
+        assert system.config.olive_managed_env
+
+        host_system = create_managed_system(system_config, None)
+        assert host_system.config.olive_managed_env
+
+    def test_python_system_config(self):
+        config = {
+            "type": "PythonEnvironment",
+            "config": {
+                "python_environment_path": self.python_environment_path,
+                "olive_managed_env": False,
+            },
+        }
+        system_config = SystemConfig.parse_obj(config)
+        system = system_config.create_system()
+        assert system
+
+
+class TestPythonEnvironmentSystemConfig:
+    def test_missing_python_environment_path(self):
+        invalid_config = {
+            "type": "PythonEnvironment",
+            "config": {
+                "olive_managed_env": False,
+            },
+        }
+        with pytest.raises(
+            ValueError, match="python_environment_path is required for PythonEnvironmentSystem native mode"
+        ):
+            SystemConfig.parse_obj(invalid_config)
+
+    def test_invalid_python_environment_path(self):
+        invalid_config = {
+            "type": "PythonEnvironment",
+            "config": {
+                "python_environment_path": "invalid_path",
+                "olive_managed_env": False,
+            },
+        }
+        with pytest.raises(ValueError, match="Python path invalid_path does not exist"):
+            SystemConfig.parse_obj(invalid_config)
+
+    def test_managed_system_config(self):
+        config = {
+            "type": "PythonEnvironment",
+            "config": {
+                "olive_managed_env": True,
+            },
+        }
+        system_config = SystemConfig.parse_obj(config)
+        assert system_config.config.olive_managed_env
+        assert system_config.config.python_environment_path is None

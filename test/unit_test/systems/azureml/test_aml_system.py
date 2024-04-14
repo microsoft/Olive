@@ -3,18 +3,26 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
-import os
 import shutil
 import tempfile
+from functools import partial
 from pathlib import Path
-from test.unit_test.utils import ONNX_MODEL_PATH, get_accuracy_metric, get_latency_metric, get_pytorch_model_config
+from test.unit_test.utils import (
+    ONNX_MODEL_PATH,
+    get_accuracy_metric,
+    get_glue_latency_metric,
+    get_latency_metric,
+    get_onnxconversion_pass,
+    get_pytorch_model_config,
+)
 from typing import ClassVar, List
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import ANY, MagicMock, Mock, patch
 
 import pytest
 from azure.ai.ml import Input, Output
 from azure.ai.ml.constants import AssetTypes
 from azure.ai.ml.entities import UserIdentityConfiguration
+from azure.core.exceptions import ResourceNotFoundError
 
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.data.config import DataConfig
@@ -27,7 +35,7 @@ from olive.resource_path import AzureMLModel, ResourcePath, ResourceType, create
 from olive.systems.azureml.aml_evaluation_runner import main as aml_evaluation_runner_main
 from olive.systems.azureml.aml_pass_runner import main as aml_pass_runner_main
 from olive.systems.azureml.aml_system import AzureMLSystem
-from olive.systems.common import AzureMLDockerConfig
+from olive.systems.common import AzureMLDockerConfig, AzureMLEnvironmentConfig
 
 # pylint: disable=attribute-defined-outside-init, protected-access
 
@@ -41,33 +49,55 @@ class TestAzureMLSystem:
             conda_file_path="conda_file_path",
         )
         mock_azureml_client_config = Mock(spec=AzureMLClientConfig)
-        self.system = AzureMLSystem(mock_azureml_client_config, "dummy", docker_config)
+        self.system = AzureMLSystem(mock_azureml_client_config, "dummy", docker_config, is_dev=True)
+
+        self.input_model_config = {
+            "config": {
+                "hf_config": {
+                    "model_name": "Intel/bert-base-uncased-mrpc",
+                    "task": "text-classification",
+                },
+                "io_config": {
+                    "dynamic_axes": {
+                        "attention_mask": {"0": "batch_size", "1": "seq_length"},
+                        "input_ids": {"0": "batch_size", "1": "seq_length"},
+                        "token_type_ids": {"0": "batch_size", "1": "seq_length"},
+                    },
+                    "input_names": ["input_ids", "attention_mask", "token_type_ids"],
+                    "input_shapes": [[1, 128], [1, 128], [1, 128]],
+                    "input_types": ["int64", "int64", "int64"],
+                    "output_names": ["output"],
+                },
+            },
+            "type": "PyTorchModel",
+            "resource_names": [],
+        }
 
     METRIC_TEST_CASE: ClassVar[List[Metric]] = [
-        (get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)),
-        (get_accuracy_metric(AccuracySubType.F1_SCORE)),
-        (get_accuracy_metric(AccuracySubType.PRECISION)),
-        (get_accuracy_metric(AccuracySubType.RECALL)),
-        (get_accuracy_metric(AccuracySubType.AUROC)),
-        (get_latency_metric(LatencySubType.AVG)),
-        (get_latency_metric(LatencySubType.MAX)),
-        (get_latency_metric(LatencySubType.MIN)),
-        (get_latency_metric(LatencySubType.P50)),
-        (get_latency_metric(LatencySubType.P75)),
-        (get_latency_metric(LatencySubType.P90)),
-        (get_latency_metric(LatencySubType.P95)),
-        (get_latency_metric(LatencySubType.P99)),
-        (get_latency_metric(LatencySubType.P999)),
+        (partial(get_accuracy_metric, AccuracySubType.ACCURACY_SCORE)),
+        (partial(get_accuracy_metric, AccuracySubType.F1_SCORE)),
+        (partial(get_accuracy_metric, AccuracySubType.PRECISION)),
+        (partial(get_accuracy_metric, AccuracySubType.RECALL)),
+        (partial(get_accuracy_metric, AccuracySubType.AUROC)),
+        (partial(get_latency_metric, LatencySubType.AVG)),
+        (partial(get_latency_metric, LatencySubType.MAX)),
+        (partial(get_latency_metric, LatencySubType.MIN)),
+        (partial(get_latency_metric, LatencySubType.P50)),
+        (partial(get_latency_metric, LatencySubType.P75)),
+        (partial(get_latency_metric, LatencySubType.P90)),
+        (partial(get_latency_metric, LatencySubType.P95)),
+        (partial(get_latency_metric, LatencySubType.P99)),
+        (partial(get_latency_metric, LatencySubType.P999)),
     ]
 
     @pytest.mark.parametrize(
-        "metric",
+        "metric_func",
         METRIC_TEST_CASE,
     )
     @patch("olive.systems.azureml.aml_system.retry_func")
     @patch("olive.systems.azureml.aml_system.AzureMLSystem._create_pipeline_for_evaluation")
     @patch("olive.systems.azureml.aml_system.tempfile.TemporaryDirectory")
-    def test_evaluate_model(self, mock_tempdir, mock_create_pipeline, mock_retry_func, metric):
+    def test_evaluate_model(self, mock_tempdir, mock_create_pipeline, mock_retry_func, metric_func):
         # setup
         model_config = get_pytorch_model_config()
         output_folder = Path(__file__).absolute().parent / "output_metrics"
@@ -78,6 +108,7 @@ class TestAzureMLSystem:
         self.system.azureml_client_config.operation_retry_interval = 5
 
         # execute
+        metric = metric_func()
         res = self.system.evaluate_model(model_config, None, [metric], DEFAULT_CPU_ACCELERATOR)
 
         # assert
@@ -97,9 +128,8 @@ class TestAzureMLSystem:
     @patch("olive.systems.azureml.aml_system.AzureMLSystem._create_pipeline_for_pass")
     def test_run_pass(self, mock_create_pipeline, mock_retry_func, tmp_path):
         # setup
-        tmp_dir_path = tmp_path
         # dummy pipeline output download path
-        pipeline_output_path = tmp_dir_path / "pipeline_output" / "named-outputs" / "pipeline_output"
+        pipeline_output_path = tmp_path / "pipeline_output" / "named-outputs" / "pipeline_output"
         pipeline_output_path.mkdir(parents=True, exist_ok=True)
         # create dummy output model
         downloaded_output_model_path = pipeline_output_path / "output_model.onnx"
@@ -122,13 +152,13 @@ class TestAzureMLSystem:
         onnx_conversion_config = {}
         p = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
         model_config = get_pytorch_model_config()
-        output_model_path = tmp_dir_path / "output_folder" / "output_model_path"
+        output_model_path = tmp_path / "output_folder" / "output_model_path"
         output_model_path.mkdir(parents=True, exist_ok=True)
         # create dummy output model so that ONNXModel can be created with the same path
         expected_model_path = output_model_path / "model.onnx"
         with expected_model_path.open("w") as f:
             f.write("dummy")
-        output_folder = tmp_dir_path
+        output_folder = tmp_path
 
         ml_client = MagicMock()
         self.system.azureml_client_config.create_client.return_value = ml_client
@@ -259,7 +289,7 @@ class TestAzureMLSystem:
             command=self.create_command(script_name, inputs, outputs),
             resources=resources,
             environment=aml_environment,
-            environment_variables=None,
+            environment_variables=ANY,
             code=code,
             inputs=inputs,
             outputs=outputs,
@@ -272,48 +302,59 @@ class TestAzureMLSystem:
         # setup
         script_dir_path = Path(__file__).absolute().parent / "script_dir"
         user_script_path = script_dir_path / "user_script.py"
+        data_dir_path = Path(__file__).absolute().parent / "data_dir"
+        data_files_path = data_dir_path / "datafile.json"
         data_config = DataConfig(
             type="HuggingfaceContainer",
             name="data_name",
             user_script=str(user_script_path),
             script_dir=str(script_dir_path),
+            params_config={"data_dir": data_dir_path, "data_files": data_files_path},
         )
         pass_config = {"data_config": data_config}
         the_pass = MagicMock()
-        the_pass._config = pass_config
+        the_pass.config = pass_config
         expected_data_inputs = {
             "data_name_user_script": Input(type=AssetTypes.URI_FILE, optional=True),
             "data_name_script_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
+            "data_name_data_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
+            "data_name_data_files": Input(type=AssetTypes.URI_FILE, optional=True),
         }
         expected_data_args = {
             "data_name_user_script": Input(type=AssetTypes.URI_FILE, path=str(user_script_path)),
             "data_name_script_dir": Input(type=AssetTypes.URI_FOLDER, path=str(script_dir_path)),
+            "data_name_data_dir": Input(type=AssetTypes.URI_FOLDER, path=str(data_dir_path)),
+            "data_name_data_files": Input(type=AssetTypes.URI_FILE, path=str(data_files_path)),
         }
 
         # execute
-        actual_data_params = self.system._create_data_script_inputs_and_args(the_pass)
+        actual_data_params = self.system._create_data_script_inputs_and_args(None, the_pass)
 
         # assert
         assert actual_data_params.data_inputs == expected_data_inputs
-        assert actual_data_params.data_args == expected_data_args
+        # assert actual_data_params.data_args == expected_data_args
+        # I deliberately use the Path.__eq__ to compare path since sometimes in Windows, the path root
+        # will be changed to uppercase, which will cause the test to fail.
+        for k, v in actual_data_params.data_args.items():
+            assert v.type == expected_data_args[k].type
+            assert Path(v.path) == Path(expected_data_args[k].path)
 
-    def test__create_metric_args(self):
+    def test__create_metric_args(self, tmp_path):
         # setup
         # the reason why we need resolve: sometimes, windows system would change c:\\ to C:\\ when calling resolve.
-        tem_dir = Path(__file__).absolute().parent.resolve()
         metric_config = {
             "user_config": {
                 "user_script": "user_script",
                 "script_dir": "script_dir",
-                "data_dir": tem_dir,
+                "data_dir": tmp_path,
             }
         }
-        metric_config_path = tem_dir / "metric_config.json"
+        metric_config_path = tmp_path / "metric_config.json"
 
         expected_metric_config = Input(type=AssetTypes.URI_FILE, path=metric_config_path)
         expected_metric_user_script = Input(type=AssetTypes.URI_FILE, path="user_script")
         expected_metric_script_dir = Input(type=AssetTypes.URI_FOLDER, path="script_dir")
-        expected_metric_data_dir = Input(type=AssetTypes.URI_FOLDER, path=str(tem_dir))
+        expected_metric_data_dir = Input(type=AssetTypes.URI_FOLDER, path=str(tmp_path))
         expected_res = {
             "metric_config": expected_metric_config,
             "metric_user_script": expected_metric_user_script,
@@ -322,7 +363,7 @@ class TestAzureMLSystem:
         }
 
         # execute
-        actual_res = self.system._create_metric_args(None, metric_config, tem_dir)
+        actual_res = self.system._create_metric_args(None, metric_config, tmp_path)
 
         # assert
         assert actual_res == expected_res
@@ -330,21 +371,14 @@ class TestAzureMLSystem:
         assert metric_config["user_config"]["script_dir"] is None
         assert metric_config["user_config"]["data_dir"] is None
 
-        # cleanup
-        if os.path.exists(metric_config_path):
-            os.remove(metric_config_path)
-
     @pytest.mark.parametrize(
         "model_resource_type",
         [ResourceType.AzureMLModel, ResourceType.LocalFile],
     )
-    @patch("olive.systems.azureml.aml_system.shutil.copy")
     @patch("olive.systems.azureml.aml_system.command")
     @patch("olive.systems.azureml.aml_system.AzureMLSystem._create_metric_args")
-    def test__create_metric_component(self, mock_create_metric_args, mock_command, mock_copy, model_resource_type):
+    def test__create_metric_component(self, mock_create_metric_args, mock_command, model_resource_type, tmp_path):
         # setup
-        tmp_dir = Path()
-        code_path = tmp_dir / "code"
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         metric.user_config = {}
         model_args = {"input": Input(type=AssetTypes.URI_FILE, path="path")}
@@ -352,9 +386,11 @@ class TestAzureMLSystem:
         metric_type = f"{metric.type}-{sub_type_name}"
         model_inputs = {
             "model_config": Input(type=AssetTypes.URI_FILE),
-            "model_model_path": Input(type=AssetTypes.CUSTOM_MODEL, optional=True)
-            if model_resource_type == ResourceType.AzureMLModel
-            else Input(type=AssetTypes.URI_FILE, optional=True),
+            "model_model_path": (
+                Input(type=AssetTypes.CUSTOM_MODEL, optional=True)
+                if model_resource_type == ResourceType.AzureMLModel
+                else Input(type=AssetTypes.URI_FILE, optional=True)
+            ),
         }
         metric_inputs = {
             "metric_config": Input(type=AssetTypes.URI_FILE),
@@ -362,7 +398,7 @@ class TestAzureMLSystem:
             "metric_script_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
             "metric_data_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
         }
-        accelerator_config_path = tmp_dir / "accelerator_config.json"
+        accelerator_config_path = tmp_path / "accelerator_config.json"
         inputs = {
             **model_inputs,
             **metric_inputs,
@@ -390,7 +426,7 @@ class TestAzureMLSystem:
             model_resource_path = create_resource_path(ONNX_MODEL_PATH)
         actual_res = self.system._create_metric_component(
             data_root=None,
-            tmp_dir=tmp_dir,
+            tmp_dir=tmp_path,
             metric=metric,
             model_args=model_args,
             model_resource_paths={"model_path": model_resource_path},
@@ -406,18 +442,14 @@ class TestAzureMLSystem:
             command=self.create_command("aml_evaluation_runner.py", inputs, outputs),
             resources=None,
             environment=self.system.environment,
-            environment_variables=self.system.env_vars,
-            code=str(code_path),
+            environment_variables=ANY,
+            code=str(tmp_path / "code"),
             inputs=inputs,
             outputs={"pipeline_output": Output(type=AssetTypes.URI_FOLDER)},
             instance_count=1,
             compute=self.system.compute,
             identity=UserIdentityConfiguration(),
         )
-
-        # cleanup
-        if os.path.exists(code_path):
-            os.rmdir(code_path)
 
     def create_command(self, script_name, inputs, outputs):
         parameters = []
@@ -428,155 +460,35 @@ class TestAzureMLSystem:
             else:
                 parameters.append(f"--{param} ${{{{inputs.{param}}}}}")
         outputs = outputs or {}
-        for param in outputs:
-            parameters.append(f"--{param} ${{{{outputs.{param}}}}}")
+        parameters.extend([f"--{param} ${{{{outputs.{param}}}}}" for param in outputs])
 
         return f"python {script_name} {' '.join(parameters)}"
 
     @patch("olive.evaluator.olive_evaluator.OliveEvaluator.evaluate")
     def test_aml_evaluation_runner(self, mock_evaluate, tmp_path):
-        mock_evaluate.return_value = MetricResult.parse_obj(
-            {"accuracy-accuracy_score": {"value": 0.5, "priority": 1, "higher_is_better": True}}
-        )
-
         # create model_config.json
-        model_config = {
-            "config": {
-                "dummy_inputs_func": None,
-                "hf_config": {
-                    "components": None,
-                    "dataset": {
-                        "batch_size": 1,
-                        "data_name": "glue",
-                        "input_cols": ["sentence1", "sentence2"],
-                        "label_cols": ["label"],
-                        "split": "validation",
-                        "subset": "mrpc",
-                    },
-                    "model_class": None,
-                    "model_name": "Intel/bert-base-uncased-mrpc",
-                    "task": "text-classification",
-                },
-                "io_config": {
-                    "dynamic_axes": {
-                        "attention_mask": {"0": "batch_size", "1": "seq_length"},
-                        "input_ids": {"0": "batch_size", "1": "seq_length"},
-                        "token_type_ids": {"0": "batch_size", "1": "seq_length"},
-                    },
-                    "input_names": ["input_ids", "attention_mask", "token_type_ids"],
-                    "input_shapes": [[1, 128], [1, 128], [1, 128]],
-                    "input_types": ["int64", "int64", "int64"],
-                    "output_names": ["output"],
-                    "output_shapes": None,
-                    "output_types": None,
-                    "string_to_int_dim_params": None,
-                },
-                "model_loader": None,
-                "model_path": None,
-                "model_script": None,
-                "script_dir": None,
-            },
-            "type": "PyTorchModel",
-            "resource_names": [],
-        }
-
         with (tmp_path / "model_config.json").open("w") as f:
-            json.dump(model_config, f)
+            json.dump(self.input_model_config, f)
 
         # create model.pt
         # create metrics_config.json
-        metrics_config = {
-            "data_config": {
-                "components": {
-                    "dataloader": {
-                        "name": "default_dataloader",
-                        "params": {"batch_size": 1},
-                        "type": "default_dataloader",
-                    },
-                    "load_dataset": {
-                        "name": "huggingface_dataset",
-                        "params": {"data_name": "glue", "split": "validation", "subset": "mrpc"},
-                        "type": "huggingface_dataset",
-                    },
-                    "post_process_data": {
-                        "name": "text_classification_post_process",
-                        "params": {},
-                        "type": "text_classification_post_process",
-                    },
-                    "pre_process_data": {
-                        "name": "huggingface_pre_process",
-                        "params": {
-                            "input_cols": ["sentence1", "sentence2"],
-                            "label_cols": ["label"],
-                            "model_name": "Intel/bert-base-uncased-mrpc",
-                        },
-                        "type": "huggingface_pre_process",
-                    },
-                },
-                "default_components": {
-                    "dataloader": {"name": "default_dataloader", "params": {}, "type": "default_dataloader"},
-                    "load_dataset": {"name": "huggingface_dataset", "params": {}, "type": "huggingface_dataset"},
-                    "post_process_data": {
-                        "name": "text_classification_post_process",
-                        "params": {},
-                        "type": "text_classification_post_process",
-                    },
-                    "pre_process_data": {
-                        "name": "huggingface_pre_process",
-                        "params": {},
-                        "type": "huggingface_pre_process",
-                    },
-                },
-                "default_components_type": {
-                    "dataloader": "default_dataloader",
-                    "load_dataset": "huggingface_dataset",
-                    "post_process_data": "text_classification_post_process",
-                    "pre_process_data": "huggingface_pre_process",
-                },
-                "name": "_default_huggingface_dc",
-                "params_config": {
-                    "batch_size": 1,
-                    "data_name": "glue",
-                    "input_cols": ["sentence1", "sentence2"],
-                    "label_cols": ["label"],
-                    "model_name": "Intel/bert-base-uncased-mrpc",
-                    "split": "validation",
-                    "subset": "mrpc",
-                    "task_type": "text-classification",
-                },
-                "type": "HuggingfaceContainer",
-            },
-            "name": "result",
-            "sub_types": [
-                {
-                    "name": "accuracy_score",
-                }
-            ],
-            "type": "accuracy",
-            "user_config": {
-                "batch_size": 1,
-                "data_dir": None,
-                "dataloader_func": None,
-                "inference_settings": None,
-                "input_names": None,
-                "input_shapes": None,
-                "input_types": None,
-                "post_processing_func": None,
-                "script_dir": None,
-                "user_script": None,
-            },
-        }
-
+        metrics_config = get_glue_latency_metric().to_json()
         with (tmp_path / "metrics_config.json").open("w") as f:
             json.dump(metrics_config, f)
 
         # create accelerator_config.json
-        accelerator_config = {"accelerator_type": "cpu", "execution_provider": "CPUExecutionProvider"}
+        accelerator_config = DEFAULT_CPU_ACCELERATOR.to_json()
         with (tmp_path / "accelerator_config.json").open("w") as f:
             json.dump(accelerator_config, f)
 
-        ouptut_dir = tmp_path / "pipeline_output"
-        ouptut_dir.mkdir()
+        output_dir = tmp_path / "pipeline_output"
+        output_dir.mkdir()
+
+        # mock output
+        mock_evaluation_result = MetricResult.parse_obj(
+            {"accuracy-accuracy_score": {"value": 0.5, "priority": 1, "higher_is_better": True}}
+        )
+        mock_evaluate.return_value = mock_evaluation_result
 
         args = [
             "--model_config",
@@ -586,92 +498,56 @@ class TestAzureMLSystem:
             "--accelerator_config",
             str(tmp_path / "accelerator_config.json"),
             "--pipeline_output",
-            str(ouptut_dir),
+            str(output_dir),
         ]
         aml_evaluation_runner_main(args)
+
+        # assert
         mock_evaluate.assert_called_once()
+        with (output_dir / "metric_result.json").open() as f:
+            assert json.load(f) == mock_evaluation_result.to_json()
 
     @patch("olive.passes.onnx.conversion.OnnxConversion.run")
-    def test_pass_runner(self, mock_conversion_run, tmp_path):
-        model_config = {
-            "config": {
-                "dummy_inputs_func": None,
-                "hf_config": {
-                    "components": None,
-                    "dataset": {
-                        "batch_size": 1,
-                        "data_name": "glue",
-                        "input_cols": ["sentence1", "sentence2"],
-                        "label_cols": ["label"],
-                        "split": "validation",
-                        "subset": "mrpc",
-                    },
-                    "model_class": None,
-                    "model_name": "Intel/bert-base-uncased-mrpc",
-                    "task": "text-classification",
-                },
-                "io_config": {
-                    "dynamic_axes": {
-                        "attention_mask": {"0": "batch_size", "1": "seq_length"},
-                        "input_ids": {"0": "batch_size", "1": "seq_length"},
-                        "token_type_ids": {"0": "batch_size", "1": "seq_length"},
-                    },
-                    "input_names": ["input_ids", "attention_mask", "token_type_ids"],
-                    "input_shapes": [[1, 128], [1, 128], [1, 128]],
-                    "input_types": ["int64", "int64", "int64"],
-                    "output_names": ["output"],
-                    "output_shapes": None,
-                    "output_types": None,
-                    "string_to_int_dim_params": None,
-                },
-                "model_loader": None,
-                "model_path": None,
-                "model_script": None,
-                "script_dir": None,
-            },
-            "type": "PyTorchModel",
-            "resource_names": [],
-        }
-        pass_config = {
-            "accelerator": {"accelerator_type": "cpu", "execution_provider": "CPUExecutionProvider"},
-            "config": {
-                "all_tensors_to_one_file": True,
-                "external_data_name": None,
-                "save_as_external_data": False,
-                "script_dir": None,
-                "target_opset": 13,
-                "user_script": None,
-            },
-            "disable_search": True,
-            "type": "OnnxConversion",
-        }
-
+    def test_aml_pass_runner(self, mock_conversion_run, tmp_path):
+        # create model_config.json
         with (tmp_path / "model_config.json").open("w") as f:
-            json.dump(model_config, f)
+            json.dump(self.input_model_config, f)
 
+        # create pass_config.json
+        the_pass = get_onnxconversion_pass()
+        pass_config = the_pass.to_json()
         with (tmp_path / "pass_config.json").open("w") as f:
             json.dump(pass_config, f)
 
-        ouptut_dir = tmp_path / "pipeline_output"
-        ouptut_dir.mkdir()
-        shutil.copy(ONNX_MODEL_PATH, ouptut_dir)
-        mock_conversion_run.return_value = ONNXModelHandler(ouptut_dir / ONNX_MODEL_PATH.name)
+        output_dir = tmp_path / "pipeline_output"
+        output_dir.mkdir()
 
+        # mock output
+        shutil.copy(ONNX_MODEL_PATH, output_dir)
+        mock_conversion_run.return_value = ONNXModelHandler(output_dir / ONNX_MODEL_PATH.name)
+
+        # execute
         args = [
             "--model_config",
             str(tmp_path / "model_config.json"),
             "--pass_config",
             str(tmp_path / "pass_config.json"),
             "--pipeline_output",
-            str(ouptut_dir),
+            str(output_dir),
             "--pass_accelerator_type",
-            "cpu",
+            f"{DEFAULT_CPU_ACCELERATOR.accelerator_type}",
             "--pass_execution_provider",
-            "CPUExecutionProvider",
+            f"{DEFAULT_CPU_ACCELERATOR.execution_provider}",
         ]
-
         aml_pass_runner_main(args)
+
+        # assert
         mock_conversion_run.assert_called_once()
+        with (output_dir / "output_model_config.json").open() as f:
+            output_model_json = json.load(f)
+            assert output_model_json["type"] == "ONNXModel"
+            assert output_model_json["config"]["model_path"]["type"] == "file"
+            assert output_model_json["config"]["model_path"]["config"]["path"] == ONNX_MODEL_PATH.name
 
 
 @patch("olive.systems.azureml.aml_system.Environment")
@@ -703,5 +579,79 @@ def test_aml_system_no_keyvault_name_raise_valueerror(mock_env):
     )
 
     # assert
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError):  # noqa: PT011
         AzureMLSystem(mock_azureml_client_config, "dummy", docker_config, hf_token=True)
+
+
+@patch("olive.systems.azureml.aml_system.retry_func")
+def test__get_enironment_from_config(mock_retry_func):
+    # setup
+    aml_environment_config = AzureMLEnvironmentConfig(
+        name="name",
+        version="version",
+        label="label",
+    )
+    mock_azureml_client_config = Mock(spec=AzureMLClientConfig)
+    ml_client = MagicMock()
+    mock_azureml_client_config.create_client.return_value = ml_client
+    mock_azureml_client_config.max_operation_retries = 3
+    mock_azureml_client_config.operation_retry_interval = 5
+    expected_env = MagicMock()
+    mock_retry_func.return_value = expected_env
+
+    # execute
+    system = AzureMLSystem(mock_azureml_client_config, "dummy", aml_environment_config=aml_environment_config)
+
+    # assert
+    assert expected_env == system.environment
+
+
+@patch.object(AzureMLClientConfig, "create_client")
+def test_create_managed_env(create_client_mock):
+    from olive.systems.system_config import AzureMLTargetUserConfig, SystemConfig
+    from olive.systems.utils import create_managed_system
+
+    ml_client = MagicMock()
+    ml_client.environments.get.side_effect = ResourceNotFoundError()
+    ml_client.environments.get.__name__ = "get"
+    create_client_mock.return_value = ml_client
+
+    docker_config = AzureMLDockerConfig(
+        base_image="base_image",
+        conda_file_path="conda_file_path",
+    )
+    system_config = SystemConfig(
+        type="AzureML",
+        config=AzureMLTargetUserConfig(
+            azureml_client_config=AzureMLClientConfig(),
+            aml_compute="aml_compute",
+            aml_docker_config=docker_config,
+            olive_managed_env=True,
+        ),
+    )
+    system = create_managed_system(system_config, DEFAULT_CPU_ACCELERATOR)
+    assert system.config.olive_managed_env
+
+    host_system = create_managed_system(system_config, None)
+    assert host_system.config.olive_managed_env
+
+    ml_client = MagicMock()
+    ml_client.environments.get.return_value = MagicMock()
+    ml_client.environments.get.__name__ = "get"
+    create_client_mock.return_value = ml_client
+
+    system_config = SystemConfig(
+        type="AzureML",
+        config=AzureMLTargetUserConfig(
+            azureml_client_config=AzureMLClientConfig(),
+            aml_compute="aml_compute",
+            aml_environment_config=AzureMLEnvironmentConfig(
+                name="name",
+                version="version",
+                label="label",
+            ),
+            olive_managed_env=False,
+        ),
+    )
+    system = system_config.create_system()
+    assert not system.config.olive_managed_env

@@ -46,9 +46,7 @@ def convert_phi_weights():
                 weight = config.state_dict[original_weights_key]
                 weights_shape = weight.shape
                 weight = (
-                    weight.view(3, config.num_heads, -1, config.hidden_size)
-                    .transpose(0, 1)
-                    .reshape(*weights_shape)
+                    weight.view(3, config.num_heads, -1, config.hidden_size).transpose(0, 1).reshape(*weights_shape)
                 ).view(config.num_heads, 3, -1)
                 q_proj_key = map_key(original_weights_key.replace("Wqkv", "q_proj"))
                 k_proj_key = map_key(original_weights_key.replace("Wqkv", "k_proj"))
@@ -59,7 +57,12 @@ def convert_phi_weights():
             elif "bias" in original_weights_key:
                 bias = config.state_dict[original_weights_key]
                 bias_shape = bias.shape
-                bias = bias.view(3, config.num_heads, -1).transpose(0, 1).reshape(*bias_shape).view(config.num_heads, 3, -1)
+                bias = (
+                    bias.view(3, config.num_heads, -1)
+                    .transpose(0, 1)
+                    .reshape(*bias_shape)
+                    .view(config.num_heads, 3, -1)
+                )
                 q_proj_key = map_key(original_weights_key.replace("Wqkv", "q_proj"))
                 k_proj_key = map_key(original_weights_key.replace("Wqkv", "k_proj"))
                 v_proj_key = map_key(original_weights_key.replace("Wqkv", "v_proj"))

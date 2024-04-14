@@ -1,0 +1,8 @@
+datasets
+neural-compressor>=2.4.1
+onnxruntime-extensions
+onnxruntime-gpu
+# optimum 1.17.0 for fp16 inference
+optimum>=1.17.0
+tabulate
+transformers>=4.34.99

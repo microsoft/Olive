@@ -15,7 +15,7 @@ import torch
 from packaging import version
 
 from olive.common.config_utils import validate_config
-from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device
+from olive.common.utils import exclude_keys, find_submodules, resolve_torch_dtype, tensor_data_to_device
 from olive.hardware import AcceleratorSpec
 from olive.model import (
     CompositeModelHandler,
@@ -27,9 +27,11 @@ from olive.model import (
 )
 from olive.model.config import IoConfig
 from olive.model.config.hf_config import HfConfig, get_model_type_from_hf_config
+from olive.model.config.io_config import is_kv_cache_required
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
+from olive.passes.onnx.merge_decoders import merge_decoders
 from olive.passes.pass_config import PassConfigParam
 
 logger = logging.getLogger(__name__)
@@ -61,8 +63,8 @@ class OnnxConversion(Pass):
 
     _requires_user_script = True
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "target_opset": PassConfigParam(
                 type_=int, default_value=13, description="The version of the default (ai.onnx) opset to target."
@@ -70,7 +72,7 @@ class OnnxConversion(Pass):
             "use_dynamo_exporter": PassConfigParam(
                 type_=bool, default_value=False, description="Whether to use dynamo_export API to export ONNX model."
             ),
-            "use_device": PassConfigParam(
+            "device": PassConfigParam(
                 type_=str,
                 description=(
                     "The device to use for conversion, e.g., 'cuda' or 'cpu'. If not specified, will use 'cpu' for"
@@ -90,6 +92,21 @@ class OnnxConversion(Pass):
                 required=False,
                 description="Number of parallel jobs. Defaulted to number of CPUs. Set it to 0 to disable.",
             ),
+            "merge_components": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Whether to merge the converted components.",
+            ),
+            "merge_adapter_weights": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Whether to merge adapter weights before conversion. "
+                    "After merging, the model structure is consistent with base model. "
+                    "That is useful if you cannot run conversion for some fine-tuned "
+                    "models with adapter weights"
+                ),
+            ),
         }
         config.update(get_external_data_config())
         return config
@@ -99,18 +116,21 @@ class OnnxConversion(Pass):
     ) -> Union[CompositeModelHandler, DistributedOnnxModelHandler, ONNXModelHandler]:
         # get the device to use for conversion
         # default to "cpu" for PyTorchModelHandler and "cuda" for DistributedPyTorchModel
-        device = config["use_device"] or "cpu"
+        device = config["device"] or "cpu"
         # get the dtype to use for conversion
         torch_dtype = resolve_torch_dtype(config["torch_dtype"]) if config["torch_dtype"] else None
         if torch_dtype == torch.float16 and device == "cpu":
             raise ValueError("Conversion to float16 is not supported for CPU.")
 
         if isinstance(model, DistributedPyTorchModelHandler):
-            if not config["use_device"]:
+            if not config["device"]:
                 device = "cuda"
             return self._convert_distributed_model_on_device(
                 model, data_root, config, output_model_path, device, torch_dtype
             )
+
+        if not model.hf_config or not model.hf_config.components:
+            return self._convert_model_on_device(model, data_root, config, output_model_path, device, torch_dtype)
 
         onnx_models = []
         component_names = []
@@ -124,12 +144,14 @@ class OnnxConversion(Pass):
             onnx_models.append(output_model_component)
             component_names.append(component_name)
 
-        if onnx_models:
-            return CompositeModelHandler(onnx_models, component_names)
-        else:
-            return self._convert_model_on_device(model, data_root, config, output_model_path, device, torch_dtype)
+        if config["merge_components"] and len(onnx_models) == 2:
+            merged_model = merge_decoders(onnx_models[0].model_path, onnx_models[1].model_path)
+            return model_proto_to_olive_model(merged_model, resolve_onnx_path(output_model_path), config)
+
+        return CompositeModelHandler(onnx_models, component_names)
 
     @staticmethod
+    @torch.no_grad()
     def _export_pytorch_model(
         pytorch_model: torch.nn.Module,
         dummy_inputs,
@@ -160,7 +182,7 @@ class OnnxConversion(Pass):
             pytorch_model = pytorch_model.get_base_model()
 
         # put pytorch_model and dummy_inputs at the same device
-        logger.debug(f"Converting model on device {device} with dtype {torch_dtype}.")
+        logger.debug("Converting model on device %s with dtype %s.", device, torch_dtype)
         pytorch_model.to(device)
         if torch_dtype:
             pytorch_model = pytorch_model.to(torch_dtype)
@@ -169,58 +191,75 @@ class OnnxConversion(Pass):
         if isinstance(pytorch_model, torch.jit.RecursiveScriptModule):
             pytorch_model = TraceModelWrapper(pytorch_model)
 
+        # get input and output names, and dynamic axes
+        assert (
+            io_config is not None
+        ), "Cannot get io_config for the model. Please specify io_config or hf_config for the model"
+        io_config = validate_config(io_config, IoConfig)
+        input_names = io_config.input_names
+
+        # some dummy inputs might not be used in the model, so we need to remove them
+        # this can happen when we are using an hf dataset to generate dummy inputs
+        # only handle dict for now since we cannot get the name of the input from a list/tuple
+        if isinstance(dummy_inputs, dict):
+            dummy_input_keys = set(dummy_inputs.keys())
+
+            # after the expansion, user should provide the correct input names for inference
+            for name, dm_input in dummy_inputs.items():
+                # the `past_key_values` is the argument name from huggingface model class
+                # which is independent of the kv-related variables in input list provided by users
+                # if user provided the kv-related variables, we should not remove
+                # the `past_key_values` from dummy inputs. But if not, we should remove it.
+                if (
+                    name == "past_key_values"
+                    and isinstance(dm_input, list)
+                    and is_kv_cache_required(dm_input, io_config)
+                ):
+                    dummy_input_keys.discard(name)
+
+            unused_keys = dummy_input_keys - set(input_names)
+
+            if unused_keys:
+                logger.debug("Removing unused dummy inputs: %s", unused_keys)
+
         onnx_model = None
         if config["use_dynamo_exporter"]:
-            # available since torch==2.1.0
             torch_version = torch.__version__
-            if version.parse(torch_version) < version.parse("2.1.0"):
+            if version.parse(torch_version) < version.parse("2.2.0"):
                 raise ImportError(
                     f"torch.onnx.dynamo_export is not available for torch version {torch_version}. "
-                    "Please upgrade your torch version to 2.1.0 or above."
+                    "Please upgrade your torch version to 2.2.0 or above."
                 )
+            from torch._dynamo import config
             from torch.onnx import dynamo_export
 
-            exported = dynamo_export(
-                pytorch_model,
-                *dummy_inputs,
-                export_options=torch.onnx.ExportOptions(opset_version=config["target_opset"], dynamic_shapes=True),
-            )
-            onnx_model = exported.model_proto
+            config.capture_scalar_outputs = True
+
+            if isinstance(dummy_inputs, dict):
+                for key in unused_keys:
+                    dummy_inputs[key] = None
+
+            pytorch_model(*dummy_inputs.values())
+
+            with tempfile.TemporaryDirectory(dir=tempdir, prefix="olive_tmp") as tmp_dir:
+                tmp_dir_path = Path(tmp_dir)
+                tmp_model_path = resolve_onnx_path(tmp_dir_path)
+
+                dynamo_export(
+                    pytorch_model,
+                    *dummy_inputs.values(),
+                    export_options=torch.onnx.ExportOptions(dynamic_shapes=True),
+                ).save(tmp_model_path)
+                onnx.checker.check_model(tmp_model_path)
+                onnx.shape_inference.infer_shapes_path(tmp_model_path)
+                onnx_model = onnx.load(tmp_model_path)
         else:
             # Standard ONNX export
+            if isinstance(dummy_inputs, dict):
+                dummy_inputs = exclude_keys(dummy_inputs, unused_keys)
 
-            # get input and output names, and dynamic axes
-            assert (
-                io_config is not None
-            ), "Cannot get io_config for the model. Please specify io_config or hf_config for the model"
-            io_config = validate_config(io_config, IoConfig)
-            input_names = io_config.input_names
             output_names = io_config.output_names
             dynamic_axes = io_config.dynamic_axes
-
-            # some dummy inputs might not be used in the model, so we need to remove them
-            # this can happen when we are using an hf dataset to generate dummy inputs
-            # only handle dict for now since we cannot get the name of the input from a list/tuple
-            if isinstance(dummy_inputs, dict):
-                dummy_input_keys = set(dummy_inputs.keys())
-
-                # handle dummy inputs for model with past, which has past_key_values
-                # match input names in `past_key_values.(hidden_layer_num).(key|value)` pattern
-                for name, dm_input in dummy_inputs.items():
-                    if isinstance(dm_input, list):
-                        key_value_names = set(
-                            [f"{name}.{idx}.key" for idx in range(len(dm_input))]
-                            + [f"{name}.{idx}.value" for idx in range(len(dm_input))]
-                        )
-                        if key_value_names.issubset(set(input_names)):
-                            dummy_input_keys.discard(name)
-
-                unused_keys = dummy_input_keys - set(input_names)
-
-                if unused_keys:
-                    logger.debug(f"Removing unused dummy inputs: {unused_keys}")
-                for key in unused_keys:
-                    del dummy_inputs[key]
 
             # there might be multiple files created during export, so we need to track the dir
             # if there are other processes writing to the same dir, we might end up deleting files created by
@@ -282,72 +321,77 @@ class OnnxConversion(Pass):
                 - the onnx model must be quantized using OnnxBnb4Quantization pass after conversion
         Model attributes is None if the output model should inherit the model attributes from the input model.
         """
+        pytorch_model = None
+        model_attributes = deepcopy(model.model_attributes or {})
         if not model.is_model_loaded_from_hf_config() or not model.hf_config.from_pretrained_args:
             # if the model is not loaded from hf config, or the model loading args is not specified,
             # we can load the model directly
-            return model.load_model(), None
+            pytorch_model = model.load_model()
+        else:
+            from_pretrained_args = model.hf_config.from_pretrained_args
+            model_dtype = from_pretrained_args.get_torch_dtype()
+            new_from_pretrained_args = deepcopy(from_pretrained_args.dict())
+            if torch_dtype and torch_dtype != model_dtype:
+                # if the model loading args specify a different dtype, update the model loading args
+                logger.debug(
+                    "Changing torch_dtype in model loading args from %s to %s.",
+                    from_pretrained_args.get_torch_dtype(),
+                    torch_dtype,
+                )
+                new_from_pretrained_args["torch_dtype"] = torch_dtype
+                model_attributes["torch_dtype"] = str(torch_dtype).replace("torch.", "")
+            elif model_dtype == torch.float16 and device == "cpu":
+                logger.warning(
+                    "Loading model on CPU, but the model loading args specify dtype float16 which is not supported  for"
+                    " conversion on CPU. The dtype is changed to float32. If float16 model is desired, please specify"
+                    " device as 'cuda' or use OrtTransformerOptimization/OnnxFloatToFloat16 pass after conversion to"
+                    " convert the model to float16."
+                )
+                new_from_pretrained_args["torch_dtype"] = torch.float32
+                model_attributes["torch_dtype"] = "float32"
 
-        from_pretrained_args = model.hf_config.from_pretrained_args
-        model_dtype = from_pretrained_args.get_torch_dtype()
-        new_from_pretrained_args = deepcopy(from_pretrained_args.dict())
-        new_model_attributes = model.model_attributes or {}
-        if torch_dtype and torch_dtype != model_dtype:
-            # if the model loading args specify a different dtype, update the model loading args
-            logger.debug(
-                f"Changing torch_dtype in model loading args from {from_pretrained_args.get_torch_dtype()} to"
-                f" {torch_dtype}."
-            )
-            new_from_pretrained_args["torch_dtype"] = torch_dtype
-            new_model_attributes["torch_dtype"] = str(torch_dtype).replace("torch.", "")
-        elif model_dtype == torch.float16 and device == "cpu":
-            logger.warning(
-                "Loading model on CPU, but the model loading args specify dtype float16 which is not supported  for"
-                " conversion on CPU. The dtype is changed to float32. If float16 model is desired, please specify"
-                " use_device as 'cuda' or use OrtTransformerOptimization/OnnxFloatToFloat16 pass after conversion to"
-                " convert the model to float16."
-            )
-            new_from_pretrained_args["torch_dtype"] = torch.float32
-            new_model_attributes["torch_dtype"] = "float32"
+            if (
+                from_pretrained_args.quantization_method == "bitsandbytes"
+                and from_pretrained_args.quantization_config["load_in_4bit"]
+            ):
+                logger.warning(
+                    "Bitsandbytes 4bit quantization is not supported for conversion. The quantization config is removed"
+                    " from the model loading args. Use OnnxBnb4Quantization pass after conversion to quantize the"
+                    " model."
+                )
+                new_from_pretrained_args["quantization_method"] = None
+                new_from_pretrained_args["quantization_config"] = None
+                model_attributes["quantization_config"] = from_pretrained_args.quantization_config
+                if "quantized_modules" not in model_attributes:
+                    # find and add quantized modules to the model attributes
+                    # the QLoRA pass already adds quantized_modules to the model attributes, so this will not be
+                    # executed if the model was generated by QLoRA
+                    quantized_model = model.load_model()
 
-        if (
-            from_pretrained_args.quantization_method == "bitsandbytes"
-            and from_pretrained_args.quantization_config["load_in_4bit"]
-        ):
-            logger.warning(
-                "Bitsandbytes 4bit quantization is not supported for conversion. The quantization config is removed"
-                " from the model loading args. Use OnnxBnb4Quantization pass after conversion to quantize the model."
-            )
-            new_from_pretrained_args["quantization_method"] = None
-            new_from_pretrained_args["quantization_config"] = None
-            new_model_attributes["quantization_config"] = from_pretrained_args.quantization_config
-            if "quantized_modules" not in new_model_attributes:
-                # find and add quantized modules to the model attributes
-                # the QLoRA pass already adds quantized_modules to the model attributes, so this will not be executed
-                # if the model was generated by QLoRA
-                quantized_model = model.load_model()
+                    # if PeftModel, need to unload adapter before finding quantized modules
+                    if is_peft_model(quantized_model):
+                        quantized_model = quantized_model.unload()
 
-                # if PeftModel, need to unload adapter before finding quantized modules
-                if is_peft_model(quantized_model):
-                    quantized_model = quantized_model.unload()
+                    import bitsandbytes as bnb
 
-                import bitsandbytes as bnb
+                    model_attributes["quantized_modules"] = find_submodules(quantized_model, bnb.nn.Linear4bit)
 
-                new_model_attributes["quantized_modules"] = find_submodules(quantized_model, bnb.nn.Linear4bit)
+                    # required for peft models since unloading changes the model
+                    # for others, do this to free gpu memory as quantized model is always on gpu
+                    del quantized_model
+                    model.model = None
 
-                # required for peft models since unloading changes the model
-                # for others, do this to free gpu memory as quantized model is always on gpu
-                del quantized_model
-                model.model = None
-
-        # load the model with the updated model loading args
-        new_hf_config = deepcopy(model.hf_config)
-        new_hf_config.from_pretrained_args = HfFromPretrainedArgs(**new_from_pretrained_args)
-        return (
-            PyTorchModelHandler(
+            # load the model with the updated model loading args
+            new_hf_config = deepcopy(model.hf_config)
+            new_hf_config.from_pretrained_args = HfFromPretrainedArgs(**new_from_pretrained_args)
+            pytorch_model = PyTorchModelHandler(
                 model_path=model.model_path, adapter_path=model.adapter_path, hf_config=new_hf_config
-            ).load_model(),
-            new_model_attributes,
-        )
+            ).load_model()
+
+        if is_peft_model(pytorch_model):
+            model_attributes["lora_modules"] = list(pytorch_model.peft_config["default"].target_modules)
+
+        return pytorch_model, model_attributes
 
     def _convert_model_on_device(
         self,
@@ -361,11 +405,14 @@ class OnnxConversion(Pass):
         """Convert a PyTorchModelHandler to an ONNXModelHandler."""
         # load the model
         pytorch_model, model_attributes = self._load_pytorch_model(model, device, torch_dtype)
+        if config["merge_adapter_weights"] and is_peft_model(pytorch_model):
+            logger.debug("Merging adapter weights into base model. This is specific to PeftModel.")
+            pytorch_model = pytorch_model.merge_and_unload()
         pytorch_model.eval()
 
         # get dummy inputs
         dummy_inputs = model.get_dummy_inputs()
-        io_config = None if config["use_dynamo_exporter"] else model.get_io_config()
+        io_config = model.get_io_config()
 
         converted_onnx_model = OnnxConversion._export_pytorch_model(
             pytorch_model, dummy_inputs, io_config, config, device, torch_dtype, tempfile.tempdir
@@ -412,13 +459,37 @@ class OnnxConversion(Pass):
             restore_args = replace_tensor_parallel_layers()
 
             input_model = DistributedPyTorchModelHandler(**model_config)
-            olive_pytorch_model = input_model.load_model(local_rank)
-            dummy_inputs = olive_pytorch_model.get_dummy_inputs()
-            io_config = None if pass_config["use_dynamo_exporter"] else olive_pytorch_model.get_io_config()
-            pytorch_model = olive_pytorch_model.prepare_session(rank=local_rank)
 
-            with torch.no_grad():
-                ranked_onnx_model = OnnxConversion._export_pytorch_model(
+            if input_model.hf_config and input_model.hf_config.components:
+                ranked_models = []
+                for _, component_model in input_model.get_hf_components(local_rank):
+                    dummy_inputs = component_model.get_dummy_inputs()
+                    io_config = None if pass_config["use_dynamo_exporter"] else component_model.get_io_config()
+                    pytorch_model = component_model.prepare_session(rank=local_rank)
+
+                    ranked_component_modelproto = OnnxConversion._export_pytorch_model(
+                        pytorch_model,
+                        dummy_inputs,
+                        io_config,
+                        pass_config,
+                        device,
+                        torch_dtype,
+                        tempdir,
+                    )
+
+                    ranked_models.append(ranked_component_modelproto)
+
+                if len(ranked_models) == 2:
+                    ranked_onnx_modelproto = merge_decoders(ranked_models[0], ranked_models[1])
+                else:
+                    raise RuntimeError("DistributedOnnxModelHandler can handle exactly 2 components.")
+            else:
+                olive_pytorch_model = input_model.load_model(local_rank)
+                dummy_inputs = olive_pytorch_model.get_dummy_inputs()
+                io_config = None if pass_config["use_dynamo_exporter"] else olive_pytorch_model.get_io_config()
+                pytorch_model = olive_pytorch_model.prepare_session(rank=local_rank)
+
+                ranked_onnx_modelproto = OnnxConversion._export_pytorch_model(
                     pytorch_model,
                     dummy_inputs,
                     io_config,
@@ -427,11 +498,12 @@ class OnnxConversion(Pass):
                     torch_dtype,
                     tempdir,
                 )
-        finally:
-            restore_tensor_parallel_layers(restore_args)
 
-        # save the model to the output path and return the model
-        model_proto_to_olive_model(ranked_onnx_model, output_filepath, pass_config)
+            # save the model to the output path
+            model_proto_to_olive_model(ranked_onnx_modelproto, output_filepath, pass_config)
+        finally:
+            restore_tensor_parallel_layers(restore_args)  # pylint: disable=used-before-assignment
+
         return 1  # Return 1 for success.
 
     def _convert_distributed_model_on_device(
@@ -483,8 +555,8 @@ class OnnxConversion(Pass):
 
 
 class OnnxOpVersionConversion(Pass):
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         latest_opset_version = onnx.defs.onnx_opset_version()
 
         config = {
@@ -504,7 +576,7 @@ class OnnxOpVersionConversion(Pass):
         model_proto = model.load_model()
         model_opset_version = model_proto.opset_import[0].version
         if model_opset_version == config["target_opset"]:
-            logger.info(f"Model is already in target opset version {config['target_opset']}.")
+            logger.info("Model is already in target opset version %s.", config["target_opset"])
             return model
 
         output_model_path = resolve_onnx_path(output_model_path)

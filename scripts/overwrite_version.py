@@ -16,7 +16,7 @@ def main():
     args = get_args()
     version = args.version
 
-    init_path = Path(__file__).parent.parent.resolve() / "olive" / "__init__.py"
+    init_path = Path(__file__).parents[1].resolve() / "olive" / "__init__.py"
     with open(init_path) as f:
         lines = f.readlines()
         for i, line in enumerate(lines):

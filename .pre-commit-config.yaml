@@ -9,15 +9,10 @@ repos:
       - id: requirements-txt-fixer
 
   - repo: https://github.com/psf/black
-    rev: 23.7.0
+    rev: 24.1.0
     hooks:
       - id: black
         name: Format code
-  - repo: https://github.com/PyCQA/flake8
-    rev: 6.1.0
-    hooks:
-      - id: flake8
-        name: Check PEP8
   - repo: https://github.com/pycqa/isort
     rev: 5.11.5
     hooks:
@@ -30,7 +25,7 @@ repos:
         exclude: examples/directml/llm/chat_app/
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
-    rev: v0.1.8
+    rev: v0.2.0
     hooks:
       - id: ruff
         args: [ --fix ]

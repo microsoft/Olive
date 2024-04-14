@@ -5,12 +5,11 @@
         "workspace_name": "<workspace_name>"
     },
     "input_model":{
-        "type": "OptimumModel",
+        "type": "PyTorchModel",
         "config": {
-            "model_path": "openlm-research/open_llama_3b",
-            "model_components": ["decoder_model.onnx", "decoder_with_past_model.onnx"],
             "hf_config": {
-                "model_class": "LlamaForCausalLM"
+                "model_name": "openlm-research/open_llama_3b",
+                "task": "text-generation"
             }
         }
     },
@@ -18,7 +17,14 @@
         "aml": {
             "type": "AzureML",
             "config": {
-                "accelerators": ["gpu"],
+                "accelerators": [
+                    {
+                        "device": "gpu",
+                        "execution_providers": [
+                            "CUDAExecutionProvider"
+                        ]
+                    }
+                ],
                 "aml_compute": "gpu-cluster",
                 "aml_docker_config": {
                     "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.6-cudnn8-ubuntu20.04",
@@ -29,7 +35,14 @@
         "azure_arc": {
             "type": "AzureML",
             "config": {
-                "accelerators": ["gpu"],
+                "accelerators": [
+                    {
+                        "device": "gpu",
+                        "execution_providers": [
+                            "CUDAExecutionProvider"
+                        ]
+                    }
+                ],
                 "aml_compute": "olive-test",
                 "aml_docker_config": {
                     "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.6-cudnn8-ubuntu20.04",
@@ -59,8 +72,11 @@
             "type": "OptimumConversion",
             "config": {
                 "target_opset": 14,
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true
+                "components": ["decoder_model", "decoder_with_past_model"],
+                "extra_args": {
+                    "legacy": true,
+                    "no_post_process": true
+                }
             }
         },
         "optimize": {
@@ -85,7 +101,6 @@
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
         "output_name": "ollama",
-        "execution_providers": ["CUDAExecutionProvider"],
         "target": "azure_arc",
         "host": "aml",
         "output_dir": "models/open_llama_arc"

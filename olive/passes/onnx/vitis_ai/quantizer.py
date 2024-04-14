@@ -43,6 +43,7 @@ from olive.passes.onnx.vitis_ai.quant_utils import (
     get_annotate_output_name,
     get_qdq_to_remove,
     get_relu_name,
+    is_ort_version_below_1_17,
     quantize_data_pof2s,
     remove_nodes,
     vitis_quantize_data,
@@ -310,20 +311,24 @@ class VitisQOpQuantizer(ONNXQuantizer):
         # Update packed weight, zero point, and scale initializers
         weight_data = tensor_proto_to_array(weight)
         _, _, zero_point, scale, q_weight_data = quantize_data_pof2s(
-            weight_data.flatten().tolist(),
+            weight_data.flatten(),
             qType,
             self.is_weight_symmetric,
             self.reduce_range and reduce_range,
             method=PowerOfTwoMethod.NonOverflow,
         )
-        scale_initializer = onnx.helper.make_tensor(scale_name, onnx_proto.TensorProto.FLOAT, [], [scale])
-        zero_initializer = onnx.helper.make_tensor(zp_name, qType, [], [zero_point])
-        self.model.initializer().extend([scale_initializer, zero_initializer])
+        if is_ort_version_below_1_17():
+            scale_qType = onnx_proto.TensorProto.FLOAT
+            weight_qType = onnx.mapping.TENSOR_TYPE_TO_NP_TYPE[qType]
+        else:
+            scale_qType = onnx.helper.np_dtype_to_tensor_dtype(scale.dtype)
+            weight_qType = onnx.helper.tensor_dtype_to_np_dtype(qType)
 
+        scale_initializer = onnx.helper.make_tensor(scale_name, scale_qType, [], [float(scale)])
+        zero_initializer = onnx.helper.make_tensor(zp_name, qType, [], [int(zero_point)])
+        self.model.initializer().extend([scale_initializer, zero_initializer])
         if not keep_float_weight:
-            q_weight_data = np.asarray(q_weight_data, dtype=onnx.mapping.TENSOR_TYPE_TO_NP_TYPE[qType]).reshape(
-                weight.dims
-            )
+            q_weight_data = np.asarray(q_weight_data, dtype=weight_qType).reshape(weight.dims)
             q_weight_initializer = onnx.numpy_helper.from_array(q_weight_data, q_weight_name)
             self.model.initializer().extend([q_weight_initializer])
 
@@ -462,7 +467,7 @@ class VitisQOpQuantizer(ONNXQuantizer):
 
                 zero, scale = compute_scale_zp_pof2s(rmin, rmax, qmin, qmax, self.is_activation_symmetric)
                 if is_ort_version_below_1_17():
-                    quantization_params[tensor_name] = QuantizationParams(zero_point=zero, scale=scale)
+                    quantization_params[tensor_name] = QuantizationParams(zero_point=int(zero), scale=float(scale))
                 else:
                     quantization_params[tensor_name] = QuantizationParams(
                         zero_point=zero, scale=scale, quant_type=self.activation_qType
@@ -545,14 +550,23 @@ class VitisQDQQuantizer(VitisQOpQuantizer):
         """
         Check if tensor can be quantized
         """
+        return self._tensor_quantizable_data_type(tensor_name) is not None
+
+    def _tensor_quantizable_data_type(self, tensor_name):
+        """
+        Return the tensor type if it is quantizable.
+        """
         weight = find_by_name(tensor_name, self.model.initializer())
         if weight is not None:
-            if weight.data_type == onnx_proto.TensorProto.FLOAT:
-                return True
+            if weight.data_type in {onnx_proto.TensorProto.FLOAT, onnx_proto.TensorProto.FLOAT16}:
+                return weight.data_type
         elif tensor_name in self.value_infos.keys():
             vi = self.value_infos[tensor_name]
-            if vi.type.HasField("tensor_type") and vi.type.tensor_type.elem_type == TensorProto.FLOAT:
-                return True
+            if vi.type.HasField("tensor_type") and vi.type.tensor_type.elem_type in {
+                TensorProto.FLOAT,
+                TensorProto.FLOAT16,
+            }:
+                return vi.type.tensor_type.elem_type
         else:
             logger.warning(
                 "failed to infer the type of tensor: {}. Skip to quantize it. Please check if it is expected.".format(
@@ -560,7 +574,7 @@ class VitisQDQQuantizer(VitisQOpQuantizer):
                 )
             )
 
-        return False
+        return None
 
     def __quantize_tensor(self, tensor_name, quant_sharing_param=None, tensor_type=QDQQuantTensorType.ACTIVATION):
         """
@@ -571,13 +585,27 @@ class VitisQDQQuantizer(VitisQOpQuantizer):
             quant_sharing_param: name of the tensor that provides quantization parameter
             tensor_type: QDQQuantTensorType default ACTIVATION
         """
-        if self._is_tensor_quantizable(tensor_name):
+        data_type = self._tensor_quantizable_data_type(tensor_name)
+        if data_type is not None:
             if quant_sharing_param:
-                self.tensors_to_quantize[tensor_name] = QDQTensorQuantInfo(
-                    tensor_type=tensor_type, quant_para_provider=quant_sharing_param
-                )
+                try:
+                    self.tensors_to_quantize[tensor_name] = QDQTensorQuantInfo(
+                        tensor_type=tensor_type, quant_para_provider=quant_sharing_param, data_type=data_type
+                    )
+                except TypeError:
+                    # onnxruntime<1.17
+                    self.tensors_to_quantize[tensor_name] = QDQTensorQuantInfo(
+                        tensor_type=tensor_type,
+                        quant_para_provider=quant_sharing_param,
+                    )
             elif tensor_name not in self.tensors_to_quantize:
-                self.tensors_to_quantize[tensor_name] = QDQTensorQuantInfo(tensor_type=tensor_type)
+                try:
+                    self.tensors_to_quantize[tensor_name] = QDQTensorQuantInfo(
+                        tensor_type=tensor_type, data_type=data_type
+                    )
+                except TypeError:
+                    # onnxruntime<1.17
+                    self.tensors_to_quantize[tensor_name] = QDQTensorQuantInfo(tensor_type=tensor_type)
 
     def quantize_activation_tensor(self, tensor_name, quant_sharing_param=None):
         """

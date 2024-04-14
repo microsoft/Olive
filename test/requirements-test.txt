@@ -1,4 +1,5 @@
 accelerate
+auto-gptq
 azure-ai-ml
 azure-identity
 azure-storage-blob
@@ -11,13 +12,14 @@ coverage
 datasets
 docker
 evaluate
+git+https://github.com/microsoft/TransformerCompression.git ; python_version >= "3.10"
 mlflow>=2.4.0
 neural-compressor
+nncf==2.7.0
 onnxconverter_common
 onnxruntime-extensions
-openvino==2022.3.0
-openvino-dev==2022.3.0
-optimum
+openvino==2023.2.0
+optimum>=1.17.0
 pandas
 peft
 plotly

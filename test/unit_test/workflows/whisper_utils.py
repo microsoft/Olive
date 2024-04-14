@@ -1,20 +1,21 @@
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
 from transformers import AutoConfig, AutoProcessor, WhisperConfig, file_utils
 
-from olive.model.handler.pytorch import PyTorchModelHandler
+if TYPE_CHECKING:
+    from olive.model.handler.pytorch import PyTorchModelHandler
 
 
-def get_decoder(olive_model: PyTorchModelHandler):
+def get_decoder(olive_model: "PyTorchModelHandler"):
     # model is WhisperForConditionalGeneration
     model = olive_model.load_model()
     return WhisperDecoder(model, model.config)
 
 
-def get_dec_io_config(olive_model: PyTorchModelHandler):
+def get_dec_io_config(olive_model: "PyTorchModelHandler"):
     # Fix past disappearing bug - duplicate first past entry
     # input_list.insert(2, input_list[2])
     config = olive_model.get_hf_model_config()
@@ -56,7 +57,7 @@ def get_dec_io_config(olive_model: PyTorchModelHandler):
     }
 
 
-def decoder_dummy_inputs(olive_model: PyTorchModelHandler):
+def decoder_dummy_inputs(olive_model: "PyTorchModelHandler"):
     inputs = WhisperDecoderInputs.create_dummy(
         olive_model.get_hf_model_config(),
         batch_size=2,
@@ -68,7 +69,7 @@ def decoder_dummy_inputs(olive_model: PyTorchModelHandler):
     return tuple(inputs.to_list())
 
 
-def get_encdec_io_config(olive_model: PyTorchModelHandler):
+def get_encdec_io_config(olive_model: "PyTorchModelHandler"):
     # model is WhisperEncoderDecoderInit
     model = olive_model.load_model()
     use_decoder_input_ids = True
@@ -141,7 +142,7 @@ def get_encdec_io_config(olive_model: PyTorchModelHandler):
     }
 
 
-def get_encoder_decoder_init(olive_model: PyTorchModelHandler):
+def get_encoder_decoder_init(olive_model: "PyTorchModelHandler"):
     # model is WhisperForConditionalGeneration
     model = olive_model.load_model()
     return WhisperEncoderDecoderInit(
@@ -152,7 +153,7 @@ def get_encoder_decoder_init(olive_model: PyTorchModelHandler):
     )
 
 
-def encoder_decoder_init_dummy_inputs(olive_model: PyTorchModelHandler):
+def encoder_decoder_init_dummy_inputs(olive_model: "PyTorchModelHandler"):
     inputs = WhisperEncoderDecoderInitInputs.create_dummy(
         olive_model.get_hf_model_config(),
         batch_size=2,
@@ -301,6 +302,7 @@ class WhisperDecoderInputs:
 
         Returns:
             WhisperDecoderInputs: dummy inputs for decoder
+
         """
         num_attention_heads: int = config.encoder_attention_heads
         num_layers: int = config.decoder_layers  # + config.encoder_layers
@@ -337,10 +339,10 @@ class WhisperDecoderInputs:
 
             past = []
             for _ in range(2 * num_layers):
-                past.append(torch.rand(self_attention_past_shape, dtype=float_type, device=device))
+                past.append(torch.rand(self_attention_past_shape, dtype=float_type, device=device))  # noqa: PERF401
 
             for _ in range(2 * num_layers):
-                past.append(torch.rand(cross_attention_past_shape, dtype=float_type, device=device))
+                past.append(torch.rand(cross_attention_past_shape, dtype=float_type, device=device))  # noqa: PERF401
         else:
             past = None
 
@@ -392,6 +394,7 @@ class WhisperEncoderInputs:
 
         Returns:
             WhisperEncoderInputs: dummy inputs for encoder
+
         """
         input_features = torch.randn(
             size=(batch_size, feature_size, sequence_length),
@@ -519,6 +522,7 @@ class PastKeyValuesHelper:
 
         Returns:
             past_tuples: present key and values grouped by layer.
+
         """
         past_tuples = ()
         half_idx = len(past_key_values) // 2
@@ -551,6 +555,7 @@ class PastKeyValuesHelper:
         Returns:
             present_self (Tuple[torch.Tensor]): present key and values from self attention
             present_cross (Tuple[torch.Tensor]): present key and values from cross attention
+
         """
         present_self: List[torch.Tensor] = []
         present_cross: List[torch.Tensor] = []
@@ -574,6 +579,7 @@ class PastKeyValuesHelper:
 
         Returns:
             names (List[string]): input names
+
         """
         names = []
         num_layers = len(past_key_values) // 4 if encoder else len(past_key_values)
@@ -610,7 +616,7 @@ class WhisperDataset:
         self.data = []
         for audio_file in audio_files:
             if use_audio_decoder:
-                with open(audio_file, "rb") as _f:  # noqa: PTH123
+                with open(audio_file, "rb") as _f:
                     audio_blob = np.asarray(list(_f.read()), dtype=np.uint8)
                 audio_input_name = "audio_stream"
             else:

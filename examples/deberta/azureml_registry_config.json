@@ -85,7 +85,6 @@
         },
         "clean_cache": true,
         "evaluator": "common_evaluator",
-        "execution_providers": ["CPUExecutionProvider"],
         "cache_dir": "cache",
         "output_dir" : "models/microsoft-deberta"
     }

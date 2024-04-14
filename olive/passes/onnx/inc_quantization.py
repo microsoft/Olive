@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import os
 import tempfile
 from copy import deepcopy
 from pathlib import Path
@@ -12,6 +13,7 @@ from packaging import version
 
 from olive.cache import get_local_path_from_root
 from olive.common.config_utils import validate_config
+from olive.common.utils import exclude_keys
 from olive.data.config import DataConfig
 from olive.evaluator.metric import Metric, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
@@ -28,6 +30,7 @@ from olive.strategy.search_parameter import Boolean, Categorical, Conditional
 logger = logging.getLogger(__name__)
 
 _inc_quantization_config = {
+    # TODO(myguo): consider remove the device since now we have accelerator_spec.device
     "device": PassConfigParam(
         type_=str,
         default_value="cpu",
@@ -51,6 +54,13 @@ _inc_quantization_config = {
             automatically, and explicitly specified quantization settings will override the automatic setting.
             If users set domain as auto, automatic detection for domain will be executed.
         """,
+    ),
+    "workspace": PassConfigParam(
+        type_=str,
+        default_value=None,
+        description="""Workspace for Intel® Neural Compressor quantization where intermediate files and
+            tuning history file are stored.  Default value is:
+            "./nc_workspace/{}/".format(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))""",
     ),
     "recipes": PassConfigParam(
         type_=dict,
@@ -271,14 +281,15 @@ class IncQuantization(Pass):
     """Quantize ONNX model with Intel® Neural Compressor."""
 
     _requires_user_script = True
+    run_on_target = True
 
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
         """Override this method to return False by using the accelerator spec information."""
         return False
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "approach": PassConfigParam(
                 type_=str,
@@ -288,7 +299,7 @@ class IncQuantization(Pass):
                 Intel® Neural Compressor Quantization mode. 'dynamic' for dynamic quantization,
                 'static' for static quantization, "weight_only" for 4-bits weight-only quantization.
             """,
-            )
+            ),
         }
 
         # common quantization config
@@ -469,6 +480,10 @@ class IncQuantization(Pass):
     def _run_for_config(
         self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
+        if "LOGLEVEL" not in os.environ:
+            # set the log level for neural-compressor
+            os.environ["LOGLEVEL"] = logging.getLevelName(logger.getEffectiveLevel())
+
         try:
             from neural_compressor import quantization
             from neural_compressor.config import PostTrainingQuantConfig
@@ -501,6 +516,12 @@ class IncQuantization(Pass):
         eval_func, accuracy_criterion, tuning_criterion = self._set_tuning_config(run_config, data_root)
         weight_only_config = self._set_woq_config(run_config)
 
+        workspace = run_config.pop("workspace", None)
+        if workspace:
+            from neural_compressor import set_workspace
+
+            set_workspace(workspace)
+
         # keys not needed for quantization
         to_delete = [
             "script_dir",
@@ -515,9 +536,7 @@ class IncQuantization(Pass):
             "weight_only_config",
         ]
         to_delete += list(get_external_data_config().keys())
-        for key in to_delete:
-            if key in run_config:
-                del run_config[key]
+        run_config = exclude_keys(run_config, to_delete)
 
         run_config["op_type_dict"] = (
             run_config["op_type_dict"] or {".*": {"weight": weight_only_config}}
@@ -533,7 +552,9 @@ class IncQuantization(Pass):
 
         inc_calib_dataloader = None
         if require_dataloader:
-            if self._user_module_loader:
+            # Never directly use `if self._user_module_loader` to check dataloader is provided or not
+            # self._user_module_loader is always not None since it is initialized in __init__
+            if config["dataloader_func"]:
                 data_dir = get_local_path_from_root(data_root, config["data_dir"])
                 inc_calib_dataloader = self._user_module_loader.call_object(
                     config["dataloader_func"],
@@ -544,7 +565,14 @@ class IncQuantization(Pass):
                 )
             elif config["data_config"]:
                 data_config = validate_config(config["data_config"], DataConfig)
-                inc_calib_dataloader = data_config.to_data_container().create_calibration_dataloader(data_root)
+                # inc quantization's calibration dataloader requires:
+                # 1. input: (input, label)
+                # 2. the dataloader should have the attributes of "__iter__" and "batch_size"
+                #  which is data_config's create_dataloader but not create_calibration_dataloader
+                inc_calib_dataloader = data_config.to_data_container().create_dataloader(data_root)
+
+        if run_config.get("diagnosis", False):
+            assert inc_calib_dataloader is not None, "diagnosis mode requires dataloader"
 
         q_model = quantization.fit(
             model.model_path, ptq_config, calib_dataloader=inc_calib_dataloader, eval_func=eval_func
@@ -555,6 +583,14 @@ class IncQuantization(Pass):
                 "find any quantized model which meet accuracy goal. "
                 "Try to increase 'max_trials' in 'tuning_criterion'."
             )
+
+        # reload weight for model with size > 2GB to prevent error of missing weight files
+        if q_model.is_large_model:
+            from onnx.external_data_helper import load_external_data_for_model
+
+            # pylint: disable=protected-access
+            load_external_data_for_model(q_model.model, os.path.dirname(q_model._model_path))
+
         # save the model to the output path and return the model
         return model_proto_to_olive_model(q_model.model, output_model_path, config)
 
@@ -564,8 +600,8 @@ class IncDynamicQuantization(IncQuantization):
 
     _requires_user_script = False
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, Any]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, Any]:
         config = {
             "approach": PassConfigParam(type_=str, default_value="dynamic", description="dynamic quantization mode")
         }
@@ -584,10 +620,16 @@ class IncDynamicQuantization(IncQuantization):
 class IncStaticQuantization(IncQuantization):
     """Intel® Neural Compressor Static Quantization Pass."""
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, Any]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, Any]:
         config = {
-            "approach": PassConfigParam(type_=str, default_value="static", description="static quantization mode")
+            "approach": PassConfigParam(type_=str, default_value="static", description="static quantization mode"),
+            "diagnosis": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="""Whether to enable diagnosis mode. If enabled,
+                Intel® Neural Compressor will print the quantization summary.""",
+            ),
         }
         # common quantization config
         config.update(deepcopy(_inc_quantization_config))

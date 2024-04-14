@@ -52,14 +52,12 @@
         },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
-            "disable_search": true,
             "config":{
                 "model_type": "bert"
             }
         },
         "quantization": {
             "type": "IncStaticQuantization",
-            "disable_search": true,
             "config": {
                 "quant_format": "QOperator",
                 "user_script": "user_script.py",
@@ -84,10 +82,6 @@
         }
     },
     "engine": {
-        "search_strategy": {
-            "execution_order": "joint",
-            "search_algorithm": "exhaustive"
-        },
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
         "output_dir": "models/bert_inc_static_ptq_cpu"

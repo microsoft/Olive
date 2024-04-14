@@ -1,5 +1,12 @@
 # ResNet Optimization
 This folder contains examples of ResNet optimization using different workflows.
+- CPU: [with ONNX Runtime optimizations and static/dynamic quantization](#resnet-optimization-with-ptq-on-cpu)
+- CPU: [with PyTorch QAT Default Training Loop and ORT optimizations](#resnet-optimization-with-qat-default-training-loop-on-cpu)
+- CPU: [with PyTorch QAT PyTorch Lightning Module and ORT optimizations](#resnet-optimization-with-qat-pytorch-lightning-module-on-cpu)
+- AMD DPU: [with AMD Vitis-AI Quantization](#resnet-optimization-with-vitis-ai-ptq-on-amd-dpu)
+- Intel GPU: [with OpenVINO and DirectML execution providers in ONNX Runtime](#resnet-optimization-with-openvino-and-dml-execution-providers)
+
+Go to [How to run](#how-to-run)
 
 ## Optimization Workflows
 ### ResNet optimization with PTQ on CPU
@@ -15,13 +22,6 @@ The workflow in [resnet_static_ptq_cpu.json](resnet_static_ptq_cpu.json) is simi
 #### Dynamic Quantization
 The workflow in [resnet_dynamic_ptq_cpu.json](resnet_dynamic_ptq_cpu.json) is similar to the above workflow, but specifically uses dynamic quantization instead of static/dynamic quantization.
 
-
-### ResNet optimization with Vitis-AI PTQ on AMD DPU
-This workflow performs ResNet optimization on AMD DPU with AMD Vitis-AI Quantization. It performs the optimization pipeline:
-- *PyTorch Model -> Onnx Model -> AMD Vitis-AI Quantized Onnx Model*
-
-Config file: [resnet_vitis_ai_ptq_cpu.json](resnet_vitis_ai_ptq_cpu.json)
-
 ### ResNet optimization with QAT Default Training Loop on CPU
 This workflow performs ResNet optimization on CPU with QAT Default Training Loop. It performs the optimization pipeline:
 - *PyTorch Model -> PyTorch Model after QAT -> Onnx Model -> ONNX Runtime performance tuning*
@@ -33,6 +33,12 @@ This workflow performs ResNet optimization on CPU with QAT PyTorch Lightning Mod
 - *PyTorch Model -> PyTorch Model after QAT -> Onnx Model -> ONNX Runtime performance tuning*
 
 Config file: [resnet_qat_lightning_module_cpu.json](resnet_qat_lightning_module_cpu.json)
+
+### ResNet optimization with Vitis-AI PTQ on AMD DPU
+This workflow performs ResNet optimization on AMD DPU with AMD Vitis-AI Quantization. It performs the optimization pipeline:
+- *PyTorch Model -> Onnx Model -> AMD Vitis-AI Quantized Onnx Model*
+
+Config file: [resnet_vitis_ai_ptq_cpu.json](resnet_vitis_ai_ptq_cpu.json)
 
 ### ResNet optimization with OpenVINO and DML execution providers
 This example performs ResNet optimization with OpenVINO and DML execution providers in one workflow. It performs the optimization pipeline:

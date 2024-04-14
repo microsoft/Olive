@@ -54,6 +54,30 @@ This pass only supports Hugging Face transformers PyTorch models. Please refer t
 ```
 Please refer to [QLoRA HFTrainingArguments](lora_hf_training_arguments) for more details on supported the `"training_args"` and their default values.
 
+## LoftQ
+`LoftQ` is a quantization framework which simultaneously quantizes and finds a proper low-rank initialization for LoRA fine-tuning. It is based on the LoftQ [paper](https://arxiv.org/abs/2310.08659)
+and [code](https://github.com/yxli2123/LoftQ). More information on LoRA can be found in the [paper](https://arxiv.org/abs/2106.09685).
+
+The `LoftQ` pass initializes the quantized LoRA model using the LoftQ initialization method and then fine-tunes the adapters. The output model has new quantization aware master weights and the fine-tuned LoRA adapters.
+
+This pass only supports Hugging Face transformers PyTorch models. Please refer to [LoftQ](loftq) for more details about the pass and its config parameters.
+
+**Note:** LoftQ requires a GPU to run.
+```json
+{
+    "type": "LoftQ",
+    "config": {
+        "compute_dtype": "bfloat16",
+        "train_data_config": // ...,
+        "training_args": {
+            "learning_rate": 0.0002,
+            // ...
+        }
+    }
+}
+```
+Please refer to [LoftQ HFTrainingArguments](lora_hf_training_arguments) for more details on supported the `"training_args"` and their default values.
+
 ## Quantization Aware Training
 The Quantization Aware Training (QAT) technique is used to improve the performance and efficiency of deep learning models by quantizing their
 weights and activations to lower bit-widths. The technique is applied during training, where the weights and activations are fake quantized
@@ -112,6 +136,28 @@ c. Run QAT training with default training loop.
 Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/resnet/user_script.py)
 for an example implementation of `"user_script.py"` and `"create_train_dataloader"`.
 
+## AutoGPTQ
+Olive also integrates [AutoGPTQ](https://github.com/AutoGPTQ/AutoGPTQ) for quantization.
+
+AutoGPTQ is an easy-to-use LLM quantization package with user-friendly APIs, based on GPTQ algorithm (weight-only quantization). With GPTQ quantization, you can quantize your favorite language model to 8, 4, 3 or even 2 bits. This comes without a big drop of performance and with faster inference speed. This is supported by most GPU hardwares.
+
+Olive consolidates the GPTQ quantization into a single pass called GptqQuantizer which supports tune GPTQ quantization with hyperparameters for trade-off between accuracy and speed.
+
+Please refer to [GptqQuantizer](gptq_quantizer) for more details about the pass and its config parameters.
+
+### Example Configuration
+```json
+{
+    "type": "GptqQuantizer",
+    "config": {
+        "data_config": "wikitext2_train"
+    }
+}
+```
+
+Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/llama2/llama2_template.json)
+for an example implementation of `"wikitext2_train"`.
+
 ## SparseGPT
 `SparseGPT` prunes GPT like models using a pruning method called [SparseGPT](https://arxiv.org/abs/2301.00774). This one-shot pruning method can perform unstructured
 sparsity upto 60% on large models like OPT-175B and BLOOM-176B efficiently with negligible perplexity increase. It also supports semi-structured sparsity patterns such
@@ -134,6 +180,24 @@ This pass only supports Hugging Face transformers PyTorch models. Please refer t
 {
     "type": "SparseGPT",
     "config": {"sparsity": [2,4]}
+}
+```
+
+## SliceGPT
+`SliceGPT` is post-training sparsification scheme that makes transformer networks smaller by applying orthogonal transformations to each transformer layer that reduces the model size by slicing off the least-significant rows and columns of the weight matrices. This results in speedups and a reduced memory footprint.
+
+Please refer to the original [paper](https://arxiv.org/abs/2401.15024) for more details on the algorithm and expected results for different models, sparsities and datasets.
+
+This pass only supports HuggingFace transformer PyTorch models. Please refer to [SliceGPT](slicegpt) for more details on the types of transformers models supported.
+
+### Example Configuration
+```json
+{
+    "type": "SliceGPT",
+    "config": {
+        "sparsity": 0.4,
+        "calibration_data_config": "wikitext2"
+    }
 }
 ```
 

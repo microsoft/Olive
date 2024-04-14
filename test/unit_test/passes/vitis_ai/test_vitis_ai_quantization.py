@@ -6,6 +6,7 @@ from pathlib import Path
 from test.unit_test.utils import get_onnx_model
 
 import numpy as np
+import pytest
 from onnxruntime.quantization.calibrate import CalibrationDataReader
 
 from olive.passes.olive_pass import create_pass_from_dict
@@ -33,7 +34,8 @@ def dummy_calibration_reader(data_dir, batch_size, *args, **kwargs):
     return RandomDataReader()
 
 
-def test_vitis_ai_quantization_pass(tmp_path):
+@pytest.mark.parametrize("calibrate_method", ["MinMSE", "NonOverflow"])
+def test_vitis_ai_quantization_pass(calibrate_method, tmp_path):
     # setup
     input_model = get_onnx_model()
     dummy_user_script = tmp_path / "dummy_user_script.py"
@@ -47,6 +49,7 @@ def test_vitis_ai_quantization_pass(tmp_path):
         "user_script": str(dummy_user_script),
         "data_dir": str(dummy_data),
         "dataloader_func": dummy_calibration_reader,
+        "calibrate_method": calibrate_method,
     }
     output_folder = str(tmp_path / "vitis_ai_quantized")
 

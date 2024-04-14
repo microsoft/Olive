@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from functools import partial
 from test.unit_test.utils import get_accuracy_metric, get_onnx_model_config, get_pytorch_model_config
 from typing import ClassVar, List
 from unittest.mock import patch
@@ -45,27 +46,29 @@ class TestMetricBackend:
 
     HF_ACCURACY_TEST_CASE: ClassVar[List] = [
         (
-            get_pytorch_model_config(),
-            get_accuracy_metric("accuracy", "f1", backend="huggingface_metrics"),
+            get_pytorch_model_config,
+            partial(get_accuracy_metric, "accuracy", "f1", backend="huggingface_metrics"),
             0.99,
         ),
         (
-            get_onnx_model_config(),
-            get_accuracy_metric("accuracy", "f1", backend="huggingface_metrics"),
+            get_onnx_model_config,
+            partial(get_accuracy_metric, "accuracy", "f1", backend="huggingface_metrics"),
             0.99,
         ),
     ]
 
     @pytest.mark.parametrize(
-        "model_config,metric,expected_res",
+        ("model_config_func", "metric_func", "expected_res"),
         HF_ACCURACY_TEST_CASE,
     )
-    def test_evaluate_backend(self, model_config, metric, expected_res):
+    def test_evaluate_backend(self, model_config_func, metric_func, expected_res):
         with patch.object(HuggingfaceMetrics, "measure_sub_metric") as mock_measure:
             mock_measure.return_value = SubMetricResult(value=expected_res, higher_is_better=True, priority=-1)
             system = LocalSystem()
 
             # execute
+            model_config = model_config_func()
+            metric = metric_func()
             actual_res = system.evaluate_model(model_config, None, [metric], DEFAULT_CPU_ACCELERATOR)
 
             # assert

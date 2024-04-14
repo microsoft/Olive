@@ -20,8 +20,8 @@ class AutoConfigClass(ABC):
     All classes are instantiated by passing a config dictionary or config class (BaseModel) instance.
     Sub-class developer just needs to implement the static method _default_config
     E.g.,
-        @staticmethod
-        def _default_config():
+        @classmethod
+        def _default_config(cls):
             return {
                 "str_param": ConfigParam(type_=str, required=True),
                 "func_param" ConfigParam(type_=Union[str, Callable], category=ParamCategory.OBJECT)
@@ -39,8 +39,8 @@ class AutoConfigClass(ABC):
             ...
             return v
 
-        @staticmethod
-        def _validators():
+        @classmethod
+        def _validators(cls):
             return {"validate_func_param": validator("func_param", allow_reuse=True)(validate_func_param)}
     """
 
@@ -59,16 +59,16 @@ class AutoConfigClass(ABC):
 
     def __init__(self, config: Union[ConfigBase, Dict[str, Any]]) -> None:
         self.config_class = self.get_config_class()
-        self.config = validate_config(config, self._config_base, self.config_class)
+        self.config = validate_config(config, self.config_class)
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def _default_config() -> Dict[str, ConfigParam]:
+    def _default_config(cls) -> Dict[str, ConfigParam]:
         """Get the default configuration for the class."""
         raise NotImplementedError
 
-    @staticmethod
-    def _validators() -> Dict[str, Callable]:
+    @classmethod
+    def _validators(cls) -> Dict[str, Callable]:
         """Get ydantic validators for config params."""
         return {}
 

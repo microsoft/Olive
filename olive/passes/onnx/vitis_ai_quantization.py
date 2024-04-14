@@ -11,7 +11,7 @@ from typing import Any, Callable, Dict, Union
 import onnx
 
 from olive.cache import get_local_path_from_root
-from olive.common.utils import hash_string
+from olive.common.utils import exclude_keys, hash_string
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
@@ -222,6 +222,7 @@ class VitisAIQuantization(Pass):
     """
 
     _requires_user_script = True
+    run_on_target = True
 
     def _initialize(self):
         super()._initialize()
@@ -232,8 +233,8 @@ class VitisAIQuantization(Pass):
         """Override this method to return False by using the accelerator spec information."""
         return False
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "quant_mode": PassConfigParam(
                 type_=str,
@@ -275,11 +276,11 @@ class VitisAIQuantization(Pass):
         # keys in extra_options that are already exposed
         intersection = set(extra_options.keys()).intersection(set(_exposed_extra_options_config.keys()))
         if intersection:
-            message = (
-                f"Extra config keys {intersection} are already exposed in the pass config. They will be overwritten by"
-                " the corresponding pass config parameter values."
+            logger.warning(
+                "Extra config keys %s are already exposed in the pass config. They will be overwritten by"
+                " the corresponding pass config parameter values.",
+                intersection,
             )
-            logger.warning(message)
         for key in _exposed_extra_options_config:
             extra_options[key] = run_config[key]
             del run_config[key]
@@ -325,9 +326,7 @@ class VitisAIQuantization(Pass):
         )
 
         # remove keys not needed for quantization
-        for key in to_delete:
-            if key in run_config:
-                del run_config[key]
+        run_config = exclude_keys(run_config, to_delete)
 
         # to be safe, run the quantizer with use_external_data_format set to `True` and
         # `model_output` to a temporary directory
@@ -384,7 +383,7 @@ class VitisAIQuantization(Pass):
             # there are some problems with the path to where the external data is saved
             # need to find out why before enabling this
 
-            logger.warning(f"Failed to run quantization preprocessing with error of {e}. Using original model.")
+            logger.warning("Failed to run quantization preprocessing with error of %s. Using original model.", e)
             # save original model to output path
             onnx_model = onnx.load(model.model_path)
             model_proto_to_file(

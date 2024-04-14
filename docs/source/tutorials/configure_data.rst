@@ -92,7 +92,7 @@ Convert the huggingface data config to the data container.
                 "type": "HuggingfaceContainer",
                 "params_config": {
                     "model_name": "Intel/bert-base-uncased-mrpc",
-                    "task_type": "text-classification",
+                    "task": "text-classification",
                     "batch_size": 1,
                     "data_name": "glue",
                     "input_cols": ["sentence1", "sentence2"],
@@ -112,7 +112,7 @@ Convert the huggingface data config to the data container.
                 type="HuggingfaceContainer",
                 params_config={
                     "model_name": "Intel/bert-base-uncased-mrpc",
-                    "task_type": "text-classification",
+                    "task": "text-classification",
                     "batch_size": 1,
                     "data_name": "glue",
                     "input_cols": ["sentence1", "sentence2"],
@@ -217,7 +217,7 @@ If no data config template can meet the requirement, we can also define the `dat
 
         each component can be customized by the following fields:
             - `name`: the name of the component.
-            - `type`: the type name of the available component type. Besides the above available type in above table, user can also define their own component type in `user_script` with the way Olive does for `huggingface_dataset <https://github.com/microsoft/Olive/blob/main/olive/data/component/load_dataset.py#L26>`_. In this way, they need to provide `user_script` and `script_dir`. There is an `example <https://github.com/microsoft/Olive/blob/main/examples/snpe/inception_snpe_qualcomm_npu/user_script.py#L9>`_ with customized component type.
+            - `type`: the type name of the available component type. Besides the above available type in above table, user can also define their own component type in `user_script` with the way Olive does for `huggingface_dataset <https://github.com/microsoft/Olive/blob/main/olive/data/component/load_dataset.py#L26>`_. In this way, they need to provide `user_script` and `script_dir`. There is an `example <https://github.com/microsoft/Olive/blob/main/examples/inception/user_script.py#L9>`_ with customized component type.
             - `params`: the dictionary of component function parameters. The key is the parameter name for given component type and the value is the parameter value.
     4. `user_script`: the user script path which contains the customized component type.
     5. `script_dir`: the user script directory path which contains the customized script.
@@ -412,8 +412,8 @@ The above case shows to rewrite all the components in data config. But sometime,
 
     More examples:
         1. inception_post_process:
-            - user_script https://github.com/microsoft/Olive/blob/main/examples/snpe/inception_snpe_qualcomm_npu/user_script.py#L8-L10
-            - json_config https://github.com/microsoft/Olive/blob/main/examples/snpe/inception_snpe_qualcomm_npu/inception_config.json#L14-L16
+            - user_script https://github.com/microsoft/Olive/blob/main/examples/inception/user_script.py#L8-L10
+            - json_config https://github.com/microsoft/Olive/blob/main/examples/inception/inception_config.json#L14-L16
         2. dummy_dataset_dataroot:
             - user_script https://github.com/microsoft/Olive/blob/main/test/unit_test/test_data_root.py#L31
             - json_config https://github.com/microsoft/Olive/blob/main/test/unit_test/test_data_root.py#L107

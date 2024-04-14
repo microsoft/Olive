@@ -31,6 +31,9 @@ olive_run("my_model_acceleration_description.json")
 
 You can use setup mode `python -m olive.workflows.run --config my_model_acceleration_description.json --setup` to identify list of additional packages you may need to install for your workflow.
 
+To include user implemented (or proprietary, or private) passes as part of workflow, clone olive_config.json and update it.
+Provide the path to the cloned _olive_config.json_ file at launch using the '--package-config' command line option.
+
 You can also change the default directory for temporary files and directories using `--tempdir` option.
 Set this to a local directory if you want to avoid using the default tempdir for reasons such as disk space and permissions.
 
@@ -76,26 +79,6 @@ Let's use a PyTorch resnet model as an example which you can describe in the jso
 
 It is possible to provide additional information such as dataset you want to use. You could also directly select HuggingFace model and task. See [Input Model configuration](../overview/options.md/#input-model-information) for more information.
 
-### Performance Requirement
-
-Let's assume you want to optimize for latency and provide the following information to the Olive evaluator, which is responsible to measure the performance metric.
-
-```json
-    "evaluators": {
-        "my_evaluator":{
-            "metrics":[
-                {
-                    "name": "my_latency_metric",
-                    "type": "latency",
-                    "sub_types": [{"name": "avg"}]
-                }
-            ]
-        }
-    },
-```
-
-You can also specify accuracy requirements. See [Evaluator](../overview/options.md/#evaluators-information) for more information.
-
 ### Passes to apply
 
 Olive can apply various transformations and optimizations, also known as passes, on the input model to produce the accelerated output model. See [Passes](../overview/options.md/#passes-information) for the full list of passes supported by Olive.
@@ -122,8 +105,7 @@ Finally, you can select Olive features such as which performance metrics you wan
 
 ```json
     "engine": {
-        "log_severity_level": 0,
-        "evaluator": "my_evaluator"
+        "log_severity_level": 0
     }
 ```
 
@@ -145,17 +127,6 @@ Now you have a complete json file that you can use to accelerate the resnet mode
             }
         }
     },
-    "evaluators": {
-        "my_evaluator":{
-            "metrics":[
-                {
-                    "name": "my_latency_metric",
-                    "type": "latency",
-                    "sub_types": [{"name": "avg"}]
-                }
-            ]
-        }
-    },
     "passes": {
         "onnx_conversion": {
             "type": "OnnxConversion",
@@ -168,8 +139,7 @@ Now you have a complete json file that you can use to accelerate the resnet mode
         },
     },
     "engine": {
-        "log_severity_level": 0,
-        "evaluator": "common_evaluator"
+        "log_severity_level": 0
     }
 }
 ```

@@ -16,7 +16,8 @@ class DirectedGraph:
             self.add_edge(v1, v2)
 
     def add_edge(self, v1: str, v2: str):
-        assert v1 in self.vertices and v2 in self.vertices
+        assert v1 in self.vertices
+        assert v2 in self.vertices
         self.graph[v1].append(v2)
 
     def _is_cyclic_util(self, v: str, visited: Set[str], rec_stack: Set[str]):
@@ -37,12 +38,7 @@ class DirectedGraph:
         visited = set()
         rec_stack = set()
 
-        for v in self.vertices:
-            if v not in visited:
-                if self._is_cyclic_util(v, visited, rec_stack):
-                    return True
-
-        return False
+        return any(v not in visited and self._is_cyclic_util(v, visited, rec_stack) for v in self.vertices)
 
     def _topological_sort_util(self, v: str, visited: Set[str], order: List[str]):
         visited.add(v)

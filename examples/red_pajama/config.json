@@ -1,10 +1,9 @@
 {
     "input_model": {
-        "type": "OptimumModel",
+        "type": "PyTorchModel",
         "config": {
-            "model_path": "togethercomputer/RedPajama-INCITE-Base-3B-v1",
-            "model_components": ["decoder_model.onnx", "decoder_with_past_model.onnx"],
             "hf_config": {
+                "model_name": "togethercomputer/RedPajama-INCITE-Base-3B-v1",
                 "model_class": "GPTNeoXForCausalLM"
             }
         }
@@ -12,7 +11,13 @@
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": { "accelerators": [ "gpu" ] }
+            "config": {
+                "accelerators": [
+                    {
+                        "device": "gpu"
+                    }
+                ]
+            }
         }
     },
     "evaluators": {
@@ -36,13 +41,15 @@
             "type": "OptimumConversion",
             "config": {
                 "target_opset": 16,
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true
+                "components": ["decoder_model", "decoder_with_past_model"],
+                "extra_args": {
+                    "legacy": true,
+                    "no_post_process": true
+                }
             }
         },
         "optimize": {
             "type": "OrtTransformersOptimization",
-            "disable_search": true,
             "config": {
                 "model_type": "gpt_neox",
                 "float16": true,

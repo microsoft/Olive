@@ -119,7 +119,8 @@ def vae_encoder_inputs(batchsize, torch_dtype):
 
 
 def vae_encoder_load(model_name):
-    model = AutoencoderKL.from_pretrained(model_name, subfolder="vae")
+    subfolder = None if model_name == "madebyollin/sdxl-vae-fp16-fix" else "vae"
+    model = AutoencoderKL.from_pretrained(model_name, subfolder=subfolder)
     model.forward = lambda sample, return_dict: model.encode(sample, return_dict)[0].sample()
     return model
 
@@ -147,7 +148,8 @@ def vae_decoder_inputs(batchsize, torch_dtype):
 
 
 def vae_decoder_load(model_name):
-    model = AutoencoderKL.from_pretrained(model_name, subfolder="vae")
+    subfolder = None if model_name == "madebyollin/sdxl-vae-fp16-fix" else "vae"
+    model = AutoencoderKL.from_pretrained(model_name, subfolder=subfolder)
     model.forward = model.decode
     return model
 

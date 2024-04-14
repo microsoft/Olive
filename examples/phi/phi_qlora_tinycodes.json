@@ -11,9 +11,24 @@
             }
         }
     },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "device": "gpu",
+                        "execution_providers": [
+                            "CPUExecutionProvider"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
     "data_configs": {
-        "tiny-codes-train": {
-            "name": "tiny-codes-train",
+        "tiny_codes_train": {
+            "name": "tiny_codes_train",
             "type": "HuggingfaceContainer",
             "user_script": "user_script.py",
             "components": {
@@ -32,8 +47,7 @@
                     "pre_process_data": {
                         "corpus_strategy": "join",
                         "text_template": "### Question: {prompt} \n### Answer: {response}",
-                        "source_max_len": 1024,
-                        "use_attention_mask": false
+                        "source_max_len": 1024
                     }
                 }
             }
@@ -44,12 +58,12 @@
             "type": "QLoRA",
             "config": {
                 "lora_dropout": 0.1,
-                "train_data_config": "tiny-codes-train",
+                "train_data_config": "tiny_codes_train",
                 "eval_dataset_size": 1024,
                 "training_args": {
-                    "per_device_train_batch_size": 4,
-                    "per_device_eval_batch_size": 4,
-                    "gradient_accumulation_steps": 4,
+                    "per_device_train_batch_size": 2,
+                    "per_device_eval_batch_size": 2,
+                    "gradient_accumulation_steps": 8,
                     "gradient_checkpointing": false,
                     "max_steps": 1500,
                     "logging_steps": 100,
@@ -63,16 +77,10 @@
         }
     },
     "engine": {
-        "log_severity_level": 0,
         "search_strategy": false,
         "evaluate_input_model": false,
-        "target": {
-            "type": "LocalSystem",
-            "config": {
-                "accelerators": ["gpu"]
-            }
-        },
-        "execution_providers": ["CPUExecutionProvider"],
+        "host": "local_system",
+        "target": "local_system",
         "cache_dir": "cache",
         "output_dir" : "models/phi_qlora_tinycodes"
     }

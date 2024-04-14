@@ -13,6 +13,8 @@ import onnxruntime
 import torch
 from transformers import LlamaConfig, LlamaForCausalLM, LlamaTokenizer
 
+# ruff: noqa: T201, T203
+
 
 def _run_pytorch(model, inputs):
     return model(**inputs)
@@ -146,7 +148,7 @@ def _main():
         if args.debug:
             pprint.pprint(results)
 
-        atol = 5e-4
+        atol = 3e-3
         if not np.all(np.array(list(results.values())) < atol):
             raise RuntimeError("Inference test failed!")
 

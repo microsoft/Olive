@@ -48,8 +48,8 @@ class TensorParallel:
 
 
 class PyTorchTensorParallel(Pass):
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         # Note : The default world_size should be the no of gpus (AcceleratorSpec.Device == GPU)
         # in the target OliveSystem
         return {
@@ -95,19 +95,15 @@ class PyTorchTensorParallel(Pass):
 
         return v
 
-    @staticmethod
-    def _validators() -> Dict[str, Callable]:
-        return {
-            "validate_distributor_config": validator("world_size", allow_reuse=True)(
-                PyTorchTensorParallel._validate_world_size
-            )
-        }
+    @classmethod
+    def _validators(cls) -> Dict[str, Callable]:
+        return {"validate_distributor_config": validator("world_size", allow_reuse=True)(cls._validate_world_size)}
 
     @staticmethod
     def _generate_one(params):
         model_config, rank, world_size, output_filepath = params
 
-        logger.debug(f"Exporting tensor parallel model for rank: {rank}, {output_filepath}")
+        logger.debug("Exporting tensor parallel model for rank: %d, %s", rank, output_filepath)
 
         hf_config = HfConfig(**model_config["hf_config"])
         model_type = get_model_type_from_hf_config(hf_config)
@@ -143,7 +139,7 @@ class PyTorchTensorParallel(Pass):
             # 6. Restore layers that were replaced
             impl.restore_layers()
 
-        logger.debug(f"Successfully exported tensor parallel model for rank: {rank}, {output_filepath}")
+        logger.debug("Successfully exported tensor parallel model for rank: %d, %s", rank, output_filepath)
 
         return 1  # Return 1 for success.
 
@@ -172,7 +168,7 @@ class PyTorchTensorParallel(Pass):
             with multiprocessing.Pool(processes=max_parallel_jobs) as pool:
                 results = pool.map(PyTorchTensorParallel._generate_one, params)
 
-        if self.accelerator_spec.accelerator_type == Device.GPU and torch.cuda.is_available():
+        if self.host_device == Device.GPU and torch.cuda.is_available():
             torch.cuda.empty_cache()
 
         if world_size != sum(results):

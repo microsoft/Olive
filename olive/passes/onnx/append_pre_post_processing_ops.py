@@ -44,8 +44,8 @@ class PrePostProcessorInput(ConfigBase):
 class AppendPrePostProcessingOps(Pass):
     """Add Pre/Post nodes to the input model."""
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, Dict[str, Any]]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, Dict[str, Any]]:
         config = {
             "pre": PassConfigParam(
                 type_=List[Dict[str, Any]],
@@ -165,7 +165,8 @@ class AppendPrePostProcessingOps(Pass):
         # Initialize PrePostProcessor instance
         config_obj = self._config_class(**config)
         input_param = config_obj.tool_command_args
-        assert isinstance(input_param, list) and all(isinstance(i, PrePostProcessorInput) for i in input_param)
+        assert isinstance(input_param, list)
+        assert all(isinstance(i, PrePostProcessorInput) for i in input_param)
         inputs = [create_named_value(i.name, TENSOR_TYPE_MAP[i.data_type], i.shape) for i in input_param]
         pipeline = PrePostProcessor(inputs, config_obj.target_opset)
 

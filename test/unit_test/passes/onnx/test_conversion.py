@@ -2,10 +2,18 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-
 import platform
+import shutil
+from itertools import chain
 from pathlib import Path
-from test.unit_test.utils import get_hf_model_with_past, get_onnx_model, get_pytorch_model
+from test.unit_test.utils import (
+    ONNX_MODEL_PATH,
+    get_hf_model_with_past,
+    get_onnx_model,
+    get_pytorch_model,
+    pytorch_model_loader,
+)
+from unittest.mock import patch
 
 import pytest
 import torch
@@ -71,3 +79,106 @@ def test_onnx_op_version_conversion_pass(target_opset, tmp_path):
 
     # assert
     assert onnx_model.load_model().opset_import[0].version == target_opset
+
+
+def get_io_config_phi2(model):
+    input_names = [
+        "input_ids",
+        "attention_mask",
+        *list(chain.from_iterable((f"past_key_values.{i}",) for i in range(32))),
+    ]
+    output_names = [
+        "logits",
+        *list(chain.from_iterable((f"present_key_values.{i}",) for i in range(32))),
+    ]
+    return {
+        "input_names": input_names,
+        "output_names": output_names,
+    }
+
+
+def get_dummy_inputs_phi2(model):
+    def get_past_kv_inputs(batch_size: int, past_seq_len: int):
+        num_heads, head_size = 31, 80
+        torch_dtype = torch.float32
+        return [(torch.rand(batch_size, past_seq_len, 1, num_heads, head_size, dtype=torch_dtype),) for _ in range(32)]
+
+    input_ids = torch.randint(low=0, high=51200, size=(2, 8), dtype=torch.int64)
+    attention_mask = torch.ones(2, 16, dtype=torch.int64)
+    past_key_values = get_past_kv_inputs(2, 16)
+    return {
+        "input_ids": input_ids,
+        "attention_mask": attention_mask,
+        "past_key_values": past_key_values,
+    }
+
+
+def get_io_config_llama2(model):
+    input_names = [
+        "input_ids",
+        "attention_mask",
+        "position_ids",
+        *list(chain.from_iterable((f"past_key_values.{i}.key", f"past_key_values.{i}.value") for i in range(32))),
+    ]
+    output_names = [
+        "logits",
+        *list(chain.from_iterable((f"present.{i}.key", f"present.{i}.value") for i in range(32))),
+    ]
+    return {
+        "input_names": input_names,
+        "output_names": output_names,
+    }
+
+
+def get_dummy_inputs_llama2(_):
+    def get_past_kv_inputs(batch_size: int, past_seq_len: int):
+        num_heads = 32
+        head_size = 80
+        torch_dtype = torch.float32
+        return [
+            (
+                torch.rand(batch_size, num_heads, past_seq_len, head_size, dtype=torch_dtype),
+                torch.rand(batch_size, num_heads, past_seq_len, head_size, dtype=torch_dtype),
+            )
+            for _ in range(32)
+        ]
+
+    input_ids = torch.randint(low=0, high=51200, size=(2, 8), dtype=torch.int64)
+    attention_mask = torch.ones(2, 16, dtype=torch.int64)
+    past_key_values = get_past_kv_inputs(2, 16)
+    return {
+        "input_ids": input_ids,
+        "attention_mask": attention_mask,
+        "past_key_values": past_key_values,
+    }
+
+
+@pytest.mark.parametrize(
+    ("io_config_func", "dummy_inputs_func"),
+    [
+        (get_io_config_llama2, get_dummy_inputs_llama2),
+        (get_io_config_phi2, get_dummy_inputs_phi2),
+    ],
+)
+@patch("torch.onnx.export")
+def test_onnx_conversion_with_past_key_values(mock_onnx_export, tmp_path, io_config_func, dummy_inputs_func):
+    dummy_inputs = None
+
+    def mock_onnx_export_func(*args, **kwargs):
+        nonlocal dummy_inputs
+        _, dummy_inputs, output_path = args
+        shutil.copyfile(ONNX_MODEL_PATH, output_path)
+
+    output_folder = tmp_path / "onnx"
+    output_folder.mkdir(parents=True, exist_ok=True)
+    input_model = PyTorchModelHandler(
+        model_loader=pytorch_model_loader,
+        model_path=None,
+        io_config=io_config_func,
+        dummy_inputs_func=dummy_inputs_func,
+    )
+    mock_onnx_export.side_effect = mock_onnx_export_func
+    # setup
+    p = create_pass_from_dict(OnnxConversion, {}, disable_search=True)
+    _ = p.run(input_model, None, str(output_folder))
+    assert "past_key_values" in dummy_inputs  # pylint: disable=unsupported-membership-test

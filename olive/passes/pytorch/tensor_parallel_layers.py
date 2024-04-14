@@ -13,6 +13,8 @@ import torch.distributed as dist
 import torch.nn.functional as F
 from torch import nn
 
+# pylint: disable=unsubscriptable-object
+
 
 class AllReduce(torch.autograd.Function):  # pylint: disable=abstract-method
     @staticmethod
@@ -55,10 +57,10 @@ class TensorParallelColumnLinear(nn.Module):
 
     def load_rank_weights(self, rank, world_size):
         weight = self.weight.chunk(world_size)[rank]
-        self.weight = nn.Parameter(weight)
+        self.weight = nn.Parameter(weight.contiguous())
         if self.use_bias:
             bias = self.bias.chunk(world_size)[rank]
-            self.bias = nn.Parameter(bias)
+            self.bias = nn.Parameter(bias.contiguous())
 
     def reset_parameters(self) -> None:
         # From `torch.nn.Linear`
@@ -109,7 +111,7 @@ class TensorParallelRowLinear(nn.Module):
 
     def load_rank_weights(self, rank, world_size):
         weight = self.weight.chunk(world_size, dim=1)[rank]
-        self.weight = nn.Parameter(weight)
+        self.weight = nn.Parameter(weight.contiguous())
 
     def reset_parameters(self) -> None:
         # From `torch.nn.Linear`

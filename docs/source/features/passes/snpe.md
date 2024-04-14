@@ -12,21 +12,16 @@ in the [Snapdragon Neural Processing Engine SDK](https://developer.qualcomm.com/
 ### Download and unzip SNPE SDK
 Download the SNPE SDK zip following [instructions from Qualcomm](https://developer.qualcomm.com/software/qualcomm-neural-processing-sdk).
 
+We test it with SNPE v2.18.0.240101.
+
 Unzip the file and set the unzipped directory path as environment variable `SNPE_ROOT`.
 
-```{note}
-The SNPE SDK development environment is limited to Ubuntu, specifically version 18.04. It might not work as expected on Ubuntu 20.04. We
-recommend using a Ubuntu 18.04 docker container if you don't have a machine running the same OS.
-```
-
-### Install SDK system dependencies
-```bash
-source $SNPE_ROOT/bin/dependencies.sh
-```
-
 ### Configure Olive SNPE
-```
-python -m olive.snpe.configure
+```bash
+# in general, python 3.8 is recommended
+python -m olive.platform_sdk.qualcomm.configure --py_version 3.8 --sdk snpe
+# only when the tensorflow 1.15.0 is needed, use python 3.6
+python -m olive.platform_sdk.qualcomm.configure --py_version 3.6 --sdk snpe
 ```
 
 ## Model Conversion
@@ -69,5 +64,5 @@ Please refer to [SNPEQuantization](snpe_quantization) for more details about the
 }
 ```
 
-Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/snpe/inception_snpe_qualcomm_npu/user_script.py)
+Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/inception/user_script.py)
 for an example implementation of `"user_script.py"` and `"create_quant_dataloader"`.

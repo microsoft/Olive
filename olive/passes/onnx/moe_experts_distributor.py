@@ -43,7 +43,7 @@ class MoEExpertDistributionPatternMatcher:
     @staticmethod
     def _dump_graph(node: Message, filepath: str):
         Path(filepath).parent.mkdir(parents=True, exist_ok=True)
-        with open(filepath, "w") as strm:  # noqa: PTH123
+        with open(filepath, "w") as strm:
             json.dump(
                 MessageToDict(node),
                 fp=strm,
@@ -309,7 +309,7 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
                 path.append(node)
 
                 if self.debug:
-                    pprint.pprint([n.name for n in path])
+                    pprint.pprint([n.name for n in path])  # noqa: T203
 
                 div_node = path[5]
                 div_node_oname = div_node.output[0]
@@ -363,8 +363,8 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
 class MoEExpertsDistributor(Pass):
     """Split the input model (and insert necessary communication operations) to prepare for distributed inferencing."""
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "world_size": PassConfigParam(
                 type_=int,
@@ -389,13 +389,9 @@ class MoEExpertsDistributor(Pass):
 
         return v
 
-    @staticmethod
-    def _validators() -> Dict[str, Callable]:
-        return {
-            "validate_distributor_config": validator("world_size", allow_reuse=True)(
-                MoEExpertsDistributor._validate_world_size
-            )
-        }
+    @classmethod
+    def _validators(cls) -> Dict[str, Callable]:
+        return {"validate_distributor_config": validator("world_size", allow_reuse=True)(cls._validate_world_size)}
 
     def _run_for_config(
         self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str

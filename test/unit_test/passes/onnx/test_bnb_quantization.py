@@ -12,7 +12,7 @@ from packaging import version
 
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx import OnnxBnb4Quantization
+from olive.passes.onnx.bnb_quantization import OnnxBnb4Quantization
 
 # pylint: disable=protected-access
 
@@ -43,7 +43,7 @@ def get_onnx_gemm_model(model_path=None, model_attributes=None):
     reason="OnnxBnb4Quantization requires ORT >= 1.16.2",
 )
 @pytest.mark.parametrize(
-    "pass_config,model_attributes,expected_error",
+    ("pass_config", "model_attributes", "expected_error"),
     [
         ({"quant_type": "fp4"}, None, None),  # quant_type from config is fp4
         ({"quant_type": "invalid"}, None, AssertionError),  # quant_type from config is invalid
@@ -83,7 +83,7 @@ def test_validate_quant_type(pass_config, model_attributes, expected_error, tmp_
         p.run(input_model, None, str(tmp_path / "model.onnx"), None)
 
 
-@pytest.mark.parametrize("model_generator,expected_count", [(get_onnx_matmul_model, 1), (get_onnx_gemm_model, 0)])
+@pytest.mark.parametrize(("model_generator", "expected_count"), [(get_onnx_matmul_model, 1), (get_onnx_gemm_model, 0)])
 def test__find_matmul_nodes(tmp_path, model_generator, expected_count):
     onnx_model = model_generator(str(tmp_path / "model.onnx"))
     matmul_nodes = OnnxBnb4Quantization._find_matmul_nodes(onnx_model.load_model().graph)
@@ -105,7 +105,7 @@ def count_matmulbnb4_nodes(model: onnx.ModelProto):
     reason="MatMulBnb4Quantizer is only supported in onnxruntime >= 1.16.2",
 )
 @pytest.mark.parametrize(
-    "model_generator,quantized_modules,expected_count",
+    ("model_generator", "quantized_modules", "expected_count"),
     [
         (get_onnx_gemm_model, None, 0),  # no matmul nodes in the graph
         (get_onnx_matmul_model, None, 1),  # all matmul nodes

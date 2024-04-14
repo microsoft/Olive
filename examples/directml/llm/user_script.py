@@ -44,10 +44,14 @@ def get_or_create_decoder_model():
         elif config.model_type in {"phi"}:
             config.state_dict = convert_phi_weights()
 
-        config.has_up_proj = ("model.layers.0.mlp.up_proj.weight" in config.state_dict) or ("language_model.model.layers.0.mlp.up_proj.weight" in config.state_dict)
+        config.has_up_proj = ("model.layers.0.mlp.up_proj.weight" in config.state_dict) or (
+            "language_model.model.layers.0.mlp.up_proj.weight" in config.state_dict
+        )
         config.has_input_layernorm_bias = "model.layers.0.input_layernorm.bias" in config.state_dict
         config.has_norm_bias = "model.norm.bias" in config.state_dict
-        config.has_lm_head_bias = ("language_model.lm_head.bias" in config.state_dict) or ("lm_head.bias" in config.state_dict)
+        config.has_lm_head_bias = ("language_model.lm_head.bias" in config.state_dict) or (
+            "lm_head.bias" in config.state_dict
+        )
 
         if config.model_type == "llava":
             llava_config = AutoConfig.from_pretrained(config.model_id)
@@ -193,7 +197,9 @@ class PileDataloader:
                 input_ids = sample[token_start:token_end].unsqueeze(0).cpu().numpy().astype("int64")
 
                 initial_position_ids = np.arange(self.seqlen, dtype=np.int64).reshape((1, self.seqlen))
-                attention_mask = np.pad(np.ones((1, self.seqlen), dtype=np.int64), ((0, 0), (0, self.max_seq_len - self.seqlen)))
+                attention_mask = np.pad(
+                    np.ones((1, self.seqlen), dtype=np.int64), ((0, 0), (0, self.max_seq_len - self.seqlen))
+                )
 
                 initial_inputs = {
                     "input_ids": input_ids,

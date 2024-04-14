@@ -10,9 +10,9 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler, SNPEModelHandler, TensorFlowModelHandler
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import PassConfigParam
+from olive.platform_sdk.qualcomm.constants import InputLayout, InputType
+from olive.platform_sdk.qualcomm.snpe.tools.dev import get_dlc_io_config, to_dlc
 from olive.resource_path import LocalFile
-from olive.snpe.constants import InputLayout, InputType
-from olive.snpe.tools.dev import get_dlc_io_config, to_dlc
 
 
 def _validate_input_types_layouts(v, values, field):
@@ -44,8 +44,8 @@ class SNPEConversion(Pass):
     Uses snpe-tensorflow-to-dlc or snpe-onnx-to-dlc tools from the SNPE SDK.
     """
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "input_names": PassConfigParam(type_=List[str], required=True, description="List of input names."),
             "input_shapes": PassConfigParam(
@@ -59,8 +59,8 @@ class SNPEConversion(Pass):
                 default_value=None,
                 description=(
                     "List of input types. If not None, it must be a list of the same length as input_names. List"
-                    " members can be None to use default value. Refer to olive.snpe.constants.InputType for valid"
-                    " values."
+                    " members can be None to use default value. Refer to"
+                    " olive.platform_sdk.qualcomm.constants.InputType for valid values."
                 ),
             ),
             "input_layouts": PassConfigParam(
@@ -68,8 +68,8 @@ class SNPEConversion(Pass):
                 default_value=None,
                 description=(
                     "List of input layouts. If not None, it must be a list of the same length as input_names. List"
-                    " members can be None to use inferred value. Refer to olive.snpe.constants.InputLayout for valid"
-                    " values."
+                    " members can be None to use inferred value."
+                    " Refer to olive.platform_sdk.qualcomm.constants.InputLayout for valid values."
                 ),
             ),
             "extra_args": PassConfigParam(
@@ -78,13 +78,14 @@ class SNPEConversion(Pass):
                 description=(
                     "Extra arguments to pass to snpe conversion tool. Refer to snpe-onnx-to-dlc and"
                     " snpe-tensorflow-to-dlc at https://developer.qualcomm.com/sites/default/files/docs/snpe/tools.html"
-                    " for more additional arguments. Must be a dictionary of the form: {'arg_name': 'arg_value'}."
+                    " for more additional arguments. The value is a string that will be passed as is to the tool."
+                    " e.g.: --enable_cpu_fallback --priority_hint low"
                 ),
             ),
         }
 
-    @staticmethod
-    def _validators() -> Dict[str, Callable]:
+    @classmethod
+    def _validators(cls) -> Dict[str, Callable]:
         return {
             "validate_input_types_layouts": validator("input_types", "input_layouts", allow_reuse=True)(
                 _validate_input_types_layouts
@@ -98,11 +99,9 @@ class SNPEConversion(Pass):
         config: Dict[str, Any],
         output_model_path: str,
     ) -> SNPEModelHandler:
-        config = self._config_class(**config)
-
         if Path(output_model_path).suffix != ".dlc":
             output_model_path += ".dlc"
 
-        to_dlc(model.model_path, model.framework, config.dict(), output_model_path)
-        io_config = get_dlc_io_config(output_model_path, config.input_names, config.output_names)
+        to_dlc(model.model_path, model.framework, config, output_model_path)
+        io_config = get_dlc_io_config(output_model_path, config["input_names"], config["output_names"])
         return SNPEModelHandler(model_path=LocalFile({"path": output_model_path}), **io_config)

@@ -14,6 +14,20 @@
             }
         }
     },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "execution_providers": [
+                            "CPUExecutionProvider"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
     "evaluators": {
         "common_evaluator":{
             "metrics":[
@@ -63,7 +77,6 @@
         },
         "vitis_ai_quantization": {
             "type": "VitisAIQuantization",
-            "disable_search": true,
             "config": {
                 "calibrate_method":"NonOverflow",
                 "quant_format":"QDQ",
@@ -77,12 +90,9 @@
     },
     "engine": {
         "log_severity_level": 0,
-        "search_strategy": {
-            "execution_order": "joint",
-            "search_algorithm": "exhaustive"
-        },
+        "host": "local_system",
+        "target": "local_system",
         "evaluator": "common_evaluator",
-        "execution_providers": ["CPUExecutionProvider"],
         "cache_dir": "cache",
         "output_dir": "models/resnet_vitis_ai_ptq_cpu"
     }

@@ -1,0 +1,218 @@
+{
+    "input_model": {
+        "type": "PyTorchModel",
+        "config": {
+            "model_script": "user_script.py",
+            "dummy_inputs_func": "dummy_inputs",
+            "io_config": "get_io_config",
+            "hf_config": {
+                "model_name": "microsoft/phi-2",
+                "task": "text-generation",
+                "from_pretrained_args": {
+                    "trust_remote_code": true
+                }
+            }
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "device": "cpu",
+                        "execution_providers": [
+                            "CPUExecutionProvider"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics": [
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_types": [
+                        {
+                            "name": "avg",
+                            "priority": 1
+                        }
+                    ],
+                    "user_config": {
+                        "user_script": "user_script.py",
+                        "dataloader_func": "create_dataloader",
+                        "batch_size": 2,
+                        "inference_settings": {
+                            "onnx": {
+                                "session_options": {
+                                    "enable_profiling": false
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "passes": {
+        "slice": {
+            "type": "SliceGPT",
+            "config": {
+                "sparsity": 0.4,
+                "calibration_data_config": "wikitext2"
+            }
+        },
+        "qlora": {
+            "type": "QLoRA",
+            "config": {
+                "compute_dtype": "bfloat16",
+                "quant_type": "nf4",
+                "double_quant": true,
+                "lora_r": 64,
+                "lora_alpha": 64,
+                "lora_dropout": 0.1,
+                "train_data_config": "dataset_default_train",
+                "eval_dataset_size": 0.3,
+                "training_args": {
+                    "seed": 0,
+                    "data_seed": 42,
+                    "per_device_train_batch_size": 1,
+                    "per_device_eval_batch_size": 1,
+                    "gradient_accumulation_steps": 4,
+                    "gradient_checkpointing": false,
+                    "learning_rate": 0.0001,
+                    "num_train_epochs":3,
+                    "max_steps": 10,
+                    "logging_steps": 10,
+                    "evaluation_strategy": "steps",
+                    "eval_steps": 187,
+                    "group_by_length": true,
+                    "adam_beta2": 0.999,
+                    "max_grad_norm": 0.3
+                }
+            }
+        },
+        "convert": {
+            "type": "OnnxConversion",
+            "config": {
+                "merge_adapter_weights": true,
+                "use_dynamo_exporter": true,
+                "torch_dtype": "float32",
+                "target_opset": 18,
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true
+            }
+        },
+        "optimum_convert": {
+            "type": "OptimumConversion"
+        },
+        "optimize_cpu": {
+            "type": "OrtTransformersOptimization",
+            "config": {
+                "model_type": "phi",
+                "use_gpu": false,
+                "keep_io_types": false,
+                "num_heads": 32,
+                "hidden_size": 2560,
+                "opt_level": 0,
+                "optimization_options": {
+                    "attention_op_type": "MultiHeadAttention"
+                },
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true
+            }
+        },
+        "optimize_cuda": {
+            "type": "OrtTransformersOptimization",
+            "config": {
+                "model_type": "phi",
+                "use_gpu": true,
+                "keep_io_types": false,
+                "num_heads": 32,
+                "hidden_size": 2560,
+                "opt_level": 0,
+                "optimization_options": {
+                    "attention_op_type": "GroupQueryAttention"
+                },
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true,
+                "float16": true
+            }
+        },
+        "blockwise_quant_int4": {
+            "type": "OnnxMatMul4Quantizer",
+            "config": {
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true,
+                "block_size": 16,
+                "is_symmetric": true
+            }
+        },
+        "perf_tuning": {
+            "type": "OrtPerfTuning",
+            "config": {
+                "user_script": "user_script.py",
+                "dataloader_func": "create_dataloader",
+                "batch_size": 2,
+                "enable_profiling": false
+            }
+        }
+    },
+    "data_configs": {
+        "dataset_default_train": {
+            "name": "tiny_codes_train",
+            "type": "HuggingfaceContainer",
+            "user_script": "user_script.py",
+            "components": {
+                "load_dataset": {
+                    "type": "load_tiny_code_dataset"
+                }
+            },
+            "params_config": {
+                "data_name": "nampdn-ai/tiny-codes",
+                "split": "train",
+                "component_kwargs": {
+                    "load_dataset": {
+                        "language": "Python",
+                        "token": true
+                    },
+                    "pre_process_data": {
+                        "corpus_strategy": "join",
+                        "text_template": "### Question: {prompt} \n### Answer: {response}",
+                        "source_max_len": 1024
+                    }
+                }
+            }
+        },
+        "wikitext2": {
+            "name": "wikitext2",
+            "type": "HuggingfaceContainer",
+            "params_config": {
+                "data_name": "wikitext",
+                "subset": "wikitext-2-raw-v1",
+                "split": "train",
+                "component_kwargs": {
+                    "pre_process_data": {
+                        "text_cols": ["text"],
+                        "source_max_len": 2048
+                    }
+                }
+            }
+        }
+    },
+    "engine": {
+        "evaluate_input_model": true,
+        "evaluator": "common_evaluator",
+        "host": "local_system",
+        "target": "local_system",
+        "cache_dir": "cache",
+        "output_name": "phi2",
+        "output_dir": "phi2",
+        "clean_cache": false,
+        "log_severity_level": 0,
+        "log_to_file": false
+    }
+}

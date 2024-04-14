@@ -11,14 +11,14 @@ def post_process(res):
     return res.argmax(1)
 
 
+def openvino_post_process(res):
+    res = next(iter(res))
+    return [res.argmax()]
+
+
 def create_dataloader(data_dir, batch_size, *args, **kwargs):
     dataset = datasets.MNIST(data_dir, transform=ToTensor())
     return torch.utils.data.DataLoader(dataset, batch_size)
-
-
-def openvino_post_process(res):
-    res = next(iter(res.values()))
-    return res.argmax(1)
 
 
 def hf_post_process(res):

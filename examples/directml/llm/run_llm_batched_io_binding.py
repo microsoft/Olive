@@ -3,6 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+# ruff: noqa: T201
+
 # This program will run the ONNX version of the LLM.
 import argparse
 import os
@@ -11,9 +13,9 @@ from typing import List
 
 import numpy as np
 import onnxruntime
-from transformers import AutoTokenizer
 from chat_templates import get_chat_template
-from model_type_mapping import get_supported_llm_models, get_model_dir
+from model_type_mapping import get_model_dir, get_supported_llm_models
+from transformers import AutoTokenizer
 
 
 def run_llm_io_binding(
@@ -98,7 +100,9 @@ def run_llm_io_binding(
     initial_input_ids = onnxruntime.OrtValue.ortvalue_from_numpy(initial_input_ids, device)
 
     position_ids_ortvalue = onnxruntime.OrtValue.ortvalue_from_shape_and_type((batch_size, 1), np.int64, device)
-    attention_mask_ortvalue = onnxruntime.OrtValue.ortvalue_from_shape_and_type((batch_size, max_seq_len), np.int64, device)
+    attention_mask_ortvalue = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
+        (batch_size, max_seq_len), np.int64, device
+    )
     input_ids_ortvalue = onnxruntime.OrtValue.ortvalue_from_shape_and_type((batch_size, 1), np.int64, device)
 
     # Create the LLM model's I/O binding
@@ -134,9 +138,7 @@ def run_llm_io_binding(
     before_time = time.perf_counter()
 
     # Iteratively generate tokens.
-    batched_output_tokens = []
-    for _ in range(batch_size):
-        batched_output_tokens.append([])
+    batched_output_tokens = [[] for _ in range(batch_size)]
 
     eos_found = [False] * batch_size
     eos_count = 0

@@ -22,8 +22,8 @@ class OnnxFloatToFloat16(Pass):
     See https://onnxruntime.ai/docs/performance/model-optimizations/float16.html#float16-conversion
     """
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "min_positive_val": PassConfigParam(
                 type_=float, default_value=1e-7, description="Constant values will be clipped against this value"

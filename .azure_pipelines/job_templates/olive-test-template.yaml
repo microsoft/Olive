@@ -46,11 +46,7 @@ jobs:
       displayName: Install ${{ parameters.onnxruntime }}
 
   - ${{ if and(eq(variables.WINDOWS, 'True'), eq(variables.testType, 'multiple_ep')) }}:
-    - task: AzureCLI@1
-      inputs:
-        azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
-        scriptLocation: 'inlineScript'
-        inlineScript: |
+    - script: |
           call python -m pip install pytest
           call curl --output openvino_toolkit.zip https://storage.openvinotoolkit.org/repositories/openvino/packages/2023.0.1/windows/w_openvino_toolkit_windows_2023.0.1.11005.fa1c41994f3_x86_64.zip
           call 7z x openvino_toolkit.zip
@@ -64,15 +60,9 @@ jobs:
         WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
         WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
         WORKSPACE_NAME: $(workspace-name)
-        AZURE_TENANT_ID: $(azure-tenant-id)
-        AZURE_CLIENT_ID: $(olive-rg-sp-id)
-        AZURE_CLIENT_SECRET: $(olive-rg-sp-secret)
+        MANAGED_IDENTITY_CLIENT_ID: $(olive-1es-identity-client-id)
   - ${{ else }}:
-    - task: AzureCLI@1
-      inputs:
-        azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
-        scriptLocation: 'inlineScript'
-        inlineScript: |
+    - script: |
           python -m pip install pytest
           python -m pip install -r $(Build.SourcesDirectory)/test/$(requirements_file)
 
@@ -84,9 +74,7 @@ jobs:
         WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
         WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
         WORKSPACE_NAME: $(workspace-name)
-        AZURE_TENANT_ID: $(azure-tenant-id)
-        AZURE_CLIENT_ID: $(olive-rg-sp-id)
-        AZURE_CLIENT_SECRET: $(olive-rg-sp-secret)
+        MANAGED_IDENTITY_CLIENT_ID: $(olive-1es-identity-client-id)
 
   - task: CredScan@3
     displayName: 'Run CredScan'

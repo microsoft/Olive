@@ -8,7 +8,11 @@ from test.integ_test.utils import download_azure_blob
 from torchvision import datasets
 from torchvision.transforms import ToTensor
 
+from olive.engine import Engine
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
+from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
+from olive.hardware.accelerator import create_accelerators
+from olive.passes.onnx.perf_tuning import OrtPerfTuning
 
 # pylint: disable=redefined-outer-name
 
@@ -65,3 +69,27 @@ def download_data():
 
 def get_onnx_model():
     return str(models_dir / "model.onnx")
+
+
+def create_and_run_workflow(tmp_path, system_config, model_config, metric, only_target=False):
+    # use the olive managed python environment as the test environment
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+
+    evaluator_config = OliveEvaluatorConfig(metrics=[metric])
+
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    config = {
+        "cache_dir": cache,
+        "target": system_config,
+        "host": system_config if not only_target else None,
+        "evaluator": evaluator_config,
+    }
+    engine = Engine(**config)
+    engine.register(OrtPerfTuning)
+    accelerator_specs = create_accelerators(system_config)
+    output = engine.run(model_config, accelerator_specs, output_dir=output_dir, evaluate_input_model=True)
+
+    results = [next(iter(output[accelerator].nodes.values())) for accelerator in accelerator_specs]
+    return tuple(results)

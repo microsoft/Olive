@@ -87,3 +87,32 @@ def is_io_config_static(config: Union[IoConfig, Dict]):
     if not config.get("input_shapes"):
         return False
     return all(all(isinstance(dim, int) for dim in shape) for shape in config["input_shapes"])
+
+
+def is_kv_cache_required(input_past_kv_list, io_config: IoConfig):
+    # In the case of dynamo exporting, user do not need to provide input names
+    # for past_key_values in huggingface pytorch model, when exported to onnx
+    # and after PhiOnnxModel optimization, the pass_key_value will be extended as
+    # `past_(key|value)_(hidden_layer_num)` pattern (phi2 case)
+    # https://github.com/Microsoft/onnxruntime/blob/f53d2c2465d81cdb4e14c7241eab327184192c88/onnxruntime/python/tools/transformers/onnx_model_phi.py#L845C1-L845C31
+    hidden_layer_num = len(input_past_kv_list)
+    # possible kv-related variables which might be provided by the user
+    # past_key_0, past_value_0, ...
+    # past_key_values.0.key, past_key_values.0.value, ...
+    # please keep adding more patterns if necessary
+    possible_kv_names_templates = [
+        ["past_key_<id>", "past_value_<id>"],
+        # can be used to match past_key_values.0.key, past_key_values.0.value...
+        # and past_key_values.0, past_key_values.0... at the same time
+        ["past_key_values.<id>"],
+    ]
+    possible_kv_names_group = [[] for _ in range(len(possible_kv_names_templates))]
+
+    for j, kv_template in enumerate(possible_kv_names_templates):
+        for kv_str in kv_template:
+            possible_kv_names_group[j].extend(kv_str.replace("<id>", str(i)) for i in range(hidden_layer_num))
+
+    for kv_name_group in possible_kv_names_group:
+        if all(any(kv_str in input_name for input_name in io_config.input_names) for kv_str in kv_name_group):
+            return True
+    return False

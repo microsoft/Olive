@@ -11,12 +11,21 @@ import olive.systems.system_alias as system_alias
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.pydantic_v1 import root_validator, validator
-from olive.systems.common import AzureMLDockerConfig, LocalDockerConfig, SystemType
+from olive.systems.common import (
+    AcceleratorConfig,
+    AzureMLDockerConfig,
+    AzureMLEnvironmentConfig,
+    LocalDockerConfig,
+    SystemType,
+)
 
 
 class TargetUserConfig(ConfigBase):
-    accelerators: List[str] = None
+    accelerators: List[AcceleratorConfig] = None
     hf_token: bool = None
+
+    class Config:
+        validate_assignment = True
 
 
 class LocalTargetUserConfig(TargetUserConfig):
@@ -24,6 +33,7 @@ class LocalTargetUserConfig(TargetUserConfig):
 
 
 class DockerTargetUserConfig(TargetUserConfig):
+    # the local_docker_config is optional for managed environments and required for normal docker system
     local_docker_config: LocalDockerConfig = None
     is_dev: bool = False
     olive_managed_env: bool = False
@@ -34,6 +44,8 @@ class AzureMLTargetUserConfig(TargetUserConfig):
     azureml_client_config: AzureMLClientConfig = None
     aml_compute: str
     aml_docker_config: AzureMLDockerConfig = None
+    aml_environment_config: AzureMLEnvironmentConfig = None
+    tags: Dict = None
     resources: Dict = None
     instance_count: int = 1
     is_dev: bool = False
@@ -41,30 +53,62 @@ class AzureMLTargetUserConfig(TargetUserConfig):
     requirements_file: Union[Path, str] = None
 
 
-class PythonEnvironmentTargetUserConfig(TargetUserConfig):
-    python_environment_path: Union[
-        Path, str
-    ] = None  # path to the python environment, e.g. /home/user/anaconda3/envs/myenv, /home/user/.virtualenvs/myenv
+class CommonPythonEnvTargetUserConfig(TargetUserConfig):
+    # path to the python environment, e.g. /home/user/anaconda3/envs/myenv, /home/user/.virtualenvs/
+    python_environment_path: Union[Path, str] = None
     environment_variables: Dict[str, str] = None  # os.environ will be updated with these variables
     prepend_to_path: List[str] = None  # paths to prepend to os.environ["PATH"]
-    olive_managed_env: bool = False  # if True, the environment will be created and managed by Olive
-    requirements_file: Union[Path, str] = None  # path to the requirements.txt file
 
     @validator("python_environment_path", "prepend_to_path", pre=True, each_item=True)
     def _get_abspath(cls, v):
         return str(Path(v).resolve()) if v else None
 
-    @validator("python_environment_path")
-    def _validate_python_environment_path(cls, v):
-        if v:
-            # check if the path exists
-            if not Path(v).exists():
-                raise ValueError(f"Python path {v} does not exist")
 
-            # check if python exists in the path
-            python_path = shutil.which("python", path=v)
-            if not python_path:
-                raise ValueError(f"Python executable not found in the path {v}")
+class PythonEnvironmentTargetUserConfig(CommonPythonEnvTargetUserConfig):
+    olive_managed_env: bool = False  # if True, the environment will be created and managed by Olive
+    requirements_file: Union[Path, str] = None  # path to the requirements.txt file
+
+    @root_validator(pre=True)
+    def _validate_python_environment_path(cls, values):
+        # if olive_managed_env is True, python_environment_path is not required
+        if values.get("olive_managed_env"):
+            return values
+
+        python_environment_path = values.get("python_environment_path")
+        if python_environment_path is None:
+            raise ValueError("python_environment_path is required for PythonEnvironmentSystem native mode")
+
+        # check if the path exists
+        if not Path(python_environment_path).exists():
+            raise ValueError(f"Python path {python_environment_path} does not exist")
+
+        # check if python exists in the path
+        python_path = shutil.which("python", path=python_environment_path)
+        if not python_path:
+            raise ValueError(f"Python executable not found in the path {python_environment_path}")
+        return values
+
+
+class IsolatedORTTargetUserConfig(CommonPythonEnvTargetUserConfig):
+    # Please refer to https://github.com/pydantic/pydantic/issues/1223
+    # In Pydantic v1, missing a optional field will skip the validation. But if the field is specified as None
+    # The validation will be triggered. As the result, we cannot use the following line to make the field as required
+    # since the validation will still be triggered if user pass it as None.
+    # A better approach is to use always=True to check it is required.
+    # python_environment_path: Union[Path, str]
+    @validator("python_environment_path", always=True)
+    def _validate_python_environment_path(cls, v):
+        if v is None:
+            raise ValueError("python_environment_path is required for IsolatedORTSystem")
+
+        # check if the path exists
+        if not Path(v).exists():
+            raise ValueError(f"Python path {v} does not exist")
+
+        # check if python exists in the path
+        python_path = shutil.which("python", path=v)
+        if not python_path:
+            raise ValueError(f"Python executable not found in the path {v}")
         return v
 
 
@@ -73,6 +117,7 @@ _type_to_config = {
     SystemType.AzureML: AzureMLTargetUserConfig,
     SystemType.Docker: DockerTargetUserConfig,
     SystemType.PythonEnvironment: PythonEnvironmentTargetUserConfig,
+    SystemType.IsolatedORT: IsolatedORTTargetUserConfig,
 }
 
 _type_to_system_path = {
@@ -80,6 +125,7 @@ _type_to_system_path = {
     SystemType.AzureML: "olive.systems.azureml.AzureMLSystem",
     SystemType.Docker: "olive.systems.docker.DockerSystem",
     SystemType.PythonEnvironment: "olive.systems.python_environment.PythonEnvironmentSystem",
+    SystemType.IsolatedORT: "olive.systems.isolated_ort.IsolatedORTSystem",
 }
 
 
@@ -91,7 +137,7 @@ def import_system_from_type(system_type: SystemType):
 
 
 class SystemConfig(ConfigBase):
-    type: SystemType  # noqa: A003
+    type: SystemType
     config: TargetUserConfig = None
 
     @root_validator(pre=True)
@@ -100,7 +146,28 @@ class SystemConfig(ConfigBase):
         system_alias_class = getattr(system_alias, type_name, None)
         if system_alias_class:
             values["type"] = system_alias_class.system_type
-            values["config"]["accelerators"] = system_alias_class.accelerators
+            if "config" not in values:
+                values["config"] = {}
+
+            if values["type"] == SystemType.AzureML and not values["config"].get("accelerators"):
+                raise ValueError("accelerators is required for AzureML system")
+
+            if system_alias_class.accelerators:
+                valid_accelerators = []
+
+                if not values["config"].get("accelerators"):
+                    valid_accelerators = [
+                        {"device": acc, "execution_providers": None} for acc in system_alias_class.accelerators
+                    ]
+                else:
+                    for device in system_alias_class.accelerators:
+                        valid_accelerators.extend(
+                            {"device": acc["device"], "execution_providers": acc.get("execution_providers")}
+                            for acc in values["config"]["accelerators"]
+                            if acc["device"].lower() == device.lower()
+                        )
+
+                values["config"]["accelerators"] = valid_accelerators or None
             # TODO(myguo): consider how to use num_cpus and num_gpus in distributed inference.
         return values
 
@@ -118,3 +185,11 @@ class SystemConfig(ConfigBase):
         if system_class.system_type == SystemType.AzureML and not self.config.azureml_client_config:
             raise ValueError("azureml_client is required for AzureML system")
         return system_class(**self.config.dict())
+
+    @property
+    def olive_managed_env(self):
+        return getattr(self.config, "olive_managed_env", False)
+
+    # the __hash__ is needed so to create_managed_system_with_cache, otherwise the following error will be raised:
+    # unhashable type: 'SystemConfig'
+    __hash__ = object.__hash__

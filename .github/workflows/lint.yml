@@ -11,6 +11,10 @@ jobs:
   optional-lint:
     name: Optional Lint
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@v4
       - name: misspell # Check spellings as well
@@ -21,6 +25,8 @@ jobs:
           reporter: github-pr-check
           level: info
           filter_mode: diff_context
+          exclude: |
+            ./NOTICE.txt
       - name: shellcheck # Static check shell scripts
         uses: reviewdog/action-shellcheck@v1
         with:
@@ -33,6 +39,10 @@ jobs:
     # Required workflow
     name: Python format
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python
@@ -49,7 +59,7 @@ jobs:
           set +e
           if ! lintrunner --force-color --all-files --tee-json=lint.json -v; then
               echo ""
-              echo -e "\e[1m\e[36mYou can reproduce these results locally by using \`lintrunner\`. To set up lintrunner locally, see https://github.com/microsoft/onnxruntime/blob/main/docs/Coding_Conventions_and_Standards.md#linting .\e[0m"
+              echo -e "\e[1m\e[36mYou can reproduce these results locally by using \`lintrunner\`. To set up lintrunner locally, see https://github.com/microsoft/Olive/blob/main/CONTRIBUTING.md#linting .\e[0m"
               exit 1
           fi
       - name: Produce SARIF
@@ -59,7 +69,7 @@ jobs:
       - name: Upload SARIF file
         if: always()
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
           # Path to SARIF file relative to the root of the repository
           sarif_file: lintrunner.sarif

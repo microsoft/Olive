@@ -75,10 +75,6 @@
         }
     },
     "engine": {
-        "search_strategy": {
-            "execution_order": "pass-by-pass",
-            "search_algorithm": "exhaustive"
-        },
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
         "output_dir": "models/resnet_qat_lightning_module_cpu"

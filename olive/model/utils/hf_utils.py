@@ -36,7 +36,7 @@ def load_hf_model_from_task(task: str, name: str, **kwargs):
     for model_class in class_tuple:
         try:
             model = model_class.from_pretrained(name, **kwargs)
-            logger.debug(f"Loaded model {model_class} with name_or_path {name}")
+            logger.debug("Loaded model %s with name_or_path %s", model_class, name)
             return model
         except (OSError, ValueError):
             # the ValueError need to be caught since there will be multiple model_class for single task.
@@ -71,7 +71,7 @@ def load_hf_model_from_model_class(model_class: str, name: str, **kwargs):
     return huggingface_model_loader(model_class)(name, **kwargs)
 
 
-# patched version of transforrmers.onnx.features.supported_features_mapping
+# patched version of transformers.onnx.features.supported_features_mapping
 # to support additional models in olive
 def patched_supported_features_mapping(*supported_features: str, onnx_config_cls: str = None) -> Dict[str, Callable]:
     """Generate the mapping between supported the features and their corresponding OnnxConfig for a given model.
@@ -82,6 +82,7 @@ def patched_supported_features_mapping(*supported_features: str, onnx_config_cls
 
     Returns:
         The dictionary mapping a feature to an OnnxConfig constructor.
+
     """
     if onnx_config_cls is None:
         raise ValueError("A OnnxConfig class must be provided")
@@ -138,6 +139,12 @@ def get_hf_model_io_config(model_name: str, task: str, feature: Optional[str] = 
     model_config = get_onnx_config(model_name, task, feature, **kwargs)
     inputs = model_config.inputs
     outputs = model_config.outputs
+    if not inputs or not outputs:
+        # just log a warning and return None, since this is not a critical error
+        # and following pass may not use the io_config, like OptimumConversion
+        logger.warning("No inputs or outputs found from model %s", model_config)
+        return None
+
     io_config = {}
     io_config["input_names"] = list(inputs.keys())
     io_config["output_names"] = list(outputs.keys())
@@ -175,8 +182,8 @@ def get_model_max_length(model_name: str, fail_on_not_found=False) -> int:
         return getattr(model_config, max_length)
     else:
         logger.debug(
-            f"No max length mapping found in MODELS_TO_MAX_LENGTH_MAPPING for model type {model_type}, trying"
-            " __default__"
+            "No max length mapping found in MODELS_TO_MAX_LENGTH_MAPPING for model type %s, trying __default__",
+            model_type,
         )
         default_max_length = MODELS_TO_MAX_LENGTH_MAPPING["__default__"]
         try:

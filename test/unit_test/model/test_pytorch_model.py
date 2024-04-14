@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import shutil
 import unittest
-from pathlib import Path
 from types import FunctionType
 from unittest.mock import MagicMock, patch
 
@@ -23,21 +22,24 @@ from olive.model.handler.pytorch import PyTorchModelHandler
 
 class TestPyTorchMLflowModel(unittest.TestCase):
     @pytest.fixture(autouse=True)
-    def setup(self, tmpdir):
-        self.tempdir = tmpdir
-        self.root_dir = Path(self.tempdir)
+    def setup(self, tmp_path):
+        self.root_dir = tmp_path
         self.model_path = str(self.root_dir.resolve() / "mlflow_test")
         self.task = "text-classification"
-        self.architecture = "Intel/bert-base-uncased-mrpc"
+        self.architecture = "google/bert_uncased_L-4_H-256_A-4"
         self.original_model = transformers.BertForSequenceClassification.from_pretrained(self.architecture)
+        # note that cannot tokenizer cannot be used before any forked process
+        # otherwise it will disable parallelism to avoid deadlocks which make the
+        # pytest.mark.parametrize unavailable
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.architecture)
         self.input_text = "Today was an amazing day."
         self.hf_conf = {
+            # this is `task_type` and not `task` since it's an input to aml_mlflow.hftransformers.save_model
+            # which expects `task_type` as the key
             "task_type": self.task,
         }
 
         # cleanup the model path, otherwise, the test will fail after the first run.
-        shutil.rmtree(self.model_path, ignore_errors=True)
         aml_mlflow.hftransformers.save_model(
             self.original_model,
             self.model_path,
@@ -45,11 +47,46 @@ class TestPyTorchMLflowModel(unittest.TestCase):
             config=self.original_model.config,
             hf_conf=self.hf_conf,
         )
+        yield
+        shutil.rmtree(self.root_dir, ignore_errors=True)
+
+    def test_mlflow_model_hfconfig_function(self):
+        hf_model = PyTorchModelHandler(
+            model_path=self.architecture, hf_config={"task": self.task, "model_name": self.architecture}
+        )
+        mlflow_olive_model = PyTorchModelHandler(
+            model_path=self.model_path,
+            model_file_format="PyTorch.MLflow",
+            hf_config={
+                "task": self.task,
+                "model_name": self.architecture,
+            },
+        )
+        # load_hf_model only works for huggingface models and not for mlflow models
+        assert mlflow_olive_model.get_hf_model_config() == hf_model.get_hf_model_config()
+        assert mlflow_olive_model.get_hf_io_config() == hf_model.get_hf_io_config()
+        assert len(list(mlflow_olive_model.get_hf_components())) == len(list(hf_model.get_hf_components()))
+        assert len(mlflow_olive_model.get_hf_dummy_inputs()) == len(hf_model.get_hf_dummy_inputs())
 
     def test_hf_model_attributes(self):
         olive_model = PyTorchModelHandler(hf_config={"task": self.task, "model_name": self.architecture})
         # model_attributes will be delayed loaded until pass run
         assert olive_model.model_attributes == transformers.AutoConfig.from_pretrained(self.architecture).to_dict()
+
+    def test_load_model_with_pretrained_args(self):
+        # as the tokenizer is used in setup function
+        # we cannot use pytest.mark.parametrize as it will be disabled
+        # to avoid deadlocks
+        olive_model = PyTorchModelHandler(
+            model_path=self.model_path,
+            model_file_format="PyTorch.MLflow",
+            hf_config={
+                "task": self.task,
+                "model_name": self.architecture,
+                "from_pretrained_args": {"trust_remote_code": True},
+            },
+        ).load_model()
+        assert olive_model is not None
 
     def test_load_model(self):
         olive_model = PyTorchModelHandler(model_path=self.model_path, model_file_format="PyTorch.MLflow").load_model()

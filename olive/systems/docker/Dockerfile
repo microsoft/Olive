@@ -13,7 +13,7 @@ RUN pip install azure-ai-ml \
             openvino-dev[tensorflow,onnx] \
             tensorflow \
             onnxconverter_common \
-            olive-ai==0.3.1
+            olive-ai
 
 ADD requirements.txt requirements.txt
 RUN pip install -r requirements.txt

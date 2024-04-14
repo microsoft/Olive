@@ -14,11 +14,10 @@ from torch.utils.data import DataLoader, Dataset
 from olive.constants import Framework
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
-from olive.evaluator.metric import Metric, MetricType
+from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
 from olive.evaluator.metric_config import MetricGoal
-from olive.model import ModelConfig, ONNXModelHandler, OptimumModelHandler, PyTorchModelHandler
+from olive.model import ModelConfig, ONNXModelHandler, PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx import OnnxConversion, OnnxDynamicQuantization
 
 ONNX_MODEL_PATH = Path(__file__).absolute().parent / "dummy_model.onnx"
 
@@ -80,18 +79,12 @@ def get_pytorch_model():
     )
 
 
-def get_optimum_model_by_model_path():
-    return OptimumModelHandler(
-        model_path="hf-internal-testing/tiny-random-gptj",
-        model_components=["model.onnx"],
-        hf_config={"model_class": "text-generation"},
-    )
-
-
-def get_optimum_model_by_hf_config():
-    return OptimumModelHandler(
-        model_components=["model.onnx"],
-        hf_config={"model_name": "hf-internal-testing/tiny-random-gptj", "model_class": "text-generation"},
+def get_hf_model():
+    return PyTorchModelHandler(
+        hf_config={
+            "model_name": "hf-internal-testing/tiny-random-gptj",
+            "task": "text-generation",
+        }
     )
 
 
@@ -105,7 +98,7 @@ def get_hf_model_with_past():
     )
 
 
-def get_pytorch_model_dummy_input(model):
+def get_pytorch_model_dummy_input(model=None):
     return torch.randn(1, 1)
 
 
@@ -117,8 +110,35 @@ def create_onnx_model_file():
     )
 
 
+def create_onnx_model_with_dynamic_axis(onnx_model_path):
+    pytorch_model = pytorch_model_loader(model_path=None)
+    dummy_input = get_pytorch_model_dummy_input(pytorch_model)
+    torch.onnx.export(
+        pytorch_model,
+        dummy_input,
+        onnx_model_path,
+        opset_version=10,
+        input_names=["input"],
+        output_names=["output"],
+        dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}},
+    )
+
+
 def get_onnx_model_config():
     return ModelConfig.parse_obj({"type": "ONNXModel", "config": {"model_path": str(ONNX_MODEL_PATH)}})
+
+
+def get_composite_onnx_model_config():
+    onnx_model_config = get_onnx_model_config().dict()
+    return ModelConfig.parse_obj(
+        {
+            "type": "CompositeModel",
+            "config": {
+                "model_components": [onnx_model_config, onnx_model_config],
+                "model_component_names": "test_component_name",
+            },
+        }
+    )
 
 
 def get_onnx_model():
@@ -150,14 +170,21 @@ def create_fixed_dataloader(datadir, batchsize, *args, **kwargs):
     return DataLoader(FixedDummyDataset(1))
 
 
-def get_accuracy_metric(*acc_subtype, random_dataloader=True, user_config=None, backend="torch_metrics"):
+def get_accuracy_metric(
+    *acc_subtype,
+    random_dataloader=True,
+    user_config=None,
+    backend="torch_metrics",
+    goal_type="threshold",
+    goal_value=0.99,
+):
     accuracy_metric_config = {"dataloader_func": create_dataloader if random_dataloader else create_fixed_dataloader}
     accuracy_score_metric_config = {"task": "multiclass", "num_classes": 10}
     sub_types = [
         {
             "name": sub,
             "metric_config": accuracy_score_metric_config if sub == "accuracy_score" else {},
-            "goal": MetricGoal(type="threshold", value=0.99),
+            "goal": MetricGoal(type=goal_type, value=goal_value),
         }
         for sub in acc_subtype
     ]
@@ -168,6 +195,24 @@ def get_accuracy_metric(*acc_subtype, random_dataloader=True, user_config=None, 
         sub_types=sub_types,
         user_config=user_config or accuracy_metric_config,
         backend=backend,
+    )
+
+
+def get_glue_accuracy_metric():
+    return Metric(
+        name="accuracy",
+        type=MetricType.ACCURACY,
+        sub_types=[{"name": AccuracySubType.ACCURACY_SCORE}],
+        data_config=get_glue_huggingface_data_config(),
+    )
+
+
+def get_glue_latency_metric():
+    return Metric(
+        name="latency",
+        type=MetricType.LATENCY,
+        sub_types=[{"name": LatencySubType.AVG}],
+        data_config=get_glue_huggingface_data_config(),
     )
 
 
@@ -210,6 +255,8 @@ def get_throughput_metric(*lat_subtype, user_config=None):
 
 
 def get_onnxconversion_pass(ignore_pass_config=True, target_opset=13):
+    from olive.passes.onnx.conversion import OnnxConversion
+
     onnx_conversion_config = {"target_opset": target_opset}
     p = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
     if ignore_pass_config:
@@ -220,25 +267,23 @@ def get_onnxconversion_pass(ignore_pass_config=True, target_opset=13):
 
 
 def get_onnx_dynamic_quantization_pass(disable_search=False):
+    from olive.passes.onnx.quantization import OnnxDynamicQuantization
+
     return create_pass_from_dict(OnnxDynamicQuantization, disable_search=disable_search)
 
 
 def get_data_config():
     @Registry.register_dataset("test_dataset")
-    def _test_dataset(data_dir, test_value):
-        ...
+    def _test_dataset(data_dir, test_value): ...
 
     @Registry.register_dataloader()
-    def _test_dataloader(dataset, test_value):
-        ...
+    def _test_dataloader(dataset, test_value): ...
 
     @Registry.register_pre_process()
-    def _pre_process(dataset, test_value):
-        ...
+    def _pre_process(dataset, test_value): ...
 
     @Registry.register_post_process()
-    def _post_process(output, test_value):
-        ...
+    def _post_process(output, test_value): ...
 
     return DataConfig(
         components={

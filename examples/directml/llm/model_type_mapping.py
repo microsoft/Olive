@@ -27,6 +27,7 @@ _MODEL_TYPE_TO_REPO_ID = {
     "phi-2": "microsoft/phi-2",
 }
 
+
 def get_supported_lvlm_models():
     return ["llava-7b"]
 
@@ -70,7 +71,7 @@ def get_model_type(repo_id: str):
     for model_type in _MODEL_TYPE_TO_REPO_ID:
         if _MODEL_TYPE_TO_REPO_ID[model_type].replace("/", "_") == repo_id:
             return model_type
-        
+
     raise ValueError(f"repo_id '{repo_id}' not found")
 
 

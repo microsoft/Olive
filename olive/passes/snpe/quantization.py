@@ -12,9 +12,9 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import SNPEModelHandler
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import ParamCategory, PassConfigParam
+from olive.platform_sdk.qualcomm.snpe.tools.dev import quantize_dlc
+from olive.platform_sdk.qualcomm.utils.data_loader import FileListCommonDataLoader, FileListDataLoader
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, LocalFile
-from olive.snpe import SNPECommonDataLoader, SNPEDataLoader
-from olive.snpe.tools.dev import quantize_dlc
 from olive.strategy.search_parameter import Boolean
 
 
@@ -26,8 +26,8 @@ class SNPEQuantization(Pass):
 
     _requires_user_script = True
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "data_dir": PassConfigParam(
                 type_=OLIVE_RESOURCE_ANNOTATIONS,
@@ -41,7 +41,7 @@ class SNPEQuantization(Pass):
                 category=ParamCategory.OBJECT,
                 description=(
                     "Function or function name to create dataloader for quantization. Function should take data"
-                    " directory as an argument and return a olive.snpe.SNPEDataLoader or torch.data.DataLoader-like"
+                    " directory as an argument and return a FileListDataLoader or torch.data.DataLoader-like"
                     " object. Required if data_config is None."
                 ),
             ),
@@ -51,7 +51,6 @@ class SNPEQuantization(Pass):
             ),
             "data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
-                required=True,
                 description="Data config for quantization, required if dataloader_func is None",
             ),
             "use_enhanced_quantizer": PassConfigParam(
@@ -68,7 +67,7 @@ class SNPEQuantization(Pass):
                 type_=bool,
                 default_value=False,
                 searchable_values=Boolean(),
-                description="Pack HTP information in quantized DLC.",
+                description="Pack HTP information in quantized DLC, which is not available in Windows.",
             ),
             "htp_socs": PassConfigParam(
                 type_=List[str], default_value=None, description="List of SoCs to generate HTP Offline cache for."
@@ -79,7 +78,8 @@ class SNPEQuantization(Pass):
                 description=(
                     "Extra arguments to pass to snpe conversion tool. Refer to"
                     " https://developer.qualcomm.com/sites/default/files/docs/snpe/tools.html#tools_snpe-dlc-quantize"
-                    " for more additional arguments. Must be a dictionary of the form: {'arg_name': 'arg_value'}."
+                    " for more additional arguments. The value is a string that will be passed as is to the tool."
+                    " e.g.: --bias_bitwidth 16 --overwrite_cache_records"
                 ),
             ),
         }
@@ -101,9 +101,9 @@ class SNPEQuantization(Pass):
             data_config = validate_config(config["data_config"], DataConfig)
             dataloader = data_config.to_data_container().create_dataloader(data_root)
 
-        # convert dataloader to SNPEDataLoader if it is not already
-        if not isinstance(dataloader, SNPEDataLoader):
-            dataloader = SNPECommonDataLoader(dataloader, model.io_config)
+        # convert dataloader to FileListDataLoader if it is not already
+        if not isinstance(dataloader, FileListDataLoader):
+            dataloader = FileListCommonDataLoader(dataloader, model.io_config)
 
         quantize_dlc(model.model_path, dataloader.get_input_list(), config, output_model_path)
         return SNPEModelHandler(model_path=LocalFile({"path": output_model_path}), **model.io_config)

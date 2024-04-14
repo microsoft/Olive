@@ -10,7 +10,7 @@ The `OnnxConversion` pass converts PyTorch models to ONNX using
 
 Please refer to [OnnxConversion](onnx_conversion) for more details about the pass and its config parameters.
 
-Besides, if you want to convert a existing ONNX model with another target opset, you can use [OnnxOpVersionConversion](onnx_op_version_conversion) pass, similar configs with above case:
+Besides, if you want to convert an existing ONNX model with another target opset, you can use [OnnxOpVersionConversion](onnx_op_version_conversion) pass, similar configs with above case:
 
 ### Example Configuration
 ```json
@@ -26,6 +26,21 @@ Besides, if you want to convert a existing ONNX model with another target opset,
         "target_opset": 14
     }
  }
+```
+
+For generative models, the alternative conversion pass [GenAIModelExporter](genai_model_exporter) that integrates the
+[ONNX Runtime Generative AI](https://github.com/microsoft/onnxruntime-genai) module can be used.
+
+Please refer to [GenAIModelExporter](genai_model_exporter) for more details about the pass and its config parameters.
+
+### Example Configuration
+```json
+{
+    "type": "GenAIModelExporter",
+    "config": {
+        "precision": "int4"
+    }
+}
 ```
 
 ## Model Optimizer
@@ -228,6 +243,9 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 Please refer to [OnnxQuantization](onnx_quantization), [OnnxDynamicQuantization](onnx_dynamic_quantization) and
 [OnnxStaticQuantization](onnx_static_quantization) for more details about the passes and their config parameters.
 
+**Note:** If target execution provider is QNN EP, the model might need to be preprocessed before quantization. Please refer to [QnnPreprocess](qnn_preprocess) for more details about the pass and its config parameters.
+This preprocessing step fuses operators unsupported by QNN EP and inserts necessary operators to make the model compatible with QNN EP.
+
 ### Quantize with Intel® Neural Compressor
 In addition to the default onnxruntime quantization tool, Olive also integrates [Intel® Neural Compressor](https://github.com/intel/neural-compressor).
 
@@ -323,7 +341,21 @@ improve performance.
     "config": {
         "user_script": "user_script.py",
         "dataloader_func": "create_dataloader",
-        "batch_size": 1
+        "batch_size": 1,
+        "providers_list" : [
+            [
+                "CUDAExecutionProvider",
+                {
+                    "device_id": 0,
+                    "arena_extend_strategy": "kNextPowerOfTwo",
+                    "gpu_mem_limit": 2147483648, // 2 * 1024 * 1024 * 1024,
+                    "cudnn_conv_algo_search": "EXHAUSTIVE",
+                    "do_copy_in_default_stream": true,
+                },
+            ],
+            "CPUExecutionProvider",
+        ],
+        "enable_profiling": false,
     }
 }
 ```
@@ -394,3 +426,70 @@ b. More fine-grained control of the conversion conditions is also possible:
     }
 }
 ```
+
+## Convert dynamic shape to fixed shape
+
+In qnn, snpe and other mobile inference scenarios, the input shape of the model is often fixed. The `DynamicToFixedShape` pass converts the dynamic shape of the model to a fixed shape.
+
+For example, often models have a dynamic batch size so that training is more efficient. In mobile scenarios the batch generally has a size of 1. Making the batch size dimension ‘fixed’ by setting it to 1 may allow NNAPI and CoreML to run of the model.
+
+The helper can be used to update specific dimensions, or the entire input shape.
+
+### Example Configuration
+
+a. Making a symbolic dimension fixed
+```json
+{
+    "type": "DynamicToFixedShape",
+    "config": {
+        "input_dim": ["batch_size"],
+        "dim_value": [1]
+    }
+}
+```
+
+b. Making the entire input shape fixed
+```json
+{
+    "type": "DynamicToFixedShape",
+    "config": {
+        "input_name": ["input"],
+        "input_shape": [[1, 3, 224, 224]]
+    }
+}
+```
+
+Note: The `input_dim` and `dim_value` should have the same length, and the `input_name` and `input_shape` should have the same length. Also the `input_dim & dim_value` and `input_name & input_shape` should be exclusive to each other, user cannot specify both of them at the same time.
+
+More details about the pass and its config parameters can be found [here](https://onnxruntime.ai/docs/tutorials/mobile/helpers/make-dynamic-shape-fixed.html).
+
+## Extract Adapters
+
+LoRA, QLoRA and related techniques allow us to fine-tune a pre-trained model by adding a small number of trainable matrices called adapters. The same base model can be used for multiple tasks by adding different adapters for each task. To support using multiple adapters with the same optimized onnx model, the `ExtractAdapters` pass extracts the adapters weights from the model and saves them to a separate file. The model graph is then modified in one of the following ways:
+- Adapters weights are set as external tensors pointing to a non-existent file. The onnx model is thus invalid by itself as it cannot be loaded. In order to create an inference session using this model, the adapter weights must be added to a sessions options object using `add_initializer` or `add_external_initializers`.
+- Adapter weights are converted into model inputs. The onnx model is valid. During inference, the adapter weights must be provided as part of the inputs. We call them constant inputs here since these weights don't change between runs when using the one set of adapters.
+
+### Example Configuration
+
+a. As external initializers
+```json
+{
+    "type": "ExtractAdapters",
+    "config": {
+        "make_inputs": false
+    }
+}
+```
+
+b. As constant inputs with packed weights
+```json
+{
+    "type": "ExtractAdapters",
+    "config": {
+        "make_inputs": true,
+        "pack_inputs": true
+    }
+}
+```
+
+Please refer to [ExtractAdapters](extract_adapters) for more details about the pass and its config parameters.

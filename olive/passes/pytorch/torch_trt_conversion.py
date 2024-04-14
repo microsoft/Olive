@@ -37,8 +37,8 @@ class TorchTRTConversion(Pass):
     must be one of [bloom, gpt2, gpt_neox, llama, opt].
     """
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "min_layer": PassConfigParam(
                 type_=int, default_value=None, description="Convert all layers with id >= min_layer."
@@ -69,7 +69,9 @@ class TorchTRTConversion(Pass):
     def validate_search_point(
         self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
     ) -> bool:
-        if accelerator_spec.accelerator_type != Device.GPU:
+        # since the run will leverage the host device to move the model to device,
+        # we need to check if the host device is GPU
+        if self.host_device != Device.GPU:
             logger.info("TorchTRTConversion only supports GPU.")
             return False
         return True
@@ -155,9 +157,9 @@ class TorchTRTConversion(Pass):
             del info["handles"]
 
         # convert submodules to trt modules
-        logger.debug(f"Converting layers {min_layer} to {max_layer}...")
+        logger.debug("Converting layers %d to %d...", min_layer, max_layer)
         for layer_index, info in layer_info.items():
-            logger.debug(f"Converting layer {layer_index}...")
+            logger.debug("Converting layer %d...", layer_index)
             for name, shape in info["input_shapes"].items():
                 inputs = torch.zeros(shape, dtype=torch.float16, device=device)
                 # create trt module

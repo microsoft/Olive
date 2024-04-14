@@ -2,19 +2,18 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import tempfile
 from pathlib import Path
 from test.integ_test.utils import get_olive_workspace_config
 
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.model import ModelConfig
-from olive.passes import OnnxConversion
 from olive.passes.olive_pass import create_pass_from_dict
+from olive.passes.onnx.conversion import OnnxConversion
 from olive.resource_path import ResourcePath
 from olive.systems.azureml import AzureMLDockerConfig, AzureMLSystem
 
 
-def test_aml_model_pass_run():
+def test_aml_model_pass_run(tmp_path):
     # ------------------------------------------------------------------
     # Azure ML System
     aml_compute = "cpu-cluster"
@@ -43,14 +42,13 @@ def test_aml_model_pass_run():
     onnx_conversion_config = {
         "target_opset": 13,
     }
-    with tempfile.TemporaryDirectory() as tempdir:
-        onnx_model_file = str(Path(tempdir) / "model.onnx")
-        onnx_conversion_pass = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
-        onnx_model = aml_system.run_pass(onnx_conversion_pass, pytorch_model_config, None, onnx_model_file)
-        model_path = onnx_model.config["model_path"]
-        if isinstance(model_path, ResourcePath):
-            model_path = model_path.get_path()
-        assert Path(model_path).is_file()
+    onnx_model_file = tmp_path / "model.onnx"
+    onnx_conversion_pass = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
+    onnx_model = aml_system.run_pass(onnx_conversion_pass, pytorch_model_config, None, onnx_model_file)
+    model_path = onnx_model.config["model_path"]
+    if isinstance(model_path, ResourcePath):
+        model_path = model_path.get_path()
+    assert Path(model_path).is_file()
 
 
 def get_pytorch_model():

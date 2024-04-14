@@ -80,8 +80,6 @@
         }
     },
     "engine": {
-        "search_strategy": false,
-        "execution_providers": ["CPUExecutionProvider"],
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
         "output_dir": "models/bert_hf_cpu_aml"

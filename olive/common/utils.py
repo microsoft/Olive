@@ -12,41 +12,38 @@ import platform
 import shlex
 import shutil
 import subprocess
+import tempfile
 import time
 from pathlib import Path
+from typing import Dict
 
 logger = logging.getLogger(__name__)
 
 
-def run_subprocess(cmd, env=None, cwd=None, check=False):  # pragma: no cover
-    logger.debug(f"Running command: {cmd} with env: {env}")
+def run_subprocess(cmd, env=None, cwd=None, check=False):
+    logger.debug("Running command: %s", cmd)
 
+    assert isinstance(cmd, (str, list)), f"cmd must be a string or a list, got {type(cmd)}."
     windows = platform.system() == "Windows"
-    cmd = shlex.split(cmd, posix=not windows)
-    if windows:
-        path = env.get("PATH") if env else None
-        cmd_exe = shutil.which(cmd[0], path=path)
-        cmd[0] = cmd_exe
-    out = subprocess.run(cmd, env=env, cwd=cwd, capture_output=True, check=False)
+    if isinstance(cmd, str):
+        cmd = shlex.split(cmd, posix=not windows)
+
+    try:
+        out = subprocess.run(cmd, env=env, cwd=cwd, capture_output=True, check=check)
+    except subprocess.CalledProcessError as e:
+        err_msg = [
+            f"Failed to run {cmd} with returncode {e.returncode}!",
+            f"Stderr: {e.stderr.decode('utf-8')}",
+            f"Stdout: {e.stdout.decode('utf-8')}",
+            f"Env: {env}",
+        ]
+        logger.error("\n".join(err_msg))  # noqa: TRY400
+        raise
     returncode = out.returncode
     stdout = out.stdout.decode("utf-8")
     stderr = out.stderr.decode("utf-8")
-    if check and returncode != 0:
-        raise RuntimeError(f"Command '{cmd}' failed with return code {returncode} and error: {stderr}")
 
     return returncode, stdout, stderr
-
-
-def get_package_name_from_ep(execution_provider):
-    provider_package_mapping = {
-        "CPUExecutionProvider": ("onnxruntime", "ort-nightly"),
-        "CUDAExecutionProvider": ("onnxruntime-gpu", "ort-nightly-gpu"),
-        "TensorrtExecutionProvider": ("onnxruntime-gpu", "ort-nightly-gpu"),
-        "ROCMExecutionProvider": ("onnxruntime-gpu", "ort-nightly-gpu"),
-        "OpenVINOExecutionProvider": ("onnxruntime-openvino", None),
-        "DmlExecutionProvider": ("onnxruntime-directml", "ort-nightly-directml"),
-    }
-    return provider_package_mapping.get(execution_provider, ("onnxruntime", "ort-nightly"))
 
 
 def hash_string(string):  # pragma: no cover
@@ -64,8 +61,31 @@ def hash_io_stream(f):  # pragma: no cover
 
 
 def hash_file(filename):  # pragma: no cover
-    with open(filename, "rb") as f:  # noqa: PTH123
+    with open(filename, "rb") as f:
         return hash_io_stream(f)
+
+
+def hash_update_from_file(filename, hash_value):
+    assert Path(filename).is_file()
+    with open(str(filename), "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_value.update(chunk)
+    return hash_value
+
+
+def hash_update_from_dir(directory, hash_value):
+    assert Path(directory).is_dir()
+    for path in sorted(Path(directory).iterdir(), key=lambda p: str(p).lower()):
+        hash_value.update(path.name.encode())
+        if path.is_file():
+            hash_value = hash_update_from_file(path, hash_value)
+        elif path.is_dir():
+            hash_value = hash_update_from_dir(path, hash_value)
+    return hash_value
+
+
+def hash_dir(directory):
+    return hash_update_from_dir(directory, hashlib.md5()).hexdigest()
 
 
 def hash_dict(dictionary):  # pragma: no cover
@@ -80,7 +100,7 @@ def hash_function(function):  # pragma: no cover
     try:
         source = inspect.getsource(function)
     except OSError:
-        logger.warning(f"Could not get source code for {function.__name__}. Hash will be based on name only.")
+        logger.warning("Could not get source code for %s. Hash will be based on name only.", function.__name__)
         source = function.__name__
     md5_hash.update(source.encode())
     return md5_hash.hexdigest()
@@ -131,6 +151,7 @@ def retry_func(func, args=None, kwargs=None, max_tries=3, delay=5, backoff=2, ex
         backoff: Backoff multiplier e.g. value of 2 will double the delay each retry.
         exceptions: Exceptions to catch. If None, catch all exceptions. Can be a single exception or a tuple
             of exceptions.
+
     """
     args = args or []
     kwargs = kwargs or {}
@@ -138,16 +159,16 @@ def retry_func(func, args=None, kwargs=None, max_tries=3, delay=5, backoff=2, ex
     num_tries, sleep_time = 0, delay
     while num_tries < max_tries:
         try:
-            logger.debug(f"Calling function '{func.__name__}'. Try {num_tries + 1} of {max_tries}...")
+            logger.debug("Calling function '%s'. Try %d of %d...", func.__name__, num_tries + 1, max_tries)
             out = func(*args, **kwargs)
             logger.debug("Succeeded.")
             return out
-        except exceptions as e:
+        except exceptions:
             num_tries += 1
             if num_tries == max_tries:
-                logger.error(f"Failed with error: {e}", exc_info=True)
-                raise e
-            logger.debug(f"Failed. Retrying in {sleep_time} seconds...")
+                logger.exception("The operation failed after the maximum number of retries.")
+                raise
+            logger.debug("Failed. Retrying in %d seconds...", sleep_time)
             time.sleep(sleep_time)
             sleep_time *= backoff
     return None
@@ -250,7 +271,7 @@ def aml_runner_hf_login():
         from azure.keyvault.secrets import SecretClient
 
         keyvault_name = os.environ.get("KEYVAULT_NAME")
-        logger.debug(f"Getting token from keyvault {keyvault_name}")
+        logger.debug("Getting token from keyvault %s", keyvault_name)
 
         credential = DefaultAzureCredential()
         secret_client = SecretClient(vault_url=f"https://{keyvault_name}.vault.azure.net/", credential=credential)
@@ -302,6 +323,26 @@ def copy_dir(src_dir, dst_dir, ignore=None, **kwargs):
             raise RuntimeError(f"Failed to copy {not_copied}") from e
         else:
             logger.warning(
-                f"Received shutil.Error '{e}' but all required file names exist in destination directory. "
-                "Assuming all files were copied successfully and continuing."
+                "Received shutil.Error '%s' but all required file names exist in destination directory. "
+                "Assuming all files were copied successfully and continuing.",
+                e,
             )
+
+
+def set_tempdir(tempdir: str = None):
+    """Set the root directory for tempfiles.
+
+    :param tempdir: new tempdir.
+    """
+    if tempdir is None:
+        return
+
+    tempdir = Path(tempdir).resolve()
+    tempdir.mkdir(parents=True, exist_ok=True)
+    # setting as string to be safe
+    logger.debug("Setting tempdir to %s from %s", tempdir, tempfile.tempdir)
+    tempfile.tempdir = str(tempdir)
+
+
+def exclude_keys(original_dict: Dict, keys_to_exclude):
+    return {k: v for k, v in original_dict.items() if k not in keys_to_exclude}

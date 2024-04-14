@@ -1,27 +1,24 @@
-# Acceleration on CPU
-[Whisper optimization with PTQ and pre/post processing](https://github.com/microsoft/Olive/tree/main/examples/whisper)
+# Examples
 
-[BERT optimization with Intel® Neural Compressor Post Training Quantization](https://github.com/microsoft/Olive/tree/main/examples/bert#bert-optimization-with-intel-neural-compressor-ptq-on-cpu)
-
-[BERT optimization with QAT Customized Training Loop](https://github.com/microsoft/Olive/tree/main/examples/bert#bert-optimization-with-qat-customized-training-loop-on-cpu)
-
-[ResNet optimization with QAT Default Training Loop](https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-qat-default-training-loop-on-cpu)
-
-[ResNet optimization with QAT PyTorch Lightning Module](https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-qat-pytorch-lightning-module-on-cpu)
-
-[Cifar10 optimization with OpenVINO for Intel HW](https://github.com/microsoft/Olive/tree/main/examples/cifar10_openvino_intel_hw)
-
-# Acceleration on GPU
-[Bert optimization with CUDA/TensorRT](https://github.com/microsoft/Olive/tree/main/examples/bert/#bert-optimization-with-cudatensorrt)
-
-[SqueezeNet latency optimization with DirectML](https://github.com/microsoft/Olive/tree/main/examples/directml/squeezenet)
-
-[Stable Diffusion optimization with DirectML](https://github.com/microsoft/Olive/tree/main/examples/directml/stable_diffusion)
-
-[Dolly V2 optimization with DirectML](https://github.com/microsoft/Olive/tree/main/examples/directml/dolly_v2)
-
-# Acceleration on NPU
-[Inception model optimization on Qualcomm NPU](https://github.com/microsoft/Olive/tree/main/examples/snpe/inception_snpe_qualcomm_npu)
-
-# Acceleration on DPU
-[ResNet optimization with Vitis-AI Post Training Quantization for AMD DPU](https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-vitis-ai-ptq-on-amd-dpu)
+|Scenario| Model|Examples|Hardware Targeted Optimization|
+|---|-----------|-----------|-----------|
+|NLP|llama2|[Link](https://github.com/microsoft/Olive/tree/main/examples/llama2)|`CPU`: with ONNX Runtime optimizations for optimized FP32 ONNX model<br>`CPU`: with ONNX Runtime optimizations for optimized INT8 ONNX model<br>`CPU`: with ONNX Runtime optimizations for optimized INT4 ONNX model<br>`GPU`: with ONNX Runtime optimizations for optimized FP16 ONNX model<br>`GPU`: with ONNX Runtime optimizations for optimized INT4 ONNX model<br>`GPU`: with QLoRA for model fine tune and ONNX Runtime optimizations for optimized INT4 ONNX model<br>`AzureML compute`: with AzureML compute to fine tune and optimize for your local GPUs
+||mistral|[Link](https://github.com/microsoft/Olive/tree/main/examples/mistral)|`CPU`: with Optimum conversion and ONNX Runtime optimizations and Intel® Neural Compressor static quantization for optimized INT8 ONNX model<br>`GPU`: with ONNX Runtime optimizations for optimized FP16 ONNX model
+||open llama|[Link](https://github.com/microsoft/Olive/tree/main/examples/open_llama)|`GPU`: with Optimum conversion and merging and ONNX Runtime optimizations for optimized ONNX model <br>`GPU`: with SparseGPT and TorchTRT conversion for an optimized PyTorch model with sparsity<br>`GPU`: with PyTorch LoRA/QLoRA/LoftQ for model fine tune<br>`GPU`: with ONNX Runtime QLoRA for model fine tune<br>`AzureML compute`: with Optimum conversion and merging and ONNX Runtime optimizations in AzureML<br>`CPU`: with Optimum conversion and merging and ONNX Runtime optimizations and Intel® Neural Compressor 4-bits weight-only quantization for optimized INT4 ONNX model
+||phi|[Link](https://github.com/microsoft/Olive/tree/main/examples/phi)|`GPU`: with PyTorch QLoRA for model fine tune
+||phi2|[Link](https://github.com/microsoft/Olive/tree/main/examples/phi2)|`CPU`: with ONNX Runtime optimizations fp32/int4<br>`GPU` with ONNX Runtime optimizations fp16/int4, with PyTorch QLoRA for model fine tune<br>`GPU` with SliceGPT for an optimized PyTorch model with sparsity
+||falcon|[Link](https://github.com/microsoft/Olive/tree/main/examples/falcon)|`GPU`: with ONNX Runtime optimizations for optimized FP16 ONNX model
+||red pajama|[Link](https://github.com/microsoft/Olive/tree/main/examples/red_pajama)| `CPU`: with Optimum conversion and merging and ONNX Runtime optimizations for a single optimized ONNX model
+||bert|[Link](https://github.com/microsoft/Olive/tree/main/examples/bert)|`CPU`: with ONNX Runtime optimizations and quantization for optimized INT8 ONNX model<br>`CPU`: with ONNX Runtime optimizations and Intel® Neural Compressor quantization for optimized INT8 ONNX model<br>`CPU`: with PyTorch QAT Customized Training Loop and ONNX Runtime optimizations for optimized ONNX INT8 model<br>`GPU`: with ONNX Runtime optimizations for CUDA EP<br>`GPU`: with ONNX Runtime optimizations for TRT EP
+||deberta|[Link](https://github.com/microsoft/Olive/tree/main/examples/deberta)|`GPU`: Optimize Azureml Registry Model with ONNX Runtime optimizations and quantization
+||dolly_v2|[Link](https://github.com/microsoft/Olive/tree/main/examples/directml/dolly_v2)|`GPU`: with Optimum conversion and merging and ONNX Runtime optimizations with DirectML EP
+||gptj|[Link](https://github.com/microsoft/Olive/tree/main/examples/gptj)|`CPU`: with Intel® Neural Compressor static/dynamic quantization for INT8 ONNX model
+|Audio|whisper|[Link](https://github.com/microsoft/Olive/tree/main/examples/whisper)|`CPU`: with ONNX Runtime optimizations for all-in-one ONNX model in FP32<br>`CPU`: with ONNX Runtime optimizations for all-in-one ONNX model in INT8<br>`CPU`: with ONNX Runtime optimizations and Intel® Neural Compressor Dynamic Quantization for all-in-one ONNX model in INT8<br>`GPU`: with ONNX Runtime optimizations for all-in-one ONNX model in FP32<br>`GPU`: with ONNX Runtime optimizations for all-in-one ONNX model in FP16<br>`GPU`: with ONNX Runtime optimizations for all-in-one ONNX model in INT8
+||audio spectrogram<br>transformer|[Link](https://github.com/microsoft/Olive/tree/main/examples/AST)|`CPU`: with ONNX Runtime optimizations and quantization for optimized INT8 ONNX model
+|Vision|stable diffusion <br> stable diffusion XL|[Link](https://github.com/microsoft/Olive/tree/main/examples/stable_diffusion)|`GPU`: with ONNX Runtime optimization for DirectML EP<br>`GPU`: with ONNX Runtime optimization for CUDA EP<br>`Intel CPU`: with OpenVINO toolkit
+||squeezenet|[Link](https://github.com/microsoft/Olive/tree/main/examples/directml/squeezenet)|`GPU`: with ONNX Runtime optimizations with DirectML EP
+||mobilenet|[Link](https://github.com/microsoft/Olive/tree/main/examples/mobilenet)|`Qualcomm NPU`: with ONNX Runtime static QDQ quantization for ONNX Runtime QNN EP
+||resnet|[Link](https://github.com/microsoft/Olive/tree/main/examples/resnet)|`CPU`: with ONNX Runtime static/dynamic Quantization for ONNX INT8 model<br>`CPU`: with PyTorch QAT Default Training Loop and ONNX Runtime optimizations for ONNX INT8 model<br>`CPU`: with PyTorch QAT Lightning Module and ONNX Runtime optimizations for ONNX INT8 model<br>`AMD DPU`: with AMD Vitis-AI Quantization<br>`Intel GPU`: with ONNX Runtime optimizations with multiple EPs
+||VGG|[Link](https://github.com/microsoft/Olive/tree/main/examples/vgg)|`Qualcomm NPU`: with SNPE toolkit
+||inception|[Link](https://github.com/microsoft/Olive/tree/main/examples/inception)|`Qualcomm NPU`: with SNPE toolkit
+||super resolution|[Link](https://github.com/microsoft/Olive/tree/main/examples/super_resolution)|`CPU`: with ONNX Runtime pre/post processing integration for a single ONNX model

@@ -151,11 +151,10 @@ class QatTrainer:
             op_name = prefix + "." + name if prefix != "" else name
             if len(list(child.children())) > 0:
                 self.replace_modules(child, qconfig, op_name)
-            if type(child) in white_list:
-                if type(child) not in skip_list:
-                    new = QuantizedModule(child)
-                    new.qconfig = qconfig  # pylint: disable=attribute-defined-outside-init
-                    setattr(module, name, new)
+            if type(child) in white_list and type(child) not in skip_list:
+                new = QuantizedModule(child)
+                new.qconfig = qconfig  # pylint: disable=attribute-defined-outside-init
+                setattr(module, name, new)
 
     def _recursive_hasattr(self, obj, attribs, state=True):
         if "." in attribs:

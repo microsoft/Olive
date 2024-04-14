@@ -166,9 +166,13 @@ def decoder_dummy_inputs(olive_model: PyTorchModelHandler):
     return tuple(inputs.to_list())
 
 
-def whisper_audio_decoder_dataloader(data_dir, batch_size, *args, **kwargs):
-    return WhisperDataset(data_dir=data_dir, use_audio_decoder=True)
-
-
-def whisper_no_audio_decoder_dataloader(data_dir, batch_size, *args, **kwargs):
-    return WhisperDataset(data_dir=data_dir, use_audio_decoder=False)
+def whisper_dataloader(data_dir, batch_size, *args, **kwargs):
+    model_name = kwargs["model_name"]
+    use_audio_decoder = kwargs["use_audio_decoder"]
+    predict_timestamps = kwargs.get("predict_timestamps", False)
+    return WhisperDataset(
+        data_dir=data_dir,
+        model_name=model_name,
+        use_audio_decoder=use_audio_decoder,
+        predict_timestamps=predict_timestamps,
+    )

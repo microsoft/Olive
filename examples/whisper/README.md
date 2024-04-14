@@ -7,7 +7,7 @@ Performs optimization pipeline:
 - CPU, INT8: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> Intel® Neural Compressor Dynamic Quantized Onnx Model -> Insert Beam Search Op -> Insert Pre/Post Processing Ops*
 - GPU, FP32: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> Insert Beam Search Op -> Insert Pre/Post Processing Ops*
 - GPU, FP16: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> Mixed Precision Model -> Insert Beam Search Op -> Insert Pre/Post Processing Ops*
-- GPU, INT8: *PyTorch Model -> Onnx Model -> Dynamic Quantized Onnx Model -> Insert Beam Search Op -> Insert Pre/Post Processing Ops*
+- GPU, INT8: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> Dynamic Quantized Onnx Model -> Insert Beam Search Op -> Insert Pre/Post Processing Ops*
 
 Outputs the final model and latency results.
 
@@ -30,48 +30,64 @@ Note: Multilingual support requires onnxruntime>=1.16.0
 
 ### Prepare workflow config json
 ```
-python prepare_whisper_configs.py [--model_name MODEL_NAME] [--no_audio_decoder] [--multilingual] [--package_model]
+python prepare_whisper_configs.py [--model_name MODEL_NAME] [--package_model] [--no_audio_decoder] [--multilingual] [--enable_timestamps]
 
 # For example, using whisper tiny model
 python prepare_whisper_configs.py --model_name openai/whisper-tiny.en
 ```
 
-`--model_name MODEL_NAME` is the name or path of the whisper model. The default value is `openai/whisper-tiny.en`.
-`--no_audio_decoder` is optional. If not provided, will use audio decoder in the preprocessing ops.
-`--package_model` is optional. If provided, will package the optimized model along with the required onnxruntime packages and sample code to run inference into a zip file.
+The additional options are:
+- `--model_name MODEL_NAME` is the name or path of the whisper model. The default value is `openai/whisper-tiny.en`.
+- `--package_model` is optional. If provided, will package the optimized model along with the required onnxruntime packages and sample code to run inference into a zip file.
+- `--no_audio_decoder` is optional. If not provided, will use audio decoder in the preprocessing ops. If provided, you need to install `librosa` package before running the optimization steps below.
 
-**Note:** If `--no_audio_decoder` is provided, you need to install `librosa` package before running the optimization steps below.
+    ```bash
+    python -m pip install librosa
+    ```
 
-```bash
-python -m pip install librosa
-```
+- `--multiligual` is optional. If provided, the model produced will support multiple languages that are controlled using `decoder_input_ids` input.
 
-`--multiligual` is optional. If provided, the model produced will support multiple languages that are controlled using `decoder_input_ids` input.
-
-**Example of decoder_input_ids:**
-```python
-import numpy as np
-from transformers import AutoConfig, AutoProcessor
+    **Example of decoder_input_ids:**
+    ```python
+    import numpy as np
+    from transformers import AutoConfig, AutoProcessor
 
 
-model = "openai/whisper-tiny"
-config = AutoConfig.from_pretrained(model)
-processor = AutoProcessor.from_pretrained(model)
+    model = "openai/whisper-tiny"
+    config = AutoConfig.from_pretrained(model)
+    processor = AutoProcessor.from_pretrained(model)
 
-# English transcription
-forced_decoder_ids = processor.get_decoder_prompt_ids(language="english", task="transcribe")
-# forced_decoder_ids is of the format [(1, 50259), (2, 50359), (3, 50363)] and needs to be
-# of the format [50258, 50259, 50359, 50363] where 50258 is the start token id
-forced_decoder_ids = [config.decoder_start_token_id] + list(map(lambda token: token[1], forced_decoder_ids))
+    # English transcription
+    # set no_timestamps=False to get the timestamps in the output
+    forced_decoder_ids = processor.get_decoder_prompt_ids(language="english", task="transcribe", no_timestamps=True)
+    # forced_decoder_ids is of the format [(1, 50259), (2, 50359), (3, 50363)] and needs to be
+    # of the format [50258, 50259, 50359, 50363] where 50258 is the start token id
+    # 50363 is not present if no_timestamps=False
+    forced_decoder_ids = [config.decoder_start_token_id] + list(map(lambda token: token[1], forced_decoder_ids))
 
-# If you don't want to provide specific decoder input ids or you want
-# Whisper to predict the output language and task, you can set
-# forced_decoder_ids = [config.decoder_start_token_id]
-# [50258]
+    # If you don't want to provide specific decoder input ids or you want
+    # Whisper to predict the output language and task, you can set
+    # forced_decoder_ids = [config.decoder_start_token_id]
+    # [50258]
 
-# decoder input ids
-decoder_input_ids = np.array([forced_decoder_ids], dtype=np.int32)
-```
+    # decoder input ids
+    decoder_input_ids = np.array([forced_decoder_ids], dtype=np.int32)
+    ```
+
+- `--enable_timestamps` is optional. If provided, the model produced will support predicting timestamps with the text. Does not work for `openai/whisper-large-v3`!
+    The model input must include `logits_processor`:
+
+    ```python
+    import numpy as np
+
+    # replace 1 with 0 if you don't want to use timestamps
+    logits_processor = np.array([1], dtype=np.int32)
+    ```
+
+    If using with `--multilingual`, be sure to use `no_timestamps=False` when getting `forced_decoder_ids`.
+
+- `--skip_evaluation` is optional. If provided, will skip the latency evaluation for the final model. This is useful if you want to avoid the time consuming latency evaluation for large models.
+
 
 
 ## Run the config to optimize the model
@@ -111,18 +127,20 @@ python -m olive.workflows.run --config whisper_cpu_int8.json 2> $null
 
 ## Test the transcription of the optimized model
 ```bash
-python test_transcription.py --config whisper_{device}_{precision}.json [--auto_path AUDIO_PATH] [--language LANGUAGE] [--task {transcribe,translate}]
+python test_transcription.py --config whisper_{device}_{precision}.json [--audio_path AUDIO_PATH] [--language LANGUAGE] [--task {transcribe,translate}] [--predict_timestamps]
 
 # For example, to test CPU, INT8 with default audio path
 python test_transcription.py --config whisper_cpu_int8.json
 ```
 
-`--audio_path` Optional. Path to audio file. If not provided, will use a default audio file.
+- `--audio_path` Optional. Path to audio file. If not provided, will use a default audio file.
 
-`--language` Optional. Language spoken in audio. Default is `english`. Only used when `--multilingual` is provided to `prepare_whisper_configs.py`
+- `--language` Optional. Language spoken in audio. Default is `english`. Only used when `--multilingual` is provided to `prepare_whisper_configs.py`
 
-`--task` Optional. Whether to perform X->X speech recognition ('transcribe') or X->English translation ('translate'). Default is `transcribe`. Only used
+- `--task` Optional. Whether to perform X->X speech recognition ('transcribe') or X->English translation ('translate'). Default is `transcribe`. Only used
 when `--multilingual` is provided to `prepare_whisper_configs.py`
+
+- `--predict_timestamps` Optional. Whether to predict timestamps with the text. Default is `False`. Only used when `--enable_timestamps` is provided to `prepare_whisper_configs.py`
 
 ## FAQ
 The following are some common issues that may be encountered when running this example.
@@ -148,3 +166,5 @@ version of onnxruntime.
         }
     }
     ```
+
+4. If you run out of space in your temp directory, you can add `--tempdir .` to the workflow command to use the current directory as the temp directory root. `.` can be replaced with any other directory with sufficient disk space and write permission.

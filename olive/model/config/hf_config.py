@@ -129,8 +129,8 @@ class HfFromPretrainedArgs(ConfigWithExtraArgs):
         except ImportError:
             # we don't want to fail since the pass target might have the correct transformers version
             logger.warning(
-                f"Could not import the config class for quantization method {values['quantization_method']}. Skipping "
-                " validation"
+                "Could not import the config class for quantization method %s. Skipping validation",
+                values["quantization_method"],
             )
             return v
 
@@ -138,7 +138,7 @@ class HfFromPretrainedArgs(ConfigWithExtraArgs):
         """Return all args in a dict with types expected by `from_pretrained`."""
         loading_args = {}
         # copy args that can be directly copied
-        direct_copy_args = ["device_map", "max_memory"]
+        direct_copy_args = ("device_map", "max_memory")
         for arg in direct_copy_args:
             if getattr(self, arg):
                 loading_args[arg] = deepcopy(getattr(self, arg))
@@ -203,9 +203,12 @@ class HfFromPretrainedArgs(ConfigWithExtraArgs):
         config = config_cls.from_dict(config_dict, return_unused_kwargs=False)
         # we will do a manual check to see if there are unused kwargs
         # this works since config_cls is created as a dataclass
-        extras = set(config_dict.keys()) - set(config.__dict__.keys())
+        extras = set()
+        for k in config_dict:
+            if not hasattr(config, k):
+                extras.add(k)
         if extras:
-            logger.warning(f"Unused kwargs in quantization_config: {extras}. Ignoring them")
+            logger.warning("Unused kwargs in quantization_config: %s. Ignoring them", extras)
         return config
 
 
@@ -244,9 +247,8 @@ class HfConfig(ConfigBase):
 
     @validator("model_class", always=True)
     def task_or_model_class_required(cls, v, values):
-        if values["model_name"]:
-            if not v and not values.get("task", None):
-                raise ValueError("Either task or model_class must be specified")
+        if values["model_name"] and not v and not values.get("task", None):
+            raise ValueError("Either task or model_class must be specified")
         return v
 
     def get_loading_args_from_pretrained(self) -> Dict[str, Any]:
@@ -257,4 +259,4 @@ class HfConfig(ConfigBase):
 def get_model_type_from_hf_config(hf_config: HfConfig) -> str:
     from olive.model.utils.hf_utils import get_hf_model_config
 
-    return get_hf_model_config(hf_config.model_name, hf_config.get_loading_args_from_pretrained()).model_type
+    return get_hf_model_config(hf_config.model_name, **hf_config.get_loading_args_from_pretrained()).model_type

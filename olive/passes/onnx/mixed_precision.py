@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 class OrtMixedPrecision(Pass):
     """Convert model to mixed precision."""
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "op_block_list": PassConfigParam(
                 type_=List[str],
@@ -50,7 +50,7 @@ class OrtMixedPrecision(Pass):
         op_full_set = {node.op_type for node in model.nodes()}
         fp32_op_set = set(op_block_list)
         fp16_op_set = op_full_set.difference(fp32_op_set)
-        logger.info(f"fp32 op: {fp32_op_set} fp16 op: {fp16_op_set}")
+        logger.info("fp32 op: %s fp16 op: %s", fp32_op_set, fp16_op_set)
 
         # logits is the first output
         logits_output_name = model.get_graph().output[0].name
@@ -64,7 +64,7 @@ class OrtMixedPrecision(Pass):
         last_matmul_node = None
         if node.op_type == "MatMul":
             last_matmul_node = node
-            logger.info(f"Found last MatMul node for logits: {node.name}")
+            logger.info("Found last MatMul node for logits: %s", node.name)
             initializer = None
             for node_input in node.input:
                 initializer = model.get_initializer(node_input)
@@ -74,10 +74,10 @@ class OrtMixedPrecision(Pass):
             # when the max difference of value after converting float to float16 is lower than a threshold (1e-6),
             # we can deduce that the weights are stored in float16 precision.
             max_diff = float_to_float16_max_diff(initializer)
-            logger.debug(f"max diff of converting weights in last MatMul node {node.name}: {max_diff}")
+            logger.debug("max diff of converting weights in last MatMul node %s: %s", node.name, max_diff)
             is_weight_fp16_precision = max_diff < config["atol"]
         else:
-            logger.warning(f"Failed to find MatMul node for logits. Found {node.op_type} of node {node.name}")
+            logger.warning("Failed to find MatMul node for logits. Found %s of node %s", node.op_type, node.name)
 
         keep_io_types = []
         node_block_list = []
@@ -94,7 +94,7 @@ class OrtMixedPrecision(Pass):
             "force_fp16_initializers": is_weight_fp16_precision,
         }
 
-        logger.info(f"auto_mixed_precision parameters: {parameters}")
+        logger.info("auto_mixed_precision parameters: %s", parameters)
         fp16_model = self._convert_float_to_float16(
             model=model.load_model(), use_symbolic_shape_infer=True, **parameters
         )
@@ -129,6 +129,7 @@ class OrtMixedPrecision(Pass):
                                            Default to false.
             min_positive_val (float, optional): minimal positive value. Defaults to 1e-7.
             max_finite_val (float, optional): maximal finite value. Defaults to 1e4.
+
         """
         from onnxruntime.transformers.float16 import convert_float_to_float16
         from onnxruntime.transformers.shape_infer_helper import SymbolicShapeInferenceHelper

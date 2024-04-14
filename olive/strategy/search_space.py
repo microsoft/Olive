@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 from copy import deepcopy
 from random import Random
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from olive.strategy.search_parameter import Categorical, Conditional, SearchParameter, SpecialParamValue
 from olive.strategy.utils import order_search_parameters
@@ -26,8 +26,7 @@ class SearchSpace:
         full_iter_order = []
         for space_name, space_item in search_space.items():
             iter_order = order_search_parameters(space_item)
-            for param_name in iter_order:
-                full_iter_order.append((space_name, param_name))
+            full_iter_order.extend([(space_name, param_name) for param_name in iter_order])
         return full_iter_order
 
     def set_seed(self, seed: int):
@@ -60,7 +59,7 @@ class SearchSpace:
 
     def _iterate_util(
         self, full_iter_order: List[Tuple[str, str]], search_point: Dict[str, Dict[str, Any]], index: int
-    ):
+    ) -> Iterator[Dict[str, Dict[str, Any]]]:
         if index == len(full_iter_order):
             yield deepcopy(search_point)
             return
@@ -79,7 +78,7 @@ class SearchSpace:
             search_point[space_name][param_name] = option
             yield from self._iterate_util(full_iter_order, search_point, index + 1)
 
-    def iterate(self) -> Dict[str, Dict[str, Any]]:
+    def iterate(self) -> Iterator[Dict[str, Dict[str, Any]]]:
         """Iterate over all possible configurations in the search space."""
         # initialize search point
         search_point = deepcopy(self._empty_search_point)
@@ -102,7 +101,7 @@ class SearchSpace:
         """Get an empty search point."""
         return deepcopy(self._empty_search_point)
 
-    def iter_params(self) -> Tuple[str, str, SearchParameter]:
+    def iter_params(self) -> Iterator[Tuple[str, str, SearchParameter]]:
         """Iterate over the search parameters in topological order."""
         for space_name, param_name in self._iter_order:
             yield space_name, param_name, self._search_space[space_name][param_name]

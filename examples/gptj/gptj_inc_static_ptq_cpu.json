@@ -38,7 +38,6 @@
         },
         "quantization": {
             "type": "IncStaticQuantization",
-            "disable_search": true,
             "config": {
                 "quant_format": "QDQ",
                 "calibration_sampling_size": [8],
@@ -52,10 +51,6 @@
     },
     "engine": {
         "log_severity_level": 0,
-        "search_strategy": {
-            "execution_order": "joint",
-            "search_algorithm": "exhaustive"
-        },
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
         "output_dir": "models/gptj_inc_static_ptq_cpu"

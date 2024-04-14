@@ -5,6 +5,7 @@
 import logging
 import os
 import tempfile
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Dict, List, Optional, Tuple, Union
 
@@ -16,18 +17,18 @@ from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import copy_dir
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
-from olive.model.config import HfConfig, IoConfig
+from olive.model.config import HfComponent, HfConfig, IoConfig
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
 from olive.model.handler.mixin import DummyInputsMixin, HfConfigMixin
-from olive.model.utils.hf_utils import huggingface_model_loader
+from olive.model.utils.hf_utils import load_hf_model_from_model_class
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, ResourceType, create_resource_path
 
 logger = logging.getLogger(__name__)
 
 
 @model_handler_registry("PyTorchModel")
-class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
+class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  # pylint: disable=too-many-ancestors
     """PyTorch model handler.
 
     Besides the model loading for PyTorch model, the model handler also provides the following functionalities:
@@ -125,9 +126,11 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
         if self.model is not None:
             return self.model
 
+        # Load user module at the beginning since we may need user defined models to load model
+        user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
+
         # Load special path or format model -> load model from hf config -> load normal path model
         if self.model_loader is not None:
-            user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             model = user_module_loader.call_object(self.model_loader, self.model_path)
         elif self.model_file_format == ModelFileFormat.PYTORCH_TORCH_SCRIPT:
             model = torch.jit.load(self.model_path)
@@ -137,6 +140,8 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
             model = self.load_hf_model(self.model_path)
         elif self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
             model = torch.load(self.model_path)
+        elif self.model_file_format == ModelFileFormat.PYTORCH_SLICE_GPT_MODEL:
+            model = self._load_slicegpt_model()
         elif self.model_file_format == ModelFileFormat.PYTORCH_STATE_DICT:
             raise ValueError("Please use customized model loader to load state dict of model.")
         else:
@@ -152,6 +157,31 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
 
         return model
 
+    def get_component_model(self, component: HfComponent, rank: Optional[int] = None) -> "PyTorchModelHandler":
+        if component.component_func is None:
+            logger.debug("component_func is not provided, using hf_config to get component")
+            model_component = self.load_hf_model(self.model_path)
+        else:
+            user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
+            model_component = user_module_loader.call_object(component.component_func, self)
+
+        # the second default parameter is to fix ruff b023:
+        # https://docs.astral.sh/ruff/rules/function-uses-loop-variable/
+        def model_loader(_, model_component=model_component):
+            return model_component
+
+        component_hf_config = deepcopy(self.hf_config).dict()
+        component_hf_config.pop("components", None)
+        return PyTorchModelHandler(
+            model_loader=model_loader,
+            io_config=component.io_config,
+            dummy_inputs_func=component.dummy_inputs_func,
+            model_script=self.model_script,
+            script_dir=self.script_dir,
+            hf_config=HfConfig.parse_obj(component_hf_config),
+            model_attributes=self.model_attributes,
+        )
+
     def prepare_session(
         self,
         inference_settings: Optional[Dict[str, Any]] = None,
@@ -162,13 +192,13 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
         return self.load_model(rank).eval()
 
     def _load_mlflow_model(self):
-        logger.info(f"Loading MLFlow model from {self.model_path}")
+        logger.info("Loading MLFlow model from %s", self.model_path)
         with tempfile.TemporaryDirectory(prefix="mlflow_tmp") as tmp_dir:
             copy_dir(os.path.join(self.model_path, "data/model"), tmp_dir, dirs_exist_ok=True)
             copy_dir(os.path.join(self.model_path, "data/config"), tmp_dir, dirs_exist_ok=True)
             copy_dir(os.path.join(self.model_path, "data/tokenizer"), tmp_dir, dirs_exist_ok=True)
 
-            with open(os.path.join(self.model_path, "MLmodel")) as fp:  # noqa: PTH123
+            with open(os.path.join(self.model_path, "MLmodel")) as fp:
                 mlflow_data = yaml.safe_load(fp)
                 # default flavor is "hftransformersv2" from azureml.evaluate.mlflow>=0.0.8
                 # "hftransformers" from azureml.evaluate.mlflow<0.0.8
@@ -191,11 +221,17 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
                     raise ValueError(
                         "Unsupported MLFlow model flavor. Currently only support hftransformersv2/hftransformers."
                     )
-
-            model_loader = huggingface_model_loader(hf_pretrained_class)
-            loaded_model = model_loader(tmp_dir)
+            loading_args = self.hf_config.get_loading_args_from_pretrained() if self.hf_config else {}
+            loaded_model = load_hf_model_from_model_class(hf_pretrained_class, tmp_dir, **loading_args)
             loaded_model.eval()
             return loaded_model
+
+    def _load_slicegpt_model(self):
+        logger.info("Loading SliceGPT model from %s", self.model_path)
+        from slicgpt.hf_utils import load_sliced_model
+
+        loaded_model, _ = load_sliced_model(self.hf_config.model_name, self.model_path)
+        return loaded_model
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
@@ -224,7 +260,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
 
         if isinstance(io_config, (str, Callable)):
             # io_config is a string name or a callable
-            logger.debug(f"Calling {io_config} to get io_config")
+            logger.debug("Calling %s to get io_config", io_config)
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             io_config = user_module_loader.call_object(io_config, self)
             return validate_config(io_config, IoConfig).dict()
@@ -251,7 +287,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):
 
 
 @model_handler_registry("DistributedPyTorchModel")
-class DistributedPyTorchModelHandler(OliveModelHandler):
+class DistributedPyTorchModelHandler(OliveModelHandler, HfConfigMixin):
     resource_keys: Tuple[str, ...] = ("model_path", "script_dir", "model_script", "adapter_path")
     json_config_keys: Tuple[str, ...] = (
         "model_name_pattern",
@@ -295,7 +331,7 @@ class DistributedPyTorchModelHandler(OliveModelHandler):
             validate_config(io_config, IoConfig).dict() if isinstance(io_config, (IoConfig, dict)) else io_config
         )
         self.dummy_inputs_func = dummy_inputs_func
-        self.hf_config = hf_config
+        self.hf_config = validate_config(hf_config, HfConfig) if hf_config else None
 
     @property
     def script_dir(self) -> str:
@@ -325,6 +361,22 @@ class DistributedPyTorchModelHandler(OliveModelHandler):
             io_config=self.io_config,
             dummy_inputs_func=self.dummy_inputs_func,
             hf_config=self.hf_config,
+            adapter_path=self.adapter_path,
+            model_attributes=self.model_attributes,
+        )
+
+    def get_component_model(self, component: HfComponent, rank: int = 0) -> PyTorchModelHandler:
+        # TODO(shaahji): Add support for 'HfComponent.component_func'
+        hf_config = deepcopy(self.hf_config).dict()
+        hf_config.pop("components", None)
+        return PyTorchModelHandler(
+            model_path=self.ranked_model_path(rank),
+            model_file_format=ModelFileFormat.PYTORCH_ENTIRE_MODEL,
+            model_script=self.model_script,
+            script_dir=self.script_dir,
+            io_config=component.io_config,
+            dummy_inputs_func=component.dummy_inputs_func,
+            hf_config=HfConfig.parse_obj(hf_config),
             adapter_path=self.adapter_path,
             model_attributes=self.model_attributes,
         )

@@ -15,7 +15,11 @@
         "local_system": {
             "type": "LocalSystem",
             "config": {
-                "accelerators": ["gpu"]
+                "accelerators": [
+                    {
+                        "device": "gpu"
+                    }
+                ]
             }
         }
     },
@@ -63,10 +67,6 @@
     },
     "engine": {
         "log_severity_level": 0,
-        "search_strategy": {
-            "execution_order": "joint",
-            "search_algorithm": "exhaustive"
-        },
         "evaluator": "common_evaluator",
         "evaluate_input_model": false,
         "host": "local_system",

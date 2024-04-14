@@ -26,6 +26,7 @@ def pre_process(dataset):
 
     Returns:
         object: Pre-processed data.
+
     """
     return dataset
 
@@ -43,6 +44,7 @@ def _huggingface_pre_process_helper(dataset, model_name, input_cols, label_cols,
 
     Returns:
         object: Pre-processed data.
+
     """
     # output type is list
     tokenized_datasets = dataset.map(
@@ -72,6 +74,7 @@ def huggingface_pre_process(
 
     Returns:
         object: Pre-processed data.
+
     """
     from transformers import AutoConfig, AutoTokenizer
 
@@ -81,6 +84,7 @@ def huggingface_pre_process(
             *[examples[input_col] for input_col in input_cols],
             padding=kwargs.get("padding", True),
             truncation=kwargs.get("truncation", True),
+            max_length=kwargs.get("max_length"),
             is_split_into_words=kwargs.get("is_split_into_words", False),
             add_special_tokens=kwargs.get("add_special_tokens", True),
         )
@@ -185,6 +189,7 @@ def text_generation_huggingface_pre_process(
             'corpus' arguments are the fields in olive.data.component.text_generation.TextGenCorpusParams.
             'pair' arguments are the fields in olive.data.component.text_generation.TextGenPairParams.
             Note: the TextGenCorpusParams and TextGenPairParams subclasses already include the common arguments.
+
     """
     from transformers import AutoTokenizer
 
@@ -227,6 +232,7 @@ def audio_classification_pre_process(
                 - max_duration (int, optional): Max duration of audio in seconds. Defaults to 30.
                 - labels_to_filter (list, optional): List of labels to filter. Defaults to None.
             Note: the AudioClassificationParams subclass already includes the common arguments.
+
     """
     from datasets import Audio
     from transformers import AutoConfig, AutoFeatureExtractor

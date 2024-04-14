@@ -1,0 +1,3 @@
+diffusers
+opencv-python
+pillow

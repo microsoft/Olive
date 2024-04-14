@@ -26,7 +26,7 @@ def create_dir_fixture(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "ignore,expected_files",
+    ("ignore", "expected_files"),
     [
         (None, ["file1.ext1", "file2.ext2", "sub_dir1/file3.ext1", "sub_dir1/file4.ext2"]),
         (shutil.ignore_patterns("*.ext1"), ["file2.ext2", "sub_dir1/file4.ext2"]),

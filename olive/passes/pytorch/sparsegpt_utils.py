@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 # ruff: noqa: N802, N806, RUF100
 
 # model types supported by SparseGPT
-supported_models = ["bloom", "gpt2", "gpt_neox", "llama", "opt"]
+supported_models = ("bloom", "gpt2", "gpt_neox", "llama", "opt")
 
 # additional inputs to the layers for each model type
 # all model types are expected to have "input_ids" and "attention_mask"
@@ -54,13 +54,15 @@ def validate_min_max_layers(min_layer, max_layer, num_layers):
     min_layer = min_layer or 0
     if min_layer < 0:
         # if user specified min_layer < 0, set min_layer to 0
-        logger.warning(f"min_layer ({min_layer}) is less than 0. Setting to 0.")
+        logger.warning("min_layer (%d) is less than 0. Setting to 0.", min_layer)
         min_layer = 0
     max_layer = max_layer or num_layers
     if max_layer > num_layers:
         # if user specified max_layer > number of layers, set max_layer to number of layers
         logger.warning(
-            f"max_layer ({max_layer}) is greater than number of layers ({num_layers}). Setting to {num_layers}."
+            "max_layer (%d) is greater than number of layers (%(num_layers)d). Setting to %(num_layers)d.",
+            max_layer,
+            num_layers=num_layers,
         )
         max_layer = num_layers
         # don't need to worry about min_layer since if min_layer >= max_layer, the range will be empty

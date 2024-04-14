@@ -15,6 +15,8 @@ import torch.nn.functional as F
 from olive.passes.pytorch.tensor_parallel import TensorParallel
 from olive.passes.pytorch.tensor_parallel_layers import TensorParallelColumnLinear, TensorParallelRowLinear
 
+# pylint: disable=not-callable
+
 logger = logging.getLogger(__name__)
 
 
@@ -46,11 +48,19 @@ def tp_llama_mlp_init(self, config):
     self.act_fn = ACT2FN[config.hidden_act]
 
 
-def tp_llama_attention_init(self, config):
+def tp_llama_attention_init(self, config, layer_idx: Optional[int] = None):
     from transformers.models.llama.modeling_llama import LlamaAttention
 
     super(LlamaAttention, self).__init__()
     self.config = config
+    self.layer_idx = layer_idx
+    if layer_idx is None:
+        logger.warning_once(
+            f"Instantiating {self.__class__.__name__} without passing `layer_idx` is not recommended and will "
+            "to errors during the forward call, if caching is used. Please make sure to provide a `layer_idx` "
+            "when creating this class."
+        )
+
     self.hidden_size = config.hidden_size
     self.num_heads = config.num_attention_heads
     self.head_dim = self.hidden_size // self.num_heads
@@ -58,6 +68,7 @@ def tp_llama_attention_init(self, config):
     self.num_key_value_groups = self.num_heads // self.num_key_value_heads
     self.max_position_embeddings = config.max_position_embeddings
     self.rope_theta = config.rope_theta
+    self.is_causal = True
     self.world_size = config.world_size if hasattr(config, "world_size") else 1
 
     if (self.head_dim * self.num_heads) != self.hidden_size:
@@ -88,19 +99,11 @@ def tp_llama_attention_init(self, config):
 
 
 # Overwrite original functions
-def tp_llama_apply_rotary_pos_emb(q, k, cos, sin, position_ids):
+def tp_llama_apply_rotary_pos_emb(q, k, cos, sin, position_ids, unsqueeze_dim=1):
     from transformers.models.llama.modeling_llama import rotate_half
 
-    # The first two dimensions of cos and sin are always 1, so we can `squeeze` them.
-    # Original
-    # cos = cos.squeeze(1).squeeze(0)  # [seq_len, dim]
-    # sin = sin.squeeze(1).squeeze(0)  # [seq_len, dim]
-    # Workaround: rewrite the above to avoid exporting `If` node
-    cos = cos.reshape(cos.shape[2], cos.shape[3])
-    sin = sin.reshape(sin.shape[2], sin.shape[3])
-
-    cos = cos[position_ids].unsqueeze(1)  # [bs, 1, seq_len, dim]
-    sin = sin[position_ids].unsqueeze(1)  # [bs, 1, seq_len, dim]
+    cos = cos[position_ids].unsqueeze(unsqueeze_dim)  # [bs, 1, seq_len, dim]
+    sin = sin[position_ids].unsqueeze(unsqueeze_dim)  # [bs, 1, seq_len, dim]
     q_embed = (q * cos) + (rotate_half(q) * sin)
     k_embed = (k * cos) + (rotate_half(k) * sin)
     return q_embed, k_embed
@@ -156,19 +159,21 @@ def tp_llama_attention_forward(
 
     kv_seq_len = key_states.shape[-2]
     if past_key_value is not None:
-        kv_seq_len = kv_seq_len + past_key_value[0].shape[-2]
+        if self.layer_idx is None:
+            raise ValueError(
+                f"The cache structure has changed since version v4.36. If you are using {self.__class__.__name__} "
+                "for auto-regressive decoding with k/v caching, please make sure to initialize the attention class "
+                "with a layer index."
+            )
+        kv_seq_len = kv_seq_len + past_key_value.get_usable_length(kv_seq_len, self.layer_idx)
 
     cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
     query_states, key_states = tp_llama_apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
 
     if past_key_value is not None:
-        # reuse k, v, self_attention
-        key_states = torch.cat([past_key_value[0], key_states], dim=2)
-        value_states = torch.cat([past_key_value[1], value_states], dim=2)
+        cache_kwargs = {"sin": sin, "cos": cos}  # Specific to RoPE models
+        key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
 
-    past_key_value = (key_states, value_states) if use_cache else None
-
-    # repeat k/v heads if n_kv_heads < n_heads
     key_states = repeat_kv(key_states, self.num_key_value_groups)
     value_states = repeat_kv(value_states, self.num_key_value_groups)
 
@@ -191,6 +196,7 @@ def tp_llama_attention_forward(
     attn_weights = F.softmax(attn_weights, dim=-1, dtype=torch.float32).to(  # pylint: disable=not-callable
         query_states.dtype
     )
+    attn_weights = F.dropout(attn_weights, p=self.attention_dropout, training=self.training)
     attn_output = torch.matmul(attn_weights, value_states)
 
     if attn_output.size() != (bsz, self.num_heads // self.world_size, q_len, self.head_dim):
@@ -199,7 +205,7 @@ def tp_llama_attention_forward(
             f" {attn_output.size()}"
         )
 
-    attn_output = attn_output.transpose(1, 2).contiguous()
+    attn_output = attn_output.transpose(1, 2)
     # Original
     # attn_output = attn_output.reshape(bsz, q_len, self.hidden_size)
     attn_output = attn_output.reshape(bsz, q_len, -1)
@@ -214,10 +220,92 @@ def tp_llama_attention_forward(
     else:
         attn_output = self.o_proj(attn_output)
 
+    attn_output = attn_output.contiguous()
+    attn_weights = attn_weights.contiguous()
+
     if not output_attentions:
         attn_weights = None
 
     return attn_output, attn_weights, past_key_value
+
+
+# Adapted from LlamaSdpaAttention.forward
+def tp_llama_sdpa_attention_forward(
+    self,
+    hidden_states: torch.Tensor,
+    attention_mask: Optional[torch.Tensor] = None,
+    position_ids: Optional[torch.LongTensor] = None,
+    past_key_value: Optional["Cache"] = None,  # noqa: F821
+    output_attentions: bool = False,
+    use_cache: bool = False,
+) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
+    from transformers.models.llama.modeling_llama import repeat_kv
+
+    if output_attentions:
+        logger.warning_once(
+            "LlamaModel is using LlamaSdpaAttention, but `torch.nn.functional.scaled_dot_product_attention` does not "
+            "support `output_attentions=True`. Falling back to the manual attention implementation, "
+            "but specifying the manual implementation will be required from Transformers version v5.0.0 onwards. "
+            'This warning can be removed using the argument `attn_implementation="eager"` when loading the model.'
+        )
+        return super().forward(
+            hidden_states=hidden_states,
+            attention_mask=attention_mask,
+            position_ids=position_ids,
+            past_key_value=past_key_value,
+            output_attentions=output_attentions,
+            use_cache=use_cache,
+        )
+
+    bsz, q_len, _ = hidden_states.size()
+
+    query_states = self.q_proj(hidden_states)
+    key_states = self.k_proj(hidden_states)
+    value_states = self.v_proj(hidden_states)
+
+    query_states = query_states.view(bsz, q_len, self.num_heads // self.world_size, self.head_dim).transpose(1, 2)
+    key_states = key_states.view(bsz, q_len, self.num_key_value_heads // self.world_size, self.head_dim).transpose(1, 2)
+    value_states = value_states.view(bsz, q_len, self.num_key_value_heads // self.world_size, self.head_dim).transpose(
+        1, 2
+    )
+
+    kv_seq_len = key_states.shape[-2]
+    if past_key_value is not None:
+        kv_seq_len = kv_seq_len + past_key_value.get_usable_length(kv_seq_len, self.layer_idx)
+    cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
+    query_states, key_states = tp_llama_apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
+
+    if past_key_value is not None:
+        cache_kwargs = {"sin": sin, "cos": cos}  # Specific to RoPE models
+        key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
+
+    key_states = repeat_kv(key_states, self.num_key_value_groups)
+    value_states = repeat_kv(value_states, self.num_key_value_groups)
+
+    if attention_mask is not None and attention_mask.size() != (bsz, 1, q_len, kv_seq_len):
+        raise ValueError(
+            f"Attention mask should be of size {(bsz, 1, q_len, kv_seq_len)}, but is {attention_mask.size()}"
+        )
+
+    attn_output = torch.nn.functional.scaled_dot_product_attention(
+        query_states,
+        key_states,
+        value_states,
+        attn_mask=attention_mask,
+        dropout_p=self.attention_dropout if self.training else 0.0,
+        # The q_len > 1 is necessary to match with AttentionMaskConverter.to_causal_4d that does not create a causal
+        # mask in case q_len == 1.
+        is_causal=self.is_causal and attention_mask is None and q_len > 1,
+    )
+
+    attn_output = attn_output.transpose(1, 2)
+    # Original
+    # attn_output = attn_output.reshape(bsz, q_len, self.hidden_size)
+    attn_output = attn_output.reshape(bsz, q_len, -1)
+
+    attn_output = self.o_proj(attn_output).contiguous()
+
+    return attn_output, None, past_key_value
 
 
 def tp_llama_attention_parallel_split(self, world_size):
@@ -233,6 +321,7 @@ def replace_llama2_tensor_parallel_layers():
         "attention_init": llama.modeling_llama.LlamaAttention.__init__,
         "attention_forward": llama.modeling_llama.LlamaAttention.forward,
         "parallel_split": None,
+        "sdpa_attention_forward": llama.modeling_llama.LlamaSdpaAttention.forward,
         "apply_rotary_pos_emb": llama.modeling_llama.apply_rotary_pos_emb,
         "uniform_": torch.nn.init.uniform_,
         "kaiming_normal_": torch.nn.init.kaiming_normal_,
@@ -243,6 +332,7 @@ def replace_llama2_tensor_parallel_layers():
     llama.modeling_llama.LlamaAttention.__init__ = tp_llama_attention_init
     llama.modeling_llama.LlamaAttention.forward = tp_llama_attention_forward
     llama.modeling_llama.LlamaAttention.parallel_split = tp_llama_attention_parallel_split
+    llama.modeling_llama.LlamaSdpaAttention.forward = tp_llama_sdpa_attention_forward
     llama.modeling_llama.apply_rotary_pos_emb = tp_llama_apply_rotary_pos_emb
 
     torch.nn.init.uniform_ = lambda x, *args, **kwargs: x
@@ -259,6 +349,7 @@ def restore_llama2_tensor_parallel_layers(originals: Dict[str, Any]):
     llama.modeling_llama.LlamaAttention.__init__ = originals["attention_init"]
     llama.modeling_llama.LlamaAttention.forward = originals["attention_forward"]
     llama.modeling_llama.LlamaAttention.parallel_split = originals["parallel_split"]
+    llama.modeling_llama.LlamaSdpaAttention.forward = originals["sdpa_attention_forward"]
     llama.modeling_llama.apply_rotary_pos_emb = originals["apply_rotary_pos_emb"]
 
     torch.nn.init.uniform_ = originals["uniform_"]

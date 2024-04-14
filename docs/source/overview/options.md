@@ -398,7 +398,7 @@ will be used.
 saved to the engine's `output_dir` with the prefix of `output_name`. For the final pass, if the engine's `output_name` is provided, it will override
 the `output_name` of the pass.
 
-Please refer to [Configuring Pass](configuring_pass) for more details on `type`, `disable_search` and `config`.
+Please refer to [Configuring Pass](../tutorials/configure_pass.rst) for more details on `type`, `disable_search` and `config`.
 
 Please also find the detailed options from following table for each pass:
 
@@ -406,6 +406,7 @@ Please also find the detailed options from following table for each pass:
 |:----------|:-------------|
 | [OnnxConversion](onnx_conversion) | Convert a PyTorch model to ONNX model |
 | [OnnxOpVersionConversion](onnx_op_version_conversion) | Convert a Onnx model to target op version |
+| [GenAIModelExporter](genai_model_exporter) | Convert a generative PyTorch model to ONNX model using [ONNX Runtime Generative AI](https://github.com/microsoft/onnxruntime-genai) module |
 | [OnnxModelOptimizer](onnx_model_optimizer) | Optimize ONNX model by fusing nodes. |
 | [OnnxTransformersOptimization](onnx_transformers_optimization) | Optimize transformer based models in scenarios where ONNX Runtime does not apply the optimization at load time. It is based on onnxruntime.transformers.optimizer. |
 | [OrtPerfTuning](ort_perf_tuning) | Optimize ONNX Runtime inference settings. |
@@ -415,6 +416,8 @@ Please also find the detailed options from following table for each pass:
 | [IncDynamicQuantization](inc_dynamic_quantization) |  Intel® Neural Compressor Dynamic Quantization Pass. |
 | [IncStaticQuantization](inc_static_quantization) |  Intel® Neural Compressor Static Quantization Pass. |
 | [IncQuantization](inc_quantization) | Quantize ONNX model with Intel® Neural Compressor where we can search for best parameters for static/dynamic quantization at same time. |
+| [DynamicToFixedShape](dynamic_to_fixed_shape) | Convert dynamic shape to fixed shape for ONNX model |
+| [ExtractAdapters](extract_adapters) | Extract adapters from ONNX model |
 | [QuantizationAwareTraining](onnx_quantization_aware_training) | Run quantization aware training on PyTorch model. |
 | [OpenVINOConversion](openvino_conversion) | Converts PyTorch, ONNX or TensorFlow Model to OpenVino Model. |
 | [OpenVINOQuantization](openvino_quantization) | Post-training quantization for OpenVINO model. |
@@ -422,6 +425,7 @@ Please also find the detailed options from following table for each pass:
 | [SNPEQuantization](snpe_quantization) | Quantize SNPE model. Uses snpe-dlc-quantize tool from the SNPE SDK. |
 | [SNPEtoONNXConversion](snpe_to_onnx_conversion) | Convert a SNPE DLC to ONNX to use with SNPE Execution Provider. Creates a ONNX graph with the SNPE DLC as a node. |
 | [VitisAIQuantization](vitis_ai_quantization) | AMD-Xilinx Vitis-AI Quantization Pass.  |
+| [GptqQuantizer](gptq_quantizer) | GPTQ quantization Pass On Pytorch Model.  |
 | [OptimumConversion](optimum_conversion) | Convert huggingface models to ONNX via the Optimum library. |
 | [OptimumMerging](optimum_merging) | Merge 2 models together with an `if` node via the Optimum library. |
 

@@ -14,7 +14,7 @@
 
 import torch
 from decoder_model import DecoderModel
-from transformers import AutoModel, LlavaConfig, CLIPVisionModel
+from transformers import AutoModel, CLIPVisionModel, LlavaConfig
 
 
 class LlavaMultiModalProjector(torch.nn.Module):

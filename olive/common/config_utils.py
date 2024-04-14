@@ -171,8 +171,9 @@ class ConfigWithExtraArgs(ConfigBase):
         for name in list(extra_args):  # need a copy of the keys since we are mutating the dict
             if name in other_fields:
                 logger.warning(
-                    f"'{name}' provided to 'extra_args' is already defined in the class fields. Please provide the"
-                    " value directly to the field. Ignoring."
+                    "'%s' provided to 'extra_args' is already defined in the class fields. Please provide the"
+                    " value directly to the field. Ignoring.",
+                    name,
                 )
                 del extra_args[name]
         # put any values provided as keyword arguments into extra_args
@@ -181,7 +182,7 @@ class ConfigWithExtraArgs(ConfigBase):
                 continue
             if name in extra_args:
                 # extra_args takes precedence over keyword arguments
-                logger.warning(f"kwarg '{name}' is already defined in 'extra_args'. Ignoring.")
+                logger.warning("kwarg '%s' is already defined in 'extra_args'. Ignoring.", name)
             else:
                 extra_args[name] = values.pop(name)
         if extra_args:
@@ -285,8 +286,7 @@ T = TypeVar("T", bound=ConfigBase)
 
 def validate_config(
     config: Union[Dict[str, Any], ConfigBase, None],
-    base_class: Type[T],
-    instance_class: Optional[Type[T]] = None,
+    instance_class: Type[T],
     warn_unused_keys: bool = True,
 ) -> T:
     """Validate a config dictionary or object against a base class and instance class.
@@ -295,17 +295,19 @@ def validate_config(
     """
     config = config or {}
 
-    if instance_class is None:
-        instance_class = base_class
-
     if isinstance(config, dict):
         user_keys = set(config.keys())
         config = instance_class(**config)
         config_keys = set(config.dict().keys())
         unused_keys = user_keys - config_keys
         if unused_keys and warn_unused_keys:
-            logger.warning(f"Keys {unused_keys} are not part of {instance_class.__name__}. Ignoring them.")
-    elif isinstance(config, base_class) and config.__class__.__name__ == instance_class.__name__:
+            logger.warning("Keys %s are not part of %s. Ignoring them.", unused_keys, instance_class.__name__)
+    # for dynamically created class by Pydantic create_model, the classes are different even if the class names are same
+    elif (
+        isinstance(config, ConfigBase)
+        and config.__class__.__module__ == instance_class.__module__
+        and config.__class__.__name__ == instance_class.__name__
+    ):
         pass
     else:
         raise ValueError(

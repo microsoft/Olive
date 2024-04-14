@@ -112,6 +112,15 @@ Then you can specify where to use it in the Engine config:
 }
 ```
 
+### Packaging the output models to AzureML workspace
+#### Azure ML Models
+AzureMLModels packaging will register the output models to your Azure Machine Learning workspace. Please find more details [here](packaging_output_models.md#azuremlmodels).
+
+
+#### Azure ML Data
+AzureMLData packaging will upload the output models to your Azure Machine Learning workspace as Data assets. Please find more details [here](packaging_output_models.md#azuremldata).
+
+
 ## Connect your own device to Azure ML as target or host by Azure Arc
 If you have your own device, you have the option to link it to your Azure ML Workspace as a Compute via Azure Arc. This allows you to use it as a Target for evaluating your model.
 

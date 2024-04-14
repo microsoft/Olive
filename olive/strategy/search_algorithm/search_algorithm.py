@@ -16,13 +16,8 @@ if TYPE_CHECKING:
 class SearchAlgorithm(AutoConfigClass):
     """Abstract base class for searchers."""
 
+    name: str = None
     registry: ClassVar[Dict[str, Type["SearchAlgorithm"]]] = {}
-
-    @classmethod
-    @property
-    @abstractmethod
-    def name(cls):
-        raise NotImplementedError
 
     def __init__(
         self,

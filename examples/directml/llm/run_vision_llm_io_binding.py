@@ -3,6 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+# ruff: noqa: T201
+
 # This program will run the ONNX version of the LLM.
 import argparse
 import os
@@ -10,9 +12,9 @@ import time
 
 import numpy as np
 import onnxruntime
+from model_type_mapping import get_model_dir, get_supported_lvlm_models
 from PIL import Image
 from transformers import AutoProcessor
-from model_type_mapping import get_supported_lvlm_models, get_model_dir
 
 
 def run_vision_llm_io_binding(

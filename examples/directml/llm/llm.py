@@ -3,13 +3,13 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+# ruff: noqa: T201
+
 import argparse
 import json
 import os
 import shutil
 import warnings
-import sys
-import shutil
 from pathlib import Path
 from typing import Optional
 
@@ -39,7 +39,12 @@ def set_config_parameters(tokenizer: transformers.AutoTokenizer, repo_id: str, n
         main_model = hugggingface_model
     else:
         pipeline = transformers.pipeline(
-            "text-generation", model=repo_id, tokenizer=tokenizer, torch_dtype=torch.float32, device="cpu", trust_remote_code=True
+            "text-generation",
+            model=repo_id,
+            tokenizer=tokenizer,
+            torch_dtype=torch.float32,
+            device="cpu",
+            trust_remote_code=True,
         )
         llm_model = pipeline.model
         main_model = pipeline.model
@@ -268,7 +273,9 @@ def optimize(
     # Copy the preprocessor config file
     if config.model_type == "llava":
         # src_preprocessor_config_path = hf_hub_download(repo_id=repo_id, filename="preprocessor_config.json")
-        src_preprocessor_config_path = hf_hub_download(repo_id="llava-hf/llava-1.5-7b-hf", filename="preprocessor_config.json")
+        src_preprocessor_config_path = hf_hub_download(
+            repo_id="llava-hf/llava-1.5-7b-hf", filename="preprocessor_config.json"
+        )
         dst_preprocessor_config_path = dst_path.parents[0] / "preprocessor_config.json"
         shutil.copyfile(src_preprocessor_config_path, dst_preprocessor_config_path)
 

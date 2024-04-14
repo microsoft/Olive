@@ -29,7 +29,9 @@ class ResourceMixin:
         if resource_name not in self.resource_paths:
             raise ValueError(f"{resource_name} is not a valid resource name.")
         if self.resource_paths[resource_name]:
-            logger.debug(f"Overriding {resource_name} from {self.resource_paths[resource_name]} to {resource_path}.")
+            logger.debug(
+                "Overriding %s from %s to %s.", resource_name, self.resource_paths[resource_name], resource_path
+            )
 
         if resource_path is not None:
             resolved_resource_path = create_resource_path(resource_path)

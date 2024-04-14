@@ -7,7 +7,49 @@
             "dummy_inputs_func": "get_merged_decoder_with_past_dummy_inputs",
             "hf_config": {
                 "model_name": "<model_name_placeholder>",
-                "model_class": "LlamaForCausalLM"
+                "model_class": "LlamaForCausalLM",
+                "from_pretrained_args": {
+                    "_attn_implementation": "eager"
+                },
+                "task": "text-generation"
+            }
+        }
+    },
+    "data_configs": {
+        "wikitext2_train": {
+            "name": "wikitext2_train",
+            "type": "HuggingfaceContainer",
+            "params_config": {
+                "data_name": "wikitext",
+                "subset": "wikitext-2-raw-v1",
+                "split": "train",
+                "component_kwargs": {
+                    "pre_process_data": {
+                        "text_cols": [
+                            "text"
+                        ],
+                        "corpus_strategy": "join",
+                        "add_special_tokens": false,
+                        "source_max_len": 2048,
+                        "max_samples": 128,
+                        "joiner": "\n\n"
+                    }
+                }
+            }
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "device": "gpu",
+                        "execution_providers": [
+                            "CPUExecutionProvider"
+                        ]
+                    }
+                ]
             }
         }
     },
@@ -128,7 +170,6 @@
         },
         "transformers_optimization_fp16": {
             "type": "OrtTransformersOptimization",
-            "disable_search": true,
             "evaluator": "gqa_evaluator",
             "config": {
                 "save_as_external_data": true,
@@ -143,7 +184,6 @@
         },
         "transformers_optimization_fp32": {
             "type": "OrtTransformersOptimization",
-            "disable_search": true,
             "config": {
                 "save_as_external_data": true,
                 "all_tensors_to_one_file": true,
@@ -157,7 +197,6 @@
         },
         "onnx_dynamic_quant_int8": {
             "type": "OnnxDynamicQuantization",
-            "disable_search": true,
             "config": {
                 "save_as_external_data": true,
                 "all_tensors_to_one_file": true,
@@ -172,7 +211,6 @@
         },
         "blockwise_quant_int4": {
             "type": "OnnxMatMul4Quantizer",
-            "disable_search": true,
             "evaluator": "gqa_evaluator",
             "config": {
                 "save_as_external_data": true,
@@ -180,18 +218,18 @@
                 "block_size": 32,
                 "is_symmetric": true
             }
+        },
+        "gptq_quant_int4": {
+            "type": "GptqQuantizer",
+            "config": {
+                "data_config": "wikitext2_train"
+            }
         }
     },
     "engine": {
-        "search_strategy": {
-            "execution_order": "pass-by-pass",
-            "search_algorithm": "tpe",
-            "search_algorithm_config": {
-                "num_samples": 3,
-                "seed": 0
-            }
-        },
         "evaluator": "merged_evaluator",
+        "host": "local_system",
+        "target": "local_system",
         "cache_dir": "cache",
         "output_dir": "<output_dir_placeholder>"
     }

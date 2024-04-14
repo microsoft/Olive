@@ -61,8 +61,7 @@
             "type": "ONNXModelOptimizer"
         },
         "transformers_optimization": {
-            "type": "OrtTransformersOptimization",
-            "disable_search": true
+            "type": "OrtTransformersOptimization"
         },
         "perf_tuning": {
             "type": "OrtPerfTuning",
@@ -74,10 +73,6 @@
         }
     },
     "engine": {
-        "search_strategy": {
-            "execution_order": "pass-by-pass",
-            "search_algorithm": "exhaustive"
-        },
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
         "output_dir": "models/bert_qat_customized_train_loop_cpu"

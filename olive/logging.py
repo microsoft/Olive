@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import os
 import sys
 from datetime import datetime
 
@@ -33,6 +34,11 @@ def set_verbosity_error():
 
 def set_verbosity_critical():
     set_verbosity(logging.CRITICAL)
+
+
+def set_verbosity_from_env():
+    log_level = os.environ.get("OLIVE_LOG_LEVEL", "INFO")
+    set_verbosity(log_level)
 
 
 def get_logger_level(level):

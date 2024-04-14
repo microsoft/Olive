@@ -2,9 +2,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
 import logging
 from pathlib import Path
 from typing import Optional
+
+from olive.model.utils.path_utils import normalize_path_suffix
 
 logger = logging.getLogger(__name__)
 
@@ -21,16 +24,7 @@ def resolve_onnx_path(file_or_dir_path: str, model_filename: str = "model.onnx")
 
     resolve_onnx_path("c:/foo/bar") -> c:/foo/bar/model.onnx
     """
-    if not model_filename.endswith(".onnx"):
-        raise ValueError(f"ONNXModel's model name must end with '.onnx', got {model_filename}")
-
-    path = Path(file_or_dir_path)
-    if path.suffix != ".onnx":
-        path = path / model_filename
-        parent_dir = path.parent
-        if not parent_dir.exists():
-            parent_dir.mkdir(parents=True, exist_ok=True)
-    return str(path)
+    return normalize_path_suffix(file_or_dir_path, model_filename)
 
 
 def get_onnx_file_path(model_path: str, onnx_file_name: Optional[str] = None) -> str:
@@ -67,3 +61,25 @@ def get_onnx_file_path(model_path: str, onnx_file_name: Optional[str] = None) ->
         )
     else:
         raise ValueError(f"No .onnx file found in the model folder {model_path}.")
+
+
+def get_additional_file_path(model_dir: str, file_name: str) -> Optional[str]:
+    """Get the full path to the additional file.
+
+    If file_name is specified, it is assumed to be a file in the model_dir and the full path
+    is returned.
+    """
+    if file_name:
+        model_dir = Path(model_dir)
+        assert model_dir.is_dir(), f"Model path {model_dir} is not a directory."
+        file_path = model_dir / file_name
+        assert file_path.exists(), f"{file_name} does not exist in model path directory {model_dir}."
+        return str(file_path)
+    return None
+
+
+def dump_tuning_result(session, tuning_result_path):
+    assert tuning_result_path.endswith(".json")
+    tuning_result = session.get_tuning_results()
+    with Path(tuning_result_path).open("w") as f:
+        json.dump(tuning_result, f, indent=2)

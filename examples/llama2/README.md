@@ -1,8 +1,24 @@
 # Llama2 optimization
-This folder contains sample use cases of Olive to optimize a [Llama2](https://huggingface.co/meta-llama/Llama-2-7b-hf)
+Sample use cases of Olive to optimize a [Llama2](https://huggingface.co/meta-llama/Llama-2-7b-hf)
+
+- [Llama2 optimization](#llama2-optimization)
+  - [Optimization Workflows](#optimization-workflows)
+    - [Inference optimization using ONNX Runtime Tools](#inference-optimization-using-onnx-runtime-tools)
+    - [Inference optimization with ONNNX Runtime with DirectML](#inference-optimization-with-onnnx-runtime-with-directml)
+    - [Fine-tune on a code generation dataset using QLoRA and optimize using ONNX Runtime Tools](#fine-tune-on-a-code-generation-dataset-using-qlora-and-optimize-using-onnx-runtime-tools)
+    - [Inference optimization using ONNX Runtime GenAI](#inference-optimization-using-onnx-runtime-genai)
+    - [Quantization using GPTQ and do text generation using ONNX Runtime with Optimum](#quantization-using-gptq-and-do-text-generation-using-onnx-runtime-with-optimum)
+  - [Prerequisites](#prerequisites)
+    - [Clone the repository and install Olive](#clone-the-repository-and-install-olive)
+    - [Install onnxruntime](#install-onnxruntime)
+    - [Install extra dependencies](#install-extra-dependencies)
+  - [Run the config to optimize the model](#run-the-config-to-optimize-the-model)
+    - [Optimize using ONNX Runtime Tools](#optimize-using-onnx-runtime-tools)
+    - [Fine-tune on a code generation dataset using QLoRA and optimize using ONNX Runtime Tools](#fine-tune-on-a-code-generation-dataset-using-qlora-and-optimize-using-onnx-runtime-tools-1)
+- [License](#license)
 
 ## Optimization Workflows
-### Optimize using ONNX Runtime Tools
+### Inference optimization using ONNX Runtime Tools
 Performs optimization pipeline:
 - CPU, FP32: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model fp32*
 - CPU, INT8: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model fp32 -> Onnx Dynamic Quantization*
@@ -14,10 +30,14 @@ Performs optimization pipeline:
 
 Requirements file: [requirements.txt](requirements.txt)
 
+### Inference optimization with ONNNX Runtime with DirectML
+For Llama2 inference with DirectML on GPUs, pls refer to this [example](https://github.com/microsoft/Olive/tree/main/examples/directml/llama_v2).
+
 ### Fine-tune on a code generation dataset using QLoRA and optimize using ONNX Runtime Tools
 This workflow fine-tunes Open LLaMA model using [QLoRA](https://arxiv.org/abs/2305.14314) to generate code given a prompt. The fine-tuned model is then optimized using ONNX Runtime Tools.
 Performs optimization pipeline:
-- GPU, NF4: *Pytorch Model -> Fine-tuned Pytorch Model -> Onnx Model -> Transformers Optimized Onnx Model fp16 -> Onnx Bitsandbytes 4bit Quantization*
+- GPU, FP16: *Pytorch Model -> Fine-tuned Pytorch Model -> Onnx Model -> Transformers Optimized Onnx Model fp16 -> Extract Adapter*
+<!-- TODO(jambayk): check if bnb quantization works between different adapters -->
 
 **Note:**
 - This workflow is only supported for GPU.
@@ -26,6 +46,134 @@ Supported languages are Python, TypeScript, JavaScript, Ruby, Julia, Rust, C++, 
 - You must be logged in to HuggingFace using `huggingface-cli login` to download the dataset or update `token` field in the config file with your HuggingFace token.
 
 Requirements file: [requirements-qlora.txt](requirements-qlora.txt)
+
+**Extracted Adapters**
+
+The workflow above extracts the lora adapters from the fine-tuned model and converts them into inputs for the model. This way, you can use adapters for the same base model with different tasks.
+Pre-existing adapters can be exported directly using the following command:
+```bash
+# change the adapter_path to the path of the adapter you want to export
+# ensure that the target modules are the same as those of the above fine-tuned model
+python -m olive.scripts.export_adapters --adapter_path Mikael110/llama-2-7b-guanaco-qlora --dtype float16 --pack_weights --output_path models/guanaco_fp16_packed.npz
+```
+
+Snippet below shows an example runs of the generated fine-tuned model using two different adapters.
+```python
+import numpy as np
+# optimum needs to be installed from git+https://github.com/jambayk/optimum.git@jambayk/constant-inputs
+from onnxruntime import InferenceSession
+from optimum.onnxruntime import ORTModelForCausalLM
+import torch
+from transformers import AutoConfig, AutoTokenizer
+
+device = torch.device("cuda")
+
+base_model = "meta-llama/Llama-2-7b-hf"
+config = AutoConfig.from_pretrained(base_model)
+tokenizer = AutoTokenizer.from_pretrained(base_model)
+
+# the path to the optimized model
+model_path = "models/qlora/qlora-conversion-transformers_optimization-extract/gpu-cuda_model/model.onnx"
+tiny_codes_adapter_path = "models/qlora/qlora-conversion-transformers_optimization-extract/gpu-cuda_model/adapter_weights.npz"
+guanaco_adapter_path = "models/guanaco_fp16_packed.npz"
+
+# load the adapters and put them on the device
+tiny_codes_weights = np.load(tiny_codes_adapter_path)
+tiny_codes_weights = {k: torch.tensor(v).to(device) for k, v in tiny_codes_weights.items()}
+guanaco_weights = np.load(guanaco_adapter_path)
+guanaco_weights = {k: torch.tensor(v).to(device) for k, v in guanaco_weights.items()}
+
+# load the model
+# io-binding is recommended for optimal performance, the adapters weights are already on the device and don't change
+# during generation loop (called constant_inputs here)
+session = InferenceSession(model_path, providers=["CUDAExecutionProvider"])
+model = ORTModelForCausalLM(session, config=config, preprocessors=[tokenizer], use_cache=True, use_io_binding=True)
+
+# prompt
+prompt = "What time is it?"
+
+# generate using tiny_codes adapters
+model.constant_inputs = tiny_codes_weights
+formatted_prompt = f"### Question: {prompt} \n### Answer:"
+inputs = tokenizer(formatted_prompt, return_tensors="pt").to(device)
+print("Tiny Codes Adapters:")
+outputs = model.generate(inputs=inputs.input_ids, max_new_tokens=150)
+print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+
+# generate using guanaco adapters
+model.constant_inputs = guanaco_weights
+formatted_prompt = f"### Human: {prompt} ### Assistant:"
+inputs = tokenizer(formatted_prompt, return_tensors="pt").to(device)
+print("Guanaco Adapters:")
+outputs = model.generate(inputs=inputs.input_ids, max_new_tokens=150)
+print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+```
+
+### Inference optimization using ONNX Runtime GenAI
+For using ONNX runtime GenAI to optimize, follow build and installation instructions [here](https://github.com/microsoft/onnxruntime-genai).
+
+Run the following command to execute the workflow:
+```bash
+python -m olive.workflows.run --config lamma2_genai.json
+```
+
+Snippet below shows an example run of generated llama2 model.
+```python
+import onnxruntime_genai as og
+
+model = og.Model("model_path")
+tokenizer = og.Tokenizer(model)
+tokenizer_stream = tokenizer.create_stream()
+
+prompt = '''def print_prime(n):
+    """
+    Print all primes between 1 and n
+    """'''
+
+tokens = tokenizer.encode(prompt)
+
+params = og.GeneratorParams(model)
+params.set_search_options({"max_length":200})
+params.input_ids = tokens
+
+output_tokens = model.generate(params)
+
+text = tokenizer.decode(output_tokens)
+
+print("Output:")
+print(text)
+```
+
+### Quantization using GPTQ and do text generation using ONNX Runtime with Optimum
+
+This workflow quantizes the Llama2 model using [GPTQ](https://arxiv.org/abs/2210.17323) and does text generation using ONNX Runtime with Optimum.
+
+- GPU, GPTQ INT4: *PyTorch Model -> GPTQ INT4 Onnx Model*
+
+**Note:**
+
+- This workflow is only supported for GPU and need GPU to run.
+- GPTQ quantization can be enabled by passing `--use_gptq` flag to the script.
+- You must be logged in to HuggingFace using `huggingface-cli login` to download the dataset or update `token` field in the config file with your HuggingFace token.
+
+Requirements file: [requirements-gptq.txt](requirements-gptq.txt)
+
+Once finished, you can do text generation using the following code:
+
+```python
+from optimum.onnxruntime import ORTModelForCausalLM
+from transformers import AutoTokenizer, AutoConfig
+
+quantized_model_dir = "${path_to_quantized_llama2-7b}"
+AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf").save_pretrained(quantized_model_dir)
+AutoConfig.from_pretrained("meta-llama/Llama-2-7b-hf").save_pretrained(quantized_model_dir)
+model = ORTModelForCausalLM.from_pretrained(
+    quantized_model_dir, provider="CUDAExecutionProvider"
+)
+tokenizer = AutoTokenizer.from_pretrained(quantized_model_dir)
+inputs = tokenizer("Hello, World", return_tensors="pt").to("cuda:0")
+print(tokenizer.batch_decode(model.generate(**inputs, max_length=20), skip_special_tokens=True))
+```
 
 ## Prerequisites
 ### Clone the repository and install Olive
@@ -37,12 +185,12 @@ This example requires onnxruntime>=1.16.2. Please install the latest version of 
 
 For CPU:
 ```bash
-python -m pip install "onnxruntime>=1.16.2"
+python -m pip install "onnxruntime>=1.17.0"
 ```
 
 For GPU:
 ```bash
-python -m pip install "onnxruntime-gpu>=1.16.2"
+python -m pip install "onnxruntime-gpu>=1.17.0"
 ```
 
 **Note:** The GPU package also works for CPU.
@@ -74,6 +222,8 @@ GPU:
 python llama2.py --model_name meta-llama/Llama-2-7b-hf --gpu
 # use gqa instead of mha
 python llama2.py --model_name meta-llama/Llama-2-7b-hf --gpu --use_gqa
+# use gptq quantization
+python llama2.py --model_name meta-llama/Llama-2-7b-hf --gpu --use_gptq
 ```
 
 ### Fine-tune on a code generation dataset using QLoRA and optimize using ONNX Runtime Tools
@@ -82,5 +232,6 @@ Run the following command to execute the workflow:
 python -m olive.workflows.run --config lamma2_qlora.json
 ```
 
-## TODO
-- [ ] Add generation example of the optimized model.
+# License
+Please see the [LICENSE](./LICENSE) file for more details. Also please follow the [user policy](./USE-POLICY-META-LLAMA-2.md) of the model provider. Besides, please refer to the [Responsible
+Use Guide](https://ai.meta.com/static-resource/responsible-use-guide/) for more details on how to use the model responsibly.

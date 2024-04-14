@@ -8,7 +8,7 @@ Read more at: [Intel® Distribution of OpenVINO™ Toolkit](https://www.intel.co
 
 
 ## Prerequisites
-Note: OpenVINO version in Olive: 2022.3.0
+Note: OpenVINO version in Olive: 2023.2.0
 
 ### Option 1: install Olive with OpenVINO extras
 ```
@@ -17,7 +17,7 @@ pip install olive-ai[openvino]
 
 ### Option 2: Install OpenVINO Runtime and OpenVINO Development Tools from Pypi
 ```
-pip install openvino==2022.3.0 openvino-dev[tensorflow,onnx]==2022.3.0
+pip install openvino==2023.2.0
 ```
 
 
@@ -32,13 +32,13 @@ Please refer to [OpenVINOConversion](openvino_conversion) for more details about
 {
     "type": "OpenVINOConversion",
     "config": {
-        "input_shape": [1, 3, 32, 32]
+        "input": [1, 3, 32, 32]
     }
 }
 ```
 
 ## Post Training Quantization (PTQ)
-`OpenVINOQuantization` pass will run Post-training quantization for OpenVINO model which supports the uniform integer quantization method.
+`OpenVINOQuantization` pass will run [Post-training quantization](https://docs.openvino.ai/2023.3/ptq_introduction.html) for OpenVINO model which supports the uniform integer quantization method.
 This method allows moving from floating-point precision to integer precision (for example, 8-bit) for weights and activations during the
 inference time. It helps to reduce the model size, memory footprint and latency, as well as improve the computational efficiency, using
 integer arithmetic. During the quantization process the model undergoes the transformation process when additional operations, that contain
@@ -49,21 +49,16 @@ Please refer to [OpenVINOQuantization](openvino_quantization) for more details a
 ### Example Configuration
 ```json
 {
-    "type": "OpenVINOQuantization",
-    "config": {
-        "engine_config": {"device": "CPU", "stat_requests_number": 2, "eval_requests_number": 2},
-        "algorithms": [
-            {
-                "name": "DefaultQuantization",
-                "params": {"target_device": "CPU", "preset": "performance", "stat_subset_size": 300},
-            }
-        ],
-        "data_dir": "data_dir",
-        "user_script": "user_script.py",
-        "dataloader_func": "create_dataloader",
+    "quantization": {
+        "type": "OpenVINOQuantizationWithAccuracy",
+        "config": {
+            "data_dir": "data",
+            "user_script": "user_script.py",
+            "dataloader_func": "create_dataloader",
+            "validation_func": "validate",
+            "max_drop": 0.01,
+            "drop_type": "ABSOLUTE"
+        }
     }
 }
 ```
-
-Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/cifar10_openvino_intel_hw/user_script.py)
-for an example implementation of `"user_script.py"` and `"create_dataloader"`.

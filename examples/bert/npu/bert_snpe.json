@@ -1,0 +1,92 @@
+{
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "hf_config": {
+                "model_name": "Intel/bert-base-uncased-mrpc",
+                "task": "text-classification"
+            }
+        }
+    },
+    "evaluators": {
+        "snpe_evaluator": {
+            "metrics": [
+                {
+                    "name": "accuracy",
+                    "type": "accuracy",
+                    "backend": "huggingface_metrics",
+                    "data_config": "snpe_dataset",
+                    "user_config": {
+                        "inference_settings": {
+                            "snpe":{
+                                "return_numpy_results": true
+                            }
+                        }
+                    },
+                    "sub_types": [
+                        {"name": "accuracy", "priority": 1, "goal": {"type": "max-degradation", "value": 0.05}},
+                        {"name": "f1"}
+                    ]
+                }
+            ]
+        }
+    },
+    "data_configs": {
+        "snpe_dataset": {
+            "name": "snpe_dataset",
+            "type": "HuggingfaceContainer",
+            "user_script": "user_script.py",
+            "components": {
+                "post_process_data": {
+                    "type": "snpe_post_process"
+                }
+            },
+            "params_config": {
+                "model_name": "Intel/bert-base-uncased-mrpc",
+                "task": "text-classification",
+                "batch_size": 2,
+                "data_name": "glue",
+                "input_cols": ["sentence1", "sentence2"],
+                "label_cols": ["label"],
+                "split": "validation",
+                "subset": "mrpc",
+                "component_kwargs": {
+                    "pre_process_data": {
+                        "max_length": 128,
+                        "padding": "max_length"
+                    }
+                }
+            }
+        }
+    },
+    "passes": {
+        "conversion": {
+            "type": "OnnxConversion",
+            "config": {
+                "target_opset": 13
+            }
+        },
+        "dynamic_shape_to_fixed": {
+            "type": "DynamicToFixedShape",
+            "config": {
+                "dim_param": ["batch", "sequence"],
+                "dim_value": [2, 128]
+            }
+        },
+        "to_snpe_dlc": {
+            "type": "SNPEConversion",
+            "config": {
+                "input_names": ["input_ids", "attention_mask", "token_type_ids"],
+                "input_shapes": [[2, 128], [2, 128], [2, 128]],
+                "output_names": ["logits"]
+            }
+        }
+    },
+    "engine": {
+        "log_severity_level": 0,
+        "clean_cache": true,
+        "evaluator": "snpe_evaluator",
+        "evaluate_input_model": false,
+        "output_dir" : "models/bert_snpe"
+    }
+}

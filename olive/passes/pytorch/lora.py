@@ -11,15 +11,16 @@ import dataclasses
 import logging
 import os
 import tempfile
+from abc import abstractmethod
 from copy import deepcopy
 from functools import partial
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional, Tuple, Union
 
 import torch
 import transformers
 from packaging import version
-from transformers import AutoTokenizer, PreTrainedModel, PreTrainedTokenizer
+from transformers import AutoTokenizer
 
 from olive.common.config_utils import ConfigBase, ConfigWithExtraArgs
 from olive.common.pydantic_v1 import Field, validator
@@ -33,9 +34,15 @@ from olive.model.utils.hf_utils import get_peft_task_type_from_task
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 
+if TYPE_CHECKING:
+    from peft import PeftModel
+    from transformers import PreTrainedModel, PreTrainedTokenizer
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_PAD_TOKEN = "[PAD]"
+
+# pylint: disable=unused-import
 
 
 # ruff: noqa: B010
@@ -87,6 +94,19 @@ class HFTrainingArguments(ConfigWithExtraArgs):
         "none", description="The list of integrations to report the results and logs to."
     )
     output_dir: str = Field(None, description="The output dir for logs and checkpoints. If None, will use a temp dir.")
+    overwrite_output_dir: bool = Field(
+        False,
+        description=(
+            "If True, overwrite the content of output_dir. Otherwise, will continue training if `output_dir` points to"
+            " a checkpoint directory."
+        ),
+    )
+    resume_from_checkpoint: str = Field(
+        None,
+        description=(
+            "The path to a folder with a valid checkpoint for the model. Supercedes any checkpoint found in output_dir."
+        ),
+    )
     extra_args: Dict[str, Any] = Field(
         None,
         description=(
@@ -106,10 +126,10 @@ class HFTrainingArguments(ConfigWithExtraArgs):
         training_args_fields.add("use_module_with_loss")
         for k in list(v):  # need a copy of the keys since we are mutating the dict
             if k == "fp16":
-                logger.warning(f"Extra arg {k} is not allowed. Please use `torch_dtype` instead.")
+                logger.warning("Extra arg %s is not allowed. Please use `torch_dtype` instead.", k)
                 del v[k]
             elif k not in training_args_fields:
-                logger.warning(f"Extra arg {k} is not a field of transformers.TrainingArguments. Ignoring.")
+                logger.warning("Extra arg %s is not a field of transformers.TrainingArguments. Ignoring.", k)
                 del v[k]
         return v
 
@@ -137,8 +157,8 @@ class LoRABase(Pass):
     # values from the input model will be ignored and new values will be set based on the pass config
     model_overwrites: ClassVar[tuple] = ("torch_dtype", "device_map")
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "use_ort_trainer": PassConfigParam(
                 type_=bool, default_value=False, description="Whether or not to use ORTTrainer."
@@ -268,8 +288,9 @@ class LoRABase(Pass):
             # ops such as Where only support bfloat16 from opset 16
             if uses_bf16 and config.ortmodule_onnx_opset_version < 16:
                 logger.warning(
-                    f"ortmodule_onnx_opset_version is {config.ortmodule_onnx_opset_version} but training with bfloat16"
-                    " might not work properly with opset versions < 16"
+                    "ortmodule_onnx_opset_version is %d but training with bfloat16"
+                    " might not work properly with opset versions < 16",
+                    config.ortmodule_onnx_opset_version,
                 )
             os.environ["ORTMODULE_ONNX_OPSET_VERSION"] = str(config.ortmodule_onnx_opset_version)
 
@@ -277,8 +298,22 @@ class LoRABase(Pass):
         if is_qlora and version.parse(transformers.__version__) < version.parse("4.30.0"):
             raise ImportError(f"Please install transformers >= 4.30.0 to use {cls.__name__} pass.")
 
+        if config.training_args:
+            # check if output_dir is a valid directory
+            # must be a directory with checkpoints
+            output_dir = config.training_args.output_dir
+            if config.training_args.overwrite_output_dir or not output_dir or not Path(output_dir).exists():
+                return
+            # find the last checkpoint in output_dir
+            checkpoint = transformers.trainer_utils.get_last_checkpoint(output_dir)
+            if not checkpoint and len(list(Path(output_dir).iterdir())) > 0:
+                raise ValueError(
+                    f"Output directory ({output_dir}) already exists and is not empty. Set overwrite_output_dir to True"
+                    " to overwrite or provide a new output_dir."
+                )
+
     @staticmethod
-    def collate_batch(batch: List[Dict], tokenizer: transformers.PreTrainedTokenizer) -> Dict[str, torch.Tensor]:
+    def collate_batch(batch: List[Dict], tokenizer: "PreTrainedTokenizer") -> Dict[str, torch.Tensor]:
         """Collate a batch of samples into a padded batch of tensors.
 
         Add padding to the input_ids, attention_mask and labels.
@@ -338,12 +373,18 @@ class LoRABase(Pass):
         return train_dataset, eval_dataset
 
     @staticmethod
-    def prepare_model_for_lora_finetuning(model: PreTrainedModel, use_gradient_checkpointing: bool):
+    def prepare_model_for_lora_finetuning(
+        model: "PreTrainedModel", use_gradient_checkpointing: bool
+    ) -> "PreTrainedModel":
         """Prepare the model for fine-tuning.
 
         Freeze base model's layers and prepare model for gradient checkpointing if necessary.
         Similar to peft.prepare_model_for_kbit_training but no casting to fp32 and gradient checkpointing is
         also supported for non-quantized models.
+
+        :param model: The Hugging Face PyTorch model to prepare for fine-tuning.
+        :param use_gradient_checkpointing: Whether to use gradient checkpointing.
+        :return: The prepared model.
         """
         for param in model.parameters():
             # freeze base model's layers
@@ -365,19 +406,123 @@ class LoRABase(Pass):
 
         return model
 
-    def enable_lora(
+    def create_and_load_new_model(
+        self, model_handler: PyTorchModelHandler, config: ConfigBase, **kwargs
+    ) -> Tuple[PyTorchModelHandler, "PreTrainedModel"]:
+        """Clone the input model handler and update the model from_pretrained_args.
+
+        :param model_handler: The input model handler.
+        :param config: The config for the pass run.
+        :param kwargs: Additional arguments to update from_pretrained_args with.
+        :return: The new model handler and the new loaded pytorch model.
+        """
+        # don't want the original loaded model
+        # also frees gpu memory if original model is on gpu
+        model_handler.model = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        # create copy of the input model, will modify this model
+        # also resets adapter_path
+        new_model_handler = self.input_model_check(deepcopy(model_handler))
+
+        torch_dtype = self.get_torch_dtype(config.torch_dtype)
+        # will use mixed precision since full fp16 is unstable
+        model_dtype = torch_dtype if torch_dtype != torch.float16 else torch.float32
+
+        # load model, reset from_pretrained_args and adapter_path
+        from_pretrained_args = (
+            new_model_handler.hf_config.from_pretrained_args.dict()
+            if new_model_handler.hf_config.from_pretrained_args
+            else {}
+        )
+        from_pretrained_args.update(
+            {
+                "torch_dtype": model_dtype,
+                # TODO(jambayk): Worry about `use_multi_gpu` and distributed training later
+                # "auto": uses all available GPUs, model parallel
+                # ORTTrainer falls back to pytorch when model parallel is used
+                # None: maps to cpu for non-quantized models, first gpu for quantized models
+                "device_map": "auto" if not config.use_ort_trainer else None,
+            }
+        )
+        # overwrite from_pretrained_args with kwargs
+        from_pretrained_args.update(kwargs)
+        new_model_handler.hf_config.from_pretrained_args = HfFromPretrainedArgs(**from_pretrained_args)
+        pytorch_model = new_model_handler.load_model()
+        pytorch_model.config.torch_dtype = model_dtype
+
+        return new_model_handler, pytorch_model
+
+    def init_lora_adapters(
         self,
-        model: PreTrainedModel,
-        tokenizer: PreTrainedTokenizer,
+        model: "PreTrainedModel",
         task: str,
         config: ConfigBase,
-        target_modules: Optional[List[str]],
-    ) -> torch.nn.Module:
-        """Run LoRA fine-tuning on a Hugging Face PyTorch model."""
+        target_modules: Optional[List[str]] = None,
+        use_loftq: Optional[bool] = False,
+    ) -> "PeftModel":
+        """Initialize LoRA adapters.
+
+        :param model: The Hugging Face PyTorch model to add LoRA adapters to.
+        :param task: The task type of the model.
+        :param config: The config for the pass run.
+        :param target_modules: List of modules to target for LoRA fine-tuning.
+        :param use_loftq: Whether to use LoftQ to initialize weights.
+        :return: The LoRA model.
+        """
         from peft import LoraConfig, get_peft_model
+
+        lora_config_kwargs = {}
+        if use_loftq:
+            from peft import LoftQConfig
+
+            lora_config_kwargs = {
+                "init_lora_weights": "loftq",
+                "loftq_config": LoftQConfig(loftq_bits=4, loftq_iter=config.loftq_iter),
+            }
+
+        peft_task_type = get_peft_task_type_from_task(task, fail_on_not_found=True)
+        lora_config = LoraConfig(
+            r=config.lora_r,
+            lora_alpha=config.lora_alpha,
+            lora_dropout=config.lora_dropout,
+            target_modules=target_modules,
+            bias=config.bias,
+            task_type=peft_task_type,
+            modules_to_save=config.modules_to_save,
+            **lora_config_kwargs,
+        )
+
+        return get_peft_model(model, lora_config)
+
+    def enable_lora(
+        self,
+        model: "PreTrainedModel",
+        tokenizer: "PreTrainedTokenizer",
+        task: str,
+        config: ConfigBase,
+        adapter_path: Optional[str] = None,
+        target_modules: Optional[List[str]] = None,
+    ) -> "PeftModel":
+        """Enable LoRA fine-tuning on a Hugging Face PyTorch model.
+
+        Add padding token to tokenizer and resize model embedding layer if needed.
+        Prepare model for fine-tuning by freezing master weights and enabling gradient checkpointing if needed.
+        Load or initialize LoRA adapters.
+
+        :param model: The Hugging Face PyTorch model to enable LoRA fine-tuning on.
+        :param tokenizer: The tokenizer for the model.
+        :param task: The task type of the model.
+        :param config: The config for the pass run.
+        :param adapter_path: Path to the adapter weights. If None, will initialize new adapters.
+        :param target_modules: List of modules to target for LoRA fine-tuning. Only used if adapter_path is None.
+        :return: The LoRA model.
+        """
+        from peft import PeftModel
         from peft.tuners.lora import LoraLayer
 
-        logger.debug("Adding LoRA modules")
+        logger.debug("Enabling LoRA fine-tuning")
         # if there is no pad token, add to tokenizer and model
         # TODO(jambayk): Do this in a better way since the embedding size might become unoptimal
         # (not a multiple of 64, etc) perhaps use eos_token as pad_token, but need to ensure the actual eos_token
@@ -403,22 +548,16 @@ class LoRABase(Pass):
         setattr(model, "is_parallelizable", True)
 
         logger.debug(
-            f"The number of trainable parameters in the original model: {self.count_trainable_parameters(model)}"
+            "The number of trainable parameters in the original model: %s", self.count_trainable_parameters(model)
         )
-        peft_task_type = get_peft_task_type_from_task(task, fail_on_not_found=True)
-        lora_config = LoraConfig(
-            r=config.lora_r,
-            lora_alpha=config.lora_alpha,
-            lora_dropout=config.lora_dropout,
-            target_modules=target_modules,
-            bias=config.bias,
-            task_type=peft_task_type,
-            modules_to_save=config.modules_to_save,
-        )
-
-        lora_model = get_peft_model(model, lora_config)
+        if not adapter_path:
+            logger.debug("Initializing LoRA adapters from config")
+            lora_model = self.init_lora_adapters(model, task, config, target_modules=target_modules)
+        else:
+            logger.debug("Loading LoRA adapters from %s", adapter_path)
+            lora_model = PeftModel.from_pretrained(model, adapter_path, is_trainable=True)
         logger.debug(
-            f"The number of trainable parameters in the LoRA model: {self.count_trainable_parameters(lora_model)}"
+            "The number of trainable parameters in the LoRA model: %s", self.count_trainable_parameters(lora_model)
         )
 
         # cast lora modules to model's dtype, should be same as torch_dtype
@@ -430,14 +569,25 @@ class LoRABase(Pass):
 
     def train_and_save_new_model(
         self,
-        model: torch.nn.Module,
-        tokenizer: PreTrainedTokenizer,
+        model: "PeftModel",
+        tokenizer: "PreTrainedTokenizer",
         config: ConfigBase,
         data_root: str,
         output_model: PyTorchModelHandler,
         output_model_path: str,
-        torch_dtype: torch.dtype,
     ) -> PyTorchModelHandler:
+        """Train and save the new model.
+
+        The fine-tuned adapter weights will be saved and updated in the output model handler.
+
+        :param model: The prepared LoRA model to train.
+        :param tokenizer: The tokenizer for the model.
+        :param config: The config for the pass run.
+        :param data_root: The root directory for the data.
+        :param output_model: The output model handler.
+        :param output_model_path: The path to save the output model to.
+        :return: The output model handler.
+        """
         if torch.cuda.is_available():
             allow_tf32 = torch.backends.cuda.matmul.allow_tf32
             torch.backends.cuda.matmul.allow_tf32 = config.allow_tf32
@@ -466,16 +616,31 @@ class LoRABase(Pass):
         # is handled by the caller (after try except) or the program exits
         # Plus the cleanup after error doesn't work as expected with notebooks
         with tempfile.TemporaryDirectory(prefix="olive_tmp") as temp_dir:
+            checkpoint = config.training_args.resume_from_checkpoint
             if not config.training_args.output_dir:
                 logger.info("No training_args.output_dir provided. Using a temp dir.")
                 config.training_args.output_dir = temp_dir
                 # set save_total_limit to 1 since the temp dir will be deleted after training
                 config.training_args.extra_args["save_total_limit"] = 1
-            if torch_dtype == torch.float16:
+            elif (
+                not checkpoint
+                and not config.training_args.overwrite_output_dir
+                and Path(config.training_args.output_dir).exists()
+            ):
+                # find the last checkpoint in output_dir
+                checkpoint = transformers.trainer_utils.get_last_checkpoint(config.training_args.output_dir)
+                if checkpoint:
+                    logger.info(
+                        "Checkpoint detected in output_dir. Resuming training at %s. To avoid this behavior and train"
+                        " from scratch, change `output_dir` or set `overwrite_output_dir` to True.",
+                        checkpoint,
+                    )
+
+            if self.get_torch_dtype(config.torch_dtype) == torch.float16:
                 # use fp16 mixed precision training
                 config.training_args.extra_args["fp16"] = True
             # create training args
-            logger.debug(f"Training args: {config.training_args.dict()}")
+            logger.debug("Training args: %s", config.training_args.dict())
 
             trainer_cls = transformers.Trainer
             if config.use_ort_trainer:
@@ -497,8 +662,8 @@ class LoRABase(Pass):
 
             # train
             logger.info("Running fine-tuning")
-            train_result = trainer.train()
-            logger.debug(f"train_result: {train_result}")
+            train_result = trainer.train(resume_from_checkpoint=checkpoint)
+            logger.debug("train_result: %s", train_result)
 
         if torch.cuda.is_available():
             torch.backends.cuda.matmul.allow_tf32 = allow_tf32
@@ -506,7 +671,9 @@ class LoRABase(Pass):
         # save adapter weights
         adapter_path = Path(output_model_path) / "adapter"
         adapter_path.mkdir(parents=True, exist_ok=True)
-        model.save_pretrained(adapter_path)
+        # don't save embedding layers since only adapter weights are trained
+        # if we don't provide as False, it defaults to "auto" which checks if the vocab size changed
+        model.save_pretrained(adapter_path, save_embedding_layers=False)
 
         # remove loaded model
         output_model.model = None
@@ -526,15 +693,20 @@ class LoRABase(Pass):
 
     @staticmethod
     def smart_tokenizer_and_embedding_resize(
-        special_tokens_dict: Dict, tokenizer: transformers.PreTrainedTokenizer, model: transformers.PreTrainedModel
+        special_tokens_dict: Dict, tokenizer: "PreTrainedTokenizer", model: "PreTrainedModel"
     ):
-        """Resize the tokenizer and the model embedding layer to take into account new special tokens."""
+        """Resize the tokenizer and the model embedding layer to take into account new special tokens.
+
+        NOTE: This is only used to ensure we have a pad token. The new embeddings don't get training signals
+        the pad tokens are masked out in the attention mask and loss calculation. Moreover, only the adapter weights
+        are set as trainable and saved in the final checkpoint.
+        """
         # resize tokenizer
         num_new_tokens = tokenizer.add_special_tokens(special_tokens_dict)
         # resize model embedding layer
         model.resize_token_embeddings(len(tokenizer))
         if num_new_tokens > 0:
-            logger.info(f"Added {num_new_tokens} new tokens to tokenizer and resized model embedding layer.")
+            logger.info("Added %d new tokens to tokenizer and resized model embedding layer.", num_new_tokens)
             input_embeddings_data = model.get_input_embeddings().weight.data
             output_embeddings_data = model.get_output_embeddings().weight.data
 
@@ -547,7 +719,8 @@ class LoRABase(Pass):
             output_embeddings_data[-num_new_tokens:] = output_embeddings_avg
 
     @staticmethod
-    def get_torch_dtype(torch_dtype: str):
+    def get_torch_dtype(torch_dtype: str) -> torch.dtype:
+        """Get the torch dtype from the string."""
         supported_dtypes = {
             "bfloat16": torch.bfloat16,
             "float16": torch.float16,
@@ -571,8 +744,10 @@ class LoRABase(Pass):
             for k in cls.model_overwrites:
                 if from_pretrained_args.get(k) is not None:
                     logger.warning(
-                        f"Input model has from_pretrained_args.{k}. Ignoring. "
-                        f"{cls.__name__} will overwrite it based on the pass config."
+                        "Input model has from_pretrained_args. %s. Ignoring. "
+                        "%s will overwrite it based on the pass config.",
+                        k,
+                        cls.__name__,
                     )
 
         if model.get_resource("adapter_path"):
@@ -583,7 +758,7 @@ class LoRABase(Pass):
         return model
 
     @staticmethod
-    def count_trainable_parameters(model):
+    def count_trainable_parameters(model) -> str:
         """Count and return the number of trainable parameters in a model."""
         trainable_params = 0
         all_param = 0
@@ -603,12 +778,12 @@ class LoRA(LoRABase):
     This pass only supports PyTorchModelHandler with hf_config.
     """
 
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "target_modules": PassConfigParam(type_=List[str], default_value=None, description="Target modules"),
         }
-        config.update(LoRABase._default_config(accelerator_spec))
+        config.update(super()._default_config(accelerator_spec))
         return config
 
     def _run_for_config(
@@ -624,55 +799,99 @@ class LoRA(LoRABase):
         # use default training args if not provided
         config.training_args = config.training_args or HFTrainingArguments()
 
-        # create a copy of the input model, will modify this model
-        model.model = None
-        new_model = self.input_model_check(deepcopy(model))
-
-        torch_dtype = self.get_torch_dtype(config.torch_dtype)
-        # will use mixed precision since full fp16 is unstable
-        model_dtype = torch_dtype if torch_dtype != torch.float16 else torch.float32
-
-        # load model, reset from_pretrained_args and adapter_path
-        from_pretrained_args = (
-            new_model.hf_config.from_pretrained_args.dict() if new_model.hf_config.from_pretrained_args else {}
-        )
-        from_pretrained_args.update(
-            {"torch_dtype": model_dtype, "device_map": "auto" if not config.use_ort_trainer else None}
-        )
-        new_model.hf_config.from_pretrained_args = HfFromPretrainedArgs(**from_pretrained_args)
-        pytorch_model = new_model.load_model()
-        if torch.cuda.is_available() and config.use_ort_trainer:
-            # put the model on GPU since device_map is None and the model will be on CPU
+        # get new model
+        new_model_handler, pytorch_model = self.create_and_load_new_model(model, config)
+        if torch.cuda.is_available() and pytorch_model.model.device.type == "cpu":
+            # put the model on GPU since model was loaded on CPU with device_map=None
             pytorch_model.to("cuda")
-        pytorch_model.config.torch_dtype = model_dtype
 
         # tokenizer
         tokenizer = AutoTokenizer.from_pretrained(
-            new_model.hf_config.model_name,
-            trust_remote_code=new_model.hf_config.from_pretrained_args.trust_remote_code,
+            new_model_handler.hf_config.model_name,
+            trust_remote_code=new_model_handler.hf_config.from_pretrained_args.trust_remote_code,
         )
 
         # add lora modules
         pytorch_model = self.enable_lora(
-            pytorch_model, tokenizer, new_model.hf_config.task, config, config.target_modules
+            pytorch_model, tokenizer, new_model_handler.hf_config.task, config, target_modules=config.target_modules
         )
 
         # train and return new model
         return self.train_and_save_new_model(
-            pytorch_model, tokenizer, config, data_root, new_model, output_model_path, torch_dtype
+            pytorch_model, tokenizer, config, data_root, new_model_handler, output_model_path
         )
 
 
-class QLoRA(LoRABase):
+class QLoRABase(LoRABase):
+    """Base class for QLoRA and LoftQ fine-tuning passes."""
+
+    model_overwrites: ClassVar[tuple] = ("torch_dtype", "device_map", "quantization_method", "quantization_config")
+
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+        config = {
+            # quantization parameters
+            "compute_dtype": PassConfigParam(
+                type_=str,
+                description=(
+                    "Computation data type for the quantized modules. If not provided, will use the same dtype as"
+                    " torch_dtype"
+                ),
+            )
+        }
+        config.update(super()._default_config(accelerator_spec))
+        return config
+
+    def _run_for_config(
+        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> PyTorchModelHandler:
+        # convert config to pass config class
+        # this will validate the config and convert to the correct types
+        config = self._config_class(**config)
+
+        # check dependencies
+        self.check_dependencies(config, is_qlora=True)
+
+        # MatMulBnb4 contrib op doesn't support double quantization so the trainer falls back to PythonOp
+        # which uses more memory and is slower
+        if config.use_ort_trainer and getattr(config, "double_quant", False):
+            logger.warning(
+                "double_quant is set to True but it is inefficient with onnxruntime-training! Consider setting it to"
+                " False."
+            )
+
+        # use default training args if not provided
+        config.training_args = config.training_args or HFTrainingArguments()
+
+        # get models and tokenizer
+        new_model_handler, pytorch_model, tokenizer, quantized_modules = self.get_model_tokenizer(
+            model, config, output_model_path
+        )
+
+        # train and get new model
+        output_model = self.train_and_save_new_model(
+            pytorch_model, tokenizer, config, data_root, new_model_handler, output_model_path
+        )
+        # add quantized_modules attributes
+        output_model.model_attributes["quantized_modules"] = quantized_modules
+        return output_model
+
+    @abstractmethod
+    def get_model_tokenizer(
+        self, model: PyTorchModelHandler, config: ConfigBase, output_model_path: str
+    ) -> Tuple[PyTorchModelHandler, "PreTrainedModel", "PreTrainedTokenizer", List[str]]:
+        """Get the model handler, LoRA model and tokenizer for fine-tuning."""
+        raise NotImplementedError
+
+
+class QLoRA(QLoRABase):
     """Run QLoRA fine-tuning on a Hugging Face PyTorch model.
 
     This pass only supports PyTorchModelHandler with hf_config.
     """
 
-    model_overwrites: ClassVar[tuple] = ("torch_dtype", "device_map", "quantization_method", "quantization_config")
-
-    @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             # quantization parameters
             "double_quant": PassConfigParam(
@@ -688,103 +907,162 @@ class QLoRA(LoRABase):
                 default_value="nf4",
                 description="Quantization data type to use. Should be one of `fp4` or `nf4`.",
             ),
-            "compute_dtype": PassConfigParam(
-                type_=str,
-                description=(
-                    "Computation data type for the quantized modules. If not provided, will use the same dtype as"
-                    " torch_dtype"
-                ),
-            ),
         }
-        config.update(LoRABase._default_config(accelerator_spec))
+        config.update(super()._default_config(accelerator_spec))
         return config
 
-    def _run_for_config(
-        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> PyTorchModelHandler:
-        # convert config to pass config class
-        # this will validate the config and convert to the correct types
-        config = self._config_class(**config)
-
-        # check dependencies
-        self.check_dependencies(config, is_qlora=True)
-
-        # MatMulBnb4 contrib op doesn't support double quantization so the trainer falls back to PythonOp
-        # which uses more memory and is slower
-        if config.use_ort_trainer and config.double_quant:
-            logger.warning(
-                "double_quant is set to True but it is inefficient with onnxruntime-training! Consider setting it to"
-                " False."
-            )
-
-        # use default training args if not provided
-        config.training_args = config.training_args or HFTrainingArguments()
-
-        # get models and tokenizer
-        new_model, pytorch_model, tokenizer, quantized_modules, torch_dtype = self.get_model_tokenizer(model, config)
-
-        # train and get new model
-        output_model = self.train_and_save_new_model(
-            pytorch_model, tokenizer, config, data_root, new_model, output_model_path, torch_dtype
-        )
-        # add quantized_modules attributes
-        output_model.model_attributes["quantized_modules"] = quantized_modules
-        return output_model
-
     def get_model_tokenizer(
-        self, model: PyTorchModelHandler, config: ConfigBase
-    ) -> Tuple[PyTorchModelHandler, PreTrainedModel, PreTrainedTokenizer, List[str], torch.dtype]:
-        """Get the Olive model, PyTorch model and tokenizer for QLoRA fine-tuning."""
+        self, model: PyTorchModelHandler, config: ConfigBase, output_model_path: str
+    ) -> Tuple[PyTorchModelHandler, "PreTrainedModel", "PreTrainedTokenizer", List[str]]:
+        """Get the model handler, LoRA model and tokenizer for QLoRA fine-tuning.
+
+        :param model: The input model handler.
+        :param config: The config for the pass run.
+        :param output_model_path: The path to save the output model to.
+        :return: The new model handler, LoRA model, tokenizer and list of quantized modules.
+        """
         import bitsandbytes as bnb
 
-        # don't want the original loaded model
-        # also frees gpu memory if original model is on gpu
-        model.model = None
-        # create copy of the input model, will modify this model
-        new_model = self.input_model_check(deepcopy(model))
+        # get new model
+        bnb_quant_config = {
+            "quantization_method": "bitsandbytes",
+            "quantization_config": {
+                "load_in_4bit": True,
+                "bnb_4bit_compute_dtype": self.get_torch_dtype(config.compute_dtype or config.torch_dtype),
+                "bnb_4bit_use_double_quant": config.double_quant,
+                "bnb_4bit_quant_type": config.quant_type,
+            },
+        }
+        new_model_handler, pytorch_model = self.create_and_load_new_model(model, config, **bnb_quant_config)
 
-        torch_dtype = self.get_torch_dtype(config.torch_dtype)
-        # will use mixed precision since full fp16 is unstable
-        model_dtype = torch_dtype if torch_dtype != torch.float16 else torch.float32
-
-        # load model, reset from_pretrained_args and adapter_path
-        from_pretrained_args = (
-            new_model.hf_config.from_pretrained_args.dict() if new_model.hf_config.from_pretrained_args else {}
-        )
-        from_pretrained_args.update(
-            {
-                "torch_dtype": model_dtype,
-                # TODO(jambayk): Worry about `use_multi_gpu` and distributed training later
-                # this uses all available GPUs, model parallel
-                # ORTTrainer falls back to pytorch when model parallel is used
-                # use `None` device_map to only use one GPU
-                "device_map": "auto" if not config.use_ort_trainer else None,
-                "quantization_method": "bitsandbytes",
-                "quantization_config": {
-                    "load_in_4bit": True,
-                    "bnb_4bit_compute_dtype": self.get_torch_dtype(config.compute_dtype or config.torch_dtype),
-                    "bnb_4bit_use_double_quant": config.double_quant,
-                    "bnb_4bit_quant_type": config.quant_type,
-                },
-            }
-        )
-        new_model.hf_config.from_pretrained_args = HfFromPretrainedArgs(**from_pretrained_args)
-        pytorch_model = new_model.load_model()
-        pytorch_model.config.torch_dtype = model_dtype
+        # find the quantized modules
+        # this doesn't pick up the embedding layer and projection layer since those are not quantized
+        # this is good since we don't want to touch those, LoRA might not work with input output embedding layers
+        quantized_modules = find_submodules(pytorch_model, bnb.nn.Linear4bit)
+        logger.debug("Quantized modules: %s", quantized_modules)
 
         # tokenizer
         tokenizer = AutoTokenizer.from_pretrained(
-            new_model.hf_config.model_name,
-            trust_remote_code=new_model.hf_config.from_pretrained_args.trust_remote_code,
+            new_model_handler.hf_config.model_name,
+            trust_remote_code=new_model_handler.hf_config.from_pretrained_args.trust_remote_code,
         )
 
-        # TODO(jambayk): need to see if we still need this line
-        # https://github.com/artidoro/qlora/blob/main/qlora.py#L362
+        # enable lora fine-tuning with new lora modules
+        pytorch_model = self.enable_lora(
+            pytorch_model, tokenizer, new_model_handler.hf_config.task, config, target_modules=quantized_modules
+        )
 
-        # add lora modules
-        # this doesn't pick up the embedding layer and projection layer since those are not quantized
-        # this is good since we don't want to touch those, LoRA might not work with input output embedding layers
-        target_modules = find_submodules(pytorch_model, bnb.nn.Linear4bit)
-        pytorch_model = self.enable_lora(pytorch_model, tokenizer, new_model.hf_config.task, config, target_modules)
+        return new_model_handler, pytorch_model, tokenizer, quantized_modules
 
-        return new_model, pytorch_model, tokenizer, target_modules, torch_dtype
+
+class LoftQ(QLoRABase):
+    """Run LoftQ fine-tuning on a Hugging Face PyTorch model.
+
+    This pass only supports PyTorchModelHandler with hf_config.
+    """
+
+    @classmethod
+    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+        config = {
+            # quantization parameters
+            "loftq_iter": PassConfigParam(
+                type_=int,
+                default_value=1,
+                description="Number of LoftQ iterations.",
+            ),
+        }
+        config.update(super()._default_config(accelerator_spec))
+        return config
+
+    @classmethod
+    def check_dependencies(cls, config: ConfigBase, is_qlora: bool = False):
+        """Check dependencies for the pass."""
+        super().check_dependencies(config, is_qlora=is_qlora)
+
+        from peft import __version__ as peft_version
+
+        # LoftQ is only supported after peft 0.7.0
+        if version.parse(peft_version) < version.parse("0.7.0"):
+            raise ImportError(f"Please install peft >= 0.7.0 to use {cls.__name__} pass.")
+
+    def get_model_tokenizer(
+        self, model: PyTorchModelHandler, config: ConfigBase, output_model_path: str
+    ) -> Tuple[PyTorchModelHandler, "PreTrainedModel", "PreTrainedTokenizer", List[str]]:
+        """Get the model handler, LoRA model and tokenizer for LoftQ fine-tuning.
+
+        :param model: The input model handler.
+        :param config: The config for the pass run.
+        :param output_model_path: The path to save the output model to.
+        :return: The new model handler, LoRA model, tokenizer and list of quantized modules.
+        """
+        import bitsandbytes as bnb
+
+        # get new quantized model
+        bnb_quant_config = {
+            "quantization_method": "bitsandbytes",
+            "quantization_config": {
+                "load_in_4bit": True,
+                "bnb_4bit_compute_dtype": self.get_torch_dtype(config.compute_dtype or config.torch_dtype),
+                "bnb_4bit_use_double_quant": False,
+                "bnb_4bit_quant_type": "nf4",
+            },
+        }
+        new_model_handler, pytorch_model = self.create_and_load_new_model(model, config, **bnb_quant_config)
+
+        # find the quantized modules
+        quantized_modules = find_submodules(pytorch_model, bnb.nn.Linear4bit)
+        logger.debug("Quantized modules: %s", quantized_modules)
+
+        # only need the quantized module to find the quantized modules
+        # delete quantized model to free memory
+        del pytorch_model
+        new_model_handler.model = None
+
+        # get the original base model
+        _, pytorch_model = self.create_and_load_new_model(
+            model, config, device_map="auto", quantization_method=None, quantization_config=None
+        )
+        # get loftq initialized lora model
+        logger.debug("Initializing LoRA with LoftQ")
+        pytorch_model = self.init_lora_adapters(
+            pytorch_model, new_model_handler.hf_config.task, config, quantized_modules, use_loftq=True
+        )
+        # change adapter config since we don't want to apply loftq again
+        pytorch_model.peft_config["default"].base_model_name_or_path = "../model"
+        pytorch_model.peft_config["default"].init_lora_weights = True
+
+        output_model_path = Path(output_model_path)
+
+        # save the loftq initialized adapter weights
+        loftq_init_adapter_path = output_model_path / "loftq_init_adapter"
+        loftq_init_adapter_path.mkdir(parents=True, exist_ok=True)
+        pytorch_model.save_pretrained(loftq_init_adapter_path)
+
+        # unload adapter and get the base model with new weights
+        pytorch_model: "PreTrainedModel" = pytorch_model.unload()
+
+        # save the new master weights
+        new_master_weights_path = output_model_path / "model"
+        new_master_weights_path.mkdir(parents=True, exist_ok=True)
+        pytorch_model.save_pretrained(new_master_weights_path)
+
+        # update the model path in new model handler
+        new_model_handler.set_resource("model_path", new_master_weights_path)
+
+        # load the quantized model with new master weights
+        pytorch_model: "PreTrainedModel" = new_model_handler.load_model()
+        pytorch_model.config.torch_dtype = pytorch_model.dtype
+
+        # tokenizer
+        tokenizer = AutoTokenizer.from_pretrained(
+            new_model_handler.hf_config.model_name,
+            trust_remote_code=new_model_handler.hf_config.from_pretrained_args.trust_remote_code,
+        )
+        tokenizer.save_pretrained(new_master_weights_path)
+
+        # enable lora fine-tuning with the loftq initialized adapter weights
+        pytorch_model = self.enable_lora(
+            pytorch_model, tokenizer, new_model_handler.hf_config.task, config, adapter_path=loftq_init_adapter_path
+        )
+
+        return new_model_handler, pytorch_model, tokenizer, quantized_modules

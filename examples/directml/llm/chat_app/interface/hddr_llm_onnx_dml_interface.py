@@ -1,16 +1,17 @@
 import gc
 import os
 import sys
+from pathlib import Path
 
 import numpy as np
 import onnxruntime
 from app_modules.utils import convert_to_markdown, is_stop_word_or_prefix, shared_state
 from interface.base_interface import BaseLLMInterface
 from transformers import AutoProcessor, AutoTokenizer
-from pathlib import Path
 
 current_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(current_dir, "..", "..", ".."))
+
 
 class LLMOnnxDmlInterface(BaseLLMInterface):
     def __init__(self, model_dir="", device="dml"):
@@ -91,9 +92,13 @@ class LLMOnnxDmlInterface(BaseLLMInterface):
             self.v_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, self.device))
 
         self.position_ids_ortvalue = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, 1), np.int64, self.device)
-        self.attention_mask_ortvalue = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, self.max_seq_len), np.int64, self.device)
+        self.attention_mask_ortvalue = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
+            (1, self.max_seq_len), np.int64, self.device
+        )
         self.input_ids_ortvalue = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, 1), np.int64, self.device)
-        self.increment_logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, 1, vocab_size), self.data_type, self.device)
+        self.increment_logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
+            (1, 1, vocab_size), self.data_type, self.device
+        )
 
         # Bind the inputs and outputs
         for layer_idx in range(self.num_layers):
@@ -165,7 +170,9 @@ class LLMOnnxDmlInterface(BaseLLMInterface):
         initial_position_ids = np.arange(sequence_length, dtype=np.int64).reshape((1, sequence_length))
         self.llm_io_binding.bind_cpu_input("position_ids", initial_position_ids)
 
-        attention_mask = np.pad(np.ones((1, sequence_length), dtype=np.int64), ((0, 0), (0, self.max_seq_len - sequence_length)))
+        attention_mask = np.pad(
+            np.ones((1, sequence_length), dtype=np.int64), ((0, 0), (0, self.max_seq_len - sequence_length))
+        )
 
         run_options = onnxruntime.RunOptions()
 
@@ -209,7 +216,7 @@ class LLMOnnxDmlInterface(BaseLLMInterface):
 
                 if "llava" in self.model_dir:
                     sequence_length = logits.shape[1]
-                    attention_mask[:, :(sequence_length % self.max_seq_len)] = 1
+                    attention_mask[:, : (sequence_length % self.max_seq_len)] = 1
 
             sequence_length += 1
 

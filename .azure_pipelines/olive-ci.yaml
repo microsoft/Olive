@@ -19,8 +19,9 @@ trigger:
     - examples/directml/llama_v2/*
     - examples/directml/stable_diffusion_xl/*
     - examples/llama2/*
+    - examples/mistral/*
     - examples/open_llama/*
-    - examples/stable_diffusion/*
+    - examples/phi2/*
 pr:
   branches:
     include:
@@ -42,8 +43,9 @@ pr:
     - examples/directml/llama_v2/*
     - examples/directml/stable_diffusion_xl/*
     - examples/llama2/*
+    - examples/mistral/*
     - examples/open_llama/*
-    - examples/stable_diffusion/*
+    - examples/phi2/*
 
 variables:
     ComponentDetection.Timeout: 2400
@@ -92,9 +94,6 @@ jobs:
       bert_ptq_cpu_docker:
         exampleFolder: bert
         exampleName: bert_ptq_cpu_docker
-      cifar10_openvino_intel_hw:
-        exampleFolder: cifar10_openvino_intel_hw
-        exampleName: cifar10_openvino_intel_hw
       resnet_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_ptq_cpu
@@ -107,6 +106,15 @@ jobs:
       whisper:
         exampleFolder: whisper
         exampleName: whisper
+      mobilenet_qnn_toolkit:
+        exampleFolder: mobilenet
+        exampleName: qnn_tooklit
+      inception_snpe_toolkit:
+        exampleFolder: inception
+        exampleName: snpe_toolkit
+      mobilenet_qnn_ep:
+        exampleFolder: mobilenet
+        exampleName: mobilenet_qnn_ep
 
 # # Windows examples test
 - template: job_templates/olive-example-template.yaml
@@ -121,9 +129,6 @@ jobs:
       bert_ptq_cpu_aml:
         exampleFolder: bert
         exampleName: bert_ptq_cpu_aml
-      cifar10_openvino_intel_hw:
-        exampleFolder: cifar10_openvino_intel_hw
-        exampleName: cifar10_openvino_intel_hw
       resnet_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_ptq_cpu
@@ -133,6 +138,15 @@ jobs:
       whisper:
         exampleFolder: whisper
         exampleName: whisper
+      mobilenet_qnn_toolkit:
+        exampleFolder: mobilenet
+        exampleName: qnn_tooklit
+      inception_snpe_toolkit:
+        exampleFolder: inception
+        exampleName: snpe_toolkit
+      mobilenet_qnn_ep:
+        exampleFolder: mobilenet
+        exampleName: mobilenet_qnn_ep
 
 # Linux GPU examples testing.
 - template: job_templates/olive-example-template.yaml
@@ -145,7 +159,7 @@ jobs:
         exampleFolder: bert
         exampleName: bert_cuda_gpu
       stable_diffusion_cuda_gpu:
-        exampleFolder: directml/stable_diffusion
+        exampleFolder: stable_diffusion
         exampleName: stable_diffusion_cuda_gpu
         exampleRequirements: requirements-common.txt
 

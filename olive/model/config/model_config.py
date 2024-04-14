@@ -12,53 +12,81 @@ class ModelConfig(ConfigBase):
     """Input model config which will be used to create the model handler.
 
     For example, the config looks like for llama2:
-    "input_model":{
-        "type": "CompositePyTorchModel",
-        "config": {
-            "model_path": "llama_v2",
-            "model_components": [
-                {
-                    "name": "decoder_model",
-                    "type": "PyTorchModel",
-                    "config": {
-                        "model_script": "user_script.py",
-                        "io_config": {
-                            "input_names": ["tokens", "position_ids", "attn_mask", ...],
-                            "output_names": ["logits", "attn_mask_out", ...],
-                            "dynamic_axes": {
-                                "tokens": { "0": "batch_size", "1": "seq_len" },
-                                "position_ids": { "0": "batch_size", "1": "seq_len" },
-                                "attn_mask": { "0": "batch_size", "1": "max_seq_len" },
-                                ...
+    .. code-block:: json
+
+        {
+            "input_model": {
+                "type": "CompositePyTorchModel",
+                "config": {
+
+                    "model_path": "llama_v2",
+                    "model_components": [
+
+                        {
+                            "name": "decoder_model",
+                            "type": "PyTorchModel",
+                            "config": {
+
+                                "model_script": "user_script.py",
+                                "io_config": {
+
+                                    "input_names": ["tokens", "position_ids", "attn_mask", ...],
+                                    "output_names": ["logits", "attn_mask_out", ...],
+                                    "dynamic_axes": {
+
+                                        "tokens": { "0": "batch_size", "1": "seq_len" },
+                                        "position_ids": { "0": "batch_size", "1": "seq_len" },
+                                        "attn_mask": { "0": "batch_size", "1": "max_seq_len" },
+                                        ...
+
+                                    }
+
+                                },
+                                "model_loader": "load_decoder_model",
+                                "dummy_inputs_func": "decoder_inputs"
+
                             }
-                        }
-                        "model_loader": "load_decoder_model",
-                        "dummy_inputs_func": "decoder_inputs"
-                    }
-                },
-                {
-                    "name": "decoder_with_past_model",
-                    "type": "PyTorchModel",
-                    "config": {
-                        "model_script": "user_script.py",
-                        "io_config": {
-                            "input_names": ["tokens_increment", "position_ids_increment", "attn_mask", ...],
-                            "output_names": ["logits", "attn_mask_out", ...],
-                            "dynamic_axes": {
-                                "tokens_increment": { "0": "batch_size", "1": "seq_len_increment" },
-                                "position_ids_increment": { "0": "batch_size", "1": "seq_len_increment" },
-                                "attn_mask": { "0": "batch_size", "1": "max_seq_len" },
-                                ...
-                            }
+
                         },
-                        "model_loader": "load_decoder_with_past_model",
-                        "dummy_inputs_func": "decoder_with_past_inputs"
-                    }
+                        {
+
+                            "name": "decoder_with_past_model",
+                            "type": "PyTorchModel",
+                            "config": {
+
+                                "model_script": "user_script.py",
+                                "io_config": {
+
+                                    "input_names": ["tokens_increment", "position_ids_increment", "attn_mask", ...],
+                                    "output_names": ["logits", "attn_mask_out", ...],
+                                    "dynamic_axes": {
+
+                                        "tokens_increment": { "0": "batch_size", "1": "seq_len_increment" },
+                                        "position_ids_increment": { "0": "batch_size", "1": "seq_len_increment" },
+                                        "attn_mask": { "0": "batch_size", "1": "max_seq_len" },
+                                        ...
+
+                                    }
+
+                                },
+                                "model_loader": "load_decoder_with_past_model",
+                                "dummy_inputs_func": "decoder_with_past_inputs"
+
+                            }
+
+                        }
+
+                    ]
+
                 }
-            ]
+
+            }
+
+        }
+
     """
 
-    type: str  # noqa: A003
+    type: str
     config: dict
 
     @validator("type")
@@ -67,10 +95,14 @@ class ModelConfig(ConfigBase):
             raise ValueError(f"Unknown model type {v}")
         return v
 
-    def get_resource_paths(self):
+    def get_resource_strings(self):
         cls = get_model_handler(self.type)
         resource_keys = cls.get_resource_keys()
-        return {k: create_resource_path(v) for k, v in self.config.items() if k in resource_keys}
+        return {k: v for k, v in self.config.items() if k in resource_keys}
+
+    def get_resource_paths(self):
+        resources = self.get_resource_strings()
+        return {k: create_resource_path(v) for k, v in resources.items()}
 
     def create_model(self):
         cls = get_model_handler(self.type)

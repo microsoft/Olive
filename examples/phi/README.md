@@ -1,7 +1,9 @@
-# phi-1.5 Optimization
-This folder contains examples of phi-1.5 workflow.
+# Phi optimization
 
-## Optimization Workflows
+- Phi/Phi-1.5 inference optimization with ONNX Runtime DirectML, go to [this example](https://github.com/microsoft/Olive/tree/main/examples/directml/phi)
+- [Phi-1.5 Fine-tune optimization using QLoRA](#fine-tune-phi-15-model-on-a-code-generation-dataset-using-qlora)
+
+
 ### Fine-tune  phi-1.5 Model on a code generation dataset using QLoRA
 This workflow fine-tunes [phi-1.5 model](https://huggingface.co/microsoft/phi-1_5) using [QLoRA](https://arxiv.org/abs/2305.14314) to generate code given a prompt.
 

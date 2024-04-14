@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_VALID_EXECUTION_ORDERS = ["joint", "pass-by-pass"]
+_VALID_EXECUTION_ORDERS = ("joint", "pass-by-pass")
 
 # pylint: disable=attribute-defined-outside-init
 
@@ -49,14 +49,14 @@ class SearchStrategyConfig(ConfigBase):
             raise ValueError("Invalid search_algorithm")
 
         config_class = REGISTRY[values["search_algorithm"]].get_config_class()
-        return validate_config(v, ConfigBase, config_class)
+        return validate_config(v, config_class)
 
     @validator("stop_when_goals_met", "max_iter", "max_time", pre=True)
     def _validate_stop_when_goals_met(cls, v, values, field):
         if "execution_order" not in values:
             raise ValueError("Invalid execution_order")
         if v and values["execution_order"] != "joint":
-            logger.info(f"{field.name} is only supported for joint execution order. Ignoring...")
+            logger.info("%s is only supported for joint execution order. Ignoring...", field.name)
             return field.default
         return v
 
@@ -117,9 +117,7 @@ class SearchStrategy:
             # run pass-by-pass for each pass flow which is defined as a list of registered passes
             search_spaces_groups = []
             for pass_flow_ss in search_space_names:
-                pass_flow_groups = []
-                for pass_ss in pass_flow_ss:
-                    pass_flow_groups.append([pass_ss])
+                pass_flow_groups = [[pass_ss] for pass_ss in pass_flow_ss]
                 search_spaces_groups.append(pass_flow_groups)
         else:
             raise ValueError(f"Unknown execution order: {self._config.execution_order}")
@@ -161,8 +159,8 @@ class SearchStrategy:
             ].sort_search_points(apply_goals=True)
             if sorted_model_ids is None:
                 logger.warning(
-                    f"No models in this search group {self._active_spaces_group} met the goals. Sorting the models"
-                    " without applying goals..."
+                    "No models in this search group %s met the goals. Sorting the models without applying goals...",
+                    self._active_spaces_group,
                 )
                 sorted_model_ids, sorted_search_points, sorted_results = self._search_results[
                     tuple(self._active_spaces_group)

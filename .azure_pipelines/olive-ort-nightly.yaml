@@ -66,6 +66,9 @@ jobs:
       whisper:
         exampleFolder: whisper
         exampleName: whisper
+      mobilenet_qnn_ep:
+        exampleFolder: mobilenet
+        exampleName: mobilenet_qnn_ep
 
 # # Windows examples test
 - template: job_templates/olive-example-template.yaml
@@ -86,6 +89,9 @@ jobs:
       whisper:
         exampleFolder: whisper
         exampleName: whisper
+      mobilenet_qnn_ep:
+        exampleFolder: mobilenet
+        exampleName: mobilenet_qnn_ep
 
 # Linux GPU examples testing.
 - template: job_templates/olive-example-template.yaml
@@ -98,6 +104,6 @@ jobs:
         exampleFolder: bert
         exampleName: bert_cuda_gpu
       stable_diffusion_cuda_gpu:
-        exampleFolder: directml/stable_diffusion
+        exampleFolder: stable_diffusion
         exampleName: stable_diffusion_cuda_gpu
         exampleRequirements: requirements-common.txt

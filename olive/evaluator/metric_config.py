@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-
+import logging
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Union
 
@@ -10,11 +10,12 @@ from olive.common.config_utils import ConfigBase, ConfigParam, ParamCategory, cr
 from olive.common.pydantic_v1 import validator
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
+logger = logging.getLogger(__name__)
+
 WARMUP_NUM = 10
 REPEAT_TEST_NUM = 20
 SLEEP_NUM = 0
 
-user_path_config = ["data_dir"]
 _common_user_config = {
     "script_dir": ConfigParam(type_=Union[Path, str]),
     "user_script": ConfigParam(type_=Union[Path, str]),
@@ -27,18 +28,12 @@ _common_user_config = {
     "input_shapes": ConfigParam(type_=List),
     "input_types": ConfigParam(type_=List),
     "shared_kv_buffer": ConfigParam(type_=bool, default_value=False),
+    "io_bind": ConfigParam(type_=bool, default_value=False),
 }
 
 _common_user_config_validators = {}
 
 _type_to_user_config = {
-    "latency": {
-        # TODO(anyone): extract io_bind to a _common_user_config
-        "io_bind": ConfigParam(type_=bool, default_value=False),
-    },
-    "throughput": {
-        "io_bind": ConfigParam(type_=bool, default_value=False),
-    },
     "accuracy": {
         "post_processing_func": ConfigParam(type_=Union[Callable, str], category=ParamCategory.OBJECT),
     },
@@ -80,7 +75,7 @@ class ThroughputMetricConfig(ConfigBase):
 
 
 class MetricGoal(ConfigBase):
-    type: str  # threshold , deviation, percent-deviation, # noqa: A003
+    type: str  # threshold , deviation, percent-deviation
     value: float
 
     @validator("type")
@@ -100,6 +95,21 @@ class MetricGoal(ConfigBase):
     def check_value(cls, v, values):
         if "type" not in values:
             raise ValueError("Invalid type")
-        if values["type"] in ["min-improvement", "max-degradation"] and v < 0:
-            raise ValueError(f"Value must be positive for type {values['type']}")
+        if (
+            values["type"]
+            in {"min-improvement", "max-degradation", "percent-min-improvement", "percent-max-degradation"}
+            and v < 0
+        ):
+            raise ValueError(f"Value must be nonnegative for type {values['type']}")
         return v
+
+    def has_regression_goal(self):
+        if self.type in {"min-improvement", "percent-min-improvement"}:
+            return False
+        elif self.type in {"max-degradation", "percent-max-degradation"}:
+            return self.value > 0
+
+        if self.type == "threshold":
+            logger.warning("Metric goal type is threshold, Olive cannot determine if it is a regression goal or not.")
+            return False
+        return None

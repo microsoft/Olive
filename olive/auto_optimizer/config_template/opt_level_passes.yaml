@@ -1,0 +1,20 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
+
+"0":
+  # 1. The first dim of the list is the pass order
+  # 2. The second dim of the list is the pass list which can be selected to run one by one
+  # take this opt_level 0 an example, olive will run the passes in the following order:
+  # [OnnxConversion] -> [OrtTransformersOptimization] -> [OrtMixedPrecision, OnnxQuantization, IncQuantization, VitisAIQuantization, OnnxMatMul4Quantizer] -> [OrtPerfTuning]
+  # and run bfs to generate available pass flows(path), like:
+  # OnnxConversion -> OrtTransformersOptimization -> OrtMixedPrecision -> OrtPerfTuning
+  # OnnxConversion -> OrtTransformersOptimization -> OnnxQuantization -> OrtPerfTuning
+  # OnnxConversion -> OrtTransformersOptimization -> IncQuantization -> OrtPerfTuning
+  # and etc.
+
+  - [OnnxConversion]
+  - [OrtTransformersOptimization]
+  - [OrtMixedPrecision, OnnxQuantization, IncQuantization, VitisAIQuantization, OnnxMatMul4Quantizer]
+  - [OrtPerfTuning]

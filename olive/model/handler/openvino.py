@@ -55,10 +55,11 @@ class OpenVINOModelHandler(OliveModelHandler):
 
     def load_model(self, rank: int = None):
         try:
-            from openvino.tools.pot import load_model
+            import openvino as ov
         except ImportError:
             raise ImportError("Please install olive-ai[openvino] to use OpenVINO model") from None
-        return load_model(self.model_config)
+        core = ov.Core()
+        return core.read_model(self.model_config["model"])
 
     def prepare_session(
         self,
@@ -68,11 +69,13 @@ class OpenVINOModelHandler(OliveModelHandler):
         rank: Optional[int] = None,
     ):
         try:
-            from openvino.runtime import Core
+            import openvino as ov
         except ImportError:
             raise ImportError("Please install olive-ai[openvino] to use OpenVINO model") from None
-        ie = Core()
-        model_pot = ie.read_model(model=self.model_config["model"])
-        if device == Device.INTEL_MYRIAD:
+        core = ov.Core()
+        if inference_settings and inference_settings.get("device_name"):
+            device = inference_settings["device_name"]
+        elif device == Device.INTEL_MYRIAD:
             device = "MYRIAD"
-        return ie.compile_model(model=model_pot, device_name=device.upper())
+        compiled_model = core.compile_model(self.model_config["model"], device.upper())
+        return compiled_model.create_infer_request()

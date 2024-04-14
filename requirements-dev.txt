@@ -6,4 +6,4 @@ isort
 lintrunner
 lintrunner-adapters
 pylint
-ruff
+ruff>=0.2.0

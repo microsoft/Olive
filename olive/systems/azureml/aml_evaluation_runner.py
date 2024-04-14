@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from olive.common.utils import aml_runner_hf_login
 from olive.evaluator.metric import Metric
 from olive.hardware import AcceleratorSpec
+from olive.logging import set_verbosity_from_env
 from olive.model import ModelConfig
 from olive.systems.local import LocalSystem
 from olive.systems.utils import get_common_args
@@ -19,6 +20,7 @@ if TYPE_CHECKING:
 
 
 def parse_metric_args(raw_args):
+    # TODO(xiaoyu): add support for metric datafiles if needed.
     parser = argparse.ArgumentParser("Metric config")
 
     parser.add_argument("--metric_config", type=str, help="pass config", required=True)
@@ -48,6 +50,8 @@ def create_metric(metric_config, metric_args):
 
 
 def main(raw_args=None):
+    set_verbosity_from_env()
+
     # login to hf if HF_LOGIN is set to True
     aml_runner_hf_login()
 
@@ -56,14 +60,14 @@ def main(raw_args=None):
     accelerator_args = parse_accelerator_args(extra_args)
 
     # load metric
-    with open(metric_args.metric_config) as f:  # noqa: PTH123
+    with open(metric_args.metric_config) as f:
         metric_config = json.load(f)
     metric = create_metric(metric_config, metric_args)
 
     # load model config
     model_config = ModelConfig.from_json(model_config)
 
-    with open(accelerator_args.accelerator_config) as f:  # noqa: PTH123
+    with open(accelerator_args.accelerator_config) as f:
         accelerator_config = json.load(f)
     accelerator_spec = AcceleratorSpec(**accelerator_config)
 

@@ -1,3 +1,0 @@
-pillow
-scipy
-torchvision
