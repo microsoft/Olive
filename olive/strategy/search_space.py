@@ -72,6 +72,9 @@ class SearchSpace:
             options = param.get_support(parent_vals)
         elif isinstance(param, Categorical):
             options = param.get_support()
+        else:
+            return
+
         for option in options:
             if option == SpecialParamValue.INVALID:
                 continue
