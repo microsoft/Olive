@@ -232,7 +232,7 @@ if __name__ == "__main__":
     parser.add_argument("--device_id", type=int, default=0)
     parser.add_argument(
         "--model_type",
-        choices=get_supported_llm_models(),
+        choices=["local", *get_supported_llm_models()],
         help="Which model to run.",
         required=True,
         type=str,

@@ -73,7 +73,7 @@ def get_model_repo_id(model_type: str):
 
 
 def get_model_name(model_type: str):
-    return get_model_repo_id(model_type).replace("/", "_").replace("\\", "_")
+    return get_model_repo_id(model_type).replace("/", "_").replace("\\", "_").replace(":", "_")
 
 
 def get_model_type(model_name: str):
