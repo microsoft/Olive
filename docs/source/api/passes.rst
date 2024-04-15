@@ -218,7 +218,10 @@ GptqQuantizer
 .. autoconfigclass:: olive.passes.GptqQuantizer
 
 .. _awq_quantizer:
-.. autoclass:: olive.passes.AwqQuantizer
+
+AwqQuantizer
+--------------------
+.. autoconfigclass:: olive.passes.AwqQuantizer
 
 .. _torch_trt_conversion:
 

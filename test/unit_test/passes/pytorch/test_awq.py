@@ -25,7 +25,6 @@ def test_awq(pack_model_for_onnx_conversion, tmp_path: Path):
             "model_class": "OPTForCausalLM",
             "model_name": "facebook/opt-125m",
             "task": "text-generation",
-            "from_pretrained_args": {"extra_args": {"use_safetensors": True}},
         }
     )
 
