@@ -5,6 +5,8 @@
 
 from pathlib import Path
 
+local_model_name = None
+
 _MODEL_TYPE_TO_REPO_ID = {
     "llama-2-7b-chat": "meta-llama/Llama-2-7b-chat-hf",
     "mistral-7b-chat": "mistralai/Mistral-7B-Instruct-v0.1",
@@ -56,15 +58,22 @@ def get_supported_llm_models():
 
 
 def get_all_supported_models():
-    return get_supported_lvlm_models() + get_supported_llm_models()
+    return ["local", *get_supported_lvlm_models(), *get_supported_llm_models()]
 
 
 def get_model_repo_id(model_type: str):
+    global local_model_name
+
+    if model_type == "local":
+        if local_model_name is None:
+            local_model_name = input("Enter the full path to your local huggingface model: ")
+        return local_model_name
+
     return _MODEL_TYPE_TO_REPO_ID[model_type]
 
 
 def get_model_name(model_type: str):
-    return get_model_repo_id(model_type).replace("/", "_")
+    return get_model_repo_id(model_type).replace("/", "_").replace("\\", "_")
 
 
 def get_model_type(repo_id: str):

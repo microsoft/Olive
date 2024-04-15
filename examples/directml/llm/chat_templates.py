@@ -137,6 +137,15 @@ PHI_2_CHAT_TEMPLATE = (
     "{% endfor %}"
 )
 
+# TODO (pavignol): Change name of template for actual type
+LOCAL_CHAT_TEMPLATE = """{% for message in messages %}
+{% if message['role'] == 'user' %}<|user|>
+{{message['content']}}<|end|>
+<|assistant|>{% endif %}
+{% if message['role'] == 'assistant' %}
+{{message['content']}}{% endif %}
+{% endfor %}"""
+
 
 def get_chat_template(model_type: str):
     return {
@@ -152,4 +161,5 @@ def get_chat_template(model_type: str):
         "tinyllama-1.1b-chat-v0.6": ZEPHYR_CHAT_TEMPLATE,
         "falcon-7b-chat": FALCON_CHAT_TEMPLATE,
         "phi-2": PHI_2_CHAT_TEMPLATE,
+        "local": LOCAL_CHAT_TEMPLATE,
     }.get(model_type)
