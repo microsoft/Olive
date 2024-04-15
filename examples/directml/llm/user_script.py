@@ -77,9 +77,7 @@ def get_or_create_decoder_model():
 
 
 def load_decoder_model(model_path):
-    model = get_or_create_decoder_model()
-    model.set_use_cache(False)
-    return model
+    return get_or_create_decoder_model()
 
 
 def decoder_torch_inputs(model):

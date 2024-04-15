@@ -288,7 +288,7 @@ def optimize(
     print(f"The optimized pipeline is located here: {model_dir}")
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
     parser.add_argument("--interactive", action="store_true", help="Run with a GUI")
@@ -383,3 +383,7 @@ if __name__ == "__main__":
                         args.device,
                         args.device_id,
                     )
+
+
+if __name__ == "__main__":
+    main()

@@ -32,33 +32,13 @@ class DecoderModel(torch.nn.Module):
 
         return return_values
 
-    def forward_no_cache_tokens(self, input_ids, position_ids, attention_mask, past_key_values):
+    def forward(self, input_ids, position_ids, attention_mask, past_key_values):
         use_cache = False
         return self.forward_common(use_cache, input_ids, position_ids, attention_mask, past_key_values)
 
     def forward_no_cache_embeddings(self, embeddings, position_ids, attention_mask, past_key_values):
         use_cache = False
         return self.forward_common(use_cache, embeddings, position_ids, attention_mask, past_key_values)
-
-    def forward_use_cache_tokens(self, input_ids_increment, position_ids_increment, attention_mask, past_key_values):
-        use_cache = True
-        return self.forward_common(
-            use_cache, input_ids_increment, position_ids_increment, attention_mask, past_key_values
-        )
-
-    def forward_use_cache_embeddings(
-        self, embeddings_increment, position_ids_increment, attention_mask, past_key_values
-    ):
-        use_cache = True
-        return self.forward_common(
-            use_cache, embeddings_increment, position_ids_increment, attention_mask, past_key_values
-        )
-
-    def set_use_cache(self, use_cache):
-        if self.use_embeddings:
-            self.forward = self.forward_use_cache_embeddings if use_cache else self.forward_no_cache_embeddings
-        else:
-            self.forward = self.forward_use_cache_tokens if use_cache else self.forward_no_cache_tokens
 
     def get_embeddings(self):
         return self.model.embed_tokens

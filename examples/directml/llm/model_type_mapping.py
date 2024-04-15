@@ -76,12 +76,12 @@ def get_model_name(model_type: str):
     return get_model_repo_id(model_type).replace("/", "_").replace("\\", "_")
 
 
-def get_model_type(repo_id: str):
-    for model_type in _MODEL_TYPE_TO_REPO_ID:
-        if _MODEL_TYPE_TO_REPO_ID[model_type].replace("/", "_") == repo_id:
+def get_model_type(model_name: str):
+    for model_type, repo_id in _MODEL_TYPE_TO_REPO_ID.items():
+        if repo_id.replace("/", "_") == model_name:
             return model_type
 
-    raise ValueError(f"repo_id '{repo_id}' not found")
+    raise ValueError(f"model_name '{model_name}' not found")
 
 
 def get_model_dir(model_type: str):

@@ -27,7 +27,7 @@ class LlavaMultiModalProjector(torch.nn.Module):
 
     def forward(self, image_features):
         hidden_states = self.linear_1(image_features)
-        hidden_states = torch.nn.functional.gelu(hidden_states)
+        hidden_states = torch.nn.functional.gelu(hidden_states)  # pylint: disable=not-callable
         return self.linear_2(hidden_states)
 
 
@@ -114,7 +114,7 @@ class LlavaModel(torch.nn.Module):
 
         return final_embedding, final_attention_mask, position_ids
 
-    def forward_no_cache(self, input_ids, attention_mask, pixel_values, past_key_values):
+    def forward(self, input_ids, attention_mask, pixel_values, past_key_values):
         # 1. Extract the input embeddings
         inputs_embeds = self.language_model.get_embeddings()(input_ids)
 
@@ -142,7 +142,3 @@ class LlavaModel(torch.nn.Module):
         inputs_embeds = self.language_model.get_embeddings()(input_ids_increment)
         position_ids = torch.sum(attention_mask, dim=1).unsqueeze(-1) - 1
         return self.language_model(inputs_embeds, position_ids, attention_mask, past_key_values)
-
-    def set_use_cache(self, use_cache):
-        self.forward = self.forward_use_cache if use_cache else self.forward_no_cache
-        self.language_model.set_use_cache(use_cache)
