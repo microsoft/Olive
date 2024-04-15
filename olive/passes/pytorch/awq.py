@@ -215,8 +215,8 @@ class AwqQuantizer(Pass):
 
     def _resolve_load_args(self, hf_loading_args):
         loading_args = {}
-        if safetensors := hf_loading_args.get("use_safetensors"):
-            loading_args["safetensors"] = safetensors
+        # default value for `safetensors` is True in auto AWQ
+        loading_args["safetensors"] = hf_loading_args.get("use_safetensors", True)
         if device_map := hf_loading_args.get("device_map"):
             loading_args["device_map"] = device_map
         if trust_remote_code := hf_loading_args.get("trust_remote_code"):
