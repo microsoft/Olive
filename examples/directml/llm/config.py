@@ -5,7 +5,7 @@
 
 decoder_model = None
 normalization_type = "rms"
-state_dict = None
+state_dict = {}
 strict_weights_loading = True
 hidden_size = 4096
 intermediate_size = 11008

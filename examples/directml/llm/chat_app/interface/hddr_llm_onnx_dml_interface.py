@@ -125,9 +125,9 @@ class LLMOnnxDmlInterface(BaseLLMInterface):
         prompt = []
         prompt.extend(self.initial_prompt)
 
-        for dialogue in history:
-            prompt.append({"role": "user", "content": dialogue[0]})
-            prompt.append({"role": "assistant", "content": dialogue[1]})
+        for dialog in history:
+            prompt.append({"role": "user", "content": dialog[0]})
+            prompt.append({"role": "assistant", "content": dialog[1]})
 
         if self.processor is not None and image is not None:
             processed_inputs = self.processor(text=text, images=image, return_tensors="np")
