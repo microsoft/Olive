@@ -14,7 +14,7 @@ All above information(is called "optimization factors" in this doc) is provided 
 
 .. code-block::
 
-    python -m olive.workflows.run --config <config_file>.json
+    olive run --config <config_file>.json
 
 
 With the help of Auto Optimizer:

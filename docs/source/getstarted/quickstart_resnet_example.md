@@ -19,11 +19,11 @@ python prepare_model_data.py --num_epochs 5
 ## Run sample using config
 First, install required packages according to passes.
 ```
-python -m olive.workflows.run --config resnet_ptq_cpu.json --setup
+olive run --config resnet_ptq_cpu.json --setup
 ```
 Then, optimize the model
 ```
-python -m olive.workflows.run --config resnet_ptq_cpu.json
+olive run --config resnet_ptq_cpu.json
 ```
 or run simply with python code:
 ```python

@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-import argparse
 import logging
 import os
 import platform
@@ -16,16 +15,15 @@ from olive.platform_sdk.qualcomm.constants import SDKTargetDevice
 from olive.platform_sdk.qualcomm.qnn.env import QNNSDKEnv
 from olive.platform_sdk.qualcomm.snpe.env import SNPESDKEnv
 
-# pylint: disable=redefined-outer-name
-
 logger = logging.getLogger(__name__)
 
-script_name = "create_python_env.sh" if platform.system() == "Linux" else "create_python_env.ps1"
 
+def configure_dev(py_version: str, sdk: str):
+    """Configure Qualcomm SDK for model development."""
+    os.environ["PIP_EXTRA_ARGS"] = "--no-cache-dir"
 
-def dev(args):
     resource_path = "olive.platform_sdk.qualcomm"
-    if args.sdk == "snpe":
+    if sdk == "snpe":
         sdk_env = SNPESDKEnv()
     else:
         sdk_env = QNNSDKEnv()
@@ -33,20 +31,23 @@ def dev(args):
     if sdk_arch not in (SDKTargetDevice.x86_64_linux, SDKTargetDevice.x86_64_windows):
         return
 
-    logger.info("Configuring %s for %s with python %s...", args.sdk, sdk_arch, args.py_version)
+    script_name = "create_python_env.sh" if platform.system() == "Linux" else "create_python_env.ps1"
+
+    logger.info("Configuring %s for %s with python %s...", sdk, sdk_arch, py_version)
     cmd = None
     with resources.path(resource_path, script_name) as create_python_env_path:
         if platform.system() == "Linux":
-            cmd = f"bash {create_python_env_path} -v {args.py_version} --sdk {args.sdk}"
+            cmd = f"bash {create_python_env_path} -v {py_version} --sdk {sdk}"
         elif platform.system() == "Windows":
-            cmd = f"powershell {create_python_env_path} {args.py_version} {args.sdk}"
+            cmd = f"powershell {create_python_env_path} {py_version} {sdk}"
         run_subprocess(cmd, check=True)
     logger.info("Done")
 
 
-def eval(args):  # noqa: A001  #pylint: disable=redefined-builtin
+def configure_eval(sdk: str):
+    """Configure Qualcomm SDK for model evaluation."""
     resource_path = "olive.platform_sdk.qualcomm"
-    if args.sdk == "snpe":
+    if sdk == "snpe":
         sdk_env = SNPESDKEnv()
     else:
         sdk_env = QNNSDKEnv()
@@ -56,7 +57,7 @@ def eval(args):  # noqa: A001  #pylint: disable=redefined-builtin
 
     sdk_root = sdk_env.sdk_root_path
 
-    logger.info("Configuring %s for %s...", args.sdk, target_arch_name)
+    logger.info("Configuring %s for %s...", sdk, target_arch_name)
 
     bin_path = Path(f"{sdk_root}/bin/{target_arch_name}")
     lib_path = Path(f"{sdk_root}/lib/{target_arch_name}")
@@ -83,24 +84,18 @@ def eval(args):  # noqa: A001  #pylint: disable=redefined-builtin
     logger.info("Done")
 
 
+def configure(py_version: str, sdk: str):
+    """Configure Qualcomm SDK for Olive.
+
+    :param py_version: Python version, use 3.6 for tensorflow 1.15 and 3.8 otherwise
+    :param sdk: Qualcomm SDK, snpe or qnn
+    """
+    configure_dev(py_version, sdk)
+    configure_eval(sdk)
+
+
 if __name__ == "__main__":
-    # create args for py_version
-    os.environ["PIP_EXTRA_ARGS"] = "--no-cache-dir"
-    parser = argparse.ArgumentParser("Olive Qualcomm SDK: Configure")
-    parser.add_argument(
-        "--py_version",
-        type=str,
-        help="Python version, use 3.6 for tensorflow 1.15. Otherwise 3.8",
-        required=True,
-        choices=["3.6", "3.8"],
-    )
-    parser.add_argument(
-        "--sdk",
-        type=str,
-        help="Qualcomm SDK, snpe or qnn",
-        required=True,
-        choices=["snpe", "qnn"],
-    )
-    args = parser.parse_args()
-    dev(args)
-    eval(args)
+    # there is no circular dependency since configure is imported lazily by the command runner
+    from olive.cli.launcher import legacy_call
+
+    legacy_call("olive.platform_sdk.qualcomm.configure", "configure-qualcomm-sdk")

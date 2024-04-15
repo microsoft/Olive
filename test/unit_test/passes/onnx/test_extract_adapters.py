@@ -18,7 +18,6 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.extract_adapters import ExtractAdapters
 from olive.passes.onnx.quantization import OnnxMatMul4Quantizer, OnnxStaticQuantization
-from olive.scripts.export_adapters import main as export_adapters_main
 
 
 class LlamaCalibrationDataLoader(CalibrationDataReader):
@@ -180,20 +179,28 @@ def test_extract_adapters_as_inputs(tmp_path, input_model_info, pack_inputs, mod
 
 @pytest.mark.parametrize("quantize_int4", [1, 0])
 @pytest.mark.parametrize("pack_weights", [True, False])
-def test_export_adapters_script(tmp_path, input_model_info, quantize_int4, pack_weights):
+def test_export_adapters_command(tmp_path, input_model_info, quantize_int4, pack_weights):
+    from olive.cli.launcher import main as cli_main
+
     # args
+    exported_adapters_path = tmp_path / "exported-adapters.npz"
     args = [
+        "export-adapters",
         "--adapter_path",
         str(input_model_info["adapter_path"]),
         "--output_path",
-        str(tmp_path / "exported-adapters"),
+        str(exported_adapters_path),
     ]
     if pack_weights:
         args.append("--pack_weights")
     if quantize_int4:
         args.append("--quantize_int4")
-    exported_adapters_path = export_adapters_main(args)
 
+    # execute
+    cli_main(args)
+
+    # assert
+    assert Path(exported_adapters_path).is_file()
     weight_dtype = "int4" if quantize_int4 else "float"
     weight_index = "packed_weights" if pack_weights else "all_weights"
     assert set(input_model_info[weight_dtype][weight_index]) == set(np.load(exported_adapters_path))
