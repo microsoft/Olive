@@ -666,7 +666,7 @@ class LoRABase(Pass):
             logger.debug("train_result: %s", train_result)
 
         if torch.cuda.is_available():
-            torch.backends.cuda.matmul.allow_tf32 = allow_tf32
+            torch.backends.cuda.matmul.allow_tf32 = allow_tf32  # lgtm
 
         # save adapter weights
         adapter_path = Path(output_model_path) / "adapter"

@@ -287,7 +287,7 @@ class QuantPosManager(object):
             iposes = []
             skip = False
 
-            for i in len(node.input):
+            for i in range(len(node.input)):
                 ipos_name = self.get_ipos_name_by_id(node, i)
                 ipos_layers.append(ipos_name)
             for i in ipos_layers:
@@ -337,22 +337,22 @@ class QuantPosManager(object):
         DPU compiler constraints of shift_write:
         1. -15 <= shift_write <= 15
         """
-        for i, node in enumerate(self.model.model.graph.node):
+        for node in self.model.model.graph.node:
             if node.op_type not in ["Add"] or node.op_type not in ["Mul"]:
                 continue
             ipos_layers = []
             iposes = []
             skip = False
 
-            for i in len(node.input):
-                ipos_name = self.get_ipos_name_by_id(node, i)
+            for input_id in range(len(node.input)):
+                ipos_name = self.get_ipos_name_by_id(node, input_id)
                 ipos_layers.append(ipos_name)
-            for i in ipos_layers:
-                ipos, _ = self.get_pos_by_name(i)
+            for layer_id in ipos_layers:
+                ipos, _ = self.get_pos_by_name(layer_id)
                 if ipos is None:
                     logger.info(
                         "Fail to get quantize position for layer {}(input:{}) (output of layer {}), "
-                        "skip adjust_shift_read for it.".format(ipos_layers[i], i, ipos_layers[i])
+                        "skip adjust_shift_read for it.".format(ipos_layers[layer_id], layer_id, ipos_layers[layer_id])
                     )
                     skip = True
                 iposes.append(ipos)
@@ -395,7 +395,7 @@ class QuantPosManager(object):
 
     def align_concat(self):
         """Align concat op's inputs and output pos."""
-        for i, node in enumerate(self.model.model.graph.node):
+        for node in self.model.model.graph.node:
             if node.op_type not in ["Concat"]:
                 continue
             input_node_num = len(node.input)
@@ -404,8 +404,8 @@ class QuantPosManager(object):
             min_pos = opos
             ipos_layers = []
 
-            for i in range(input_node_num):
-                ipos_name = self.get_ipos_name_by_id(node, i)
+            for input_id in range(input_node_num):
+                ipos_name = self.get_ipos_name_by_id(node, input_id)
                 ipos_layers.append(ipos_name)
             for name in ipos_layers:
                 ipos, _ = self.get_pos_by_name(name)

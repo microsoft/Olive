@@ -47,7 +47,7 @@ def download_model():
     request.urlretrieve(inception_v3_archive_url, inception_v3_archive_path)
 
     with tarfile.open(inception_v3_archive_path) as tar_ref:
-        tar_ref.extractall(stage_dir)
+        tar_ref.extractall(stage_dir)  # lgtm
 
     model_path = models_dir / "inception_v3.pb"
     if model_path.exists():
