@@ -52,7 +52,7 @@ class LLMOnnxDmlInterface(BaseLLMInterface):
 
         self.data_type = np.float16
         self.num_layers = 0
-        for inputs_meta in self.llm_session._inputs_meta:
+        for inputs_meta in self.llm_session._inputs_meta:  # pylint: disable=protected-access
             if inputs_meta.name.startswith("past_key_values.") and inputs_meta.name.endswith(".key"):
                 self.num_layers += 1
                 num_key_value_heads = inputs_meta.shape[1]

@@ -59,7 +59,7 @@ def run_llm_io_binding(
 
     data_type = np.float16
     num_layers = 0
-    for inputs_meta in llm_session._inputs_meta:
+    for inputs_meta in llm_session._inputs_meta:  # pylint: disable=protected-access
         if inputs_meta.name.startswith("past_key_values.") and inputs_meta.name.endswith(".key"):
             num_layers += 1
             num_key_value_heads = inputs_meta.shape[1]
@@ -92,8 +92,8 @@ def run_llm_io_binding(
     max_tokens_len = max(seq_lens)
 
     # Pad the leading missing tokens with 0
-    for idx in range(len(batched_tokens)):
-        batched_tokens[idx] = np.pad(batched_tokens[idx], ((0, 0), (0, max_tokens_len - batched_tokens[idx].shape[1])))
+    for idx, token in enumerate(batched_tokens):
+        batched_tokens[idx] = np.pad(token, ((0, 0), (0, max_tokens_len - token.shape[1])))
 
     initial_input_ids = np.concatenate(batched_tokens, axis=0)
     initial_input_ids = np.asarray(initial_input_ids, dtype=np.int64)
@@ -178,8 +178,8 @@ def run_llm_io_binding(
         input_ids_ortvalue.update_inplace(next_tokens)
 
         tokens_list = next_tokens.tolist()
-        for output_token_idx in range(len(tokens_list)):
-            output_token = tokens_list[output_token_idx][0]
+        for output_token_idx, token in enumerate(tokens_list):
+            output_token = token[0]
 
             if not eos_found[output_token_idx] and output_token == tokenizer.eos_token_id:
                 eos_found[output_token_idx] = True
@@ -195,10 +195,10 @@ def run_llm_io_binding(
         if idx == 0:
             llm_io_binding.bind_output("logits", device)
 
-        for seq_len_idx in range(len(seq_lens)):
-            past_seq_lens[seq_len_idx] = seq_lens[seq_len_idx]
+        for seq_len_idx, seq_len in enumerate(seq_lens):
+            past_seq_lens[seq_len_idx] = seq_len
             seq_lens[seq_len_idx] += 1
-            seq_lens[seq_len_idx] = min(seq_lens[seq_len_idx], max_seq_len)
+            seq_lens[seq_len_idx] = min(seq_len, max_seq_len)
 
     after_time = time.perf_counter()
     duration = after_time - before_time
@@ -208,10 +208,10 @@ def run_llm_io_binding(
     if ignore_eos:
         print(f"Execution took {duration:0.4f} seconds (generated {tokens_per_second:0.2f} tokens per second)")
 
-    for prompt_idx in range(len(prompts)):
+    for prompt_idx, prompt in enumerate(prompts):
         print("")
         print("")
-        print(f"Prompt {prompt_idx} > {prompts[prompt_idx]}")
+        print(f"Prompt {prompt_idx} > {prompt}")
         print("")
         output_str = tokenizer.decode(batched_output_tokens[prompt_idx])
         print(f"Answer {prompt_idx} > {output_str}")

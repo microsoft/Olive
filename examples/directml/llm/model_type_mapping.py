@@ -62,7 +62,7 @@ def get_all_supported_models():
 
 
 def get_model_repo_id(model_type: str):
-    global local_model_name
+    global local_model_name  # pylint: disable=global-statement
 
     if model_type == "local":
         if local_model_name is None:
