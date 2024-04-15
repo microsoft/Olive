@@ -46,6 +46,8 @@ class OptimumMerging(Pass):
     def _run_for_config(
         self, model: CompositeModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> Union[ONNXModelHandler, CompositeModelHandler]:
+        import onnxruntime
+
         assert len(model.model_components) == 2
 
         # TODO(trajep): Remove this when the bug in Optimum is fixed. Optimum calls ByteSize() to see whether
@@ -72,4 +74,14 @@ class OptimumMerging(Pass):
         # onnx.save will fail if the directory doesn't already exist
         output_model_path = resolve_onnx_path(output_model_path, "decoder_model_merged.onnx")
 
-        return model_proto_to_olive_model(merged_model, output_model_path, config)
+        olive_model = model_proto_to_olive_model(merged_model, output_model_path, config)
+
+        # Doing a dry run of ORT allows us to remove the initializers that were orphaned by the merging step
+        sess_options = onnxruntime.SessionOptions()
+        sess_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_BASIC
+        sess_options.optimized_model_filepath = output_model_path
+
+        execution_provider = self.accelerator_spec.execution_provider
+        onnxruntime.InferenceSession(output_model_path, sess_options, providers=[execution_provider])
+
+        return olive_model
