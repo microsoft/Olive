@@ -447,6 +447,11 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
         if io_bind and shared_kv_buffer and use_fp16:
             input_feed = OnnxEvaluator.format_input(next(iter(dataloader))[0], io_config)
 
+        # load constant inputs if any
+        constant_inputs = None
+        if model.constant_inputs_path:
+            constant_inputs = OnnxEvaluator.format_input(dict(np.load(model.constant_inputs_path)), io_config)
+
         # create session wrapper
         session_wrapper = OrtInferenceSession(
             session,
@@ -455,6 +460,7 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
             shared_kv_buffer=shared_kv_buffer,
             use_fp16=use_fp16,
             input_feed=input_feed,
+            constant_inputs=constant_inputs,
         )
 
         return session_wrapper, inference_settings

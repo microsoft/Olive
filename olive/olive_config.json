@@ -6,6 +6,9 @@
         "DynamicToFixedShape": {
             "module_path": "olive.passes.onnx.dynamic_to_fixed_shape.DynamicToFixedShape"
         },
+        "ExtractAdapters": {
+            "module_path": "olive.passes.onnx.extract_adapters.ExtractAdapters"
+        },
         "GenAIModelExporter": {
             "module_path": "olive.passes.onnx.genai_model_exporter.GenAIModelExporter"
         },

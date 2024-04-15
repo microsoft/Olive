@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 
+import numpy as np
 import onnx
 from onnx import GraphProto, ModelProto
 
@@ -16,7 +17,7 @@ from olive.hardware.accelerator import AcceleratorLookup, Device
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
 from olive.model.handler.mixin import OnnxEpValidateMixin, OnnxGraphMixin
-from olive.model.utils.onnx_utils import get_onnx_file_path
+from olive.model.utils.onnx_utils import get_additional_file_path, get_onnx_file_path
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 logger = logging.getLogger(__name__)
@@ -32,7 +33,13 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
     the mixin class OnnxGraphMixin is used to support onnx graph operations.
     """
 
-    json_config_keys: Tuple[str, ...] = ("onnx_file_name", "inference_settings", "use_ort_extensions")
+    json_config_keys: Tuple[str, ...] = (
+        "onnx_file_name",
+        "inference_settings",
+        "use_ort_extensions",
+        "external_initializers_file_name",
+        "constant_inputs_file_name",
+    )
 
     def __init__(
         self,
@@ -41,6 +48,8 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
         model_attributes: Optional[Dict[str, Any]] = None,
+        external_initializers_file_name: Optional[str] = None,
+        constant_inputs_file_name: Optional[str] = None,
     ):
         super().__init__(
             framework=Framework.ONNX,
@@ -51,18 +60,34 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
         self.inference_settings = inference_settings
         self.use_ort_extensions = use_ort_extensions
         self.onnx_file_name = onnx_file_name
+        self.external_initializers_file_name = external_initializers_file_name
+        self.constant_inputs_file_name = constant_inputs_file_name
 
         self.io_config = None
         self.graph = None
         self.all_graphs: Optional[List[GraphProto]] = None
 
-        # check for onnx file name since it will do validation
-        _ = self.model_path
+        # check for file names since it will automatically validate the paths
+        # these call the property methods which in turn validate the paths using get_onnx_file_path
+        # and get_additional_file_path
+        to_check = ["model_path", "external_initializers_path", "constant_inputs_path"]
+        for attr in to_check:
+            getattr(self, attr)
 
     @property
     def model_path(self) -> str:
         model_path = super().model_path
         return get_onnx_file_path(model_path, self.onnx_file_name) if model_path else None
+
+    @property
+    def external_initializers_path(self) -> Optional[str]:
+        model_path = super().model_path
+        return get_additional_file_path(model_path, self.external_initializers_file_name) if model_path else None
+
+    @property
+    def constant_inputs_path(self) -> Optional[str]:
+        model_path = super().model_path
+        return get_additional_file_path(model_path, self.constant_inputs_file_name) if model_path else None
 
     def load_model(self, rank: int = None) -> ModelProto:
         return onnx.load(self.model_path)
@@ -82,9 +107,13 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
             inference_settings["provider_options"] = None
         # device id for ranked model
         device_id = rank if device == Device.GPU else None
+        # load external initializers if available
+        external_initializers = np.load(self.external_initializers_path) if self.external_initializers_path else None
 
         try:
-            return get_ort_inference_session(self.model_path, inference_settings, self.use_ort_extensions, device_id)
+            return get_ort_inference_session(
+                self.model_path, inference_settings, self.use_ort_extensions, device_id, external_initializers
+            )
         except OrtSessionFallbackError as e:
             raise OliveEvaluationError(e) from e
 

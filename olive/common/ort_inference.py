@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Tuple, Union
 import numpy as np
 
 if TYPE_CHECKING:
+    from numpy.typing import NDArray
     from onnxruntime import InferenceSession, IOBinding
 
 
@@ -32,6 +33,7 @@ def get_ort_inference_session(
     inference_settings: Dict[str, Any],
     use_ort_extensions: bool = False,
     device_id: Optional[int] = None,
+    external_initializers: Optional[Dict[str, "NDArray"]] = None,
 ):
     """Get an ONNXRuntime inference session.
 
@@ -43,6 +45,8 @@ def get_ort_inference_session(
         provider_options: list, optional. List of provider options for the execution providers.
     :param use_ort_extensions: Whether to use onnxruntime-extensions. Default is False.
     :param device_id: Optional device id to use for CUDA or DML execution providers.
+    :param external_initializers: Optional external initializers for the session. A dictionary of external initializer
+        names and numpy arrays.
     """
     import onnxruntime as ort
 
@@ -52,6 +56,18 @@ def get_ort_inference_session(
         from onnxruntime_extensions import get_library_path
 
         sess_options.register_custom_ops_library(get_library_path())
+    if external_initializers:
+        from onnxruntime import OrtValue
+
+        # convert external initializers to OrtValue
+        initializer_names = []
+        initializer_values = []
+        for name, value in external_initializers.items():
+            initializer_names.append(name)
+            initializer_values.append(OrtValue.ortvalue_from_numpy(value))
+
+        # add external initializers to the session
+        sess_options.add_external_initializers(initializer_names, initializer_values)
 
     logger.debug("inference_settings: %s", inference_settings)
 
@@ -216,14 +232,32 @@ class OrtInferenceSession:
         device: str = "cpu",
         shared_kv_buffer: bool = False,
         use_fp16: bool = False,
-        input_feed: Optional[Dict[str, np.ndarray]] = None,
+        input_feed: Optional[Dict[str, "NDArray"]] = None,
+        constant_inputs: Optional[Dict[str, "NDArray"]] = None,
     ):
+        """Initialize self.
+
+        :param session: ONNXRuntime InferenceSession
+        :param io_bind: Whether to use IO binding. Default is False.
+        :param device: Device to run inference on. Default is "cpu".
+        :param shared_kv_buffer: Whether to share the key/value buffer across multiple runs.
+            Default is False. Only valid if io_bind is True.
+        :param use_fp16: Whether to use fp16. Default is False. Both shared_kv_buffer and use_fp16 must be True
+            at the same time to use shared key/value buffer.
+        :param input_feed: Optional input feed for the session. Required when shared_kv_buffer and use_fp16 are True.
+        :param constant_inputs: Optional constant inputs for the session. These will be passed to the session every
+            inference run.
+        """
+        # TODO(anyone): use_fp16 is redundant with shared_kv_buffer. Remove it.
         self.session = session
         self.io_bind = io_bind
         self.device = device
         self.shared_kv_buffer = shared_kv_buffer
         self.use_fp16 = use_fp16
         self.kv_cache_ortvalues = {} if (self.shared_kv_buffer and self.use_fp16) else None
+        # TODO(jambayk): investigate if io binding can be run without having to bind constant
+        # inputs every time.
+        self.constant_inputs = constant_inputs or {}
 
         self.io_binding = None
         if self.io_bind:
@@ -232,7 +266,7 @@ class OrtInferenceSession:
                 assert input_feed is not None, "input_feed is required when shared_kv_buffer and use_fp16 are True"
                 bind_input_data(
                     self.io_binding,
-                    input_feed,
+                    {**input_feed, **self.constant_inputs},
                     self.use_fp16,
                     self.device,
                     shared_kv_buffer=self.shared_kv_buffer,
@@ -247,8 +281,13 @@ class OrtInferenceSession:
                 kv_cache_ortvalues=self.kv_cache_ortvalues,
             )
 
-    def run(self, input_feed: Dict[str, np.ndarray]) -> Sequence[np.ndarray]:
+    def get_full_input_feed(self, input_feed: Dict[str, "NDArray"]) -> Dict[str, "NDArray"]:
+        """Get the full input feed including constant inputs."""
+        return {**input_feed, **self.constant_inputs}
+
+    def run(self, input_feed: Dict[str, "NDArray"]) -> Sequence["NDArray"]:
         """Run inference with the given input data."""
+        input_feed = self.get_full_input_feed(input_feed)
         if self.io_bind and self.device == "gpu":
             bind_input_data(
                 self.io_binding,
@@ -268,9 +307,10 @@ class OrtInferenceSession:
         return res
 
     def time_run(
-        self, input_feed: Dict[str, np.ndarray], num_runs: int, num_warmup: int = 0, sleep_time: int = 0
+        self, input_feed: Dict[str, "NDArray"], num_runs: int, num_warmup: int = 0, sleep_time: int = 0
     ) -> Sequence[float]:
         """Time inference runs with the given input data."""
+        input_feed = self.get_full_input_feed(input_feed)
         latencies = []
         if self.io_bind:
             bind_input_data(
@@ -302,7 +342,7 @@ class OrtInferenceSession:
 
 def bind_input_data(
     io_bind_op: "IOBinding",
-    input_data: Dict[str, np.ndarray],
+    input_data: Dict[str, "NDArray"],
     use_fp16: bool,
     device: str,
     device_id: int = 0,
@@ -351,7 +391,7 @@ def bind_output_data(
 
 def prepare_io_bindings(
     session: "InferenceSession",
-    input_data: Dict[str, np.ndarray],
+    input_data: Dict[str, "NDArray"],
     device: str,
     device_id: int = 0,
     shared_kv_buffer: bool = False,
@@ -366,6 +406,7 @@ def prepare_io_bindings(
     shared_kv_buffer: whether to share the key/value buffer across multiple runs, it is False by default,
         and only used when we observe kv cache and fp16 is used.
         TODO(trajep): how shared_kv_buffer works with generation task
+    kv_cache_ortvalues: dict of OrtValue for shared kv cache, it is None by default.
     """
     use_fp16 = any(v.dtype == np.float16 for v in input_data.values())
     io_bind_op = session.io_binding()

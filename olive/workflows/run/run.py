@@ -8,7 +8,7 @@ import subprocess
 import sys
 from copy import deepcopy
 from pathlib import Path
-from typing import List, Union
+from typing import Generator, List, Union
 
 from olive.auto_optimizer import AutoOptimizer
 from olive.hardware.accelerator import create_accelerators
@@ -147,12 +147,26 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig, data_r
 
         AzureMLSystem.olive_config = run_config.to_json()
 
-    no_evaluation = (
+    # Register passes since we need to know whether they need to run on target
+    used_passes = list(get_used_passes(run_config))
+    for pass_config in used_passes:
+        logger.debug("Registering pass %s", pass_config.type)
+        package_config.import_pass_module(pass_config.type)
+
+    # check if target is not used
+    target_not_used = (
+        # no evaluator given (also implies no search)
         engine.evaluator_config is None
-        and run_config.passes
-        and all(pass_config.evaluator is None for pass_config in run_config.passes.values())
+        # not using auto optimizer
+        and used_passes
+        # no pass specific evaluator
+        # no pass needs to run on target
+        and all(
+            pass_config.evaluator is None and Pass.registry[pass_config.type.lower()].run_on_target is False
+            for pass_config in used_passes
+        )
     )
-    accelerator_specs = create_accelerators(engine.target_config, skip_supported_eps_check=no_evaluation)
+    accelerator_specs = create_accelerators(engine.target_config, skip_supported_eps_check=target_not_used)
 
     pass_list = []
     acc_list = []
@@ -193,7 +207,11 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig, data_r
         if passes:
             # First pass registers the necessary module implementation
             for pass_config in passes.values():
-                logger.info("Importing pass module %s", pass_config.type)
+                if pass_config.type.lower() in Pass.registry:
+                    logger.debug("Pass %s already registered", pass_config.type)
+                    continue
+                # auto optimizer scenario
+                logger.debug("Registering pass %s", pass_config.type)
                 package_config.import_pass_module(pass_config.type)
 
             # Second pass, initializes the pass and registers it with the engine
@@ -313,3 +331,15 @@ def get_local_ort_packages() -> List[str]:
         if package_name.startswith(("onnxruntime", "ort-nightly")):
             local_ort_packages.append(package_name)
     return local_ort_packages
+
+
+def get_used_passes(run_config: RunConfig) -> Generator[RunPassConfig, None, None]:
+    if run_config.pass_flows:
+        passes = set()
+        for pass_flow in run_config.pass_flows:
+            for pass_name in pass_flow:
+                if run_config.passes[pass_name].type not in passes:
+                    passes.add(run_config.passes[pass_name].type)
+                    yield run_config.passes[pass_name]
+    elif run_config.passes:
+        yield from run_config.passes.values()

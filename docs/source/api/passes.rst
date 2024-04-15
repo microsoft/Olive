@@ -114,6 +114,12 @@ InsertBeamSearch
 --------------------
 .. autoconfigclass:: olive.passes.InsertBeamSearch
 
+.. _extract_adapters:
+
+ExtractAdapters
+----------------
+.. autoconfigclass:: olive.passes.ExtractAdapters
+
 .. _lora:
 
 LoRA

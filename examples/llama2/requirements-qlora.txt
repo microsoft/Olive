@@ -1,6 +1,7 @@
 -r requirements.txt
 accelerate
 bitsandbytes
+git+https://github.com/jambayk/optimum.git@jambayk/constant-inputs
 peft
 scikit-learn
 sentencepiece

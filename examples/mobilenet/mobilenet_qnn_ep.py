@@ -51,18 +51,24 @@ def main(raw_args=None):
                 "<evaluator>": "common_evaluator",
             }
         )
-        # Set the environment variables
+        # replace template variables with actual values
         config_str = json.dumps(config)
         for name, value in template_args.items():
             config_str = config_str.replace(name, value)
         config = json.loads(config_str)
         config_name += "_eval"
+        # delete unnecessary fields
+        del config["systems"]["local_system"]
     else:
+        # set target to local_system
+        # QNN EP is the target EP even though local environment has
+        # cpu package installed
+        # this is okay since there is no evaluation done in this case
+        config["engine"]["target"] = "local_system"
         # delete unnecessary fields
         del (
-            config["systems"],
+            config["systems"]["qnn_ep_env"],
             config["evaluators"],
-            config["engine"]["target"],
             config["engine"]["evaluator"],
             config["engine"]["evaluate_input_model"],
         )
@@ -72,10 +78,11 @@ def main(raw_args=None):
         with open(f"{config_name}.json", "w") as f:
             json.dump(config, f, indent=4)
         print(f"Config file {config_name}.json is generated")  # noqa: T201
+        return config
     else:
         if not args.skip_data_download:
             download_files()
-        olive_run(config)  # pylint: disable=not-callable
+        return olive_run(config)  # pylint: disable=not-callable
 
 
 if __name__ == "__main__":

@@ -462,3 +462,34 @@ b. Making the entire input shape fixed
 Note: The `input_dim` and `dim_value` should have the same length, and the `input_name` and `input_shape` should have the same length. Also the `input_dim & dim_value` and `input_name & input_shape` should be exclusive to each other, user cannot specify both of them at the same time.
 
 More details about the pass and its config parameters can be found [here](https://onnxruntime.ai/docs/tutorials/mobile/helpers/make-dynamic-shape-fixed.html).
+
+## Extract Adapters
+
+LoRA, QLoRA and related techniques allow us to fine-tune a pre-trained model by adding a small number of trainable matrices called adapters. The same base model can be used for multiple tasks by adding different adapters for each task. To support using multiple adapters with the same optimized onnx model, the `ExtractAdapters` pass extracts the adapters weights from the model and saves them to a separate file. The model graph is then modified in one of the following ways:
+- Adapters weights are set as external tensors pointing to a non-existent file. The onnx model is thus invalid by itself as it cannot be loaded. In order to create an inference session using this model, the adapter weights must be added to a sessions options object using `add_initializer` or `add_external_initializers`.
+- Adapter weights are converted into model inputs. The onnx model is valid. During inference, the adapter weights must be provided as part of the inputs. We call them constant inputs here since these weights don't change between runs when using the one set of adapters.
+
+### Example Configuration
+
+a. As external initializers
+```json
+{
+    "type": "ExtractAdapters",
+    "config": {
+        "make_inputs": false
+    }
+}
+```
+
+b. As constant inputs with packed weights
+```json
+{
+    "type": "ExtractAdapters",
+    "config": {
+        "make_inputs": true,
+        "pack_inputs": true
+    }
+}
+```
+
+Please refer to [ExtractAdapters](extract_adapters) for more details about the pass and its config parameters.
