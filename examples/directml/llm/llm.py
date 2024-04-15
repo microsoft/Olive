@@ -122,6 +122,8 @@ def optimize(
     device: str,
     num_layers: Optional[int],
     quant_strategy: Optional[str],
+    block_size: int,
+    bit_size: int,
 ):
     print(f"\nOptimizing {repo_id}")
 
@@ -143,7 +145,11 @@ def optimize(
                     "backend": f"onnxrt_{device}_ep",
                     "approach": "weight_only",
                     "device": "gpu",
-                    "weight_only_config": {"bits": 4, "algorithm": "AWQ"},
+                    "weight_only_config": {
+                        "bits": bit_size,
+                        "algorithm": quant_strategy.upper(),
+                        "group_size": block_size,
+                    },
                     "dataloader_func": "calib_dataloader",
                     "calibration_sampling_size": [8],
                     "save_as_external_data": True,
@@ -315,9 +321,23 @@ if __name__ == "__main__":
     parser.add_argument(
         "--quant_strategy",
         choices=["awq"],
-        help="Which quantization strategy to use.",
+        help="Which quantization strategy to use. Defaults to None (no quantization).",
         default=None,
         type=str,
+    )
+    parser.add_argument(
+        "--block_size",
+        choices=[32, 64, 128],
+        help="Block size to use during quantization if --quant_strategy is provided. Defaults to 32.",
+        default=32,
+        type=int,
+    )
+    parser.add_argument(
+        "--bit_size",
+        choices=[4],
+        help="Number of bits to quantize to if --quant_strategy is provided. Defaults to 4.",
+        default=4,
+        type=int,
     )
     args = parser.parse_args()
 
@@ -326,7 +346,16 @@ if __name__ == "__main__":
     if args.optimize or not (model_dir).exists():
         repo_id = get_model_repo_id(args.model_type)
         model_name = get_model_name(args.model_type)
-        optimize(model_dir, repo_id, model_name, args.device, args.num_layers, args.quant_strategy)
+        optimize(
+            model_dir,
+            repo_id,
+            model_name,
+            args.device,
+            args.num_layers,
+            args.quant_strategy,
+            args.block_size,
+            args.bit_size,
+        )
 
     if not args.optimize:
         if args.interactive:
