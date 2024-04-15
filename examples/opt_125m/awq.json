@@ -1,0 +1,63 @@
+{
+    "input_model": {
+        "type": "PyTorchModel",
+        "config": {
+            "model_script": "user_script.py",
+            "dummy_inputs_func": "dummy_inputs",
+            "io_config": "get_io_config",
+            "hf_config": {
+                "model_name": "facebook/opt-125m",
+                "task": "text-generation",
+                "from_pretrained_args": {
+                    "trust_remote_code": true
+                }
+            }
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "device": "gpu",
+                        "execution_providers": [
+                            "GPUExecutionProvider"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
+    "passes": {
+        "4bit_awq_quantizer": {
+            "type": "AwqQuantizer",
+            "config": {
+                "pack_model_for_onnx_conversion": true
+            }
+        },
+        "conversion_merged": {
+            "type": "OnnxConversion",
+            "config": {
+                "device": "cuda"
+            }
+        },
+        "transformers_optimization_fp16": {
+            "type": "OrtTransformersOptimization",
+            "config": {
+                "model_type": "gpt2",
+                "opt_level": 0,
+                "only_onnxruntime": false,
+                "keep_io_types": false,
+                "float16": true,
+                "use_gqa": false
+            }
+        }
+    },
+    "engine": {
+        "host": "local_system",
+        "target": "local_system",
+        "cache_dir": "cache",
+        "output_dir": "models/opt_125m"
+    }
+}

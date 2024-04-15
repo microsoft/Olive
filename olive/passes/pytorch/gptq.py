@@ -126,7 +126,7 @@ class GptqQuantizer(Pass):
         from auto_gptq.modeling import BaseGPTQForCausalLM
         from auto_gptq.modeling.auto import GPTQ_CAUSAL_LM_MODEL_MAP
 
-        from olive.passes.pytorch.gptq_utils import QuantLinearORT
+        from olive.passes.pytorch.ort_quant_utils import QuantLinearORT
 
         if not torch.cuda.is_available():
             raise ValueError("Please use GPU to run gptq quantization.")

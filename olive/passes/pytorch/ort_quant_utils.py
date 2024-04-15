@@ -148,6 +148,7 @@ class QuantLinearORT(nn.Module):
         self.orig_fp_weight = None
         self.maxq = 2**self.bits - 1
         self.groupsize = groupsize if groupsize != -1 else infeatures
+        self.input_model_dtype = kwargs.get("input_model_dtype", torch.float16)
 
         self.register_buffer(
             "qweight",
@@ -158,11 +159,11 @@ class QuantLinearORT(nn.Module):
             torch.zeros((math.ceil(infeatures // self.groupsize) * (outfeatures // 8 * self.bits)), dtype=torch.uint8),
         )
         self.register_buffer(
-            "scales", torch.zeros((math.ceil(infeatures / self.groupsize) * outfeatures), dtype=torch.float)
+            "scales", torch.zeros((math.ceil(infeatures / self.groupsize) * outfeatures), dtype=self.input_model_dtype)
         )
         self.register_buffer("g_idx", torch.tensor([i // self.groupsize for i in range(infeatures)], dtype=torch.int32))
         if bias:
-            self.register_buffer("bias", torch.zeros((outfeatures), dtype=torch.float))
+            self.register_buffer("bias", torch.zeros((outfeatures), dtype=self.input_model_dtype))
         else:
             self.bias = None
 
