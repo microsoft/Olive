@@ -141,6 +141,8 @@ class SearchStrategy:
             next_sg = self._next_search_group_joint(init_model_id)
         elif self._config.execution_order == "pass-by-pass":
             next_sg = self._next_search_group_pass_by_pass(init_model_id)
+        else:
+            raise ValueError(f"Invalid execution order {self._config.execution_order}")
         return next_sg
 
     def _next_search_group_pass_by_pass(self, init_model_id: Optional[str] = None) -> Optional[SearchAlgorithm]:

@@ -276,8 +276,6 @@ short answers are usually best"
         self.total_count += 1
         print(self.total_count)
 
-        x = input_ids
-
         for x in self.greedy_search(
             input_ids,
             self.tokenizer,

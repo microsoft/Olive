@@ -520,16 +520,19 @@ class PerfTuningRunner:
         import psutil
 
         # prepare the inter_op_num_threads/intra_op_num_threads to be tune.
+        threads_names = []
         extra_session_config = test_params["session_options"].get("extra_session_config")
         if extra_session_config:
             affinity_str = extra_session_config.get("session.intra_op_thread_affinities")
             if affinity_str:
                 test_params["session_options"]["intra_op_num_threads"] = get_thread_affinity_nums(affinity_str) + 1
                 threads_names = ["inter_op_num_threads"]
-        elif test_params["session_options"].get("execution_mode") == ort.ExecutionMode.ORT_SEQUENTIAL:
-            threads_names = ["intra_op_num_threads"]
-        else:
-            threads_names = ["inter_op_num_threads", "intra_op_num_threads"]
+
+        if not threads_names:
+            if test_params["session_options"].get("execution_mode") == ort.ExecutionMode.ORT_SEQUENTIAL:
+                threads_names = ["intra_op_num_threads"]
+            else:
+                threads_names = ["inter_op_num_threads", "intra_op_num_threads"]
 
         if (
             test_params["session_options"].get("inter_op_num_threads") is not None
