@@ -9,6 +9,7 @@ import argparse
 import json
 import os
 import shutil
+import sys
 import warnings
 from pathlib import Path
 from typing import Optional
@@ -159,7 +160,7 @@ def optimize(
             }
         elif quant_strategy is not None:
             print(f"Unknown quantization strategy {quant_strategy}")
-            exit(1)
+            sys.exit(1)
 
         olive_config["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = {
             "dml": ["DmlExecutionProvider"],
