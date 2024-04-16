@@ -19,7 +19,7 @@ def parse_args(raw_args):
     parser.add_argument(
         "--adapter_path",
         type=str,
-        help="Path to the adapter to export.",
+        help="Path to the adapters weights saved after peft fine-tuning. Can be a local folder or huggingface id.",
     )
     parser.add_argument(
         "--output_path",
