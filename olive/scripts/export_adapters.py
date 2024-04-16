@@ -47,7 +47,7 @@ def parse_args(raw_args):
     parser.add_argument(
         "--quantize_int4",
         action="store_true",
-        help="Quantize the weights to int4.",
+        help="Quantize the weights to int4 using blockwise quantization.",
     )
     int4_group = parser.add_argument_group("int4 quantization options")
     int4_group.add_argument(
@@ -82,7 +82,9 @@ def get_sort_key(module_name: str):
 
 def int4_block_quant(float_weight: "NDArray", block_size: int, is_symmetric: bool):
     """Quantize a weight tensor to int4."""
-    # TODO(jambayk): When ORT 1.18.0 is released, use DefaultWeightOnlyQuantizer instead of the following code
+    # Only need to quantize the weight tensors directly
+    # Not the same as OnnxMatMul4Quantizer pass which quantizes an entire model
+    # TODO(jambayk): When ORT 1.18.0 is released, use DefaultWeightOnlyQuantizer.int4_block_quant
     from onnxruntime.quantization.matmul_4bits_quantizer import quantize_matmul_4bits
 
     rows, cols = float_weight.shape
