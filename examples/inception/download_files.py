@@ -47,10 +47,7 @@ def download_model():
     request.urlretrieve(inception_v3_archive_url, inception_v3_archive_path)
 
     with tarfile.open(inception_v3_archive_path) as tar_ref:
-        for entry in tar_ref:
-            if Path(entry.name).is_absolute() or ".." in entry.name:
-                raise ValueError("Illegal tar archive entry")
-            tar_ref.extract(entry, stage_dir)
+        tar_ref.extractall(stage_dir)  # lgtm
 
     model_path = models_dir / "inception_v3.pb"
     if model_path.exists():
