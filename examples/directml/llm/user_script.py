@@ -168,7 +168,7 @@ def tokenize_function(examples):
 
 
 class PileDataloader:
-    def __init__(self, model_path, batch_size=1, seqlen=2048, max_seq_len=2080, sub_folder="train"):
+    def __init__(self, batch_size=1, seqlen=2048, max_seq_len=2080, sub_folder="train"):
         random.seed(0)
         self.seqlen = seqlen
         self.max_seq_len = max_seq_len
@@ -177,7 +177,6 @@ class PileDataloader:
         self.dataset = load_dataset("NeelNanda/pile-10k", split=sub_folder)
         self.dataset = self.dataset.map(tokenize_function, batched=True)
         self.dataset.set_format(type="torch", columns=["input_ids", "attention_mask"])
-        self.sess = None
 
     def __iter__(self):
         try:
@@ -220,5 +219,4 @@ class PileDataloader:
 
 
 def calib_dataloader(data_dir, batch_size, *args, **kwargs):
-    model_path = kwargs.pop("model_path")
-    return PileDataloader(model_path, batch_size=batch_size)
+    return PileDataloader(batch_size=batch_size)
