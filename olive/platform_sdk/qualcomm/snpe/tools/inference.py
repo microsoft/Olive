@@ -213,6 +213,7 @@ def snpe_net_run(
     input_ids = get_input_ids(input_list)
 
     # get the delimiter for the output files
+    delimiter = None
     if platform.system() == "Linux":
         delimiter = ":"
     elif platform.system() == "Windows":
@@ -414,6 +415,7 @@ def snpe_throughput_net_run(
     cmd = f"snpe-throughput-net-run --container {dlc_path} --duration {duration} --use_{device}"
 
     input_raw = ""
+    first = ""
     with Path(input_list).open() as f:
         for line in f:
             if line.startswith(("#", "%")):

@@ -140,6 +140,7 @@ def download_checkpoint(model_type: str):
     opener.addheaders = [("User-agent", "wget")]
     urllib.request.install_opener(opener)
 
+    email_url = None
     if not (
         license_path.is_file() and use_policy_path.is_file() and tokenizer_path.is_file() and weights_path.is_file()
     ):
