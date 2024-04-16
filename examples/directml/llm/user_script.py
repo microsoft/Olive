@@ -23,6 +23,9 @@ class RandomDataLoader:
         self.create_input_func = create_inputs_func
         self.batch_size = batch_size
 
+    def __len__(self):
+        return 10
+
     def __getitem__(self, idx):
         if idx < 0 or idx >= len(self):
             raise IndexError("Index out of range")

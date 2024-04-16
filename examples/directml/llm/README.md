@@ -63,7 +63,7 @@ python run_llm_io_binding.py --model_type=llama-2-7b-chat --prompt=<any_prompt_y
 AWQ quantization is very resource intensive and currently requires a decent Nvidia GPU (at least 4090). Even with an RTX 4090, it will take several hours. If you want to quantize a model, install a fork of the Intel Neural Compressor and convert the model with the `--quant_strategy=awq` option:
 
 ```
-pip install git+https://github.com/PatriceVignola/neural-compressor@41acbc
+pip install git+https://github.com/PatriceVignola/neural-compressor@6a05c1
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 python llm.py --model_type=mistral-7b-chat --quant_strategy=awq
 ```
