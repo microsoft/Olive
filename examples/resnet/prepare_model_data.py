@@ -152,7 +152,10 @@ def main():
     data_download_path = data_dir / "cifar-10-python.tar.gz"
     urllib.request.urlretrieve("https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz", data_download_path)
     with tarfile.open(data_download_path) as tar:
-        tar.extractall(data_dir)  # lgtm
+        for entry in tar:
+            if Path(entry.name).is_absolute() or ".." in entry.name:
+                raise ValueError("Illegal tar archive entry")
+            tar.extract(entry, data_dir)
 
     prepare_model(args.num_epochs, models_dir, data_dir)
 
