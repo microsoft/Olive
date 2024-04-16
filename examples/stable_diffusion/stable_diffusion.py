@@ -351,6 +351,7 @@ def main(raw_args=None):
         guidance_scale = 0.0
         print(f"WARNING: Classifier free guidance has been forcefully disabled since {model_id} doesn't support it.")
 
+    ov_args, ort_args = None, None
     if provider == "openvino":
         ov_args, extra_args = parse_ov_args(extra_args)
     else:
@@ -381,6 +382,7 @@ def main(raw_args=None):
 
                 pipeline = get_ort_pipeline(model_dir, common_args, ort_args, guidance_scale)
             if provider == "openvino" and (ov_args.image_path or ov_args.img_to_img_example):
+                res = None
                 if ov_args.image_path:
                     from sd_utils.ov import run_ov_image_inference
 

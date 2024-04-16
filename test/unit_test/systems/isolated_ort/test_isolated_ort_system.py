@@ -175,15 +175,15 @@ class TestIsolatedORTEvaluator:
         # setup
         mock_wrapper = MagicMock()
         mock_wrapper_class.return_value = mock_wrapper
+        dummy_latencies = [1, 2, 3, 4]
+        dummy_output = np.array([1, 2])
+        sleep_time = 0
+        num_runs = 4
+        num_warmup = 2
+        num_batches = 3
         if mode == "inference":
-            num_batches = 3
-            dummy_output = np.array([1, 2])
             mock_wrapper.run.return_value = dummy_output
         else:
-            num_runs = 4
-            num_warmup = 2
-            sleep_time = 0
-            dummy_latencies = [1, 2, 3, 4]
             mock_wrapper.time_run.return_value = dummy_latencies
 
         model = "model.onnx"

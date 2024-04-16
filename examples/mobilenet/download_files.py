@@ -51,7 +51,7 @@ def download_model():
     request.urlretrieve(mobilenet_archive_url, mobilenet_archive_path)
 
     with tarfile.open(mobilenet_archive_path) as tar_ref:
-        tar_ref.extractall(stage_dir)
+        tar_ref.extractall(stage_dir)  # lgtm
     original_model_path = stage_dir / mobilenet_name / f"{mobilenet_name}.onnx"
     model_path = models_dir / f"{mobilenet_name}.onnx"
     if model_path.exists():

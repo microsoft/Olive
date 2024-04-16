@@ -17,7 +17,7 @@ from olive.model import ONNXModelHandler, PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.extract_adapters import ExtractAdapters
-from olive.passes.onnx.quantization import OnnxStaticQuantization
+from olive.passes.onnx.quantization import OnnxMatMul4Quantizer, OnnxStaticQuantization
 from olive.scripts.export_adapters import main as export_adapters_main
 
 
@@ -51,7 +51,9 @@ def input_model_info_fixture(tmp_path_factory):
 
     model_name = "hf-internal-testing/tiny-random-LlamaForCausalLM"
     pytorch_model = AutoModelForCausalLM.from_pretrained(model_name)
-    peft_model = get_peft_model(pytorch_model, LoraConfig())
+    # init_lora_weights are set so that lora_B weights are not all zeros
+    # if they are all zeros, the exported onnx model uses identity node as input to lora_B
+    peft_model = get_peft_model(pytorch_model, LoraConfig(init_lora_weights=False))
 
     # keep track of all lora modules
     target_modules = peft_model.peft_config["default"].target_modules
@@ -90,8 +92,8 @@ def input_model_info_fixture(tmp_path_factory):
     conversion_pass = create_pass_from_dict(OnnxConversion, {"target_opset": 14}, disable_search=True)
     olive_onnx_model = conversion_pass.run(olive_pytorch_model, None, str(tmp_path / "onnx-export"))
 
-    # static quantization
-    quantization_pass = create_pass_from_dict(
+    # static QDQ quantization
+    qdq_pass = create_pass_from_dict(
         OnnxStaticQuantization,
         {
             "dataloader_func": lambda data_dir, batch_size: LlamaCalibrationDataLoader(
@@ -100,7 +102,11 @@ def input_model_info_fixture(tmp_path_factory):
         },
         disable_search=True,
     )
-    olive_quantized_onnx_model = quantization_pass.run(olive_onnx_model, None, str(tmp_path / "quantized-onnx"))
+    olive_qdq_onnx_model = qdq_pass.run(olive_onnx_model, None, str(tmp_path / "qdq-onnx"))
+
+    # int4 quantization
+    matmul4_quantizer = create_pass_from_dict(OnnxMatMul4Quantizer, {}, disable_search=True)
+    olive_int4_onnx_model = matmul4_quantizer.run(olive_onnx_model, None, str(tmp_path / "int4-onnx"))
 
     return {
         "float": {
@@ -108,16 +114,21 @@ def input_model_info_fixture(tmp_path_factory):
             "all_weights": all_weights,
             "packed_weights": packed_weights,
         },
-        "quantized": {
-            "onnx_model": olive_quantized_onnx_model,
+        "qdq": {
+            "onnx_model": olive_qdq_onnx_model,
             "all_weights": all_quant_weights,
             "packed_weights": packed_quant_weights,
+        },
+        "int4": {
+            "onnx_model": olive_int4_onnx_model,
+            "all_weights": {name for name in all_quant_weights if "zero_point" not in name},
+            "packed_weights": {name for name in packed_quant_weights if "zero_point" not in name},
         },
         "adapter_path": adapters_path,
     }
 
 
-@pytest.mark.parametrize("model_type", ["float", "quantized"])
+@pytest.mark.parametrize("model_type", ["float", "qdq", "int4"])
 def test_extract_adapters_as_initializers(tmp_path, input_model_info, model_type):
     # setup
     p = create_pass_from_dict(ExtractAdapters, {}, disable_search=True)
@@ -143,7 +154,7 @@ def test_extract_adapters_as_initializers(tmp_path, input_model_info, model_type
     assert seen_weights == expected_weights
 
 
-@pytest.mark.parametrize("model_type", ["float", "quantized"])
+@pytest.mark.parametrize("model_type", ["float", "qdq", "int4"])
 @pytest.mark.parametrize("pack_inputs", [True, False])
 def test_extract_adapters_as_inputs(tmp_path, input_model_info, pack_inputs, model_type):
     # setup
@@ -167,8 +178,9 @@ def test_extract_adapters_as_inputs(tmp_path, input_model_info, pack_inputs, mod
     assert all(i in io_config["input_names"] for i in expected_weights)
 
 
+@pytest.mark.parametrize("quantize_int4", [1, 0])
 @pytest.mark.parametrize("pack_weights", [True, False])
-def test_export_adapters_script(tmp_path, input_model_info, pack_weights):
+def test_export_adapters_script(tmp_path, input_model_info, quantize_int4, pack_weights):
     # args
     args = [
         "--adapter_path",
@@ -178,10 +190,10 @@ def test_export_adapters_script(tmp_path, input_model_info, pack_weights):
     ]
     if pack_weights:
         args.append("--pack_weights")
-
+    if quantize_int4:
+        args.append("--quantize_int4")
     exported_adapters_path = export_adapters_main(args)
 
-    expected_weights = set(
-        input_model_info["float"]["packed_weights"] if pack_weights else input_model_info["float"]["all_weights"]
-    )
-    assert expected_weights == set(np.load(exported_adapters_path))
+    weight_dtype = "int4" if quantize_int4 else "float"
+    weight_index = "packed_weights" if pack_weights else "all_weights"
+    assert set(input_model_info[weight_dtype][weight_index]) == set(np.load(exported_adapters_path))
