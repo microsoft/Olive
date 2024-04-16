@@ -24,6 +24,9 @@ class RandomDataLoader:
         self.batch_size = batch_size
 
     def __getitem__(self, idx):
+        if idx < 0 or idx >= len(self):
+            raise IndexError("Index out of range")
+
         label = None
         return self.create_input_func(self.batch_size), label
 
@@ -179,43 +182,42 @@ class PileDataloader:
         self.dataset.set_format(type="torch", columns=["input_ids", "attention_mask"])
 
     def __iter__(self):
-        try:
-            while True:
-                # Pick a random sample from the dataset that has at least 2048 tokens
+        length = len(self.dataset)
+        counter = 0
+
+        while counter < length:
+            # Pick a random sample from the dataset that has at least 2048 tokens
+            sample_index = random.randint(0, len(self.dataset) - 1)
+            sample = self.dataset[sample_index]["input_ids"]
+            while sample.shape[0] <= self.seqlen:
                 sample_index = random.randint(0, len(self.dataset) - 1)
                 sample = self.dataset[sample_index]["input_ids"]
-                while sample.shape[0] <= self.seqlen:
-                    sample_index = random.randint(0, len(self.dataset) - 1)
-                    sample = self.dataset[sample_index]["input_ids"]
 
-                # Randomly pick a subsequence of 2048 tokens in the middle of the dataset
-                token_start = random.randint(0, sample.shape[0] - self.seqlen - 1)
-                token_end = token_start + self.seqlen
-                input_ids = sample[token_start:token_end].unsqueeze(0).cpu().numpy().astype("int64")
+            # Randomly pick a subsequence of 2048 tokens in the middle of the dataset
+            token_start = random.randint(0, sample.shape[0] - self.seqlen - 1)
+            token_end = token_start + self.seqlen
+            input_ids = sample[token_start:token_end].unsqueeze(0).cpu().numpy().astype("int64")
 
-                initial_position_ids = np.arange(self.seqlen, dtype=np.int64).reshape((1, self.seqlen))
-                attention_mask = np.pad(
-                    np.ones((1, self.seqlen), dtype=np.int64), ((0, 0), (0, self.max_seq_len - self.seqlen))
+            initial_position_ids = np.arange(self.seqlen, dtype=np.int64).reshape((1, self.seqlen))
+            attention_mask = np.pad(
+                np.ones((1, self.seqlen), dtype=np.int64), ((0, 0), (0, self.max_seq_len - self.seqlen))
+            )
+
+            initial_inputs = {
+                "input_ids": input_ids,
+                "position_ids": initial_position_ids,
+                "attention_mask": attention_mask,
+            }
+
+            for layer_index in range(config.num_layers):
+                initial_inputs[f"past_key_values.{layer_index}.key"] = np.zeros(
+                    (1, config.num_key_value_heads, self.max_seq_len, self.head_size), dtype=np.float16
+                )
+                initial_inputs[f"past_key_values.{layer_index}.value"] = np.zeros(
+                    (1, config.num_key_value_heads, self.max_seq_len, self.head_size), dtype=np.float16
                 )
 
-                initial_inputs = {
-                    "input_ids": input_ids,
-                    "position_ids": initial_position_ids,
-                    "attention_mask": attention_mask,
-                }
-
-                for layer_index in range(config.num_layers):
-                    initial_inputs[f"past_key_values.{layer_index}.key"] = np.zeros(
-                        (1, config.num_key_value_heads, self.max_seq_len, self.head_size), dtype=np.float16
-                    )
-                    initial_inputs[f"past_key_values.{layer_index}.value"] = np.zeros(
-                        (1, config.num_key_value_heads, self.max_seq_len, self.head_size), dtype=np.float16
-                    )
-
-                yield initial_inputs, 0
-
-        except StopIteration:
-            return
+            yield initial_inputs, 0
 
 
 def calib_dataloader(data_dir, batch_size, *args, **kwargs):
