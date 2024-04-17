@@ -130,7 +130,6 @@
 <span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
 <span class="c1"># Licensed under the MIT License.</span>
 <span class="c1"># --------------------------------------------------------------------------</span>
-<span class="kn">import</span> <span class="nn">copy</span>
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">shutil</span>
@@ -474,7 +473,7 @@
         <span class="n">parameters</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;--</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="s2"> $</span><span class="se">{{{{</span><span class="s2">outputs.</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="se">}}}}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">outputs</span><span class="p">])</span>
 
         <span class="n">cmd_line</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;python </span><span class="si">{</span><span class="n">script_name</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="n">env_vars</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">env_vars</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">env_vars</span> <span class="k">else</span> <span class="p">{}</span>
+        <span class="n">env_vars</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">env_vars</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">env_vars</span> <span class="k">else</span> <span class="p">{}</span>
         <span class="n">env_vars</span><span class="p">[</span><span class="s2">&quot;OLIVE_LOG_LEVEL&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLevelName</span><span class="p">(</span><span class="n">logger</span><span class="o">.</span><span class="n">getEffectiveLevel</span><span class="p">())</span>
 
         <span class="c1"># the name need to be lowercase</span>
