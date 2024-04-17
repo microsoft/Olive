@@ -5,9 +5,8 @@
 import logging
 import shutil
 import tempfile
-from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Tuple
+from typing import Any, Callable, Tuple
 
 import numpy as np
 import torch
@@ -17,27 +16,29 @@ from olive.platform_sdk.qualcomm.utils import input_list as input_list_utils
 logger = logging.getLogger(__name__)
 
 
-class FileListDataLoader(ABC):
-    """Abstraction for logical "FileListDataLoader", it contains data path and related metadata."""
+class FileListDataLoader:
+    """Data loader for use with Qualcomm SDKs that loads data from a file list."""
 
-    def __init__(self, config: dict, batch_size: int = None):
+    def __init__(self, load_data_func: Callable, batch_size: int = None, **kwargs):
         # TODO(anyone): try to add file_chunk_size to distinguish the concept of batch_size and file_chunk_size
-        """:param config: data loader specific config."""
-        self.config = config
+        """Initialize FileListDataLoader.
+
+        :param load_data_func: function to load data. Must take tmp_dir_name and **kwargs, and return a tuple
+            of (data_dir, input_list, annotation).
+        :param batch_size: number of inputs per chunked input list file for batch processing. If None, all inputs are in
+            a single input list file.
+        :param kwargs: additional arguments to pass to load_data_func.
+        """
         self.batch_size = batch_size
-        self.tmp_dir = None
-        self.data_dir, self.input_list, self.annotation = self.load_data()
+        self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_")  # pylint: disable=consider-using-with
+        self.data_dir, self.input_list, self.annotation = load_data_func(self.tmp_dir.name, **kwargs)
         self.prepare_batches()
 
-    @abstractmethod
-    def load_data(self) -> Tuple[str, str, Any]:
-        """Return path to data directory, input list file and loaded annotation.
-
-        Derived class should override this method
-        """
-        raise NotImplementedError
-
     def prepare_batches(self):
+        """Prepare batches by splitting input list into chunks of batch_size.
+
+        Data won't be copied to batch directory until get_batch is called.
+        """
         if self.batch_size is None:
             self.num_batches = 1
             return
@@ -108,17 +109,8 @@ class FileListDataLoader(ABC):
         return self.num_batches
 
     def __iter__(self):
-        # pylint: disable=attribute-defined-outside-init
-        self.n = 0
-        return self
-
-    def __next__(self):
-        if self.n < self.num_batches:
-            batch = self.get_batch(self.n)
-            self.n += 1
-            return batch
-        else:
-            raise StopIteration
+        for batch_idx in range(self.num_batches):
+            yield self.get_batch(batch_idx)
 
     def get_data_dir(self):
         return self.data_dir
@@ -128,6 +120,8 @@ class FileListDataLoader(ABC):
 
 
 class FileListProcessedDataLoader(FileListDataLoader):
+    """FileList dataloader created from directory with data processed as expected by the Qualcomm SDKs."""
+
     def __init__(
         self,
         data_dir: str,
@@ -135,31 +129,45 @@ class FileListProcessedDataLoader(FileListDataLoader):
         annotations_file: str = None,
         batch_size: int = None,
     ):
-        config = {"data_dir": data_dir, "input_list_file": input_list_file, "annotations_file": annotations_file}
-        super().__init__(config, batch_size)
+        """Initialize FileListProcessedDataLoader.
 
-    def load_data(self) -> Tuple[str, str, np.ndarray]:
-        self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_")  # pylint: disable=consider-using-with
-        input_list = input_list_utils.get_input_list(
-            self.config["data_dir"], self.config["input_list_file"], self.tmp_dir.name
+        :param data_dir: directory containing processed data.
+        :param input_list_file: file containing input list. The paths to inputs are expected to be relative to data_dir.
+        :param annotations_file: npy file containing annotations. If None, no annotations are loaded.
+        :param batch_size: number of inputs per chunked input list file for batch processing. If None, all inputs are in
+            a single input list file.
+        """
+        super().__init__(
+            self.load_data,
+            data_dir=data_dir,
+            input_list_file=input_list_file,
+            annotations_file=annotations_file,
+            batch_size=batch_size,
         )
 
+    @staticmethod
+    def load_data(
+        tmp_dir: str, data_dir: str, input_list_file: str = "input_list.txt", annotations_file: str = None
+    ) -> Tuple[str, str, np.ndarray]:
+        # resolve paths to absolute paths and save new input list in tmp_dir
+        input_list = input_list_utils.get_input_list(data_dir, input_list_file, tmp_dir)
+
         annotations = None
-        if self.config["annotations_file"] is not None:
-            annotations_path = Path(self.config["data_dir"]) / self.config["annotations_file"]
+        if annotations_file is not None:
+            annotations_path = Path(data_dir) / annotations_file
             if not annotations_path.is_file():
-                raise FileNotFoundError(
-                    f"{self.config['annotations_file']} not found in data directory {self.config['data_dir']}"
-                )
+                raise FileNotFoundError(f"{annotations_file} not found in data directory {data_dir}")
             if annotations_path.suffix == ".npy":
                 annotations = np.load(annotations_path)
             else:
                 raise ValueError(f"Unsupported annotations file format {annotations_path.suffix}")
 
-        return self.config["data_dir"], input_list, annotations
+        return data_dir, input_list, annotations
 
 
 class FileListRandomDataLoader(FileListDataLoader):
+    """FileList dataloader created from random data."""
+
     def __init__(
         self,
         io_config: dict,
@@ -169,34 +177,50 @@ class FileListRandomDataLoader(FileListDataLoader):
         append_0: bool = False,
         batch_size: int = None,
     ):
-        config = {
-            "io_config": io_config,
-            "num_samples": num_samples,
-            "data_dir": data_dir,
-            "input_list_file": input_list_file,
-            "append_0": append_0,
-        }
-        super().__init__(config, batch_size)
+        """Initialize FileListRandomDataLoader.
 
-    def load_data(self) -> Tuple[str, str, np.ndarray]:
-        self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_")  # pylint: disable=consider-using-with
+        :param io_config: dictionary containing input and output names and shapes of the model.
+        :param num_samples: number of random samples to generate.
+        :param data_dir: directory to save random data. If None, a temporary directory is created.
+        :param input_list_file: name of the input list file to save.
+        :param append_0: whether to append ":0" to input names in the input list file. Might be relevant if the model is
+            converted from TensorFlow.
+        :param batch_size: number of inputs per chunked input list file for batch processing. If None, all inputs are in
+            a single input list file.
+        """
+        super().__init__(
+            self.load_data,
+            io_config=io_config,
+            num_samples=num_samples,
+            data_dir=data_dir,
+            input_list_file=input_list_file,
+            append_0=append_0,
+            batch_size=batch_size,
+        )
 
+    @staticmethod
+    def load_data(
+        tmp_dir: str,
+        io_config: dict,
+        num_samples: int,
+        data_dir: str = None,
+        input_list_file: str = "input_file_list.txt",
+        append_0: bool = False,
+    ) -> Tuple[str, str, np.ndarray]:
         # get data_dir
-        if self.config["data_dir"] is None:
-            data_dir = Path(self.tmp_dir.name).resolve() / "data"
+        if data_dir is None:
+            data_dir = Path(tmp_dir).resolve() / "data"
             data_dir.mkdir(parents=True, exist_ok=True)
         else:
-            data_dir = Path(self.config["data_dir"]).resolve()
+            data_dir = Path(data_dir).resolve()
 
         # create random data
-        for input_name, input_shape in zip(
-            self.config["io_config"]["input_names"], self.config["io_config"]["input_shapes"]
-        ):
+        for input_name, input_shape in zip(io_config["input_names"], io_config["input_shapes"]):
             input_dir = data_dir / input_name
             input_dir.mkdir(parents=True, exist_ok=True)
             raw_shape = np.product(input_shape)  # noqa: NPY003
-            name_length = len(str(self.config["num_samples"]))
-            for i in range(self.config["num_samples"]):
+            name_length = len(str(num_samples))
+            for i in range(num_samples):
                 input_file = input_dir / (f"{i}".zfill(name_length) + ".raw")
                 raw_input = np.random.uniform(-1.0, 1.0, raw_shape).astype(np.float32)
                 raw_input.tofile(input_file)
@@ -204,15 +228,15 @@ class FileListRandomDataLoader(FileListDataLoader):
         # create input_list
         input_list_utils.create_input_list(
             str(data_dir),
-            self.config["io_config"]["input_names"],
-            input_list_file=str((data_dir / self.config["input_list_file"]).resolve()),
-            add_input_names=len(self.config["io_config"]["input_names"]) > 1,
-            add_output_names=len(self.config["io_config"]["output_names"]) > 1,
-            output_names=self.config["io_config"]["output_names"],
-            append_0=self.config["append_0"],
+            io_config["input_names"],
+            input_list_file=str((data_dir / input_list_file).resolve()),
+            add_input_names=len(io_config["input_names"]) > 1,
+            add_output_names=len(io_config["output_names"]) > 1,
+            output_names=io_config["output_names"],
+            append_0=append_0,
         )
 
-        input_list = input_list_utils.get_input_list(data_dir, self.config["input_list_file"], self.tmp_dir.name)
+        input_list = input_list_utils.get_input_list(data_dir, input_list_file, tmp_dir)
 
         return str(data_dir), input_list, None
 
@@ -221,27 +245,27 @@ class FileListCommonDataLoader(FileListDataLoader):
     """FileList dataloader created from a common dataloader such as torch.data.DataLoader."""
 
     def __init__(self, dataloader: Any, io_config: dict, batch_size: int = None):
-        """Initialize FileList Dataloader.
+        """Initialize FileListCommonDataLoader.
+
+        Each batch in the common dataloader is saved as a raw input file.
 
         :param dataloader: dataloader object. Dataloader must be iterable and return a tuple of (input, target).
-        input is a dictionary of input names and input tensors.
+            input is a dictionary of input names and input tensors.
         :param io_config: dictionary containing input and output names and shapes of the model.
-        :param batch_size: batch size for the FileList dataloader. This is not the same as the batch size of the common
-        dataloader.
+        :param batch_size: number of inputs per chunked input list file for batch processing. If None, all inputs are in
+            a single input list file. This is not the same as the batch size of the common dataloader.
         """
-        config = {"dataloader": dataloader, "io_config": io_config}
-        super().__init__(config, batch_size)
+        super().__init__(self.load_data, dataloader=dataloader, io_config=io_config, batch_size=batch_size)
 
-    def load_data(self) -> Tuple[str, str, np.ndarray]:
-        logger.debug("Converting dataloader of type %s to FileList dataloader", type(self.config["dataloader"]))
+    @staticmethod
+    def load_data(tmp_dir: str, dataloader: Any, io_config: dict) -> Tuple[str, str, np.ndarray]:
+        logger.debug("Converting dataloader of type %s to FileList dataloader", type(dataloader))
         input_specs = {}
-        for input_name, input_shape in zip(
-            self.config["io_config"]["input_names"], self.config["io_config"]["input_shapes"]
-        ):
+        for input_name, input_shape in zip(io_config["input_names"], io_config["input_shapes"]):
             input_specs[input_name] = {"target_shape": input_shape}
 
         # get single data sample
-        input_data, _ = next(iter(self.config["dataloader"]))
+        input_data, _ = next(iter(dataloader))
         # source input names
         for input_name, input_spec in input_specs.items():
             if input_name in input_data:
@@ -288,15 +312,14 @@ class FileListCommonDataLoader(FileListDataLoader):
             input_spec["permutation"] = permutation
         logger.debug("Input specs: %s", input_specs)
 
-        self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_")  # pylint: disable=consider-using-with
-        data_dir = Path(self.tmp_dir.name) / "data"
+        data_dir = Path(tmp_dir) / "data"
         data_dir.mkdir()  # create data dir
 
         input_order = []
         annotations = []
-        num_samples = len(self.config["dataloader"])
+        num_samples = len(dataloader)
         sample_digits = len(str(num_samples))
-        for i, (input_data_i, annotation) in enumerate(self.config["dataloader"]):
+        for i, (input_data_i, annotation) in enumerate(dataloader):
             if isinstance(input_data_i, tuple):
                 input_data = dict(zip(input_specs.keys(), input_data_i))
             elif isinstance(input_data_i, (torch.Tensor, np.ndarray)):
@@ -334,10 +357,10 @@ class FileListCommonDataLoader(FileListDataLoader):
             input_names=list(input_specs.keys()),
             input_dirs=[input_spec["source_name"] for input_spec in input_specs.values()],
             add_input_names=len(input_specs) > 1,
-            add_output_names=len(self.config["io_config"]["output_names"]) > 1,
-            output_names=self.config["io_config"]["output_names"],
+            add_output_names=len(io_config["output_names"]) > 1,
+            output_names=io_config["output_names"],
         )
 
-        input_list = input_list_utils.get_input_list(str(data_dir), input_list_file, self.tmp_dir.name)
+        input_list = input_list_utils.get_input_list(str(data_dir), input_list_file, tmp_dir)
 
         return str(data_dir), input_list, annotations
