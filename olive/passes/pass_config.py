@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import logging
 from enum import Enum
 from pathlib import Path
 from typing import Callable, ClassVar, Dict, List, Optional, Type, Union
@@ -10,8 +9,6 @@ from typing import Callable, ClassVar, Dict, List, Optional, Type, Union
 from olive.common.config_utils import ConfigBase, ConfigParam, ParamCategory, validate_object, validate_resource_path
 from olive.common.pydantic_v1 import create_model, validator
 from olive.strategy.search_parameter import SearchParameter, SpecialParamValue, json_to_search_parameter
-
-logger = logging.getLogger(__name__)
 
 
 class PassParamDefault(str, Enum):
@@ -83,17 +80,20 @@ def get_user_script_config(
     return user_script_config  # noqa: RET504
 
 
+DEFAULT_SET = set(PassParamDefault)
+
+
 class PassConfigBase(ConfigBase):
+
     @validator("*", pre=True)
     def _validate_default_str(cls, v, field):
-        try:
-            if isinstance(v, str):
-                v = PassParamDefault(v)
-        except ValueError:
-            if field.required:
-                logger.warning("%s cannot be set to PassParamDefault enum from %s", field.name, v)
+        if not isinstance(v, (str, PassParamDefault)) or v not in DEFAULT_SET:
+            return v
 
-        return v
+        if field.required:
+            raise ValueError(f"{field.name} is required and cannot be set to {v}")
+
+        return PassParamDefault(v)
 
     @validator("*", pre=True)
     def _validate_search_parameter(cls, v):
