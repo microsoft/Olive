@@ -26,7 +26,6 @@ class FileListDataLoader(ABC):
         self.config = config
         self.batch_size = batch_size
         self.tmp_dir = None
-        self.data_dir, self.input_list, self.annotation = self.load_data()
 
     @abstractmethod
     def load_data(self) -> Tuple[str, str, Any]:
@@ -37,6 +36,8 @@ class FileListDataLoader(ABC):
         raise NotImplementedError
 
     def prepare_batches(self):
+        self.data_dir, self.input_list, self.annotation = self.load_data()
+
         if self.batch_size is None:
             self.num_batches = 1
             return
@@ -160,7 +161,6 @@ class FileListProcessedDataLoader(FileListDataLoader):
     @classmethod
     def from_data(cls, data_dir, input_list_file, annotations_file=None, batch_size=None):
         loader = cls(data_dir, input_list_file, annotations_file, batch_size)
-        loader.load_data()
         loader.prepare_batches()
         return loader
 
@@ -227,7 +227,6 @@ class FileListRandomDataLoader(FileListDataLoader):
         cls, io_config, num_samples, data_dir, input_list_file="input_list.txt", append_0=False, batch_size=None
     ):
         loader = cls(io_config, num_samples, data_dir, input_list_file, append_0, batch_size)
-        loader.load_data()
         loader.prepare_batches()
         return loader
 
@@ -360,6 +359,5 @@ class FileListCommonDataLoader(FileListDataLoader):
     @classmethod
     def from_data(cls, dataloader, io_config, batch_size=None):
         loader = cls(dataloader, io_config, batch_size)
-        loader.load_data()
         loader.prepare_batches()
         return loader
