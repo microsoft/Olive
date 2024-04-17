@@ -190,7 +190,7 @@ class AwqQuantizer(Pass):
         from awq.quantize.quantizer import AwqQuantizer as AutoAwqQuantizer
         from awq.quantize.quantizer import clear_memory, get_best_device, set_op_by_name
 
-        from olive.passes.pytorch.ort_quant_utils import QuantLinearORT
+        from olive.passes.pytorch.quant_utils import QuantLinearORT
 
         class OrtAwqQuantizer(AutoAwqQuantizer):
             def _apply_quant(self, module, named_linears: Dict[str, torch.nn.Linear]):
