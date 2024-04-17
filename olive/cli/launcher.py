@@ -33,13 +33,14 @@ def main(raw_args=None, called_as_console_script: bool = True):
     service.run()
 
 
-def legacy_call(deprecated_module: str, command_name: str):
+def legacy_call(deprecated_module: str, command_name: str, *args):
     """Run a command with a warning about the deprecation of the module.
 
     Command arguments are taken from the command line.
 
     :param deprecated_module: The deprecated module name.
     :param command_name: The command name to run.
+    :param args: Additional arguments to pass to the command.
     """
     warn(
         f"Running `python -m {deprecated_module}` is deprecated and might be removed in the future. Please use"
@@ -48,7 +49,7 @@ def legacy_call(deprecated_module: str, command_name: str):
     )
 
     # get args from command line
-    raw_args = [command_name] + sys.argv[1:]
+    raw_args = [command_name, *args]
     main(raw_args)
 
 

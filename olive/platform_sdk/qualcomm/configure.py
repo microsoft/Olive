@@ -7,6 +7,7 @@ import logging
 import os
 import platform
 import shutil
+import sys
 from importlib import resources
 from pathlib import Path
 
@@ -98,4 +99,4 @@ if __name__ == "__main__":
     # there is no circular dependency since configure is imported lazily by the command runner
     from olive.cli.launcher import legacy_call
 
-    legacy_call("olive.platform_sdk.qualcomm.configure", "configure-qualcomm-sdk")
+    legacy_call("olive.platform_sdk.qualcomm.configure", "configure-qualcomm-sdk", *sys.argv[1:])
