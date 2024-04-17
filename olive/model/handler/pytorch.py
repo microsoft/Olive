@@ -72,23 +72,24 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
 
         self.model_loader = model_loader
         self.model = None
-        io_config = (
+        validated_io_config = (
             validate_config(io_config, IoConfig).dict() if isinstance(io_config, (IoConfig, dict)) else io_config
         )
         self.hf_config = None
+        new_model_attributes = None
         if hf_config:
             self.hf_config = validate_config(hf_config, HfConfig)
             hf_model_config = self.get_hf_model_config().to_dict()
             model_attr = model_attributes or {}
             hf_model_config.update(model_attr)
-            model_attributes = hf_model_config
+            new_model_attributes = hf_model_config
 
         super().__init__(
             framework=Framework.PYTORCH,
             model_file_format=model_file_format,
             model_path=model_path,
-            model_attributes=model_attributes,
-            io_config=io_config,
+            model_attributes=new_model_attributes,
+            io_config=validated_io_config,
         )
         self.add_resources(locals())
 
