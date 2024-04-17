@@ -87,7 +87,8 @@ class PassConfigBase(ConfigBase):
     @validator("*", pre=True)
     def _validate_default_str(cls, v, field):
         try:
-            v = PassParamDefault(v)
+            if isinstance(v, str):
+                v = PassParamDefault(v)
         except ValueError:
             if field.required:
                 logger.warning("%s cannot be set to PassParamDefault enum from %s", field.name, v)
