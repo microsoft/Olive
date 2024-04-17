@@ -107,11 +107,53 @@ class OnnxConversion(Pass):
                     "models with adapter weights"
                 ),
             ),
+            "save_metadata_for_token_generation": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Whether to save metadata for token generation or not. "
+                    "Includes config.json, generation_config.json, and  tokenizer related files."
+                ),
+            ),
         }
         config.update(get_external_data_config())
         return config
 
     def _run_for_config(
+        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> Union[CompositeModelHandler, DistributedOnnxModelHandler, ONNXModelHandler]:
+        output_model = self._run_for_config_internal(model, data_root, config, output_model_path)
+
+        if model.hf_config and config["save_metadata_for_token_generation"]:
+            if isinstance(output_model, CompositeModelHandler):
+                for _, component_model in output_model.get_model_components():
+                    output_dir = Path(component_model.get_resource("model_path"))
+                    if not output_dir.is_dir():
+                        output_dir = str(output_dir.parent)
+                        component_model.set_resource("model_path", output_dir)
+
+                    component_model.model_attributes = model_attributes = component_model.model_attributes or {}
+                    model_attributes["additional_files"] = additional_files = model_attributes.get(
+                        "additional_files", []
+                    )
+                    additional_files.extend(model.save_metadata_for_token_generation(str(output_dir)))
+
+            elif isinstance(output_model, (DistributedOnnxModelHandler, ONNXModelHandler)):
+                output_dir = Path(output_model.get_resource("model_path"))
+                if not output_dir.is_dir():
+                    output_dir = str(output_dir.parent)
+                    output_model.set_resource("model_path", output_dir)
+
+                output_model.model_attributes = model_attributes = output_model.model_attributes or {}
+                model_attributes["additional_files"] = additional_files = model_attributes.get("additional_files", [])
+                additional_files.extend(model.save_metadata_for_token_generation(str(output_dir)))
+
+            else:
+                raise RuntimeError("Encountered an unknown model type during conversion.")
+
+        return output_model
+
+    def _run_for_config_internal(
         self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> Union[CompositeModelHandler, DistributedOnnxModelHandler, ONNXModelHandler]:
         # get the device to use for conversion
