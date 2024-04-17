@@ -56,6 +56,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
             model_file_format=ModelFileFormat.ONNX,
             model_path=model_path,
             model_attributes=model_attributes,
+            io_config=None,
         )
         self.inference_settings = inference_settings
         self.use_ort_extensions = use_ort_extensions
@@ -63,7 +64,6 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
         self.external_initializers_file_name = external_initializers_file_name
         self.constant_inputs_file_name = constant_inputs_file_name
 
-        self.io_config = None
         self.graph = None
         self.all_graphs: Optional[List[GraphProto]] = None
 

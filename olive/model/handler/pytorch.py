@@ -72,21 +72,25 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
 
         self.model_loader = model_loader
         self.model = None
+        io_config = (
+            validate_config(io_config, IoConfig).dict() if isinstance(io_config, (IoConfig, dict)) else io_config
+        )
+        self.hf_config = None
+        if hf_config:
+            self.hf_config = validate_config(hf_config, HfConfig)
+            hf_model_config = self.get_hf_model_config().to_dict()
+            model_attr = model_attributes or {}
+            hf_model_config.update(model_attr)
+            model_attributes = hf_model_config
+
         super().__init__(
             framework=Framework.PYTORCH,
             model_file_format=model_file_format,
             model_path=model_path,
             model_attributes=model_attributes,
+            io_config=io_config,
         )
         self.add_resources(locals())
-
-        self.hf_config = None
-        if hf_config:
-            self.hf_config = validate_config(hf_config, HfConfig)
-            hf_model_config = self.get_hf_model_config().to_dict()
-            model_attr = self.model_attributes or {}
-            hf_model_config.update(model_attr)
-            self.model_attributes = hf_model_config
 
         # ensure that script_dirs are local folder
         script_dir_resource = create_resource_path(self.script_dir)
@@ -100,11 +104,6 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
                 ResourceType.LocalFile,
                 ResourceType.StringName,
             ), "model_script must be a local file or a string name."
-
-        # io config for conversion to onnx
-        self.io_config = (
-            validate_config(io_config, IoConfig).dict() if isinstance(io_config, (IoConfig, dict)) else io_config
-        )
 
         self.dummy_inputs_func = dummy_inputs_func
 
