@@ -32,6 +32,7 @@ class OptunaSearchAlgorithm(SearchAlgorithm):
         }
 
     def initialize(self):
+        # pylint: disable=attribute-defined-outside-init
         """Initialize the searcher."""
         self._sampler = self._create_sampler()
         directions = ["maximize" if higher_is_better else "minimize" for higher_is_better in self._higher_is_betters]

@@ -23,6 +23,7 @@ class RandomSearchAlgorithm(SearchAlgorithm):
 
     def initialize(self):
         """Initialize the searcher."""
+        # pylint: disable=attribute-defined-outside-init
         self._search_space.set_seed(self.config.seed)
         if not self.config.with_replacement:
             self._options = list(self._search_space.iterate())
