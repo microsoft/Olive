@@ -88,7 +88,8 @@ class PassConfigBase(ConfigBase):
         finally:
             if field.required and isinstance(v, PassParamDefault):
                 raise ValueError(f"{field.name} is required and cannot be set to {v.value}")
-            return v  # noqa: B012 # pylint: disable=lost-exception, return-in-finally
+
+        return v
 
     @validator("*", pre=True)
     def _validate_search_parameter(cls, v):

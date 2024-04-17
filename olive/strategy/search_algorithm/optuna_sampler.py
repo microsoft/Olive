@@ -42,7 +42,7 @@ class OptunaSearchAlgorithm(SearchAlgorithm):
     def should_stop(self):
         return (
             (self._search_space.empty() and self._num_samples_suggested > 0)
-            or (self._num_samples_suggested >= self._config.num_samples)
+            or (self._num_samples_suggested >= self.config.num_samples)
             or super().should_stop()
         )
 
@@ -81,7 +81,7 @@ class OptunaSearchAlgorithm(SearchAlgorithm):
                 search_point[space_name][param_name] = trial.suggest_categorical(suggestion_name, param.get_support())
             elif isinstance(param, Conditional):
                 parent_vals = {parent: search_point[space_name][parent] for parent in param.parents}
-                options = param.get_support(parent_vals)
+                options = param.get_support_with_args(parent_vals)
                 parent_vals_name = "_".join([f"{v}" for _, v in parent_vals.items()])
                 suggestion_name = f"{space_name}___{param_name}___{parent_vals_name}"
                 search_point[space_name][param_name] = trial.suggest_categorical(suggestion_name, options)

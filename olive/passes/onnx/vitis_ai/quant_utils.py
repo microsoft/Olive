@@ -426,6 +426,8 @@ def quantize_data_pof2s(data, qType, symmetric, reduce_range=False, method=Power
             rmax_mse = np.array(rmax_mse, dtype=rmax.dtype)
 
         return rmin_mse, rmax_mse, zp_mse, scale_mse, quantized_data_mse
+    else:
+        raise ValueError(f"Unsupported method: {method}")
 
 
 def is_ort_version_below_1_16():

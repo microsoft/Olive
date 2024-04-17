@@ -131,7 +131,9 @@ class Conditional(SearchParameter):
         self.support = support
         self.default = default or self.get_invalid_choice()
 
-    def get_support(self, parent_values: Dict[str, Any]) -> Union[List[str], List[int], List[float], List[bool]]:
+    def get_support_with_args(
+        self, parent_values: Dict[str, Any]
+    ) -> Union[List[str], List[int], List[float], List[bool]]:
         """Get the support for the search parameter for a given parent value."""
         # pylint: disable=arguments-differ
         assert parent_values.keys() == set(self.parents), "parent values keys do not match the parents"
@@ -234,9 +236,9 @@ class ConditionalDefault(Conditional):
         default = Categorical([default])
         super().__init__(parents, support, default)
 
-    def get_support(self, parent_values: Dict[str, Any]) -> Union[bool, int, float, str]:
+    def get_support_with_args(self, parent_values: Dict[str, Any]) -> Union[bool, int, float, str]:
         """Get the support for the search parameter for a given parent value."""
-        return super().get_support(parent_values)[0]
+        return super().get_support_with_args(parent_values)[0]
 
     def condition(self, parent_values: Dict[str, Any]) -> Union[bool, int, float, str, "ConditionalDefault"]:
         """Fix the parent value and return a new search parameter."""

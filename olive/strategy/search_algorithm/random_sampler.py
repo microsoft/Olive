@@ -23,16 +23,16 @@ class RandomSearchAlgorithm(SearchAlgorithm):
 
     def initialize(self):
         """Initialize the searcher."""
-        self._search_space.set_seed(self._config.seed)
-        if not self._config.with_replacement:
+        self._search_space.set_seed(self.config.seed)
+        if not self.config.with_replacement:
             self._options = list(self._search_space.iterate())
         self._num_samples_suggested = 0
 
     def should_stop(self):
         should_stop = (self._search_space.empty() and self._num_samples_suggested > 0) or (
-            self._num_samples_suggested >= self._config.num_samples
+            self._num_samples_suggested >= self.config.num_samples
         )
-        if not self._config.with_replacement:
+        if not self.config.with_replacement:
             should_stop = should_stop or (len(self._options) == 0)
         return should_stop or super().should_stop()
 
@@ -41,7 +41,7 @@ class RandomSearchAlgorithm(SearchAlgorithm):
         if self.should_stop():
             return None
 
-        if self._config.with_replacement:
+        if self.config.with_replacement:
             # sample a randrom point from the search space with replacement
             search_point = self._search_space.random_sample()
         else:
