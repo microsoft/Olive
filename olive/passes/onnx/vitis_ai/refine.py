@@ -59,6 +59,8 @@ class QuantPosManager(object):
             if node.output[0] == name:
                 return node.name
 
+        return None
+
     def get_ipos_name(self, node, input_id=None):
         if len(node.input) > 0:
             i_name = node.input[0]

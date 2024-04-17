@@ -41,5 +41,5 @@ class TPESearchAlgorithm(OptunaSearchAlgorithm):
     def _create_sampler(self) -> optuna.samplers.TPESampler:
         """Create the sampler."""
         return optuna.samplers.TPESampler(
-            multivariate=self._config.multivariate, group=self._config.group, seed=self._config.seed
+            multivariate=self.config.multivariate, group=self.config.group, seed=self.config.seed
         )

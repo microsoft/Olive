@@ -18,6 +18,7 @@ class ExhaustiveSearchAlgorithm(SearchAlgorithm):
 
     def initialize(self):
         """Initialize the searcher."""
+        # pylint: disable=attribute-defined-outside-init
         self._iterator = self._search_space.iterate()
 
     def suggest(self) -> Dict[str, Dict[str, Any]]:

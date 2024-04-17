@@ -80,15 +80,20 @@ def get_user_script_config(
     return user_script_config  # noqa: RET504
 
 
+DEFAULT_SET = set(PassParamDefault)
+
+
 class PassConfigBase(ConfigBase):
+
     @validator("*", pre=True)
     def _validate_default_str(cls, v, field):
-        try:
-            v = PassParamDefault(v)
-        finally:
-            if field.required and isinstance(v, PassParamDefault):
-                raise ValueError(f"{field.name} is required and cannot be set to {v.value}")
-            return v  # noqa: B012 # pylint: disable=lost-exception, return-in-finally
+        if not isinstance(v, (str, PassParamDefault)) or v not in DEFAULT_SET:
+            return v
+
+        if field.required:
+            raise ValueError(f"{field.name} is required and cannot be set to {v}")
+
+        return PassParamDefault(v)
 
     @validator("*", pre=True)
     def _validate_search_parameter(cls, v):

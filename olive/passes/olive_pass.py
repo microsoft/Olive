@@ -244,6 +244,7 @@ class Pass(ABC):
         """Get the default configuration for the pass. Doesn't include user_script and script_dir.
 
         Example:
+            ```
             return {
                 # required parameter
                 "param1": PassConfigParam(type_=int, required=True, description="param1 description"),
@@ -285,6 +286,7 @@ class Pass(ABC):
                     description="param6 description",
                 ),
             }
+            ```
 
         """
         raise NotImplementedError

@@ -213,6 +213,7 @@ class SearchStrategy:
             searcher = REGISTRY[self._config.search_algorithm](
                 search_spaces_dict, objectives, higher_is_betters, self._config.search_algorithm_config
             )
+            searcher.initialize()
         else:
             raise ValueError(f"Unknown search algorithm: {self._config.search_algorithm}")
         return searcher

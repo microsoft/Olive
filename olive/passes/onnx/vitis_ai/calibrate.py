@@ -207,3 +207,5 @@ def create_calibrator_power_of_two(
         calibrator.execution_providers = execution_providers
         calibrator.create_inference_session()
         return calibrator
+    else:
+        return calibrator
