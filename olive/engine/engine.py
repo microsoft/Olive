@@ -1071,7 +1071,10 @@ class Engine:
                 return config.create_system()
 
         if not self.target:
+            logger.info("Creating target system ...")
+            target_start_time = time.time()
             self.target = create_system(self.target_config, accelerator_spec)
+            logger.info("Target system created in %f seconds", time.time() - target_start_time)
         if not self.host:
             host_accelerators = self.host_config.config.accelerators
             if host_accelerators and host_accelerators[0].execution_providers:
@@ -1080,14 +1083,20 @@ class Engine:
                 )
             else:
                 host_accelerator_spec = None
+            logger.info("Creating host system ...")
+            host_start_time = time.time()
             self.host = create_system(self.host_config, host_accelerator_spec)
+            logger.info("Host system created in %f seconds", time.time() - host_start_time)
 
         yield
 
         if self.target_config.olive_managed_env:
+            # could we put it under cache system for reusing?
+            logger.info("Removing target system ...")
             self.target.remove()
             self.target = None
         if self.host_config.olive_managed_env:
+            logger.info("Removing host system ...")
             self.host.remove()
             self.host = None
 

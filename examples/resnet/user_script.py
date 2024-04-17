@@ -3,6 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+from pathlib import Path
+
 import torch
 import torchmetrics
 from onnxruntime.quantization.calibrate import CalibrationDataReader
@@ -35,6 +37,7 @@ class CIFAR10DataSet:
         **kwargs,
     ):
         super().__init__()
+        data_dir = str(Path(data_dir).resolve())
         self.train_path = data_dir
         self.vld_path = data_dir
         self.setup("fit")
@@ -181,7 +184,13 @@ def create_qat_config():
 
 def create_train_dataloader(data_dir, batchsize, *args, **kwargs):
     cifar10_dataset = CIFAR10DataSet(data_dir)
-    return DataLoader(PytorchResNetDataset(cifar10_dataset.train_dataset), batch_size=batchsize, drop_last=True)
+    return DataLoader(
+        PytorchResNetDataset(cifar10_dataset.train_dataset),
+        batch_size=batchsize,
+        drop_last=True,
+        train_path=data_dir,
+        vld_path=data_dir,
+    )
 
 
 # -------------------------------------------------------------------------
