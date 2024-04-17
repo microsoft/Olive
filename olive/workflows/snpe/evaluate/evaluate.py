@@ -46,8 +46,8 @@ def evaluate(model: str, config: Union[str, Dict], data: str, input_list_file: O
     # devices.append(Device.NPU)
 
     # Data
-    data = FileListProcessedDataLoader(data_dir, input_list_file=input_list_file)
-    input_list = data.get_input_list()
+    loader = FileListProcessedDataLoader.from_data(data_dir, input_list_file=input_list_file)
+    input_list = loader.get_input_list()
 
     # Run inference
     results = []

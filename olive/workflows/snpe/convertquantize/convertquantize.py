@@ -72,7 +72,7 @@ def convertquantize(
     snpe_quantized_model_file = str(models_dir / f"{name}.quant.dlc")
 
     def dataloader_func(data_dir):
-        return FileListProcessedDataLoader(data_dir, input_list_file=input_list_file)
+        return FileListProcessedDataLoader.from_data(data_dir, input_list_file=input_list_file)
 
     snpe_quantization = create_pass_from_dict(
         SNPEQuantization,

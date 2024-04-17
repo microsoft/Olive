@@ -27,7 +27,6 @@ class FileListDataLoader(ABC):
         self.batch_size = batch_size
         self.tmp_dir = None
         self.data_dir, self.input_list, self.annotation = self.load_data()
-        self.prepare_batches()
 
     @abstractmethod
     def load_data(self) -> Tuple[str, str, Any]:
@@ -158,6 +157,13 @@ class FileListProcessedDataLoader(FileListDataLoader):
 
         return self.config["data_dir"], input_list, annotations
 
+    @classmethod
+    def from_data(cls, data_dir, input_list_file, annotations_file=None, batch_size=None):
+        loader = cls(data_dir, input_list_file, annotations_file, batch_size)
+        loader.load_data()
+        loader.prepare_batches()
+        return loader
+
 
 class FileListRandomDataLoader(FileListDataLoader):
     def __init__(
@@ -215,6 +221,15 @@ class FileListRandomDataLoader(FileListDataLoader):
         input_list = input_list_utils.get_input_list(data_dir, self.config["input_list_file"], self.tmp_dir.name)
 
         return str(data_dir), input_list, None
+
+    @classmethod
+    def from_data(
+        cls, io_config, num_samples, data_dir, input_list_file="input_list.txt", append_0=False, batch_size=None
+    ):
+        loader = cls(io_config, num_samples, data_dir, input_list_file, append_0, batch_size)
+        loader.load_data()
+        loader.prepare_batches()
+        return loader
 
 
 class FileListCommonDataLoader(FileListDataLoader):
@@ -341,3 +356,10 @@ class FileListCommonDataLoader(FileListDataLoader):
         input_list = input_list_utils.get_input_list(str(data_dir), input_list_file, self.tmp_dir.name)
 
         return str(data_dir), input_list, annotations
+
+    @classmethod
+    def from_data(cls, dataloader, io_config, batch_size=None):
+        loader = cls(dataloader, io_config, batch_size)
+        loader.load_data()
+        loader.prepare_batches()
+        return loader
