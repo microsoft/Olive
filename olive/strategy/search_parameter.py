@@ -131,6 +131,9 @@ class Conditional(SearchParameter):
         self.support = support
         self.default = default or self.get_invalid_choice()
 
+    def get_support(self) -> List[Any]:
+        raise NotImplementedError("Use get_support_with_args instead")
+
     def get_support_with_args(
         self, parent_values: Dict[str, Any]
     ) -> Union[List[str], List[int], List[float], List[bool]]:
