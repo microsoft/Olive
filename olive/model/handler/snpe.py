@@ -61,7 +61,7 @@ class SNPEModelHandler(OliveModelHandler):
         if device == Device.NPU:
             device = SNPEDevice.DSP
         session_options.device = device
-        return SNPEInferenceSession(self.model_path, self._io_config, session_options)
+        return SNPEInferenceSession(self.model_path, self.io_config, session_options)
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
