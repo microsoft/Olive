@@ -159,13 +159,20 @@
             <span class="n">model_file_format</span><span class="o">=</span><span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">SNPE_DLC</span><span class="p">,</span>
             <span class="n">model_path</span><span class="o">=</span><span class="n">model_path</span><span class="p">,</span>
             <span class="n">model_attributes</span><span class="o">=</span><span class="n">model_attributes</span><span class="p">,</span>
+            <span class="n">io_config</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;input_names&quot;</span><span class="p">:</span> <span class="n">input_names</span><span class="p">,</span>
+                <span class="s2">&quot;input_shapes&quot;</span><span class="p">:</span> <span class="n">input_shapes</span><span class="p">,</span>
+                <span class="s2">&quot;output_names&quot;</span><span class="p">:</span> <span class="n">output_names</span><span class="p">,</span>
+                <span class="s2">&quot;output_shapes&quot;</span><span class="p">:</span> <span class="n">output_shapes</span><span class="p">,</span>
+            <span class="p">},</span>
         <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;input_names&quot;</span><span class="p">:</span> <span class="n">input_names</span><span class="p">,</span>
-            <span class="s2">&quot;input_shapes&quot;</span><span class="p">:</span> <span class="n">input_shapes</span><span class="p">,</span>
-            <span class="s2">&quot;output_names&quot;</span><span class="p">:</span> <span class="n">output_names</span><span class="p">,</span>
-            <span class="s2">&quot;output_shapes&quot;</span><span class="p">:</span> <span class="n">output_shapes</span><span class="p">,</span>
-        <span class="p">}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">io_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_io_config</span><span class="p">,</span> <span class="s2">&quot;SNPEModelHandler: io_config is not set&quot;</span>
+
+        <span class="n">keys</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;input_names&quot;</span><span class="p">,</span> <span class="s2">&quot;input_shapes&quot;</span><span class="p">,</span> <span class="s2">&quot;output_names&quot;</span><span class="p">,</span> <span class="s2">&quot;output_shapes&quot;</span><span class="p">}</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_io_config</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">}</span>
 
     <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span>

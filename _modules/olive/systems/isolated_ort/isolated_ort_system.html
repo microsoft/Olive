@@ -246,7 +246,7 @@
             <span class="s2">&quot;io_bind&quot;</span><span class="p">:</span> <span class="bp">cls</span><span class="o">.</span><span class="n">io_bind_enabled</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">inference_settings</span><span class="p">),</span>
             <span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">device</span><span class="p">),</span>
             <span class="s2">&quot;share_kv_buffer&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">shared_kv_buffer</span><span class="p">,</span>
-            <span class="s2">&quot;use_fp16&quot;</span><span class="p">:</span> <span class="nb">any</span><span class="p">(</span><span class="n">v</span> <span class="o">==</span> <span class="s2">&quot;float16&quot;</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">get_io_config</span><span class="p">()[</span><span class="s2">&quot;input_types&quot;</span><span class="p">]),</span>
+            <span class="s2">&quot;use_fp16&quot;</span><span class="p">:</span> <span class="nb">any</span><span class="p">(</span><span class="n">v</span> <span class="o">==</span> <span class="s2">&quot;float16&quot;</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">io_config</span><span class="p">[</span><span class="s2">&quot;input_types&quot;</span><span class="p">]),</span>
         <span class="p">}</span>
 
     <span class="k">def</span> <span class="nf">_run_inference</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
@@ -273,7 +273,7 @@
         <span class="n">inference_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_common_config</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">execution_providers</span><span class="p">)</span>
         <span class="n">inference_config</span><span class="p">[</span><span class="s2">&quot;mode&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;inference&quot;</span>
 
-        <span class="n">io_config</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_io_config</span><span class="p">()</span>
+        <span class="n">io_config</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">io_config</span>
 
         <span class="n">preds</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">targets</span> <span class="o">=</span> <span class="p">[]</span>
@@ -374,7 +374,7 @@
             <span class="p">}</span>
         <span class="p">)</span>
 
-        <span class="n">io_config</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_io_config</span><span class="p">()</span>
+        <span class="n">io_config</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">io_config</span>
 
         <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">temp_dir</span><span class="p">:</span>
             <span class="n">temp_dir_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">temp_dir</span><span class="p">)</span>
