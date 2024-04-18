@@ -1,15 +1,9 @@
 import gradio as gr
 
-title = """<h1 align="left" style="min-width:200px; margin-top:0;">Llama 2 Chat UI, Powered By ONNX</h1>"""
-description_top = """\
-<div align="left">
-Use at your own risk...
-</p >
-</div>
-"""
+title = """<h1 align="left" style="min-width:200px; margin-top:0;">LLM Chat UI, Powered By ONNX</h1>"""
 description = """\
 <div align="center" style="margin:16px 0">
-This is a chat demo using the various versions of the Llama 2 model
+This is a chat demo using the various versions of the LLMs
 </div>
 """
 CONCURRENT_COUNT = 100

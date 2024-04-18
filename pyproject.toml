@@ -42,7 +42,7 @@ good-names = [
 # Please don't use ** for the pattern. It will cause pylint to crash.
 # the crash error message would like:
 # re.error: multiple repeat at position 41
-ignore-paths = [".*/examples/directml/llama_v2/chat_app/.*"]
+ignore-paths = [".*/examples/directml/llm/chat_app/.*"]
 
 [tool.pylint.messages_control]
 disable = [
@@ -194,4 +194,4 @@ classmethod-decorators = ["classmethod", "olive.common.pydantic_v1.validator", "
 "olive/engine/packaging/sample_code/ONNXModel/python/**" = ["INP001"]
 "test/**" = ["INP001"]
 "scripts/**" = ["INP001"]
-"examples/directml/llama_v2/chat_app/**" = ["TID252", "UP006", "T201"]
+"examples/directml/llm/chat_app/**" = ["TID252", "UP006", "T201"]

@@ -5,25 +5,15 @@ from pathlib import Path
 
 import gradio as gr
 from app_modules.overwrites import postprocess
-from app_modules.presets import description, description_top, small_and_beautiful_theme, title
+from app_modules.presets import description, small_and_beautiful_theme, title
 from app_modules.utils import cancel_outputing, delete_last_conversation, reset_state, reset_textbox, transfer_input
-from interface.hddr_llama_onnx_dml_interface import LlamaOnnxDmlInterface
+from interface.hddr_llm_onnx_dml_interface import LLMOnnxDmlInterface
 
 top_directory = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-
-available_models = {
-    "LLaMA 7B Chat Float16": {
-        "onnx_file": os.path.join(
-            top_directory, "models", "optimized", "llama_v2", "llama_v2", "decoder_model_merged.onnx"
-        ),
-        "sampling_onnx_file": os.path.join(
-            top_directory, "models", "optimized", "llama_v2", "argmax_sampling", "model.onnx"
-        ),
-        "tokenizer_path": os.path.join(top_directory, "models", "optimized", "llama_v2", "tokenizer.model"),
-    },
-}
-
+optimized_directory = os.path.join(top_directory, "models", "optimized")
+available_models = {}
 interface = None
+binding_device = "dml"
 
 
 def change_model_listener(new_model_name):
@@ -36,14 +26,27 @@ def change_model_listener(new_model_name):
         gc.collect()
 
     d = available_models[new_model_name]
-    interface = LlamaOnnxDmlInterface(
-        onnx_file=d["onnx_file"],
-        sampling_onnx_file=d["sampling_onnx_file"],
-        tokenizer_path=d["tokenizer_path"],
+    interface = LLMOnnxDmlInterface(
+        model_dir=d["model_dir"],
+        device=binding_device,
     )
     interface.initialize()
 
-    return new_model_name
+    return [
+        new_model_name,
+        gr.update(visible="llava" in new_model_name),
+        [],
+        [],
+        gr.update(value=""),
+        "",
+    ]
+
+
+def change_image_visibility(new_model_name):
+    if "llava" in new_model_name:
+        return gr.update(visible=True)
+
+    return gr.update(visible=False)
 
 
 gr.Chatbot.postprocess = postprocess
@@ -62,14 +65,19 @@ def interface_retry(*args):
     yield from res
 
 
-def launch_chat_app(expose_locally: bool = False):
+def launch_chat_app(expose_locally: bool = False, device: str = "dml"):
+    global binding_device
+    binding_device = device
+
+    for model_name in os.listdir(optimized_directory):
+        available_models[model_name] = {"model_dir": os.path.join(optimized_directory, model_name)}
+
     with gr.Blocks(css=custom_css, theme=small_and_beautiful_theme) as demo:
         history = gr.State([])
         user_question = gr.State("")
         with gr.Row():
             gr.HTML(title)
             status_display = gr.Markdown("Success", elem_id="status_display")
-        gr.Markdown(description_top)
 
         with gr.Row():
             with gr.Column(scale=5):
@@ -88,19 +96,18 @@ def launch_chat_app(expose_locally: bool = False):
                     )
                     retry_button = gr.Button("🔄 Regenerate")
                     delete_last_button = gr.Button("🗑️ Remove Last Turn")
+            reset_args = {"fn": reset_textbox, "inputs": [], "outputs": [user_input, status_display]}
             with gr.Column(), gr.Column(min_width=50, scale=1), gr.Tab(label="Parameter Setting"):
                 gr.Markdown("# Model")
                 model_name = gr.Dropdown(
                     choices=list(available_models.keys()),
                     label="Model",
                     show_label=False,  # default="Empty STUB",
-                    value="LLaMA 7B Chat Float16",
+                    value=next(iter(available_models.keys())),
                 )
-                model_name.change(change_model_listener, inputs=[model_name], outputs=[model_name])
-
                 max_length_tokens = gr.Slider(
                     minimum=0,
-                    maximum=512,
+                    maximum=4096,
                     value=256,
                     step=8,
                     interactive=True,
@@ -116,11 +123,25 @@ def launch_chat_app(expose_locally: bool = False):
                 )
                 token_printing_step = gr.Slider(
                     minimum=1,
-                    maximum=10,
+                    maximum=50,
                     value=4,
                     step=1,
                     interactive=True,
                     label="Token Printing Step",
+                )
+
+                image = gr.Image(type="pil", visible=False)
+                image.change(
+                    reset_state,
+                    outputs=[chatbot, history, status_display],
+                    show_progress=True,
+                )
+                image.change(**reset_args)
+
+                model_name.change(
+                    change_model_listener,
+                    inputs=[model_name],
+                    outputs=[model_name, image, chatbot, history, user_input, status_display],
                 )
         gr.Markdown(description)
 
@@ -133,6 +154,7 @@ def launch_chat_app(expose_locally: bool = False):
                 max_length_tokens,
                 max_context_length_tokens,
                 token_printing_step,
+                image,
             ],
             "outputs": [chatbot, history, status_display],
             "show_progress": True,
@@ -149,8 +171,6 @@ def launch_chat_app(expose_locally: bool = False):
             "outputs": [chatbot, history, status_display],
             "show_progress": True,
         }
-
-        reset_args = {"fn": reset_textbox, "inputs": [], "outputs": [user_input, status_display]}
 
         # Chatbot
         transfer_input_args = {
@@ -186,9 +206,9 @@ def launch_chat_app(expose_locally: bool = False):
             cancels=[predict_event1, predict_event2, predict_event3],
         )
 
-        demo.load(change_model_listener, inputs=[model_name], outputs=model_name)
+        demo.load(change_model_listener, inputs=[model_name], outputs=[model_name, image])
 
-    demo.title = "Llama Chat UI"
+    demo.title = "LLM Chat UI"
 
     if expose_locally:
         demo.queue(concurrency_count=1).launch(server_name="0.0.0.0", server_port=7860)
@@ -199,5 +219,6 @@ def launch_chat_app(expose_locally: bool = False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--expose_locally", action="store_true")
+    parser.add_argument("--device", type=str, choices=["dml", "cuda"], default="dml")
     args = parser.parse_args()
-    launch_chat_app(args.expose_locally)
+    launch_chat_app(args.expose_locally, args.device)

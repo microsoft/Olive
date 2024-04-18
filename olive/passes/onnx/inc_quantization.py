@@ -503,7 +503,8 @@ class IncQuantization(Pass):
         # start with a copy of the config
         run_config = deepcopy(config)
         require_dataloader = run_config["approach"] == "static" or (
-            run_config["approach"] == "weight_only" and run_config["weight_only_config"]["algorithm"].upper() == "GPTQ"
+            run_config["approach"] == "weight_only"
+            and run_config["weight_only_config"]["algorithm"].upper() in {"GPTQ", "AWQ"}
         )
         if require_dataloader:
             assert (
