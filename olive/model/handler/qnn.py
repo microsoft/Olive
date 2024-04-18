@@ -7,7 +7,6 @@ import platform
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-from olive.common.config_utils import validate_config
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
 from olive.model.config import IoConfig
@@ -34,10 +33,7 @@ class QNNModelHandler(OliveModelHandler):
             model_file_format=model_file_format,
             model_path=model_path,
             model_attributes=model_attributes,
-        )
-        # io config for conversion to onnx
-        self.io_config = (
-            validate_config(io_config, IoConfig).dict() if isinstance(io_config, (IoConfig, dict)) else io_config
+            io_config=io_config,
         )
 
     @property
@@ -95,4 +91,4 @@ class QNNModelHandler(OliveModelHandler):
         # the backend specified in inference_settings
         inference_settings["backend"] = model_attributes.get("backend") or inference_settings.get("backend")
         session_options = QNNSessionOptions(**inference_settings)
-        return QNNInferenceSession(self.model_path, self.io_config, session_options)
+        return QNNInferenceSession(self.model_path, self._io_config, session_options)

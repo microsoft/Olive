@@ -31,13 +31,20 @@ class SNPEModelHandler(OliveModelHandler):
             model_file_format=ModelFileFormat.SNPE_DLC,
             model_path=model_path,
             model_attributes=model_attributes,
+            io_config={
+                "input_names": input_names,
+                "input_shapes": input_shapes,
+                "output_names": output_names,
+                "output_shapes": output_shapes,
+            },
         )
-        self.io_config = {
-            "input_names": input_names,
-            "input_shapes": input_shapes,
-            "output_names": output_names,
-            "output_shapes": output_shapes,
-        }
+
+    @property
+    def io_config(self) -> Dict[str, Any]:
+        assert self._io_config, "SNPEModelHandler: io_config is not set"
+
+        keys = {"input_names", "input_shapes", "output_names", "output_shapes"}
+        return {k: v for k, v in self._io_config.items() if k in keys}
 
     def load_model(self, rank: int = None):
         raise NotImplementedError
@@ -54,11 +61,11 @@ class SNPEModelHandler(OliveModelHandler):
         if device == Device.NPU:
             device = SNPEDevice.DSP
         session_options.device = device
-        return SNPEInferenceSession(self.model_path, self.io_config, session_options)
+        return SNPEInferenceSession(self.model_path, self._io_config, session_options)
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
-        config["config"].update(self.io_config)
+        config["config"].update(self._io_config)
         return serialize_to_json(config, check_object)
 
     def get_dlc_metrics(self) -> dict:
