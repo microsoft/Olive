@@ -87,10 +87,10 @@ def patched_supported_features_mapping(*supported_features: str, onnx_config_cls
     if onnx_config_cls is None:
         raise ValueError("A OnnxConfig class must be provided")
 
-    import olive.model.utils.hf_onnx_config as config_cls
+    from olive.model.utils import hf_onnx_config
 
     for attr_name in onnx_config_cls.split("."):
-        config_cls = getattr(config_cls, attr_name)
+        config_cls = getattr(hf_onnx_config, attr_name)
     mapping = {}
     for feature in supported_features:
         if "-with-past" in feature:
