@@ -976,7 +976,7 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
     ) -> FileListDataLoader:
         if isinstance(dataloader, FileListDataLoader):
             return dataloader
-        return FileListCommonDataLoader(dataloader, model._io_config, batch_size=file_chunk_size)
+        return FileListCommonDataLoader(dataloader, model.io_config, batch_size=file_chunk_size)
 
 
 class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
@@ -1115,7 +1115,7 @@ class QNNEvaluator(OliveEvaluator, framework=Framework.QNN):
     ) -> FileListDataLoader:
         if isinstance(dataloader, FileListDataLoader):
             return dataloader
-        return FileListCommonDataLoader(dataloader, model._io_config, batch_size=file_chunk_size)
+        return FileListCommonDataLoader(dataloader, model.io_config, batch_size=file_chunk_size)
 
 
 class OliveEvaluatorFactory:

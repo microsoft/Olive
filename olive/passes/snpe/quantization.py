@@ -103,7 +103,7 @@ class SNPEQuantization(Pass):
 
         # convert dataloader to FileListDataLoader if it is not already
         if not isinstance(dataloader, FileListDataLoader):
-            dataloader = FileListCommonDataLoader(dataloader, model._io_config)
+            dataloader = FileListCommonDataLoader(dataloader, model.io_config)
 
         quantize_dlc(model.model_path, dataloader.get_input_list(), config, output_model_path)
-        return SNPEModelHandler(model_path=LocalFile({"path": output_model_path}), **model._io_config)
+        return SNPEModelHandler(model_path=LocalFile({"path": output_model_path}), **model.io_config)

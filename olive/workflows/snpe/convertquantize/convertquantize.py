@@ -64,7 +64,7 @@ def convertquantize(
     snpe_model = snpe_conversion.run(model, None, snpe_model_file)
     assert Path(snpe_model.model_path).is_file()
     with (models_dir / f"{name}.dlc_io_config.json").open("w") as f:
-        json.dump(snpe_model._io_config, f)
+        json.dump(snpe_model.io_config, f)
 
     # ------------------------------------------------------------------
     # SNPE Quantized model
@@ -82,7 +82,7 @@ def convertquantize(
     snpe_quantized_model = snpe_quantization.run(snpe_model, None, snpe_quantized_model_file)
     assert Path(snpe_quantized_model.model_path).is_file()
     with (models_dir / f"{name}.quant.dlc_io_config.json").open("w") as f:
-        json.dump(snpe_quantized_model._io_config, f)
+        json.dump(snpe_quantized_model.io_config, f)
 
     # ------------------------------------------------------------------
     # SNPE Quantized ONNX model
