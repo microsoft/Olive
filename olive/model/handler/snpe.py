@@ -39,6 +39,14 @@ class SNPEModelHandler(OliveModelHandler):
             },
         )
 
+    def get_io_config(self):
+        return {
+            "input_names": self.io_config.get("input_names"),
+            "input_shapes": self.io_config.get("input_shapes"),
+            "output_names": self.io_config.get("output_names"),
+            "output_shapes": self.io_config.get("output_shapes"),
+        }
+
     def load_model(self, rank: int = None):
         raise NotImplementedError
 
@@ -59,7 +67,7 @@ class SNPEModelHandler(OliveModelHandler):
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
         # only update the key in io_config where the value is not None
-        config["config"].update({key: value for key, value in config["config"].items() if value})
+        config["config"].update(self.get_io_config())
         return serialize_to_json(config, check_object)
 
     def get_dlc_metrics(self) -> dict:
