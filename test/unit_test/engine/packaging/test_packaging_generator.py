@@ -338,7 +338,7 @@ def test_generate_azureml_data(mock_create_resource_path, mock_retry_func):
     ("inferencing_server_type"),
     [(InferencingServerType.AzureMLOnline), (InferencingServerType.AzureMLBatch)],
 )
-def test_generate_azureml_output(mock_retry_func, inferencing_server_type):
+def test_azureml_deployment(mock_retry_func, inferencing_server_type):
     from azure.ai.ml.constants import AssetTypes
     from azure.ai.ml.entities import (
         AzureMLBatchInferencingServer,
