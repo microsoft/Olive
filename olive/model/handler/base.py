@@ -2,6 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+from olive.common.config_utils import validate_config
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
 from olive.model.config import IoConfig
@@ -43,7 +44,9 @@ class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin, CompositeM
         self.model_file_format = model_file_format
         self.composite_parent = None
         self.model_attributes = model_attributes
-        self.io_config = io_config
+        self.io_config = (
+            validate_config(io_config, IoConfig).dict() if isinstance(io_config, (IoConfig, dict)) else io_config
+        )
 
         # store resource paths
         self.resource_paths: Dict[str, str] = {}

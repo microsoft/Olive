@@ -72,9 +72,6 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
 
         self.model_loader = model_loader
         self.model = None
-        validated_io_config = (
-            validate_config(io_config, IoConfig).dict() if isinstance(io_config, (IoConfig, dict)) else io_config
-        )
         self.hf_config = None
         new_model_attributes = None
         if hf_config:
@@ -89,7 +86,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
             model_file_format=model_file_format,
             model_path=model_path,
             model_attributes=new_model_attributes,
-            io_config=validated_io_config,
+            io_config=io_config,
         )
         self.add_resources(locals())
 
@@ -315,15 +312,12 @@ class DistributedPyTorchModelHandler(OliveModelHandler, HfConfigMixin):
         adapter_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         model_attributes: Optional[Dict[str, Any]] = None,
     ):
-        validate_io_config = (
-            validate_config(io_config, IoConfig).dict() if isinstance(io_config, (IoConfig, dict)) else io_config
-        )
         super().__init__(
             framework=Framework.PYTORCH,
             model_file_format=model_file_format,
             model_path=model_path,
             model_attributes=model_attributes,
-            io_config=validate_io_config,
+            io_config=io_config,
         )
 
         self.add_resources(locals())
