@@ -77,6 +77,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
             framework=Framework.PYTORCH,
             model_file_format=model_file_format,
             model_path=model_path,
+            model_attributes=model_attributes,
             io_config=io_config,
         )
         self.add_resources(locals())
