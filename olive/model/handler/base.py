@@ -45,9 +45,7 @@ class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin, CompositeM
         self.composite_parent = None
         self.model_attributes = model_attributes
         self.io_config = (
-            validate_config(io_config, IoConfig).dict(exclude_none=True)
-            if isinstance(io_config, (IoConfig, dict))
-            else io_config
+            validate_config(io_config, IoConfig).dict() if isinstance(io_config, (IoConfig, dict)) else io_config
         )
 
         # store resource paths
