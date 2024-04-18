@@ -61,7 +61,7 @@ class SDKRunner:
             if cmd_full_path.with_suffix(".exe").exists():
                 cmd_full_path = cmd_full_path.with_suffix(".exe")
             if cmd_full_path.exists():
-                cmd_list.insert(0, str(cmd_full_path))
+                cmd_list[0] = str(cmd_full_path)
                 try:
                     with cmd_full_path.open() as f:
                         first_line = f.readline()
