@@ -259,7 +259,7 @@ def _get_best_candidate_node(
     for accelerator_spec, pf_footprint in pf_footprints.items():
         footprint = footprints[accelerator_spec]
         if pf_footprint.nodes and footprint.nodes:
-            top_nodes.append(pf_footprint._get_top_ranked_nodes(1)[0])
+            top_nodes.append(next(iter(pf_footprint.get_top_ranked_nodes(1))))
     return next(
         iter(
             sorted(
