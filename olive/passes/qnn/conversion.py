@@ -99,7 +99,7 @@ class QNNConversion(Pass):
         if config.get("out_node"):
             out_nodes = config["out_node"]
         elif model.io_config:
-            out_nodes = model.io_config.output_names
+            out_nodes = model.io_config["output_names"]
 
         output_model_path = normalize_path_suffix(output_model_path, "model.cpp")
 
