@@ -79,13 +79,14 @@ class QNNConversion(Pass):
         else:
             # TODO(trajep): add tflite support
             raise NotImplementedError(f"Unsupported model handler type: {type(model)}")
-        converter_program = f"qnn-{converter_platform}-converter"
+        converter_program = [f"qnn-{converter_platform}-converter"]
 
         runner = QNNSDKRunner(use_dev_tools=True)
         if platform.system() == "Windows":
-            converter_program = "python " + str(
-                Path(runner.sdk_env.sdk_root_path) / "bin" / runner.sdk_env.target_arch / converter_program
-            )
+            converter_program = [
+                "python",
+                str(Path(runner.sdk_env.sdk_root_path) / "bin" / runner.sdk_env.target_arch / converter_program),
+            ]
 
         # get input dim from io_config
         input_dims = None
@@ -93,7 +94,7 @@ class QNNConversion(Pass):
             input_dims = config["input_dim"]
         elif model.io_config:
             input_dims_tuple = zip(model.io_config["input_names"], model.io_config["input_shapes"])
-            input_dims = [f"'{name}' {','.join(map(str, shape))}" for name, shape in input_dims_tuple]
+            input_dims = [[name, ",".join(map(str, shape))] for name, shape in input_dims_tuple]
 
         out_nodes = None
         if config.get("out_node"):
@@ -102,14 +103,22 @@ class QNNConversion(Pass):
             out_nodes = model.io_config["output_names"]
 
         output_model_path = normalize_path_suffix(output_model_path, "model.cpp")
-
+        # TODO(anyone): unify other cmd to list to avoid shlex.split error in non-posix mode
         cmd_list = [
-            converter_program,
-            f"--input_network {model.model_path}",
-            f"--output_path {output_model_path}",
-            " ".join([f"--input_dim {i}" for i in input_dims]) if input_dims else "",
-            " ".join([f"--out_node {o}" for o in out_nodes]) if out_nodes else "",
-            config["extra_args"] or "",
+            *converter_program,
+            "--input_network",
+            model.model_path,
+            "--output_path",
+            output_model_path,
         ]
-        runner.run(" ".join(cmd_list))
+        if input_dims:
+            for i in input_dims:
+                cmd_list.extend(["--input_dim", *i])
+        if out_nodes:
+            for o in out_nodes:
+                cmd_list.extend(["--out_node", o])
+        if config["extra_args"]:
+            cmd_list.extend(config["extra_args"].split())
+
+        runner.run(cmd_list)
         return QNNModelHandler(output_model_path, model_file_format=ModelFileFormat.QNN_CPP)
