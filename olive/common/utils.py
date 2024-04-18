@@ -26,6 +26,9 @@ def run_subprocess(cmd, env=None, cwd=None, check=False):
     assert isinstance(cmd, (str, list)), f"cmd must be a string or a list, got {type(cmd)}."
     windows = platform.system() == "Windows"
     if isinstance(cmd, str):
+        # The cmd may contain the folder/file path from windows. This kind of path is like: C:\\User\\xxx\\...
+        # in posix mode, the shlex.split will split the path into ['C:Userxxx...'], which is not correct.
+        # in non-posix mode, the shlex.split will split the path into ['C:\\User\\xxx\\...'], which is correct.
         cmd = shlex.split(cmd, posix=not windows)
 
     try:
