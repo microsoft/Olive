@@ -91,4 +91,4 @@ class QNNModelHandler(OliveModelHandler):
         # the backend specified in inference_settings
         inference_settings["backend"] = model_attributes.get("backend") or inference_settings.get("backend")
         session_options = QNNSessionOptions(**inference_settings)
-        return QNNInferenceSession(self.model_path, self._io_config, session_options)
+        return QNNInferenceSession(self.model_path, self.io_config, session_options)
