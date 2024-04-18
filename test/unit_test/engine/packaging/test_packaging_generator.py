@@ -359,7 +359,7 @@ def test_azureml_deployment(mock_retry_func, inferencing_server_type):
     model_path = "fake_model_file"
     endpoint_name = "package-test-endpoint"
     deployment_name = "package-test-deployment"
-    code_folder = "code"
+    code_folder = str(Path(__file__).parent / "code")
     scoring_script = "score.py"
     base_environent_id = "base_environent_id"
     target_environment = "target_environment"
