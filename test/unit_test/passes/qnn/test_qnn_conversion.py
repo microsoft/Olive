@@ -23,12 +23,12 @@ from olive.passes.qnn.conversion import QNNConversion
 def test_qnn_conversion_cmd(mocked_qnn_sdk_runner, config, tmp_path):
     input_model = get_onnx_model()
     p = create_pass_from_dict(QNNConversion, config, disable_search=True)
-    mocked_qnn_sdk_runner.sdk_env.return_value.sdk_root_path = "sdk_root_path"
-    mocked_qnn_sdk_runner.sdk_env.return_value.target_arch = "x86_64"
+    mocked_qnn_sdk_runner.return_value.sdk_env.sdk_root_path = "sdk_root_path"
+    mocked_qnn_sdk_runner.return_value.sdk_env.target_arch = "x86_64"
     p.run(input_model, None, tmp_path)
     converter_program = ["qnn-onnx-converter"]
     if platform.system() == "Windows":
-        converter_program = ["python", "sdk_root_path/bin/x86_64/qnn-onnx-converter"]
+        converter_program = ["python", "sdk_root_path\\bin\\x86_64\\qnn-onnx-converter"]
 
     expected_cmd_list = [
         *converter_program,
