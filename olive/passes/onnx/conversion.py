@@ -412,7 +412,7 @@ class OnnxConversion(Pass):
 
         # get dummy inputs
         dummy_inputs = model.get_dummy_inputs()
-        io_config = model.get_io_config()
+        io_config = model.io_config
 
         converted_onnx_model = OnnxConversion._export_pytorch_model(
             pytorch_model, dummy_inputs, io_config, config, device, torch_dtype, tempfile.tempdir
@@ -464,7 +464,7 @@ class OnnxConversion(Pass):
                 ranked_models = []
                 for _, component_model in input_model.get_hf_components(local_rank):
                     dummy_inputs = component_model.get_dummy_inputs()
-                    io_config = None if pass_config["use_dynamo_exporter"] else component_model.get_io_config()
+                    io_config = None if pass_config["use_dynamo_exporter"] else component_model.io_config
                     pytorch_model = component_model.prepare_session(rank=local_rank)
 
                     ranked_component_modelproto = OnnxConversion._export_pytorch_model(
@@ -486,7 +486,7 @@ class OnnxConversion(Pass):
             else:
                 olive_pytorch_model = input_model.load_model(local_rank)
                 dummy_inputs = olive_pytorch_model.get_dummy_inputs()
-                io_config = None if pass_config["use_dynamo_exporter"] else olive_pytorch_model.get_io_config()
+                io_config = None if pass_config["use_dynamo_exporter"] else olive_pytorch_model.io_config
                 pytorch_model = olive_pytorch_model.prepare_session(rank=local_rank)
 
                 ranked_onnx_modelproto = OnnxConversion._export_pytorch_model(

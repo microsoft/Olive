@@ -163,7 +163,7 @@ def test_extract_adapters_as_inputs(tmp_path, input_model_info, pack_inputs, mod
 
     # execute
     extracted_model: ONNXModelHandler = p.run(input_model_info[model_type]["onnx_model"], None, output_folder)
-    io_config = extracted_model.get_io_config()
+    io_config = extracted_model.io_config
 
     # assert
     assert Path(extracted_model.model_path).is_file()

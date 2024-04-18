@@ -119,7 +119,7 @@ def main(raw_args=None):
 
     # get output
     input_data, _ = dataset[0]
-    input_data = OnnxEvaluator.format_input(input_data, olive_model.get_io_config())
+    input_data = OnnxEvaluator.format_input(input_data, olive_model.io_config)
     output = session.run(None, input_data)
     return output[0][0]
 
