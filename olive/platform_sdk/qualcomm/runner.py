@@ -44,6 +44,7 @@ class SDKRunner:
         return os.environ.get(USE_OLIVE_ENV, USE_OLIVE_ENV_DEFAULT_VALUE) == USE_OLIVE_ENV_DEFAULT_VALUE
 
     def _resolve_cmd(self, cmd: str):
+        # TODO(trajep): use list instead of string to avoid shlex.split error in non-posix mode
         import platform
 
         if platform.system() == "Windows" and cmd.startswith(("snpe-", "qnn-")):

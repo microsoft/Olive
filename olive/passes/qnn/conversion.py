@@ -120,5 +120,5 @@ class QNNConversion(Pass):
         if config["extra_args"]:
             cmd_list.extend(config["extra_args"].split())
 
-        runner.run(cmd_list)
+        runner.run(" ".join(cmd_list))
         return QNNModelHandler(output_model_path, model_file_format=ModelFileFormat.QNN_CPP)
