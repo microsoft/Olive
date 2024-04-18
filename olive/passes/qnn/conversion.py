@@ -85,7 +85,7 @@ class QNNConversion(Pass):
         if platform.system() == "Windows":
             converter_program = [
                 "python",
-                str(Path(runner.sdk_env.sdk_root_path) / "bin" / runner.sdk_env.target_arch / converter_program),
+                str(Path(runner.sdk_env.sdk_root_path) / "bin" / runner.sdk_env.target_arch / converter_program[0]),
             ]
 
         # get input dim from io_config
