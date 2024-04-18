@@ -244,8 +244,6 @@ class LLMOnnxDmlInterface(BaseLLMInterface):
 
         input_ids = inputs[:, -max_context_length_tokens:]
 
-        x = input_ids
-
         human_tokens = [
             "[|Human|]",
             "Human:",
