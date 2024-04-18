@@ -85,12 +85,13 @@ class QNNConversion(Pass):
         if platform.system() == "Windows":
             converter_program = [
                 "python",
-                str(Path(runner.sdk_env.sdk_root_path) / "bin" / runner.sdk_env.target_arch / converter_program),
+                str(Path(runner.sdk_env.sdk_root_path) / "bin" / runner.sdk_env.target_arch / converter_program[0]),
             ]
 
         # get input dim from io_config
         input_dims = None
         if config.get("input_dim"):
+            # TODO(myguo): fix the bug here
             input_dims = config["input_dim"]
         elif model.io_config:
             input_dims_tuple = zip(model.io_config["input_names"], model.io_config["input_shapes"])
