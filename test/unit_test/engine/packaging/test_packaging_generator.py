@@ -383,6 +383,7 @@ def test_generate_azureml_output(mock_retry_func, inferencing_server_type):
     )
     model_package_mock = Mock()
 
+    inferencing_server = None
     if inferencing_server_type == InferencingServerType.AzureMLOnline:
         inferencing_server = AzureMLOnlineInferencingServer(code_configuration=code_configuration)
         deployment = ManagedOnlineDeployment(
