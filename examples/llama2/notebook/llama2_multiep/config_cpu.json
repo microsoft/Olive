@@ -155,8 +155,8 @@
         "evaluator": "merged_evaluator",
         "host": "local_system",
         "target": "local_system",
-        "cache_dir": "/raid/jiapli/cache",
-        "output_dir": "/raid/jiapli/models/llama2_cpu/meta-llama/Llama-2-7b-hf"
+        "cache_dir": "cache",
+        "output_dir": "models/llama2_cpu/meta-llama/Llama-2-7b-hf"
     },
     "pass_flows": [
         [

@@ -158,8 +158,8 @@
         "evaluator": "merged_evaluator",
         "host": "python_system",
         "target": "python_system",
-        "cache_dir": "/raid/jiapli/cache",
-        "output_dir": "/raid/jiapli/models/llama2_multiep/meta-llama/Llama-2-7b-hf",
+        "cache_dir": "cache",
+        "output_dir": "models/llama2_multiep/meta-llama/Llama-2-7b-hf",
         "packaging_config": {
             "type": "Zipfile",
             "name": "llama2"
