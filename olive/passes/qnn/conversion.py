@@ -34,11 +34,11 @@ class QNNConversion(Pass):
                 description=(
                     "The names and dimensions of the network input layers specified in the format"
                     " [input_name comma-separated-dimensions], for example:"
-                    "        [\"'data' 1,224,224,3\"]"
+                    '        ["data 1,224,224,3"]'
                     " Note that the quotes should always be included in order to"
                     " handle special characters, spaces, etc."
                     " For multiple inputs specify multiple --input_dim on the command line like:"
-                    "        [\"'data' 1,224,224,3\", \"'data2' 1,224,224,3\"]"
+                    '        ["data 1,224,224,3", "data2 1,224,224,3"]'
                     " If --input_dim is not specified, the input dimensions will be inferred from the model."
                     " If --input_dim is specified, the input dimensions will be used as-is."
                 ),
@@ -91,7 +91,7 @@ class QNNConversion(Pass):
         # get input dim from io_config
         input_dims = None
         if config.get("input_dim"):
-            input_dims = config["input_dim"]
+            input_dims = map(str.split, config["input_dim"])
         elif model.io_config:
             input_dims_tuple = zip(model.io_config["input_names"], model.io_config["input_shapes"])
             input_dims = [[name, ",".join(map(str, shape))] for name, shape in input_dims_tuple]
