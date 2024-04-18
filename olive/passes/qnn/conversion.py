@@ -92,9 +92,8 @@ class QNNConversion(Pass):
         if config.get("input_dim"):
             input_dims = config["input_dim"]
         elif model.io_config:
-            input_dims_tuple = zip(model.io_config.input_names, model.io_config.input_shapes)
-            # '{name}' is required to wrap the input name
-            input_dims = [f"'{name}' {','.joint(shape)}" for name, shape in input_dims_tuple]
+            input_dims_tuple = zip(model.io_config["input_names"], model.io_config["input_shapes"])
+            input_dims = [f"'{name}' {','.join(map(str, shape))}" for name, shape in input_dims_tuple]
 
         out_nodes = None
         if config.get("out_node"):
