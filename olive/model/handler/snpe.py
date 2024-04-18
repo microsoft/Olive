@@ -65,7 +65,7 @@ class SNPEModelHandler(OliveModelHandler):
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
-        config["config"].update(self._io_config)
+        config["config"].update(self.io_config)
         return serialize_to_json(config, check_object)
 
     def get_dlc_metrics(self) -> dict:
