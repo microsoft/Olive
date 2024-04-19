@@ -5276,7 +5276,7 @@
 <p>Converts a Huggingface generative PyTorch model to ONNX model using the Generative AI builder.
 
     See <a class="reference external" href="https://github.com/microsoft/onnxruntime-genai">https://github.com/microsoft/onnxruntime-genai</a></p>
-<p><strong>Input:</strong> handler.pytorch.PyTorchModelHandler</p>
+<p><strong>Input:</strong> handler.pytorch.PyTorchModelHandler | handler.onnx.ONNXModelHandler</p>
 <p><strong>Output:</strong> handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-precision">
@@ -5284,6 +5284,24 @@
 <dd><p>Precision of model.</p>
 <p><strong>type:</strong> olive.passes.onnx.genai_model_exporter.GenAIModelExporter.Precision</p>
 <p><strong>required:</strong> True</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-metadata_only">
+<span class="sig-name descname"><span class="pre">metadata_only</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-metadata_only" title="Permalink to this definition">¶</a></dt>
+<dd><p>Whether to export the model or generate required metadata only.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-search">
+<span class="sig-name descname"><span class="pre">search</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-search" title="Permalink to this definition">¶</a></dt>
+<dd><p>Search options to use for generate loop.</p>
+<p><strong>type:</strong> Dict[str, Any]</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 
 </section>
