@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import inspect
 import logging
+import shutil
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
@@ -12,7 +13,7 @@ from olive.common.config_utils import ConfigBase, ParamCategory, validate_config
 from olive.common.user_module_loader import UserModuleLoader
 from olive.data.config import DataConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
-from olive.model import CompositeModelHandler, DistributedOnnxModelHandler, OliveModelHandler
+from olive.model import CompositeModelHandler, DistributedOnnxModelHandler, OliveModelHandler, ONNXModelHandler
 from olive.passes.pass_config import (
     PassConfigBase,
     PassConfigParam,
@@ -189,7 +190,10 @@ class Pass(ABC):
             for rank in range(model.num_ranks):
                 input_ranked_model = model.load_model(rank)
                 ranked_output_path = Path(output_model_path).with_suffix("") / model.ranked_model_name(rank)
-                self._run_for_config(input_ranked_model, data_root, config, str(ranked_output_path))
+                output_ranked_model = self._run_for_config(
+                    input_ranked_model, data_root, config, str(ranked_output_path)
+                )
+                Pass._carry_forward_additional_files(input_ranked_model, output_ranked_model)
 
             output_model = DistributedOnnxModelHandler(
                 model_path=str(Path(output_model_path).with_suffix("")),
@@ -211,13 +215,61 @@ class Pass(ABC):
                 )
                 components.append(output_model_component)
                 component_names.append(component_name)
+                Pass._carry_forward_additional_files(component_model, output_model_component)
             output_model = CompositeModelHandler(components, component_names)
         else:
             output_model = self._run_for_config(model, data_root, config, output_model_path)
+            Pass._carry_forward_additional_files(model, output_model)
+
         # assumption: the model attributes from passes, if any, are more important than
         # the input model attributes, we should not update/extend anymore outside of the pass run
         output_model.model_attributes = output_model.model_attributes or model.model_attributes
         return output_model
+
+    @staticmethod
+    def _carry_forward_additional_files(input_model: OliveModelHandler, output_model: OliveModelHandler):
+        # NOTE: Can't use model.model_path because that always gets resolved to a filepath.
+        # We need the directory path here.
+        input_model_path = input_model.get_resource("model_path")
+        if not input_model_path:
+            return
+
+        input_model_path = Path(input_model_path)
+        if not input_model_path.is_dir():
+            return
+
+        input_model_attributes = input_model.model_attributes or {}
+        input_model_additional_files = set(input_model_attributes.get("additional_files", []))
+        if not input_model_additional_files:
+            return
+
+        output_model_path = Path(output_model.get_resource("model_path"))
+        if not output_model_path.is_dir():
+            if isinstance(output_model, ONNXModelHandler):
+                # change the "model_path" resource to the parent directory of the model file
+                output_model.set_resource("model_path", output_model_path.parent)
+                output_model.onnx_file_name = output_model_path.name
+                output_model_path = output_model_path.parent
+            else:
+                logger.warning("Expecting the output model to be in a directory but found a file.")
+                return
+
+        output_model_attributes = output_model.model_attributes or {}
+        output_model_additional_files = set(output_model_attributes.get("additional_files", []))
+
+        for filepath in input_model_additional_files:
+            input_filepath = Path(filepath)
+
+            # Make sure we don't overwrite an existing file in the output's directory.
+            # The follow up pass could have *potentially* generated a file with the same name.
+            output_filepath = output_model_path / input_filepath.name
+            if not output_filepath.exists():
+                # TODO(team): Use symlinks instead of copying the files.
+                output_model_additional_files.add(str(output_filepath))
+                shutil.copy(str(input_filepath), str(output_filepath))
+
+        output_model_attributes["additional_files"] = list(output_model_additional_files)
+        output_model.model_attributes = output_model_attributes
 
     def serialize_config(self, config: Dict[str, Any], check_object: bool = False) -> str:
         """Serialize the configuration."""

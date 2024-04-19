@@ -1,9 +1,9 @@
 {
-    "input_model":{
+    "input_model": {
         "type": "PyTorchModel",
         "config": {
             "hf_config": {
-                "model_name": "meta-llama/Llama-2-7b-hf",
+                "model_name": "<model_name_placeholder>",
                 "model_class": "LlamaForCausalLM",
                 "task": "text-generation"
             }
@@ -25,10 +25,34 @@
         }
     },
     "passes": {
+        "conversion": {
+            "type": "OnnxConversion",
+            "config": {
+                "target_opset": 16,
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true,
+                "save_metadata_for_token_generation": true
+            }
+        },
         "exporter": {
             "type": "GenAIModelExporter",
             "config": {
-                "precision": "int4"
+                "precision": "int4",
+                "search": {
+                    "max_length": 2048,
+                    "min_length": 0
+                }
+            }
+        },
+        "metadata": {
+            "type": "GenAIModelExporter",
+            "config": {
+                "precision": "int4",
+                "metadata_only": true,
+                "search": {
+                    "max_length": 2048,
+                    "min_length": 0
+                }
             }
         },
         "perf_tuning": {
@@ -37,7 +61,7 @@
                 "user_script": "user_script.py",
                 "dataloader_func": "dataloader_func_for_merged",
                 "dataloader_func_kwargs": {
-                    "model_id": "meta-llama/Llama-2-7b-hf",
+                    "model_id": "<model_name_placeholder>",
                     "past_seq_length": 0,
                     "seq_length": 8,
                     "max_seq_length": 2048
@@ -48,11 +72,18 @@
         }
     },
     "engine": {
+        "packaging_config": [
+            {
+                "type": "Zipfile",
+                "name": "OutputModel",
+                "include_runtime_packages": false,
+                "include_sample_code": false
+            }
+        ],
         "log_severity_level": 0,
-        "evaluate_input_model": false,
         "host": "local_system",
         "target": "local_system",
         "cache_dir": "cache",
-        "output_dir": "models/genai"
+        "output_dir": null
     }
 }

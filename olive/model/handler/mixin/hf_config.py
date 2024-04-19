@@ -50,15 +50,7 @@ class HfConfigMixin:
 
         return get_hf_model_config(self._get_model_path_or_name(), **self.hf_config.get_loading_args_from_pretrained())
 
-    def save_hf_model_config(self, output_dir: str, **kwargs):
-        if self.hf_config is None:
-            raise ValueError("HF model_config is not available.")
-        if not Path(output_dir).is_dir():
-            raise ValueError("Expecting a directory as input.")
-
-        save_hf_model_config(self.get_hf_model_config(), output_dir, **kwargs)
-
-    def get_hf_model_generation_config(self):
+    def _get_hf_model_generation_config(self):
         if self.hf_config is None:
             raise ValueError("HF model_config is not available")
 
@@ -66,29 +58,13 @@ class HfConfigMixin:
             self._get_model_path_or_name(), **self.hf_config.get_loading_args_from_pretrained()
         )
 
-    def save_hf_model_generation_config(self, output_dir: str, **kwargs):
-        if self.hf_config is None:
-            raise ValueError("HF model_config is not available.")
-        if not Path(output_dir).is_dir():
-            raise ValueError("Expecting a directory as input.")
-
-        save_hf_model_generation_config(self.get_hf_model_generation_config(), output_dir, **kwargs)
-
-    def get_hf_model_tokenizer(self):
+    def _get_hf_model_tokenizer(self):
         if self.hf_config is None:
             raise ValueError("HF model_config is not available")
 
         return get_hf_model_tokenizer(
             self._get_model_path_or_name(), **self.hf_config.get_loading_args_from_pretrained()
         )
-
-    def save_hf_model_tokenizer(self, output_dir: str, **kwargs):
-        if self.hf_config is None:
-            raise ValueError("HF model_config is not available.")
-        if not Path(output_dir).is_dir():
-            raise ValueError("Expecting a directory as input.")
-
-        save_hf_model_tokenizer(self.get_hf_model_tokenizer(), output_dir, **kwargs)
 
     def save_metadata_for_token_generation(self, output_dir: str, **kwargs):
         if self.hf_config is None:
@@ -97,14 +73,14 @@ class HfConfigMixin:
             raise ValueError("Expecting a directory as input.")
 
         save_hf_model_config(self.get_hf_model_config(), output_dir, **kwargs)
-        save_hf_model_generation_config(self.get_hf_model_generation_config(), output_dir, **kwargs)
-        tokenizer_filepaths = save_hf_model_tokenizer(self.get_hf_model_tokenizer(), output_dir, **kwargs)
+        save_hf_model_generation_config(self._get_hf_model_generation_config(), output_dir, **kwargs)
+        tokenizer_filepaths = save_hf_model_tokenizer(self._get_hf_model_tokenizer(), output_dir, **kwargs)
 
         output_dir = Path(output_dir)
         return [
             str(output_dir / "config.json"),
             str(output_dir / "generation_config.json"),
-            *tokenizer_filepaths,
+            *[fp for fp in tokenizer_filepaths if Path(fp).exists()],
         ]
 
     def get_hf_io_config(self):
