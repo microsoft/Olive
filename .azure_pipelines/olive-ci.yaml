@@ -16,7 +16,7 @@ trigger:
     - .azure_pipelines/performance.yaml
     - .azure_pipelines/job_templates/olive-performance-template.yaml
     # commonly updated examples with no test
-    - examples/directml/llama_v2/*
+    - examples/directml/llm/*
     - examples/directml/stable_diffusion_xl/*
     - examples/llama2/*
     - examples/mistral/*
@@ -40,7 +40,7 @@ pr:
     - .azure_pipelines/performance.yaml
     - .azure_pipelines/job_templates/olive-performance-template.yaml
     # commonly updated examples with no test
-    - examples/directml/llama_v2/*
+    - examples/directml/llm/*
     - examples/directml/stable_diffusion_xl/*
     - examples/llama2/*
     - examples/mistral/*
