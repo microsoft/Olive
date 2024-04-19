@@ -10,6 +10,7 @@ from typing import Callable, Dict, Optional
 import transformers
 from transformers import AutoConfig, AutoModel, AutoTokenizer
 
+from olive.common.utils import get_attr
 from olive.model.utils.hf_mappings import FEATURE_TO_PEFT_TASK_TYPE, MODELS_TO_MAX_LENGTH_MAPPING, TASK_TO_FEATURE
 
 logger = logging.getLogger(__name__)
@@ -87,10 +88,9 @@ def patched_supported_features_mapping(*supported_features: str, onnx_config_cls
     if onnx_config_cls is None:
         raise ValueError("A OnnxConfig class must be provided")
 
-    import olive.model.utils.hf_onnx_config as config_cls
+    from olive.model.utils import hf_onnx_config
 
-    for attr_name in onnx_config_cls.split("."):
-        config_cls = getattr(config_cls, attr_name)
+    config_cls = get_attr(hf_onnx_config, onnx_config_cls)
     mapping = {}
     for feature in supported_features:
         if "-with-past" in feature:
