@@ -365,7 +365,7 @@ class NewGELUActivation(torch.nn.Module):
 class SILUActivation(torch.nn.Module):
     def forward(self, x):
         if config.use_split_sigmoid:
-            y, gate = torch.split(x, [config.intermediate_size, config.intermediate_size], dim=-1)
+            gate, y = torch.split(x, [config.intermediate_size, config.intermediate_size], dim=-1)
             return y * gate * torch.sigmoid(gate)
         else:
             return x * torch.sigmoid(x)
