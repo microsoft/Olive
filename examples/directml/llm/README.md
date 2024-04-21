@@ -21,6 +21,7 @@ pip install -e .
 ```
 cd Olive/examples/directml/llm
 pip install -r requirements.txt
+pip install ort-nightly-directml==1.18.0.dev20240419003 --extra-index-url=https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
 ```
 
 3. (Only for LLaMA 2) Request access to the LLaMA 2 weights at the HuggingFace's [llama-2-7b-chat](https://huggingface.co/meta-llama/Llama-2-7b-chat-hf) or [llama-2-7b](https://huggingface.co/meta-llama/Llama-2-7b-hf) repositories.

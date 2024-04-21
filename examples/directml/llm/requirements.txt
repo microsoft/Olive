@@ -1,11 +1,8 @@
-
---extra-index-url=https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
 huggingface-hub
 markdown
 mdtex2html
 neural-compressor
 optimum
-ort-nightly-directml==1.18.0.dev20240419003
 protobuf==3.20.3 # protobuf 4.x aborts with OOM when optimizing large models
 Pygments
 sentencepiece
