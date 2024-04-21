@@ -17,7 +17,6 @@ from typing import Optional
 import config
 import torch
 import transformers
-from chat_app.app import launch_chat_app
 from huggingface_hub import hf_hub_download
 from model_type_mapping import (
     get_all_supported_models,
@@ -132,8 +131,8 @@ def optimize(
     set_config_parameters(tokenizer, repo_id, num_layers)
 
     script_dir = Path(__file__).resolve().parent
-    shutil.rmtree(script_dir / "footprints", ignore_errors=True)
-    shutil.rmtree(script_dir / "cache", ignore_errors=True)
+    # shutil.rmtree(script_dir / "footprints", ignore_errors=True)
+    # shutil.rmtree(script_dir / "cache", ignore_errors=True)
 
     with Path.open(script_dir / "config_llm.json") as fin:
         olive_config = json.load(fin)
@@ -360,6 +359,8 @@ def main():
 
     if not args.optimize:
         if args.interactive:
+            from chat_app.app import launch_chat_app
+
             launch_chat_app(args.expose_locally)
         else:
             with warnings.catch_warnings():
