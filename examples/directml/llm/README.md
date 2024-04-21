@@ -52,7 +52,7 @@ The first time this script is invoked can take some time since it will need to d
 
 Once the script successfully completes, the optimized ONNX pipeline will be stored under `models/optimized/<model_name>`.
 
-Note: When converting mistral, you will see the following error: `failed in shape inference <class 'AssertionError'>`. This is caused by the MultiHeadAttention operator not support Multi Query Attention, but in our case it doesn't matter since it will be converted to GroupQueryAttention at the end of the optimization process. You can safely ignore this error.
+Note: When converting mistral, you will see the following error: `failed in shape inference <class 'AssertionError'>`. This is caused by Multi Query Attention not being supported by the `MultiHeadAttention` operator, but in our case it doesn't matter since it will be converted to `GroupQueryAttention` at the end of the optimization process. You can safely ignore this error.
 
 If you only want to run the inference sample (possible after the model has been optimized), run the `run_llm_io_binding.py` helper script:
 
