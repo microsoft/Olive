@@ -131,8 +131,8 @@ def optimize(
     set_config_parameters(tokenizer, repo_id, num_layers)
 
     script_dir = Path(__file__).resolve().parent
-    # shutil.rmtree(script_dir / "footprints", ignore_errors=True)
-    # shutil.rmtree(script_dir / "cache", ignore_errors=True)
+    shutil.rmtree(script_dir / "footprints", ignore_errors=True)
+    shutil.rmtree(script_dir / "cache", ignore_errors=True)
 
     with Path.open(script_dir / "config_llm.json") as fin:
         olive_config = json.load(fin)
