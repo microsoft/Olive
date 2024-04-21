@@ -21,6 +21,7 @@ pip install -e .
 ```
 cd Olive/examples/directml/llm
 pip install -r requirements.txt
+pip install ort-nightly-directml==1.18.0.dev20240419003 --extra-index-url=https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
 ```
 
 3. (Only for LLaMA 2) Request access to the LLaMA 2 weights at the HuggingFace's [llama-2-7b-chat](https://huggingface.co/meta-llama/Llama-2-7b-chat-hf) or [llama-2-7b](https://huggingface.co/meta-llama/Llama-2-7b-hf) repositories.
@@ -51,6 +52,8 @@ python llm.py --help
 The first time this script is invoked can take some time since it will need to download the model weights from HuggingFace. The LLMs can be very large and the optimization process is resource intensive (it can sometimes take more than 200GB of ram). You can still optimize the model on a machine with less memory, but you'd have to increase your paging file size accordingly. **If the optimization process aborts without an error message or tells you that python stopped working, it is likely due to an OOM error and you should increase your paging file size.**
 
 Once the script successfully completes, the optimized ONNX pipeline will be stored under `models/optimized/<model_name>`.
+
+Note: When converting mistral, you will see the following error: `failed in shape inference <class 'AssertionError'>`. This is caused by Multi Query Attention not being supported by the `MultiHeadAttention` operator, but in our case it doesn't matter since it will be converted to `GroupQueryAttention` at the end of the optimization process. You can safely ignore this error.
 
 If you only want to run the inference sample (possible after the model has been optimized), run the `run_llm_io_binding.py` helper script:
 
