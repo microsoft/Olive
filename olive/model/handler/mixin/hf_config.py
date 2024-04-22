@@ -58,13 +58,13 @@ class HfConfigMixin:
             self._get_model_path_or_name(), **self.hf_config.get_loading_args_from_pretrained()
         )
 
-    def _get_hf_model_tokenizer(self):
+    def _get_hf_model_tokenizer(self, **kwargs):
         if self.hf_config is None:
             raise ValueError("HF model_config is not available")
 
-        return get_hf_model_tokenizer(
-            self._get_model_path_or_name(), **self.hf_config.get_loading_args_from_pretrained()
-        )
+        # don't provide loading args for tokenizer directly since it tries to serialize all kwargs
+        # TODO(anyone): only provide relevant kwargs, no use case for now to provide kwargs
+        return get_hf_model_tokenizer(self._get_model_path_or_name(), **kwargs)
 
     def save_metadata_for_token_generation(self, output_dir: str, **kwargs):
         if self.hf_config is None:
