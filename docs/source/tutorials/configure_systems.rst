@@ -42,7 +42,7 @@ The local system represents the local machine where the Pass is run or the Model
         .. code-block:: json
 
             {
-                "system": {
+                "systems": {
                     "local_system" : {
                         "type": "LocalSystem",
                         "config": {
@@ -115,7 +115,7 @@ Here are the examples of configuring the general Python Environment System.
         .. code-block:: json
 
             {
-                "system"  : {
+                "systems"  : {
                     "python_system" : {
                         "type": "PythonEnvironment",
                         "config": {
