@@ -251,17 +251,9 @@ class HfConfig(ConfigBase):
             raise ValueError("Either task or model_class must be specified")
         return v
 
-    def get_loading_args_from_pretrained(self, exclude_keys: List[str] = None) -> Dict[str, Any]:
-        """Return all args from from_pretrained_args in a dict with types expected by `from_pretrained`.
-
-        :param exclude_keys: List of keys to exclude from the returned dict.
-        :return: Dict of args with types expected by `from_pretrained`.
-        """
-        loading_args = self.from_pretrained_args.get_loading_args() if self.from_pretrained_args else {}
-        if exclude_keys:
-            for key in exclude_keys:
-                loading_args.pop(key, None)
-        return loading_args
+    def get_loading_args_from_pretrained(self) -> Dict[str, Any]:
+        """Return all args from from_pretrained_args in a dict with types expected by `from_pretrained`."""
+        return self.from_pretrained_args.get_loading_args() if self.from_pretrained_args else {}
 
 
 def get_model_type_from_hf_config(hf_config: HfConfig) -> str:
