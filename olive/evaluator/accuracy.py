@@ -28,12 +28,6 @@ class AccuracyBase(AutoConfigClass):
         "perplexity": torchmetrics.text.perplexity.Perplexity,
     }
 
-    @classmethod
-    @property
-    @abstractmethod
-    def name(cls):
-        raise NotImplementedError
-
     def __init__(self, config: Union[ConfigBase, Dict[str, Any]] = None) -> None:
         super().__init__(config)
         self.resolve_kwargs()

@@ -57,7 +57,7 @@ class AutoConfigClass(ABC):
         name = cls.name if cls.name is not None else cls.__name__.lower()
         cls.registry[name] = cls
 
-    def __init__(self, config: Union[ConfigBase, Dict[str, Any]], validators: Dict[str, Callable]) -> None:
+    def __init__(self, config: Union[ConfigBase, Dict[str, Any]], validators: Dict[str, Callable] = None) -> None:
         self.config_class = self.get_config_class(validators)
         self.config = validate_config(config, self.config_class)
 
