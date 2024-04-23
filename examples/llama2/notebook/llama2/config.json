@@ -5,7 +5,7 @@
         "workspace_name": "<workspace_name>",
         "keyvault_name": "<my_keyvault_name>"
     },
-    "input_model":{
+    "input_model": {
         "type": "PyTorchModel",
         "config": {
             "model_script": "user_script.py",
@@ -18,9 +18,9 @@
                     "registry_name": "azureml-meta",
                     "version": "13"
                 }
-             },
-             "model_file_format": "PyTorch.MLflow",
-             "hf_config": {
+            },
+            "model_file_format": "PyTorch.MLflow",
+            "hf_config": {
                 "model_name": "meta-llama/Llama-2-7b-hf",
                 "task": "text-generation"
             }
@@ -65,8 +65,8 @@
             }
         }
     },
-    "data_configs": {
-        "tiny_codes_train": {
+    "data_configs": [
+        {
             "name": "tiny_codes_train",
             "type": "HuggingfaceContainer",
             "user_script": "user_script.py",
@@ -91,14 +91,22 @@
                 }
             }
         }
-    },
+    ],
     "evaluators": {
         "common_evaluator": {
             "metrics": [
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_types": [{"name": "avg", "goal": {"type": "percent-min-improvement", "value": 10}}],
+                    "sub_types": [
+                        {
+                            "name": "avg",
+                            "goal": {
+                                "type": "percent-min-improvement",
+                                "value": 10
+                            }
+                        }
+                    ],
                     "user_config": {
                         "user_script": "user_script.py",
                         "dataloader_func": "dataloader_func_for_merged",
@@ -170,6 +178,6 @@
         "host": "aml",
         "target": "aml",
         "cache_dir": "cache",
-        "output_dir" : "models/llama2"
+        "output_dir": "models/llama2"
     }
 }
