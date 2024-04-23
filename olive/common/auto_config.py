@@ -57,8 +57,8 @@ class AutoConfigClass(ABC):
         name = cls.name if cls.name is not None else cls.__name__.lower()
         cls.registry[name] = cls
 
-    def __init__(self, config: Union[ConfigBase, Dict[str, Any]]) -> None:
-        self.config_class = self.get_config_class()
+    def __init__(self, config: Union[ConfigBase, Dict[str, Any]], validators: Dict[str, Callable]) -> None:
+        self.config_class = self.get_config_class(validators)
         self.config = validate_config(config, self.config_class)
 
     @classmethod
@@ -79,7 +79,9 @@ class AutoConfigClass(ABC):
         return cls._default_config()
 
     @classmethod
-    def get_config_class(cls) -> Type[ConfigBase]:
+    def get_config_class(cls, validators: Dict[str, Callable] = None) -> Type[ConfigBase]:
         """Get the configuration class."""
         assert not inspect.isabstract(cls), "Cannot get config class for abstract class"
-        return create_config_class(f"{cls.__name__}Config", cls.default_config(), cls._config_base, cls._validators())
+        cls_validators = {**cls._validators(), **validators} if validators else cls._validators()
+
+        return create_config_class(f"{cls.__name__}Config", cls.default_config(), cls._config_base, cls_validators)

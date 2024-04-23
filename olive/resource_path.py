@@ -157,6 +157,27 @@ def create_resource_path(
     return ResourcePathConfig(type=resource_type, config={config_key: resource_path}).create_resource_path()
 
 
+def validate_resource_path(v, values, field):
+    try:
+        v = create_resource_path(v)
+    except ValueError as e:
+        raise ValueError(f"Invalid resource path '{v}': {e}") from None
+    return v
+
+
+def get_resource_path_validator(
+    config: Dict[str, ConfigParam],
+):
+    config = config or {}
+    validators = {}
+    for param in config:
+        if param == "data_dir":
+            validator_name = f"validate_{param}_resource_path"
+            validators[validator_name] = validator(param, allow_reuse=True)(validate_resource_path)
+            break
+    return validators
+
+
 def _overwrite_helper(new_path: Union[Path, str], overwrite: bool):
     new_path = Path(new_path).resolve()
 

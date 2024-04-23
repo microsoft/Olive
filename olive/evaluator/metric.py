@@ -12,6 +12,7 @@ from olive.common.pydantic_v1 import validator
 from olive.data.config import DataConfig
 from olive.evaluator.accuracy import AccuracyBase
 from olive.evaluator.metric_config import LatencyMetricConfig, MetricGoal, ThroughputMetricConfig, get_user_config_class
+from olive.resource_path import get_resource_path_validator
 
 logger = logging.getLogger(__name__)
 
@@ -164,14 +165,17 @@ class Metric(ConfigBase):
 
         # metric_config
         metric_config_cls = None
+        metric_config = v.get("metric_config", {})
         if values["type"] == MetricType.ACCURACY:
             v["higher_is_better"] = v.get("higher_is_better", True)
             if values["backend"] == "torch_metrics":
-                metric_config_cls = AccuracyBase.registry[v["name"]].get_config_class()
+                validators = get_resource_path_validator(metric_config)
+                metric_config_cls = AccuracyBase.registry[v["name"]].get_config_class(validators)
             elif values["backend"] == "huggingface_metrics":
                 from olive.evaluator.metric_backend import HuggingfaceMetrics
 
-                metric_config_cls = HuggingfaceMetrics.get_config_class()
+                validators = get_resource_path_validator(metric_config)
+                metric_config_cls = HuggingfaceMetrics.get_config_class(validators)
         elif values["type"] == MetricType.LATENCY:
             v["higher_is_better"] = v.get("higher_is_better", False)
             metric_config_cls = LatencyMetricConfig
