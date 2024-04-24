@@ -21,10 +21,10 @@ from olive.engine import Engine
 from olive.evaluator.metric import AccuracySubType, MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
-from olive.hardware.accelerator import create_accelerators
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.optimum_conversion import OptimumConversion
 from olive.passes.onnx.quantization import OnnxDynamicQuantization, OnnxStaticQuantization
+from olive.systems.accelerator_creator import create_accelerators
 from olive.systems.common import SystemType
 from olive.systems.local import LocalSystem
 from olive.systems.system_config import LocalTargetUserConfig, SystemConfig
