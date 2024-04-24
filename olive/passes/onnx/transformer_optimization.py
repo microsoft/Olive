@@ -51,7 +51,11 @@ class OrtTransformersOptimization(Pass):
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         from onnxruntime.transformers.fusion_options import FusionOptions
 
-        is_gpu = accelerator_spec.accelerator_type == Device.GPU
+        # if device is GPU, but user choose CPU EP, the is_gpu should be False
+        is_gpu = (
+            accelerator_spec.accelerator_type == Device.GPU
+            and accelerator_spec.execution_provider != "CPUExecutionProvider"
+        )
 
         config = {
             "model_type": PassConfigParam(
