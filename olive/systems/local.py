@@ -11,7 +11,8 @@ from olive.systems.common import SystemType
 from olive.systems.olive_system import OliveSystem
 
 if TYPE_CHECKING:
-    from olive.evaluator.metric import Metric, MetricResult
+    from olive.evaluator.metric import Metric
+    from olive.evaluator.metric_result import MetricResult
     from olive.passes.olive_pass import Pass
 
 

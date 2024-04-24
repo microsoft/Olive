@@ -22,18 +22,9 @@ from olive.common.pydantic_v1 import validator
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import tensor_data_to_device
 from olive.constants import Framework
-from olive.evaluator.metric import (
-    LatencySubType,
-    Metric,
-    MetricResult,
-    MetricType,
-    SubMetricResult,
-    ThroughputSubType,
-    flatten_metric_result,
-    get_latency_config_from_metric,
-    joint_metric_key,
-)
+from olive.evaluator.metric import LatencySubType, Metric, MetricType, ThroughputSubType, get_latency_config_from_metric
 from olive.evaluator.metric_backend import MetricBackend
+from olive.evaluator.metric_result import MetricResult, SubMetricResult, flatten_metric_result, joint_metric_key
 from olive.hardware import Device
 from olive.model import DistributedOnnxModelHandler, ONNXModelHandler
 from olive.model.config.io_config import is_io_config_static

@@ -21,7 +21,7 @@ from typing import ClassVar, List
 
 import pytest
 
-from olive.evaluator.metric import joint_metric_key
+from olive.evaluator.metric_result import joint_metric_key
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import ModelConfig
 from olive.systems.local import LocalSystem

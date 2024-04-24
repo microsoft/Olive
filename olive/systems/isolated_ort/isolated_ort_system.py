@@ -24,7 +24,8 @@ from olive.systems.system_config import IsolatedORTTargetUserConfig
 from olive.systems.utils import create_new_environ, run_available_providers_runner
 
 if TYPE_CHECKING:
-    from olive.evaluator.metric import Metric, MetricResult
+    from olive.evaluator.metric import Metric
+    from olive.evaluator.metric_result import MetricResult
     from olive.hardware.accelerator import AcceleratorSpec
     from olive.model import ModelConfig, ONNXModelHandler
     from olive.passes.olive_pass import Pass

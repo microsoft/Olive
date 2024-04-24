@@ -13,7 +13,7 @@ from olive.strategy.search_algorithm.search_algorithm import SearchAlgorithm
 from olive.strategy.search_parameter import Categorical, Conditional, SpecialParamValue
 
 if TYPE_CHECKING:
-    from olive.evaluator.metric import MetricResult
+    from olive.evaluator.metric_result import MetricResult
 
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
