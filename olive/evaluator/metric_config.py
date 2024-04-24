@@ -8,7 +8,7 @@ from typing import Any, Callable, Dict, List, Union
 
 from olive.common.config_utils import ConfigBase, ConfigParam, ParamCategory, create_config_class
 from olive.common.pydantic_v1 import validator
-from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
+from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, validate_resource_path
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,9 @@ _common_user_config = {
     "io_bind": ConfigParam(type_=bool, default_value=False),
 }
 
-_common_user_config_validators = {}
+_common_user_config_validators = {
+    "validate_data_dir_resource_path": validator("data_dir", allow_reuse=True)(validate_resource_path)
+}
 
 _type_to_user_config = {
     "accuracy": {

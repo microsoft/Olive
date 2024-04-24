@@ -239,16 +239,6 @@ def validate_object(v, values, field):
     return v
 
 
-def validate_resource_path(v, values, field):
-    from olive.resource_path import create_resource_path
-
-    try:
-        v = create_resource_path(v)
-    except ValueError as e:
-        raise ValueError(f"Invalid resource path '{v}': {e}") from None
-    return v
-
-
 def create_config_class(
     class_name: str,
     default_config: Dict[str, ConfigParam],
@@ -259,9 +249,6 @@ def create_config_class(
     config = {}
     validators = validators.copy() if validators else {}
     for param, param_config in default_config.items():
-        if param == "data_dir":
-            validator_name = f"validate_{param}_resource_path"
-            validators[validator_name] = validator(param, allow_reuse=True)(validate_resource_path)
         # automatically add validator for object params
         if param_config.category == ParamCategory.OBJECT:
             validator_name = f"validate_{param}_object"

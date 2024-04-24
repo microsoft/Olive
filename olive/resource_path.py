@@ -157,6 +157,14 @@ def create_resource_path(
     return ResourcePathConfig(type=resource_type, config={config_key: resource_path}).create_resource_path()
 
 
+def validate_resource_path(v, values, field):
+    try:
+        v = create_resource_path(v)
+    except ValueError as e:
+        raise ValueError(f"Invalid resource path '{v}': {e}") from None
+    return v
+
+
 def _overwrite_helper(new_path: Union[Path, str], overwrite: bool):
     new_path = Path(new_path).resolve()
 
