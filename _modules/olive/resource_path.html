@@ -285,6 +285,14 @@
     <span class="k">return</span> <span class="n">ResourcePathConfig</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">resource_type</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="p">{</span><span class="n">config_key</span><span class="p">:</span> <span class="n">resource_path</span><span class="p">})</span><span class="o">.</span><span class="n">create_resource_path</span><span class="p">()</span>
 
 
+<span class="k">def</span> <span class="nf">validate_resource_path</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">field</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid resource path &#39;</span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">&#39;: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">v</span>
+
+
 <span class="k">def</span> <span class="nf">_overwrite_helper</span><span class="p">(</span><span class="n">new_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span><span class="p">):</span>
     <span class="n">new_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">new_path</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
 

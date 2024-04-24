@@ -136,7 +136,7 @@
 
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">ConfigParam</span><span class="p">,</span> <span class="n">ParamCategory</span><span class="p">,</span> <span class="n">create_config_class</span>
 <span class="kn">from</span> <span class="nn">olive.common.pydantic_v1</span> <span class="kn">import</span> <span class="n">validator</span>
-<span class="kn">from</span> <span class="nn">olive.resource_path</span> <span class="kn">import</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span>
+<span class="kn">from</span> <span class="nn">olive.resource_path</span> <span class="kn">import</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span><span class="p">,</span> <span class="n">validate_resource_path</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
@@ -159,7 +159,9 @@
     <span class="s2">&quot;io_bind&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
 <span class="p">}</span>
 
-<span class="n">_common_user_config_validators</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="n">_common_user_config_validators</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;validate_data_dir_resource_path&quot;</span><span class="p">:</span> <span class="n">validator</span><span class="p">(</span><span class="s2">&quot;data_dir&quot;</span><span class="p">,</span> <span class="n">allow_reuse</span><span class="o">=</span><span class="kc">True</span><span class="p">)(</span><span class="n">validate_resource_path</span><span class="p">)</span>
+<span class="p">}</span>
 
 <span class="n">_type_to_user_config</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s2">&quot;accuracy&quot;</span><span class="p">:</span> <span class="p">{</span>
