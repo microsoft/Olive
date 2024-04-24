@@ -11,7 +11,7 @@ from download_files import main as download_files
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
 
-import olive.workflows.run as olive_run
+from olive.workflows import run as olive_run
 
 
 def get_eval_variables():

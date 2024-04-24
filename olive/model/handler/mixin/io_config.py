@@ -12,5 +12,6 @@ class IoConfigMixin:
     For example, both PyTorch model and ONNX model handler choose to override the default behavior.
     """
 
-    def get_io_config(self) -> Dict[str, Any]:
-        return self.io_config
+    @property
+    def io_config(self) -> Dict[str, Any]:
+        return self._io_config

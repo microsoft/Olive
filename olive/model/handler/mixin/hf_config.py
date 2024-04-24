@@ -3,15 +3,21 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING, Generator, Optional, Tuple
 
 from olive.constants import ModelFileFormat
 from olive.model.utils.hf_utils import (
     get_hf_model_config,
     get_hf_model_dummy_input,
+    get_hf_model_generation_config,
     get_hf_model_io_config,
+    get_hf_model_tokenizer,
     load_hf_model_from_model_class,
     load_hf_model_from_task,
+    save_hf_model_config,
+    save_hf_model_generation_config,
+    save_hf_model_tokenizer,
 )
 
 if TYPE_CHECKING:
@@ -43,6 +49,39 @@ class HfConfigMixin:
             raise ValueError("HF model_config is not available")
 
         return get_hf_model_config(self._get_model_path_or_name(), **self.hf_config.get_loading_args_from_pretrained())
+
+    def _get_hf_model_generation_config(self):
+        if self.hf_config is None:
+            raise ValueError("HF model_config is not available")
+
+        return get_hf_model_generation_config(
+            self._get_model_path_or_name(), **self.hf_config.get_loading_args_from_pretrained()
+        )
+
+    def _get_hf_model_tokenizer(self, **kwargs):
+        if self.hf_config is None:
+            raise ValueError("HF model_config is not available")
+
+        # don't provide loading args for tokenizer directly since it tries to serialize all kwargs
+        # TODO(anyone): only provide relevant kwargs, no use case for now to provide kwargs
+        return get_hf_model_tokenizer(self._get_model_path_or_name(), **kwargs)
+
+    def save_metadata_for_token_generation(self, output_dir: str, **kwargs):
+        if self.hf_config is None:
+            raise ValueError("HF model_config is not available.")
+        if not Path(output_dir).is_dir():
+            raise ValueError("Expecting a directory as input.")
+
+        save_hf_model_config(self.get_hf_model_config(), output_dir, **kwargs)
+        save_hf_model_generation_config(self._get_hf_model_generation_config(), output_dir, **kwargs)
+        tokenizer_filepaths = save_hf_model_tokenizer(self._get_hf_model_tokenizer(), output_dir, **kwargs)
+
+        output_dir = Path(output_dir)
+        return [
+            str(output_dir / "config.json"),
+            str(output_dir / "generation_config.json"),
+            *[fp for fp in tokenizer_filepaths if Path(fp).exists()],
+        ]
 
     def get_hf_io_config(self):
         """Get Io config for the model."""

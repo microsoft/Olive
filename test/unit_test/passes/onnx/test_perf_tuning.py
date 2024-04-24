@@ -6,7 +6,7 @@ import logging
 import math
 import re
 from test.unit_test.utils import create_dataloader, get_onnx_model
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import psutil
 import pytest
@@ -209,7 +209,7 @@ def test_perf_tuning_with_force_evaluate(get_available_providers_mock, evaluate_
         )
 
 
-@patch("olive.model.ONNXModelHandler.get_io_config")
+@patch("olive.model.ONNXModelHandler.io_config", new_callable=PropertyMock)
 def test_ort_perf_tuning_pass_with_dynamic_shapes(mock_get_io_config, tmp_path):
     mock_get_io_config.return_value = {
         "input_names": ["input"],

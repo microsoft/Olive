@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import copy
 import json
 import logging
 import shutil
@@ -346,7 +345,7 @@ class AzureMLSystem(OliveSystem):
         parameters.extend([f"--{param} ${{{{outputs.{param}}}}}" for param in outputs])
 
         cmd_line = f"python {script_name} {' '.join(parameters)}"
-        env_vars = copy.deepcopy(self.env_vars) if self.env_vars else {}
+        env_vars = deepcopy(self.env_vars) if self.env_vars else {}
         env_vars["OLIVE_LOG_LEVEL"] = logging.getLevelName(logger.getEffectiveLevel())
 
         # the name need to be lowercase

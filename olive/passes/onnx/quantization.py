@@ -231,6 +231,8 @@ _static_optional_config = {
 
 
 def get_calibration_dataloader(data_root, user_module_loader, config):
+    dataloader = None
+
     if config["dataloader_func"]:
         # TODO(trajep): replace legacy dataloader_func with data config
         data_dir = get_local_path_from_root(data_root, config["data_dir"])

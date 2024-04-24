@@ -11,7 +11,9 @@ import pytest
 
 from olive.common.pydantic_v1 import ValidationError
 from olive.data.config import DataConfig
+from olive.package_config import OlivePackageConfig
 from olive.workflows.run.config import INPUT_MODEL_DATA_CONFIG, RunConfig
+from olive.workflows.run.run import get_pass_module_path, is_execution_provider_required
 
 # pylint: disable=attribute-defined-outside-init, unsubscriptable-object
 
@@ -20,6 +22,7 @@ class TestRunConfig:
     # like: Systems/Evaluation/Model and etc.
     @pytest.fixture(autouse=True)
     def setup(self):
+        self.package_config = OlivePackageConfig.parse_file(OlivePackageConfig.get_default_config_path())
         self.user_script_config_file = Path(__file__).parent / "mock_data" / "user_script.json"
 
     @pytest.mark.parametrize(
@@ -149,6 +152,53 @@ class TestRunConfig:
             _ = RunConfig.parse_obj(user_script_config)
         errors = e.value.errors()
         assert errors[0]["loc"] == ("engine", "execution_providers")
+
+    @pytest.mark.parametrize(("pass_type", "is_onnx"), [("IncQuantization", True), ("LoRA", False)])
+    def test_get_module_path(self, pass_type, is_onnx):
+        pass_module = get_pass_module_path(pass_type, self.package_config)
+        assert pass_module.startswith("olive.passes.onnx") == is_onnx
+
+    @pytest.mark.parametrize(
+        ("passes", "pass_flows", "is_onnx"),
+        [
+            (None, None, True),
+            (
+                {
+                    "lora": {"type": "LoRA"},
+                },
+                None,
+                False,
+            ),
+            (
+                {
+                    "lora": {"type": "LoRA"},
+                    "quantization": {"type": "IncQuantization"},
+                },
+                None,
+                True,
+            ),
+            (
+                {
+                    "lora": {"type": "LoRA"},
+                    "quantization": {"type": "IncQuantization"},
+                },
+                [["lora"]],
+                False,
+            ),
+        ],
+    )
+    def test_is_execution_provider_required(self, passes, pass_flows, is_onnx):
+        with self.user_script_config_file.open() as f:
+            user_script_config = json.load(f)
+
+        if passes:
+            user_script_config["passes"] = passes
+        if pass_flows:
+            user_script_config["pass_flows"] = pass_flows
+
+        run_config = RunConfig.parse_obj(user_script_config)
+        result = is_execution_provider_required(run_config, self.package_config)
+        assert result == is_onnx
 
 
 class TestDataConfigValidation:

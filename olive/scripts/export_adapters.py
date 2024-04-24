@@ -1,6 +1,6 @@
 import argparse
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
@@ -19,7 +19,7 @@ def parse_args(raw_args):
     parser.add_argument(
         "--adapter_path",
         type=str,
-        help="Path to the adapter to export.",
+        help="Path to the adapters weights saved after peft fine-tuning. Can be a local folder or huggingface id.",
     )
     parser.add_argument(
         "--output_path",
@@ -27,18 +27,42 @@ def parse_args(raw_args):
         help="Path to save the exported weights. Will be saved as a .npz file.",
     )
     parser.add_argument(
-        "--dtype",
-        type=str,
-        default="float32",
-        choices=["float32", "float16"],
-        help="Data type to save the weights as.",
-    )
-    parser.add_argument(
         "--pack_weights",
         action="store_true",
         help=(
             "Whether to pack the weights. If True, the weights for each module type will be packed into a single array."
         ),
+    )
+    parser.add_argument(
+        "--dtype",
+        type=str,
+        default="float32",
+        choices=["float32", "float16"],
+        help=(
+            "Data type to save float weights as. If quantize_int4 is True, this is the data type of the quantization"
+            " scales. Default is float32."
+        ),
+    )
+    # quantization options
+    parser.add_argument(
+        "--quantize_int4",
+        action="store_true",
+        help="Quantize the weights to int4 using blockwise quantization.",
+    )
+    int4_group = parser.add_argument_group("int4 quantization options")
+    int4_group.add_argument(
+        "--int4_block_size",
+        type=int,
+        default=32,
+        choices=[16, 32, 64, 128, 256],
+        help="Block size for int4 quantization. Default is 32.",
+    )
+    int4_group.add_argument(
+        "--int4_quantization_mode",
+        type=str,
+        default="symmetric",
+        choices=["symmetric", "asymmetric"],
+        help="Quantization mode for int4 quantization. Default is symmetric.",
     )
 
     return parser.parse_args(raw_args)
@@ -56,18 +80,29 @@ def get_sort_key(module_name: str):
     return parts
 
 
-def pack_weights(weights: Dict[str, "NDArray"], module_type: str) -> Dict[str, "NDArray"]:
-    """Pack the weights for a given module type into an array each for lora_A and lora_B."""
-    packed_weights = {}
-    for lora_i in ["lora_A", "lora_B"]:
-        matching_modules = sorted(
-            [name for name in weights if module_type in name and lora_i in name], key=get_sort_key
-        )
-        packed_weights[f"{module_type}.{lora_i}.weight.packed"] = np.concatenate(
-            [weights[name] for name in matching_modules]
-        )
+def int4_block_quant(float_weight: "NDArray", block_size: int, is_symmetric: bool):
+    """Quantize a weight tensor to int4."""
+    # Only need to quantize the weight tensors directly
+    # Not the same as OnnxMatMul4Quantizer pass which quantizes an entire model
+    # TODO(jambayk): When ORT 1.18.0 is released, use DefaultWeightOnlyQuantizer.int4_block_quant
+    from onnxruntime.quantization.matmul_4bits_quantizer import quantize_matmul_4bits
 
-    return packed_weights
+    rows, cols = float_weight.shape
+
+    blob_size = block_size // 2
+    k_blocks = (rows + block_size - 1) // block_size
+    padded_rows = k_blocks * block_size
+    pad_len = padded_rows - rows
+    if pad_len > 0:
+        float_weight = np.pad(float_weight, ((0, pad_len), (0, 0)), "constant")
+
+    # block wise quantization, each block comes from a single column
+    packed = np.zeros((cols, k_blocks, blob_size), dtype="uint8")
+    scales = np.zeros((cols * k_blocks), dtype=float_weight.dtype)
+    zero_point = np.zeros(cols * ((k_blocks + 1) // 2), dtype="uint8")
+    quantize_matmul_4bits(packed, float_weight, scales, zero_point, block_size, cols, rows, is_symmetric)
+
+    return packed, scales, zero_point
 
 
 def main(raw_args=None):
@@ -76,18 +111,34 @@ def main(raw_args=None):
     adapter_weights = load_peft_weights(args.adapter_path, device="cpu")
 
     transformed_weights = {}
+    float_modules = set()
+    quant_modules = set()
     for name, value in adapter_weights.items():
         new_name = name.replace("base_model.model.model", "model")
         # cast to dtype first since some dtypes like bfloat16 are not supported by numpy
         # need to copy since the numpy array is read-only
-        transformed_weights[new_name] = value.to(getattr(torch, args.dtype)).numpy().transpose().copy()
+        float_weight = value.to(getattr(torch, args.dtype)).numpy().transpose().copy()
+        if not args.quantize_int4:
+            transformed_weights[new_name] = float_weight
+            float_modules.add(new_name.replace(".weight", ""))
+        else:
+            weight, scale, zero_point = int4_block_quant(
+                float_weight, args.int4_block_size, args.int4_quantization_mode == "symmetric"
+            )
+            transformed_weights[new_name.replace(".weight", ".quant.weight")] = weight
+            transformed_weights[new_name.replace(".weight", ".quant.scale")] = scale
+            if args.int4_quantization_mode == "asymmetric":
+                # otherwise it's always 0 and not part of the node inputs
+                transformed_weights[new_name.replace(".weight", ".quant.zero_point")] = zero_point
+            quant_modules.add(new_name.replace(".weight", ".quant"))
 
     if args.pack_weights:
+        from olive.passes.onnx.extract_adapters import ExtractAdapters
+
         lora_config = LoraConfig.from_pretrained(args.adapter_path)
-        packed_weights = {}
-        for module_type in lora_config.target_modules:
-            packed_weights.update(pack_weights(transformed_weights, module_type))
-        transformed_weights = packed_weights
+        transformed_weights, _ = ExtractAdapters.pack_weights(
+            transformed_weights, lora_config.target_modules, float_modules, quant_modules
+        )
 
     output_path = Path(args.output_path).with_suffix(".npz")
     output_path.parent.mkdir(parents=True, exist_ok=True)

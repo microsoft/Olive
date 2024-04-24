@@ -138,6 +138,10 @@ If not specified, Olive will not package artifacts.
           The version for this data asset. This is `1` by default.
         * `description [str]`
           The description for this data asset. This is `None` by default.
+    * `include_sample_code [bool]`:
+      Whether or not to include sample code in zip file. Defaults to True
+    * `include_runtime_packages [bool]`:
+      Whether or not to include runtime packages (like onnxruntime) in zip file. Defaults to True
 
 You can add `PackagingConfig` to Engine configurations. e.g.:
 

@@ -154,7 +154,7 @@ class TestDockerSystem:
                 docker.errors.ContainerError,
                 match=r".*returned non-zero exit status 1: Docker container evaluation failed with: mock_error",
             ):
-                actual_res = docker_system.evaluate_model(model_config, data_root, [metric], DEFAULT_CPU_ACCELERATOR)
+                _ = docker_system.evaluate_model(model_config, data_root, [metric], DEFAULT_CPU_ACCELERATOR)
         else:
             actual_res = docker_system.evaluate_model(model_config, data_root, [metric], DEFAULT_CPU_ACCELERATOR)
 

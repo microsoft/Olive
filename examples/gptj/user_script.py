@@ -92,6 +92,7 @@ def create_onnx_dataloader(data_dir, batch_size, *args, **kwargs):
 
 def create_dataloader(data_dir, batch_size, *args, **kwargs):
     model_framework = kwargs.pop("model_framework")
+    dataloader = None
     if model_framework == Framework.ONNX:
         dataloader = create_onnx_dataloader(data_dir, batch_size)
     elif model_framework == Framework.PYTORCH:

@@ -235,7 +235,7 @@ class QuantLinearORT(nn.Module):
         intzeros_pt = (intzeros_pt[:, 0::2]) | (intzeros_pt[:, 1::2] << 4)
         intzeros_pt = intzeros_pt.reshape(-1)
 
-        intweight_pt_t = intweight.T
+        intweight_pt_t = intweight_pt.T
         intweight_pt_t = (intweight_pt_t[:, 0::2]) | (intweight_pt_t[:, 1::2] << 4)
         intweight_pt_t = intweight_pt_t.reshape(cols, k_blocks, blob_size)
 

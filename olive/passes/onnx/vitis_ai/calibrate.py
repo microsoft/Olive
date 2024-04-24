@@ -181,7 +181,6 @@ def create_calibrator_power_of_two(
     calibrator = None
 
     # default settings for min-max algorithm
-    method = method
     symmetric = False if "symmetric" not in extra_options else extra_options["symmetric"]
 
     if method == PowerOfTwoMethod.NonOverflow:
@@ -207,4 +206,6 @@ def create_calibrator_power_of_two(
         calibrator.augment_graph()
         calibrator.execution_providers = execution_providers
         calibrator.create_inference_session()
+        return calibrator
+    else:
         return calibrator

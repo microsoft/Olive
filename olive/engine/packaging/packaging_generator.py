@@ -67,13 +67,14 @@ def _package_candidate_models(
     logger.info("Packaging output models to %s", packaging_type)
 
     with tempfile.TemporaryDirectory() as temp_dir:
-
         tempdir = Path(temp_dir)
 
         if packaging_type == PackagingType.Zipfile:
-            cur_path = Path(__file__).parent
-            _package_sample_code(cur_path, tempdir)
-            _package_onnxruntime_packages(tempdir, next(iter(pf_footprints.values())))
+            if packaging_config.include_sample_code:
+                _package_sample_code(Path(__file__).parent, tempdir)
+
+            if packaging_config.include_runtime_packages:
+                _package_onnxruntime_packages(tempdir, next(iter(pf_footprints.values())))
 
         for accelerator_spec, pf_footprint in pf_footprints.items():
             footprint = footprints[accelerator_spec]
@@ -113,7 +114,7 @@ def _package_candidate_models(
                     elif packaging_type == PackagingType.AzureMLData:
                         _upload_to_azureml_data(azureml_client_config, model_dir, model_name, config)
 
-                model_rank += 1
+                    model_rank += 1
 
         if packaging_type == PackagingType.Zipfile:
             _copy_models_rank(tempdir, model_info_list)

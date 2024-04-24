@@ -10,7 +10,7 @@ from unittest.mock import patch
 import pytest
 
 from olive.common.config_utils import validate_config
-from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec, create_accelerators, normalize_accelerators
+from olive.hardware.accelerator import AcceleratorLookup, AcceleratorNormalizer, AcceleratorSpec, create_accelerators
 from olive.systems.common import AcceleratorConfig, SystemType
 from olive.systems.python_environment.python_environment_system import PythonEnvironmentSystem
 from olive.systems.system_config import SystemConfig
@@ -248,7 +248,7 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
                     "execution_providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
                 }
             ],
-            ["The following execution providers are not supported: ROCMExecutionProvider"],
+            ["The following execution providers are not supported: 'ROCMExecutionProvider'"],
             ["CUDAExecutionProvider", "CPUExecutionProvider"],
         ),
         (
@@ -273,7 +273,7 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
                     "execution_providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
                 }
             ],
-            ["The following execution providers are not supported: ROCMExecutionProvider"],
+            ["The following execution providers are not supported: 'ROCMExecutionProvider'"],
             ["CUDAExecutionProvider", "CPUExecutionProvider"],
         ),
     ],
@@ -302,7 +302,7 @@ def test_normalize_accelerators(
         )
         python_mock.start()
 
-    normalized_accs = normalize_accelerators(system_config, skip_supported_eps_check=False)
+    normalized_accs = AcceleratorNormalizer(system_config, skip_supported_eps_check=False).normalize()
     assert len(normalized_accs.config.accelerators) == len(expected_accs)
     for i, acc in enumerate(expected_accs):
         assert normalized_accs.config.accelerators[i].device == acc["device"]
@@ -314,6 +314,32 @@ def test_normalize_accelerators(
 
     if python_mock:
         python_mock.stop()
+
+
+@pytest.mark.parametrize(
+    ("system_config", "expected_acc"),
+    [
+        (
+            {
+                "type": "LocalSystem",
+                "config": {"accelerators": [{"device": "cpu", "execution_providers": ["CUDAExecutionProvider"]}]},
+            },
+            ("cpu", ["CPUExecutionProvider"]),
+        ),
+        (
+            {
+                "type": "LocalSystem",
+                "config": {"accelerators": [{"execution_providers": ["QNNExecutionProvider"]}]},
+            },
+            ("npu", ["QNNExecutionProvider"]),
+        ),
+    ],
+)
+def test_normalize_accelerators_skip_ep_check(system_config, expected_acc):
+    system_config = validate_config(system_config, SystemConfig)
+    normalized_accs = AcceleratorNormalizer(system_config, skip_supported_eps_check=True).normalize()
+    assert normalized_accs.config.accelerators[0].device == expected_acc[0]
+    assert normalized_accs.config.accelerators[0].execution_providers == expected_acc[1]
 
 
 @pytest.mark.parametrize(
@@ -385,6 +411,63 @@ def test_create_accelerator_with_error(
         create_accelerators(system_config)
     if error_message:
         assert error_message in str(exp.value)
+
+
+@pytest.mark.parametrize(
+    ("system_config", "expected_acc_specs"),
+    [
+        # LocalSystem
+        (
+            {
+                "type": "LocalSystem",
+                "config": {"accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}]},
+            },
+            [("cpu", "CPUExecutionProvider")],
+        ),
+        # doesn't specify the accelerator
+        (
+            {
+                "type": "LocalSystem",
+            },
+            [("cpu", None)],
+        ),
+        # only specify the device
+        (
+            {
+                "type": "LocalSystem",
+                "config": {"accelerators": [{"device": "gpu"}]},
+            },
+            [("gpu", None)],
+        ),
+        # only specify the EP
+        (
+            {
+                "type": "LocalSystem",
+                "config": {"accelerators": [{"execution_providers": ["CPUExecutionProvider"]}]},
+            },
+            [("cpu", None)],
+        ),
+        (
+            {
+                "type": "AzureML",
+                "config": {
+                    "aml_compute": "aml_compute",
+                    "olive_managed_env": False,
+                    "accelerators": [{"device": "gpu"}],
+                },
+            },
+            [("gpu", None)],
+        ),
+    ],
+)
+def test_create_accelerator_without_ep(system_config, expected_acc_specs):
+    system_config = validate_config(system_config, SystemConfig)
+    expected_accelerator_specs = [
+        AcceleratorSpec(accelerator_type=acc_spec[0].lower(), execution_provider=acc_spec[1])
+        for acc_spec in expected_acc_specs
+    ]
+    accelerators = create_accelerators(system_config, skip_supported_eps_check=False, is_ep_required=False)
+    assert accelerators == expected_accelerator_specs
 
 
 def test_accelerator_config():

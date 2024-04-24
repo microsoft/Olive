@@ -34,6 +34,7 @@ def dev(args):
         return
 
     logger.info("Configuring %s for %s with python %s...", args.sdk, sdk_arch, args.py_version)
+    cmd = None
     with resources.path(resource_path, script_name) as create_python_env_path:
         if platform.system() == "Linux":
             cmd = f"bash {create_python_env_path} -v {args.py_version} --sdk {args.sdk}"

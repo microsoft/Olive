@@ -16,7 +16,6 @@ class TestSnpeToolkit:
     @pytest.fixture(autouse=True)
     def setup(self, tmp_path):
         """Download the snpe sdk."""
-        target_path = tmp_path
         blob, download_path = "", ""
         if platform.system() == "Windows":
             blob, download_path = "snpe_sdk_windows.zip", "snpe_sdk_windows.zip"
@@ -28,7 +27,7 @@ class TestSnpeToolkit:
             blob=blob,
             download_path=download_path,
         )
-        target_path = Path().resolve() / "snpe_sdk"
+        target_path = tmp_path / "snpe_sdk"
         target_path.mkdir(parents=True, exist_ok=True)
         if platform.system() == "Windows":
             cmd = f"powershell Expand-Archive -Path {download_path} -DestinationPath {str(target_path)}"

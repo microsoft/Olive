@@ -62,7 +62,7 @@ def test_dynamic_quantization(tmp_path):
     if ort_version.major == 1 and ort_version.minor == 17:
         # there is a bug in ort quantizer in versions 1.17.x
         with pytest.raises(TypeError, match="missing 1 required positional argument: 'initial_type'"):
-            out = p.run(input_model, None, tmp_path)
+            _ = p.run(input_model, None, tmp_path)
     else:
         out = p.run(input_model, None, tmp_path)
         assert out is not None

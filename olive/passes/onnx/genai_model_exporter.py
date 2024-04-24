@@ -4,12 +4,14 @@
 # --------------------------------------------------------------------------
 # Export a PyTorch model using the onnxruntime-genai package.
 # --------------------------------------------------------------------------
+import copy
+import json
 import logging
 import os
 import tempfile
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Union
 
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec, Device
 from olive.model import ONNXModelHandler, PyTorchModelHandler
@@ -41,7 +43,16 @@ class GenAIModelExporter(Pass):
                 type_=GenAIModelExporter.Precision,
                 required=True,
                 description="Precision of model.",
-            )
+            ),
+            "metadata_only": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                required=False,
+                description="Whether to export the model or generate required metadata only.",
+            ),
+            "search": PassConfigParam(
+                type_=Dict[str, Any], required=False, description="Search options to use for generate loop."
+            ),
         }
 
     def validate_search_point(
@@ -69,25 +80,44 @@ class GenAIModelExporter(Pass):
         return False
 
     def _run_for_config(
-        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self,
+        model: Union[PyTorchModelHandler, ONNXModelHandler],
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
     ) -> ONNXModelHandler:
         from onnxruntime_genai.models.builder import create_model
 
-        if not model.hf_config:
+        precision = config["precision"]
+        metadata_only = config["metadata_only"]
+
+        if not metadata_only and not model.hf_config:
             raise ValueError(
-                "GenAIModelExporter pass only supports exporting HF models i.e. PyTorchModelHandler with hf_config."
+                "GenAIModelExporter pass only supports exporting HF models i.e. PyTorchModelHandler "
+                "with hf_config and exporting the metadata only for pre-optimized onnx models."
             )
 
-        Path(output_model_path).mkdir(parents=True, exist_ok=True)
-        output_model_filepath = Path(resolve_onnx_path(output_model_path))
+        if metadata_only:
+            if not isinstance(model, ONNXModelHandler):
+                raise ValueError("metadata_only option is available only with ONNXModel as input.")
+        else:
+            if not isinstance(model, PyTorchModelHandler):
+                raise ValueError("metadata_only has to be true with ONNXModel as input.")
 
-        precision = config["precision"]
+        Path(output_model_path).mkdir(parents=True, exist_ok=True)
+        output_model_filepath = (
+            Path(resolve_onnx_path(output_model_path))
+            if isinstance(model, PyTorchModelHandler)
+            else Path(resolve_onnx_path(output_model_path, model.onnx_file_name))
+        )
+
         target_execution_provider = (
             "cpu"
             if self.accelerator_spec.execution_provider
             in AcceleratorLookup.get_execution_providers_for_device(Device.CPU)
             else "cuda"
         )
+
         # Select cache location based on priority
         # HF_CACHE (HF >= v5) -> TRANSFORMERS_CACHE (HF < v5) -> local dir
         cache_dir = os.environ.get("HF_HOME", None)
@@ -98,16 +128,49 @@ class GenAIModelExporter(Pass):
             # snapshots that can be reused for future runs
             cache_dir = str(Path(tempfile.gettempdir()) / "hf_cache")
 
-        # currently we only support regular hf models so we can pass the name_or_path directly to model_name
-        # could also check if it is a locally saved model and pass the path to input_path but it is not necessary
+        extra_args = {"filename": str(output_model_filepath.name)}
+        if metadata_only:
+            extra_args["config_only"] = True
+            model_path = None
+            input_path = str(model.get_resource("model_path"))
+        else:
+            model_path = str(model.hf_config.model_name)
+            input_path = ""
+
         create_model(
-            model_name=str(model.model_path or model.hf_config.model_name),
-            input_path="",  # empty string for now
+            model_name=model_path,
+            input_path=input_path,
             output_dir=str(output_model_filepath.parent),
             precision=precision,
             execution_provider=target_execution_provider,
             cache_dir=cache_dir,
-            filename=str(output_model_filepath.name),
+            **extra_args,
         )
 
-        return ONNXModelHandler(output_model_filepath.parent, onnx_file_name=output_model_filepath.name)
+        # Override default search options with ones from user config
+        genai_config_filepath = str(output_model_filepath.parent / "genai_config.json")
+        with open(genai_config_filepath) as istrm:
+            genai_config = json.load(istrm)
+
+        genai_config["search"] = {**genai_config.get("search", {}), **config.get("search", {})}
+
+        with open(genai_config_filepath, "w") as ostrm:
+            json.dump(genai_config, ostrm, indent=4)
+
+        filepaths_to_ignore = {str(output_model_filepath), str(output_model_filepath) + ".data"}
+
+        model_attributes = copy.deepcopy(model.model_attributes or {})
+        model_attributes["additional_files"] = additional_files = model_attributes.get("additional_files", [])
+        additional_files.extend(fp for fp in output_model_filepath.parent.iterdir() if fp not in filepaths_to_ignore)
+
+        if metadata_only:
+            output_model = copy.copy(model)
+            output_model.model_attributes = model_attributes
+        else:
+            output_model = ONNXModelHandler(
+                output_model_filepath.parent,
+                onnx_file_name=output_model_filepath.name,
+                model_attributes=model_attributes,
+            )
+
+        return output_model

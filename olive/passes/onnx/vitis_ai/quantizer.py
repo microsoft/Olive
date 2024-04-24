@@ -433,7 +433,7 @@ class VitisQOpQuantizer(ONNXQuantizer):
         from olive.passes.onnx.vitis_ai.quant_utils import is_ort_version_below_1_16, is_ort_version_below_1_17
 
         if self.tensors_range is None:
-            return
+            return None
 
         # adjust tensor_ranges for input of Clip and Relu node
         for node in self.model.nodes():

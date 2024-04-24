@@ -1,0 +1,172 @@
+{
+    "input_model": {
+        "type": "PyTorchModel",
+        "config": {
+            "model_script": "user_script.py",
+            "io_config": "get_merged_decoder_with_past_io_config",
+            "dummy_inputs_func": "get_merged_decoder_with_past_dummy_inputs",
+            "hf_config": {
+                "model_name": "meta-llama/Llama-2-7b-hf",
+                "model_class": "LlamaForCausalLM",
+                "from_pretrained_args": {
+                    "_attn_implementation": "eager"
+                },
+                "task": "text-generation"
+            }
+        }
+    },
+    "data_configs": {
+        "wikitext2_train": {
+            "name": "wikitext2_train",
+            "type": "HuggingfaceContainer",
+            "params_config": {
+                "data_name": "wikitext",
+                "subset": "wikitext-2-raw-v1",
+                "split": "train",
+                "component_kwargs": {
+                    "pre_process_data": {
+                        "text_cols": [
+                            "text"
+                        ],
+                        "corpus_strategy": "join",
+                        "add_special_tokens": false,
+                        "source_max_len": 2048,
+                        "max_samples": 128,
+                        "joiner": "\n\n"
+                    }
+                }
+            }
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "device": "CPU",
+                        "execution_providers": [
+                            "CPUExecutionProvider"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
+    "evaluators": {
+        "merged_evaluator": {
+            "metrics": [
+                {
+                    "name": "latency_prompt_processing",
+                    "type": "latency",
+                    "sub_types": [
+                        {
+                            "name": "avg",
+                            "priority": 1
+                        }
+                    ],
+                    "user_config": {
+                        "user_script": "user_script.py",
+                        "dataloader_func": "dataloader_func_for_merged",
+                        "func_kwargs": {
+                            "dataloader_func": {
+                                "model_id": "meta-llama/Llama-2-7b-hf",
+                                "past_seq_length": 0,
+                                "seq_length": 8,
+                                "max_seq_length": 2048
+                            }
+                        },
+                        "batch_size": 2,
+                        "io_bind": true
+                    }
+                },
+                {
+                    "name": "latency_token_generation",
+                    "type": "latency",
+                    "sub_types": [
+                        {
+                            "name": "avg"
+                        }
+                    ],
+                    "user_config": {
+                        "user_script": "user_script.py",
+                        "dataloader_func": "dataloader_func_for_merged",
+                        "func_kwargs": {
+                            "dataloader_func": {
+                                "model_id": "meta-llama/Llama-2-7b-hf",
+                                "past_seq_length": 8,
+                                "seq_length": 1,
+                                "max_seq_length": 2048
+                            }
+                        },
+                        "batch_size": 2,
+                        "io_bind": true
+                    }
+                }
+            ]
+        }
+    },
+    "passes": {
+        "conversion_merged": {
+            "type": "OnnxConversion",
+            "config": {
+                "target_opset": 17,
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true
+            }
+        },
+        "transformers_optimization_fp32": {
+            "type": "OrtTransformersOptimization",
+            "config": {
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true,
+                "model_type": "gpt2",
+                "opt_level": 0,
+                "only_onnxruntime": false,
+                "keep_io_types": false,
+                "float16": false,
+                "use_gqa": false
+            }
+        },
+        "transformers_optimization_fp16": {
+            "type": "OrtTransformersOptimization",
+            "config": {
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true,
+                "model_type": "gpt2",
+                "opt_level": 0,
+                "only_onnxruntime": false,
+                "keep_io_types": false,
+                "float16": true,
+                "use_gqa": true
+            }
+        },
+        "blockwise_quant_int4": {
+            "type": "OnnxMatMul4Quantizer",
+            "config": {
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true,
+                "block_size": 32,
+                "is_symmetric": true
+            }
+        }
+    },
+    "engine": {
+        "evaluator": "merged_evaluator",
+        "host": "local_system",
+        "target": "local_system",
+        "cache_dir": "cache",
+        "output_dir": "models/llama2_cpu/meta-llama/Llama-2-7b-hf"
+    },
+    "pass_flows": [
+        [
+            "conversion_merged",
+            "transformers_optimization_fp32",
+            "blockwise_quant_int4"
+        ],
+        [
+            "conversion_merged",
+            "transformers_optimization_fp16"
+        ]
+    ]
+}

@@ -26,6 +26,15 @@ def run_subprocess(cmd, env=None, cwd=None, check=False):
     assert isinstance(cmd, (str, list)), f"cmd must be a string or a list, got {type(cmd)}."
     windows = platform.system() == "Windows"
     if isinstance(cmd, str):
+        # In posix model, the cmd string will be handled with specific posix rules.
+        # https://docs.python.org/3.8/library/shlex.html#parsing-rules
+        # We listed 2 typical examples:
+        # 1. The cmd may contain the folder/file path from windows. This kind of path is like: C:\\User\\xxx\\...
+        #   in posix mode, the shlex.split will split the path into ['C:Userxxx...'], which is not correct.
+        #   in non-posix mode, the shlex.split will split the path into ['C:\\User\\xxx\\...'].
+        # 2. The cmd may contain the quotes("" or ''). This kind of cmd is like: "str_0, 'str_1'"
+        #   in posix mode, the shlex.split will split the cmd into ["str_0", "str_1"]
+        #   in non-posix mode, the shlex.split will split the cmd into ["str_0", "'str_1'"]
         cmd = shlex.split(cmd, posix=not windows)
 
     try:

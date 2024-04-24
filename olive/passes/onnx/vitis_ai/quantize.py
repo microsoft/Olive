@@ -167,7 +167,8 @@ def quantize_static(
         # user needs to call pre-process to optimize the model
         if is_ort_version_below_1_16():
             ort_quantize_args["optimize_model"] = False
-        return ort_quantize_static(**ort_quantize_args)
+        ort_quantize_static(**ort_quantize_args)
+        return
 
     mode = QuantizationMode.QLinearOps
 
