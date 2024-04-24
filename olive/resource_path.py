@@ -165,19 +165,6 @@ def validate_resource_path(v, values, field):
     return v
 
 
-def get_resource_path_validator(
-    config: Dict[str, ConfigParam],
-):
-    config = config or {}
-    validators = {}
-    for param in config:
-        if param == "data_dir":
-            validator_name = f"validate_{param}_resource_path"
-            validators[validator_name] = validator(param, allow_reuse=True)(validate_resource_path)
-            break
-    return validators
-
-
 def _overwrite_helper(new_path: Union[Path, str], overwrite: bool):
     new_path = Path(new_path).resolve()
 

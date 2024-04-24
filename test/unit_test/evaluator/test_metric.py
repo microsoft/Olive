@@ -19,6 +19,10 @@ class TestEvaluation:
                         "priority": -1,
                         "goal": {"type": "max-degradation", "value": 0.01},
                     },
+                    {"name": "f1_score"},
+                    {"name": "precision"},
+                    {"name": "recall"},
+                    {"name": "perplexity"},
                 ],
             },
             {
