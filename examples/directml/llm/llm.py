@@ -104,8 +104,7 @@ def set_config_parameters(tokenizer: transformers.AutoTokenizer, repo_id: str, n
 
     config.model_id = repo_id
 
-    # TODO (pavignol): Set use_split_sigmoid for the right models
-    config.use_split_sigmoid = False
+    config.use_split_sigmoid = config.model_type == "phi3"
     config.normalization_type = "rms" if hasattr(llm_model.config, "rms_norm_eps") else "layer_norm"
     config.partial_rotary_factor = getattr(llm_model.config, "partial_rotary_factor", 1.0)
     config.max_position_embeddings = (

@@ -14,6 +14,7 @@ from decoder_model import DecoderModel
 from falcon import convert_falcon_weights
 from llava_model import LlavaModel
 from phi import convert_phi_weights
+from phi3 import convert_phi3_weights
 from transformers import AutoConfig, AutoTokenizer
 
 
@@ -47,8 +48,10 @@ def get_or_create_decoder_model():
     if config.decoder_model is None:
         if config.model_type == "falcon":
             config.state_dict = convert_falcon_weights()
-        elif config.model_type in {"phi"}:
+        elif config.model_type == "phi":
             config.state_dict = convert_phi_weights()
+        elif config.model_type == "phi3":
+            config.state_dict = convert_phi3_weights()
 
         config.has_up_proj = ("model.layers.0.mlp.up_proj.weight" in config.state_dict) or (
             "language_model.model.layers.0.mlp.up_proj.weight" in config.state_dict
