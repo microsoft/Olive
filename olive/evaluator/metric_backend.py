@@ -3,12 +3,15 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from abc import abstractmethod
-from typing import Any, ClassVar, Dict, NamedTuple, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, NamedTuple, Tuple, Type, Union
 
 from olive.common.auto_config import AutoConfigClass, ConfigBase
 from olive.common.config_utils import ConfigParam
 from olive.evaluator.accuracy import AccuracyBase
-from olive.evaluator.metric import Metric, MetricResult, SubMetric, SubMetricResult
+from olive.evaluator.metric_result import MetricResult, SubMetricResult
+
+if TYPE_CHECKING:
+    from olive.evaluator.metric import Metric, SubMetric
 
 
 class MetricBackend(AutoConfigClass):
@@ -23,12 +26,12 @@ class MetricBackend(AutoConfigClass):
 
     @abstractmethod
     def measure_sub_metric(
-        self, model_output: Union[Tuple, NamedTuple], targets: Any, sub_metric: SubMetric
+        self, model_output: Union[Tuple, NamedTuple], targets: Any, sub_metric: "SubMetric"
     ) -> SubMetricResult:
         # model_output: (preds, logits)
         raise NotImplementedError
 
-    def measure(self, model_output, targets, metrics: Metric) -> MetricResult:
+    def measure(self, model_output, targets, metrics: "Metric") -> MetricResult:
         metric_results_dict = {}
         for sub_metric in metrics.sub_types:
             metric_results_dict[sub_metric.name] = self.measure_sub_metric(model_output, targets, sub_metric)
@@ -38,7 +41,7 @@ class MetricBackend(AutoConfigClass):
 class TorchMetrics(MetricBackend):
     name: str = "torch_metrics"
 
-    def measure_sub_metric(self, model_output, targets, sub_metric: SubMetric) -> SubMetricResult:
+    def measure_sub_metric(self, model_output, targets, sub_metric: "SubMetric") -> SubMetricResult:
         metric_cls = AccuracyBase.registry[sub_metric.name.value]
         metric_obj = metric_cls(sub_metric.metric_config)
         result = metric_obj.measure(model_output, targets)
@@ -80,7 +83,7 @@ class HuggingfaceMetrics(MetricBackend):
             ),
         }
 
-    def measure_sub_metric(self, model_output, targets, sub_metric: SubMetric) -> SubMetricResult:
+    def measure_sub_metric(self, model_output, targets, sub_metric: "SubMetric") -> SubMetricResult:
         load_params = sub_metric.metric_config.load_params or {}
         evaluator = self.evaluate_module.load(sub_metric.name, **load_params)
 

@@ -17,7 +17,8 @@ from olive.common.utils import hash_dict
 from olive.engine.config import FAILED_CONFIG, INVALID_CONFIG, PRUNED_CONFIGS
 from olive.engine.footprint import Footprint, FootprintNodeMetric
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
-from olive.evaluator.metric import Metric, MetricResult, joint_metric_key
+from olive.evaluator.metric import Metric
+from olive.evaluator.metric_result import MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.exception import EXCEPTIONS_TO_RAISE, OlivePassError
 from olive.hardware import AcceleratorSpec

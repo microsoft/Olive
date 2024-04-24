@@ -18,7 +18,8 @@ import pytest
 
 from olive.common.utils import hash_dict
 from olive.engine import Engine
-from olive.evaluator.metric import AccuracySubType, MetricResult, joint_metric_key
+from olive.evaluator.metric import AccuracySubType
+from olive.evaluator.metric_result import MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.hardware.accelerator import create_accelerators

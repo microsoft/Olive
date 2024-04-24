@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, PropertyMock, patch
 import psutil
 import pytest
 
-from olive.evaluator.metric import flatten_metric_result
+from olive.evaluator.metric_result import flatten_metric_result
 from olive.evaluator.olive_evaluator import OliveEvaluator, OnnxEvaluator
 from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR, AcceleratorSpec, Device
 from olive.passes.olive_pass import create_pass_from_dict

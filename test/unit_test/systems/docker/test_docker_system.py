@@ -11,7 +11,8 @@ from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
-from olive.evaluator.metric import AccuracySubType, joint_metric_key
+from olive.evaluator.metric import AccuracySubType
+from olive.evaluator.metric_result import joint_metric_key
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.perf_tuning import OrtPerfTuning

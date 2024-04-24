@@ -21,7 +21,7 @@ from olive.cache import normalize_data_path
 from olive.common.config_utils import ParamCategory, validate_config
 from olive.common.utils import copy_dir, retry_func
 from olive.data.config import DataConfig
-from olive.evaluator.metric import Metric, MetricResult
+from olive.evaluator.metric_result import MetricResult
 from olive.model import ModelConfig
 from olive.resource_path import (
     AZUREML_RESOURCE_TYPES,
@@ -37,6 +37,7 @@ from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import AzureMLTargetUserConfig
 
 if TYPE_CHECKING:
+    from olive.evaluator.metric import Metric
     from olive.hardware.accelerator import AcceleratorSpec
     from olive.passes.olive_pass import Pass
 
@@ -603,7 +604,7 @@ class AzureMLSystem(OliveSystem):
         }
 
     def evaluate_model(
-        self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: "AcceleratorSpec"
+        self, model_config: ModelConfig, data_root: str, metrics: List["Metric"], accelerator: "AcceleratorSpec"
     ) -> MetricResult:
         if model_config.type.lower() == "SNPEModel".lower():
             raise NotImplementedError("SNPE model does not support azureml evaluation")
@@ -631,7 +632,7 @@ class AzureMLSystem(OliveSystem):
         data_root: str,
         tmp_dir: str,
         model_config: ModelConfig,
-        metrics: List[Metric],
+        metrics: List["Metric"],
         accelerator: "AcceleratorSpec",
     ):
         tmp_dir = Path(tmp_dir)
@@ -672,7 +673,7 @@ class AzureMLSystem(OliveSystem):
         self,
         data_root: str,
         tmp_dir: Path,
-        metric: Metric,
+        metric: "Metric",
         model_args: Dict[str, Input],
         model_resource_paths: Dict[str, ResourcePath],
         accelerator_config_path: str,

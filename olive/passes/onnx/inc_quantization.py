@@ -15,7 +15,8 @@ from olive.cache import get_local_path_from_root
 from olive.common.config_utils import validate_config
 from olive.common.utils import exclude_keys
 from olive.data.config import DataConfig
-from olive.evaluator.metric import Metric, joint_metric_key
+from olive.evaluator.metric import Metric
+from olive.evaluator.metric_result import joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
 from olive.exception import OlivePassError
 from olive.hardware.accelerator import AcceleratorSpec

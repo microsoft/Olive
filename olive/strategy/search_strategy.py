@@ -12,7 +12,7 @@ from olive.strategy.search_algorithm import REGISTRY, SearchAlgorithm
 from olive.strategy.search_results import SearchResults
 
 if TYPE_CHECKING:
-    from olive.evaluator.metric import MetricResult
+    from olive.evaluator.metric_result import MetricResult
     from olive.strategy.search_parameter import SearchParameter
 
 logger = logging.getLogger(__name__)
