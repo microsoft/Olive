@@ -150,18 +150,9 @@
 <span class="kn">from</span> <span class="nn">olive.common.user_module_loader</span> <span class="kn">import</span> <span class="n">UserModuleLoader</span>
 <span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">tensor_data_to_device</span>
 <span class="kn">from</span> <span class="nn">olive.constants</span> <span class="kn">import</span> <span class="n">Framework</span>
-<span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">LatencySubType</span><span class="p">,</span>
-    <span class="n">Metric</span><span class="p">,</span>
-    <span class="n">MetricResult</span><span class="p">,</span>
-    <span class="n">MetricType</span><span class="p">,</span>
-    <span class="n">SubMetricResult</span><span class="p">,</span>
-    <span class="n">ThroughputSubType</span><span class="p">,</span>
-    <span class="n">flatten_metric_result</span><span class="p">,</span>
-    <span class="n">get_latency_config_from_metric</span><span class="p">,</span>
-    <span class="n">joint_metric_key</span><span class="p">,</span>
-<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">LatencySubType</span><span class="p">,</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">MetricType</span><span class="p">,</span> <span class="n">ThroughputSubType</span><span class="p">,</span> <span class="n">get_latency_config_from_metric</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.metric_backend</span> <span class="kn">import</span> <span class="n">MetricBackend</span>
+<span class="kn">from</span> <span class="nn">olive.evaluator.metric_result</span> <span class="kn">import</span> <span class="n">MetricResult</span><span class="p">,</span> <span class="n">SubMetricResult</span><span class="p">,</span> <span class="n">flatten_metric_result</span><span class="p">,</span> <span class="n">joint_metric_key</span>
 <span class="kn">from</span> <span class="nn">olive.hardware</span> <span class="kn">import</span> <span class="n">Device</span>
 <span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">DistributedOnnxModelHandler</span><span class="p">,</span> <span class="n">ONNXModelHandler</span>
 <span class="kn">from</span> <span class="nn">olive.model.config.io_config</span> <span class="kn">import</span> <span class="n">is_io_config_static</span>
