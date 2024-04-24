@@ -1199,7 +1199,10 @@
                 <span class="k">return</span> <span class="n">config</span><span class="o">.</span><span class="n">create_system</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Creating target system ...&quot;</span><span class="p">)</span>
+            <span class="n">target_start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">target</span> <span class="o">=</span> <span class="n">create_system</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_config</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Target system created in </span><span class="si">%f</span><span class="s2"> seconds&quot;</span><span class="p">,</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">target_start_time</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">host</span><span class="p">:</span>
             <span class="n">host_accelerators</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_config</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">accelerators</span>
             <span class="k">if</span> <span class="n">host_accelerators</span> <span class="ow">and</span> <span class="n">host_accelerators</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">execution_providers</span><span class="p">:</span>
@@ -1208,14 +1211,20 @@
                 <span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">host_accelerator_spec</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Creating host system ...&quot;</span><span class="p">)</span>
+            <span class="n">host_start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">host</span> <span class="o">=</span> <span class="n">create_system</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">host_config</span><span class="p">,</span> <span class="n">host_accelerator_spec</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Host system created in </span><span class="si">%f</span><span class="s2"> seconds&quot;</span><span class="p">,</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">host_start_time</span><span class="p">)</span>
 
         <span class="k">yield</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_config</span><span class="o">.</span><span class="n">olive_managed_env</span><span class="p">:</span>
+            <span class="c1"># could we put it under cache system for reusing?</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Removing target system ...&quot;</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">target</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_config</span><span class="o">.</span><span class="n">olive_managed_env</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Removing host system ...&quot;</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">host</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">host</span> <span class="o">=</span> <span class="kc">None</span>
 
