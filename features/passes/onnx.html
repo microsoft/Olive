@@ -92,31 +92,36 @@
 <li class="toctree-l4"><a class="reference internal" href="#id5">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#post-training-quantization-ptq">Post Training Quantization (PTQ)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#quantize-with-onnxruntime">Quantize with onnxruntime</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#quantize-with-intel-neural-compressor">Quantize with Intel® Neural Compressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#quantize-with-amd-vitis-ai-quantizer">Quantize with AMD Vitis AI Quantizer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#quantize-with-onnxruntime">Quantize with onnxruntime</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id6">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#ort-performance-tuning">ORT Performance Tuning</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#quantize-with-intel-neural-compressor">Quantize with Intel® Neural Compressor</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id7">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#float16-conversion">Float16 Conversion</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#quantize-with-amd-vitis-ai-quantizer">Quantize with AMD Vitis AI Quantizer</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id8">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#mixed-precision-conversion">Mixed Precision Conversion</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#ort-performance-tuning">ORT Performance Tuning</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id9">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#convert-dynamic-shape-to-fixed-shape">Convert dynamic shape to fixed shape</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#float16-conversion">Float16 Conversion</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id10">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#extract-adapters">Extract Adapters</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#mixed-precision-conversion">Mixed Precision Conversion</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id11">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#convert-dynamic-shape-to-fixed-shape">Convert dynamic shape to fixed shape</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id12">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#extract-adapters">Extract Adapters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id13">Example Configuration</a></li>
 </ul>
 </li>
 </ul>
@@ -405,8 +410,8 @@ For example, for some ops like <code class="docutils literal notranslate"><span 
 </div>
 </section>
 </section>
-<section id="post-training-quantization-ptq">
-<h2>Post Training Quantization (PTQ)<a class="headerlink" href="#post-training-quantization-ptq" title="Permalink to this heading">¶</a></h2>
+<section id="quantize-with-onnxruntime">
+<h2>Quantize with onnxruntime<a class="headerlink" href="#quantize-with-onnxruntime" title="Permalink to this heading">¶</a></h2>
 <p><a class="reference external" href="https://onnxruntime.ai/docs/performance/quantization.html" title="ONNX Runtime Quantization">Quantization</a> is a technique to compress deep learning models by reducing the precision of the model weights from 32 bits to 8 bits. This
 technique is used to reduce the memory footprint and improve the inference performance of the model. Quantization can be applied to the
 weights of the model, the activations of the model, or both.</p>
@@ -421,8 +426,6 @@ any requirement for the calibration dataset.</p>
 Static quantization method runs the model using a set of inputs called calibration data. In this way, user must provide a calibration
 dataset to calculate the quantization parameters (scale and zero point) for activations before quantizing the model.</p></li>
 </ol>
-<section id="quantize-with-onnxruntime">
-<h3>Quantize with onnxruntime<a class="headerlink" href="#quantize-with-onnxruntime" title="Permalink to this heading">¶</a></h3>
 <p>Olive consolidates the dynamic and static quantization into a single pass called <code class="docutils literal notranslate"><span class="pre">OnnxQuantization</span></code>, and provide the user with the ability to
 tune both quantization methods and hyperparameter at the same time.
 If the user desires to only tune either of dynamic or static quantization, Olive also supports them through <code class="docutils literal notranslate"><span class="pre">OnnxDynamicQuantization</span></code> and
@@ -431,25 +434,6 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <a class="reference internal" href="../../api/passes.html#onnx-static-quantization"><span class="std std-ref">OnnxStaticQuantization</span></a> for more details about the passes and their config parameters.</p>
 <p><strong>Note:</strong> If target execution provider is QNN EP, the model might need to be preprocessed before quantization. Please refer to <a class="reference internal" href="../../api/passes.html#qnn-preprocess"><span class="std std-ref">QnnPreprocess</span></a> for more details about the pass and its config parameters.
 This preprocessing step fuses operators unsupported by QNN EP and inserts necessary operators to make the model compatible with QNN EP.</p>
-</section>
-<section id="quantize-with-intel-neural-compressor">
-<h3>Quantize with Intel® Neural Compressor<a class="headerlink" href="#quantize-with-intel-neural-compressor" title="Permalink to this heading">¶</a></h3>
-<p>In addition to the default onnxruntime quantization tool, Olive also integrates <a class="reference external" href="https://github.com/intel/neural-compressor">Intel® Neural Compressor</a>.</p>
-<p>Intel® Neural Compressor is a model compression tool across popular deep learning frameworks including TensorFlow, PyTorch, ONNX Runtime (ORT) and MXNet, which supports a variety of powerful model compression techniques, e.g., quantization, pruning, distillation, etc. As a user-experience-driven and hardware friendly tool, Intel® Neural Compressor focuses on providing users with an easy-to-use interface and strives to reach “quantize once, run everywhere” goal.</p>
-<p>Olive consolidates the Intel® Neural Compressor dynamic and static quantization into a single pass called <code class="docutils literal notranslate"><span class="pre">IncQuantization</span></code>, and provide the user with the ability to
-tune both quantization methods and hyperparameter at the same time.
-If the user desires to only tune either of dynamic or static quantization, Olive also supports them through <code class="docutils literal notranslate"><span class="pre">IncDynamicQuantization</span></code> and
-<code class="docutils literal notranslate"><span class="pre">IncStaticQuantization</span></code> respectively.</p>
-<p>Please refer to <a class="reference internal" href="../../api/passes.html#inc-quantization"><span class="std std-ref">IncQuantization</span></a>, <a class="reference internal" href="../../api/passes.html#inc-dynamic-quantization"><span class="std std-ref">IncDynamicQuantization</span></a> and
-<a class="reference internal" href="../../api/passes.html#inc-static-quantization"><span class="std std-ref">IncStaticQuantization</span></a> for more details about the passes and their config parameters.</p>
-</section>
-<section id="quantize-with-amd-vitis-ai-quantizer">
-<h3>Quantize with AMD Vitis AI Quantizer<a class="headerlink" href="#quantize-with-amd-vitis-ai-quantizer" title="Permalink to this heading">¶</a></h3>
-<p>Olive also integrates <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/passes/onnx/vitis_ai/quantize.py">AMD Vitis AI Quantizer</a> for quantization.</p>
-<p>The Vitis™ AI development environment accelerates AI inference on AMD® hardware platforms. The Vitis AI quantizer can reduce the computing complexity by converting the 32-bit floating-point weights and activations to fixed-point like INT8. The fixed-point network model requires less memory bandwidth, thus providing faster speed and higher power efficiency than the floating-point model.
-Olive consolidates the Vitis™ AI quantization into a single pass called VitisAIQuantization which supports power-of-2 scale quantization methods and supports Vitis AI Execution Provider.</p>
-<p>Please refer to <a class="reference internal" href="../../api/passes.html#vitis-ai-quantization"><span class="std std-ref">VitisAIQuantization</span></a> for more details about the pass and its config parameters.</p>
-</section>
 <section id="id6">
 <h3>Example Configuration<a class="headerlink" href="#id6" title="Permalink to this heading">¶</a></h3>
 <p>a. Tune the parameters of the OlivePass with pre-defined searchable values</p>
@@ -507,6 +491,61 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 <p>check out <a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/bert#bert-optimization-with-intel-neural-compressor-ptq-on-cpu">this file</a> for an example for Intel® Neural Compressor quantization.</p>
 </section>
 </section>
+<section id="quantize-with-intel-neural-compressor">
+<h2>Quantize with Intel® Neural Compressor<a class="headerlink" href="#quantize-with-intel-neural-compressor" title="Permalink to this heading">¶</a></h2>
+<p>In addition to the default onnxruntime quantization tool, Olive also integrates <a class="reference external" href="https://github.com/intel/neural-compressor">Intel® Neural Compressor</a>.</p>
+<p>Intel® Neural Compressor is a model compression tool across popular deep learning frameworks including TensorFlow, PyTorch, ONNX Runtime (ORT) and MXNet, which supports a variety of powerful model compression techniques, e.g., quantization, pruning, distillation, etc. As a user-experience-driven and hardware friendly tool, Intel® Neural Compressor focuses on providing users with an easy-to-use interface and strives to reach “quantize once, run everywhere” goal.</p>
+<p>Olive consolidates the Intel® Neural Compressor dynamic and static quantization into a single pass called <code class="docutils literal notranslate"><span class="pre">IncQuantization</span></code>, and provide the user with the ability to
+tune both quantization methods and hyperparameter at the same time.
+If the user desires to only tune either of dynamic or static quantization, Olive also supports them through <code class="docutils literal notranslate"><span class="pre">IncDynamicQuantization</span></code> and
+<code class="docutils literal notranslate"><span class="pre">IncStaticQuantization</span></code> respectively.</p>
+<section id="id7">
+<h3>Example Configuration<a class="headerlink" href="#id7" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;inc_quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;IncStaticQuantization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;approach&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;weight_only&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;weight_only_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;bits&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;algorithm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GPTQ&quot;</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_dataloader&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;calibration_sampling_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">8</span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;save_as_external_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;all_tensors_to_one_file&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Please refer to <a class="reference internal" href="../../api/passes.html#inc-quantization"><span class="std std-ref">IncQuantization</span></a>, <a class="reference internal" href="../../api/passes.html#inc-dynamic-quantization"><span class="std std-ref">IncDynamicQuantization</span></a> and
+<a class="reference internal" href="../../api/passes.html#inc-static-quantization"><span class="std std-ref">IncStaticQuantization</span></a> for more details about the passes and their config parameters.</p>
+</section>
+</section>
+<section id="quantize-with-amd-vitis-ai-quantizer">
+<h2>Quantize with AMD Vitis AI Quantizer<a class="headerlink" href="#quantize-with-amd-vitis-ai-quantizer" title="Permalink to this heading">¶</a></h2>
+<p>Olive also integrates <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/passes/onnx/vitis_ai/quantize.py">AMD Vitis AI Quantizer</a> for quantization.</p>
+<p>The Vitis™ AI development environment accelerates AI inference on AMD® hardware platforms. The Vitis AI quantizer can reduce the computing complexity by converting the 32-bit floating-point weights and activations to fixed-point like INT8. The fixed-point network model requires less memory bandwidth, thus providing faster speed and higher power efficiency than the floating-point model.
+Olive consolidates the Vitis™ AI quantization into a single pass called VitisAIQuantization which supports power-of-2 scale quantization methods and supports Vitis AI Execution Provider.</p>
+<section id="id8">
+<h3>Example Configuration<a class="headerlink" href="#id8" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;vitis_ai_quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;VitisAIQuantization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;calibrate_method&quot;</span><span class="p">:</span><span class="s2">&quot;NonOverflow&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;quant_format&quot;</span><span class="p">:</span><span class="s2">&quot;QDQ&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;activation_type&quot;</span><span class="p">:</span><span class="s2">&quot;QUInt8&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;weight_type&quot;</span><span class="p">:</span><span class="s2">&quot;QInt8&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;resnet_calibration_reader&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Please refer to <a class="reference internal" href="../../api/passes.html#vitis-ai-quantization"><span class="std std-ref">VitisAIQuantization</span></a> for more details about the pass and its config parameters.</p>
+</section>
+</section>
 <section id="ort-performance-tuning">
 <h2>ORT Performance Tuning<a class="headerlink" href="#ort-performance-tuning" title="Permalink to this heading">¶</a></h2>
 <p>ONNX Runtime provides high performance across a range of hardware options through its Execution Providers interface for different execution
@@ -514,8 +553,8 @@ environments.
 For each model running with each execution provider, there are settings that can be tuned (e.g. thread number, execution mode, etc) to
 improve performance.
 <code class="docutils literal notranslate"><span class="pre">OrtPerfTuning</span></code> covers basic knobs that can be leveraged to find the best performance for your model and hardware.</p>
-<section id="id7">
-<h3>Example Configuration<a class="headerlink" href="#id7" title="Permalink to this heading">¶</a></h3>
+<section id="id9">
+<h3>Example Configuration<a class="headerlink" href="#id9" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtPerfTuning&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
@@ -548,8 +587,8 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 <h2>Float16 Conversion<a class="headerlink" href="#float16-conversion" title="Permalink to this heading">¶</a></h2>
 <p>Converting a model to use Float16 instead of Float32 can decrease the model size and improve performance on some GPUs. The <code class="docutils literal notranslate"><span class="pre">OnnxFloatToFloat16</span></code> pass wraps <a class="reference external" href="https://github.com/microsoft/onnxconverter-common/blob/master/onnxconverter_common/float16.py#L111">onnxconverter_common.float16.convert_float_to_float16</a>, which convert most nodes/operators to use Float16 instead of Float32.</p>
 <p>Conversion to Float16 is often exposed at multiple stages of optimization, including model conversion and transformer optimization. This stand-alone pass is best suited for models that are not transformer architectures, where fusions may rely on a specific data types in node patterns.</p>
-<section id="id8">
-<h3>Example Configuration<a class="headerlink" href="#id8" title="Permalink to this heading">¶</a></h3>
+<section id="id10">
+<h3>Example Configuration<a class="headerlink" href="#id10" title="Permalink to this heading">¶</a></h3>
 <p>a. The most basic configuration, which is suitable for many models, leaves all configuration options set to their default values:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxFloatToFloat16&quot;</span>
@@ -574,8 +613,8 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 <p>Converting model to mixed precision.</p>
 <p>If float16 conversion is giving poor results, you can convert most of the ops to float16 but leave some in float32. The <code class="docutils literal notranslate"><span class="pre">OrtMixedPrecision</span></code> pass finds a minimal set of ops to skip while retaining a certain level of accuracy.</p>
 <p>The default value for <code class="docutils literal notranslate"><span class="pre">op_block_list</span></code> is <code class="docutils literal notranslate"><span class="pre">[&quot;SimplifiedLayerNormalization&quot;,</span> <span class="pre">&quot;SkipSimplifiedLayerNormalization&quot;,</span> <span class="pre">&quot;Relu&quot;,</span> <span class="pre">&quot;Add&quot;]</span></code>.</p>
-<section id="id9">
-<h3>Example Configuration<a class="headerlink" href="#id9" title="Permalink to this heading">¶</a></h3>
+<section id="id11">
+<h3>Example Configuration<a class="headerlink" href="#id11" title="Permalink to this heading">¶</a></h3>
 <p>a. The most basic configuration, which is suitable for many models, leaves all configuration options set to their default values:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtMixedPrecision&quot;</span>
@@ -604,8 +643,8 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 <p>In qnn, snpe and other mobile inference scenarios, the input shape of the model is often fixed. The <code class="docutils literal notranslate"><span class="pre">DynamicToFixedShape</span></code> pass converts the dynamic shape of the model to a fixed shape.</p>
 <p>For example, often models have a dynamic batch size so that training is more efficient. In mobile scenarios the batch generally has a size of 1. Making the batch size dimension ‘fixed’ by setting it to 1 may allow NNAPI and CoreML to run of the model.</p>
 <p>The helper can be used to update specific dimensions, or the entire input shape.</p>
-<section id="id10">
-<h3>Example Configuration<a class="headerlink" href="#id10" title="Permalink to this heading">¶</a></h3>
+<section id="id12">
+<h3>Example Configuration<a class="headerlink" href="#id12" title="Permalink to this heading">¶</a></h3>
 <p>a. Making a symbolic dimension fixed</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DynamicToFixedShape&quot;</span><span class="p">,</span>
@@ -637,8 +676,8 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 <li><p>Adapters weights are set as external tensors pointing to a non-existent file. The onnx model is thus invalid by itself as it cannot be loaded. In order to create an inference session using this model, the adapter weights must be added to a sessions options object using <code class="docutils literal notranslate"><span class="pre">add_initializer</span></code> or <code class="docutils literal notranslate"><span class="pre">add_external_initializers</span></code>.</p></li>
 <li><p>Adapter weights are converted into model inputs. The onnx model is valid. During inference, the adapter weights must be provided as part of the inputs. We call them constant inputs here since these weights don’t change between runs when using the one set of adapters.</p></li>
 </ul>
-<section id="id11">
-<h3>Example Configuration<a class="headerlink" href="#id11" title="Permalink to this heading">¶</a></h3>
+<section id="id13">
+<h3>Example Configuration<a class="headerlink" href="#id13" title="Permalink to this heading">¶</a></h3>
 <p>a. As external initializers</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ExtractAdapters&quot;</span><span class="p">,</span>
