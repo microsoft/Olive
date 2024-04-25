@@ -136,7 +136,7 @@ def _package_azureml_deployment(
             )
 
         base_environment_source = BaseEnvironment(
-            type="EnvironmentAsset", resource_id=model_package_config.base_environent_id
+            type="EnvironmentAsset", resource_id=model_package_config.base_environment_id
         )
 
         package_request = ModelPackage(

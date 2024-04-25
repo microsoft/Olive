@@ -161,7 +161,7 @@ If not specified, Olive will not package artifacts.
               The folder path to your scoring script.
             * `scoring_script [str]`
               The scoring script name.
-          * `base_environent_id [str]`
+          * `base_environment_id [str]`
             The base environment id that will be used for Azure ML packaging. The format is `azureml:<base-environment-name>:<base-environment-version>`.
           * `environment_variables [dict]`
             Env vars that are required for the package to run, but not necessarily known at Environment creation time. `None` by default.
@@ -219,7 +219,7 @@ You can add different types `PackagingConfig` as a list to Engine configurations
                         "code_folder": "code",
                         "scoring_script": "score.py"
                     },
-                    "base_environent_id": "azureml:olive-aml-packaging:1"
+                    "base_environment_id": "azureml:olive-aml-packaging:1"
                 }
             }
         }

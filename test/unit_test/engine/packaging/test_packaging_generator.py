@@ -361,7 +361,7 @@ def test_azureml_deployment(mock_retry_func, inferencing_server_type):
     deployment_name = "package-test-deployment"
     code_folder = str(Path(__file__).parent / "code")
     scoring_script = "score.py"
-    base_environent_id = "base_environent_id"
+    base_environment_id = "base_environment_id"
     target_environment = "target_environment"
     target_environment_version = "1"
 
@@ -399,7 +399,7 @@ def test_azureml_deployment(mock_retry_func, inferencing_server_type):
             environment=model_package_mock,
         )
 
-    base_environment_source = BaseEnvironment(type="EnvironmentAsset", resource_id=base_environent_id)
+    base_environment_source = BaseEnvironment(type="EnvironmentAsset", resource_id=base_environment_id)
 
     package_request = ModelPackage(
         target_environment=target_environment,
@@ -428,7 +428,7 @@ def test_azureml_deployment(mock_retry_func, inferencing_server_type):
         target_environment=target_environment,
         target_environment_version=target_environment_version,
         inferencing_server=inference_server_config,
-        base_environent_id=base_environent_id,
+        base_environment_id=base_environment_id,
     )
 
     deployment_config = DeploymentConfig(

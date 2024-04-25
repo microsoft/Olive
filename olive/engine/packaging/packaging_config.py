@@ -61,7 +61,7 @@ class ModelPackageConfig(ConfigBase):
     target_environment: str = "olive-target-environment"
     target_environment_version: Optional[str] = None
     inferencing_server: InferenceServerConfig
-    base_environent_id: str
+    base_environment_id: str
     model_configurations: ModelConfigurationConfig = None
     environment_variables: Optional[dict] = None
 
