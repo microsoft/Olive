@@ -114,7 +114,7 @@ For using ONNX runtime GenAI to optimize, follow build and installation instruct
 
 Run the following command to execute the workflow:
 ```bash
-python llama2_genai.py [--model_name <>] [--metadata_only]
+python llama2_model_builder.py [--model_name <>] [--metadata_only]
 ```
 
 To generate metadata only for pre-exported onnx model, use the `--metadata_only` option.

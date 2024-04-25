@@ -33,7 +33,7 @@ def main(raw_args=None):
     # set tempdir
     set_tempdir(args.tempdir)
 
-    input_template = "llama2_genai_template.json"
+    input_template = "llama2_model_builder_template.json"
     with open(input_template) as f:
         template_json_str = f.read()
 
@@ -49,7 +49,7 @@ def main(raw_args=None):
     template_json["engine"]["output_dir"] = f"models/{model_name}"
 
     # dump config
-    output_template = "llama2_genai.json"
+    output_template = "llama2_model_builder.json"
     with open(output_template, "w") as f:
         json.dump(template_json, f, indent=4)
 
