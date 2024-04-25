@@ -499,7 +499,7 @@
 </li>
         <li><a href="api/passes.html#cmdoption-arg-double_quant">double_quant</a>
 </li>
-        <li><a href="api/passes.html#cmdoption-arg-enable_cuda_graph">enable_cuda_graph</a>
+        <li><a href="api/passes.html#cmdoption-arg-293">enable_cuda_graph</a>, <a href="api/passes.html#cmdoption-arg-enable_cuda_graph">[1]</a>
 </li>
         <li><a href="api/passes.html#cmdoption-arg-enable_dpu">enable_dpu</a>
 </li>
@@ -514,6 +514,10 @@
         <li><a href="api/passes.html#cmdoption-arg-217">eval_dataset_size</a>, <a href="api/passes.html#cmdoption-arg-231">[1]</a>, <a href="api/passes.html#cmdoption-arg-eval_dataset_size">[2]</a>
 </li>
         <li><a href="api/passes.html#cmdoption-arg-example_input_func">example_input_func</a>
+</li>
+        <li><a href="api/passes.html#cmdoption-arg-exclude_embeds">exclude_embeds</a>
+</li>
+        <li><a href="api/passes.html#cmdoption-arg-exclude_lm_head">exclude_lm_head</a>
 </li>
         <li><a href="api/passes.html#cmdoption-arg-121">excluded_precisions</a>, <a href="api/passes.html#cmdoption-arg-147">[1]</a>, <a href="api/passes.html#cmdoption-arg-excluded_precisions">[2]</a>
 </li>
@@ -586,6 +590,10 @@
         <li><a href="api/passes.html#cmdoption-arg-inputs_to_make_channel_last">inputs_to_make_channel_last</a>
 </li>
         <li><a href="api/passes.html#cmdoption-arg-inside_layer_modules">inside_layer_modules</a>
+</li>
+        <li><a href="api/passes.html#cmdoption-arg-int4_accuracy_level">int4_accuracy_level</a>
+</li>
+        <li><a href="api/passes.html#cmdoption-arg-int4_block_size">int4_block_size</a>
 </li>
         <li><a href="api/passes.html#cmdoption-arg-inter_thread_num_list">inter_thread_num_list</a>
 </li>
@@ -1049,7 +1057,7 @@
     enable_cuda_graph
 
       <ul>
-        <li><a href="api/passes.html#cmdoption-arg-enable_cuda_graph">command line option</a>
+        <li><a href="api/passes.html#cmdoption-arg-293">command line option</a>, <a href="api/passes.html#cmdoption-arg-enable_cuda_graph">[1]</a>
 </li>
       </ul></li>
       <li>
@@ -1111,8 +1119,22 @@
         <li><a href="api/passes.html#cmdoption-arg-example_input_func">command line option</a>
 </li>
       </ul></li>
+      <li>
+    exclude_embeds
+
+      <ul>
+        <li><a href="api/passes.html#cmdoption-arg-exclude_embeds">command line option</a>
+</li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
+    exclude_lm_head
+
+      <ul>
+        <li><a href="api/passes.html#cmdoption-arg-exclude_lm_head">command line option</a>
+</li>
+      </ul></li>
       <li>
     excluded_precisions
 
@@ -1397,8 +1419,6 @@
         <li><a href="api/passes.html#cmdoption-arg-input_shape">command line option</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     input_shapes
 
@@ -1406,6 +1426,8 @@
         <li><a href="api/passes.html#cmdoption-arg-247">command line option</a>, <a href="api/passes.html#cmdoption-arg-input_shapes">[1]</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     input_types
 
@@ -1429,6 +1451,20 @@
       </ul></li>
       <li><a href="api/systems.html#olive.systems.system_config.AzureMLTargetUserConfig.instance_count">instance_count (olive.systems.system_config.AzureMLTargetUserConfig attribute)</a>
 </li>
+      <li>
+    int4_accuracy_level
+
+      <ul>
+        <li><a href="api/passes.html#cmdoption-arg-int4_accuracy_level">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    int4_block_size
+
+      <ul>
+        <li><a href="api/passes.html#cmdoption-arg-int4_block_size">command line option</a>
+</li>
+      </ul></li>
       <li><a href="api/systems.html#olive.hardware.accelerator.Device.INTEL_MYRIAD">INTEL_MYRIAD (olive.hardware.accelerator.Device attribute)</a>
 </li>
       <li>
