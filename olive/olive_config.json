@@ -9,8 +9,8 @@
         "ExtractAdapters": {
             "module_path": "olive.passes.onnx.extract_adapters.ExtractAdapters"
         },
-        "GenAIModelExporter": {
-            "module_path": "olive.passes.onnx.genai_model_exporter.GenAIModelExporter"
+        "ModelBuilder": {
+            "module_path": "olive.passes.onnx.model_builder.ModelBuilder"
         },
         "IncDynamicQuantization": {
             "module_path": "olive.passes.onnx.inc_quantization.IncDynamicQuantization",

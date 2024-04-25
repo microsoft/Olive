@@ -5,11 +5,20 @@
 import logging
 from functools import partial
 from itertools import chain
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, Optional, Tuple, Union
 
 import transformers
-from transformers import AutoConfig, AutoModel, AutoTokenizer
+from transformers import (
+    AutoConfig,
+    AutoModel,
+    AutoTokenizer,
+    GenerationConfig,
+    PretrainedConfig,
+    PreTrainedTokenizer,
+    PreTrainedTokenizerFast,
+)
 
+from olive.common.utils import get_attr
 from olive.model.utils.hf_mappings import FEATURE_TO_PEFT_TASK_TYPE, MODELS_TO_MAX_LENGTH_MAPPING, TASK_TO_FEATURE
 
 logger = logging.getLogger(__name__)
@@ -61,9 +70,36 @@ def huggingface_model_loader(model_loader):
     return model_loader.from_pretrained
 
 
-def get_hf_model_config(model_name: str, **kwargs):
+def get_hf_model_config(model_name: str, **kwargs) -> PretrainedConfig:
     """Get HF Config for the given model name."""
     return AutoConfig.from_pretrained(model_name, **kwargs)
+
+
+def save_hf_model_config(config: PretrainedConfig, output_dir: str, **kwargs):
+    """Save input HF Config to output directory."""
+    config.save_pretrained(output_dir, **kwargs)
+
+
+def get_hf_model_generation_config(model_name: str, **kwargs) -> GenerationConfig:
+    """Get HF model's generation config for the given model name."""
+    return GenerationConfig.from_pretrained(model_name, **kwargs)
+
+
+def save_hf_model_generation_config(config: GenerationConfig, output_dir: str, **kwargs):
+    """Save input HF generation Config to output directory."""
+    config.save_pretrained(output_dir, **kwargs)
+
+
+def get_hf_model_tokenizer(model_name: str, **kwargs) -> Union[PreTrainedTokenizer, PreTrainedTokenizerFast]:
+    """Get HF model's tokenizer."""
+    return AutoTokenizer.from_pretrained(model_name, **kwargs)
+
+
+def save_hf_model_tokenizer(
+    tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast], output_dir: str, **kwargs
+) -> Tuple[str]:
+    """Save input tokenizer to output directory."""
+    return tokenizer.save_pretrained(output_dir, **kwargs)
 
 
 def load_hf_model_from_model_class(model_class: str, name: str, **kwargs):
@@ -87,10 +123,9 @@ def patched_supported_features_mapping(*supported_features: str, onnx_config_cls
     if onnx_config_cls is None:
         raise ValueError("A OnnxConfig class must be provided")
 
-    import olive.model.utils.hf_onnx_config as config_cls
+    from olive.model.utils import hf_onnx_config
 
-    for attr_name in onnx_config_cls.split("."):
-        config_cls = getattr(config_cls, attr_name)
+    config_cls = get_attr(hf_onnx_config, onnx_config_cls)
     mapping = {}
     for feature in supported_features:
         if "-with-past" in feature:

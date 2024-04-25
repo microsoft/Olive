@@ -16,7 +16,7 @@ from docker.errors import BuildError, ContainerError
 import olive.systems.docker.utils as docker_utils
 from olive.cache import get_local_path_from_root
 from olive.common.config_utils import ParamCategory, validate_config
-from olive.evaluator.metric import Metric, MetricResult
+from olive.evaluator.metric_result import MetricResult
 from olive.hardware import Device
 from olive.model import ModelConfig
 from olive.systems.common import AcceleratorConfig, LocalDockerConfig, SystemType
@@ -24,6 +24,7 @@ from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import DockerTargetUserConfig
 
 if TYPE_CHECKING:
+    from olive.evaluator.metric import Metric
     from olive.hardware.accelerator import AcceleratorSpec
     from olive.passes import Pass
 
@@ -218,7 +219,7 @@ class DockerSystem(OliveSystem):
             return None
 
     def evaluate_model(
-        self, model_config: "ModelConfig", data_root: str, metrics: List[Metric], accelerator: "AcceleratorSpec"
+        self, model_config: "ModelConfig", data_root: str, metrics: List["Metric"], accelerator: "AcceleratorSpec"
     ) -> Dict[str, Any]:
         container_root_path = Path("/olive-ws/")
         with tempfile.TemporaryDirectory() as tempdir:
@@ -238,7 +239,7 @@ class DockerSystem(OliveSystem):
         workdir,
         model_config: "ModelConfig",
         data_root: str,
-        metrics: List[Metric],
+        metrics: List["Metric"],
         accelerator: "AcceleratorSpec",
         container_root_path: Path,
     ):
@@ -299,7 +300,7 @@ class DockerSystem(OliveSystem):
         return self._run_container(eval_command, volumes_list, output_local_path, eval_output_name, accelerator)
 
     @staticmethod
-    def _create_eval_config(model_config: "ModelConfig", metrics: List[Metric], model_mounts: Dict[str, str]):
+    def _create_eval_config(model_config: "ModelConfig", metrics: List["Metric"], model_mounts: Dict[str, str]):
         model_json = model_config.to_json(check_object=True)
         for k, v in model_mounts.items():
             model_json["config"][k] = v

@@ -24,7 +24,8 @@ from olive.systems.system_config import IsolatedORTTargetUserConfig
 from olive.systems.utils import create_new_environ, run_available_providers_runner
 
 if TYPE_CHECKING:
-    from olive.evaluator.metric import Metric, MetricResult
+    from olive.evaluator.metric import Metric
+    from olive.evaluator.metric_result import MetricResult
     from olive.hardware.accelerator import AcceleratorSpec
     from olive.model import ModelConfig, ONNXModelHandler
     from olive.passes.olive_pass import Pass
@@ -118,7 +119,7 @@ class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_in
             "io_bind": cls.io_bind_enabled(metric, model.inference_settings),
             "device": str(device),
             "share_kv_buffer": metric.user_config.shared_kv_buffer,
-            "use_fp16": any(v == "float16" for v in model.get_io_config()["input_types"]),
+            "use_fp16": any(v == "float16" for v in model.io_config["input_types"]),
         }
 
     def _run_inference(self, **kwargs):
@@ -145,7 +146,7 @@ class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_in
         inference_config = self._get_common_config(model, metric, device, execution_providers)
         inference_config["mode"] = "inference"
 
-        io_config = model.get_io_config()
+        io_config = model.io_config
 
         preds = []
         targets = []
@@ -246,7 +247,7 @@ class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_in
             }
         )
 
-        io_config = model.get_io_config()
+        io_config = model.io_config
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_dir_path = Path(temp_dir)

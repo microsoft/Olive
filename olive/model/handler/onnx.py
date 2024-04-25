@@ -63,7 +63,6 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
         self.external_initializers_file_name = external_initializers_file_name
         self.constant_inputs_file_name = constant_inputs_file_name
 
-        self.io_config = None
         self.graph = None
         self.all_graphs: Optional[List[GraphProto]] = None
 
@@ -142,17 +141,18 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
             inference_settings_merged["execution_provider"] = [inference_settings_merged["execution_provider"]]
         return inference_settings_merged
 
-    def get_io_config(self):
+    @property
+    def io_config(self):
         """Get input/output names, shapes, types of the onnx model without creating an ort session.
 
         This function loads the onnx model and parses the graph to get the io config.
         """
-        if self.io_config:
-            return self.io_config
+        if self._io_config:
+            return self._io_config
 
         # save io_config
-        self.io_config = self.get_graph_io_config()
-        return self.io_config
+        self._io_config = self.get_graph_io_config()
+        return self._io_config
 
     def _get_default_execution_providers(self, device: Device):
         # return available ep as ort default ep

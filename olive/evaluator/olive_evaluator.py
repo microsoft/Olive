@@ -22,18 +22,9 @@ from olive.common.pydantic_v1 import validator
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import tensor_data_to_device
 from olive.constants import Framework
-from olive.evaluator.metric import (
-    LatencySubType,
-    Metric,
-    MetricResult,
-    MetricType,
-    SubMetricResult,
-    ThroughputSubType,
-    flatten_metric_result,
-    get_latency_config_from_metric,
-    joint_metric_key,
-)
+from olive.evaluator.metric import LatencySubType, Metric, MetricType, ThroughputSubType, get_latency_config_from_metric
 from olive.evaluator.metric_backend import MetricBackend
+from olive.evaluator.metric_result import MetricResult, SubMetricResult, flatten_metric_result, joint_metric_key
 from olive.hardware import Device
 from olive.model import DistributedOnnxModelHandler, ONNXModelHandler
 from olive.model.config.io_config import is_io_config_static
@@ -235,7 +226,7 @@ class OliveEvaluator(ABC):
         if metric.data_config:
             return metric
 
-        io_config = model.get_io_config()
+        io_config = model.io_config
         if not io_config:
             return metric
 
@@ -439,7 +430,7 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
         )
 
         # prepare for io binding
-        io_config = model.get_io_config()
+        io_config = model.io_config
         io_bind = OnnxEvaluator.io_bind_enabled(metric, model.inference_settings)
         shared_kv_buffer = metric.user_config.shared_kv_buffer
         use_fp16 = any(v == "float16" for v in io_config["input_types"])
@@ -477,7 +468,7 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
         session, inference_settings = OnnxEvaluator.get_session_wrapper(
             model, metric, dataloader, device, execution_providers
         )
-        io_config = model.get_io_config()
+        io_config = model.io_config
 
         preds = []
         targets = []
@@ -540,7 +531,7 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
         session, inference_settings = OnnxEvaluator.get_session_wrapper(
             model, metric, dataloader, device, execution_providers
         )
-        io_config = model.get_io_config()
+        io_config = model.io_config
 
         input_data, _ = next(iter(dataloader))
         input_feed = OnnxEvaluator.format_input(input_data, io_config)
@@ -586,7 +577,7 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
         dataloader, _, post_func = OnnxEvaluator.get_user_config(model.framework, data_root, metric)
 
         session = model.prepare_session(inference_settings=inference_settings, device=Device.GPU, rank=int(local_rank))
-        io_config = model.get_io_config()
+        io_config = model.io_config
 
         preds = []
         targets = []
@@ -671,7 +662,7 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
         model = ONNXModelHandler(model_path, inference_settings=inference_settings)
         dataloader, _, _ = OnnxEvaluator.get_user_config(model.framework, data_root, metric)
         session = model.prepare_session(inference_settings=inference_settings, device=Device.GPU, rank=int(local_rank))
-        io_config = model.get_io_config()
+        io_config = model.io_config
 
         input_feed, _ = next(iter(dataloader))
         input_feed = OnnxEvaluator.format_input(input_feed, io_config)

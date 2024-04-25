@@ -11,9 +11,9 @@ from pathlib import Path
 from typing import Generator, List, Union
 
 from olive.auto_optimizer import AutoOptimizer
-from olive.hardware.accelerator import create_accelerators
 from olive.logging import enable_filelog, set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
 from olive.package_config import OlivePackageConfig
+from olive.systems.accelerator_creator import create_accelerators
 from olive.systems.common import SystemType
 from olive.workflows.run.config import RunConfig, RunPassConfig
 
@@ -119,6 +119,16 @@ def dependency_setup(package_config: OlivePackageConfig, run_config: RunConfig):
         )
 
 
+def get_pass_module_path(pass_type: str, package_config: OlivePackageConfig) -> str:
+    pass_module_config = package_config.passes.get(pass_type)
+    return pass_module_config.module_path
+
+
+def is_execution_provider_required(run_config: RunConfig, package_config: OlivePackageConfig) -> bool:
+    passes = get_used_passes(run_config)
+    return any(get_pass_module_path(p.type, package_config).startswith("olive.passes.onnx") for p in passes)
+
+
 def run_engine(package_config: OlivePackageConfig, run_config: RunConfig, data_root: str = None):
     import onnxruntime as ort
 
@@ -147,6 +157,16 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig, data_r
 
         AzureMLSystem.olive_config = run_config.to_json()
 
+    auto_optimizer_enabled = (
+        not run_config.passes
+        and run_config.auto_optimizer_config is not None
+        and not run_config.auto_optimizer_config.disable_auto_optimizer
+    )
+    if auto_optimizer_enabled:
+        is_ep_required = True
+    else:
+        is_ep_required = is_execution_provider_required(run_config, package_config)
+
     # Register passes since we need to know whether they need to run on target
     used_passes = list(get_used_passes(run_config))
     for pass_config in used_passes:
@@ -166,15 +186,13 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig, data_r
             for pass_config in used_passes
         )
     )
-    accelerator_specs = create_accelerators(engine.target_config, skip_supported_eps_check=target_not_used)
+    accelerator_specs = create_accelerators(
+        engine.target_config, skip_supported_eps_check=target_not_used, is_ep_required=is_ep_required
+    )
 
     pass_list = []
     acc_list = []
-    if (
-        not run_config.passes
-        and run_config.auto_optimizer_config is not None
-        and not run_config.auto_optimizer_config.disable_auto_optimizer
-    ):
+    if auto_optimizer_enabled:
         # For auto optimizer, Olive generates passes and pass_flows for each accelerator
         # that means, the passes and pass_flows might be different for each accelerator
         for acc_spec in accelerator_specs:
@@ -333,7 +351,7 @@ def get_local_ort_packages() -> List[str]:
     return local_ort_packages
 
 
-def get_used_passes(run_config: RunConfig) -> Generator[RunPassConfig, None, None]:
+def get_used_passes(run_config: RunConfig) -> Generator["RunPassConfig", None, None]:
     if run_config.pass_flows:
         passes = set()
         for pass_flow in run_config.pass_flows:

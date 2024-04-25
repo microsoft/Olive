@@ -25,8 +25,8 @@
         }
     },
     "passes": {
-        "genai_exporter": {
-            "type": "GenAIModelExporter",
+        "builder": {
+            "type": "ModelBuilder",
             "config": {
                 "precision": "int4"
             }
@@ -36,6 +36,6 @@
         "host": "local_system",
         "target": "local_system",
         "cache_dir": "cache",
-        "output_dir": "models/genai"
+        "output_dir": "models/model_builder"
     }
 }

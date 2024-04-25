@@ -11,8 +11,8 @@ from torchvision.transforms import ToTensor
 from olive.engine import Engine
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
-from olive.hardware.accelerator import create_accelerators
 from olive.passes.onnx.perf_tuning import OrtPerfTuning
+from olive.systems.accelerator_creator import create_accelerators
 
 # pylint: disable=redefined-outer-name
 

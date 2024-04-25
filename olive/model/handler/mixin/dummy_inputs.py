@@ -24,7 +24,7 @@ class DummyInputsMixin:
         # Priority: dummy_inputs_func > io_config.input_shapes > hf_config.dataset > onnx_config
         dummy_inputs = None
         # resolved self.io_config
-        # won't use self.get_io_config() since we don't want hf_config to be used
+        # won't use self.io_config since we don't want hf_config to be used
         resolved_io_config = self.get_user_io_config(self.io_config) or {}
         if self.dummy_inputs_func is not None:
             logger.debug("Using dummy_inputs_func to get dummy inputs")

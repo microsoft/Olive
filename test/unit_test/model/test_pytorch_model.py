@@ -182,8 +182,8 @@ class TestPytorchDummyInput:
             hf_config={"task": self.task, "model_name": self.model_name}, io_config=self.io_config
         )
         # get io config
-        io_config = olive_model.get_io_config()
-        assert io_config == IoConfig(**self.io_config).dict()
+        io_config = olive_model.io_config
+        assert io_config == IoConfig(**self.io_config).dict(exclude_none=True)
 
     def test_func_io_config(self):
         io_config_func = MagicMock(spec=FunctionType)
@@ -192,7 +192,7 @@ class TestPytorchDummyInput:
             hf_config={"task": self.task, "model_name": self.model_name}, io_config=io_config_func
         )
         # get io config
-        io_config = olive_model.get_io_config()
+        io_config = olive_model.io_config
         io_config_func.assert_called_once_with(olive_model)
         assert io_config == IoConfig(**self.io_config).dict()
 
@@ -201,7 +201,7 @@ class TestPytorchDummyInput:
         get_hf_model_io_config.return_value = self.io_config
         olive_model = PyTorchModelHandler(hf_config={"task": self.task, "model_name": self.model_name})
         # get io config
-        io_config = olive_model.get_io_config()
+        io_config = olive_model.io_config
         assert io_config == self.io_config
         get_hf_model_io_config.assert_called_once_with(self.model_name, self.task, None)
 

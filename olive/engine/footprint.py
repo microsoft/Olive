@@ -9,7 +9,7 @@ from copy import deepcopy
 from typing import DefaultDict, Dict, List, NamedTuple, Optional
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
-from olive.evaluator.metric import MetricResult
+from olive.evaluator.metric_result import MetricResult
 
 logger = logging.getLogger(__name__)
 

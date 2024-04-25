@@ -27,6 +27,7 @@ def test_success(exceptions):
     global num_tries
     num_tries = 0
     assert retry_func(fail_with_key_error, max_tries=2, delay=1, exceptions=exceptions)
+    assert num_tries == 1
 
 
 def test_failure():

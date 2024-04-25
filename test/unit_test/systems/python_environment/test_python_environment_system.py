@@ -20,7 +20,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from olive.common.utils import run_subprocess
-from olive.evaluator.metric import MetricResult, joint_metric_key
+from olive.evaluator.metric_result import MetricResult, joint_metric_key
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import ModelConfig
 from olive.systems.python_environment import PythonEnvironmentSystem

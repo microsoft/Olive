@@ -10,7 +10,7 @@ import numpy as np
 from olive.common.utils import hash_dict
 
 if TYPE_CHECKING:
-    from olive.evaluator.metric import MetricResult
+    from olive.evaluator.metric_result import MetricResult
 
 
 class SearchResults:

@@ -114,8 +114,10 @@ For using ONNX runtime GenAI to optimize, follow build and installation instruct
 
 Run the following command to execute the workflow:
 ```bash
-python -m olive.workflows.run --config lamma2_genai.json
+python llama2_model_builder.py [--model_name <>] [--metadata_only]
 ```
+
+To generate metadata only for pre-exported onnx model, use the `--metadata_only` option.
 
 Snippet below shows an example run of generated llama2 model.
 ```python

@@ -181,6 +181,10 @@ If not specified, Olive will not package artifacts.
             Size of the mini-batch passed to each batch invocation. `10` by default.
           * `extra_config [dict]`
             Extra configurations for deployment. `None` by default.
+    * `include_sample_code [bool]`:
+      Whether or not to include sample code in zip file. Defaults to True
+    * `include_runtime_packages [bool]`:
+      Whether or not to include runtime packages (like onnxruntime) in zip file. Defaults to True
 
 You can add different types `PackagingConfig` as a list to Engine configurations. e.g.:
 

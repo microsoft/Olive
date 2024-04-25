@@ -10,7 +10,8 @@ from olive.common.config_utils import validate_config
 from olive.systems.common import AcceleratorConfig, SystemType
 
 if TYPE_CHECKING:
-    from olive.evaluator.metric import Metric, MetricResult
+    from olive.evaluator.metric import Metric
+    from olive.evaluator.metric_result import MetricResult
     from olive.hardware.accelerator import AcceleratorSpec
     from olive.model import ModelConfig
     from olive.passes.olive_pass import Pass

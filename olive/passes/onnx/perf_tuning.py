@@ -13,8 +13,9 @@ from typing import Any, Callable, Dict, Union
 
 from olive.common.ort_inference import check_and_normalize_provider_args
 from olive.data.config import DataConfig
-from olive.evaluator.metric import LatencySubType, Metric, MetricType, joint_metric_key
+from olive.evaluator.metric import LatencySubType, Metric, MetricType
 from olive.evaluator.metric_config import get_user_config_properties_from_metric_type
+from olive.evaluator.metric_result import joint_metric_key
 from olive.exception import EXCEPTIONS_TO_RAISE
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
 from olive.model import ONNXModelHandler

@@ -28,15 +28,15 @@ Besides, if you want to convert an existing ONNX model with another target opset
  }
 ```
 
-For generative models, the alternative conversion pass [GenAIModelExporter](genai_model_exporter) that integrates the
+For generative models, the alternative conversion pass [ModelBuilder](model_builder) that integrates the
 [ONNX Runtime Generative AI](https://github.com/microsoft/onnxruntime-genai) module can be used.
 
-Please refer to [GenAIModelExporter](genai_model_exporter) for more details about the pass and its config parameters.
+Please refer to [ModelBuilder](model_builder) for more details about the pass and its config parameters.
 
 ### Example Configuration
 ```json
 {
-    "type": "GenAIModelExporter",
+    "type": "ModelBuilder",
     "config": {
         "precision": "int4"
     }
@@ -217,7 +217,7 @@ Here are some examples to describe the pre/post processing which is exactly same
 }
 ```
 
-## Post Training Quantization (PTQ)
+## Quantize with onnxruntime
 [Quantization][1] is a technique to compress deep learning models by reducing the precision of the model weights from 32 bits to 8 bits. This
 technique is used to reduce the memory footprint and improve the inference performance of the model. Quantization can be applied to the
 weights of the model, the activations of the model, or both.
@@ -234,7 +234,6 @@ There are two ways to quantize a model in onnxruntime:
     Static quantization method runs the model using a set of inputs called calibration data. In this way, user must provide a calibration
     dataset to calculate the quantization parameters (scale and zero point) for activations before quantizing the model.
 
-### Quantize with onnxruntime
 Olive consolidates the dynamic and static quantization into a single pass called `OnnxQuantization`, and provide the user with the ability to
 tune both quantization methods and hyperparameter at the same time.
 If the user desires to only tune either of dynamic or static quantization, Olive also supports them through `OnnxDynamicQuantization` and
@@ -245,27 +244,6 @@ Please refer to [OnnxQuantization](onnx_quantization), [OnnxDynamicQuantization]
 
 **Note:** If target execution provider is QNN EP, the model might need to be preprocessed before quantization. Please refer to [QnnPreprocess](qnn_preprocess) for more details about the pass and its config parameters.
 This preprocessing step fuses operators unsupported by QNN EP and inserts necessary operators to make the model compatible with QNN EP.
-
-### Quantize with Intel® Neural Compressor
-In addition to the default onnxruntime quantization tool, Olive also integrates [Intel® Neural Compressor](https://github.com/intel/neural-compressor).
-
-Intel® Neural Compressor is a model compression tool across popular deep learning frameworks including TensorFlow, PyTorch, ONNX Runtime (ORT) and MXNet, which supports a variety of powerful model compression techniques, e.g., quantization, pruning, distillation, etc. As a user-experience-driven and hardware friendly tool, Intel® Neural Compressor focuses on providing users with an easy-to-use interface and strives to reach “quantize once, run everywhere” goal.
-
-Olive consolidates the Intel® Neural Compressor dynamic and static quantization into a single pass called `IncQuantization`, and provide the user with the ability to
-tune both quantization methods and hyperparameter at the same time.
-If the user desires to only tune either of dynamic or static quantization, Olive also supports them through `IncDynamicQuantization` and
-`IncStaticQuantization` respectively.
-
-Please refer to [IncQuantization](inc_quantization), [IncDynamicQuantization](inc_dynamic_quantization) and
-[IncStaticQuantization](inc_static_quantization) for more details about the passes and their config parameters.
-
-### Quantize with AMD Vitis AI Quantizer
-Olive also integrates [AMD Vitis AI Quantizer](https://github.com/microsoft/Olive/blob/main/olive/passes/onnx/vitis_ai/quantize.py) for quantization.
-
-The Vitis™ AI development environment accelerates AI inference on AMD® hardware platforms. The Vitis AI quantizer can reduce the computing complexity by converting the 32-bit floating-point weights and activations to fixed-point like INT8. The fixed-point network model requires less memory bandwidth, thus providing faster speed and higher power efficiency than the floating-point model.
-Olive consolidates the Vitis™ AI quantization into a single pass called VitisAIQuantization which supports power-of-2 scale quantization methods and supports Vitis AI Execution Provider.
-
-Please refer to [VitisAIQuantization](vitis_ai_quantization) for more details about the pass and its config parameters.
 
 ### Example Configuration
 a. Tune the parameters of the OlivePass with pre-defined searchable values
@@ -326,6 +304,61 @@ Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/bert
 for an example implementation of `"user_script.py"` and `"glue_calibration_reader"`.
 
 check out [this file](https://github.com/microsoft/Olive/tree/main/examples/bert#bert-optimization-with-intel-neural-compressor-ptq-on-cpu) for an example for Intel® Neural Compressor quantization.
+
+## Quantize with Intel® Neural Compressor
+In addition to the default onnxruntime quantization tool, Olive also integrates [Intel® Neural Compressor](https://github.com/intel/neural-compressor).
+
+Intel® Neural Compressor is a model compression tool across popular deep learning frameworks including TensorFlow, PyTorch, ONNX Runtime (ORT) and MXNet, which supports a variety of powerful model compression techniques, e.g., quantization, pruning, distillation, etc. As a user-experience-driven and hardware friendly tool, Intel® Neural Compressor focuses on providing users with an easy-to-use interface and strives to reach “quantize once, run everywhere” goal.
+
+Olive consolidates the Intel® Neural Compressor dynamic and static quantization into a single pass called `IncQuantization`, and provide the user with the ability to
+tune both quantization methods and hyperparameter at the same time.
+If the user desires to only tune either of dynamic or static quantization, Olive also supports them through `IncDynamicQuantization` and
+`IncStaticQuantization` respectively.
+
+### Example Configuration
+```json
+"inc_quantization": {
+    "type": "IncStaticQuantization",
+    "config": {
+        "user_script": "user_script.py",
+        "approach": "weight_only",
+        "weight_only_config": {
+            "bits": 4,
+            "algorithm": "GPTQ"
+        },
+        "dataloader_func": "calib_dataloader",
+        "calibration_sampling_size": [8],
+        "save_as_external_data": true,
+        "all_tensors_to_one_file": true
+    }
+}
+```
+
+Please refer to [IncQuantization](inc_quantization), [IncDynamicQuantization](inc_dynamic_quantization) and
+[IncStaticQuantization](inc_static_quantization) for more details about the passes and their config parameters.
+
+## Quantize with AMD Vitis AI Quantizer
+Olive also integrates [AMD Vitis AI Quantizer](https://github.com/microsoft/Olive/blob/main/olive/passes/onnx/vitis_ai/quantize.py) for quantization.
+
+The Vitis™ AI development environment accelerates AI inference on AMD® hardware platforms. The Vitis AI quantizer can reduce the computing complexity by converting the 32-bit floating-point weights and activations to fixed-point like INT8. The fixed-point network model requires less memory bandwidth, thus providing faster speed and higher power efficiency than the floating-point model.
+Olive consolidates the Vitis™ AI quantization into a single pass called VitisAIQuantization which supports power-of-2 scale quantization methods and supports Vitis AI Execution Provider.
+
+### Example Configuration
+```json
+"vitis_ai_quantization": {
+    "type": "VitisAIQuantization",
+    "config": {
+        "calibrate_method":"NonOverflow",
+        "quant_format":"QDQ",
+        "activation_type":"QUInt8",
+        "weight_type":"QInt8",
+        "user_script": "user_script.py",
+        "data_dir": "data",
+        "dataloader_func": "resnet_calibration_reader"
+    }
+}
+```
+Please refer to [VitisAIQuantization](vitis_ai_quantization) for more details about the pass and its config parameters.
 
 ## ORT Performance Tuning
 ONNX Runtime provides high performance across a range of hardware options through its Execution Providers interface for different execution

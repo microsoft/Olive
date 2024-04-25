@@ -14,10 +14,7 @@
             "config": {
                 "accelerators": [
                     {
-                        "device": "gpu",
-                        "execution_providers": [
-                            "CPUExecutionProvider"
-                        ]
+                        "device": "gpu"
                     }
                 ]
             }

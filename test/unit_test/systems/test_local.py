@@ -10,7 +10,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from olive.constants import Framework
-from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricResult, MetricType, joint_metric_key
+from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
+from olive.evaluator.metric_result import MetricResult, joint_metric_key
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import PyTorchModelHandler
 from olive.systems.local import LocalSystem
