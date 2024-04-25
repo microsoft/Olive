@@ -22,7 +22,7 @@ from olive.passes.olive_pass import PassConfigParam
 logger = logging.getLogger(__name__)
 
 
-class GenAIModelExporter(Pass):
+class ModelBuilder(Pass):
     """Converts a Huggingface generative PyTorch model to ONNX model using the Generative AI builder.
 
     See https://github.com/microsoft/onnxruntime-genai
@@ -40,7 +40,7 @@ class GenAIModelExporter(Pass):
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "precision": PassConfigParam(
-                type_=GenAIModelExporter.Precision,
+                type_=ModelBuilder.Precision,
                 required=True,
                 description="Precision of model.",
             ),
@@ -67,7 +67,7 @@ class GenAIModelExporter(Pass):
             in AcceleratorLookup.get_execution_providers_for_device(Device.CPU)
             else Device.GPU
         )
-        if precision == GenAIModelExporter.Precision.FP16 and device == Device.CPU:
+        if precision == ModelBuilder.Precision.FP16 and device == Device.CPU:
             logger.info(
                 "FP16 is not supported on CPU. Valid precision + execution"
                 "provider combinations are: FP32 CPU, FP32 CUDA, FP16 CUDA, INT4 CPU, INT4 CUDA"
@@ -93,7 +93,7 @@ class GenAIModelExporter(Pass):
 
         if not metadata_only and not model.hf_config:
             raise ValueError(
-                "GenAIModelExporter pass only supports exporting HF models i.e. PyTorchModelHandler "
+                "ModelBuilder pass only supports exporting HF models i.e. PyTorchModelHandler "
                 "with hf_config and exporting the metadata only for pre-optimized onnx models."
             )
 

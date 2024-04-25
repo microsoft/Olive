@@ -28,15 +28,15 @@ Besides, if you want to convert an existing ONNX model with another target opset
  }
 ```
 
-For generative models, the alternative conversion pass [GenAIModelExporter](genai_model_exporter) that integrates the
+For generative models, the alternative conversion pass [ModelBuilder](model_builder) that integrates the
 [ONNX Runtime Generative AI](https://github.com/microsoft/onnxruntime-genai) module can be used.
 
-Please refer to [GenAIModelExporter](genai_model_exporter) for more details about the pass and its config parameters.
+Please refer to [ModelBuilder](model_builder) for more details about the pass and its config parameters.
 
 ### Example Configuration
 ```json
 {
-    "type": "GenAIModelExporter",
+    "type": "ModelBuilder",
     "config": {
         "precision": "int4"
     }

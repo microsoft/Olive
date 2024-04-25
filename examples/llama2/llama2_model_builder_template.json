@@ -34,8 +34,8 @@
                 "save_metadata_for_token_generation": true
             }
         },
-        "exporter": {
-            "type": "GenAIModelExporter",
+        "builder": {
+            "type": "ModelBuilder",
             "config": {
                 "precision": "int4",
                 "search": {
@@ -45,7 +45,7 @@
             }
         },
         "metadata": {
-            "type": "GenAIModelExporter",
+            "type": "ModelBuilder",
             "config": {
                 "precision": "int4",
                 "metadata_only": true,
