@@ -23,7 +23,7 @@ class AdapterMode(Enum):
     initializers = "initializers"
 
 
-class Generator:
+class MultiLoraGenerator:
     def __init__(
         self,
         model_path: str,
@@ -51,7 +51,7 @@ class Generator:
         self.execution_provider = execution_provider
         self.device_id = device_id
         self.adapter_info = adapters or {"default": {"weights": None, "template": None}}
-        self.adapter_mode = adapter_mode
+        self.adapter_mode = AdapterMode(adapter_mode)
 
         # Determine attention type
         self.attn_type = "default"
@@ -143,7 +143,12 @@ class Generator:
                     np_weights = dict(np.load(info["weights"])) if isinstance(info["weights"], str) else info["weights"]
                     # TODO(jambayk): provide an option to lazy load the ortvalues if needed
                     # for example, there is not enough memory to load all adapters at once
-                    ort_values = {k: OrtValue.ortvalue_from_numpy(v, device, device_id) for k, v in np_weights.items()}
+                    if execution_provider != "QNNExecutionProvider":
+                        ort_values = {
+                            k: OrtValue.ortvalue_from_numpy(v, device, device_id) for k, v in np_weights.items()
+                        }
+                    else:
+                        ort_values = None
                     adapters[name].update({"numpy_inputs": np_weights, "ortvalue_inputs": ort_values})
         else:
             # create a session for each adapter
@@ -200,7 +205,7 @@ class Generator:
         cache_type: str = "dynamic",
         max_cache_len: int = 1024,
         cache_backend: str = "ort",
-    ) -> List[str]:
+    ) -> Union[str, List[str]]:
         """Generate text from the model given a prompt.
 
         :param prompt: The prompt to generate text from. Can be a string or a list of strings.
@@ -341,7 +346,10 @@ class Generator:
             io_binding.clear_binding_inputs()
             io_binding.clear_binding_outputs()
 
-        return self.tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
+        decoded_text = self.tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
+        if isinstance(prompt, str):
+            return decoded_text[0]
+        return decoded_text
 
     def get_initial_inputs(
         self,
