@@ -23,7 +23,7 @@ class AdapterMode(Enum):
     initializers = "initializers"
 
 
-class MultiLoraGenerator:
+class ORTGenerator:
     def __init__(
         self,
         model_path: str,
