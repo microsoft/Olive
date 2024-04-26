@@ -1,35 +1,46 @@
 {
-    "input_model":{
+    "input_model": {
         "type": "PyTorchModel",
         "config": {
             "hf_config": {
                 "model_name": "gpt2",
-                "task": "text-generation",
-                "dataset": {
-                    "data_name": "ptb_text_only",
-                    "subset": "penn_treebank",
-                    "split": "train",
-                    "component_kwargs": {
-                        "pre_process_data": {
-                            "text_cols": ["sentence"],
-                            "corpus_strategy": "join-random",
-                            "source_max_len": 1024,
-                            "max_samples": 5,
-                            "random_seed": 42
-                        }
+                "task": "text-generation"
+            }
+        }
+    },
+    "data_configs": [
+        {
+            "name": "penn_treebank_ptb_text_only",
+            "type": "HuggingfaceContainer",
+            "params_config": {
+                "data_name": "ptb_text_only",
+                "subset": "penn_treebank",
+                "split": "train",
+                "component_kwargs": {
+                    "pre_process_data": {
+                        "text_cols": [
+                            "sentence"
+                        ],
+                        "corpus_strategy": "join-random",
+                        "source_max_len": 1024,
+                        "max_samples": 5,
+                        "random_seed": 42
                     }
                 }
             }
         }
-    },
+    ],
     "evaluators": {
         "common_evaluator": {
-            "metrics":[
+            "metrics": [
                 {
                     "name": "perplexity",
                     "type": "accuracy",
+                    "data_config": "penn_treebank_ptb_text_only",
                     "sub_types": [
-                        {"name": "perplexity"}
+                        {
+                            "name": "perplexity"
+                        }
                     ]
                 }
             ]
@@ -42,13 +53,13 @@
         "quantization": {
             "type": "OnnxQuantization",
             "config": {
-                "data_config": "__input_model_data_config__"
+                "data_config": "penn_treebank_ptb_text_only"
             }
         },
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {
-                "data_config": "__input_model_data_config__"
+                "data_config": "penn_treebank_ptb_text_only"
             }
         }
     },

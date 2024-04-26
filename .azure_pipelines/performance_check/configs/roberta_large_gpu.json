@@ -1,24 +1,10 @@
 {
-    "input_model":{
+    "input_model": {
         "type": "PyTorchModel",
         "config": {
             "hf_config": {
                 "model_name": "roberta-large-mnli",
-                "task": "text-classification",
-                "dataset": {
-                    "data_name":"glue",
-                    "subset": "mnli_matched",
-                    "split": "validation",
-                    "input_cols": ["premise", "hypothesis"],
-                    "label_cols": ["label"],
-                    "batch_size": 1,
-                    "max_samples": 100,
-                    "component_kwargs": {
-                        "pre_process_data": {
-                            "align_labels": true
-                        }
-                    }
-                }
+                "task": "text-classification"
             }
         }
     },
@@ -37,22 +23,63 @@
             }
         }
     },
+    "data_configs": [
+        {
+            "name": "glue_mnli_matched",
+            "type": "HuggingfaceContainer",
+            "params_config": {
+                "data_name": "glue",
+                "subset": "mnli_matched",
+                "split": "validation",
+                "input_cols": [
+                    "premise",
+                    "hypothesis"
+                ],
+                "label_cols": [
+                    "label"
+                ],
+                "batch_size": 1,
+                "max_samples": 100,
+                "component_kwargs": {
+                    "pre_process_data": {
+                        "align_labels": true
+                    }
+                }
+            }
+        }
+    ],
     "evaluators": {
         "common_evaluator": {
-            "metrics":[
+            "metrics": [
                 {
                     "name": "accuracy",
                     "type": "accuracy",
                     "backend": "huggingface_metrics",
+                    "data_config": "glue_mnli_matched",
                     "sub_types": [
-                        {"name": "accuracy", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}}
+                        {
+                            "name": "accuracy",
+                            "priority": 1,
+                            "goal": {
+                                "type": "max-degradation",
+                                "value": 0.01
+                            }
+                        }
                     ]
                 },
                 {
                     "name": "latency",
                     "type": "latency",
+                    "data_config": "glue_mnli_matched",
                     "sub_types": [
-                        {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}}
+                        {
+                            "name": "avg",
+                            "priority": 2,
+                            "goal": {
+                                "type": "percent-min-improvement",
+                                "value": 20
+                            }
+                        }
                     ]
                 }
             ]
@@ -76,13 +103,20 @@
             "type": "OrtPerfTuning",
             "config": {
                 "enable_cuda_graph": true,
-                "data_config": "__input_model_data_config__"
+                "data_config": "glue_mnli_matched"
             }
         }
     },
     "pass_flows": [
-        ["conversion", "transformers_optimization", "perf_tuning"],
-        ["conversion", "perf_tuning"]
+        [
+            "conversion",
+            "transformers_optimization",
+            "perf_tuning"
+        ],
+        [
+            "conversion",
+            "perf_tuning"
+        ]
     ],
     "engine": {
         "search_strategy": {
@@ -98,6 +132,6 @@
         "target": "local_system",
         "clean_cache": true,
         "cache_dir": "run_cache/olive/cache",
-        "output_dir" : "run_cache/olive/roberta_large"
+        "output_dir": "run_cache/olive/roberta_large"
     }
 }

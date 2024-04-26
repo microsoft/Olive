@@ -1,22 +1,10 @@
 {
-    "input_model":{
+    "input_model": {
         "type": "PyTorchModel",
         "config": {
             "hf_config": {
                 "model_name": "tiiuae/falcon-7b",
-                "task": "text-generation",
-                "dataset": {
-                    "data_name":"timdettmers/openassistant-guanaco",
-                    "split": "train",
-                    "component_kwargs": {
-                        "pre_process_data": {
-                            "text_cols": ["text"],
-                            "corpus_strategy": "join",
-                            "source_max_len": 512,
-                            "max_samples": 1
-                        }
-                    }
-                }
+                "task": "text-generation"
             }
         }
     },
@@ -35,16 +23,48 @@
             }
         }
     },
+    "data_configs": [
+        {
+            "name": "openassistant_train",
+            "type": "HuggingfaceContainer",
+            "params_config": {
+                "data_name": "timdettmers/openassistant-guanaco",
+                "split": "train",
+                "component_kwargs": {
+                    "pre_process_data": {
+                        "text_cols": [
+                            "text"
+                        ],
+                        "corpus_strategy": "join",
+                        "source_max_len": 512,
+                        "max_samples": 1
+                    }
+                }
+            }
+        }
+    ],
     "evaluators": {
         "common_evaluator": {
-            "metrics":[
+            "metrics": [
                 {
                     "name": "latency",
                     "type": "latency",
+                    "data_config": "openassistant_train",
                     "sub_types": [
-                        {"name": "avg", "priority": 1, "goal": {"type": "percent-min-improvement", "value": 5}},
-                        {"name": "max"},
-                        {"name": "min"}
+                        {
+                            "name": "avg",
+                            "priority": 1,
+                            "goal": {
+                                "type": "percent-min-improvement",
+                                "value": 5
+                            }
+                        },
+                        {
+                            "name": "max"
+                        },
+                        {
+                            "name": "min"
+                        }
                     ]
                 }
             ]
@@ -69,6 +89,6 @@
         "host": "local_system",
         "target": "local_system",
         "cache_dir": "cache",
-        "output_dir" : "models/falcon"
+        "output_dir": "models/falcon"
     }
 }

@@ -1,60 +1,104 @@
 {
-    "input_model":{
+    "input_model": {
         "type": "PyTorchModel",
         "config": {
             "hf_config": {
                 "model_class": "ASTForAudioClassification",
                 "model_name": "MIT/ast-finetuned-speech-commands-v2",
-                "task": "audio-classification",
-                "dataset": {
-                    "data_name":"speech_commands",
-                    "subset": "v0.02",
-                    "split": "validation",
-                    "input_cols": ["audio"],
-                    "label_cols": ["label"],
-                    "max_samples": 100,
-                    "batch_size": 1,
-                    "component_kwargs": {
-                        "pre_process_data": {
-                            "labels_to_filter": ["_silence_"]
-                        }
-                    }
-                }
+                "task": "audio-classification"
             },
             "io_config": {
-                "input_names": ["input_values"],
-                "output_names": ["logits"],
+                "input_names": [
+                    "input_values"
+                ],
+                "output_names": [
+                    "logits"
+                ],
                 "dynamic_axes": {
                     "input_values": {
-                        "0": "batch_size", "1": "max_length", "2": "num_mel_bins"
+                        "0": "batch_size",
+                        "1": "max_length",
+                        "2": "num_mel_bins"
                     },
                     "logits": {
                         "0": "batch_size"
                     }
                 }
-
             }
         }
     },
+    "data_configs": [
+        {
+            "name": "speech_commands_v0.02",
+            "type": "HuggingfaceContainer",
+            "params_config": {
+                "data_name": "speech_commands",
+                "subset": "v0.02",
+                "split": "validation",
+                "input_cols": [
+                    "audio"
+                ],
+                "label_cols": [
+                    "label"
+                ],
+                "batch_size": 1,
+                "max_samples": 100,
+                "component_kwargs": {
+                    "pre_process_data": {
+                        "labels_to_filter": [
+                            "_silence_"
+                        ]
+                    }
+                }
+            }
+        }
+    ],
     "evaluators": {
         "common_evaluator": {
-            "metrics":[
+            "metrics": [
                 {
                     "name": "accuracy",
                     "type": "accuracy",
                     "backend": "huggingface_metrics",
+                    "data_config": "speech_commands_v0.02",
                     "sub_types": [
-                        {"name": "accuracy", "priority": 1, "goal": {"type": "max-degradation", "value": 0.05}},
-                        {"name": "f1", "metric_config": {"compute_params": {"average": "micro"}}}
+                        {
+                            "name": "accuracy",
+                            "priority": 1,
+                            "goal": {
+                                "type": "max-degradation",
+                                "value": 0.05
+                            }
+                        },
+                        {
+                            "name": "f1",
+                            "metric_config": {
+                                "compute_params": {
+                                    "average": "micro"
+                                }
+                            }
+                        }
                     ]
                 },
                 {
                     "name": "latency",
                     "type": "latency",
+                    "data_config": "speech_commands_v0.02",
                     "sub_types": [
-                        {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 5}},
-                        {"name": "max"},
-                        {"name": "min"}
+                        {
+                            "name": "avg",
+                            "priority": 2,
+                            "goal": {
+                                "type": "percent-min-improvement",
+                                "value": 5
+                            }
+                        },
+                        {
+                            "name": "max"
+                        },
+                        {
+                            "name": "min"
+                        }
                     ]
                 }
             ]
@@ -77,19 +121,19 @@
                 "quant_preprocess": true,
                 "per_channel": false,
                 "reduce_range": false,
-                "data_config": "__input_model_data_config__"
+                "data_config": "speech_commands_v0.02"
             }
         },
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {
-                "data_config": "__input_model_data_config__"
+                "data_config": "speech_commands_v0.02"
             }
         }
     },
     "engine": {
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
-        "output_dir" : "models/ast_cpu"
+        "output_dir": "models/ast_cpu"
     }
 }
