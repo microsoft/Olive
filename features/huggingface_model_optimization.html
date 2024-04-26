@@ -349,24 +349,22 @@
 </pre></div>
 </div>
 <p>Example: datasets in <code class="docutils literal notranslate"><span class="pre">data_configs</span></code>:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;data_configs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;oasst1_train&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;oasst1&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HuggingfaceContainer&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;params_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;data_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;timdettmers/openassistant-guanaco&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;split&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;component_kwargs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">                </span><span class="nt">&quot;pre_process_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">                    </span><span class="nt">&quot;text_cols&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;text&quot;</span><span class="p">],</span>
-<span class="w">                    </span><span class="nt">&quot;corpus_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;line-by-line&quot;</span><span class="p">,</span>
-<span class="w">                    </span><span class="nt">&quot;source_max_len&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">512</span><span class="p">,</span>
-<span class="w">                    </span><span class="nt">&quot;pad_to_max_len&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
-<span class="w">                </span><span class="p">}</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;data_configs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span>
+<span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;oasst1_train&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HuggingfaceContainer&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;params_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;data_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;timdettmers/openassistant-guanaco&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;split&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;component_kwargs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;pre_process_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;text_cols&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;text&quot;</span><span class="p">],</span>
+<span class="w">                </span><span class="nt">&quot;corpus_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;line-by-line&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;source_max_len&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">512</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;pad_to_max_len&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
 <span class="w">            </span><span class="p">}</span>
 <span class="w">        </span><span class="p">}</span>
 <span class="w">    </span><span class="p">}</span>
-<span class="p">}</span>
+<span class="p">}]</span>
 </pre></div>
 </div>
 <p>Pass config:</p>

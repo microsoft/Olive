@@ -194,24 +194,22 @@ Pass config:
 
 Example: datasets in `data_configs`:
 ```json
-"data_configs": {
-    "oasst1_train": {
-        "name": "oasst1",
-        "type": "HuggingfaceContainer",
-        "params_config": {
-            "data_name": "timdettmers/openassistant-guanaco",
-            "split": "train",
-            "component_kwargs": {
-                "pre_process_data": {
-                    "text_cols": ["text"],
-                    "corpus_strategy": "line-by-line",
-                    "source_max_len": 512,
-                    "pad_to_max_len": false
-                }
+"data_configs": [{
+    "name": "oasst1_train",
+    "type": "HuggingfaceContainer",
+    "params_config": {
+        "data_name": "timdettmers/openassistant-guanaco",
+        "split": "train",
+        "component_kwargs": {
+            "pre_process_data": {
+                "text_cols": ["text"],
+                "corpus_strategy": "line-by-line",
+                "source_max_len": 512,
+                "pad_to_max_len": false
             }
         }
     }
-}
+}]
 ```
 
 Pass config:

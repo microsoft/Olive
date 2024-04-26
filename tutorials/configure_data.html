@@ -140,10 +140,10 @@
 <span id="id1"></span><h1>How To Configure Data<a class="headerlink" href="#how-to-configure-data" title="Permalink to this heading">¶</a></h1>
 <p>Olive Data config organizes the data loading, preprocessing, batching and post processing into a single json config and defines several <strong>popular templates</strong> to serve Olive optimization.</p>
 <p>The configuration of Olive data config is positioned under Olive run config with the field of <cite>data_configs</cite>, and the data config is defined as a list of data config items. Here is an example of data config: <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/open_llama/open_llama_sparsegpt_gpu.json#L11-L49">open_llama_sparsegpt_gpu</a> .</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;data_configs&quot;</span><span class="p">:</span> <span class="p">{</span>
-    <span class="s2">&quot;dataset_1&quot;</span><span class="p">:</span> <span class="p">{</span><span class="o">...</span><span class="p">},</span>
-    <span class="s2">&quot;dataset_2&quot;</span><span class="p">:</span> <span class="p">{</span><span class="o">...</span><span class="p">},</span>
-<span class="p">}</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;data_configs&quot;</span><span class="p">:</span> <span class="p">[</span>
+    <span class="p">{</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;dataset_1&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">},</span>
+    <span class="p">{</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;dataset_2&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">},</span>
+<span class="p">]</span>
 </pre></div>
 </div>
 <p>Note: <cite>name</cite> for each dataset should be unique, and must be composed letters, numbers, and underscores.</p>
