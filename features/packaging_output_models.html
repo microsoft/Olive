@@ -80,6 +80,7 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#azuremlmodels">AzureMLModels</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#azuremldata">AzureMLData</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#azuremldeployment">AzureMLDeployment</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#how-to-package-olive-artifacts">How to package Olive artifacts</a></li>
@@ -151,7 +152,7 @@
 <h1>Packaging Olive artifacts<a class="headerlink" href="#packaging-olive-artifacts" title="Permalink to this heading">¶</a></h1>
 <section id="what-is-olive-packaging">
 <h2>What is Olive Packaging<a class="headerlink" href="#what-is-olive-packaging" title="Permalink to this heading">¶</a></h2>
-<p>Olive will output multiple candidate models based on metrics priorities. It also can package output artifacts when the user requires. Olive packaging can be used in different scenarios. There are 3 packaging types: <code class="docutils literal notranslate"><span class="pre">Zipfile</span></code>, <code class="docutils literal notranslate"><span class="pre">AzureMLModels</span></code> and <code class="docutils literal notranslate"><span class="pre">AzureMLData</span></code>.</p>
+<p>Olive will output multiple candidate models based on metrics priorities. It also can package output artifacts when the user requires. Olive packaging can be used in different scenarios. There are 4 packaging types: <code class="docutils literal notranslate"><span class="pre">Zipfile</span></code>, <code class="docutils literal notranslate"><span class="pre">AzureMLModels</span></code>, <code class="docutils literal notranslate"><span class="pre">AzureMLData</span></code> and <code class="docutils literal notranslate"><span class="pre">AzureMLDeployment</span></code>.</p>
 <section id="zipfile">
 <h3>Zipfile<a class="headerlink" href="#zipfile" title="Permalink to this heading">¶</a></h3>
 <p>Zipfile packaging will generate a ZIP file which includes 3 folders: <code class="docutils literal notranslate"><span class="pre">CandidateModels</span></code>, <code class="docutils literal notranslate"><span class="pre">SampleCode</span></code> and <code class="docutils literal notranslate"><span class="pre">ONNXRuntimePackages</span></code>, and a <code class="docutils literal notranslate"><span class="pre">models_rank.json</span></code> file in the <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> folder (from Engine Configuration):</p>
@@ -263,6 +264,10 @@
 <p>and for CPU, the best execution provider is CPUExecutionProvider, so the first ranked model Data name on AML will be <code class="docutils literal notranslate"><span class="pre">olive_output_model_cpu-cpu_1</span></code>.</p>
 <p>Olive will also upload model configuration file, inference config file, metrics file and model info file to the Azure ML.</p>
 </section>
+<section id="azuremldeployment">
+<h3>AzureMLDeployment<a class="headerlink" href="#azuremldeployment" title="Permalink to this heading">¶</a></h3>
+<p>AzureMLDeployment packaging will <a class="reference external" href="https://learn.microsoft.com/en-us/azure/machine-learning/how-to-package-models?view=azureml-api-2&amp;amp;tabs=sdk">package</a> ranked No. 1 model across all output models to Azure ML workspace, and create an endpoint for it if the endpoint doesn’t exist, then deploy the output model to this endpoint.</p>
+</section>
 </section>
 <section id="how-to-package-olive-artifacts">
 <h2>How to package Olive artifacts<a class="headerlink" href="#how-to-package-olive-artifacts" title="Permalink to this heading">¶</a></h2>
@@ -306,6 +311,58 @@ The version for this data asset. This is <code class="docutils literal notransla
 The description for this data asset. This is <code class="docutils literal notranslate"><span class="pre">None</span></code> by default.</p></li>
 </ul>
 </li>
+<li><p><code class="docutils literal notranslate"><span class="pre">AzureMLDeployment</span></code></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">model_name</span> <span class="pre">[str]</span></code>:
+The model name when registering your output model to your Azure ML workspace. <code class="docutils literal notranslate"><span class="pre">olive-deployment-model</span></code> by default</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">model_version</span> <span class="pre">[int</span> <span class="pre">|</span> <span class="pre">str]</span></code>:
+The model version when registering your output model to your Azure ML workspace. Please note if there is already a model with the same name and the same version in your workspace, this will override your existing registered model. <code class="docutils literal notranslate"><span class="pre">1</span></code> by default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">description</span> <span class="pre">[str]</span></code>
+The description for this model registration. This is <code class="docutils literal notranslate"><span class="pre">None</span></code> by default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">model_package</span> <span class="pre">[ModelPackageConfig]</span></code>:
+The configurations for model packaging.</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">target_environment</span> <span class="pre">[str]</span></code>:
+The environment name for the environment created by Olive. <code class="docutils literal notranslate"><span class="pre">olive-target-environment</span></code> by default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">target_environment_version</span> <span class="pre">[str]</span></code>
+The environment version for the environment created by Olive. Please note if there is already an environment with the same name and the same version in your workspace, your existing environment version will plus 1. This <code class="docutils literal notranslate"><span class="pre">target_environment_version</span></code> will not be applied for your environment. <code class="docutils literal notranslate"><span class="pre">None</span></code> by default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">inferencing_server</span> <span class="pre">[InferenceServerConfig]</span></code></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">type</span> <span class="pre">[str]</span></code>
+The targeted inferencing server type. <code class="docutils literal notranslate"><span class="pre">AzureMLOnline</span></code> or <code class="docutils literal notranslate"><span class="pre">AzureMLBatch</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">code_folder</span> <span class="pre">[str]</span></code>
+The folder path to your scoring script.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scoring_script</span> <span class="pre">[str]</span></code>
+The scoring script name.</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">base_environment_id</span> <span class="pre">[str]</span></code>
+The base environment id that will be used for Azure ML packaging. The format is <code class="docutils literal notranslate"><span class="pre">azureml:&lt;base-environment-name&gt;:&lt;base-environment-version&gt;</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">environment_variables</span> <span class="pre">[dict]</span></code>
+Env vars that are required for the package to run, but not necessarily known at Environment creation time. <code class="docutils literal notranslate"><span class="pre">None</span></code> by default.</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">deployment_config</span> <span class="pre">[DeploymentConfig]</span></code>
+The deployment configuration.</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">endpoint_name</span> <span class="pre">[str]</span></code>
+The endpoint name for the deployment. If the endpoint doesn’t exist, Olive will create one endpoint with this name. <code class="docutils literal notranslate"><span class="pre">olive-default-endpoint</span></code> by default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">deployment_name</span> <span class="pre">[str]</span></code>
+The name of the deployment. <code class="docutils literal notranslate"><span class="pre">olive-default-deployment</span></code> by default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">instance_type</span> <span class="pre">[str]</span></code>
+Azure compute sku. ManagedOnlineDeployment only. <code class="docutils literal notranslate"><span class="pre">None</span></code> by default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">compute</span> <span class="pre">[str]</span></code>
+Compute target for batch inference operation. BatchDeployment only. <code class="docutils literal notranslate"><span class="pre">None</span></code> by default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">instance_count</span> <span class="pre">[str]</span></code>
+Number of instances the interfering will run on. <code class="docutils literal notranslate"><span class="pre">1</span></code> by default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mini_batch_size</span> <span class="pre">[str]</span></code>
+Size of the mini-batch passed to each batch invocation. <code class="docutils literal notranslate"><span class="pre">10</span></code> by default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">extra_config</span> <span class="pre">[dict]</span></code>
+Extra configurations for deployment. <code class="docutils literal notranslate"><span class="pre">None</span></code> by default.</p></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </li>
 <li><p><code class="docutils literal notranslate"><span class="pre">include_sample_code</span> <span class="pre">[bool]</span></code>:
@@ -315,7 +372,7 @@ Whether or not to include runtime packages (like onnxruntime) in zip file. Defau
 </ul>
 </li>
 </ul>
-<p>You can add <code class="docutils literal notranslate"><span class="pre">PackagingConfig</span></code> to Engine configurations. e.g.:</p>
+<p>You can add different types <code class="docutils literal notranslate"><span class="pre">PackagingConfig</span></code> as a list to Engine configurations. e.g.:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;engine&quot;</span><span class="p">:</span> <span class="p">{</span>
     <span class="s2">&quot;search_strategy&quot;</span><span class="p">:</span> <span class="p">{</span>
         <span class="s2">&quot;execution_order&quot;</span><span class="p">:</span> <span class="s2">&quot;joint&quot;</span><span class="p">,</span>
@@ -340,9 +397,21 @@ Whether or not to include runtime packages (like onnxruntime) in zip file. Defau
         <span class="p">{</span>
             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;AzureMLData&quot;</span><span class="p">,</span>
             <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;OutputModels&quot;</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;AzureMLDeployment&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;config&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;model_package&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;inferencing_server&quot;</span><span class="p">:</span> <span class="p">{</span>
+                        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;AzureMLOnline&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;code_folder&quot;</span><span class="p">:</span> <span class="s2">&quot;code&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;scoring_script&quot;</span><span class="p">:</span> <span class="s2">&quot;score.py&quot;</span>
+                    <span class="p">},</span>
+                    <span class="s2">&quot;base_environment_id&quot;</span><span class="p">:</span> <span class="s2">&quot;azureml:olive-aml-packaging:1&quot;</span>
+                <span class="p">}</span>
+            <span class="p">}</span>
         <span class="p">}</span>
     <span class="p">]</span>
-    <span class="s2">&quot;clean_cache&quot;</span><span class="p">:</span> <span class="n">true</span><span class="p">,</span>
     <span class="s2">&quot;cache_dir&quot;</span><span class="p">:</span> <span class="s2">&quot;cache&quot;</span>
 <span class="p">}</span>
 </pre></div>
