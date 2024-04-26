@@ -170,7 +170,6 @@
     <span class="n">json_config_keys</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
         <span class="s2">&quot;model_file_format&quot;</span><span class="p">,</span>
         <span class="s2">&quot;model_loader&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;io_config&quot;</span><span class="p">,</span>
         <span class="s2">&quot;dummy_inputs_func&quot;</span><span class="p">,</span>
         <span class="s2">&quot;hf_config&quot;</span><span class="p">,</span>
     <span class="p">)</span>
@@ -358,6 +357,8 @@
 
     <span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
         <span class="n">config</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="p">)</span>
+        <span class="c1"># add _io_config to config to keep what was provided at init</span>
+        <span class="n">config</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;io_config&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_io_config</span>
         <span class="c1"># only keep model_attributes that are not in hf_config</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_attributes</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="p">:</span>
             <span class="n">model_attributes</span> <span class="o">=</span> <span class="p">{}</span>
@@ -402,10 +403,12 @@
             <span class="n">io_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_user_io_config</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_io_config</span><span class="p">)</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">task</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">components</span><span class="p">:</span>
             <span class="c1"># hf_config is provided</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using hf onnx_config to get io_config&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Trying hf onnx_config to get io_config&quot;</span><span class="p">)</span>
             <span class="c1"># For MLFlow model, get io config from model_name instead of model_path</span>
             <span class="c1"># TODO(xiaoyu): more investigation on the integration between MLFlow and HF</span>
             <span class="n">io_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_hf_io_config</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">io_config</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Got io_config from hf_config&quot;</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">io_config</span></div>
 

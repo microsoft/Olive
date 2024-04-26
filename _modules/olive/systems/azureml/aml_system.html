@@ -519,17 +519,12 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">copy_code</span><span class="p">(</span><span class="n">code_files</span><span class="p">,</span> <span class="n">code_root</span><span class="p">)</span>
 
-        <span class="n">accelerator_info</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;pass_accelerator_type&quot;</span><span class="p">:</span> <span class="n">pass_config</span><span class="p">[</span><span class="s2">&quot;accelerator&quot;</span><span class="p">][</span><span class="s2">&quot;accelerator_type&quot;</span><span class="p">],</span>
-            <span class="s2">&quot;pass_execution_provider&quot;</span><span class="p">:</span> <span class="n">pass_config</span><span class="p">[</span><span class="s2">&quot;accelerator&quot;</span><span class="p">][</span><span class="s2">&quot;execution_provider&quot;</span><span class="p">],</span>
-        <span class="p">}</span>
         <span class="c1"># prepare inputs</span>
         <span class="n">model_resource_paths</span> <span class="o">=</span> <span class="n">model_config</span><span class="o">.</span><span class="n">get_resource_paths</span><span class="p">()</span>
         <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span>
             <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_model_inputs</span><span class="p">(</span><span class="n">model_resource_paths</span><span class="p">),</span>
             <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_pass_inputs</span><span class="p">(</span><span class="n">pass_path_params</span><span class="p">),</span>
             <span class="o">**</span><span class="n">data_params</span><span class="o">.</span><span class="n">data_inputs</span><span class="p">,</span>
-            <span class="o">**</span><span class="n">accelerator_info</span><span class="p">,</span>
         <span class="p">}</span>
         <span class="c1"># prepare outputs</span>
         <span class="n">outputs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;pipeline_output&quot;</span><span class="p">:</span> <span class="n">Output</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FOLDER</span><span class="p">)}</span>
@@ -560,7 +555,6 @@
             <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_model_args</span><span class="p">(</span><span class="n">model_json</span><span class="p">,</span> <span class="n">model_resource_paths</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">),</span>
             <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_pass_args</span><span class="p">(</span><span class="n">pass_config</span><span class="p">,</span> <span class="n">pass_path_params</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">),</span>
             <span class="o">**</span><span class="n">data_params</span><span class="o">.</span><span class="n">data_args</span><span class="p">,</span>
-            <span class="o">**</span><span class="n">accelerator_info</span><span class="p">,</span>
         <span class="p">}</span>
 
         <span class="nd">@pipeline</span><span class="p">()</span>

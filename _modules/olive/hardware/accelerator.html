@@ -172,10 +172,11 @@
             <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">accelerator_type</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;accelerator_type&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">accelerator_type</span><span class="p">),</span>
-            <span class="s2">&quot;execution_provider&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">execution_provider</span><span class="p">,</span>
-        <span class="p">}</span>
+        <span class="n">json_data</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;accelerator_type&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">accelerator_type</span><span class="p">)}</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">execution_provider</span><span class="p">:</span>
+            <span class="n">json_data</span><span class="p">[</span><span class="s2">&quot;execution_provider&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">execution_provider</span>
+
+        <span class="k">return</span> <span class="n">json_data</span>
 
 
 <span class="n">DEFAULT_CPU_ACCELERATOR</span> <span class="o">=</span> <span class="n">AcceleratorSpec</span><span class="p">(</span><span class="n">accelerator_type</span><span class="o">=</span><span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span> <span class="n">execution_provider</span><span class="o">=</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">)</span>
