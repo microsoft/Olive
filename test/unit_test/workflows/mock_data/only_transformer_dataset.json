@@ -1,41 +1,58 @@
 {
-    "input_model":{
+    "input_model": {
         "type": "PyTorchModel",
         "config": {
             "model_loader": "load_pytorch_origin_model",
             "model_script": "user_script.py",
-            "hf_config": {
-                "dataset": {
-                    "model_name": "Intel/bert-base-uncased-mrpc",
-                    "task": "text-classification",
-                    "data_name":"glue",
-                    "subset": "mrpc",
-                    "split": "validation",
-                    "input_cols": ["sentence1", "sentence2"],
-                    "label_cols": ["label"],
-                    "batch_size": 1,
-                    "component_kwargs": {
-                        "pre_process_data": {
-                            "align_labels": true
-                        }
-                    }
-                }
-            },
-            "io_config" : {
-                "input_names": ["input_ids", "attention_mask", "token_type_ids"],
-                "input_shapes": [[1, 128], [1, 128], [1, 128]],
-                "input_types": ["int64", "int64", "int64"],
-                "output_names": ["output"],
+            "io_config": {
+                "input_names": [
+                    "input_ids",
+                    "attention_mask",
+                    "token_type_ids"
+                ],
+                "input_shapes": [
+                    [
+                        1,
+                        128
+                    ],
+                    [
+                        1,
+                        128
+                    ],
+                    [
+                        1,
+                        128
+                    ]
+                ],
+                "input_types": [
+                    "int64",
+                    "int64",
+                    "int64"
+                ],
+                "output_names": [
+                    "output"
+                ],
                 "dynamic_axes": {
-                    "input_ids": {"0": "batch_size", "1": "seq_length"},
-                    "attention_mask": {"0": "batch_size", "1": "seq_length"},
-                    "token_type_ids": {"0": "batch_size", "1": "seq_length"}
+                    "input_ids": {
+                        "0": "batch_size",
+                        "1": "seq_length"
+                    },
+                    "attention_mask": {
+                        "0": "batch_size",
+                        "1": "seq_length"
+                    },
+                    "token_type_ids": {
+                        "0": "batch_size",
+                        "1": "seq_length"
+                    }
                 }
             }
         }
     },
     "systems": {
-        "local_system": {"type": "LocalSystem"},
+        "local_system": {
+            "type": "LocalSystem"
+        },
         "aml_system": {
             "type": "AzureML",
             "config": {
@@ -59,25 +76,75 @@
             }
         }
     },
+    "data_configs": [
+        {
+            "name": "glue_mrpc",
+            "type": "HuggingfaceContainer",
+            "params_config": {
+                "model_name": "Intel/bert-base-uncased-mrpc",
+                "task": "text-classification",
+                "data_name": "glue",
+                "subset": "mrpc",
+                "split": "validation",
+                "input_cols": [
+                    "sentence1",
+                    "sentence2"
+                ],
+                "label_cols": [
+                    "label"
+                ],
+                "batch_size": 1,
+                "component_kwargs": {
+                    "pre_process_data": {
+                        "align_labels": true
+                    }
+                }
+            }
+        }
+    ],
     "evaluators": {
         "common_evaluator": {
-            "metrics":[
+            "metrics": [
                 {
                     "name": "accuracy",
                     "type": "accuracy",
+                    "data_config": "glue_mrpc",
                     "sub_types": [
-                        {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
-                        {"name": "f1_score"},
-                        {"name": "auroc"}
+                        {
+                            "name": "accuracy_score",
+                            "priority": 1,
+                            "goal": {
+                                "type": "max-degradation",
+                                "value": 0.01
+                            }
+                        },
+                        {
+                            "name": "f1_score"
+                        },
+                        {
+                            "name": "auroc"
+                        }
                     ]
                 },
                 {
                     "name": "latency",
                     "type": "latency",
+                    "data_config": "glue_mrpc",
                     "sub_types": [
-                        {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
-                        {"name": "max"},
-                        {"name": "min"}
+                        {
+                            "name": "avg",
+                            "priority": 2,
+                            "goal": {
+                                "type": "percent-min-improvement",
+                                "value": 20
+                            }
+                        },
+                        {
+                            "name": "max"
+                        },
+                        {
+                            "name": "min"
+                        }
                     ]
                 }
             ],
@@ -103,15 +170,36 @@
         "quantization": {
             "type": "OnnxQuantization",
             "config": {
-                "data_config": "__input_model_data_config__"
+                "data_config": "glue_mrpc"
             }
         },
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {
-                "input_names": ["input_ids", "attention_mask", "token_type_ids"],
-                "input_shapes": [[1, 128], [1, 128], [1, 128]],
-                "input_types": ["int64", "int64", "int64"]
+                "input_names": [
+                    "input_ids",
+                    "attention_mask",
+                    "token_type_ids"
+                ],
+                "input_shapes": [
+                    [
+                        1,
+                        128
+                    ],
+                    [
+                        1,
+                        128
+                    ],
+                    [
+                        1,
+                        128
+                    ]
+                ],
+                "input_types": [
+                    "int64",
+                    "int64",
+                    "int64"
+                ]
             }
         }
     },

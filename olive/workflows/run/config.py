@@ -46,9 +46,6 @@ class RunEngineConfig(EngineConfig):
         return Engine(**config, azureml_client_config=azureml_client_config)
 
 
-INPUT_MODEL_DATA_CONFIG = "__input_model_data_config__"
-
-
 class RunConfig(ConfigBase):
     azureml_client: AzureMLClientConfig = None
     input_model: ModelConfig
@@ -81,43 +78,6 @@ class RunConfig(ConfigBase):
             v = {}
         return v
 
-    @validator("data_configs", pre=True, always=True)
-    def insert_input_model_data_config(cls, v, values):
-        if "input_model" not in values:
-            raise ValueError("Invalid input model")
-
-        if not v:
-            # if data_configs is None, create an empty dict
-            v = []
-
-        dc_names = [dc.name if isinstance(dc, DataConfig) else dc["name"] for dc in v]
-        if INPUT_MODEL_DATA_CONFIG in dc_names:
-            raise ValueError(f"Data config name {INPUT_MODEL_DATA_CONFIG} is reserved. Please use another name.")
-
-        # insert input model hf data config if present
-        hf_config = values["input_model"].dict()["config"].get("hf_config", {})
-        hf_config_dataset = hf_config.get("dataset", None)
-        if hf_config_dataset:
-            params_config = {
-                "model_name": hf_config.get("model_name", None),
-                "task": hf_config.get("task", None),
-                **hf_config_dataset,
-            }
-            # insert trust_remote_code from from_pretrained_args if present
-            # won't override if value was set to False explicitly
-            # will keep as list of keys for future extension
-            for key in ["trust_remote_code"]:
-                if hf_config.get("from_pretrained_args", {}).get(key) and params_config.get(key) is None:
-                    params_config[key] = hf_config["from_pretrained_args"][key]
-            v.append(
-                {
-                    "name": INPUT_MODEL_DATA_CONFIG,
-                    "type": HuggingfaceContainer.__name__,
-                    "params_config": params_config,
-                }
-            )
-        return v
-
     @validator("data_configs", pre=True)
     def validate_data_config_names(cls, v):
         if not v:
@@ -141,10 +101,6 @@ class RunConfig(ConfigBase):
 
         if isinstance(v, DataConfig):
             v = v.dict()
-
-        if v["name"] == INPUT_MODEL_DATA_CONFIG:
-            # skip validation for input model data config
-            return v
 
         if v["type"] == HuggingfaceContainer.__name__:
             # auto insert model_name and task from input model hf config if not present
@@ -219,9 +175,7 @@ class RunConfig(ConfigBase):
             if v["config"][param_name] == PassParamDefault.SEARCHABLE_VALUES:
                 searchable_configs.add(param_name)
             if param_name.endswith("data_config"):
-                # we won't auto insert the input model data config for pass
-                # user must explicitly set the data config to INPUT_MODEL_DATA_CONFIG if needed
-                v["config"] = _resolve_data_config(v["config"], values, param_name, auto_insert=False)
+                v["config"] = _resolve_data_config(v["config"], values, param_name)
 
         data_dir_config = v["config"].get("data_dir", None)
         if isinstance(data_dir_config, dict):
@@ -299,24 +253,19 @@ def _resolve_system(v, values, system_alias):
     return v
 
 
-def _resolve_data_config(v, values, data_config_alias, auto_insert=True):
+def _resolve_data_config(v, values, data_config_alias):
     if not isinstance(v, dict):
         # if not a dict, return the original value
         return v
-
-    # get the value for data_config_alias in v
-    data_container_config = v.get(data_config_alias, None)
-    # auto insert input model data config if data_container_config is None
-    components = values.get("data_configs") or []
-    component_map = {_.name: _ for _ in components}
-    if not data_container_config and INPUT_MODEL_DATA_CONFIG in component_map and auto_insert:
-        v[data_config_alias] = INPUT_MODEL_DATA_CONFIG
-    # resolve data_config_alias to data config
 
     # get name of sub component
     sub_component = v.get(data_config_alias)
     if not isinstance(sub_component, str):
         return v
+
+    # resolve data_config_alias to data config
+    components = values.get("data_configs") or []
+    component_map = {cmp.name: cmp for cmp in components}
 
     # resolve sub component name to component config
     if sub_component not in component_map:
