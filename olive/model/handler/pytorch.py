@@ -252,6 +252,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
 
         If io_config is a string name or a callable, it will be called to get io_config.
         """
+        io_config_obj = None
         if isinstance(io_config, dict):
             io_config_obj = IoConfig.parse_obj(io_config)
         elif isinstance(io_config, IoConfig):
@@ -300,14 +301,12 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
             torch_past_key_values = []
             k_inputs = io_config.kv_cache_config.get_ort_past_key_names()
             v_inputs = io_config.kv_cache_config.get_ort_past_value_names()
-            for i in range(len(k_inputs)):
-                if k_inputs[i] not in dummy_inputs or v_inputs[i] not in dummy_inputs:
-                    raise ValueError(
-                        f"Cannot find past key-value pair for {k_inputs[i]} and {v_inputs[i]} in dummy inputs."
-                    )
-                torch_past_key_values.append((dummy_inputs[k_inputs[i]], dummy_inputs[v_inputs[i]]))
-                unused_keys.add(k_inputs[i])
-                unused_keys.add(v_inputs[i])
+            for k_input, v_input in zip(k_inputs, v_inputs):
+                if k_input not in dummy_inputs or v_input not in dummy_inputs:
+                    raise ValueError("Cannot find past key-value pair for %s and %s in dummy inputs.", k_input, v_input)
+                torch_past_key_values.append((dummy_inputs[k_input], dummy_inputs[v_input]))
+                unused_keys.add(k_input)
+                unused_keys.add(v_input)
             dummy_inputs[past_kv_names] = torch_past_key_values
         if unused_keys:
             logger.debug("Merged kv inputs: %s to list for torch model inference", unused_keys)
