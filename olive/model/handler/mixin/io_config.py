@@ -6,7 +6,7 @@ from typing import Any, Dict
 
 
 class IoConfigMixin:
-    """Provide the following model get io config functionalites.
+    """Provide the following model get io config functionalities.
 
     Each model handler could choose to override the behavior.
     For example, both PyTorch model and ONNX model handler choose to override the default behavior.

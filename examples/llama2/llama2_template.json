@@ -2,9 +2,40 @@
     "input_model": {
         "type": "PyTorchModel",
         "config": {
-            "model_script": "user_script.py",
-            "io_config": "get_merged_decoder_with_past_io_config",
-            "dummy_inputs_func": "get_merged_decoder_with_past_dummy_inputs",
+            "io_config": {
+                "input_names": [
+                    "input_ids",
+                    "attention_mask"
+                ],
+                "output_names": [
+                    "logits"
+                ],
+                "input_shapes": [
+                    [
+                        2,
+                        8
+                    ],
+                    [
+                        2,
+                        40
+                    ]
+                ],
+                "input_types": [
+                    "int32",
+                    "int32"
+                ],
+                "dynamic_axes": {
+                    "input_ids": {
+                        "0": "batch_size",
+                        "1": "sequence_length"
+                    },
+                    "attention_mask": {
+                        "0": "batch_size",
+                        "1": "sequence_length"
+                    }
+                },
+                "kv_cache_config": true
+            },
             "hf_config": {
                 "model_name": "<model_name_placeholder>",
                 "model_class": "LlamaForCausalLM",

@@ -177,6 +177,17 @@ class TestPytorchDummyInput:
             "batch_size": 1,
         }
 
+    def test_dummy_input_with_kv_cache(self):
+        io_config = self.io_config
+        io_config["kv_cache_config"] = True
+        olive_model = PyTorchModelHandler(
+            hf_config={"task": self.task, "model_name": self.model_name}, io_config=io_config
+        )
+        dummy_inputs = olive_model.get_dummy_inputs()
+        # len(["input_ids", "attention_mask", "token_type_ids"]) + 2 * num_hidden_layers
+        assert len(dummy_inputs) == 3 + 12 * 2
+        assert list(dummy_inputs[-1].shape) == [1, 12, 128, 64]
+
     def test_dict_io_config(self):
         olive_model = PyTorchModelHandler(
             hf_config={"task": self.task, "model_name": self.model_name}, io_config=self.io_config
