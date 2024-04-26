@@ -69,9 +69,10 @@
         "host": "local_system",
         "target": "local_system",
         "cache_dir": "cache",
+        "packaging_config": {
+            "type": "Zipfile",
+            "name": "bert"
+        },
         "output_dir": "models/bert_gpu"
-    },
-    "auto_optimizer_config": {
-        "precisions": ["fp16"]
     }
 }
