@@ -75,9 +75,7 @@
         "packaging_config": [
             {
                 "type": "Zipfile",
-                "name": "OutputModel",
-                "include_runtime_packages": false,
-                "include_sample_code": false
+                "name": "OutputModel"
             }
         ],
         "log_severity_level": 0,
