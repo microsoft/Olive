@@ -391,17 +391,12 @@ class AzureMLSystem(OliveSystem):
 
         self.copy_code(code_files, code_root)
 
-        accelerator_info = {
-            "pass_accelerator_type": pass_config["accelerator"]["accelerator_type"],
-            "pass_execution_provider": pass_config["accelerator"]["execution_provider"],
-        }
         # prepare inputs
         model_resource_paths = model_config.get_resource_paths()
         inputs = {
             **self._create_model_inputs(model_resource_paths),
             **self._create_pass_inputs(pass_path_params),
             **data_params.data_inputs,
-            **accelerator_info,
         }
         # prepare outputs
         outputs = {"pipeline_output": Output(type=AssetTypes.URI_FOLDER)}
@@ -432,7 +427,6 @@ class AzureMLSystem(OliveSystem):
             **self._create_model_args(model_json, model_resource_paths, tmp_dir),
             **self._create_pass_args(pass_config, pass_path_params, data_root, tmp_dir),
             **data_params.data_args,
-            **accelerator_info,
         }
 
         @pipeline()

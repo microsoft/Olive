@@ -44,10 +44,11 @@ class AcceleratorSpec:
             return str(self.accelerator_type).lower()
 
     def to_json(self):
-        return {
-            "accelerator_type": str(self.accelerator_type),
-            "execution_provider": self.execution_provider,
-        }
+        json_data = {"accelerator_type": str(self.accelerator_type)}
+        if self.execution_provider:
+            json_data["execution_provider"] = self.execution_provider
+
+        return json_data
 
 
 DEFAULT_CPU_ACCELERATOR = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider="CPUExecutionProvider")
