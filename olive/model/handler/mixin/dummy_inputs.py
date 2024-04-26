@@ -55,8 +55,10 @@ class DummyInputsMixin:
                     .get_first_batch(data_root_path=None)
                 )
             elif not self.hf_config.components:
-                logger.debug("Using hf onnx_config to get dummy inputs")
+                logger.debug("Trying hf onnx_config to get dummy inputs")
                 dummy_inputs = self.get_hf_dummy_inputs()
+                if dummy_inputs is not None:
+                    logger.debug("Got dummy inputs from hf onnx_config")
 
         if dummy_inputs is None:
             raise ValueError(

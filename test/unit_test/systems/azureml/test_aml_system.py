@@ -535,10 +535,6 @@ class TestAzureMLSystem:
             str(tmp_path / "pass_config.json"),
             "--pipeline_output",
             str(output_dir),
-            "--pass_accelerator_type",
-            f"{DEFAULT_CPU_ACCELERATOR.accelerator_type}",
-            "--pass_execution_provider",
-            f"{DEFAULT_CPU_ACCELERATOR.execution_provider}",
         ]
         aml_pass_runner_main(args)
 

@@ -162,22 +162,34 @@ def get_onnx_config(model_name: str, task: str, feature: Optional[str] = None, *
     # recreate the logic for FeaturesManager.check_supported_model_or_raise to get the model_onnx_config
     # https://github.com/huggingface/transformers/blob/main/src/transformers/onnx/features.py#L712
     model_type = config.model_type.replace("_", "-")
-    model_features = FeaturesManager.get_supported_features_for_model_type(model_type, model_name=model_name)
-    if feature not in model_features:
-        raise ValueError(
-            f"{config.model_type} doesn't support feature {feature}. Supported values are: {model_features}"
-        )
-    return FeaturesManager.get_config(model_type, feature)(config)
+    onnx_config = None
+    try:
+        model_features = FeaturesManager.get_supported_features_for_model_type(model_type, model_name=model_name)
+        if feature in model_features:
+            onnx_config = FeaturesManager.get_config(model_type, feature)(config)
+        else:
+            logger.debug(
+                "%s doesn't support feature %s. Supported features are: %s", model_type, feature, model_features
+            )
+    except KeyError:
+        logger.debug("Model type %s is not supported", model_type)
+
+    return onnx_config
 
 
 def get_hf_model_io_config(model_name: str, task: str, feature: Optional[str] = None, **kwargs):
+    # just log a debug message if io_config is not found
+    # this is not a critical error and the caller may not need the io_config
     model_config = get_onnx_config(model_name, task, feature, **kwargs)
+    if not model_config:
+        return None
+
     inputs = model_config.inputs
     outputs = model_config.outputs
     if not inputs or not outputs:
         # just log a warning and return None, since this is not a critical error
         # and following pass may not use the io_config, like OptimumConversion
-        logger.warning("No inputs or outputs found from model %s", model_config)
+        logger.debug("No inputs or outputs found from hf onnx_config %s. Won't use it to get io config", model_config)
         return None
 
     io_config = {}
@@ -189,6 +201,8 @@ def get_hf_model_io_config(model_name: str, task: str, feature: Optional[str] = 
 
 def get_hf_model_dummy_input(model_name: str, task: str, feature: Optional[str] = None, **kwargs):
     model_config = get_onnx_config(model_name, task, feature, **kwargs)
+    if not model_config:
+        return None
     tokenizer = AutoTokenizer.from_pretrained(model_name, **kwargs)
     return model_config.generate_dummy_inputs(tokenizer, framework="pt")
 
