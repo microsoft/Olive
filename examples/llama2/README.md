@@ -31,10 +31,10 @@ Performs optimization pipeline:
 Requirements file: [requirements.txt](requirements.txt)
 
 ### Inference optimization with ONNNX Runtime with DirectML
-For Llama2 inference with DirectML on GPUs, pls refer to this [example](https://github.com/microsoft/Olive/tree/main/examples/directml/llama_v2).
+For Llama2 inference with DirectML on GPUs, pls refer to this [example](https://github.com/microsoft/Olive/tree/main/examples/directml/llm).
 
 ### Fine-tune on a code generation dataset using QLoRA and optimize using ONNX Runtime Tools
-This workflow fine-tunes Open LLaMA model using [QLoRA](https://arxiv.org/abs/2305.14314) to generate code given a prompt. The fine-tuned model is then optimized using ONNX Runtime Tools.
+This workflow fine-tunes Llama2 model using [QLoRA](https://arxiv.org/abs/2305.14314) to generate code given a prompt. The fine-tuned model is then optimized using ONNX Runtime Tools.
 Performs optimization pipeline:
 - GPU, FP16: *Pytorch Model -> Fine-tuned Pytorch Model -> Onnx Model -> Transformers Optimized Onnx Model fp16 -> Extract Adapter*
 <!-- TODO(jambayk): check if bnb quantization works between different adapters -->
@@ -43,71 +43,11 @@ Performs optimization pipeline:
 - This workflow is only supported for GPU.
 - The relevant config file is [llama2_qlora.json](llama2_qlora.json). The code language is set to `Python` but can be changed to other languages by changing the `language` field in the config file.
 Supported languages are Python, TypeScript, JavaScript, Ruby, Julia, Rust, C++, Bash, Java, C#, and Go. Refer to the [dataset card](https://huggingface.co/datasets/nampdn-ai/tiny-codes) for more details on the dataset.
-- You must be logged in to HuggingFace using `huggingface-cli login` to download the dataset or update `token` field in the config file with your HuggingFace token.
+- You must first request access to the [nampdn-ai/tiny-codes](https://huggingface.co/datasets/nampdn-ai/tiny-codes) dataset. Then login in to HuggingFace on your machine using `huggingface-cli login` or update `token` field in the config file with your HuggingFace token.
 
 Requirements file: [requirements-qlora.txt](requirements-qlora.txt)
 
-**Extracted Adapters**
-
-The workflow above extracts the lora adapters from the fine-tuned model and converts them into inputs for the model. This way, you can use adapters for the same base model with different tasks.
-Pre-existing adapters can be exported directly using the following command:
-```bash
-# change the adapter_path to the path of the adapter you want to export
-# ensure that the target modules are the same as those of the above fine-tuned model
-python -m olive.scripts.export_adapters --adapter_path Mikael110/llama-2-7b-guanaco-qlora --dtype float16 --pack_weights --output_path models/guanaco_fp16_packed.npz
-```
-
-Snippet below shows an example runs of the generated fine-tuned model using two different adapters.
-```python
-import numpy as np
-# optimum needs to be installed from git+https://github.com/jambayk/optimum.git@jambayk/constant-inputs
-from onnxruntime import InferenceSession
-from optimum.onnxruntime import ORTModelForCausalLM
-import torch
-from transformers import AutoConfig, AutoTokenizer
-
-device = torch.device("cuda")
-
-base_model = "meta-llama/Llama-2-7b-hf"
-config = AutoConfig.from_pretrained(base_model)
-tokenizer = AutoTokenizer.from_pretrained(base_model)
-
-# the path to the optimized model
-model_path = "models/qlora/qlora-conversion-transformers_optimization-extract/gpu-cuda_model/model.onnx"
-tiny_codes_adapter_path = "models/qlora/qlora-conversion-transformers_optimization-extract/gpu-cuda_model/adapter_weights.npz"
-guanaco_adapter_path = "models/guanaco_fp16_packed.npz"
-
-# load the adapters and put them on the device
-tiny_codes_weights = np.load(tiny_codes_adapter_path)
-tiny_codes_weights = {k: torch.tensor(v).to(device) for k, v in tiny_codes_weights.items()}
-guanaco_weights = np.load(guanaco_adapter_path)
-guanaco_weights = {k: torch.tensor(v).to(device) for k, v in guanaco_weights.items()}
-
-# load the model
-# io-binding is recommended for optimal performance, the adapters weights are already on the device and don't change
-# during generation loop (called constant_inputs here)
-session = InferenceSession(model_path, providers=["CUDAExecutionProvider"])
-model = ORTModelForCausalLM(session, config=config, preprocessors=[tokenizer], use_cache=True, use_io_binding=True)
-
-# prompt
-prompt = "What time is it?"
-
-# generate using tiny_codes adapters
-model.constant_inputs = tiny_codes_weights
-formatted_prompt = f"### Question: {prompt} \n### Answer:"
-inputs = tokenizer(formatted_prompt, return_tensors="pt").to(device)
-print("Tiny Codes Adapters:")
-outputs = model.generate(inputs=inputs.input_ids, max_new_tokens=150)
-print(tokenizer.decode(outputs[0], skip_special_tokens=True))
-
-# generate using guanaco adapters
-model.constant_inputs = guanaco_weights
-formatted_prompt = f"### Human: {prompt} ### Assistant:"
-inputs = tokenizer(formatted_prompt, return_tensors="pt").to(device)
-print("Guanaco Adapters:")
-outputs = model.generate(inputs=inputs.input_ids, max_new_tokens=150)
-print(tokenizer.decode(outputs[0], skip_special_tokens=True))
-```
+Refer to the [llama_multilora notebook](notebook/llama_multilora/notebook.ipynb) for an end-to-end tutorial of the workflow above and how to deploy a model with different adapters.
 
 ### Inference optimization using ONNX Runtime GenAI
 For using ONNX runtime GenAI to optimize, follow build and installation instructions [here](https://github.com/microsoft/onnxruntime-genai).

@@ -125,7 +125,12 @@ class HfFromPretrainedArgs(ConfigWithExtraArgs):
             return v
 
         try:
-            return cls.dict_to_quantization_config(values["quantization_method"], v).to_dict()
+            full_config = cls.dict_to_quantization_config(values["quantization_method"], v).to_dict()
+            # in newer versions to_dict has extra keys quant_method, _load_in_4bit and _load_in_8bit
+            # which are internal attributes and not part of init params
+            for key in ["quant_method", "_load_in_4bit", "_load_in_8bit"]:
+                full_config.pop(key, None)
+            return full_config
         except ImportError:
             # we don't want to fail since the pass target might have the correct transformers version
             logger.warning(
