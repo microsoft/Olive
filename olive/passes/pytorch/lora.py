@@ -648,7 +648,15 @@ class LoRABase(Pass):
 
                 trainer_cls = ORTTrainer
 
-            # get trainer
+            # there is a bug in accelerate where it assumes 4bit models on multiple gpus cannot be trained but it is
+            # not the case. refer to https://github.com/huggingface/accelerate/pull/2714 for more details
+            # we will force the accelerator to use the first device using the ACCELERATE_TORCH_DEVICE environment variable
+            # TODO(jambayk): add a version check when the fix is released
+            first_device = list(set(model.hf_device_map.values()))[0]
+            first_device_index = first_device.index if isinstance(first_device, torch.device) else first_device
+            os.environ["ACCELERATE_TORCH_DEVICE"] = f"cuda:{first_device_index}"
+
+            # get trainer'
             trainer = trainer_cls(
                 model=model,
                 tokenizer=tokenizer,
