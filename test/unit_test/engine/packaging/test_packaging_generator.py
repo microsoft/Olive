@@ -17,7 +17,12 @@ from olive.engine import Engine
 from olive.engine.footprint import Footprint, FootprintNode
 from olive.engine.packaging.packaging_config import (
     AzureMLDataPackagingConfig,
+    AzureMLDeploymentPackagingConfig,
     AzureMLModelsPackagingConfig,
+    DeploymentConfig,
+    InferenceServerConfig,
+    InferencingServerType,
+    ModelPackageConfig,
     PackagingConfig,
     PackagingType,
 )
@@ -322,6 +327,158 @@ def test_generate_azureml_data(mock_create_resource_path, mock_retry_func):
     assert mock_retry_func.call_once_with(
         ml_client_mock.models.create_client,
         [data],
+        max_tries=azureml_client_config.max_operation_retries,
+        delay=azureml_client_config.operation_retry_interval,
+        exceptions=ServiceResponseError,
+    )
+
+
+@patch("olive.engine.packaging.packaging_generator.retry_func")
+@pytest.mark.parametrize(
+    ("inferencing_server_type"),
+    [(InferencingServerType.AzureMLOnline), (InferencingServerType.AzureMLBatch)],
+)
+def test_azureml_deployment(mock_retry_func, inferencing_server_type):
+    from azure.ai.ml.constants import AssetTypes
+    from azure.ai.ml.entities import (
+        AzureMLBatchInferencingServer,
+        AzureMLOnlineInferencingServer,
+        BaseEnvironment,
+        BatchDeployment,
+        CodeConfiguration,
+        ManagedOnlineDeployment,
+        Model,
+        ModelPackage,
+    )
+    from azure.core.exceptions import ServiceResponseError
+
+    # setup
+    model_id = "model_id"
+    model_name = "olive_model"
+    model_version = "1"
+    model_path = "fake_model_file"
+    endpoint_name = "package-test-endpoint"
+    deployment_name = "package-test-deployment"
+    code_folder = str(Path(__file__).parent / "code")
+    scoring_script = "score.py"
+    base_environment_id = "base_environment_id"
+    target_environment = "target_environment"
+    target_environment_version = "1"
+
+    footprints = get_footprints(model_id, model_path)
+    azureml_client_config = Mock(max_operation_retries=3, operation_retry_interval=5)
+    ml_client_mock = Mock()
+    azureml_client_config.create_client.return_value = ml_client_mock
+
+    model = Model(
+        path=model_path,
+        name=model_name,
+        version=model_version,
+        type=AssetTypes.CUSTOM_MODEL,
+    )
+
+    code_configuration = CodeConfiguration(
+        code=code_folder,
+        scoring_script=scoring_script,
+    )
+    model_package_mock = Mock()
+
+    inferencing_server = None
+    if inferencing_server_type == InferencingServerType.AzureMLOnline:
+        inferencing_server = AzureMLOnlineInferencingServer(code_configuration=code_configuration)
+        deployment = ManagedOnlineDeployment(
+            name=deployment_name,
+            endpoint_name=endpoint_name,
+            environment=model_package_mock,
+        )
+    elif inferencing_server_type == InferencingServerType.AzureMLBatch:
+        inferencing_server = AzureMLBatchInferencingServer(code_configuration=code_configuration)
+        deployment = BatchDeployment(
+            name=deployment_name,
+            endpoint_name=endpoint_name,
+            environment=model_package_mock,
+        )
+
+    base_environment_source = BaseEnvironment(type="EnvironmentAsset", resource_id=base_environment_id)
+
+    package_request = ModelPackage(
+        target_environment=target_environment,
+        inferencing_server=inferencing_server,
+        base_environment_source=base_environment_source,
+        target_environment_version=target_environment_version,
+        model_configuration=None,
+        environment_variables=None,
+    )
+
+    mock_retry_func(
+        ml_client_mock.models.package,
+        kwargs={"name": model_name, "version": model_version, "package_request": package_request},
+        max_tries=azureml_client_config.max_operation_retries,
+        delay=azureml_client_config.operation_retry_interval,
+        exceptions=ServiceResponseError,
+    ).return_value = model_package_mock
+
+    inference_server_config = InferenceServerConfig(
+        type=inferencing_server_type,
+        code_folder=code_folder,
+        scoring_script=scoring_script,
+    )
+
+    model_package_config = ModelPackageConfig(
+        target_environment=target_environment,
+        target_environment_version=target_environment_version,
+        inferencing_server=inference_server_config,
+        base_environment_id=base_environment_id,
+    )
+
+    deployment_config = DeploymentConfig(
+        endpoint_name=endpoint_name,
+        deployment_name=deployment_name,
+    )
+
+    config = AzureMLDeploymentPackagingConfig(
+        model_name=model_name,
+        model_version=model_version,
+        model_package=model_package_config,
+        deployment_config=deployment_config,
+    )
+    packaging_config = PackagingConfig()
+    packaging_config.type = PackagingType.AzureMLDeployment
+    packaging_config.config = config
+
+    # execute
+    generate_output_artifacts(
+        packaging_config, footprints, footprints, output_dir=Path("output"), azureml_client_config=azureml_client_config
+    )
+
+    # assert
+    assert mock_retry_func.call_once_with(
+        ml_client_mock.models.create_client,
+        [model],
+        max_tries=azureml_client_config.max_operation_retries,
+        delay=azureml_client_config.operation_retry_interval,
+        exceptions=ServiceResponseError,
+    )
+
+    assert mock_retry_func.call_once_with(
+        ml_client_mock.models.package,
+        kwargs={"name": model_name, "version": model_version, "package_request": package_request},
+        max_tries=azureml_client_config.max_operation_retries,
+        delay=azureml_client_config.operation_retry_interval,
+        exceptions=ServiceResponseError,
+    )
+
+    assert mock_retry_func.call_once_with(
+        ml_client_mock.online_endpoints.get,
+        [endpoint_name],
+        max_tries=azureml_client_config.max_operation_retries,
+        delay=azureml_client_config.operation_retry_interval,
+        exceptions=ServiceResponseError,
+    )
+
+    assert mock_retry_func.call_once_with(
+        ml_client_mock.online_deployments.begin_create_or_update,
+        [deployment],
         max_tries=azureml_client_config.max_operation_retries,
         delay=azureml_client_config.operation_retry_interval,
         exceptions=ServiceResponseError,

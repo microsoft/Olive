@@ -18,8 +18,8 @@ import pkg_resources
 
 from olive.common.utils import copy_dir, retry_func, run_subprocess
 from olive.engine.packaging.packaging_config import (
-    AzureMLDataPackagingConfig,
-    AzureMLModelsPackagingConfig,
+    AzureMLDeploymentPackagingConfig,
+    InferencingServerType,
     PackagingConfig,
     PackagingType,
 )
@@ -49,7 +49,233 @@ def generate_output_artifacts(
         return
     packaging_config_list = packaging_configs if isinstance(packaging_configs, list) else [packaging_configs]
     for packaging_config in packaging_config_list:
-        _package_candidate_models(packaging_config, output_dir, footprints, pf_footprints, azureml_client_config)
+        if packaging_config.type == PackagingType.AzureMLDeployment:
+            _package_azureml_deployment(packaging_config, footprints, pf_footprints, azureml_client_config)
+        else:
+            _package_candidate_models(packaging_config, output_dir, footprints, pf_footprints, azureml_client_config)
+
+
+def _package_azureml_deployment(
+    packaging_config: AzureMLDeploymentPackagingConfig,
+    footprints: Dict["AcceleratorSpec", "Footprint"],
+    pf_footprints: Dict["AcceleratorSpec", "Footprint"],
+    azureml_client_config: "AzureMLClientConfig" = None,
+):
+    from azure.ai.ml.entities import (
+        AzureMLBatchInferencingServer,
+        AzureMLOnlineInferencingServer,
+        BaseEnvironment,
+        BatchDeployment,
+        BatchEndpoint,
+        CodeConfiguration,
+        ManagedOnlineDeployment,
+        ManagedOnlineEndpoint,
+        ModelConfiguration,
+        ModelPackage,
+    )
+    from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError, ServiceResponseError
+
+    config: AzureMLDeploymentPackagingConfig = packaging_config.config
+    if config.export_in_mlflow_format:
+        logger.warning("Exporting model in MLflow format is not supported for AzureML endpoint packaging.")
+
+    try:
+        # Get best model from footprint
+        best_node = _get_best_candidate_node(pf_footprints, footprints)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            tempdir = Path(temp_dir)
+
+            model_config = best_node.model_config
+            _save_model(
+                model_config["config"].get("model_path", None),
+                model_config["type"],
+                model_config,
+                tempdir,
+                model_config["config"].get("inference_settings", None),
+                False,
+            )
+
+            # Register model to AzureML
+            _upload_to_azureml_models(
+                azureml_client_config,
+                tempdir,
+                config.model_name,
+                config.model_version,
+                config.model_description,
+                False,
+            )
+
+        ml_client = azureml_client_config.create_client()
+
+        # AzureML package config
+        model_package_config = config.model_package
+
+        code_folder = Path(model_package_config.inferencing_server.code_folder)
+        assert code_folder.exists(), f"Code folder {code_folder} does not exist."
+
+        scoring_script = code_folder / model_package_config.inferencing_server.scoring_script
+        assert scoring_script.exists(), f"Scoring script {scoring_script} does not exist."
+
+        code_configuration = CodeConfiguration(
+            code=model_package_config.inferencing_server.code_folder,
+            scoring_script=model_package_config.inferencing_server.scoring_script,
+        )
+
+        inferencing_server = None
+        if model_package_config.inferencing_server.type == InferencingServerType.AzureMLOnline:
+            inferencing_server = AzureMLOnlineInferencingServer(code_configuration=code_configuration)
+        elif model_package_config.inferencing_server.type == InferencingServerType.AzureMLBatch:
+            inferencing_server = AzureMLBatchInferencingServer(code_configuration=code_configuration)
+
+        model_configuration = None
+        if model_package_config.model_configurations:
+            model_configuration = ModelConfiguration(
+                mode=model_package_config.model_configurations.mode,
+                mount_path=model_package_config.model_configurations.mount_path,
+            )
+
+        base_environment_source = BaseEnvironment(
+            type="EnvironmentAsset", resource_id=model_package_config.base_environment_id
+        )
+
+        package_request = ModelPackage(
+            target_environment=model_package_config.target_environment,
+            inferencing_server=inferencing_server,
+            base_environment_source=base_environment_source,
+            target_environment_version=model_package_config.target_environment_version,
+            model_configuration=model_configuration,
+            environment_variables=model_package_config.environment_variables,
+        )
+
+        # invoke model package operation
+        model_package = retry_func(
+            func=ml_client.models.package,
+            kwargs={"name": config.model_name, "version": config.model_version, "package_request": package_request},
+            max_tries=azureml_client_config.max_operation_retries,
+            delay=azureml_client_config.operation_retry_interval,
+            exceptions=ServiceResponseError,
+        )
+
+        logger.info(
+            "Target environment created successfully: name: %s, version: %s",
+            model_package_config.target_environment,
+            model_package_config.target_environment_version,
+        )
+
+        # Deploy model package
+        deployment_config = config.deployment_config
+
+        # Get endpoint
+        try:
+            endpoint = retry_func(
+                ml_client.online_endpoints.get,
+                [deployment_config.endpoint_name],
+                max_tries=azureml_client_config.max_operation_retries,
+                delay=azureml_client_config.operation_retry_interval,
+                exceptions=ServiceResponseError,
+            )
+            logger.info(
+                "Endpoint %s already exists. The scoring_uri is: %s",
+                deployment_config.endpoint_name,
+                endpoint.scoring_uri,
+            )
+        except ResourceNotFoundError:
+            logger.info("Endpoint %s does not exist. Creating a new endpoint...", deployment_config.endpoint_name)
+            if model_package_config.inferencing_server.type == InferencingServerType.AzureMLOnline:
+                endpoint = ManagedOnlineEndpoint(
+                    name=deployment_config.endpoint_name,
+                    description="this is an endpoint created by Olive automatically",
+                )
+            elif model_package_config.inferencing_server.type == InferencingServerType.AzureMLBatch:
+                endpoint = BatchEndpoint(
+                    name=deployment_config.endpoint_name,
+                    description="this is an endpoint created by Olive automatically",
+                )
+
+            endpoint = retry_func(
+                ml_client.online_endpoints.begin_create_or_update,
+                [endpoint],
+                max_tries=azureml_client_config.max_operation_retries,
+                delay=azureml_client_config.operation_retry_interval,
+                exceptions=ServiceResponseError,
+            ).result()
+            logger.info(
+                "Endpoint %s created successfully. The scoring_uri is: %s",
+                deployment_config.endpoint_name,
+                endpoint.scoring_uri,
+            )
+
+        deployment = None
+        extra_config = deployment_config.extra_config or {}
+        if model_package_config.inferencing_server.type == InferencingServerType.AzureMLOnline:
+            deployment = ManagedOnlineDeployment(
+                name=deployment_config.deployment_name,
+                endpoint_name=deployment_config.endpoint_name,
+                environment=model_package,
+                instance_type=deployment_config.instance_type,
+                instance_count=deployment_config.instance_count,
+                **extra_config,
+            )
+
+        elif model_package_config.inferencing_server.type == InferencingServerType.AzureMLBatch:
+            deployment = BatchDeployment(
+                name=deployment_config.deployment_name,
+                endpoint_name=deployment_config.endpoint_name,
+                environment=model_package,
+                compute=deployment_config.compute,
+                mini_batch_size=deployment_config.mini_batch_size,
+                **extra_config,
+            )
+        deployment = retry_func(
+            ml_client.online_deployments.begin_create_or_update,
+            [deployment],
+            max_tries=azureml_client_config.max_operation_retries,
+            delay=azureml_client_config.operation_retry_interval,
+            exceptions=ServiceResponseError,
+        ).result()
+        logger.info("Deployment %s created successfully", deployment.name)
+
+    except ResourceNotFoundError:
+        logger.exception(
+            "Failed to package AzureML deployment. The resource is not found. Please check the exception details."
+        )
+        raise
+    except ResourceExistsError:
+        logger.exception(
+            "Failed to package AzureML deployment. The resource already exists. Please check the exception details."
+        )
+        raise
+    except Exception:
+        logger.exception("Failed to package AzureML deployment. Please check the exception details.")
+        raise
+
+
+def _get_best_candidate_node(
+    pf_footprints: Dict["AcceleratorSpec", "Footprint"], footprints: Dict["AcceleratorSpec", "Footprint"]
+):
+    objective_dict = next(iter(pf_footprints.values())).objective_dict
+    top_nodes = []
+    for accelerator_spec, pf_footprint in pf_footprints.items():
+        footprint = footprints[accelerator_spec]
+        if pf_footprint.nodes and footprint.nodes:
+            top_nodes.append(next(iter(pf_footprint.get_top_ranked_nodes(1))))
+    return next(
+        iter(
+            sorted(
+                top_nodes,
+                key=lambda x: tuple(
+                    (
+                        x.metrics.value[metric].value
+                        if x.metrics.cmp_direction[metric] == 1
+                        else -x.metrics.value[metric].value
+                    )
+                    for metric in objective_dict
+                ),
+                reverse=True,
+            )
+        )
+    )
 
 
 def _package_candidate_models(
@@ -100,7 +326,12 @@ def _package_candidate_models(
                     _copy_configurations(model_dir, footprint, model_id)
                     _copy_metrics(model_dir, input_node, node)
                     model_path = _save_model(
-                        pf_footprint, model_id, model_dir, inference_config, export_in_mlflow_format
+                        pf_footprint.get_model_path(model_id),
+                        pf_footprint.get_model_type(model_id),
+                        pf_footprint.get_model_config(model_id),
+                        model_dir,
+                        inference_config,
+                        export_in_mlflow_format,
                     )
 
                     model_info_list = []
@@ -110,9 +341,18 @@ def _package_candidate_models(
                     _copy_model_info(model_dir, model_info)
 
                     if packaging_type == PackagingType.AzureMLModels:
-                        _upload_to_azureml_models(azureml_client_config, model_dir, model_name, config)
+                        _upload_to_azureml_models(
+                            azureml_client_config,
+                            model_dir,
+                            model_name,
+                            config.version,
+                            config.description,
+                            export_in_mlflow_format,
+                        )
                     elif packaging_type == PackagingType.AzureMLData:
-                        _upload_to_azureml_data(azureml_client_config, model_dir, model_name, config)
+                        _upload_to_azureml_data(
+                            azureml_client_config, model_dir, model_name, config.version, config.description
+                        )
 
                     model_rank += 1
 
@@ -125,7 +365,9 @@ def _upload_to_azureml_models(
     azureml_client_config: "AzureMLClientConfig",
     model_path: Path,
     model_name: str,
-    config: AzureMLModelsPackagingConfig,
+    version: Union[int, str],
+    description: str,
+    export_in_mlflow_format: bool,
 ):
     """Upload model to AzureML workspace Models."""
     from azure.ai.ml.constants import AssetTypes
@@ -135,10 +377,10 @@ def _upload_to_azureml_models(
     ml_client = azureml_client_config.create_client()
     model = Model(
         path=model_path,
-        type=AssetTypes.MLFLOW_MODEL if config.export_in_mlflow_format else AssetTypes.CUSTOM_MODEL,
+        type=AssetTypes.MLFLOW_MODEL if export_in_mlflow_format else AssetTypes.CUSTOM_MODEL,
         name=model_name,
-        version=str(config.version),
-        description=config.description,
+        version=str(version),
+        description=description,
     )
     retry_func(
         ml_client.models.create_or_update,
@@ -150,7 +392,11 @@ def _upload_to_azureml_models(
 
 
 def _upload_to_azureml_data(
-    azureml_client_config: "AzureMLClientConfig", model_path: Path, model_name: str, config: AzureMLDataPackagingConfig
+    azureml_client_config: "AzureMLClientConfig",
+    model_path: Path,
+    model_name: str,
+    version: Union[int, str],
+    description: str,
 ):
     """Upload model as Data to AzureML workspace Data."""
     from azure.ai.ml.constants import AssetTypes
@@ -161,9 +407,9 @@ def _upload_to_azureml_data(
     data = Data(
         path=str(model_path),
         type=AssetTypes.URI_FILE if model_path.is_file() else AssetTypes.URI_FOLDER,
-        description=config.description,
+        description=description,
         name=model_name,
-        version=str(config.version),
+        version=str(version),
     )
     retry_func(
         ml_client.data.create_or_update,
@@ -230,15 +476,14 @@ def _copy_metrics(model_dir: Path, input_node: "FootprintNode", node: "Footprint
 
 
 def _save_model(
-    pf_footprint: "Footprint",
-    model_id: str,
+    model_path: str,
+    model_type: str,
+    model_config: Dict,
     saved_model_path: Path,
     inference_config: Dict,
     export_in_mlflow_format: bool,
 ):
-    model_path = pf_footprint.get_model_path(model_id)
     model_resource_path = create_resource_path(model_path) if model_path else None
-    model_type = pf_footprint.get_model_type(model_id)
 
     if model_type.lower() == "onnxmodel":
         with tempfile.TemporaryDirectory(dir=saved_model_path, prefix="olive_tmp") as model_tempdir:
@@ -251,7 +496,6 @@ def _save_model(
             elif temp_resource_path.type == ResourceType.LocalFolder:
                 # if model_path is a folder, save all files in the folder to model_dir / file_name
                 # file_name for .onnx file is model.onnx, otherwise keep the original file name
-                model_config = pf_footprint.get_model_config(model_id)
                 onnx_file_name = model_config.get("onnx_file_name")
                 onnx_model = ONNXModelHandler(temp_resource_path, onnx_file_name)
                 model_name = Path(onnx_model.model_path).name
