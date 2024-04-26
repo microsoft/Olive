@@ -1,5 +1,5 @@
 {
-    "input_model":{
+    "input_model": {
         "type": "PyTorchModel",
         "config": {
             "io_config": {
@@ -60,8 +60,8 @@
             }
         }
     },
-    "data_configs": {
-        "tiny_codes_train": {
+    "data_configs": [
+        {
             "name": "tiny_codes_train",
             "type": "HuggingfaceContainer",
             "user_script": "user_script.py",
@@ -86,7 +86,7 @@
                 }
             }
         }
-    },
+    ],
     "evaluators": {
         "merged_evaluator": {
             "metrics": [
@@ -134,7 +134,8 @@
                     "evaluation_strategy": "steps",
                     "adam_beta2": 0.999,
                     "max_grad_norm": 0.3,
-                    "load_best_model_at_end": true
+                    "load_best_model_at_end": true,
+                    "output_dir": "models/qlora-checkpoints"
                 }
             }
         },
@@ -162,6 +163,8 @@
         "extract": {
             "type": "ExtractAdapters",
             "config": {
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true,
                 "make_inputs": true
             }
         }
@@ -171,6 +174,6 @@
         "host": "local_system",
         "target": "local_system",
         "cache_dir": "cache",
-        "output_dir" : "models/qlora"
+        "output_dir" : "models/tiny-codes-qlora"
     }
 }

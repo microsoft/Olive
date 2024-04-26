@@ -22,7 +22,7 @@ from olive.passes.olive_pass import PassConfigParam
 logger = logging.getLogger(__name__)
 
 
-class GenAIModelExporter(Pass):
+class ModelBuilder(Pass):
     """Converts a Huggingface generative PyTorch model to ONNX model using the Generative AI builder.
 
     See https://github.com/microsoft/onnxruntime-genai
@@ -36,11 +36,20 @@ class GenAIModelExporter(Pass):
         def __str__(self) -> str:
             return self.value
 
+    class AccuracyLevel(int, Enum):
+        fp32 = 1
+        fp16 = 2
+        bf16 = 3
+        int8 = 4
+
+        def __str__(self) -> str:
+            return str(self.value)
+
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "precision": PassConfigParam(
-                type_=GenAIModelExporter.Precision,
+                type_=ModelBuilder.Precision,
                 required=True,
                 description="Precision of model.",
             ),
@@ -52,6 +61,38 @@ class GenAIModelExporter(Pass):
             ),
             "search": PassConfigParam(
                 type_=Dict[str, Any], required=False, description="Search options to use for generate loop."
+            ),
+            "int4_block_size": PassConfigParam(
+                type_=int,
+                required=False,
+                description="Specify the block_size for int4 quantization. Acceptable values: 16/32/64/128/256.",
+            ),
+            "int4_accuracy_level": PassConfigParam(
+                type_=ModelBuilder.AccuracyLevel,
+                required=False,
+                description="Specify the minimum accuracy level for activation of MatMul in int4 quantization.",
+            ),
+            "exclude_embeds": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                required=False,
+                description="Remove embedding layer from your ONNX model.",
+            ),
+            "exclude_lm_head": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                required=False,
+                description="Remove language modeling head from your ONNX model.",
+            ),
+            "enable_cuda_graph": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                required=False,
+                description=(
+                    "The model can use CUDA graph capture for CUDA execution provider. "
+                    "If enabled, all nodes being placed on the CUDA EP is the prerequisite "
+                    "for the CUDA graph to be used correctly."
+                ),
             ),
         }
 
@@ -67,7 +108,7 @@ class GenAIModelExporter(Pass):
             in AcceleratorLookup.get_execution_providers_for_device(Device.CPU)
             else Device.GPU
         )
-        if precision == GenAIModelExporter.Precision.FP16 and device == Device.CPU:
+        if precision == ModelBuilder.Precision.FP16 and device == Device.CPU:
             logger.info(
                 "FP16 is not supported on CPU. Valid precision + execution"
                 "provider combinations are: FP32 CPU, FP32 CUDA, FP16 CUDA, INT4 CPU, INT4 CUDA"
@@ -93,7 +134,7 @@ class GenAIModelExporter(Pass):
 
         if not metadata_only and not model.hf_config:
             raise ValueError(
-                "GenAIModelExporter pass only supports exporting HF models i.e. PyTorchModelHandler "
+                "ModelBuilder pass only supports exporting HF models i.e. PyTorchModelHandler "
                 "with hf_config and exporting the metadata only for pre-optimized onnx models."
             )
 
@@ -136,6 +177,18 @@ class GenAIModelExporter(Pass):
         else:
             model_path = str(model.hf_config.model_name)
             input_path = ""
+
+        if config.get("int4_block_size"):
+            if int(config["int4_block_size"]) not in [16, 32, 64, 128, 256]:
+                raise ValueError("Invalid int4_block_size. Accepted values: 16/32/64/128/256.")
+            extra_args["int4_block_size"] = config["int4_block_size"]
+
+        if config.get("int4_accuracy_level"):
+            extra_args["int4_accuracy_level"] = config["int4_accuracy_level"].value
+
+        extra_args["exclude_embeds"] = config["exclude_embeds"]
+        extra_args["exclude_lm_head"] = config["exclude_lm_head"]
+        extra_args["enable_cuda_graph"] = "1" if config["enable_cuda_graph"] else "0"
 
         create_model(
             model_name=model_path,

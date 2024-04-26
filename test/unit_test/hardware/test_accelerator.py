@@ -10,7 +10,8 @@ from unittest.mock import patch
 import pytest
 
 from olive.common.config_utils import validate_config
-from olive.hardware.accelerator import AcceleratorLookup, AcceleratorNormalizer, AcceleratorSpec, create_accelerators
+from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
+from olive.systems.accelerator_creator import AcceleratorNormalizer, create_accelerators
 from olive.systems.common import AcceleratorConfig, SystemType
 from olive.systems.python_environment.python_environment_system import PythonEnvironmentSystem
 from olive.systems.system_config import SystemConfig

@@ -35,7 +35,7 @@ DefaultDataComponentCombos = {
 
 
 class DataConfig(ConfigBase):
-    name: str = DefaultDataContainer.DATA_CONTAINER.value
+    name: str
     type: str = DefaultDataContainer.DATA_CONTAINER.value
 
     # used to store the params for each component

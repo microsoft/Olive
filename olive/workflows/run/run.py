@@ -11,9 +11,9 @@ from pathlib import Path
 from typing import Generator, List, Union
 
 from olive.auto_optimizer import AutoOptimizer
-from olive.hardware.accelerator import create_accelerators
 from olive.logging import enable_filelog, set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
 from olive.package_config import OlivePackageConfig
+from olive.systems.accelerator_creator import create_accelerators
 from olive.systems.common import SystemType
 from olive.workflows.run.config import RunConfig, RunPassConfig
 

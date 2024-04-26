@@ -1,5 +1,5 @@
 {
-    "input_model":{
+    "input_model": {
         "type": "PyTorchModel",
         "config": {
             "hf_config": {
@@ -23,18 +23,22 @@
             }
         }
     },
-    "data_configs": {
-        "c4_train": {
+    "data_configs": [
+        {
             "name": "c4_train",
             "type": "HuggingfaceContainer",
             "params_config": {
                 "data_name": "allenai/c4",
                 "subset": "allenai--c4",
                 "split": "train",
-                "data_files": {"train": "en/c4-train.00000-of-01024.json.gz"},
+                "data_files": {
+                    "train": "en/c4-train.00000-of-01024.json.gz"
+                },
                 "component_kwargs": {
                     "pre_process_data": {
-                        "text_cols": ["text"],
+                        "text_cols": [
+                            "text"
+                        ],
                         "corpus_strategy": "join-random",
                         "add_special_tokens": false,
                         "source_max_len": 2048,
@@ -44,7 +48,7 @@
                 }
             }
         },
-        "wikitext2_test": {
+        {
             "name": "wikitext2_test",
             "type": "HuggingfaceContainer",
             "params_config": {
@@ -53,7 +57,9 @@
                 "split": "test",
                 "component_kwargs": {
                     "pre_process_data": {
-                        "text_cols": ["text"],
+                        "text_cols": [
+                            "text"
+                        ],
                         "corpus_strategy": "join",
                         "add_special_tokens": false,
                         "source_max_len": 2048
@@ -61,15 +67,17 @@
                 }
             }
         }
-    },
+    ],
     "evaluators": {
         "common_evaluator": {
-            "metrics":[
+            "metrics": [
                 {
                     "name": "perplexity",
                     "type": "accuracy",
                     "sub_types": [
-                        {"name": "perplexity"}
+                        {
+                            "name": "perplexity"
+                        }
                     ],
                     "data_config": "wikitext2_test"
                 }
@@ -80,7 +88,10 @@
         "sparsegpt": {
             "type": "SparseGPT",
             "config": {
-                "sparsity": [2,4],
+                "sparsity": [
+                    2,
+                    4
+                ],
                 "data_config": "c4_train"
             }
         },
@@ -98,6 +109,6 @@
         "host": "local_system",
         "target": "local_system",
         "cache_dir": "cache",
-        "output_dir" : "models/open_llama_sparsegpt"
+        "output_dir": "models/open_llama_sparsegpt"
     }
 }

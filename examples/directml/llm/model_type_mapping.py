@@ -27,6 +27,8 @@ _MODEL_TYPE_TO_REPO_ID = {
     "neural-chat-7b-v3.1": "Intel/neural-chat-7b-v3-1",
     "tinyllama-1.1b-chat-v0.6": "TinyLlama/TinyLlama-1.1B-Chat-v0.6",
     "phi-2": "microsoft/phi-2",
+    "phi-3-mini-4k": "microsoft/Phi-3-mini-4k-instruct",
+    "phi-3-mini-128k": "microsoft/Phi-3-mini-128k-instruct",
 }
 
 
@@ -54,6 +56,8 @@ def get_supported_llm_models():
         "neural-chat-7b-v3.1",
         "tinyllama-1.1b-chat-v0.6",
         "phi-2",
+        "phi-3-mini-4k",
+        "phi-3-mini-128k",
     ]
 
 

@@ -46,8 +46,8 @@
             }
         }
     },
-    "data_configs": {
-        "wikitext2_train": {
+    "data_configs": [
+        {
             "name": "wikitext2_train",
             "type": "HuggingfaceContainer",
             "params_config": {
@@ -68,7 +68,7 @@
                 }
             }
         }
-    },
+    ],
     "systems": {
         "local_system": {
             "type": "LocalSystem",

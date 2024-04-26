@@ -28,6 +28,10 @@ def run_llm_io_binding(
 ) -> str:
     onnxruntime.set_default_logger_severity(3)
 
+    # Temporary workaround for overflow bug in DirectML
+    if max_seq_len % 4 == 0:
+        max_seq_len += 1
+
     execution_provider = {
         "dml": "DmlExecutionProvider",
         "cuda": "CUDAExecutionProvider",

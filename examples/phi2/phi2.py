@@ -84,7 +84,7 @@ def get_args(raw_args):
     parser.add_argument(
         "--genai_optimization",
         action="store_true",
-        help="Use optimum optimization",
+        help="Use GenAI optimization",
     )
     parser.add_argument(
         "--slicegpt",

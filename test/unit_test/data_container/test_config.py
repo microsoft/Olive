@@ -19,7 +19,7 @@ class TestDataConfig:
         self.dc_config = get_data_config()
 
     def test_default_property(self):
-        dc_config = DataConfig()
+        dc_config = DataConfig(name="test_dc_config")
         for k in dc_config.default_components:
             assert k in dc_config.components
         assert dc_config.dataloader
