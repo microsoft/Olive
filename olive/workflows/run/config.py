@@ -54,7 +54,7 @@ class RunConfig(ConfigBase):
     input_model: ModelConfig
     systems: Dict[str, SystemConfig] = None
     data_root: str = None
-    data_configs: Dict[str, DataConfig] = None
+    data_configs: List[DataConfig] = []  # noqa: RUF012
     evaluators: Dict[str, OliveEvaluatorConfig] = None
     engine: RunEngineConfig = None
     pass_flows: List[List[str]] = None
@@ -88,9 +88,10 @@ class RunConfig(ConfigBase):
 
         if not v:
             # if data_configs is None, create an empty dict
-            v = {}
+            v = []
 
-        if INPUT_MODEL_DATA_CONFIG in v:
+        dc_names = [dc.name if isinstance(dc, DataConfig) else dc["name"] for dc in v]
+        if INPUT_MODEL_DATA_CONFIG in dc_names:
             raise ValueError(f"Data config name {INPUT_MODEL_DATA_CONFIG} is reserved. Please use another name.")
 
         # insert input model hf data config if present
@@ -108,11 +109,13 @@ class RunConfig(ConfigBase):
             for key in ["trust_remote_code"]:
                 if hf_config.get("from_pretrained_args", {}).get(key) and params_config.get(key) is None:
                     params_config[key] = hf_config["from_pretrained_args"][key]
-            v[INPUT_MODEL_DATA_CONFIG] = {
-                "name": INPUT_MODEL_DATA_CONFIG,
-                "type": HuggingfaceContainer.__name__,
-                "params_config": params_config,
-            }
+            v.append(
+                {
+                    "name": INPUT_MODEL_DATA_CONFIG,
+                    "type": HuggingfaceContainer.__name__,
+                    "params_config": params_config,
+                }
+            )
         return v
 
     @validator("data_configs", pre=True)
@@ -122,7 +125,7 @@ class RunConfig(ConfigBase):
 
         # validate data config name is unique
         data_name_set = set()
-        for data_config in v.values():
+        for data_config in v:
             data_config_obj = validate_config(data_config, DataConfig)
             if data_config_obj.name in data_name_set:
                 raise ValueError(f"Data config name {data_config_obj.name} is duplicated. Please use another name.")
@@ -297,13 +300,30 @@ def _resolve_system(v, values, system_alias):
 
 
 def _resolve_data_config(v, values, data_config_alias, auto_insert=True):
+    if not isinstance(v, dict):
+        # if not a dict, return the original value
+        return v
+
     # get the value for data_config_alias in v
     data_container_config = v.get(data_config_alias, None)
     # auto insert input model data config if data_container_config is None
-    if not data_container_config and INPUT_MODEL_DATA_CONFIG in values["data_configs"] and auto_insert:
+    components = values.get("data_configs") or []
+    component_map = {_.name: _ for _ in components}
+    if not data_container_config and INPUT_MODEL_DATA_CONFIG in component_map and auto_insert:
         v[data_config_alias] = INPUT_MODEL_DATA_CONFIG
     # resolve data_config_alias to data config
-    return _resolve_config_str(v, values, data_config_alias, component_name="data_configs")
+
+    # get name of sub component
+    sub_component = v.get(data_config_alias)
+    if not isinstance(sub_component, str):
+        return v
+
+    # resolve sub component name to component config
+    if sub_component not in component_map:
+        raise ValueError(f"{data_config_alias} {sub_component} not found in {components}")
+
+    v[data_config_alias] = component_map[sub_component]
+    return v
 
 
 def _resolve_evaluator(v, values):

@@ -9,10 +9,10 @@ The configuration of Olive data config is positioned under Olive run config with
 
 .. code-block::
 
-    "data_configs": {
-        "dataset_1": {...},
-        "dataset_2": {...},
-    }
+    "data_configs": [
+        { "name": "dataset_1", ...},
+        { "name": "dataset_2", ...},
+    ]
 
 Note: `name` for each dataset should be unique, and must be composed letters, numbers, and underscores.
 

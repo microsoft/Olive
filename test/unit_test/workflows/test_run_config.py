@@ -11,6 +11,7 @@ import pytest
 
 from olive.common.pydantic_v1 import ValidationError
 from olive.data.config import DataConfig
+from olive.data.container.huggingface_container import HuggingfaceContainer
 from olive.package_config import OlivePackageConfig
 from olive.workflows.run.config import INPUT_MODEL_DATA_CONFIG, RunConfig
 from olive.workflows.run.run import get_pass_module_path, is_execution_provider_required
@@ -37,7 +38,7 @@ class TestRunConfig:
     )
     def test_dataset_config_file(self, config_file):
         run_config = RunConfig.parse_file(config_file)
-        for dc in run_config.data_configs.values():
+        for dc in run_config.data_configs:
             dc.to_data_container().create_dataloader(data_root_path=None)
 
     @pytest.mark.parametrize("system", ["local_system", "azureml_system"])
@@ -215,17 +216,17 @@ class TestDataConfigValidation:
                     }
                 },
             },
-            "data_configs": {
-                "dummy_data_config2": {
+            "data_configs": [
+                {
                     "name": "dummy_data_config2",
-                    "type": "HuggingfaceContainer",
+                    "type": HuggingfaceContainer.__name__,
                     "params_config": {
                         "model_name": "dummy_model2",
                         "task": "dummy_task2",
                         "data_name": "dummy_dataset2",
                     },
                 }
-            },
+            ],
             "passes": {"tuning": {"type": "OrtPerfTuning"}},
             "engine": {"evaluate_input_model": False},
         }
@@ -241,15 +242,22 @@ class TestDataConfigValidation:
     )
     def test_auto_insert_model_name_and_task(self, model_name, task, expected_model_name, expected_task):
         config_dict = self.template.copy()
-        config_dict["data_configs"]["dummy_data_config2"]["params_config"] = {
-            "model_name": model_name,
-            "task": task,
-            "data_name": "dummy_dataset2",
-        }
+        config_dict["data_configs"] = [
+            {
+                "name": "dummy_data_config2",
+                "type": HuggingfaceContainer.__name__,
+                "params_config": {
+                    "model_name": model_name,
+                    "task": task,
+                    "data_name": "dummy_dataset2",
+                },
+            }
+        ]
 
         run_config = RunConfig.parse_obj(config_dict)
-        assert run_config.data_configs["dummy_data_config2"].params_config["model_name"] == expected_model_name
-        assert run_config.data_configs["dummy_data_config2"].params_config["task"] == expected_task
+        assert run_config.data_configs[0].name == "dummy_data_config2"
+        assert run_config.data_configs[0].params_config["model_name"] == expected_model_name
+        assert run_config.data_configs[0].params_config["task"] == expected_task
 
     # works similarly for trust_remote_args
     @pytest.mark.parametrize(
@@ -274,18 +282,21 @@ class TestDataConfigValidation:
                 "trust_remote_code": trust_remote_code
             }
         if data_config_trust_remote_code is not None:
-            config_dict["data_configs"]["dummy_data_config2"]["params_config"][
-                "trust_remote_code"
-            ] = data_config_trust_remote_code
+            config_dict["data_configs"] = [
+                {
+                    "name": "dummy_data_config2",
+                    "type": HuggingfaceContainer.__name__,
+                    "params_config": {"trust_remote_code": data_config_trust_remote_code},
+                }
+            ]
 
         run_config = RunConfig.parse_obj(config_dict)
+
+        assert run_config.data_configs[0].name == "dummy_data_config2"
         if expected_trust_remote_code is None:
-            assert "trust_remote_code" not in run_config.data_configs["dummy_data_config2"].params_config
+            assert "trust_remote_code" not in run_config.data_configs[0].params_config
         else:
-            assert (
-                run_config.data_configs["dummy_data_config2"].params_config["trust_remote_code"]
-                == expected_trust_remote_code
-            )
+            assert run_config.data_configs[0].params_config["trust_remote_code"] == expected_trust_remote_code
 
     @pytest.mark.parametrize(
         "data_config_str",

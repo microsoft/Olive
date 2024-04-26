@@ -107,8 +107,9 @@ def get_data_config():
                 "io_config": {"input_names": ["input"], "output_names": ["output"], "input_shapes": [(1, 1)]},
             },
         },
-        "data_configs": {
-            "test_data_config": DataConfig(
+        "data_configs": [
+            DataConfig(
+                name="test_data_config",
                 components={
                     "load_dataset": {
                         "name": "dummy_dataset_dataroot",
@@ -118,9 +119,9 @@ def get_data_config():
                     "post_process_data": {
                         "type": "post_processing_func",
                     },
-                }
+                },
             ),
-        },
+        ],
         "evaluators": {
             "common_evaluator": {
                 "metrics": [
@@ -148,6 +149,7 @@ def get_data_config():
                     # "data_config": "test_data_config"
                     # This is just demo purpose to show how to use data_config in passes
                     "data_config": DataConfig(
+                        name="test_data_config",
                         components={
                             "load_dataset": {
                                 "name": "dummy_dataset_dataroot",
@@ -157,7 +159,7 @@ def get_data_config():
                             "post_process_data": {
                                 "type": "post_processing_func",
                             },
-                        }
+                        },
                     )
                 },
             },
