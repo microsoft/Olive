@@ -448,3 +448,13 @@ def is_ort_version_below_1_17():
         True if the current ORT version is less than 1.17.0, False otherwise.
     """
     return version.parse(OrtVersion) < version.parse("1.17.0")
+
+
+def is_ort_version_below_1_18():
+    """
+    This function checks whether the current version of ONNX Runtime (ORT) is below 1.18.0.
+
+    Returns:
+        True if the current ORT version is less than 1.18.0, False otherwise.
+    """
+    return version.parse(OrtVersion) < version.parse("1.18.0")
