@@ -231,6 +231,10 @@ class OliveEvaluator(ABC):
             return metric
 
         if not is_io_config_static(io_config):
+            # since Olive will not save the pytorch model's io_config to olive onnx model
+            # we cannot generate dummy data for the onnx model if this model has dynamic input shapes
+            # TODO(trajep): try to get static input shapes from onnx model.
+            # If so, we can move the dataloader for latency measurement.
             logger.debug(
                 "Model input shapes are not static. Cannot use inferred input shapes for creating dummy data. This will"
                 " cause an error when creating dummy data for tuning."
