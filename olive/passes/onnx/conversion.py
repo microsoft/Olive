@@ -15,7 +15,7 @@ import torch
 from packaging import version
 
 from olive.common.config_utils import validate_config
-from olive.common.utils import exclude_keys, find_submodules, resolve_torch_dtype, tensor_data_to_device
+from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device
 from olive.hardware import AcceleratorSpec
 from olive.model import (
     CompositeModelHandler,
@@ -27,7 +27,6 @@ from olive.model import (
 )
 from olive.model.config import IoConfig
 from olive.model.config.hf_config import HfConfig, get_model_type_from_hf_config
-from olive.model.config.io_config import is_kv_cache_required
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
@@ -71,6 +70,14 @@ class OnnxConversion(Pass):
             ),
             "use_dynamo_exporter": PassConfigParam(
                 type_=bool, default_value=False, description="Whether to use dynamo_export API to export ONNX model."
+            ),
+            "past_key_value_name": PassConfigParam(
+                type_=str,
+                default_value="past_key_values",
+                description=(
+                    "The arguments name to point to past key values. For model loaded from huggingface, "
+                    "it is 'past_key_values'. Basically, it is used only when `use_dynamo_exporter` is True."
+                ),
             ),
             "device": PassConfigParam(
                 type_=str,
@@ -238,31 +245,6 @@ class OnnxConversion(Pass):
             io_config is not None
         ), "Cannot get io_config for the model. Please specify io_config or hf_config for the model"
         io_config = validate_config(io_config, IoConfig)
-        input_names = io_config.input_names
-
-        # some dummy inputs might not be used in the model, so we need to remove them
-        # this can happen when we are using an hf dataset to generate dummy inputs
-        # only handle dict for now since we cannot get the name of the input from a list/tuple
-        if isinstance(dummy_inputs, dict):
-            dummy_input_keys = set(dummy_inputs.keys())
-
-            # after the expansion, user should provide the correct input names for inference
-            for name, dm_input in dummy_inputs.items():
-                # the `past_key_values` is the argument name from huggingface model class
-                # which is independent of the kv-related variables in input list provided by users
-                # if user provided the kv-related variables, we should not remove
-                # the `past_key_values` from dummy inputs. But if not, we should remove it.
-                if (
-                    name == "past_key_values"
-                    and isinstance(dm_input, list)
-                    and is_kv_cache_required(dm_input, io_config)
-                ):
-                    dummy_input_keys.discard(name)
-
-            unused_keys = dummy_input_keys - set(input_names)
-
-            if unused_keys:
-                logger.debug("Removing unused dummy inputs: %s", unused_keys)
 
         onnx_model = None
         if config["use_dynamo_exporter"]:
@@ -272,16 +254,11 @@ class OnnxConversion(Pass):
                     f"torch.onnx.dynamo_export is not available for torch version {torch_version}. "
                     "Please upgrade your torch version to 2.2.0 or above."
                 )
-            from torch._dynamo import config
+            from torch._dynamo import config as dynamo_config
             from torch.onnx import dynamo_export
 
-            config.capture_scalar_outputs = True
-
-            if isinstance(dummy_inputs, dict):
-                for key in unused_keys:
-                    dummy_inputs[key] = None
-
-            pytorch_model(*dummy_inputs.values())
+            dynamo_config.capture_scalar_outputs = True
+            pytorch_model(**dummy_inputs)
 
             with tempfile.TemporaryDirectory(dir=tempdir, prefix="olive_tmp") as tmp_dir:
                 tmp_dir_path = Path(tmp_dir)
@@ -289,20 +266,13 @@ class OnnxConversion(Pass):
 
                 dynamo_export(
                     pytorch_model,
-                    *dummy_inputs.values(),
+                    **dummy_inputs,
                     export_options=torch.onnx.ExportOptions(dynamic_shapes=True),
                 ).save(tmp_model_path)
                 onnx.checker.check_model(tmp_model_path)
                 onnx.shape_inference.infer_shapes_path(tmp_model_path)
                 onnx_model = onnx.load(tmp_model_path)
         else:
-            # Standard ONNX export
-            if isinstance(dummy_inputs, dict):
-                dummy_inputs = exclude_keys(dummy_inputs, unused_keys)
-
-            output_names = io_config.output_names
-            dynamic_axes = io_config.dynamic_axes
-
             # there might be multiple files created during export, so we need to track the dir
             # if there are other processes writing to the same dir, we might end up deleting files created by
             # other processes
@@ -316,9 +286,9 @@ class OnnxConversion(Pass):
                     tmp_model_path,
                     export_params=True,
                     opset_version=config["target_opset"],
-                    input_names=input_names,
-                    output_names=output_names,
-                    dynamic_axes=dynamic_axes,
+                    input_names=io_config.input_names,
+                    output_names=io_config.output_names,
+                    dynamic_axes=io_config.dynamic_axes,
                 )
                 onnx_model = onnx.load(tmp_model_path)
                 # the model is loaded into memory, so it's safe to delete previously exported file(s)
@@ -453,7 +423,15 @@ class OnnxConversion(Pass):
         pytorch_model.eval()
 
         # get dummy inputs
-        dummy_inputs = model.get_dummy_inputs()
+
+        dummy_inputs = model.get_dummy_inputs(
+            filter_hook=(
+                model.merge_kv_cache_hook if config["use_dynamo_exporter"] else model.past_key_values_input_filter_hook
+            ),
+            filter_hook_kwargs={
+                "past_kv_names": config["past_key_value_name"],
+            },
+        )
         io_config = model.io_config
 
         converted_onnx_model = OnnxConversion._export_pytorch_model(

@@ -147,6 +147,7 @@ def get_onnx_config(model_name: str, task: str, feature: Optional[str] = None, *
     for model_type, feature_list in ADDITIONAL_MODEL_TYPES.items():
         if model_type in FeaturesManager._SUPPORTED_MODEL_TYPE:
             continue
+        # TODO(trajep): remove the need for unpacking feature_list
         features, onnx_config_cls = feature_list
         FeaturesManager._SUPPORTED_MODEL_TYPE[model_type] = patched_supported_features_mapping(
             *features, onnx_config_cls=onnx_config_cls

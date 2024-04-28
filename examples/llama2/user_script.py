@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 
 from argparse import Namespace
-from itertools import chain
 from typing import List, Tuple, Union
 
 import torch
@@ -18,13 +17,6 @@ from olive.model import PyTorchModelHandler
 # -----------------------------------------------------------------------------
 # Dummy Inputs
 # -----------------------------------------------------------------------------
-
-
-def get_merged_decoder_with_past_dummy_inputs(model: PyTorchModelHandler):
-    """Get dummy inputs for merged decoder model with past_key_values."""
-    # Dummy values for export
-    batch_size, seq_length, past_seq_length = 2, 8, 0
-    return get_merged_sample_with_past_kv_inputs(model, batch_size, seq_length, past_seq_length)
 
 
 def get_merged_sample_with_past_kv_inputs(
@@ -154,35 +146,6 @@ def get_merged_model_dynamic_axes(input_names: List[str], output_names: List[str
         else:
             raise ValueError("Unknown input or output name found")
     return dynamic_axes
-
-
-def get_merged_decoder_with_past_io_config(model: PyTorchModelHandler):
-    if model.hf_config is not None:
-        config = model.get_hf_model_config()
-    else:
-        # Using Namespace class to access dict items like class attributes
-        config = Namespace(**model.model_attributes)
-
-    input_names = [
-        "input_ids",
-        "attention_mask",
-        "position_ids",
-        *list(
-            chain.from_iterable(
-                (f"past_key_values.{i}.key", f"past_key_values.{i}.value") for i in range(config.num_hidden_layers)
-            )
-        ),
-    ]
-    output_names = [
-        "logits",
-        *list(chain.from_iterable((f"present.{i}.key", f"present.{i}.value") for i in range(config.num_hidden_layers))),
-    ]
-    dynamic_axes = get_merged_model_dynamic_axes(input_names, output_names)
-    return {
-        "input_names": input_names,
-        "dynamic_axes": dynamic_axes,
-        "output_names": output_names,
-    }
 
 
 # -----------------------------------------------------------------------------

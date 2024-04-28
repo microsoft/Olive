@@ -14,10 +14,17 @@ import yaml
 
 from olive.common.config_utils import serialize_to_json, validate_config
 from olive.common.user_module_loader import UserModuleLoader
-from olive.common.utils import copy_dir
+from olive.common.utils import copy_dir, exclude_keys
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
-from olive.model.config import HfComponent, HfConfig, IoConfig
+from olive.model.config import (
+    HfComponent,
+    HfConfig,
+    IoConfig,
+    complete_kv_cache_with_model_attributes,
+    extend_io_config_with_kv_cache,
+)
+from olive.model.config.io_config import is_kv_cache_required
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
 from olive.model.handler.mixin import DummyInputsMixin, HfConfigMixin
@@ -246,22 +253,25 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
 
         If io_config is a string name or a callable, it will be called to get io_config.
         """
+        io_config_obj = None
         if isinstance(io_config, dict):
-            # io_config is provided
-            return io_config
-
-        if isinstance(io_config, IoConfig):
-            # io_config is an IoConfig
-            return io_config.dict()
-
-        if isinstance(io_config, (str, Callable)):
+            io_config_obj = IoConfig.parse_obj(io_config)
+        elif isinstance(io_config, IoConfig):
+            # return a new copy of io_config to avoid modifying the original one
+            io_config_obj = io_config.copy(deep=True)
+        elif isinstance(io_config, (str, Callable)):
             # io_config is a string name or a callable
             logger.debug("Calling %s to get io_config", io_config)
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             io_config = user_module_loader.call_object(io_config, self)
-            return validate_config(io_config, IoConfig).dict()
-
-        return None
+            io_config_obj = validate_config(io_config, IoConfig)
+        # TODO(anyone): infer if to use kv_cache_config from task config
+        if io_config_obj.kv_cache_config:
+            kv_cache_config = complete_kv_cache_with_model_attributes(
+                io_config_obj.kv_cache_config, self.model_attributes
+            )
+            io_config_obj = extend_io_config_with_kv_cache(io_config_obj, kv_cache_config)
+        return io_config_obj.dict(exclude_none=True)
 
     @property
     def io_config(self) -> Dict[str, Any]:
@@ -283,6 +293,56 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
                 logger.debug("Got io_config from hf_config")
 
         return io_config
+
+    def merge_kv_cache_hook(self, dummy_inputs, past_kv_names: str = "past_key_values"):
+        if not isinstance(dummy_inputs, dict):
+            return dummy_inputs
+        dummy_inputs = self.past_key_values_input_filter_hook(dummy_inputs)
+        io_config = IoConfig.parse_obj(self.io_config)
+        unused_keys = set()
+        if io_config.kv_cache_config and not dummy_inputs.get(past_kv_names):
+            torch_past_key_values = []
+            k_inputs = io_config.kv_cache_config.get_ort_past_key_names()
+            v_inputs = io_config.kv_cache_config.get_ort_past_value_names()
+            for k_input, v_input in zip(k_inputs, v_inputs):
+                if k_input not in dummy_inputs or v_input not in dummy_inputs:
+                    raise ValueError(f"Cannot find past key-value pair for {k_input} and {v_input} in dummy inputs.")
+                torch_past_key_values.append((dummy_inputs[k_input], dummy_inputs[v_input]))
+                unused_keys.add(k_input)
+                unused_keys.add(v_input)
+            dummy_inputs[past_kv_names] = torch_past_key_values
+        if unused_keys:
+            logger.debug("Merged kv inputs: %s to list for torch model inference", unused_keys)
+            dummy_inputs = exclude_keys(dummy_inputs, unused_keys)
+        return dummy_inputs
+
+    def past_key_values_input_filter_hook(self, dummy_inputs, past_kv_names: str = "past_key_values"):
+        if not isinstance(dummy_inputs, dict):
+            return dummy_inputs
+        # this can happen when we are using an hf dataset to generate dummy inputs
+        # only handle dict for now since we cannot get the name of the input from a list/tuple
+        io_config = self.io_config
+        dummy_input_keys = set(dummy_inputs.keys())
+
+        # after the expansion, user should provide the correct input names for inference
+        for name, dm_input in dummy_inputs.items():
+            # the `past_key_values` is the argument name from huggingface model class
+            # which is independent of the kv-related variables in input list provided by users
+            # if user provided the kv-related variables, we should not remove
+            # the `past_key_values` from dummy inputs. But if not, we should remove it.
+            if (
+                name == past_kv_names
+                and isinstance(dm_input, list)
+                and is_kv_cache_required(dm_input, IoConfig.parse_obj(io_config))
+            ):
+                dummy_input_keys.discard(name)
+
+        unused_keys = dummy_input_keys - set(io_config.get("input_names"))
+
+        if unused_keys:
+            logger.debug("Removing unused dummy inputs: %s", unused_keys)
+            dummy_inputs = exclude_keys(dummy_inputs, unused_keys)
+        return dummy_inputs
 
 
 @model_handler_registry("DistributedPyTorchModel")
