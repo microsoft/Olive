@@ -186,7 +186,7 @@ class TestPytorchDummyInput:
         dummy_inputs = olive_model.get_dummy_inputs()
         # len(["input_ids", "attention_mask", "token_type_ids"]) + 2 * num_hidden_layers
         assert len(dummy_inputs) == 3 + 12 * 2
-        assert list(dummy_inputs[-1].shape) == [1, 12, 128, 64]
+        assert list(dummy_inputs["past_key_0"].shape) == [1, 12, 0, 64]
 
     def test_dict_io_config(self):
         olive_model = PyTorchModelHandler(

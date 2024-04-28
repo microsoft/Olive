@@ -271,7 +271,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
                 io_config_obj.kv_cache_config, self.model_attributes
             )
             io_config_obj = extend_io_config_with_kv_cache(io_config_obj, kv_cache_config)
-        return io_config_obj.dict()
+        return io_config_obj.dict(exclude_none=True)
 
     @property
     def io_config(self) -> Dict[str, Any]:
@@ -306,7 +306,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
             v_inputs = io_config.kv_cache_config.get_ort_past_value_names()
             for k_input, v_input in zip(k_inputs, v_inputs):
                 if k_input not in dummy_inputs or v_input not in dummy_inputs:
-                    raise ValueError("Cannot find past key-value pair for %s and %s in dummy inputs.", k_input, v_input)
+                    raise ValueError(f"Cannot find past key-value pair for {k_input} and {v_input} in dummy inputs.")
                 torch_past_key_values.append((dummy_inputs[k_input], dummy_inputs[v_input]))
                 unused_keys.add(k_input)
                 unused_keys.add(v_input)
@@ -330,7 +330,11 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
             # which is independent of the kv-related variables in input list provided by users
             # if user provided the kv-related variables, we should not remove
             # the `past_key_values` from dummy inputs. But if not, we should remove it.
-            if name == past_kv_names and isinstance(dm_input, list) and is_kv_cache_required(dm_input, io_config):
+            if (
+                name == past_kv_names
+                and isinstance(dm_input, list)
+                and is_kv_cache_required(dm_input, IoConfig.parse_obj(io_config))
+            ):
                 dummy_input_keys.discard(name)
 
         unused_keys = dummy_input_keys - set(io_config.get("input_names"))
