@@ -102,7 +102,41 @@ find more details in [Olive Models](https://microsoft.github.io/Olive/api/models
         - `input_shapes: [List[List[int]]]` The input shapes of the model.
         - `output_names: [List[str]]` The output names of the model.
         - `dynamic_axes: [Dict[str, Dict[str, str]]]` The dynamic axes of the model. The key is the name of the input or output and the value is a dictionary that contains the dynamic axes of the input or output. The key of the value dictionary is the index of the dynamic axis and the value is the name of the dynamic axis. For example, `{"input": {"0": "batch_size"}, "output": {"0": "batch_size"}}` means the first dimension of the input and output is dynamic and the name of the dynamic axis is `batch_size`.
-
+        - `string_to_int_dim_params: List[str]` The list of input names in dynamic axes that need to be converted to int value.
+        - `kv_cache_config: Union[bool, Dict[str, str]]` The key value cache configuration.
+          - If it is `False`, Olive will not use key value cache.
+          - If it is `True`, Olive will infer the cache configuration from the input_names/input_shapes and input model based on default `kv_cache_config`.
+          - If it is a dictionary, it should contains the key value cache configuration. Here is an default configuration example:
+            - `ort_past_key_name`: "past_key_<id>"
+                Template for the past key name. The `<id>` will be replaced by the id of the past key.
+            - `ort_past_value_name`: "past_value_<id>"
+                Template for the past value name. The `<id>` will be replaced by the id of the past value.
+            - `ort_present_key_name`: "present_key_<id>"
+                Template for the present key name. The `<id>` will be replaced by the id of the present key.
+            - `ort_present_value_name`: "present_value_<id>"
+                Template for the present value name. The `<id>` will be replaced by the id of the present value.
+            - `world_size`: 1
+                It is only used for distributed models.
+            - `num_hidden_layers`: null
+                If null, Olive will infer the number of hidden layers from the model.
+            - `num_attention_heads`: null
+                If null, Olive will infer the number of attention heads from the model.
+            - `hidden_size`: null
+                If null, Olive will infer the hidden size from the model.
+            - `past_sequence_length`: null
+                If null, Olive will infer the past sequence length from the model.
+            - `batch_size`: 0
+                The batch size of the model. If it is 0, Olive will use the batch size from the input_shapes if `input_ids`.
+            - `dtype`: "float32"
+                The data type of the model.
+            - `shared_kv`: false
+                Whether to share the key value cache between the past and present key value cache. If it is true, the dynamic axes of the past and present key value cache will be the same.
+            - `sequence_length_idx`: 2
+                For most of the cases, the input shape for kv_cache is like (batch_size, num_attention_heads/world_size, sequence_length, hidden_size/num_attention_heads). The `sequence_length` is the index of the sequence length in the input shape.
+            - `past_kv_dynamic_axis`: null
+                The dynamic axis of the past key value cache. If it is null, Olive will infer the dynamic axis.
+            - `present_kv_dynamic_axis`: null
+                The dynamic axis of the present key value cache. If it is null, Olive will infer the dynamic axis.
     - <a name="hf_config"></a> `hf_config: [Dict]` Instead of `model_path` or `model_loader`, the model can be specified using a dictionary describing a huggingface
     model. This dictionary specifies the following items:
 

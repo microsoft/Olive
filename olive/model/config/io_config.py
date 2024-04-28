@@ -22,7 +22,8 @@ class IoConfig(ConfigBase):
         "dynamic_axes": {
             "clip_input": { "0": "batch", "1": "channels", "2": "height", "3": "width" },
             "images": { "0": "batch", "1": "height", "2": "width", "3": "channels" }
-        }
+        },
+        "kv_cache_config": None
     }
     """
 
@@ -93,7 +94,7 @@ class IoConfig(ConfigBase):
             return 0
         for idx, name in enumerate(self.input_names):
             if name == "input_ids":
-                return self.input_shapes[idx][1]  # lgtm
+                return self.input_shapes[idx][1]  # pylint: disable=E1136
         return 0
 
     def get_past_seq_len(self):
@@ -102,9 +103,9 @@ class IoConfig(ConfigBase):
         attention_mask_len, seq_len = 0, 0
         for idx, name in enumerate(self.input_names):
             if name == "attention_mask":
-                attention_mask_len = self.input_shapes[idx][1]  # lgtm
+                attention_mask_len = self.input_shapes[idx][1]  # pylint: disable=E1136
             if name == "input_ids":
-                seq_len = self.input_shapes[idx][1]  # lgtm
+                seq_len = self.input_shapes[idx][1]  # pylint: disable=E1136
         return attention_mask_len - seq_len
 
     def get_batch_size(self):
@@ -112,7 +113,7 @@ class IoConfig(ConfigBase):
             return 1
         for idx, name in enumerate(self.input_names):
             if name == "input_ids":
-                return self.input_shapes[idx][0]  # lgtm
+                return self.input_shapes[idx][0]  # pylint: disable=E1136
         # if no input_ids, return 1
         return 1
 
