@@ -265,11 +265,9 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             io_config = user_module_loader.call_object(io_config, self)
             io_config_obj = validate_config(io_config, IoConfig)
-        # TODO(anyone): infer if to use kv_cache_config from task config
-        if io_config_obj.kv_cache_config:
-            kv_cache_config = complete_kv_cache_with_model_attributes(
-                io_config_obj.kv_cache_config, self.model_attributes
-            )
+        # TODO(anyone): infer if to use kv_cache from task config
+        if io_config_obj.kv_cache:
+            kv_cache_config = complete_kv_cache_with_model_attributes(io_config_obj.kv_cache, self.model_attributes)
             io_config_obj = extend_io_config_with_kv_cache(io_config_obj, kv_cache_config)
         return io_config_obj.dict(exclude_none=True)
 
@@ -300,10 +298,10 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
         dummy_inputs = self.past_key_values_input_filter_hook(dummy_inputs)
         io_config = IoConfig.parse_obj(self.io_config)
         unused_keys = set()
-        if io_config.kv_cache_config and not dummy_inputs.get(past_kv_names):
+        if io_config.kv_cache and not dummy_inputs.get(past_kv_names):
             torch_past_key_values = []
-            k_inputs = io_config.kv_cache_config.get_ort_past_key_names()
-            v_inputs = io_config.kv_cache_config.get_ort_past_value_names()
+            k_inputs = io_config.kv_cache.get_ort_past_key_names()
+            v_inputs = io_config.kv_cache.get_ort_past_value_names()
             for k_input, v_input in zip(k_inputs, v_inputs):
                 if k_input not in dummy_inputs or v_input not in dummy_inputs:
                     raise ValueError(f"Cannot find past key-value pair for {k_input} and {v_input} in dummy inputs.")

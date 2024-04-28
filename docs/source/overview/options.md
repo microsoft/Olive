@@ -103,9 +103,9 @@ find more details in [Olive Models](https://microsoft.github.io/Olive/api/models
         - `output_names: [List[str]]` The output names of the model.
         - `dynamic_axes: [Dict[str, Dict[str, str]]]` The dynamic axes of the model. The key is the name of the input or output and the value is a dictionary that contains the dynamic axes of the input or output. The key of the value dictionary is the index of the dynamic axis and the value is the name of the dynamic axis. For example, `{"input": {"0": "batch_size"}, "output": {"0": "batch_size"}}` means the first dimension of the input and output is dynamic and the name of the dynamic axis is `batch_size`.
         - `string_to_int_dim_params: List[str]` The list of input names in dynamic axes that need to be converted to int value.
-        - `kv_cache_config: Union[bool, Dict[str, str]]` The key value cache configuration.
+        - `kv_cache: Union[bool, Dict[str, str]]` The key value cache configuration.
           - If it is `False`, Olive will not use key value cache.
-          - If it is `True`, Olive will infer the cache configuration from the input_names/input_shapes and input model based on default `kv_cache_config`.
+          - If it is `True`, Olive will infer the cache configuration from the input_names/input_shapes and input model based on default `kv_cache`.
           - If it is a dictionary, it should contains the key value cache configuration. Here is an default configuration example:
             - `ort_past_key_name`: "past_key_<id>"
                 Template for the past key name. The `<id>` will be replaced by the id of the past key.

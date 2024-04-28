@@ -23,7 +23,7 @@ class IoConfig(ConfigBase):
             "clip_input": { "0": "batch", "1": "channels", "2": "height", "3": "width" },
             "images": { "0": "batch", "1": "height", "2": "width", "3": "channels" }
         },
-        "kv_cache_config": None
+        "kv_cache": None
     }
     """
 
@@ -43,7 +43,7 @@ class IoConfig(ConfigBase):
     # if False, skip kv_cache input
     # if True, use default KVCacheConfig
     # if KVCacheConfig, use the provided KVCacheConfig
-    kv_cache_config: Union[bool, KVCacheConfig] = False
+    kv_cache: Union[bool, KVCacheConfig] = False
 
     @validator("input_shapes", "input_types")
     def check_input_shapes(cls, v, values):
@@ -118,28 +118,24 @@ class IoConfig(ConfigBase):
         return 1
 
 
-def complete_kv_cache_with_model_attributes(kv_cache_config, model_attributes):
-    if isinstance(kv_cache_config, bool) and kv_cache_config:
-        kv_cache_config = KVCacheConfig()
-    # get kv_cache_config from model config if not provided
+def complete_kv_cache_with_model_attributes(kv_cache, model_attributes):
+    if isinstance(kv_cache, bool) and kv_cache:
+        kv_cache = KVCacheConfig()
+    # get kv_cache from model config if not provided
     # complete num_hidden_layers/num_attention_heads/hidden_size is not provided
-    # in io_config_obj.kv_cache_config
+    # in io_config_obj.kv_cache
     num_hidden_layers = find_first_matched_value(model_attributes, NUM_HIDDEN_LAYER_NAMES)
     num_attention_heads = find_first_matched_value(model_attributes, NUM_HEADS_NAMES)
     hidden_size = find_first_matched_value(model_attributes, HIDDEN_SIZE_NAMES)
-    kv_cache_config.num_hidden_layers = kv_cache_config.num_hidden_layers or num_hidden_layers
-    kv_cache_config.num_attention_heads = kv_cache_config.num_attention_heads or num_attention_heads
-    kv_cache_config.hidden_size = kv_cache_config.hidden_size or hidden_size
-    if (
-        not kv_cache_config.num_hidden_layers
-        or not kv_cache_config.num_attention_heads
-        or not kv_cache_config.hidden_size
-    ):
+    kv_cache.num_hidden_layers = kv_cache.num_hidden_layers or num_hidden_layers
+    kv_cache.num_attention_heads = kv_cache.num_attention_heads or num_attention_heads
+    kv_cache.hidden_size = kv_cache.hidden_size or hidden_size
+    if not kv_cache.num_hidden_layers or not kv_cache.num_attention_heads or not kv_cache.hidden_size:
         raise ValueError(
             "num_hidden_layers, num_attention_heads, and hidden_size cannot be 0 or None, they"
-            "are required for kv_cache_config."
+            "are required for kv_cache."
         )
-    return kv_cache_config
+    return kv_cache
 
 
 def extend_io_config_with_kv_cache(io_config, kv_cache_config: KVCacheConfig):
@@ -158,7 +154,7 @@ def extend_io_config_with_kv_cache(io_config, kv_cache_config: KVCacheConfig):
         output_shapes=io_config.output_shapes,  # ignore kv_cache output shapes
         output_types=io_config.output_types,  # ignore kv_cache output types
         dynamic_axes=dynamic_axes,
-        kv_cache_config=kv_cache_config,
+        kv_cache=kv_cache_config,
     )
 
 
@@ -171,7 +167,7 @@ def is_io_config_static(config: Union[IoConfig, Dict]):
 
 
 def is_kv_cache_required(input_past_kv_list, io_config: IoConfig):
-    if io_config.kv_cache_config:
+    if io_config.kv_cache:
         return True
     # In the case of dynamo exporting, user do not need to provide input names
     # for past_key_values in huggingface pytorch model, when exported to onnx

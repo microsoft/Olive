@@ -17,7 +17,7 @@
                     "input_ids": {"0": "batch_size", "1": "sequence_length"},
                     "attention_mask": {"0": "batch_size", "1": "sequence_length"}
                 },
-                "kv_cache_config": true
+                "kv_cache": true
             },
             "model_path": {
                 "type": "azureml_registry_model",

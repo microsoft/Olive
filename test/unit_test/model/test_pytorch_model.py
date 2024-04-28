@@ -179,7 +179,7 @@ class TestPytorchDummyInput:
 
     def test_dummy_input_with_kv_cache(self):
         io_config = self.io_config
-        io_config["kv_cache_config"] = True
+        io_config["kv_cache"] = True
         olive_model = PyTorchModelHandler(
             hf_config={"task": self.task, "model_name": self.model_name}, io_config=io_config
         )
