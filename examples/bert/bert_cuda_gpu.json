@@ -1,18 +1,10 @@
 {
-    "input_model":{
+    "input_model": {
         "type": "PyTorchModel",
         "config": {
             "hf_config": {
                 "model_name": "Intel/bert-base-uncased-mrpc",
-                "task": "text-classification",
-                "dataset": {
-                    "data_name":"glue",
-                    "subset": "mrpc",
-                    "split": "validation",
-                    "input_cols": ["sentence1", "sentence2"],
-                    "label_cols": ["label"],
-                    "batch_size": 1
-                }
+                "task": "text-classification"
             }
         }
     },
@@ -30,27 +22,72 @@
             }
         }
     },
+    "data_configs": [
+        {
+            "name": "glue_mrpc",
+            "type": "HuggingfaceContainer",
+            "params_config": {
+                "batch_size": 1,
+                "data_name": "glue",
+                "input_cols": [
+                    "sentence1",
+                    "sentence2"
+                ],
+                "label_cols": [
+                    "label"
+                ],
+                "split": "validation",
+                "subset": "mrpc"
+            }
+        }
+    ],
     "evaluators": {
         "common_evaluator": {
-            "metrics":[
+            "metrics": [
                 {
                     "name": "accuracy",
                     "type": "accuracy",
                     "sub_types": [
-                        {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
-                        {"name": "f1_score"},
-                        {"name": "auroc"}
-                    ]
+                        {
+                            "name": "accuracy_score",
+                            "priority": 1,
+                            "goal": {
+                                "type": "max-degradation",
+                                "value": 0.01
+                            }
+                        },
+                        {
+                            "name": "f1_score"
+                        },
+                        {
+                            "name": "auroc"
+                        }
+                    ],
+                    "data_config": "glue_mrpc"
                 },
                 {
                     "name": "latency",
                     "type": "latency",
                     "sub_types": [
-                        {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
-                        {"name": "max"},
-                        {"name": "min"}
+                        {
+                            "name": "avg",
+                            "priority": 2,
+                            "goal": {
+                                "type": "percent-min-improvement",
+                                "value": 20
+                            }
+                        },
+                        {
+                            "name": "max"
+                        },
+                        {
+                            "name": "min"
+                        }
                     ],
-                    "user_config": {"io_bind": true}
+                    "data_config": "glue_mrpc",
+                    "user_config": {
+                        "io_bind": true
+                    }
                 }
             ]
         }
@@ -72,13 +109,20 @@
             "type": "OrtPerfTuning",
             "config": {
                 "enable_cuda_graph": true,
-                "data_config": "__input_model_data_config__"
+                "data_config": "glue_mrpc"
             }
         }
     },
     "pass_flows": [
-        ["conversion", "transformers_optimization", "perf_tuning"],
-        ["conversion", "perf_tuning"]
+        [
+            "conversion",
+            "transformers_optimization",
+            "perf_tuning"
+        ],
+        [
+            "conversion",
+            "perf_tuning"
+        ]
     ],
     "engine": {
         "search_strategy": {
@@ -93,6 +137,6 @@
         "target": "local_system",
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
-        "output_dir" : "models/bert_cuda"
+        "output_dir": "models/bert_cuda"
     }
 }

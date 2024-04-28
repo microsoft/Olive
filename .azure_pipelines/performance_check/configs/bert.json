@@ -1,37 +1,66 @@
 {
-    "input_model":{
+    "input_model": {
         "type": "PyTorchModel",
         "config": {
             "hf_config": {
                 "model_name": "Intel/bert-base-uncased-mrpc",
-                "task": "text-classification",
-                "dataset": {
-                    "data_name":"glue",
-                    "subset": "mrpc",
-                    "split": "validation",
-                    "input_cols": ["sentence1", "sentence2"],
-                    "label_cols": ["label"],
-                    "batch_size": 1,
-                    "max_samples": 100
-                }
+                "task": "text-classification"
             }
         }
     },
+    "data_configs": [
+        {
+            "name": "glue_mrpc",
+            "type": "HuggingfaceContainer",
+            "params_config": {
+                "batch_size": 1,
+                "max_samples": 100,
+                "data_name": "glue",
+                "input_cols": [
+                    "sentence1",
+                    "sentence2"
+                ],
+                "label_cols": [
+                    "label"
+                ],
+                "split": "validation",
+                "subset": "mrpc"
+            }
+        }
+    ],
     "evaluators": {
         "common_evaluator": {
-            "metrics":[
+            "metrics": [
                 {
                     "name": "accuracy",
                     "type": "accuracy",
                     "backend": "huggingface_metrics",
+                    "data_config": "glue_mrpc",
                     "sub_types": [
-                        {"name": "accuracy", "priority": 1, "goal": {"type": "max-degradation", "value": 0.05}}                    ]
+                        {
+                            "name": "accuracy",
+                            "priority": 1,
+                            "goal": {
+                                "type": "max-degradation",
+                                "value": 0.05
+                            }
+                        }
+                    ]
                 },
                 {
                     "name": "latency",
                     "type": "latency",
+                    "data_config": "glue_mrpc",
                     "sub_types": [
-                        {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 5}}                    ]
+                        {
+                            "name": "avg",
+                            "priority": 2,
+                            "goal": {
+                                "type": "percent-min-improvement",
+                                "value": 5
+                            }
+                        }
+                    ]
                 }
             ]
         }
@@ -57,13 +86,13 @@
             "type": "OnnxQuantization",
             "config": {
                 "quant_preprocess": true,
-                "data_config": "__input_model_data_config__"
+                "data_config": "glue_mrpc"
             }
         },
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {
-                "data_config": "__input_model_data_config__"
+                "data_config": "glue_mrpc"
             }
         }
     },
@@ -79,6 +108,6 @@
         "clean_cache": true,
         "evaluator": "common_evaluator",
         "cache_dir": "run_cache/olive/cache",
-        "output_dir" : "run_cache/olive/bert_ptq"
+        "output_dir": "run_cache/olive/bert_ptq"
     }
 }

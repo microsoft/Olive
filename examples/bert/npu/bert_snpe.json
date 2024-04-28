@@ -51,8 +51,6 @@
                 }
             },
             "params_config": {
-                "model_name": "Intel/bert-base-uncased-mrpc",
-                "task": "text-classification",
                 "batch_size": 2,
                 "data_name": "glue",
                 "input_cols": [

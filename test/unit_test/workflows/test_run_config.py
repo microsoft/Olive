@@ -13,7 +13,7 @@ from olive.common.pydantic_v1 import ValidationError
 from olive.data.config import DataConfig
 from olive.data.container.huggingface_container import HuggingfaceContainer
 from olive.package_config import OlivePackageConfig
-from olive.workflows.run.config import INPUT_MODEL_DATA_CONFIG, RunConfig
+from olive.workflows.run.config import RunConfig
 from olive.workflows.run.run import get_pass_module_path, is_execution_provider_required
 
 # pylint: disable=attribute-defined-outside-init, unsubscriptable-object
@@ -212,7 +212,6 @@ class TestDataConfigValidation:
                     "hf_config": {
                         "model_name": "dummy_model",
                         "task": "dummy_task",
-                        "dataset": {"name": "dummy_dataset"},
                     }
                 },
             },
@@ -300,7 +299,7 @@ class TestDataConfigValidation:
 
     @pytest.mark.parametrize(
         "data_config_str",
-        [None, INPUT_MODEL_DATA_CONFIG, "dummy_data_config2"],
+        [None, "dummy_data_config2"],
     )
     def test_str_to_data_config(self, data_config_str):
         config_dict = self.template.copy()

@@ -49,7 +49,6 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
     json_config_keys: Tuple[str, ...] = (
         "model_file_format",
         "model_loader",
-        "io_config",
         "dummy_inputs_func",
         "hf_config",
     )
@@ -237,6 +236,8 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
+        # add _io_config to config to keep what was provided at init
+        config["config"]["io_config"] = self._io_config
         # only keep model_attributes that are not in hf_config
         if self.model_attributes and self.hf_config:
             model_attributes = {}
@@ -284,10 +285,12 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
             io_config = self.get_user_io_config(self._io_config)
         elif self.hf_config and self.hf_config.task and not self.hf_config.components:
             # hf_config is provided
-            logger.debug("Using hf onnx_config to get io_config")
+            logger.debug("Trying hf onnx_config to get io_config")
             # For MLFlow model, get io config from model_name instead of model_path
             # TODO(xiaoyu): more investigation on the integration between MLFlow and HF
             io_config = self.get_hf_io_config()
+            if io_config:
+                logger.debug("Got io_config from hf_config")
 
         return io_config
 

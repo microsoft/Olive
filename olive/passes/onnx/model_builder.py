@@ -186,9 +186,14 @@ class ModelBuilder(Pass):
         if config.get("int4_accuracy_level"):
             extra_args["int4_accuracy_level"] = config["int4_accuracy_level"].value
 
-        extra_args["exclude_embeds"] = config["exclude_embeds"]
-        extra_args["exclude_lm_head"] = config["exclude_lm_head"]
-        extra_args["enable_cuda_graph"] = "1" if config["enable_cuda_graph"] else "0"
+        if config["exclude_embeds"]:
+            extra_args["exclude_embeds"] = config["exclude_embeds"]
+
+        if config["exclude_lm_head"]:
+            extra_args["exclude_lm_head"] = config["exclude_lm_head"]
+
+        if config["enable_cuda_graph"] is not None:
+            extra_args["enable_cuda_graph"] = "1" if config["enable_cuda_graph"] else "0"
 
         create_model(
             model_name=model_path,
