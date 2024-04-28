@@ -89,12 +89,16 @@ class IoConfig(ConfigBase):
         return v
 
     def get_seq_len(self):
+        if not self.input_shapes or not self.input_names:
+            return 0
         for idx, name in enumerate(self.input_names):
             if name == "input_ids":
                 return self.input_shapes[idx][1]
         return 0
 
     def get_past_seq_len(self):
+        if not self.input_shapes or not self.input_names:
+            return 0
         attention_mask_len, seq_len = 0, 0
         for idx, name in enumerate(self.input_names):
             if name == "attention_mask":
@@ -104,6 +108,8 @@ class IoConfig(ConfigBase):
         return attention_mask_len - seq_len
 
     def get_batch_size(self):
+        if not self.input_shapes or not self.input_names:
+            return 1
         for idx, name in enumerate(self.input_names):
             if name == "input_ids":
                 return self.input_shapes[idx][0]

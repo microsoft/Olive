@@ -205,7 +205,7 @@ class TestPytorchDummyInput:
         # get io config
         io_config = olive_model.io_config
         io_config_func.assert_called_once_with(olive_model)
-        assert io_config == IoConfig(**self.io_config).dict()
+        assert io_config == IoConfig(**self.io_config).dict(exclude_none=True)
 
     @patch("olive.model.handler.mixin.hf_config.get_hf_model_io_config")
     def test_hf_config_io_config(self, get_hf_model_io_config):
