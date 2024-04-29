@@ -18,27 +18,38 @@ class PytorchKvCacheMixin:
             return dummy_inputs
         dummy_inputs = self.past_key_values_input_filter_hook(dummy_inputs)
         io_config = IoConfig.parse_obj(self.io_config)
-        kv_cache_config = KVCacheConfig.parse_obj(io_config.kv_cache)
-        unused_keys = set()
-        if kv_cache_config and not dummy_inputs.get(past_kv_names):
-            torch_past_key_values = []
-            k_inputs = kv_cache_config.get_ort_past_key_names()
-            v_inputs = kv_cache_config.get_ort_past_value_names()
-            for k_input, v_input in zip(k_inputs, v_inputs):
-                if k_input not in dummy_inputs or v_input not in dummy_inputs:
-                    raise ValueError(f"Cannot find past key-value pair for {k_input} and {v_input} in dummy inputs.")
-                torch_past_key_values.append((dummy_inputs[k_input], dummy_inputs[v_input]))
-                unused_keys.add(k_input)
-                unused_keys.add(v_input)
-            dummy_inputs[past_kv_names] = torch_past_key_values
-        if unused_keys:
-            logger.debug("Merged kv inputs: %s to list for torch model inference", unused_keys)
-            dummy_inputs = exclude_keys(dummy_inputs, unused_keys)
+        if isinstance(io_config.kv_cache, dict):
+            kv_cache_config = KVCacheConfig.parse_obj(io_config.kv_cache)
+            unused_keys = set()
+            if kv_cache_config and not dummy_inputs.get(past_kv_names):
+                torch_past_key_values = []
+                k_inputs = kv_cache_config.get_ort_past_key_names()
+                v_inputs = kv_cache_config.get_ort_past_value_names()
+                for k_input, v_input in zip(k_inputs, v_inputs):
+                    if k_input not in dummy_inputs or v_input not in dummy_inputs:
+                        raise ValueError(
+                            f"Cannot find past key-value pair for {k_input} and {v_input} in dummy inputs."
+                        )
+                    torch_past_key_values.append((dummy_inputs[k_input], dummy_inputs[v_input]))
+                    unused_keys.add(k_input)
+                    unused_keys.add(v_input)
+                dummy_inputs[past_kv_names] = torch_past_key_values
+            if unused_keys:
+                logger.debug("Merged kv inputs: %s to list for torch model inference", unused_keys)
+                dummy_inputs = exclude_keys(dummy_inputs, unused_keys)
         return dummy_inputs
 
     def merge_kv_cache_to_tuple_hook(self, dummy_inputs, past_kv_names: str = "past_key_values"):
-        dummy_inputs = self.merge_kv_cache_hook(dummy_inputs, past_kv_names)
-        return tuple(dummy_inputs.values())
+        """Merge the key-value cache inputs to a tuple for torch model inference.
+
+        Torch legacy exporter only accept tuple inputs where
+        all but the last element of the tuple will be passed as non-keyword arguments,
+        and named arguments will be set from the last element. If a named argument is
+        not present in the dictionary, it is assigned the default value, or None if a
+        default value is not provided.
+        Model details from: https://pytorch.org/docs/stable/onnx_torchscript.html#module-torch.onnx
+        """
+        return (self.merge_kv_cache_hook(dummy_inputs, past_kv_names),)
 
     def past_key_values_input_filter_hook(self, dummy_inputs, past_kv_names: str = "past_key_values"):
         if not isinstance(dummy_inputs, dict):
