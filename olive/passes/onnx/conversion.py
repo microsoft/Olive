@@ -426,7 +426,7 @@ class OnnxConversion(Pass):
 
         dummy_inputs = model.get_dummy_inputs(
             filter_hook=(
-                model.merge_kv_cache_hook if config["use_dynamo_exporter"] else model.past_key_values_input_filter_hook
+                model.merge_kv_cache_hook if config["use_dynamo_exporter"] else model.merge_kv_cache_to_tuple_hook
             ),
             filter_hook_kwargs={
                 "past_kv_names": config["past_key_value_name"],

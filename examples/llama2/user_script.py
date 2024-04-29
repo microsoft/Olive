@@ -97,8 +97,8 @@ def flatten_past_kv_inputs(past_key_values: List[Tuple[torch.Tensor, torch.Tenso
     past_kv = {}
     # Convert list of past_kv to dict of past_key and past_value
     for i, (past_k, past_v) in enumerate(past_key_values):
-        past_kv[f"past_key_values.{i}.key"] = past_k
-        past_kv[f"past_key_values.{i}.value"] = past_v
+        past_kv[f"past_key_{i}"] = past_k
+        past_kv[f"past_value_{i}"] = past_v
     return past_kv
 
 

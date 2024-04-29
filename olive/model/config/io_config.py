@@ -129,7 +129,7 @@ def complete_kv_cache_with_model_attributes(kv_cache, model_attributes):
             num_attention_heads=num_attention_heads,
             hidden_size=hidden_size,
         )
-    elif isinstance(kv_cache, Dict):
+    elif isinstance(kv_cache, dict):
         kv_cache_dict = deepcopy(kv_cache)
         kv_cache_dict.update(
             {
