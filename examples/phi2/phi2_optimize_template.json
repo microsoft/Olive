@@ -9,7 +9,7 @@
                 "input_types": ["int32", "int32"],
                 "dynamic_axes": {
                     "input_ids": {"0": "batch_size", "1": "sequence_length"},
-                    "attention_mask": {"0": "batch_size", "1": "sequence_length"}
+                    "attention_mask": {"0": "batch_size", "1": "total_sequence_length"}
                 },
                 "kv_cache": true
             },
