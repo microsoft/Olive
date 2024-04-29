@@ -9,6 +9,10 @@ from olive.common.pydantic_v1 import validator
 
 
 class KVCacheConfig(ConfigBase):
+    num_hidden_layers: int
+    num_attention_heads: int
+    hidden_size: int
+
     ort_past_key_name: str = "past_key_<id>"
     ort_past_value_name: str = "past_value_<id>"
     ort_present_key_name: str = "present_key_<id>"
@@ -17,9 +21,6 @@ class KVCacheConfig(ConfigBase):
     # world_size is used for distributed model. If world_size > 1,
     # the number of heads should be divisible by world_size
     world_size: int = 1
-    num_hidden_layers: Optional[int] = None
-    num_attention_heads: Optional[int] = None
-    hidden_size: Optional[int] = None
     past_sequence_length: int = None
 
     batch_size: int = 0

@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from copy import deepcopy
-from typing import Dict, List, Union
+from typing import Any, Dict, List, Union
 
 from olive.common.config_utils import ConfigBase
 from olive.common.pydantic_v1 import validator
@@ -43,7 +43,7 @@ class IoConfig(ConfigBase):
     # if False, skip kv_cache input
     # if True, use default KVCacheConfig
     # if KVCacheConfig, use the provided KVCacheConfig
-    kv_cache: Union[bool, KVCacheConfig] = False
+    kv_cache: Union[bool, Dict[str, Any], KVCacheConfig] = False
 
     @validator("input_shapes", "input_types")
     def check_input_shapes(cls, v, values):
@@ -119,23 +119,37 @@ class IoConfig(ConfigBase):
 
 
 def complete_kv_cache_with_model_attributes(kv_cache, model_attributes):
-    if isinstance(kv_cache, bool) and kv_cache:
-        kv_cache = KVCacheConfig()
-    # get kv_cache from model config if not provided
-    # complete num_hidden_layers/num_attention_heads/hidden_size is not provided
-    # in io_config_obj.kv_cache
     num_hidden_layers = find_first_matched_value(model_attributes, NUM_HIDDEN_LAYER_NAMES)
     num_attention_heads = find_first_matched_value(model_attributes, NUM_HEADS_NAMES)
     hidden_size = find_first_matched_value(model_attributes, HIDDEN_SIZE_NAMES)
-    kv_cache.num_hidden_layers = kv_cache.num_hidden_layers or num_hidden_layers
-    kv_cache.num_attention_heads = kv_cache.num_attention_heads or num_attention_heads
-    kv_cache.hidden_size = kv_cache.hidden_size or hidden_size
-    if not kv_cache.num_hidden_layers or not kv_cache.num_attention_heads or not kv_cache.hidden_size:
+    kv_cache_obj = None
+    if isinstance(kv_cache, bool) and kv_cache:
+        kv_cache_obj = KVCacheConfig(
+            num_hidden_layers=num_hidden_layers,
+            num_attention_heads=num_attention_heads,
+            hidden_size=hidden_size,
+        )
+    elif isinstance(kv_cache, Dict):
+        kv_cache_dict = deepcopy(kv_cache)
+        kv_cache_dict.update(
+            {
+                "num_hidden_layers": kv_cache.get("num_hidden_layers") or num_hidden_layers,
+                "num_attention_heads": kv_cache.get("num_attention_heads") or num_attention_heads,
+                "hidden_size": kv_cache.get("hidden_size") or hidden_size,
+            }
+        )
+        kv_cache_obj = KVCacheConfig.parse_obj(kv_cache_dict)
+    elif isinstance(kv_cache, KVCacheConfig):
+        # as num_hidden_layers, num_attention_heads, hidden_size are required for kv_cache
+        # there is no need to update them
+        kv_cache_obj = kv_cache
+
+    if not kv_cache_obj.num_hidden_layers or not kv_cache_obj.num_attention_heads or not kv_cache_obj.hidden_size:
         raise ValueError(
             "num_hidden_layers, num_attention_heads, and hidden_size cannot be 0 or None, they"
             "are required for kv_cache."
         )
-    return kv_cache
+    return kv_cache_obj
 
 
 def extend_io_config_with_kv_cache(io_config, kv_cache_config: KVCacheConfig):
