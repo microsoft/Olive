@@ -18,6 +18,13 @@ from olive.model import PyTorchModelHandler
 # -----------------------------------------------------------------------------
 
 
+def get_merged_decoder_with_past_dummy_inputs(model: PyTorchModelHandler):
+    """Get dummy inputs for merged decoder model with past_key_values."""
+    # Dummy values for export
+    batch_size, seq_length, past_seq_length = 2, 8, 0
+    return get_merged_sample_with_past_kv_inputs(model, batch_size, seq_length, past_seq_length)
+
+
 def get_merged_sample_with_past_kv_inputs(
     model: PyTorchModelHandler,
     batch_size: int,
@@ -109,39 +116,6 @@ def enable_past_present_share_buffer(ort_inputs: dict, past_seq_len: int, max_se
             new_v[:batch_size, :num_heads, :past_seq_len, :head_size] = v
             ort_inputs[k] = new_v
     return ort_inputs
-
-
-# -----------------------------------------------------------------------------
-# Conversion Arguments (Inputs, Outputs, Dynamic Axes)
-# -----------------------------------------------------------------------------
-
-
-def get_merged_model_dynamic_axes(input_names: List[str], output_names: List[str]):
-    dynamic_axes = {}
-    for name in input_names + output_names:
-        if name in {"input_ids", "position_ids"}:
-            # shape is (batch_size, sequence_length)
-            dynamic_axes[name] = {0: "batch_size", 1: "sequence_length"}
-        elif name == "attention_mask":
-            # shape is (batch_size, past_sequence_length + sequence_length) = (batch_size, total_sequence_length)
-            # for prompt generation, past_sequence_length = 0
-            # for token generation, sequence_length = 1
-            dynamic_axes[name] = {0: "batch_size", 1: "total_sequence_length"}
-        elif "past" in name:
-            # shape is (batch_size, num_heads, past_sequence_length, head_size)
-            dynamic_axes[name] = {0: "batch_size", 2: "past_sequence_length"}
-        elif name == "logits":
-            # shape is (batch_size, sequence_length, vocab_size)
-            dynamic_axes[name] = {0: "batch_size", 1: "sequence_length"}
-        elif "present" in name:
-            # shape is (batch_size, num_heads, past_sequence_length + sequence_length, head_size)
-            #  = (batch_size, num_heads, total_sequence_length, head_size)
-            # for prompt generation, past_sequence_length = 0
-            # for token generation, sequence_length = 1
-            dynamic_axes[name] = {0: "batch_size", 2: "total_sequence_length"}
-        else:
-            raise ValueError("Unknown input or output name found")
-    return dynamic_axes
 
 
 # -----------------------------------------------------------------------------
