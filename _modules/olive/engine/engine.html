@@ -869,7 +869,7 @@
 
     <span class="k">def</span> <span class="nf">_init_input_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the input model.&quot;&quot;&quot;</span>
-        <span class="n">model_hash</span> <span class="o">=</span> <span class="n">hash_dict</span><span class="p">(</span><span class="n">input_model_config</span><span class="o">.</span><span class="n">to_json</span><span class="p">())</span>
+        <span class="n">model_hash</span> <span class="o">=</span> <span class="n">hash_dict</span><span class="p">(</span><span class="n">input_model_config</span><span class="o">.</span><span class="n">to_json</span><span class="p">())[:</span><span class="mi">8</span><span class="p">]</span>
 
         <span class="c1"># cache the model</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cache_model</span><span class="p">(</span><span class="n">input_model_config</span><span class="p">,</span> <span class="n">model_hash</span><span class="p">,</span> <span class="n">check_object</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
@@ -884,7 +884,7 @@
         <span class="n">accelerator_spec</span><span class="p">:</span> <span class="s2">&quot;AcceleratorSpec&quot;</span><span class="p">,</span>
     <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the path to the run json.&quot;&quot;&quot;</span>
-        <span class="n">pass_config_hash</span> <span class="o">=</span> <span class="n">hash_dict</span><span class="p">(</span><span class="n">pass_config</span><span class="p">)</span>
+        <span class="n">pass_config_hash</span> <span class="o">=</span> <span class="n">hash_dict</span><span class="p">(</span><span class="n">pass_config</span><span class="p">)[:</span><span class="mi">8</span><span class="p">]</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">accelerator_spec</span><span class="p">:</span>
             <span class="n">run_json_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_cache_path</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pass_name</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">input_model_number</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">pass_config_hash</span><span class="si">}</span><span class="s2">.json&quot;</span>
         <span class="k">else</span><span class="p">:</span>
@@ -1034,7 +1034,7 @@
         <span class="n">output_model_id_parts</span> <span class="o">=</span> <span class="p">[</span>
             <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_new_model_number</span><span class="p">()</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">pass_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
             <span class="n">input_model_number</span><span class="p">,</span>
-            <span class="n">hash_dict</span><span class="p">(</span><span class="n">pass_config</span><span class="p">),</span>
+            <span class="n">hash_dict</span><span class="p">(</span><span class="n">pass_config</span><span class="p">)[:</span><span class="mi">8</span><span class="p">],</span>
         <span class="p">]</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">p</span><span class="o">.</span><span class="n">is_accelerator_agnostic</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">):</span>
