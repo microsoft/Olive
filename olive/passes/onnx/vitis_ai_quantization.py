@@ -289,7 +289,7 @@ class VitisAIQuantization(Pass):
         # we hash the entire path of the input model to ensure we are not accidentally using a preprocessed model
         # from a different model
         preprocessed_temp_model_path = (
-            Path(self.tmp_dir.name) / f"{hash_string(str(Path(model.model_path).resolve()))}" / "preprocessed.onnx"
+            Path(self.tmp_dir.name) / f"{hash_string(str(Path(model.model_path).resolve()))[:8]}" / "preprocessed.onnx"
         )
         preprocessed_temp_model_path.parent.mkdir(exist_ok=True, parents=True)
         if run_config["quant_preprocess"]:

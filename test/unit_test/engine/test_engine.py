@@ -117,7 +117,7 @@ class TestEngine:
     def test_run(self, mock_local_system, tmpdir):
         # setup
         model_config = get_pytorch_model_config()
-        input_model_id = hash_dict(model_config.to_json())
+        input_model_id = hash_dict(model_config.to_json())[:8]
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
@@ -157,8 +157,8 @@ class TestEngine:
         p1, pass_config1 = get_onnxconversion_pass(ignore_pass_config=False, target_opset=13)
         p2, pass_config2 = get_onnxconversion_pass(ignore_pass_config=False, target_opset=14)
         model_ids = [
-            f"0_{p1.__class__.__name__}-{input_model_id}-{hash_dict(pass_config1)}",
-            f"1_{p2.__class__.__name__}-{input_model_id}-{hash_dict(pass_config2)}",
+            f"0_{p1.__class__.__name__}-{input_model_id}-{hash_dict(pass_config1)[:8]}",
+            f"1_{p2.__class__.__name__}-{input_model_id}-{hash_dict(pass_config2)[:8]}",
         ]
         expected_res = {
             model_id: {
