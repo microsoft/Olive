@@ -18,7 +18,7 @@ from olive.passes.pass_config import PassConfigParam
 logger = logging.getLogger(__name__)
 
 
-class AwqQuantizer(Pass):
+class AutoAWQQuantizer(Pass):
     """AWQ quantization."""
 
     _requires_user_script = True
@@ -36,17 +36,17 @@ class AwqQuantizer(Pass):
 
         def get_torch_dtype(self):
             return {
-                AwqQuantizer.ModelDtype.FP32: torch.float32,
-                AwqQuantizer.ModelDtype.FP16: torch.float16,
-                AwqQuantizer.ModelDtype.FP64: torch.float64,
+                AutoAWQQuantizer.ModelDtype.FP32: torch.float32,
+                AutoAWQQuantizer.ModelDtype.FP16: torch.float16,
+                AutoAWQQuantizer.ModelDtype.FP64: torch.float64,
             }[self]
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "input_model_dtype": PassConfigParam(
-                type_=AwqQuantizer.ModelDtype,
-                default_value=AwqQuantizer.ModelDtype.FP16,
+                type_=AutoAWQQuantizer.ModelDtype,
+                default_value=AutoAWQQuantizer.ModelDtype.FP16,
                 description="The input model data type.",
             ),
             "zero_point": PassConfigParam(
@@ -120,7 +120,7 @@ class AwqQuantizer(Pass):
     ) -> PyTorchModelHandler:
         from awq import AutoAWQForCausalLM
         from awq.models import base as awq_model_base
-        from awq.quantize.quantizer import AwqQuantizer as AutoAwqQuantizer
+        from awq.quantize.quantizer import AutoAWQQuantizer as AutoAutoAWQQuantizer
         from transformers import AutoTokenizer
 
         if not torch.cuda.is_available():
@@ -142,10 +142,16 @@ class AwqQuantizer(Pass):
                 }
             )
 
+        # pack_model_for_onnx_conversion is a flag to switch between the two quantizers
+        # 1. AutoAutoAWQQuantizer is a quantizer implemented by autoawq package which is used by default
+        #    for quantizing the model. But it does not work with ONNX conversion since there are some
+        #    operations that are not supported by ONNX. So, we have to pack the model for ONNX conversion
+        # 2. That is why we have another quantizer method self._pack_model_for_onnx_conversion(config) to
+        #    return OrtAutoAWQQuantizer which is used for ONNX conversion.
         quantizer = (
             self._pack_model_for_onnx_conversion(config)
             if config["pack_model_for_onnx_conversion"]
-            else AutoAwqQuantizer
+            else AutoAutoAWQQuantizer
         )
 
         loading_args = self._resolve_load_args(model.hf_config.get_loading_args_from_pretrained())
@@ -154,7 +160,7 @@ class AwqQuantizer(Pass):
         awq_model = AutoAWQForCausalLM.from_pretrained(model_path, **loading_args)
         tokenizer = AutoTokenizer.from_pretrained(model_path, **loading_args)
         try:
-            awq_model_base.AwqQuantizer = quantizer
+            awq_model_base.AutoAWQQuantizer = quantizer
             awq_model.quantize(
                 tokenizer,
                 quant_config={
@@ -169,7 +175,7 @@ class AwqQuantizer(Pass):
                 **data_kwargs,
             )
         finally:
-            awq_model_base.AwqQuantizer = AutoAwqQuantizer
+            awq_model_base.AutoAWQQuantizer = AutoAutoAWQQuantizer
 
         output_model_path = normalize_path_suffix(output_model_path, "model.pt")
         torch.save(awq_model.model, output_model_path)
@@ -187,12 +193,12 @@ class AwqQuantizer(Pass):
         )
 
     def _pack_model_for_onnx_conversion(self, config):
-        from awq.quantize.quantizer import AwqQuantizer as AutoAwqQuantizer
+        from awq.quantize.quantizer import AutoAWQQuantizer as AutoAutoAWQQuantizer
         from awq.quantize.quantizer import clear_memory, get_best_device, set_op_by_name
 
         from olive.passes.pytorch.quant_utils import QuantLinearORT
 
-        class OrtAwqQuantizer(AutoAwqQuantizer):
+        class OrtAutoAWQQuantizer(AutoAutoAWQQuantizer):
             def _apply_quant(self, module, named_linears: Dict[str, torch.nn.Linear]):
                 for name, old_linear_layer in named_linears.items():
                     # NOTE: small regression in perplexity if linear layer uses .cpu().float()
@@ -211,7 +217,7 @@ class AwqQuantizer(Pass):
                     set_op_by_name(module, name, q_linear)
                     clear_memory()
 
-        return OrtAwqQuantizer
+        return OrtAutoAWQQuantizer
 
     def _resolve_load_args(self, hf_loading_args):
         loading_args = {}

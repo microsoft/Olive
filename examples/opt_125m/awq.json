@@ -52,7 +52,7 @@
     },
     "passes": {
         "4bit_awq_quantizer": {
-            "type": "AwqQuantizer",
+            "type": "AutoAWQQuantizer",
             "config": {
                 "pack_model_for_onnx_conversion": true
             }

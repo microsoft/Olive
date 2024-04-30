@@ -127,8 +127,8 @@
                 "optimum"
             ]
         },
-        "AwqQuantizer": {
-            "module_path": "olive.passes.pytorch.awq.AwqQuantizer",
+        "AutoAWQQuantizer": {
+            "module_path": "olive.passes.pytorch.awq.AutoAWQQuantizer",
             "module_dependencies": [
                 "autoawq"
             ]
