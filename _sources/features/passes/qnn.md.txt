@@ -1,6 +1,6 @@
 # QNN
 
-Qualcomm AI Engine Direct is a Qualcomm Technologies Inc. software architure for AI/ML use cases on Qualcomm chipsets and AI acceleration cores.
+Qualcomm AI Engine Direct is a Qualcomm Technologies Inc. software architecture for AI/ML use cases on Qualcomm chipsets and AI acceleration cores.
 
 Olive provides tools to convert models from different frameworks such as ONNX, TensorFlow, and PyTorch to QNN model formats and quantize them to 8 bit fixed point for running on NPU cores.
 Olive uses the development tools available in the [Qualcomm AI Engine Direct SDK](https://developer.qualcomm.com/software/qualcomm-ai-engine-direct-sdk) (QNN SDK).

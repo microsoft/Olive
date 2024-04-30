@@ -208,11 +208,11 @@ the QLoRA <a class="reference external" href="https://arxiv.org/abs/2305.14314">
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;compute_dtype&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bfloat16&quot;</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">&quot;quant_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;nf4&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;train_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="c1">// ...,</span>
 <span class="w">        </span><span class="nt">&quot;training_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">            </span><span class="nt">&quot;learning_rate&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0002</span><span class="p">,</span>
 <span class="w">            </span><span class="c1">// ...</span>
-<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;train_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="c1">// ...,</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -231,11 +231,11 @@ and <a class="reference external" href="https://github.com/yxli2123/LoftQ">code<
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;LoftQ&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;compute_dtype&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bfloat16&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;train_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="c1">// ...,</span>
 <span class="w">        </span><span class="nt">&quot;training_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">            </span><span class="nt">&quot;learning_rate&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0002</span><span class="p">,</span>
 <span class="w">            </span><span class="c1">// ...</span>
-<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;train_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="c1">// ...,</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -316,7 +316,7 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 <section id="sparsegpt">
 <h2>SparseGPT<a class="headerlink" href="#sparsegpt" title="Permalink to this heading">¶</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">SparseGPT</span></code> prunes GPT like models using a pruning method called <a class="reference external" href="https://arxiv.org/abs/2301.00774">SparseGPT</a>. This one-shot pruning method can perform unstructured
-sparsity upto 60% on large models like OPT-175B and BLOOM-176B efficiently with negligible perplexity increase. It also supports semi-structured sparsity patterns such
+sparsity up to 60% on large models like OPT-175B and BLOOM-176B efficiently with negligible perplexity increase. It also supports semi-structured sparsity patterns such
 as 2:4 and 4:8 patterns.</p>
 <p>Please refer to the original paper linked above for more details on the algorithm and performance results for different models, sparsities and datasets.</p>
 <p>This pass only supports Hugging Face transformers PyTorch models. Please refer to <a class="reference internal" href="../../api/passes.html#sparsegpt"><span class="std std-ref">SparseGPT</span></a> for more details on the types of transformers models supported.</p>
