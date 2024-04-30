@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import onnxruntime
+import onnxruntime_genai as og
 from app_modules.utils import convert_to_markdown, is_stop_word_or_prefix, shared_state
 from interface.base_interface import BaseLLMInterface
 from transformers import AutoProcessor, AutoTokenizer
@@ -312,6 +313,169 @@ class LLMOnnxDmlInterface(BaseLLMInterface):
 
         return
 
+    def retry(self, chatbot, history, max_length_tokens, max_context_length_tokens, token_printing_step):
+        if len(history) == 0:
+            yield chatbot, history, "Empty context"
+            return
+        chatbot.pop()
+        inputs = history.pop()[0]
+        yield from self.predict(
+            inputs,
+            chatbot,
+            history,
+            max_length_tokens,
+            max_context_length_tokens,
+            token_printing_step,
+        )
+
+
+class ONNXModel():
+    """A wrapper for OnnxRuntime-GenAI to run ONNX LLM model."""
+
+    def __init__(self, model_path):
+        self.og = og
+        print (model_path)
+        self.model = og.Model(f'{model_path}')
+        self.tokenizer = og.Tokenizer(self.model)
+        self.tokenizer_stream = self.tokenizer.create_stream()
+        # search_options = {name:getattr(args, name) for name in ['do_sample', 'max_length', 'min_length', 'top_p', 'top_k', 'temperature', 'repetition_penalty'] if name in args}
+
+    def generate_prompt_with_history(self, text, history, max_length=2048):
+        prompt = ""
+
+        for dialog in history:
+            prompt += "<|user|>%s<|end|>"%dialog[0]
+            prompt += "<|assistant|>%s<|end|>"%dialog[1]
+
+        input_ids = self.tokenizer.encode(prompt + "<|user|>%s<|end|><|assistant|>"%text)
+
+        if len(input_ids) <= max_length:
+            return input_ids
+        else:
+            return None
+
+    def greedy_search(
+        self,
+        input_ids,
+        max_length: int,
+        token_printing_step: int = 4,
+    ):
+        output_tokens = []
+
+        params = og.GeneratorParams(self.model)
+        params.try_use_cuda_graph_with_max_batch_size(1)
+        params.input_ids = input_ids
+
+        search_options = {"max_length": max_length}
+        params.set_search_options(**search_options)
+
+        generator = og.Generator(self.model, params)
+
+        idx = 0
+        while not generator.is_done():
+            idx += 1
+            generator.compute_logits()
+            generator.generate_next_token()
+            next_token = generator.get_next_tokens()[0]
+            output_tokens.append(next_token)
+
+            if idx % token_printing_step == 0:
+                yield self.tokenizer.decode(output_tokens)
+
+    def predict(
+        self,
+        text,
+        chatbot,
+        history,
+        max_length_tokens,
+        max_context_length_tokens,
+        token_printing_step,
+        *args
+    ):
+        if text == "":
+            yield chatbot, history, "Empty context."
+            return
+
+        print (history)
+        inputs = self.generate_prompt_with_history(
+            text, history, max_length=max_context_length_tokens
+        )
+
+        if inputs is None:
+            yield chatbot, history, "Input too long."
+            return
+
+        input_ids = inputs[-max_context_length_tokens:]
+
+        human_tokens = [
+            "[|Human|]",
+            "Human:",
+            "### HUMAN:",
+            "### User:",
+            "USER:",
+            "<|im_start|>user",
+            "<|user|>",
+            "### Instruction:",
+            "GPT4 Correct User:",
+        ]
+
+        ai_tokens = [
+            "[|AI|]",
+            "AI:",
+            "### RESPONSE:",
+            "### Response:",
+            "ASSISTANT:",
+            "<|im_start|>assistant",
+            "<|assistant|>",
+            "GPT4 Correct Assistant:",
+            "### Assistant:",
+        ]
+
+        for x in self.greedy_search(
+            input_ids,
+            max_length=max_length_tokens,
+            token_printing_step=token_printing_step,
+        ):
+            sentence = x
+
+            if is_stop_word_or_prefix(sentence, ["[|Human|]", "[|AI|]", "Human:", "AIL"]) is False:
+                for human_token in human_tokens:
+                    if human_token in sentence:
+                        sentence = sentence[: sentence.index(human_token)].strip()
+                        break
+
+                for ai_token in ai_tokens:
+                    if ai_token in sentence:
+                        sentence = sentence[: sentence.index(ai_token)].strip()
+                        break
+                sentence = sentence.strip()
+                a, b = [[y[0], convert_to_markdown(y[1])] for y in history] + [[text, convert_to_markdown(sentence)]], [
+                    *history,
+                    [text, sentence],
+                ]
+                yield a, b, "Generating..."
+
+            if shared_state.interrupted:
+                shared_state.recover()
+                try:
+                    yield a, b, "Stop: Success"
+                    return
+                except Exception as e:
+                    print(type(e).__name__, e)
+
+        del input_ids
+        gc.collect()
+
+        try:
+            yield a, b, "Generate: Success"
+        except Exception as e:
+            print(type(e).__name__, e)
+
+        return
+    
+    def shutdown(self):
+        pass
+    
     def retry(self, chatbot, history, max_length_tokens, max_context_length_tokens, token_printing_step):
         if len(history) == 0:
             yield chatbot, history, "Empty context"

@@ -26,6 +26,9 @@ def run_llm_io_binding(
     device_id: int = 0,
     ignore_eos: bool = False,
 ) -> str:
+    
+    text = input("Input: ")
+
     onnxruntime.set_default_logger_severity(3)
 
     execution_provider = {
@@ -46,12 +49,13 @@ def run_llm_io_binding(
     if device == "cuda":
         providers[0][1]["enable_cuda_graph"] = True
 
-    model_dir = get_model_dir(model_type)
+    # model_dir = "C:/Users/xianz/work/Olive/examples/directml/llm/Phi-3-mini-4k-instruct-onnx/directml"
+    model_dir = "C:/Users/xianz/work/onnxruntime-genai/models/phi3"
     llm_session_options = onnxruntime.SessionOptions()
     llm_session_options.add_session_config_entry("ep.dml.enable_graph_capture", "1")
 
     llm_session = onnxruntime.InferenceSession(
-        os.path.join(model_dir, "model.onnx"),
+        os.path.join(model_dir, "model2.onnx"),
         sess_options=llm_session_options,
         providers=providers,
     )
@@ -69,6 +73,7 @@ def run_llm_io_binding(
     tokenizer.chat_template = get_chat_template(model_type) or tokenizer.chat_template
 
     initial_input_ids = tokenizer.apply_chat_template([{"role": "user", "content": prompt}], return_tensors="np")
+    len_init = len(initial_input_ids)
     initial_input_ids = np.asarray(initial_input_ids, dtype=np.int64)
     initial_input_ids = onnxruntime.OrtValue.ortvalue_from_numpy(initial_input_ids, device)
 
@@ -102,6 +107,10 @@ def run_llm_io_binding(
         llm_io_binding.bind_ortvalue_input(f"past_key_values.{layer_idx}.value", v_caches[layer_idx])
         llm_io_binding.bind_ortvalue_output(f"present.{layer_idx}.key", k_caches[layer_idx])
         llm_io_binding.bind_ortvalue_output(f"present.{layer_idx}.value", v_caches[layer_idx])
+    
+    
+    llm_io_binding.bind_output("/model/layers.0/attn/GroupQueryAttention/output_0", device)
+    llm_io_binding.bind_output("/model/layers.1/attn/GroupQueryAttention/output_0", device)
 
     attention_mask = np.pad(np.ones((1, sequence_length), dtype=np.int64), ((0, 0), (0, max_seq_len - sequence_length)))
     llm_io_binding.bind_ortvalue_input("attention_mask", attention_mask_ortvalue)
@@ -134,7 +143,31 @@ def run_llm_io_binding(
 
         # Decide the next token using your preferred sampling strategy.
         logits = llm_io_binding.get_outputs()[0].numpy()[:, -1, :]
+        
+        # outputs = llm_io_binding.get_outputs()
+        # for output in outputs:
+        #     print (output.numpy().shape)
+
+        # if idx == 2:
+        #     for i in range(2):
+        #         print (i)
+        #         keys = llm_io_binding.get_outputs()[2*i + 1].numpy()
+        #         values = llm_io_binding.get_outputs()[2*i + 2].numpy()
+        #         print (keys.shape)
+        #         print (keys[:, :, len_init+idx:len_init+idx+1, :])
+        #         print (values.shape)
+        #         print (values[:, :, len_init+idx:len_init+idx+1, :])
+
+        if idx != 0:
+            GQA1 = llm_io_binding.get_outputs()[5].numpy()
+            GQA2 = llm_io_binding.get_outputs()[6].numpy()
+            print (GQA1.shape, GQA2.shape)
+            print (GQA1)
+            print (GQA2)
+
+        #print (logits)
         next_token = np.argmax(logits, axis=-1, keepdims=True)
+        # print (np.any(np.isnan(logits)), next_token.item())
         output_tokens.append(next_token.item())
 
         # Set the token for the next iteration
@@ -146,6 +179,8 @@ def run_llm_io_binding(
 
         if idx == 0:
             llm_io_binding.bind_output("logits", device)
+            llm_io_binding.bind_output("/model/layers.0/attn/GroupQueryAttention/output_0", device)
+            llm_io_binding.bind_output("/model/layers.1/attn/GroupQueryAttention/output_0", device)
 
         sequence_length += 1
         sequence_length = min(sequence_length, max_seq_len)
@@ -158,14 +193,15 @@ def run_llm_io_binding(
     if ignore_eos:
         print(f"Execution took {duration:0.4f} seconds (generated {tokens_per_second:0.2f} tokens per second)")
 
-    output_str = tokenizer.decode(output_tokens, skip_special_tokens=True)
+    print (output_tokens)
+    # output_str = tokenizer.decode(output_tokens, skip_special_tokens=True)
 
-    print(output_str)
+    # print(output_str)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--prompt", type=str, default="What is the lightest element?")
+    parser.add_argument("--prompt", type=str, default="<|user|>What is the lightest element?<|end|><|assistant|>")
     parser.add_argument("--max_seq_len", type=int, default=2048)
     parser.add_argument("--max_gen_len", type=int, default=256)
     parser.add_argument("--ignore_eos", action="store_true")

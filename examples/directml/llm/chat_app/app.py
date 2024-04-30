@@ -7,10 +7,10 @@ import gradio as gr
 from app_modules.overwrites import postprocess
 from app_modules.presets import description, small_and_beautiful_theme, title
 from app_modules.utils import cancel_outputing, delete_last_conversation, reset_state, reset_textbox, transfer_input
-from interface.hddr_llm_onnx_dml_interface import LLMOnnxDmlInterface
+from interface.hddr_llm_onnx_dml_interface import LLMOnnxDmlInterface, ONNXModel
 
 top_directory = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-optimized_directory = os.path.join(top_directory, "models", "optimized")
+optimized_directory = os.path.join(top_directory, "Phi-3-mini-4k-instruct-onnx")
 available_models = {}
 interface = None
 binding_device = "dml"
@@ -26,11 +26,11 @@ def change_model_listener(new_model_name):
         gc.collect()
 
     d = available_models[new_model_name]
-    interface = LLMOnnxDmlInterface(
-        model_dir=d["model_dir"],
-        device=binding_device,
+    interface = ONNXModel(
+        model_path=d["model_dir"]
     )
-    interface.initialize()
+
+    # interface.initialize()
 
     return [
         new_model_name,
@@ -69,8 +69,14 @@ def launch_chat_app(expose_locally: bool = False, device: str = "dml"):
     global binding_device
     binding_device = device
 
-    for model_name in os.listdir(optimized_directory):
-        available_models[model_name] = {"model_dir": os.path.join(optimized_directory, model_name)}
+    ep_names = os.listdir(optimized_directory)
+    ep_names.reverse()
+    for ep_name in ep_names:
+        sub_optimized_directory = os.path.join(optimized_directory, ep_name)
+        if os.path.isdir(sub_optimized_directory) and ep_name != ".git":
+            for model_name in os.listdir(sub_optimized_directory):
+                print (model_name)
+                available_models[model_name] = {"model_dir": os.path.join(sub_optimized_directory, model_name)}
 
     with gr.Blocks(css=custom_css, theme=small_and_beautiful_theme) as demo:
         history = gr.State([])
