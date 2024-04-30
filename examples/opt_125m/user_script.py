@@ -105,17 +105,6 @@ class RandomDataLoader:
         return (inputs, None)
 
 
-def get_position_ids(attention_mask: torch.Tensor, past_seq_len: int):
-    """Get position_ids from attention_mask."""
-    # this is generic but in practice we only expect to see two scenarios for (past_seq_len, seq_len)
-    # prompt generation: (0, seq_len) -> position_ids = (batch_size, seq_len)
-    # token generation: (past_seq_len, 1) -> position_ids = (batch_size, 1)
-    # Note: The merged model only works in these two scenarios
-    position_ids = attention_mask.long().cumsum(-1) - 1
-    position_ids.masked_fill_(attention_mask == 0, 1)
-    return position_ids[:, past_seq_len:]
-
-
 def get_merged_model_dynamic_axes(input_names: List[str], output_names: List[str]):
     dynamic_axes = {}
     for name in input_names + output_names:
@@ -163,15 +152,12 @@ def get_merged_sample_with_past_kv_inputs(
 ):
     input_ids = torch.randint(low=0, high=config.vocab_size, size=(batch_size, seq_len), dtype=torch.int32)
     attention_mask = torch.ones(batch_size, past_seq_len + seq_len, dtype=torch.int32)
-    # position_ids is of shape (batch_size, seq_len) for prompt generation, (batch_size, 1) for token generation
-    position_ids = get_position_ids(attention_mask, past_seq_len)
     step = torch.tensor(0, dtype=torch.int64)
     past_kv = get_past_kv_inputs(config, batch_size, past_seq_len, use_fp16, world_size=world_size)
 
     # Convert inputs to NumPy (for ORT) or send to device (for PyTorch)
     input_ids = input_ids.numpy() if engine == "ort" else input_ids.to(device)
     attention_mask = attention_mask.numpy() if engine == "ort" else attention_mask.to(device)
-    position_ids = position_ids.numpy() if engine == "ort" else position_ids.to(device)
     step = step.numpy() if engine == "ort" else step.to(device)
 
     # ruff: noqa: C417
@@ -184,17 +170,15 @@ def get_merged_sample_with_past_kv_inputs(
     if not return_dict:
         # For export
         assert isinstance(past_kv, list)
-        return (input_ids, past_kv, attention_mask, position_ids)
+        return (input_ids, past_kv, attention_mask)
 
     inputs = {
         "input_ids": input_ids,
         "attention_mask": attention_mask,
-        "position_ids": position_ids,
     }
     if engine == "ort":
         assert isinstance(past_kv, dict)
         inputs.update(past_kv)
-        del inputs["position_ids"]
         inputs["step"] = step
 
         if use_gqa:

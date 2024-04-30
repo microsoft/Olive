@@ -22,11 +22,32 @@
                     {
                         "device": "gpu",
                         "execution_providers": [
-                            "GPUExecutionProvider"
+                            "CUDAExecutionProvider"
                         ]
                     }
                 ]
             }
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics": [
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_types": [{"name": "avg", "priority": 1}],
+                    "user_config": {
+                        "user_script": "user_script.py",
+                        "dataloader_func": "create_dataloader",
+                        "batch_size": 2,
+                        "inference_settings": {
+                            "onnx": {
+                                "session_options": {"enable_profiling": false}
+                            }
+                        }
+                    }
+                }
+            ]
         }
     },
     "passes": {
@@ -55,6 +76,7 @@
         }
     },
     "engine": {
+        "evaluator": "common_evaluator",
         "host": "local_system",
         "target": "local_system",
         "cache_dir": "cache",
