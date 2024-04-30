@@ -44,11 +44,11 @@ This pass only supports Hugging Face transformers PyTorch models. Please refer t
     "config": {
         "compute_dtype": "bfloat16",
         "quant_type": "nf4",
-        "train_data_config": // ...,
         "training_args": {
             "learning_rate": 0.0002,
             // ...
-        }
+        },
+        "train_data_config": // ...,
     }
 }
 ```
@@ -68,11 +68,11 @@ This pass only supports Hugging Face transformers PyTorch models. Please refer t
     "type": "LoftQ",
     "config": {
         "compute_dtype": "bfloat16",
-        "train_data_config": // ...,
         "training_args": {
             "learning_rate": 0.0002,
             // ...
-        }
+        },
+        "train_data_config": // ...,
     }
 }
 ```
@@ -160,7 +160,7 @@ for an example implementation of `"wikitext2_train"`.
 
 ## SparseGPT
 `SparseGPT` prunes GPT like models using a pruning method called [SparseGPT](https://arxiv.org/abs/2301.00774). This one-shot pruning method can perform unstructured
-sparsity upto 60% on large models like OPT-175B and BLOOM-176B efficiently with negligible perplexity increase. It also supports semi-structured sparsity patterns such
+sparsity up to 60% on large models like OPT-175B and BLOOM-176B efficiently with negligible perplexity increase. It also supports semi-structured sparsity patterns such
 as 2:4 and 4:8 patterns.
 
 Please refer to the original paper linked above for more details on the algorithm and performance results for different models, sparsities and datasets.
