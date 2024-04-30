@@ -120,7 +120,7 @@ class AutoAWQQuantizer(Pass):
     ) -> PyTorchModelHandler:
         from awq import AutoAWQForCausalLM
         from awq.models import base as awq_model_base
-        from awq.quantize.quantizer import AutoAWQQuantizer as AutoAutoAWQQuantizer
+        from awq.quantize.quantizer import AwqQuantizer as PyAutoAWQQuantizer
         from transformers import AutoTokenizer
 
         if not torch.cuda.is_available():
@@ -143,7 +143,7 @@ class AutoAWQQuantizer(Pass):
             )
 
         # pack_model_for_onnx_conversion is a flag to switch between the two quantizers
-        # 1. AutoAutoAWQQuantizer is a quantizer implemented by autoawq package which is used by default
+        # 1. PyAutoAWQQuantizer is a quantizer implemented by autoawq package which is used by default
         #    for quantizing the model. But it does not work with ONNX conversion since there are some
         #    operations that are not supported by ONNX. So, we have to pack the model for ONNX conversion
         # 2. That is why we have another quantizer method self._pack_model_for_onnx_conversion(config) to
@@ -151,7 +151,7 @@ class AutoAWQQuantizer(Pass):
         quantizer = (
             self._pack_model_for_onnx_conversion(config)
             if config["pack_model_for_onnx_conversion"]
-            else AutoAutoAWQQuantizer
+            else PyAutoAWQQuantizer
         )
 
         loading_args = self._resolve_load_args(model.hf_config.get_loading_args_from_pretrained())
@@ -160,7 +160,7 @@ class AutoAWQQuantizer(Pass):
         awq_model = AutoAWQForCausalLM.from_pretrained(model_path, **loading_args)
         tokenizer = AutoTokenizer.from_pretrained(model_path, **loading_args)
         try:
-            awq_model_base.AutoAWQQuantizer = quantizer
+            awq_model_base.AwqQuantizer = quantizer
             awq_model.quantize(
                 tokenizer,
                 quant_config={
@@ -175,7 +175,7 @@ class AutoAWQQuantizer(Pass):
                 **data_kwargs,
             )
         finally:
-            awq_model_base.AutoAWQQuantizer = AutoAutoAWQQuantizer
+            awq_model_base.AwqQuantizer = PyAutoAWQQuantizer
 
         output_model_path = normalize_path_suffix(output_model_path, "model.pt")
         torch.save(awq_model.model, output_model_path)
@@ -193,12 +193,12 @@ class AutoAWQQuantizer(Pass):
         )
 
     def _pack_model_for_onnx_conversion(self, config):
-        from awq.quantize.quantizer import AutoAWQQuantizer as AutoAutoAWQQuantizer
+        from awq.quantize.quantizer import AwqQuantizer as PyAutoAWQQuantizer
         from awq.quantize.quantizer import clear_memory, get_best_device, set_op_by_name
 
         from olive.passes.pytorch.quant_utils import QuantLinearORT
 
-        class OrtAutoAWQQuantizer(AutoAutoAWQQuantizer):
+        class OrtAutoAWQQuantizer(PyAutoAWQQuantizer):
             def _apply_quant(self, module, named_linears: Dict[str, torch.nn.Linear]):
                 for name, old_linear_layer in named_linears.items():
                     # NOTE: small regression in perplexity if linear layer uses .cpu().float()

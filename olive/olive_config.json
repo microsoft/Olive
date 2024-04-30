@@ -128,7 +128,7 @@
             ]
         },
         "AutoAWQQuantizer": {
-            "module_path": "olive.passes.pytorch.awq.AutoAWQQuantizer",
+            "module_path": "olive.passes.pytorch.autoawq.AutoAWQQuantizer",
             "module_dependencies": [
                 "autoawq"
             ]
