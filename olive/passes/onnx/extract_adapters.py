@@ -245,14 +245,8 @@ class ExtractAdapters(Pass):
         """
 
         def get_sort_key(module_name: str):
-            parts = module_name.split(".")
-            for i, part in enumerate(parts):
-                try:
-                    # want the layers to be sorted by the number
-                    parts[i] = int(part)
-                except ValueError:
-                    pass
-            return parts
+            # want the layers to be sorted by the number
+            return [int(part) if part.isdigit() else part for part in module_name.split(".")]
 
         packings = {}
         for module_type in module_types:

@@ -70,14 +70,7 @@ def parse_args(raw_args):
 
 def get_sort_key(module_name: str):
     """Get the key to sort the module names by."""
-    parts = module_name.split(".")
-    for i, part in enumerate(parts):
-        try:
-            # want the layers to be sorted by the number
-            parts[i] = int(part)
-        except ValueError:
-            pass
-    return parts
+    return [int(part) if part.isdigit() else part for part in module_name.split(".")]
 
 
 def int4_block_quant(float_weight: "NDArray", block_size: int, is_symmetric: bool):
