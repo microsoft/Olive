@@ -9,6 +9,9 @@ from olive.common.utils import retry_func
 # pylint: disable=global-variable-undefined, used-before-assignment
 
 
+num_tries = 0
+
+
 def fail_with_key_error():
     global num_tries
     if num_tries == 0:
