@@ -7,7 +7,7 @@ Auto Optimizer is a tool that can be used to automatically search Olive passes c
 
 1. input model
 2. target device
-3. target precision: `fp32`, `fp16`, `int8`, `int4` and etc.
+3. target precision: ``fp32``, ``fp16``, ``int8``, ``int4`` and etc.
 4. target evaluation metric: accuracy, latency and etc.
 
 All above information(is called "optimization factors" in this doc) is provided by user through a configuration file now, then run by:
@@ -38,7 +38,7 @@ Config Fields:
         - If set to True, Auto Optimizer will be disabled and user need to provide passes combination manually.
 
     3. precision[optional[str]]: default None.
-        - The precision of output model. If user does not set the precision of output model, it will be determined by above optimization factors. We supports "fp32", "fp16" and "int8" output precision for now.
+        - The precision of output model. If user does not set the precision of output model, it will be determined by above optimization factors. We support "fp32", "fp16" and "int8" output precision for now.
 
     Here is a simple example of Auto Optimizer configuration, the item which is not provided will use the default value:
 
@@ -69,9 +69,9 @@ Config Fields:
 .. note::
     In this example, Auto Optimizer will search for the best passes combination for different execution providers, e.g. CUDAExecutionProvider and TensorrtExecutionProvider.
 
-    - For CUDAExecutionProvider, it will try float16 in `OrtTransformersOptimization`.
+    - For CUDAExecutionProvider, it will try float16 in ``OrtTransformersOptimization``.
 
-    - For TensorrtExecutionProvider, it will try trt_fp16 in `OrtPerfTuning`.
+    - For TensorrtExecutionProvider, it will try trt_fp16 in ``OrtPerfTuning``.
 
 Here the available pass flows for given accelerator, execution providers and precision:
 
@@ -275,10 +275,10 @@ Here is another quick comparison between Auto Optimizer and manual settings.
     In this example, Auto Optimizer can use default settings to catch up with manual settings. Auto Optimizer is aware of following rules which requires expert knowledge in manual settings:
 
     1. For CUDAExecutionProvider:
-        - it would be better to disable `enable_trt_fp16` and enable `enable_cuda_graph` in `OrtPerfTuning` pass, and enable `float16` in `OrtTransformersOptimization` pass.
+        - it would be better to disable ``enable_trt_fp16`` and enable ``enable_cuda_graph`` in ``OrtPerfTuning`` pass, and enable ``float16`` in ``OrtTransformersOptimization`` pass.
 
     2. For TensorrtExecutionProvider:
-        - it would be better to enable `enable_trt_fp16` and disable `enable_cuda_graph` in `OrtPerfTuning` pass, and disable `float16` in `OrtTransformersOptimization` pass.
+        - it would be better to enable ``enable_trt_fp16`` and disable ``enable_cuda_graph`` in ``OrtPerfTuning`` pass, and disable ``float16`` in ``OrtTransformersOptimization`` pass.
 
     3. At the same time, for both CUDAExecutionProvider and TensorrtExecutionProvider:
-        - it would be better to enable `io_bind` in `OrtPerfTuning` pass.
+        - it would be better to enable ``io_bind`` in ``OrtPerfTuning`` pass.

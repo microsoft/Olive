@@ -12,7 +12,12 @@ from olive.cli.manage_aml_compute import ManageAMLComputeCommand
 from olive.cli.run import WorkflowRunCommand
 
 
-def main(raw_args=None, called_as_console_script: bool = True):
+def get_cli_parser(called_as_console_script: bool = True) -> ArgumentParser:
+    """Get the CLI parser for Olive.
+
+    :param called_as_console_script: Whether the script was called as a console script.
+    :return: The CLI parser.
+    """
     parser = ArgumentParser("Olive CLI tool", usage="olive" if called_as_console_script else "python -m olive")
     commands_parser = parser.add_subparsers()
 
@@ -21,6 +26,12 @@ def main(raw_args=None, called_as_console_script: bool = True):
     ConfigureQualcommSDKCommand.register_subcommand(commands_parser)
     ManageAMLComputeCommand.register_subcommand(commands_parser)
     ExportAdaptersCommand.register_subcommand(commands_parser)
+
+    return parser
+
+
+def main(raw_args=None, called_as_console_script: bool = True):
+    parser = get_cli_parser(called_as_console_script)
 
     args = parser.parse_args(raw_args)
 

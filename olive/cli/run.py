@@ -17,7 +17,7 @@ class WorkflowRunCommand(BaseOliveCLICommand):
             required=False,
             help=(
                 "For advanced users. Path to optional package (json) config file with location "
-                "of individual pass module implementation and corresponding dependencies."
+                "of individual pass module implementation and corresponding dependencies. "
                 "Configuration might also include user owned/proprietary/private pass implementations."
             ),
         )

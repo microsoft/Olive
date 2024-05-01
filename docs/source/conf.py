@@ -41,6 +41,7 @@ extensions = [
     "sphinx_tabs.tabs",
     # "nbsphinx",
     "auto_config_doc",
+    "sphinxarg.ext",
     "sphinxcontrib.autodoc_pydantic",
     "sphinxcontrib.jquery",
 ]
