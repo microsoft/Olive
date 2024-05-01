@@ -23,16 +23,18 @@ class OnnxFloatToFloat16(Pass):
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "min_positive_val": PassConfigParam(
-                type_=float, default_value=5.96e-08, description="Constant values will be clipped against this value"
+                type_=float, default_value=1e-7, description="Constant values will be clipped against this value"
             ),
             "max_finite_val": PassConfigParam(
-                type_=float, default_value=65504.0, description="Constant values will be clipped against this value"
+                type_=float, default_value=1e4, description="Constant values will be clipped against this value"
             ),
             "keep_io_types": PassConfigParam(
                 type_=bool, default_value=False, description="Whether model inputs/outputs should be left as float32"
             ),
-            "disable_shape_infer": PassConfigParam(
-                type_=bool, default_value=False, description="Skips running onnx shape/type inference."
+            "use_symbolic_shape_infer": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                description="Use symbolic shape inference instead of onnx shape inference. Defaults to True.",
             ),
             "op_block_list": PassConfigParam(
                 type_=List[str], default_value=None, description="List of op types to leave as float32"
@@ -54,7 +56,19 @@ class OnnxFloatToFloat16(Pass):
         # using the float16 converter from onnxruntime since it is regularly updated
         # and can handle large models (>2GB) as well as ort contrib ops
         ort_onnx_model = OnnxModel(model.load_model())
-        ort_onnx_model.convert_float_to_float16(**config)
+        ort_onnx_model.convert_float_to_float16(
+            {
+                key: config[key]
+                for key in [
+                    "min_positive_val",
+                    "max_finite_val",
+                    "keep_io_types",
+                    "use_symbolic_shape_infer",
+                    "op_block_list",
+                    "node_block_list",
+                ]
+            }
+        )
 
         # save the model to the output path and return the model
         return model_proto_to_olive_model(ort_onnx_model.model, output_model_path, config)
