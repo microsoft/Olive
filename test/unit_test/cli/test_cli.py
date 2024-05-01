@@ -81,7 +81,7 @@ def test_workflow_run_command(mock_run, mock_set_tempdir, setup, tempdir):
     mock_run.assert_called_once_with(run_config="config.json", setup=setup, package_config=None, data_root=None)
 
 
-@patch("olive.platform_sdk.qualcomm.configure.configure")
+@patch("olive.platform_sdk.qualcomm.configure.configure.configure")
 def test_configure_qualcomm_sdk_command(mock_configure):
     # setup
     command_args = ["configure-qualcomm-sdk", "--py_version", "3.6", "--sdk", "snpe"]

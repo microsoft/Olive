@@ -32,6 +32,6 @@ class ConfigureQualcommSDKCommand(BaseOliveCLICommand):
         sub_parser.set_defaults(func=ConfigureQualcommSDKCommand)
 
     def run(self):
-        from olive.platform_sdk.qualcomm.configure import configure
+        from olive.platform_sdk.qualcomm.configure.configure import configure
 
         configure(self.args.py_version, self.args.sdk)
