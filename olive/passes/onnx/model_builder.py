@@ -13,7 +13,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, Union
 
-from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec, Device
+from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModelHandler, PyTorchModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
@@ -86,7 +86,7 @@ class ModelBuilder(Pass):
             ),
             "enable_cuda_graph": PassConfigParam(
                 type_=bool,
-                default_value=False,
+                default_value=None,  # Explicitly setting to None to differentiate between user intent and default.
                 required=False,
                 description=(
                     "The model can use CUDA graph capture for CUDA execution provider. "
@@ -102,13 +102,12 @@ class ModelBuilder(Pass):
         if with_fixed_value:
             search_point = self.config_at_search_point(search_point or {})
         precision = search_point.get("precision")
-        device = (
-            Device.CPU
-            if self.accelerator_spec.execution_provider
-            in AcceleratorLookup.get_execution_providers_for_device(Device.CPU)
-            else Device.GPU
-        )
-        if precision == ModelBuilder.Precision.FP16 and device == Device.CPU:
+
+        # if device is GPU, but user choose CPU EP, the is_cpu should be True
+        if (precision == ModelBuilder.Precision.FP16) and not (
+            accelerator_spec.accelerator_type == Device.GPU
+            and accelerator_spec.execution_provider != "CPUExecutionProvider"
+        ):
             logger.info(
                 "FP16 is not supported on CPU. Valid precision + execution"
                 "provider combinations are: FP32 CPU, FP32 CUDA, FP16 CUDA, INT4 CPU, INT4 CUDA"
@@ -152,12 +151,12 @@ class ModelBuilder(Pass):
             else Path(resolve_onnx_path(output_model_path, model.onnx_file_name))
         )
 
-        target_execution_provider = (
-            "cpu"
-            if self.accelerator_spec.execution_provider
-            in AcceleratorLookup.get_execution_providers_for_device(Device.CPU)
-            else "cuda"
-        )
+        if self.accelerator_spec.execution_provider == "DmlExecutionProvider":
+            target_execution_provider = "dml"
+        elif self.accelerator_spec.execution_provider == "CUDAExecutionProvider":
+            target_execution_provider = "cuda"
+        else:
+            target_execution_provider = "cpu"
 
         # Select cache location based on priority
         # HF_CACHE (HF >= v5) -> TRANSFORMERS_CACHE (HF < v5) -> local dir
