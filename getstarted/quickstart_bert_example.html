@@ -80,6 +80,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="../features/cli.html">Command Line Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../features/huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
@@ -154,7 +155,7 @@ onnx quantization tuner and performance tuning.</p>
 <section id="pip-requirements">
 <h3>Pip requirements<a class="headerlink" href="#pip-requirements" title="Permalink to this heading">¶</a></h3>
 <p>Install the necessary python packages:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">pip</span> <span class="n">install</span> <span class="o">-</span><span class="n">r</span> <span class="n">requirements</span><span class="o">.</span><span class="n">txt</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
 </pre></div>
 </div>
 </section>
@@ -162,11 +163,11 @@ onnx quantization tuner and performance tuning.</p>
 <section id="run-sample-using-config-the-optimization-techniques-to-run-are-specified-in-bert-ptq-cpu-json">
 <h2>Run sample using config. The optimization techniques to run are specified in bert_ptq_cpu.json<a class="headerlink" href="#run-sample-using-config-the-optimization-techniques-to-run-are-specified-in-bert-ptq-cpu-json" title="Permalink to this heading">¶</a></h2>
 <p>First, install required packages according to passes.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">olive</span><span class="o">.</span><span class="n">workflows</span><span class="o">.</span><span class="n">run</span> <span class="o">--</span><span class="n">config</span> <span class="n">bert_ptq_cpu</span><span class="o">.</span><span class="n">json</span> <span class="o">--</span><span class="n">setup</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>run<span class="w"> </span>--config<span class="w"> </span>bert_ptq_cpu.json<span class="w"> </span>--setup
 </pre></div>
 </div>
 <p>Then, optimize the model</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">olive</span><span class="o">.</span><span class="n">workflows</span><span class="o">.</span><span class="n">run</span> <span class="o">--</span><span class="n">config</span> <span class="n">bert_ptq_cpu</span><span class="o">.</span><span class="n">json</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>run<span class="w"> </span>--config<span class="w"> </span>bert_ptq_cpu.json
 </pre></div>
 </div>
 <p>or run simply with python code:</p>
@@ -178,11 +179,11 @@ onnx quantization tuner and performance tuning.</p>
 <section id="optimize-model-automatically-without-selecting-any-optimization-technique">
 <h2>Optimize model automatically without selecting any optimization technique.<a class="headerlink" href="#optimize-model-automatically-without-selecting-any-optimization-technique" title="Permalink to this heading">¶</a></h2>
 <p>First, install required packages according to passes.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">olive</span><span class="o">.</span><span class="n">workflows</span><span class="o">.</span><span class="n">run</span> <span class="o">--</span><span class="n">config</span> <span class="n">bert_auto</span><span class="o">.</span><span class="n">json</span> <span class="o">--</span><span class="n">setup</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>run<span class="w"> </span>--config<span class="w"> </span>bert_auto.json<span class="w"> </span>--setup
 </pre></div>
 </div>
 <p>Then, optimize the model</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">olive</span><span class="o">.</span><span class="n">workflows</span><span class="o">.</span><span class="n">run</span> <span class="o">--</span><span class="n">config</span> <span class="n">bert_auto</span><span class="o">.</span><span class="n">json</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>run<span class="w"> </span>--config<span class="w"> </span>bert_auto.json
 </pre></div>
 </div>
 <p>or run simply with python code:</p>

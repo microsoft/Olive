@@ -68,6 +68,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="cli.html">Command Line Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
 <li class="toctree-l1"><a class="reference internal" href="packaging_output_models.html">Packaging Olive artifacts</a></li>
@@ -155,7 +156,7 @@
 <section id="examples">
 <h3>Examples<a class="headerlink" href="#examples" title="Permalink to this heading">¶</a></h3>
 <p>You can create your own <code class="docutils literal notranslate"><span class="pre">my_script.py</span></code> with <code class="docutils literal notranslate"><span class="pre">dataloader_func</span></code> and <code class="docutils literal notranslate"><span class="pre">post_processing_func</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># my_script.py</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># my_script.py</span>
 
 <span class="k">class</span> <span class="nc">MyDataLoader</span><span class="p">:</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_dir</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">):</span>
@@ -176,22 +177,22 @@
 </pre></div>
 </div>
 <p>Use <code class="docutils literal notranslate"><span class="pre">my_script.py</span></code> with Olive workflow configuration json file(sub_types name should be the returned dict key of your custom function):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;metrics&quot;</span><span class="p">:[</span>
-    <span class="p">{</span>
-        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;sub_types&quot;</span><span class="p">:</span> <span class="p">[</span>
-            <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;accuracy_score&quot;</span><span class="p">,</span> <span class="s2">&quot;priority&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;goal&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;max-degradation&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">}},</span>
-            <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;f1_score&quot;</span><span class="p">},</span>
-            <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;auroc&quot;</span><span class="p">}</span>
-        <span class="p">],</span>
-        <span class="s2">&quot;user_config&quot;</span><span class="p">:{</span>
-            <span class="s2">&quot;post_processing_func&quot;</span><span class="p">:</span> <span class="s2">&quot;post_process&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;user_script&quot;</span><span class="p">:</span> <span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;dataloader_func&quot;</span><span class="p">:</span> <span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">4</span>
-        <span class="p">}</span>
-    <span class="p">}</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;metrics&quot;</span><span class="p">:[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;sub_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">            </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy_score&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;priority&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;goal&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;max-degradation&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.01</span><span class="p">}},</span>
+<span class="w">            </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;f1_score&quot;</span><span class="p">},</span>
+<span class="w">            </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;auroc&quot;</span><span class="p">}</span>
+<span class="w">        </span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;user_config&quot;</span><span class="p">:{</span>
+<span class="w">            </span><span class="nt">&quot;post_processing_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;post_process&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 <span class="p">]</span>
 </pre></div>
 </div>
@@ -212,7 +213,7 @@
 </pre></div>
 </div>
 <p>Your script can use this module directly when specifying <code class="docutils literal notranslate"><span class="pre">script_dir</span></code> in configuration:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># my_script.py</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># my_script.py</span>
 
 <span class="kn">import</span> <span class="nn">file</span>
 
@@ -222,23 +223,23 @@
 </pre></div>
 </div>
 <p>Use <code class="docutils literal notranslate"><span class="pre">script_dir</span></code> and <code class="docutils literal notranslate"><span class="pre">my_script.py</span></code> with Olive workflow configuration json file:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;metrics&quot;</span><span class="p">:[</span>
-    <span class="p">{</span>
-        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;sub_types&quot;</span><span class="p">:</span> <span class="p">[</span>
-            <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;accuracy_score&quot;</span><span class="p">,</span> <span class="s2">&quot;priority&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;goal&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;max-degradation&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">}},</span>
-            <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;f1_score&quot;</span><span class="p">},</span>
-            <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;auroc&quot;</span><span class="p">}</span>
-        <span class="p">]</span>
-        <span class="s2">&quot;user_config&quot;</span><span class="p">:{</span>
-            <span class="s2">&quot;post_processing_func&quot;</span><span class="p">:</span> <span class="s2">&quot;post_process&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;user_script&quot;</span><span class="p">:</span> <span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;script_dir&quot;</span><span class="p">:</span> <span class="s2">&quot;my_modules&quot;</span>
-            <span class="s2">&quot;dataloader_func&quot;</span><span class="p">:</span> <span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">4</span>
-        <span class="p">}</span>
-    <span class="p">}</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;metrics&quot;</span><span class="p">:[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;sub_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">            </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy_score&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;priority&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;goal&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;max-degradation&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.01</span><span class="p">}},</span>
+<span class="w">            </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;f1_score&quot;</span><span class="p">},</span>
+<span class="w">            </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;auroc&quot;</span><span class="p">}</span>
+<span class="w">        </span><span class="p">]</span>
+<span class="w">        </span><span class="nt">&quot;user_config&quot;</span><span class="p">:{</span>
+<span class="w">            </span><span class="nt">&quot;post_processing_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;post_process&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;script_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="nt">&quot;my_modules&quot;</span>
+<span class="w">            </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 <span class="p">]</span>
 </pre></div>
 </div>

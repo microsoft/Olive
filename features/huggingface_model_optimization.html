@@ -68,6 +68,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="cli.html">Command Line Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Huggingface Model Optimization</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#introduction">Introduction</a></li>
@@ -276,7 +277,7 @@
 </div>
 <section id="script-example">
 <h4>Script example<a class="headerlink" href="#script-example" title="Permalink to this heading">¶</a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># my_script.py</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># my_script.py</span>
 <span class="k">def</span> <span class="nf">get_dec_io_config</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">OliveModelHandler</span><span class="p">):</span>
     <span class="c1"># return your io dict</span>
     <span class="o">...</span>
@@ -408,11 +409,11 @@
 <li><p>Get your Huggingface token string from Settings -&gt; <a class="reference external" href="https://huggingface.co/settings/tokens">Access Tokens</a>.</p></li>
 <li><p>Create or use an existing <a class="reference external" href="https://learn.microsoft.com/en-us/azure/key-vault/general/overview">Azure Key Vault</a>. Assume the key vault is named <code class="docutils literal notranslate"><span class="pre">my_keyvault_name</span></code>. Add a new secret named <code class="docutils literal notranslate"><span class="pre">hf-token</span></code>, and set the value as the token from the first step. It is important to note that Olive reserves <code class="docutils literal notranslate"><span class="pre">hf-token</span></code> secret name specifically for Huggingface login. Do not use this name in this keyvault for other purpose.</p></li>
 <li><p>Make sure you have <code class="docutils literal notranslate"><span class="pre">azureml_client</span></code> section in your configuration file, and add a new attribute <code class="docutils literal notranslate"><span class="pre">keyvault_name</span></code> to it. For example:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;azureml_client&quot;</span><span class="p">:</span> <span class="p">{</span>
-    <span class="s2">&quot;subscription_id&quot;</span><span class="p">:</span> <span class="s2">&quot;&lt;subscription_id&gt;&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;resource_group&quot;</span><span class="p">:</span> <span class="s2">&quot;&lt;resource_group&gt;&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;workspace_name&quot;</span><span class="p">:</span> <span class="s2">&quot;&lt;workspace_name&gt;&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;keyvault_name&quot;</span> <span class="p">:</span> <span class="s2">&quot;my_keyvault_name&quot;</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;subscription_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;subscription_id&gt;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;resource_group&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;resource_group&gt;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;workspace_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;workspace_name&gt;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;keyvault_name&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_keyvault_name&quot;</span>
 <span class="p">}</span>
 </pre></div>
 </div>

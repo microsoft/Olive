@@ -76,6 +76,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="../features/cli.html">Command Line Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../features/huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
@@ -153,9 +154,10 @@
 <li><p><strong>Accelerate the model using Olive.</strong></p></li>
 </ol>
 <p>The last step is the simplest one. You just need to run following simple command.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">olive</span><span class="o">.</span><span class="n">workflows</span><span class="o">.</span><span class="n">run</span> <span class="o">--</span><span class="n">config</span> <span class="n">my_model_acceleration_description</span><span class="o">.</span><span class="n">json</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>run<span class="w"> </span>--config<span class="w"> </span>my_model_acceleration_description.json
 </pre></div>
 </div>
+<p><strong>Note:</strong> If <code class="docutils literal notranslate"><span class="pre">olive</span></code> cannot be found in your path, you can use <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">olive</span></code> instead.</p>
 <p>or in python code:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.workflows</span> <span class="kn">import</span> <span class="n">run</span> <span class="k">as</span> <span class="n">olive_run</span>
 <span class="n">olive_run</span><span class="p">(</span><span class="s2">&quot;my_model_acceleration_description.json&quot;</span><span class="p">)</span>
@@ -164,17 +166,17 @@
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p><code class="docutils literal notranslate"><span class="pre">olive.workflows.run</span></code> in python code also accepts python dictionary equivalent of the config JSON object.</p>
-<p>You can use setup mode <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">olive.workflows.run</span> <span class="pre">--config</span> <span class="pre">my_model_acceleration_description.json</span> <span class="pre">--setup</span></code> to identify list of additional packages you may need to install for your workflow.</p>
+<p>You can use setup mode <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">run</span> <span class="pre">--config</span> <span class="pre">my_model_acceleration_description.json</span> <span class="pre">--setup</span></code> to identify list of additional packages you may need to install for your workflow.</p>
 <p>To include user implemented (or proprietary, or private) passes as part of workflow, clone olive_config.json and update it.
 Provide the path to the cloned <em>olive_config.json</em> file at launch using the ‘–package-config’ command line option.</p>
 <p>You can also change the default directory for temporary files and directories using <code class="docutils literal notranslate"><span class="pre">--tempdir</span></code> option.
 Set this to a local directory if you want to avoid using the default tempdir for reasons such as disk space and permissions.</p>
 <p>If you want to use different device ids specially for cuda device, please set <code class="docutils literal notranslate"><span class="pre">CUDA_VISIBLE_DEVICES</span></code> to the desired device ids, like:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span># linux
-CUDA_VISIBLE_DEVICES=2,3 python -m olive.workflows.run --config my_model_acceleration_description.json
+CUDA_VISIBLE_DEVICES=2,3 olive run --config my_model_acceleration_description.json
 
 # windows
-set CUDA_VISIBLE_DEVICES=2,3 &amp; python -m olive.workflows.run --config my_model_acceleration_description.json
+set CUDA_VISIBLE_DEVICES=2,3 &amp; olive run --config my_model_acceleration_description.json
 
 # python
 import os

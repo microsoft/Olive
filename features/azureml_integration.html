@@ -68,6 +68,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="cli.html">Command Line Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
 <li class="toctree-l1"><a class="reference internal" href="packaging_output_models.html">Packaging Olive artifacts</a></li>
@@ -158,13 +159,13 @@
 <section id="using-azureml-registered-model">
 <h3>Using AzureML registered model<a class="headerlink" href="#using-azureml-registered-model" title="Permalink to this heading">¶</a></h3>
 <p>You can run Olive workflow with your AML workspace registered model. In the input model section, define the model config as:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;model_path&quot;</span><span class="p">:</span> <span class="p">{</span>
-    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;azureml_model&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;config&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;&lt;model_name&gt;&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;version&quot;</span><span class="p">:</span> <span class="s2">&quot;&lt;model_version&gt;&quot;</span>
-    <span class="p">}</span>
- <span class="p">}</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_model&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;model_name&gt;&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;model_version&gt;&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w"> </span><span class="p">}</span>
 </pre></div>
 </div>
 <p>Olive will automatically download the model and run the workflow in the specified target or host with this model as input model.</p>
@@ -172,13 +173,13 @@
 <section id="using-azureml-curated-model">
 <h3>Using AzureML curated model<a class="headerlink" href="#using-azureml-curated-model" title="Permalink to this heading">¶</a></h3>
 <p>You can run Olive workflow with AML registered model. In the input model section, define the model config as:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;model_path&quot;</span><span class="p">:</span> <span class="p">{</span>
-    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;azureml_registry_model&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;config&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;model_name&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;registry_name&quot;</span><span class="p">:</span> <span class="s2">&quot;registry_name&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;version&quot;</span><span class="p">:</span> <span class="mi">1</span>
-    <span class="p">}</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_registry_model&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model_name&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;registry_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;registry_name&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -188,17 +189,17 @@
 <section id="using-model-stored-in-azureml-datastore">
 <h3>Using model stored in AzureML datastore<a class="headerlink" href="#using-model-stored-in-azureml-datastore" title="Permalink to this heading">¶</a></h3>
 <p>You can specify your model path from an AzureML datastore as:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;model_path&quot;</span><span class="p">:</span> <span class="p">{</span>
-    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;azureml_datastore&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;config&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s2">&quot;azureml_client&quot;</span><span class="p">:</span> <span class="p">{</span>
-            <span class="s2">&quot;subscription_id&quot;</span><span class="p">:</span> <span class="s2">&quot;my_subscription_id&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;resource_group&quot;</span><span class="p">:</span> <span class="s2">&quot;my_resource_group&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;workspace_name&quot;</span><span class="p">:</span> <span class="s2">&quot;my_workspace&quot;</span>
-        <span class="p">},</span>
-        <span class="s2">&quot;datastore_name&quot;</span><span class="p">:</span> <span class="s2">&quot;my_datastore&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;relative_path&quot;</span><span class="p">:</span> <span class="s2">&quot;model_dir/my_model.pt&quot;</span> <span class="o">//</span> <span class="n">Relative</span> <span class="n">path</span> <span class="n">to</span> <span class="n">the</span> <span class="n">resource</span> <span class="kn">from</span> <span class="nn">the</span> <span class="n">datastore</span> <span class="n">root</span>
-    <span class="p">}</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_datastore&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;subscription_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_subscription_id&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;resource_group&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_resource_group&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;workspace_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_workspace&quot;</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;datastore_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_datastore&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;relative_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model_dir/my_model.pt&quot;</span><span class="w"> </span><span class="c1">// Relative path to the resource from the datastore root</span>
+<span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -206,18 +207,18 @@
 <section id="using-a-model-from-an-azureml-job-output">
 <h3>Using a model from an AzureML job output<a class="headerlink" href="#using-a-model-from-an-azureml-job-output" title="Permalink to this heading">¶</a></h3>
 <p>You can specify your model path from an AzureML job output as:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;model_path&quot;</span><span class="p">:</span> <span class="p">{</span>
-    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;azureml_job_output&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;config&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s2">&quot;azureml_client&quot;</span><span class="p">:</span> <span class="p">{</span>
-            <span class="s2">&quot;subscription_id&quot;</span><span class="p">:</span> <span class="s2">&quot;my_subscription_id&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;resource_group&quot;</span><span class="p">:</span> <span class="s2">&quot;my_resource_group&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;workspace_name&quot;</span><span class="p">:</span> <span class="s2">&quot;my_workspace&quot;</span>
-        <span class="p">},</span>
-        <span class="s2">&quot;job_id&quot;</span><span class="p">:</span> <span class="s2">&quot;my_job_id&quot;</span><span class="p">,</span> <span class="o">//</span> <span class="nb">id</span> <span class="n">of</span> <span class="n">the</span> <span class="n">job</span>
-        <span class="s2">&quot;output_name&quot;</span><span class="p">:</span> <span class="s2">&quot;my_output_name&quot;</span><span class="p">,</span> <span class="o">//</span> <span class="n">name</span> <span class="n">of</span> <span class="n">the</span> <span class="n">job</span> <span class="n">output</span>
-        <span class="s2">&quot;relative_path&quot;</span><span class="p">:</span> <span class="s2">&quot;model_dir/my_model.pt&quot;</span> <span class="o">//</span> <span class="n">Relative</span> <span class="n">path</span> <span class="n">to</span> <span class="n">the</span> <span class="n">resource</span> <span class="kn">from</span> <span class="nn">the</span> <span class="n">job</span> <span class="n">output</span> <span class="n">root</span>
-    <span class="p">}</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_job_output&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;subscription_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_subscription_id&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;resource_group&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_resource_group&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;workspace_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_workspace&quot;</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;job_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_job_id&quot;</span><span class="p">,</span><span class="w"> </span><span class="c1">// id of the job</span>
+<span class="w">        </span><span class="nt">&quot;output_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_output_name&quot;</span><span class="p">,</span><span class="w"> </span><span class="c1">// name of the job output</span>
+<span class="w">        </span><span class="nt">&quot;relative_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model_dir/my_model.pt&quot;</span><span class="w"> </span><span class="c1">// Relative path to the resource from the job output root</span>
+<span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -225,17 +226,17 @@
 <section id="using-data-stored-in-azureml-datastore">
 <h3>Using data stored in AzureML datastore<a class="headerlink" href="#using-data-stored-in-azureml-datastore" title="Permalink to this heading">¶</a></h3>
 <p>You can use data files or folders that are stored in your Azure ML datastore as:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;data_dir&quot;</span><span class="p">:</span> <span class="p">{</span>
-    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;azureml_datastore&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;config&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s2">&quot;azureml_client&quot;</span><span class="p">:</span> <span class="p">{</span>
-            <span class="s2">&quot;subscription_id&quot;</span><span class="p">:</span> <span class="s2">&quot;my_subscription_id&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;resource_group&quot;</span><span class="p">:</span> <span class="s2">&quot;my_resource_group&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;workspace_name&quot;</span><span class="p">:</span> <span class="s2">&quot;my_workspace&quot;</span>
-        <span class="p">},</span>
-        <span class="s2">&quot;datastore_name&quot;</span><span class="p">:</span> <span class="s2">&quot;my_datastore&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;relative_path&quot;</span><span class="p">:</span> <span class="s2">&quot;data_dir&quot;</span> <span class="o">//</span> <span class="n">Relative</span> <span class="n">path</span> <span class="n">to</span> <span class="n">the</span> <span class="n">resource</span> <span class="kn">from</span> <span class="nn">the</span> <span class="n">datastore</span> <span class="n">root</span>
-    <span class="p">}</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_datastore&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;subscription_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_subscription_id&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;resource_group&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_resource_group&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;workspace_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_workspace&quot;</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;datastore_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_datastore&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;relative_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data_dir&quot;</span><span class="w"> </span><span class="c1">// Relative path to the resource from the datastore root</span>
+<span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -243,24 +244,24 @@
 <section id="using-azure-ml-compute-as-host-or-target">
 <h3>Using Azure ML compute as host or target<a class="headerlink" href="#using-azure-ml-compute-as-host-or-target" title="Permalink to this heading">¶</a></h3>
 <p>You can specify your Azure ML Compute as an Olive System and use it as a host to run Pass, or a target to evaluate the model.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;systems&quot;</span><span class="p">:</span> <span class="p">{</span>
-    <span class="s2">&quot;aml_system&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;AzureML&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;config&quot;</span><span class="p">:</span> <span class="p">{</span>
-            <span class="s2">&quot;aml_compute&quot;</span><span class="p">:</span> <span class="s2">&quot;cpu-cluster&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;aml_docker_config&quot;</span><span class="p">:</span> <span class="p">{</span>
-                <span class="s2">&quot;base_image&quot;</span><span class="p">:</span> <span class="s2">&quot;mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;conda_file_path&quot;</span><span class="p">:</span> <span class="s2">&quot;conda.yaml&quot;</span>
-            <span class="p">}</span>
-        <span class="p">}</span>
-    <span class="p">}</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;systems&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;aml_system&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AzureML&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;aml_compute&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu-cluster&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;aml_docker_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;base_image&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;conda_file_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;conda.yaml&quot;</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <p>Then you can specify where to use it in the Engine config:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-    <span class="s2">&quot;host&quot;</span><span class="p">:</span> <span class="s2">&quot;aml_system&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;target&quot;</span><span class="p">:</span> <span class="s2">&quot;aml_system&quot;</span><span class="p">,</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;host&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;aml_system&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;target&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;aml_system&quot;</span><span class="p">,</span>
 <span class="p">}</span>
 </pre></div>
 </div>

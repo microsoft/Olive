@@ -74,6 +74,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="../features/cli.html">Command Line Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../features/huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
@@ -144,38 +145,38 @@ public versions of onnxruntime can also be installed as extra dependencies durin
 <section id="install-with-pip">
 <h2>Install with pip<a class="headerlink" href="#install-with-pip" title="Permalink to this heading">¶</a></h2>
 <p>Olive is available for installation from PyPI.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">olive</span><span class="o">-</span><span class="n">ai</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>olive-ai
 </pre></div>
 </div>
 <p>With onnxruntime (Default CPU):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">olive</span><span class="o">-</span><span class="n">ai</span><span class="p">[</span><span class="n">cpu</span><span class="p">]</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>olive-ai<span class="o">[</span>cpu<span class="o">]</span>
 </pre></div>
 </div>
 <p>With onnxruntime-gpu:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">olive</span><span class="o">-</span><span class="n">ai</span><span class="p">[</span><span class="n">gpu</span><span class="p">]</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>olive-ai<span class="o">[</span>gpu<span class="o">]</span>
 </pre></div>
 </div>
 <p>With onnxruntime-directml:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">olive</span><span class="o">-</span><span class="n">ai</span><span class="p">[</span><span class="n">directml</span><span class="p">]</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>olive-ai<span class="o">[</span>directml<span class="o">]</span>
 </pre></div>
 </div>
 </section>
 <section id="install-from-source">
 <h2>Install from source<a class="headerlink" href="#install-from-source" title="Permalink to this heading">¶</a></h2>
 <p>Install the latest <code class="docutils literal notranslate"><span class="pre">main</span></code> version of Olive from source. Please note that this is a development version and may not be stable.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">git</span><span class="o">+</span><span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">microsoft</span><span class="o">/</span><span class="n">Olive</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com/microsoft/Olive
 </pre></div>
 </div>
 <p>With onnxruntime (Default CPU):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">git</span><span class="o">+</span><span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">microsoft</span><span class="o">/</span><span class="n">Olive</span><span class="c1">#egg=olive-ai[cpu]</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com/microsoft/Olive#egg<span class="o">=</span>olive-ai<span class="o">[</span>cpu<span class="o">]</span>
 </pre></div>
 </div>
 <p>With onnxruntime-gpu:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">git</span><span class="o">+</span><span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">microsoft</span><span class="o">/</span><span class="n">Olive</span><span class="c1">#egg=olive-ai[gpu]</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com/microsoft/Olive#egg<span class="o">=</span>olive-ai<span class="o">[</span>gpu<span class="o">]</span>
 </pre></div>
 </div>
 <p>With onnxruntime-directml:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">git</span><span class="o">+</span><span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">microsoft</span><span class="o">/</span><span class="n">Olive</span><span class="c1">#egg=olive-ai[directml]</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com/microsoft/Olive#egg<span class="o">=</span>olive-ai<span class="o">[</span>directml<span class="o">]</span>
 </pre></div>
 </div>
 </section>

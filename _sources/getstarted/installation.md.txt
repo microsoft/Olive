@@ -11,41 +11,41 @@ public versions of onnxruntime can also be installed as extra dependencies durin
 
 ## Install with pip
 Olive is available for installation from PyPI.
-```
+```bash
 pip install olive-ai
 ```
 With onnxruntime (Default CPU):
-```
+```bash
 pip install olive-ai[cpu]
 ```
 With onnxruntime-gpu:
-```
+```bash
 pip install olive-ai[gpu]
 ```
 With onnxruntime-directml:
-```
+```bash
 pip install olive-ai[directml]
 ```
 
 ## Install from source
 Install the latest `main` version of Olive from source. Please note that this is a development version and may not be stable.
 
-```
+```bash
 pip install git+https://github.com/microsoft/Olive
 ```
 
 With onnxruntime (Default CPU):
-```
+```bash
 pip install git+https://github.com/microsoft/Olive#egg=olive-ai[cpu]
 ```
 With onnxruntime-gpu:
 
-```
+```bash
 pip install git+https://github.com/microsoft/Olive#egg=olive-ai[gpu]
 ```
 With onnxruntime-directml:
 
-```
+```bash
 pip install git+https://github.com/microsoft/Olive#egg=olive-ai[directml]
 ```
 

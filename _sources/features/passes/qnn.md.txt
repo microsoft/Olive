@@ -12,9 +12,10 @@ Download the QNN SDK and unzip the file.
 Set the environment variable QNN_SDK_ROOT as <qnn-sdk-unzipped-path>.
 
 ### Configure Olive QNN
+```bash
+olive configure-qualcomm-sdk --py_version 3.8 --sdk qnn
 ```
-python -m olive.platform_sdk.qualcomm.configure --py_version 3.8 --sdk qnn
-```
+**Note:** If `olive` cannot be found in your path, you can use `python -m olive` instead.
 
 ## Model Conversion/Quantization
 `QNNConversion` converts ONNX, TensorFlow, or PyTorch models to QNN C++ model. Optionally, it can also quantize the model if a calibration dataset is provided using the `--input_list` in the extra_args parameter.

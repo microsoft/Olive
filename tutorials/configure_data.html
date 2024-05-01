@@ -69,6 +69,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="../features/cli.html">Command Line Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../features/huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
@@ -139,7 +140,7 @@
   <section id="how-to-configure-data">
 <span id="id1"></span><h1>How To Configure Data<a class="headerlink" href="#how-to-configure-data" title="Permalink to this heading">¶</a></h1>
 <p>Olive Data config organizes the data loading, preprocessing, batching and post processing into a single json config and defines several <strong>popular templates</strong> to serve Olive optimization.</p>
-<p>The configuration of Olive data config is positioned under Olive run config with the field of <cite>data_configs</cite>, and the data config is defined as a list of data config items. Here is an example of data config: <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/open_llama/open_llama_sparsegpt_gpu.json#L11-L49">open_llama_sparsegpt_gpu</a> .</p>
+<p>The configuration of Olive data config is positioned under Olive run config with the field of <code class="docutils literal notranslate"><span class="pre">data_configs</span></code>, and the data config is defined as a list of data config items. Here is an example of data config: <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/open_llama/open_llama_sparsegpt_gpu.json#L11-L49">open_llama_sparsegpt_gpu</a> .</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;data_configs&quot;</span><span class="p">:</span> <span class="p">[</span>
     <span class="p">{</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;dataset_1&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">},</span>
     <span class="p">{</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;dataset_2&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">},</span>
@@ -169,7 +170,7 @@
 <section id="supported-data-config-template">
 <h2>Supported Data Config Template<a class="headerlink" href="#supported-data-config-template" title="Permalink to this heading">¶</a></h2>
 <p>The data config template is defined in <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/data/template.py">olive.data.template</a> module which is used to create data_config easily.</p>
-<p>Currently, we support the following data container which can be generated from <cite>olive.data.template</cite>:</p>
+<p>Currently, we support the following data container which can be generated from <code class="docutils literal notranslate"><span class="pre">olive.data.template</span></code>:</p>
 <p>1. <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/data/template.py#L9">DummyDataContainer</a> :
 Convert the dummy data config to the data container.</p>
 <div class="sphinx-tabs docutils container">
@@ -236,7 +237,7 @@ Convert the huggingface data config to the data container.</p>
 </div></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>If the input model for Olive is huggingface model, we can update above config under <cite>input_model</cite>:</p>
+<p>If the input model for Olive is huggingface model, we can update above config under <code class="docutils literal notranslate"><span class="pre">input_model</span></code>:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;input_model&quot;</span><span class="p">:{</span>
 <span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PyTorchModel&quot;</span><span class="p">,</span>
@@ -297,9 +298,9 @@ Convert the raw data config to the data container.</p>
 <h2>Generic Data Config<a class="headerlink" href="#generic-data-config" title="Permalink to this heading">¶</a></h2>
 <dl>
 <dt>If no data config template can meet the requirement, we can also define the <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/data/config.py#L35">data config</a> directly. The data config is defined as a dictionary which includes the following fields:</dt><dd><ol class="arabic">
-<li><p><cite>name</cite>: the name of the data config.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">name</span></code>: the name of the data config.</p></li>
 <li><dl class="simple">
-<dt><cite>type</cite>: the type name of the data config. Available <cite>type</cite>:</dt><dd><ul class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">type</span></code>: the type name of the data config. Available <code class="docutils literal notranslate"><span class="pre">type</span></code>:</dt><dd><ul class="simple">
 <li><p><a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/data/container/data_container.py#L17">DataContainer</a> : the base class of all data config.</p></li>
 <li><p><a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/data/template.py#L9">DummyDataContainer</a> in above section.</p></li>
 <li><p><a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/data/template.py#L9">HuggingfaceContainer</a> in above section.</p></li>
@@ -309,7 +310,7 @@ Convert the raw data config to the data container.</p>
 </dl>
 </li>
 <li><dl>
-<dt><cite>components</cite>: the dictionary of four <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/data/constants.py#L12">components</a> which contain:</dt><dd><table class="docutils align-default" id="id5">
+<dt><code class="docutils literal notranslate"><span class="pre">components</span></code>: the dictionary of four <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/data/constants.py#L12">components</a> which contain:</dt><dd><table class="docutils align-default" id="id5">
 <caption><span class="caption-text">Title</span><a class="headerlink" href="#id5" title="Permalink to this table">¶</a></caption>
 <colgroup>
 <col style="width: 20.0%" />
@@ -337,17 +338,17 @@ Convert the raw data config to the data container.</p>
 </table>
 <dl class="simple">
 <dt>each component can be customized by the following fields:</dt><dd><ul class="simple">
-<li><p><cite>name</cite>: the name of the component.</p></li>
-<li><p><cite>type</cite>: the type name of the available component type. Besides the above available type in above table, user can also define their own component type in <cite>user_script</cite> with the way Olive does for <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/data/component/load_dataset.py#L26">huggingface_dataset</a>. In this way, they need to provide <cite>user_script</cite> and <cite>script_dir</cite>. There is an <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/inception/user_script.py#L9">example</a> with customized component type.</p></li>
-<li><p><cite>params</cite>: the dictionary of component function parameters. The key is the parameter name for given component type and the value is the parameter value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">name</span></code>: the name of the component.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">type</span></code>: the type name of the available component type. Besides the above available type in above table, user can also define their own component type in <code class="docutils literal notranslate"><span class="pre">user_script</span></code> with the way Olive does for <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/data/component/load_dataset.py#L26">huggingface_dataset</a>. In this way, they need to provide <code class="docutils literal notranslate"><span class="pre">user_script</span></code> and <code class="docutils literal notranslate"><span class="pre">script_dir</span></code>. There is an <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/inception/user_script.py#L9">example</a> with customized component type.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">params</span></code>: the dictionary of component function parameters. The key is the parameter name for given component type and the value is the parameter value.</p></li>
 </ul>
 </dd>
 </dl>
 </dd>
 </dl>
 </li>
-<li><p><cite>user_script</cite>: the user script path which contains the customized component type.</p></li>
-<li><p><cite>script_dir</cite>: the user script directory path which contains the customized script.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">user_script</span></code>: the user script path which contains the customized component type.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">script_dir</span></code>: the user script directory path which contains the customized script.</p></li>
 </ol>
 </dd>
 </dl>
@@ -452,7 +453,7 @@ Convert the raw data config to the data container.</p>
 </section>
 <section id="configs-with-customized-component">
 <h3>Configs with customized component:<a class="headerlink" href="#configs-with-customized-component" title="Permalink to this heading">¶</a></h3>
-<p>The above case shows to rewrite all the components in data config. But sometime, there is no need to rewrite all the components. For example, if we only want to customize the <cite>load_dataset</cite> component for <cite>DataContainer</cite>, we can just rewrite the <cite>load_dataset</cite> component in the data config and ignore the other default components.</p>
+<p>The above case shows to rewrite all the components in data config. But sometime, there is no need to rewrite all the components. For example, if we only want to customize the <code class="docutils literal notranslate"><span class="pre">load_dataset</span></code> component for <code class="docutils literal notranslate"><span class="pre">DataContainer</span></code>, we can just rewrite the <code class="docutils literal notranslate"><span class="pre">load_dataset</span></code> component in the data config and ignore the other default components.</p>
 <div class="sphinx-tabs docutils container">
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-4-4-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-4-4-0" name="4-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-4-4-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-4-4-1" name="4-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-4-4-0" class="sphinx-tabs-panel" id="panel-4-4-0" name="4-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
@@ -502,7 +503,7 @@ Convert the raw data config to the data container.</p>
 </div></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>User should provide the <cite>user_script</cite> and <cite>script_dir</cite> if they want to customize the component type. The <cite>user_script</cite> should be a python script which contains the customized component type. The <cite>script_dir</cite> should be the directory path which contains the <cite>user_script</cite>. Here is an example for <cite>user_script</cite>:</p>
+<p>User should provide the <code class="docutils literal notranslate"><span class="pre">user_script</span></code> and <code class="docutils literal notranslate"><span class="pre">script_dir</span></code> if they want to customize the component type. The <code class="docutils literal notranslate"><span class="pre">user_script</span></code> should be a python script which contains the customized component type. The <code class="docutils literal notranslate"><span class="pre">script_dir</span></code> should be the directory path which contains the <code class="docutils literal notranslate"><span class="pre">user_script</span></code>. Here is an example for <code class="docutils literal notranslate"><span class="pre">user_script</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.data.registry</span> <span class="kn">import</span> <span class="n">Registry</span>
 
 <span class="nd">@Registry</span><span class="o">.</span><span class="n">register_dataset</span><span class="p">()</span>
@@ -548,14 +549,14 @@ Convert the raw data config to the data container.</p>
 <p class="admonition-title">Note</p>
 <dl class="simple">
 <dt>The components will be called with the following arguments along with any additional keyword arguments provided in the config:</dt><dd><ul class="simple">
-<li><p>load_dataset: <cite>data_dir</cite> (required, but the type can be Optional[str])</p></li>
-<li><p>pre_process_data: <cite>dataset</cite> (required, must be the first argument)</p></li>
-<li><p>post_process_data: <cite>output</cite> (required, must be the first argument)</p></li>
-<li><p>dataloader: <cite>dataset</cite> (required, must be the first argument)</p></li>
+<li><p>load_dataset: <code class="docutils literal notranslate"><span class="pre">data_dir</span></code> (required, but the type can be <cite>Optional[str]</cite>)</p></li>
+<li><p>pre_process_data: <code class="docutils literal notranslate"><span class="pre">dataset</span></code> (required, must be the first argument)</p></li>
+<li><p>post_process_data: <code class="docutils literal notranslate"><span class="pre">output</span></code> (required, must be the first argument)</p></li>
+<li><p>dataloader: <code class="docutils literal notranslate"><span class="pre">dataset</span></code> (required, must be the first argument)</p></li>
 </ul>
 </dd>
 </dl>
-<p>the required arguments for pre_process_data/post_process_data/dataloader must start with <cite>_</cite> to avoid the conflict with the additional keyword arguments provided in the config.</p>
+<p>the required arguments for <code class="docutils literal notranslate"><span class="pre">pre_process_data/post_process_data/dataloader</span></code> must start with <code class="docutils literal notranslate"><span class="pre">_</span></code> to avoid the conflict with the additional keyword arguments provided in the config.</p>
 </div>
 </section>
 </section>

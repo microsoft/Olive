@@ -68,6 +68,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="../features/cli.html">Command Line Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../features/huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
@@ -138,7 +139,7 @@
   <section id="advanced-user-tour">
 <h1>Advanced User Tour<a class="headerlink" href="#advanced-user-tour" title="Permalink to this heading">¶</a></h1>
 <p>Olive provides simple  Python and command line interface to optimize the input model. See <a class="reference internal" href="../overview/quicktour.html"><span class="std std-doc">Quick Tour</span></a> for more information.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>olive.workflows.run<span class="w"> </span>--config<span class="w"> </span>user_provided_info.json
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>run<span class="w"> </span>--config<span class="w"> </span>user_provided_info.json
 </pre></div>
 </div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.workflows</span> <span class="kn">import</span> <span class="n">run</span> <span class="k">as</span> <span class="n">olive_run</span>

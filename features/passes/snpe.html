@@ -68,6 +68,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../cli.html">Command Line Tools</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../model_transformations_and_optimizations.html">Model Transformations and Optimizations</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="pytorch.html">PyTorch</a></li>
 <li class="toctree-l2"><a class="reference internal" href="onnx.html">ONNX</a></li>
@@ -169,11 +170,12 @@ in the <a class="reference external" href="https://developer.qualcomm.com/sites/
 <section id="configure-olive-snpe">
 <h3>Configure Olive SNPE<a class="headerlink" href="#configure-olive-snpe" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># in general, python 3.8 is recommended</span>
-python<span class="w"> </span>-m<span class="w"> </span>olive.platform_sdk.qualcomm.configure<span class="w"> </span>--py_version<span class="w"> </span><span class="m">3</span>.8<span class="w"> </span>--sdk<span class="w"> </span>snpe
+olive<span class="w"> </span>configure-qualcomm-sdk<span class="w"> </span>--py_version<span class="w"> </span><span class="m">3</span>.8<span class="w"> </span>--sdk<span class="w"> </span>snpe
 <span class="c1"># only when the tensorflow 1.15.0 is needed, use python 3.6</span>
-python<span class="w"> </span>-m<span class="w"> </span>olive.platform_sdk.qualcomm.configure<span class="w"> </span>--py_version<span class="w"> </span><span class="m">3</span>.6<span class="w"> </span>--sdk<span class="w"> </span>snpe
+olive<span class="w"> </span>configure-qualcomm-sdk<span class="w"> </span>--py_version<span class="w"> </span><span class="m">3</span>.6<span class="w"> </span>--sdk<span class="w"> </span>snpe
 </pre></div>
 </div>
+<p><strong>Note:</strong> If <code class="docutils literal notranslate"><span class="pre">olive</span></code> cannot be found in your path, you can use <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">olive</span></code> instead.</p>
 </section>
 </section>
 <section id="model-conversion">
