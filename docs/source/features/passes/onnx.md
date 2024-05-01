@@ -402,7 +402,7 @@ for an example implementation of `"user_script.py"` and `"create_dataloader"`.
 
 ## Float16 Conversion
 
-Converting a model to use Float16 instead of Float32 can decrease the model size and improve performance on some GPUs. The `OnnxFloatToFloat16` pass wraps [onnxconverter_common.float16.convert_float_to_float16](https://github.com/microsoft/onnxconverter-common/blob/master/onnxconverter_common/float16.py#L111), which convert most nodes/operators to use Float16 instead of Float32.
+Converting a model to use Float16 instead of Float32 can decrease the model size and improve performance on some GPUs. The `OnnxFloatToFloat16` pass the [float16 converter from onnxruntime](https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/transformers/float16.py) to convert the model to float16, which convert most nodes/operators to use Float16 instead of Float32.
 
 Conversion to Float16 is often exposed at multiple stages of optimization, including model conversion and transformer optimization. This stand-alone pass is best suited for models that are not transformer architectures, where fusions may rely on a specific data types in node patterns.
 
