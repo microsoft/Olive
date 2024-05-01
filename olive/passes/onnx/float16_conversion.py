@@ -57,7 +57,7 @@ class OnnxFloatToFloat16(Pass):
         # and can handle large models (>2GB) as well as ort contrib ops
         ort_onnx_model = OnnxModel(model.load_model())
         ort_onnx_model.convert_float_to_float16(
-            {
+            **{
                 key: config[key]
                 for key in [
                     "min_positive_val",

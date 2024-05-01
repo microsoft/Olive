@@ -26,7 +26,7 @@ def test_onnxfloattofloat16(keep_io_types, tmp_path):
     # check that the input and output types are as expected
     io_config = output_model.io_config
     for io_type in [*io_config["input_types"], *io_config["output_types"]]:
-        assert io_type == "float32" if keep_io_types else "float16"
+        assert io_type == ("float32" if keep_io_types else "float16")
 
     # check that the model initializer types are float16
     for initializer in output_model.get_graph().initializer:
