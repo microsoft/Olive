@@ -93,36 +93,36 @@ The additional options are:
 ## Run the config to optimize the model
 First, install required packages according to passes.
 ```bash
-python -m olive.workflows.run --config whisper_{device}_{precision}.json --setup
+olive run --config whisper_{device}_{precision}.json --setup
 
 # For example, to install packages for CPU, INT8
-python -m olive.workflows.run --config whisper_cpu_int8.json --setup
+olive run --config whisper_cpu_int8.json --setup
 ```
 
 Then, optimize the model
 
 On Linux:
 ```bash
-python -m olive.workflows.run --config whisper_{device}_{precision}.json 2> /dev/null
+olive run --config whisper_{device}_{precision}.json 2> /dev/null
 
 # For example, to optimize CPU, INT8
-python -m olive.workflows.run --config whisper_cpu_int8.json 2> /dev/null
+olive run --config whisper_cpu_int8.json 2> /dev/null
 ```
 
 On Windows (cmd):
 ```cmd
-python -m olive.workflows.run --config whisper_{device}_{precision}.json 2> NUL
+olive run --config whisper_{device}_{precision}.json 2> NUL
 
 :: For example, to optimize CPU, INT8
-python -m olive.workflows.run --config whisper_cpu_int8.json 2> NUL
+olive run --config whisper_cpu_int8.json 2> NUL
 ```
 
 On Windows (PowerShell):
 ```powershell
-python -m olive.workflows.run --config whisper_{device}_{precision}.json 2> $null
+olive run --config whisper_{device}_{precision}.json 2> $null
 
 # For example, to optimize CPU, INT8
-python -m olive.workflows.run --config whisper_cpu_int8.json 2> $null
+olive run --config whisper_cpu_int8.json 2> $null
 ```
 
 ## Test the transcription of the optimized model

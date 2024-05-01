@@ -10,6 +10,7 @@ onnxconverter_common
 psutil
 pytorch_lightning
 sphinx>=6.1.3
+sphinx-argparse
 sphinx-rtd-theme
 sphinx-tabs
 sphinxcontrib-jquery

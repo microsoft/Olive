@@ -171,7 +171,7 @@ python llama2.py --model_name meta-llama/Llama-2-7b-hf --gpu --use_gptq
 ### Fine-tune on a code generation dataset using QLoRA and optimize using ONNX Runtime Tools
 Run the following command to execute the workflow:
 ```bash
-python -m olive.workflows.run --config lamma2_qlora.json
+olive run --config lamma2_qlora.json
 ```
 
 # License
