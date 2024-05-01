@@ -17,7 +17,7 @@ Olive needs information about your model. For example, how to load the model, na
 3. **Accelerate the model using Olive.**
 
 The last step is the simplest one. You just need to run following simple command.
-```
+```bash
 olive run --config my_model_acceleration_description.json
 ```
 **Note:** If `olive` cannot be found in your path, you can use `python -m olive` instead.

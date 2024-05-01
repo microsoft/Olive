@@ -38,7 +38,7 @@ Config Fields:
         - If set to True, Auto Optimizer will be disabled and user need to provide passes combination manually.
 
     3. precision[optional[str]]: default None.
-        - The precision of output model. If user does not set the precision of output model, it will be determined by above optimization factors. We support "fp32", "fp16" and "int8" output precision for now.
+        - The precision of output model. If user does not set the precision of output model, it will be determined by above optimization factors. Olive supports "fp32", "fp16" and "int8" output precision for now.
 
     Here is a simple example of Auto Optimizer configuration, the item which is not provided will use the default value:
 

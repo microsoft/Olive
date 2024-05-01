@@ -12,7 +12,7 @@ Download the QNN SDK and unzip the file.
 Set the environment variable QNN_SDK_ROOT as <qnn-sdk-unzipped-path>.
 
 ### Configure Olive QNN
-```
+```bash
 olive configure-qualcomm-sdk --py_version 3.8 --sdk qnn
 ```
 **Note:** If `olive` cannot be found in your path, you can use `python -m olive` instead.

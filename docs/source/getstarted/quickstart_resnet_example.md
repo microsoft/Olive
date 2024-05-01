@@ -6,23 +6,23 @@ Please go to example repository [Quickstart ResNet Example](https://github.com/m
 
 ### Pip requirements
 Install the necessary python packages:
-```
+```bash
 python -m pip install -r requirements.txt
 ```
 
 ### Prepare data and model
 To Prepare the model and necessary data:
-```
+```bash
 python prepare_model_data.py --num_epochs 5
 ```
 
 ## Run sample using config
 First, install required packages according to passes.
-```
+```bash
 olive run --config resnet_ptq_cpu.json --setup
 ```
 Then, optimize the model
-```
+```bash
 olive run --config resnet_ptq_cpu.json
 ```
 or run simply with python code:
