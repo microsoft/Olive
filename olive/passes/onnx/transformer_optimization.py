@@ -302,19 +302,6 @@ class OrtTransformersOptimization(Pass):
                     "ExecutionProvider", ""
                 ).lower()
 
-        if run_config["model_type"] == "phi" and not run_config["only_onnxruntime"]:
-            # fusions for phi model type are implemented only for dynamo exported models
-            # will check model_proto.functions as a proxy to determine if the model was exported using dynamo_export
-            onnx_model = onnx.load(model.model_path, load_external_data=False)
-            if len(onnx_model.functions) == 0:
-                logger.warning(
-                    "model_type `phi` expects the model to have been exported using torch.onnx.dynamo_export. However,"
-                    " the model doesn't appear to have been exported using torch.onnx.dynamo_export. This may result in"
-                    " a failure. Please convert the model using torch.onnx.dynamo_export or provide a different"
-                    " model_type value."
-                )
-            del onnx_model
-
         optimizer = transformers_optimizer.optimize_model(input=model.model_path, **run_config)
 
         if config["float16"]:
