@@ -114,6 +114,9 @@ class OnnxDAG:
             ios[o.name] = OnnxIO(proto=o, destination=[SpecialOutput.OUTPUT], graph_idx=graph_idx)
         for initializer in graph.initializer:
             ios[initializer.name] = OnnxIO(proto=initializer, source=SpecialInput.INITIALIZER, graph_idx=graph_idx)
+        for vi in graph.value_info:
+            if vi.name not in ios:
+                ios[vi.name] = OnnxIO(proto=vi, graph_idx=graph_idx)
         return ios
 
     @staticmethod
