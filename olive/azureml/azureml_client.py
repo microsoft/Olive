@@ -14,6 +14,13 @@ logger = logging.getLogger(__name__)
 
 
 class AzureMLClientConfig(ConfigBase):
+    """Configuration for AzureMLClient.
+
+    This class is used to create an MLClient instance for AzureML operations.
+    Some fields like `read_timeout`, `max_operation_retries`, `operation_retry_interval` are used to control the
+    behavior of azureml operations like resource creation or download.
+    """
+
     subscription_id: str = Field(
         None, description="Azure subscription id. Required if aml_config_path is not provided."
     )
@@ -50,7 +57,7 @@ class AzureMLClientConfig(ConfigBase):
     )
     keyvault_name: Optional[str] = Field(
         None,
-        description=("Name of the keyvault to use. If provided, the keyvault will be used to retrieve secrets."),
+        description="Name of the keyvault to use. If provided, the keyvault will be used to retrieve secrets.",
     )
 
     @validator("aml_config_path", always=True)
