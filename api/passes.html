@@ -834,8 +834,7 @@
 <span id="onnx-float-to-float16"></span><h2>OnnxFloatToFloat16<a class="headerlink" href="#onnxfloattofloat16" title="Permalink to this heading">¶</a></h2>
 <p>Converts a model to float16.
 
-    It is based on onnxconverter-common.convert_float_to_float16.
-    See <a class="reference external" href="https://onnxruntime.ai/docs/performance/model-optimizations/float16.html#float16-conversion">https://onnxruntime.ai/docs/performance/model-optimizations/float16.html#float16-conversion</a></p>
+    It uses the float16 converter from onnxruntime to convert the model to float16.</p>
 <p><strong>Input:</strong> handler.onnx.ONNXModelHandler</p>
 <p><strong>Output:</strong> handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
@@ -866,11 +865,11 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-disable_shape_infer">
-<span class="sig-name descname"><span class="pre">disable_shape_infer</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-disable_shape_infer" title="Permalink to this definition">¶</a></dt>
-<dd><p>Skips running onnx shape/type inference.</p>
+<dt class="sig sig-object std" id="cmdoption-arg-use_symbolic_shape_infer">
+<span class="sig-name descname"><span class="pre">use_symbolic_shape_infer</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-use_symbolic_shape_infer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Use symbolic shape inference instead of onnx shape inference. Defaults to True.</p>
 <p><strong>type:</strong> bool</p>
-<p><strong>default_value:</strong> False</p>
+<p><strong>default_value:</strong> True</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 

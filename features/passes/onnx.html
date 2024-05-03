@@ -586,7 +586,7 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 </section>
 <section id="float16-conversion">
 <h2>Float16 Conversion<a class="headerlink" href="#float16-conversion" title="Permalink to this heading">¶</a></h2>
-<p>Converting a model to use Float16 instead of Float32 can decrease the model size and improve performance on some GPUs. The <code class="docutils literal notranslate"><span class="pre">OnnxFloatToFloat16</span></code> pass wraps <a class="reference external" href="https://github.com/microsoft/onnxconverter-common/blob/master/onnxconverter_common/float16.py#L111">onnxconverter_common.float16.convert_float_to_float16</a>, which convert most nodes/operators to use Float16 instead of Float32.</p>
+<p>Converting a model to use Float16 instead of Float32 can decrease the model size and improve performance on some GPUs. The <code class="docutils literal notranslate"><span class="pre">OnnxFloatToFloat16</span></code> pass the <a class="reference external" href="https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/transformers/float16.py">float16 converter from onnxruntime</a> to convert the model to float16, which convert most nodes/operators to use Float16 instead of Float32.</p>
 <p>Conversion to Float16 is often exposed at multiple stages of optimization, including model conversion and transformer optimization. This stand-alone pass is best suited for models that are not transformer architectures, where fusions may rely on a specific data types in node patterns.</p>
 <section id="id10">
 <h3>Example Configuration<a class="headerlink" href="#id10" title="Permalink to this heading">¶</a></h3>
