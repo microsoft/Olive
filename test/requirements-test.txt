@@ -16,6 +16,7 @@ git+https://github.com/microsoft/TransformerCompression.git ; python_version >= 
 mlflow>=2.4.0
 neural-compressor
 nncf==2.7.0
+nvidia-modelopt
 onnxconverter_common
 onnxruntime-extensions
 openvino==2023.2.0

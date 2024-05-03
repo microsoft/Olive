@@ -70,3 +70,10 @@ OrtPerfTuning:
   EP: null
   precision: null
   accelerator: null
+NVModelOptQuantization:
+  EP:
+    - CPU
+  precision:
+    - int4
+  accelerator:
+    - cpu
