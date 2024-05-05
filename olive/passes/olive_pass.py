@@ -190,17 +190,18 @@ class Pass(ABC):
             for rank in range(model.num_ranks):
                 input_ranked_model = model.load_model(rank)
                 ranked_output_path = Path(output_model_path).with_suffix("") / model.ranked_model_name(rank)
-                output_ranked_model = self._run_for_config(
-                    input_ranked_model, data_root, config, str(ranked_output_path)
-                )
-                Pass._carry_forward_additional_files(input_ranked_model, output_ranked_model)
+                self._run_for_config(input_ranked_model, data_root, config, str(ranked_output_path))
 
+            # ranked model don't have their own model_attributes, they are just part of the distributed model
+            # which has the model_attributes
             output_model = DistributedOnnxModelHandler(
                 model_path=str(Path(output_model_path).with_suffix("")),
                 model_name_pattern=model.model_name_pattern,
                 num_ranks=model.num_ranks,
                 inference_settings=model.inference_settings,
+                model_attributes=model.model_attributes,
             )
+            Pass._carry_forward_additional_files(model, output_model)
         elif isinstance(model, CompositeModelHandler) and not self._accepts_composite_model:
             # CompositePyTorchModel is also handled here.
             components = []
@@ -213,17 +214,19 @@ class Pass(ABC):
                 output_model_component.model_attributes = (
                     output_model_component.model_attributes or component_model.model_attributes
                 )
+                Pass._carry_forward_additional_files(component_model, output_model_component)
                 components.append(output_model_component)
                 component_names.append(component_name)
-                Pass._carry_forward_additional_files(component_model, output_model_component)
+
             output_model = CompositeModelHandler(components, component_names)
+            output_model.model_attributes = output_model.model_attributes or model.model_attributes
         else:
             output_model = self._run_for_config(model, data_root, config, output_model_path)
+            # assumption: the model attributes from passes, if any, are more important than
+            # the input model attributes, we should not update/extend anymore outside of the pass run
+            output_model.model_attributes = output_model.model_attributes or model.model_attributes
             Pass._carry_forward_additional_files(model, output_model)
 
-        # assumption: the model attributes from passes, if any, are more important than
-        # the input model attributes, we should not update/extend anymore outside of the pass run
-        output_model.model_attributes = output_model.model_attributes or model.model_attributes
         return output_model
 
     @staticmethod
@@ -255,17 +258,20 @@ class Pass(ABC):
                 return
 
         output_model_attributes = output_model.model_attributes or {}
+        # output model might have inherited "additional_files" attribute from the input model
+        # using a set, so it is okay to keep them as is since they will be copied over if not already present
+        # in the output model's directory
         output_model_additional_files = set(output_model_attributes.get("additional_files", []))
 
-        for filepath in input_model_additional_files:
-            input_filepath = Path(filepath)
+        for file_name in input_model_additional_files:
+            input_filepath = input_model_path / file_name
 
             # Make sure we don't overwrite an existing file in the output's directory.
             # The follow up pass could have *potentially* generated a file with the same name.
-            output_filepath = output_model_path / input_filepath.name
+            output_filepath = output_model_path / file_name
             if not output_filepath.exists():
                 # TODO(team): Use symlinks instead of copying the files.
-                output_model_additional_files.add(str(output_filepath))
+                output_model_additional_files.add(file_name)
                 shutil.copy(str(input_filepath), str(output_filepath))
 
         output_model_attributes["additional_files"] = list(output_model_additional_files)

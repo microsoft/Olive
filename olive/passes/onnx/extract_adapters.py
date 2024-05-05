@@ -220,6 +220,8 @@ class ExtractAdapters(Pass):
             constant_inputs_file_name=weights_path.name if config["make_inputs"] else None,
         )
         output_model.model_attributes = deepcopy(model.model_attributes)
+        additional_files = output_model.model_attributes.get("additional_files", [])
+        additional_files.append(weights_path.name)
         # save information about the weights in the model attributes
         weights_info = {name: [list(value.shape), str(value.dtype)] for name, value in weights.items()}
         if not config["make_inputs"]:
