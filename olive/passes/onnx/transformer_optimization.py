@@ -37,6 +37,11 @@ class OrtTransformersOptimization(Pass):
     It is based on onnxruntime.transformers.optimizer.
     """
 
+    # NOTE: Don't run this on target since it only needs to create an inference session if `opt_level` > 0
+    # this is not common and running on target blocks cross platform workflows such as optimizing for DML EP
+    # using a Linux machine which doesn't support onnxruntime-directml package.
+    # It is enough for the pass to fail if `opt_level` > 0 and the host doesn't have the required packages.
+
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
         """Override this method to return False by using the accelerator spec information."""

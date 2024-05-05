@@ -167,7 +167,7 @@ class ModelBuilder(Pass):
             # snapshots that can be reused for future runs
             cache_dir = str(Path(tempfile.gettempdir()) / "hf_cache")
 
-        # output model will be a copy of the input model
+        # output model will be a copy of the input model when metadata_only is True
         # it uses the same "model_path" resource as the input model
         # the genai_config will be saved in the same directory as the input model but that's fine since
         # it's a single file and won't interfere with the input model
