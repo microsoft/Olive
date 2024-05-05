@@ -37,8 +37,6 @@ class OrtTransformersOptimization(Pass):
     It is based on onnxruntime.transformers.optimizer.
     """
 
-    run_on_target = True
-
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
         """Override this method to return False by using the accelerator spec information."""
