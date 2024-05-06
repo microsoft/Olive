@@ -86,7 +86,7 @@ class ORTGenerator:
         self.cache_info = {"past_names": [], "present_names": [], "dtype": None, "num_kv_heads": None, "head_dim": None}
         session = self.sessions[self.adapters[self.default_adapter]["session"]]
         for i in session.get_inputs():
-            if i == "position_ids":
+            if i.name == "position_ids":
                 self.use_position_ids = True
             if ".key" not in i.name and ".value" not in i.name:
                 continue

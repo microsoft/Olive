@@ -522,7 +522,6 @@ class GQASharedCache(IOBoundCache):
         :param backend: Backend for the cache tensors. Options: "ort" or "torch".
             There is no implemetation difference for this class between "ort" and "torch".
         """
-        assert device in {"cuda", "dml"}, f"device {device} is not supported"
         super().__init__(
             past_names, present_names, batch_size, num_kv_heads, head_dim, dtype, device, device_id, backend
         )
