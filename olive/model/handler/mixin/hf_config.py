@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Generator, Optional, Tuple
+from typing import TYPE_CHECKING, Generator, List, Optional, Tuple
 
 from olive.constants import ModelFileFormat
 from olive.model.utils.hf_utils import (
@@ -66,7 +66,13 @@ class HfConfigMixin:
         # TODO(anyone): only provide relevant kwargs, no use case for now to provide kwargs
         return get_hf_model_tokenizer(self._get_model_path_or_name(), **kwargs)
 
-    def save_metadata_for_token_generation(self, output_dir: str, **kwargs):
+    def save_metadata_for_token_generation(self, output_dir: str, **kwargs) -> List[str]:
+        """Save metadata for token generation.
+
+        :param output_dir: output directory to save metadata files
+        :param kwargs: additional keyword arguments to pass to `save_pretrained` method
+        :return: list of file paths
+        """
         if self.hf_config is None:
             raise ValueError("HF model_config is not available.")
         if not Path(output_dir).is_dir():
