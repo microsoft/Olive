@@ -56,13 +56,13 @@ def run_subprocess(cmd, env=None, cwd=None, check=False):
 
 
 def hash_string(string):  # pragma: no cover
-    md5_hash = hashlib.md5()
+    md5_hash = hashlib.sha256()
     md5_hash.update(string.encode())
     return md5_hash.hexdigest()
 
 
 def hash_io_stream(f):  # pragma: no cover
-    md5_hash = hashlib.md5()
+    md5_hash = hashlib.sha256()
     # Read and update hash in chunks of 4K
     for byte_block in iter(lambda: f.read(4096), b""):
         md5_hash.update(byte_block)
@@ -94,18 +94,18 @@ def hash_update_from_dir(directory, hash_value):
 
 
 def hash_dir(directory):
-    return hash_update_from_dir(directory, hashlib.md5()).hexdigest()
+    return hash_update_from_dir(directory, hashlib.sha256()).hexdigest()
 
 
 def hash_dict(dictionary):  # pragma: no cover
-    md5_hash = hashlib.md5()
+    md5_hash = hashlib.sha256()
     encoded_dictionary = json.dumps(dictionary, sort_keys=True).encode()
     md5_hash.update(encoded_dictionary)
     return md5_hash.hexdigest()
 
 
 def hash_function(function):  # pragma: no cover
-    md5_hash = hashlib.md5()
+    md5_hash = hashlib.sha256()
     try:
         source = inspect.getsource(function)
     except OSError:

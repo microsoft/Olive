@@ -21,7 +21,7 @@ Olive supports following custom attributes in different configurations:
 ### Examples
 
 You can create your own `my_script.py` with `dataloader_func` and `post_processing_func`:
-```
+```python
 # my_script.py
 
 class MyDataLoader:
@@ -44,7 +44,7 @@ def post_process(output):
 
 Use `my_script.py` with Olive workflow configuration json file(sub_types name should be the returned dict key of your custom function):
 
-```
+```json
 "metrics":[
     {
         "name": "accuracy",
@@ -84,7 +84,7 @@ You can place your own Python modules, let's say `file.py`, in `my_modules` dire
 
 Your script can use this module directly when specifying `script_dir` in configuration:
 
-```
+```python
 # my_script.py
 
 import file
@@ -96,7 +96,7 @@ print(file.my_val)
 
 Use `script_dir` and `my_script.py` with Olive workflow configuration json file:
 
-```
+```json
 "metrics":[
     {
         "name": "accuracy",

@@ -1,6 +1,6 @@
 # QNN
 
-Qualcomm AI Engine Direct is a Qualcomm Technologies Inc. software architure for AI/ML use cases on Qualcomm chipsets and AI acceleration cores.
+Qualcomm AI Engine Direct is a Qualcomm Technologies Inc. software architecture for AI/ML use cases on Qualcomm chipsets and AI acceleration cores.
 
 Olive provides tools to convert models from different frameworks such as ONNX, TensorFlow, and PyTorch to QNN model formats and quantize them to 8 bit fixed point for running on NPU cores.
 Olive uses the development tools available in the [Qualcomm AI Engine Direct SDK](https://developer.qualcomm.com/software/qualcomm-ai-engine-direct-sdk) (QNN SDK).
@@ -12,9 +12,10 @@ Download the QNN SDK and unzip the file.
 Set the environment variable QNN_SDK_ROOT as <qnn-sdk-unzipped-path>.
 
 ### Configure Olive QNN
+```bash
+olive configure-qualcomm-sdk --py_version 3.8 --sdk qnn
 ```
-python -m olive.platform_sdk.qualcomm.configure --py_version 3.8 --sdk qnn
-```
+**Note:** If `olive` cannot be found in your path, you can use `python -m olive` instead.
 
 ## Model Conversion/Quantization
 `QNNConversion` converts ONNX, TensorFlow, or PyTorch models to QNN C++ model. Optionally, it can also quantize the model if a calibration dataset is provided using the `--input_list` in the extra_args parameter.

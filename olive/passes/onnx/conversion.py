@@ -258,7 +258,9 @@ class OnnxConversion(Pass):
             from torch.onnx import dynamo_export
 
             dynamo_config.capture_scalar_outputs = True
-            pytorch_model(**dummy_inputs)
+
+            dummy_inputs = dummy_inputs.values() if isinstance(dummy_inputs, dict) else dummy_inputs
+            pytorch_model(*dummy_inputs)
 
             with tempfile.TemporaryDirectory(dir=tempdir, prefix="olive_tmp") as tmp_dir:
                 tmp_dir_path = Path(tmp_dir)
@@ -266,7 +268,7 @@ class OnnxConversion(Pass):
 
                 dynamo_export(
                     pytorch_model,
-                    **dummy_inputs,
+                    *dummy_inputs,
                     export_options=torch.onnx.ExportOptions(dynamic_shapes=True),
                 ).save(tmp_model_path)
                 onnx.checker.check_model(tmp_model_path)

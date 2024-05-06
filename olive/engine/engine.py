@@ -741,7 +741,7 @@ class Engine:
 
     def _init_input_model(self, input_model_config: ModelConfig):
         """Initialize the input model."""
-        model_hash = hash_dict(input_model_config.to_json())
+        model_hash = hash_dict(input_model_config.to_json())[:8]
 
         # cache the model
         self._cache_model(input_model_config, model_hash, check_object=False)
@@ -756,7 +756,7 @@ class Engine:
         accelerator_spec: "AcceleratorSpec",
     ):
         """Get the path to the run json."""
-        pass_config_hash = hash_dict(pass_config)
+        pass_config_hash = hash_dict(pass_config)[:8]
         if not accelerator_spec:
             run_json_path = self._run_cache_path / f"{pass_name}-{input_model_number}-{pass_config_hash}.json"
         else:
@@ -906,7 +906,7 @@ class Engine:
         output_model_id_parts = [
             f"{self._get_new_model_number()}_{pass_name}",
             input_model_number,
-            hash_dict(pass_config),
+            hash_dict(pass_config)[:8],
         ]
 
         if not p.is_accelerator_agnostic(accelerator_spec):

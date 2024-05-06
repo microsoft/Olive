@@ -24,7 +24,7 @@ from transformers import AutoTokenizer
 
 from olive.common.config_utils import ConfigBase, ConfigWithExtraArgs
 from olive.common.pydantic_v1 import Field, validator
-from olive.common.utils import find_submodules
+from olive.common.utils import find_submodules, resolve_torch_dtype
 from olive.data.config import DataConfig
 from olive.data.constants import IGNORE_INDEX
 from olive.hardware.accelerator import AcceleratorSpec
@@ -740,15 +740,9 @@ class LoRABase(Pass):
     @staticmethod
     def get_torch_dtype(torch_dtype: str) -> torch.dtype:
         """Get the torch dtype from the string."""
-        supported_dtypes = {
-            "bfloat16": torch.bfloat16,
-            "float16": torch.float16,
-            "float32": torch.float32,
-        }
-        assert (
-            torch_dtype in supported_dtypes
-        ), f"torch_dtype must be one of {list(supported_dtypes.keys())} but got {torch_dtype}"
-        return supported_dtypes[torch_dtype]
+        supported_dtypes = ("bfloat16", "float16", "float32")
+        assert torch_dtype in supported_dtypes, f"torch_dtype must be one of {supported_dtypes} but got {torch_dtype}"
+        return resolve_torch_dtype(torch_dtype)
 
     @classmethod
     def input_model_check(cls, model: PyTorchModelHandler) -> PyTorchModelHandler:

@@ -46,10 +46,7 @@
             "module_path": "olive.passes.onnx.quantization.OnnxDynamicQuantization"
         },
         "OnnxFloatToFloat16": {
-            "module_path": "olive.passes.onnx.float16_conversion.OnnxFloatToFloat16",
-            "module_dependencies": [
-                "onnxconverter-common"
-            ]
+            "module_path": "olive.passes.onnx.float16_conversion.OnnxFloatToFloat16"
         },
         "OnnxMatMul4Quantizer": {
             "module_path": "olive.passes.onnx.quantization.OnnxMatMul4Quantizer"

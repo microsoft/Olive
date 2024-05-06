@@ -9,18 +9,18 @@ Performs optimization pipeline:
 Please go to example repository [Quickstart Bert Example](https://github.com/microsoft/Olive/tree/main/examples/bert)
 ### Pip requirements
 Install the necessary python packages:
-```
+```bash
 python -m pip install -r requirements.txt
 ```
 
 ## Run sample using config. The optimization techniques to run are specified in bert_ptq_cpu.json
 First, install required packages according to passes.
-```
-python -m olive.workflows.run --config bert_ptq_cpu.json --setup
+```bash
+olive run --config bert_ptq_cpu.json --setup
 ```
 Then, optimize the model
-```
-python -m olive.workflows.run --config bert_ptq_cpu.json
+```bash
+olive run --config bert_ptq_cpu.json
 ```
 or run simply with python code:
 ```python
@@ -30,12 +30,12 @@ olive_run("bert_ptq_cpu.json")
 
 ## Optimize model automatically without selecting any optimization technique.
 First, install required packages according to passes.
-```
-python -m olive.workflows.run --config bert_auto.json --setup
+```bash
+olive run --config bert_auto.json --setup
 ```
 Then, optimize the model
-```
-python -m olive.workflows.run --config bert_auto.json
+```bash
+olive run --config bert_auto.json
 ```
 or run simply with python code:
 ```python

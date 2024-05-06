@@ -26,7 +26,7 @@ Olive will only provide sample codes for ONNX model. Sample code supports 3 diff
 
 #### Models rank JSON file
 A file that contains a JSON list for ranked model info across all accelerators, e.g.:
-```
+```json
 [
     {
         "rank": 1,
@@ -50,7 +50,7 @@ A file that contains a JSON list for ranked model info across all accelerators, 
                     }
                 },
                 "use_ort_extensions": false,
-                "model_attributes": {<model_attributes>}
+                "model_attributes": {"<model_attributes_key>": "<model_attributes_value>"},
             }
         },
         "metrics": {
@@ -66,15 +66,15 @@ A file that contains a JSON list for ranked model info across all accelerators, 
             },
         }
     },
-    {"rank": 2, "model_config": <model_config>, "metrics": <metrics>},
-    {"rank": 3, "model_config": <model_config>, "metrics": <metrics>}
+    {"rank": 2, "model_config": "<model_config>", "metrics": "<metrics>"},
+    {"rank": 3, "model_config": "<model_config>", "metrics": "<metrics>"}
 ]
 ```
 
 ### AzureMLModels
 AzureMLModels packaging will register the output models to your Azure Machine Learning workspace. The asset name will be set as `<packaging_config_name>_<accelerator_spec>_<model_rank>`. The order is ranked by metrics priorities, starting from 1. For instance, if the output model is ONNX model and the packaging config is:
 
-```
+```json
 {
     "type": "AzureMLModels",
     "name": "olive_output_model",
@@ -92,7 +92,7 @@ Olive will also upload model configuration file, inference config file, metrics 
 ### AzureMLData
 AzureMLData packaging will upload the output models to your Azure Machine Learning workspace as Data assets. The asset name will be set as `<packaging_config_name>_<accelerator_spec>_<model_rank>`. The order is ranked by metrics priorities, starting from 1. For instance, if the output model is ONNX model and the packaging config is:
 
-```
+```json
 {
     "type": "AzureMLData",
     "name": "olive_output_model",
@@ -111,7 +111,7 @@ Olive will also upload model configuration file, inference config file, metrics 
 AzureMLDeployment packaging will [package](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-package-models?view=azureml-api-2&tabs=sdk) ranked No. 1 model across all output models to Azure ML workspace, and create an endpoint for it if the endpoint doesn't exist, then deploy the output model to this endpoint.
 
 ## How to package Olive artifacts
-Olive packaging configuration is configured in `PackagingConfig` in Engine configuration. `PackagingConfig` can be a single packging configuration. Alternatively, if you want to apply multiple packaging types, you can also define a list of packaging configurations.
+Olive packaging configuration is configured in `PackagingConfig` in Engine configuration. `PackagingConfig` can be a single packaging configuration. Alternatively, if you want to apply multiple packaging types, you can also define a list of packaging configurations.
 
 If not specified, Olive will not package artifacts.
 
@@ -188,7 +188,7 @@ If not specified, Olive will not package artifacts.
 
 You can add different types `PackagingConfig` as a list to Engine configurations. e.g.:
 
-```
+```json
 "engine": {
     "search_strategy": {
         "execution_order": "joint",
@@ -236,7 +236,7 @@ You can add different types `PackagingConfig` as a list to Engine configurations
 ### Inference config file
 The inference config file is a json file including `execution_provider` and `session_options`. e.g.:
 
-```
+```json
 {
     "execution_provider": [
         [
@@ -256,20 +256,20 @@ The inference config file is a json file including `execution_provider` and `ses
 
 ### Model configuration file
 The model configuration file is a json file including the history of applied Passes history to the output model. e.g.:
-```
+```json
 {
   "53fc6781998a4624b61959bb064622ce": null,
   "0_OnnxConversion-53fc6781998a4624b61959bb064622ce-7a320d6d630bced3548f242238392730": {
-    ...
+    //...
   },
   "1_OrtTransformersOptimization-0-c499e39e42693aaab050820afd31e0c3-cpu-cpu": {
-    ...
+    //...
   },
   "2_OnnxQuantization-1-1431c563dcfda9c9c3bf26c5d61ef58e": {
-    ...
+    //...
   },
   "3_OrtPerfTuning-2-a843d77ae4964c04e145b83567fb5b05-cpu-cpu": {
-    ...
+    //...
   }
 }
 ```
