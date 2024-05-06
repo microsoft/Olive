@@ -236,6 +236,8 @@ class IOBoundCache(ABC):
         self.torch_device = None
         self.torch_dtype = None
         if self.backend == "torch":
+            assert self.device in {"cpu", "cuda"}, f"device {self.device} is not supported with `torch` backend"
+
             import torch
 
             self.torch_device = "cpu" if self.device == "cpu" else torch.device("cuda", self.device_id)

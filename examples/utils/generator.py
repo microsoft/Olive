@@ -8,12 +8,14 @@ from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Union
 import numpy as np
 import onnx
 from kv_cache_utils import DynamicCache, DynamicIOBoundCache, GQASharedCache, StaticCache, StaticIOBoundCache
-from onnxruntime import InferenceSession, OrtValue, SessionOptions
+from onnxruntime import InferenceSession, OrtValue, RunOptions, SessionOptions
+from tqdm import tqdm
 from transformers import PreTrainedTokenizer
 
 if TYPE_CHECKING:
     from kv_cache_utils import Cache, IOBoundCache
     from numpy.typing import NDArray
+    from onnx import ValueInfoProto
 
 
 class AdapterMode(Enum):
@@ -63,6 +65,23 @@ class ORTGenerator:
             if node.op_type == "MultiHeadAttention":
                 self.attn_type = "mha"
                 break
+        # Get io info
+        self.input_info = {}
+        self.cache_info = {"past_names": [], "present_names": [], "dtype": None, "num_kv_heads": None, "head_dim": None}
+        for i in model_proto.graph.input:
+            if ".key" not in i.name and ".value" not in i.name:
+                self.input_info[i.name] = self.get_io_type_shape(i)
+                continue
+            if not self.cache_info["past_names"]:
+                past_info = self.get_io_type_shape(i)
+                self.cache_info["dtype"] = past_info["dtype"]
+                self.cache_info["num_kv_heads"] = past_info["shape"][1]
+                self.cache_info["head_dim"] = past_info["shape"][3]
+            self.cache_info["past_names"].append(i.name)
+        for i in model_proto.graph.output:
+            if ".key" not in i.name and ".value" not in i.name:
+                continue
+            self.cache_info["present_names"].append(i.name)
         del model_proto
 
         # Determine device to use for io binding
@@ -81,26 +100,26 @@ class ORTGenerator:
         )
         self.default_adapter = next(iter(self.adapters.keys()))
 
-        # infer past names, dtype and dims
-        self.use_position_ids = False
-        self.cache_info = {"past_names": [], "present_names": [], "dtype": None, "num_kv_heads": None, "head_dim": None}
-        session = self.sessions[self.adapters[self.default_adapter]["session"]]
-        for i in session.get_inputs():
-            if i.name == "position_ids":
-                self.use_position_ids = True
-            if ".key" not in i.name and ".value" not in i.name:
-                continue
-            if not self.cache_info["past_names"]:
-                self.cache_info["dtype"] = "float16" if i.type == "tensor(float16)" else "float32"
-                self.cache_info["num_kv_heads"] = i.shape[1]
-                self.cache_info["head_dim"] = i.shape[3]
-            self.cache_info["past_names"].append(i.name)
+    @staticmethod
+    def get_io_type_shape(io: "ValueInfoProto") -> Dict:
+        """Get the type and shape of an input/output."""
+        tensor_type = io.type.tensor_type
+        if tensor_type.elem_type == 0:
+            # sequence type
+            # TODO(jambayk): add support for different types
+            # refer to https://github.com/lutzroeder/netron/blob/main/source/onnx.js#L1424
+            tensor_type = io.type.sequence_type.elem_type.tensor_type
+        data_type = onnx.helper.tensor_dtype_to_np_dtype(tensor_type.elem_type).name
+        shape = [dim.dim_param if dim.dim_param else dim.dim_value for dim in tensor_type.shape.dim]
+        return {
+            "dtype": data_type,
+            "shape": shape,
+        }
 
-        # infer present names
-        for i in session.get_outputs():
-            if ".key" not in i.name and ".value" not in i.name:
-                continue
-            self.cache_info["present_names"].append(i.name)
+    @property
+    def use_position_ids(self) -> bool:
+        """Whether the model has position ids."""
+        return "position_ids" in self.input_info
 
     @staticmethod
     def prepare_sessions(
@@ -136,7 +155,15 @@ class ORTGenerator:
         provider_options = [{"device_id": device_id}] if device in {"cuda", "dml"} else None
         if adapter_mode == AdapterMode.inputs:
             # there is only one session
-            sessions["default"] = InferenceSession(model_path, providers=providers, provider_options=provider_options)
+            session_options = SessionOptions()
+            # TODO(jambayk): test and enable graph for cuda and dml
+            # dml graph doesn't work with adapter model for some reason
+            # past values get zeroes out during token generation
+            # if execution_provider == "DmlExecutionProvider":
+            #     session_options.add_session_config_entry("ep.dml.enable_graph_capture", "1")
+            sessions["default"] = InferenceSession(
+                model_path, sess_options=session_options, providers=providers, provider_options=provider_options
+            )
             for name, info in adapter_info.items():
                 adapters[name] = {
                     "session": "default",
@@ -166,6 +193,8 @@ class ORTGenerator:
                         initializer_values.append(OrtValue.ortvalue_from_numpy(value))
 
                 session_options = SessionOptions()
+                # if execution_provider == "DmlExecutionProvider":
+                #     session_options.add_session_config_entry("ep.dml.enable_graph_capture", "1")
                 session_options.add_external_initializers(initializer_names, initializer_values)
 
                 sessions[name] = InferenceSession(
@@ -243,8 +272,24 @@ class ORTGenerator:
             "attention_mask": (inputs["attention_mask"].numpy() if use_io_binding else inputs["attention_mask"].copy())
         }
         if self.use_position_ids:
-            np_buffers["position_ids"] = np_buffers["attention_mask"].sum(axis=1).reshape(batch_size, 1)
-        for idx in range(max_gen_len):
+            np_buffers["position_ids"] = (
+                np_buffers["attention_mask"]
+                .sum(axis=1)
+                .reshape(batch_size, 1)
+                .astype(self.input_info["position_ids"]["dtype"])
+            )
+
+        run_options = RunOptions()
+        for idx in tqdm(range(max_gen_len)):
+            # if self.execution_provider == "DmlExecutionProvider" and idx == 0:
+            #     run_options.add_run_config_entry("gpu_graph_id", "-1")
+            # elif (
+            #     self.execution_provider == "DmlExecutionProvider"
+            #     and idx == 1
+            #     and use_io_binding
+            #     and cache_type == "static"
+            # ):
+            #     run_options.add_run_config_entry("gpu_graph_id", "1")
             if use_io_binding:
                 if idx < 2:
                     # need to bind logits twice, once for prompt processing and once for token generation
@@ -255,13 +300,13 @@ class ORTGenerator:
                 cache.bind_kv_io(io_binding)
 
                 io_binding.synchronize_inputs()
-                session.run_with_iobinding(io_binding)
+                session.run_with_iobinding(io_binding, run_options)
                 io_binding.synchronize_outputs()
 
                 outputs = io_binding.get_outputs()
                 logits = outputs[0].numpy()
             else:
-                outputs = session.run(None, {**inputs, **cache.get_kv_inputs()})
+                outputs = session.run(None, {**inputs, **cache.get_kv_inputs()}, run_options)
                 logits = outputs[0]
 
             # Decide the next token using your preferred sampling strategy.
@@ -382,9 +427,9 @@ class ORTGenerator:
             )
 
         encodings_dict = self.tokenizer(prompt, return_tensors="np", padding=True)
-        input_ids = encodings_dict["input_ids"]
+        input_ids = encodings_dict["input_ids"].astype(self.input_info["input_ids"]["dtype"])
         batch_size, prompt_length = input_ids.shape
-        attention_mask = encodings_dict["attention_mask"]
+        attention_mask = encodings_dict["attention_mask"].astype(self.input_info["attention_mask"]["dtype"])
 
         cache = self.get_fresh_cache(batch_size, use_io_binding, cache_type, max_cache_len, cache_backend)
         if isinstance(cache, GQASharedCache):
@@ -392,14 +437,11 @@ class ORTGenerator:
                 [attention_mask, np.zeros((batch_size, cache.max_cache_len - prompt_length), dtype=np.int32)], 1
             )
 
-        inputs = {
-            "input_ids": input_ids,
-            "attention_mask": attention_mask
-        }
+        inputs = {"input_ids": input_ids, "attention_mask": attention_mask}
         if self.use_position_ids:
             position_ids = np.arange(prompt_length, dtype=np.int64).reshape((1, prompt_length))
             position_ids = np.broadcast_to(position_ids, (batch_size, prompt_length))
-            inputs["position_ids"] = position_ids
+            inputs["position_ids"] = position_ids.astype(self.input_info["position_ids"]["dtype"])
         if use_io_binding:
             inputs = {k: OrtValue.ortvalue_from_numpy(v, self.device, self.device_id) for k, v in inputs.items()}
         return inputs, cache

@@ -33,7 +33,7 @@
             "name": "dataset_classification",
             "type": "HuggingfaceContainer",
             "params_config": {
-                "data_name": "json", 
+                "data_name": "json",
                 "data_files":"models/dataset-classification.json",
                 "split": "train",
                 "component_kwargs": {
