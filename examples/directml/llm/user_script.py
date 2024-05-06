@@ -94,17 +94,16 @@ def decoder_torch_inputs(model):
     past_seq_len = 0
     sequence_length = 10
     max_seq_len = past_seq_len + sequence_length
-    head_size = config.hidden_size // config.num_heads
 
     inputs = {
         "attention_mask": torch.zeros((batch_size, max_seq_len), dtype=torch.int64),
         "past_key_values": [
             {
                 "key": torch.rand(
-                    (batch_size, config.num_key_value_heads, past_seq_len, head_size), dtype=torch.float32
+                    (batch_size, config.num_key_value_heads, past_seq_len, config.head_dim), dtype=torch.float32
                 ),
                 "value": torch.rand(
-                    (batch_size, config.num_key_value_heads, past_seq_len, head_size), dtype=torch.float32
+                    (batch_size, config.num_key_value_heads, past_seq_len, config.head_dim), dtype=torch.float32
                 ),
             }
             for _ in range(config.num_layers)
@@ -130,7 +129,6 @@ def decoder_torch_inputs(model):
 def decoder_ort_inputs(batch_size):
     sequence_length = 10
     max_seq_len = 1024
-    head_size = config.hidden_size // config.num_heads
 
     inputs = {
         "attention_mask": torch.zeros((batch_size, max_seq_len), dtype=torch.int64),
@@ -138,10 +136,10 @@ def decoder_ort_inputs(batch_size):
 
     for layer_idx in range(config.num_layers):
         inputs[f"past_key_values.{layer_idx}.key"] = torch.rand(
-            (batch_size, config.num_key_value_heads, max_seq_len, head_size), dtype=torch.float32
+            (batch_size, config.num_key_value_heads, max_seq_len, config.head_dim), dtype=torch.float32
         )
         inputs[f"past_key_values.{layer_idx}.value"] = torch.rand(
-            (batch_size, config.num_key_value_heads, max_seq_len, head_size), dtype=torch.float32
+            (batch_size, config.num_key_value_heads, max_seq_len, config.head_dim), dtype=torch.float32
         )
 
     if config.model_type == "llava":

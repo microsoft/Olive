@@ -77,7 +77,7 @@
                 "use_gqa": true,
                 "num_key_value_heads": 32,
                 "optimization_options": {
-                    "enable_gelu": false,
+                    "enable_gelu": true,
                     "enable_layer_norm": true,
                     "enable_attention": true,
                     "use_multi_head_attention": true,

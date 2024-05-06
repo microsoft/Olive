@@ -8,6 +8,7 @@ normalization_type = "rms"
 state_dict = {}
 strict_weights_loading = True
 hidden_size = 4096
+head_dim = 128
 intermediate_size = 11008
 num_heads = 32
 num_key_value_heads = 32
