@@ -98,7 +98,7 @@ class ModelBuilder(Pass):
                 type_=bool,
                 default_value=None,  # Explicitly setting to None to differentiate between user intent and default.
                 required=False,
-                description="Enalbe G(Group)Query(Q)Attention(A) on CPU.",
+                description="Enable G(Group)Query(Q)Attention(A) on CPU.",
             ),
         }
 
