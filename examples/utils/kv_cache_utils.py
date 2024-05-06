@@ -525,6 +525,9 @@ class GQASharedCache(IOBoundCache):
         super().__init__(
             past_names, present_names, batch_size, num_kv_heads, head_dim, dtype, device, device_id, backend
         )
+        if device == "dml" and max_cache_len % 4 == 0:
+            # there is an overflow bug in DML for max_cache_len % 4 == 0
+            max_cache_len += 1
         self.max_cache_len = max_cache_len
         # will just use ortvalue since we don't need to access the cache
         # allocate cache with zeros
