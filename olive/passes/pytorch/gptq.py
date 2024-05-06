@@ -126,7 +126,7 @@ class GptqQuantizer(Pass):
         from auto_gptq.modeling import BaseGPTQForCausalLM
         from auto_gptq.modeling.auto import GPTQ_CAUSAL_LM_MODEL_MAP
 
-        from olive.passes.pytorch.quant_utils import QuantLinearORT
+        from olive.passes.pytorch.quant_utils import QuantLinear
 
         if not torch.cuda.is_available():
             raise ValueError("Please use GPU to run gptq quantization.")
@@ -170,7 +170,7 @@ class GptqQuantizer(Pass):
         )
 
         def get_onnx_quant_linear(*args, **kwargs):
-            return QuantLinearORT
+            return QuantLinear
 
         if hasattr(pytorch_model, "config") and pytorch_model.config.model_type in GPTQ_CAUSAL_LM_MODEL_MAP:
             model_type = pytorch_model.config.model_type
@@ -191,7 +191,7 @@ class GptqQuantizer(Pass):
 
         original = auto_gptq.modeling._utils.dynamically_import_QuantLinear  # pylint: disable=protected-access
         try:
-            # Replace QuantLinear in autogptq with QuantLinearORT for quant linear layer packing
+            # Replace QuantLinear in autogptq with QuantLinear for quant linear layer packing
             auto_gptq.modeling._utils.dynamically_import_QuantLinear = (  # pylint: disable=protected-access
                 get_onnx_quant_linear
             )

@@ -136,7 +136,7 @@ def _quant_linear_forward(inputs, qweight, scales, qzeros, bits, groupsize, in_f
     return QuantLinearTorchFunction().apply(inputs, qweight, scales, qzeros, bits, groupsize, in_features, out_features)
 
 
-class QuantLinearORT(nn.Module):
+class QuantLinear(nn.Module):
     # pylint: disable=W0201
     def __init__(self, bits, groupsize, infeatures, outfeatures, bias, *args, **kwargs):
         super().__init__()

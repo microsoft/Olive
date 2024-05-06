@@ -196,7 +196,7 @@ class AutoAWQQuantizer(Pass):
         from awq.quantize.quantizer import AwqQuantizer as PyAutoAWQQuantizer
         from awq.quantize.quantizer import clear_memory, get_best_device, set_op_by_name
 
-        from olive.passes.pytorch.quant_utils import QuantLinearORT
+        from olive.passes.pytorch.quant_utils import QuantLinear
 
         class OrtAutoAWQQuantizer(PyAutoAWQQuantizer):
             def _apply_quant(self, module, named_linears: Dict[str, torch.nn.Linear]):
@@ -204,7 +204,7 @@ class AutoAWQQuantizer(Pass):
                     # NOTE: small regression in perplexity if linear layer uses .cpu().float()
                     linear_layer = old_linear_layer.to(get_best_device()).half()
                     linear_layer.weight.data, _, _ = self.pseudo_quantize_tensor(linear_layer.weight.data)
-                    q_linear = QuantLinearORT(
+                    q_linear = QuantLinear(
                         bits=config["w_bit"],
                         groupsize=config["q_group_size"],
                         infeatures=linear_layer.in_features,
