@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 from pathlib import Path
 from test.unit_test.utils import get_onnx_model, get_pytorch_model_dummy_input
+from typing import Any, Dict, Optional
 
 from onnxruntime.quantization.calibrate import CalibrationDataReader  # type: ignore[import]
 
@@ -16,7 +17,7 @@ class DummyCalibrationDataReader(CalibrationDataReader):
         super().__init__()
         self.sample_counter = 64
 
-    def get_next(self) -> dict:
+    def get_next(self) -> Optional[Dict[Any, Any]]:
         if self.sample_counter <= 0:
             return None
 

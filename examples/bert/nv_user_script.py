@@ -11,13 +11,13 @@ datasets_logging.disable_progress_bar()
 datasets_logging.set_verbosity_error()
 
 
-def load_pytorch_origin_model(model_path):
+def load_pytorch_origin_model():
     model = BertModel.from_pretrained("bert-base-uncased")
     model.eval()
     return model
 
 
-def create_calibration_dataloader(data_dir, batch_size, calib_size, *args, **kwargs):
+def create_calibration_dataloader(batch_size, calib_size, *args, **kwargs):
     tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 
     def tokenization(example):
