@@ -4,8 +4,6 @@
 # --------------------------------------------------------------------------
 import os
 
-from azure.storage.blob import BlobClient
-
 # pylint: disable=broad-exception-raised
 
 
