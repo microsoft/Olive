@@ -82,9 +82,12 @@ class ORTGenerator:
         self.default_adapter = next(iter(self.adapters.keys()))
 
         # infer past names, dtype and dims
+        self.use_position_ids = False
         self.cache_info = {"past_names": [], "present_names": [], "dtype": None, "num_kv_heads": None, "head_dim": None}
         session = self.sessions[self.adapters[self.default_adapter]["session"]]
         for i in session.get_inputs():
+            if i == "position_ids":
+                self.use_position_ids = True
             if ".key" not in i.name and ".value" not in i.name:
                 continue
             if not self.cache_info["past_names"]:
@@ -239,7 +242,8 @@ class ORTGenerator:
         np_buffers = {
             "attention_mask": (inputs["attention_mask"].numpy() if use_io_binding else inputs["attention_mask"].copy())
         }
-        np_buffers["position_ids"] = np_buffers["attention_mask"].sum(axis=1).reshape(batch_size, 1)
+        if self.use_position_ids:
+            np_buffers["position_ids"] = np_buffers["attention_mask"].sum(axis=1).reshape(batch_size, 1)
         for idx in range(max_gen_len):
             if use_io_binding:
                 if idx < 2:
@@ -288,19 +292,22 @@ class ORTGenerator:
             if use_io_binding:
                 if idx == 0:
                     inputs["input_ids"] = OrtValue.ortvalue_from_numpy(tokens_to_add, self.device, self.device_id)
-                    inputs["position_ids"] = OrtValue.ortvalue_from_numpy(
-                        np_buffers["position_ids"], self.device, self.device_id
-                    )
+                    if self.use_position_ids:
+                        inputs["position_ids"] = OrtValue.ortvalue_from_numpy(
+                            np_buffers["position_ids"], self.device, self.device_id
+                        )
                 else:
                     inputs["input_ids"].update_inplace(tokens_to_add)
-                    np_buffers["position_ids"] += 1
-                    inputs["position_ids"].update_inplace(np_buffers["position_ids"])
+                    if self.use_position_ids:
+                        np_buffers["position_ids"] += 1
+                        inputs["position_ids"].update_inplace(np_buffers["position_ids"])
             else:
                 inputs["input_ids"] = tokens_to_add
-                if idx == 0:
-                    inputs["position_ids"] = np_buffers["position_ids"]
-                else:
-                    inputs["position_ids"] += 1
+                if self.use_position_ids:
+                    if idx == 0:
+                        inputs["position_ids"] = np_buffers["position_ids"]
+                    else:
+                        inputs["position_ids"] += 1
 
             # NOTE: we could use !has_eos instead of 1s in the attention updates but that is not necessary
             # since we don't care about subsequent tokens after EOS token id
@@ -379,9 +386,6 @@ class ORTGenerator:
         batch_size, prompt_length = input_ids.shape
         attention_mask = encodings_dict["attention_mask"]
 
-        position_ids = np.arange(prompt_length, dtype=np.int64).reshape((1, prompt_length))
-        position_ids = np.broadcast_to(position_ids, (batch_size, prompt_length))
-
         cache = self.get_fresh_cache(batch_size, use_io_binding, cache_type, max_cache_len, cache_backend)
         if isinstance(cache, GQASharedCache):
             attention_mask = np.concatenate(
@@ -390,9 +394,12 @@ class ORTGenerator:
 
         inputs = {
             "input_ids": input_ids,
-            "attention_mask": attention_mask,
-            "position_ids": position_ids,
+            "attention_mask": attention_mask
         }
+        if self.use_position_ids:
+            position_ids = np.arange(prompt_length, dtype=np.int64).reshape((1, prompt_length))
+            position_ids = np.broadcast_to(position_ids, (batch_size, prompt_length))
+            inputs["position_ids"] = position_ids
         if use_io_binding:
             inputs = {k: OrtValue.ortvalue_from_numpy(v, self.device, self.device_id) for k, v in inputs.items()}
         return inputs, cache

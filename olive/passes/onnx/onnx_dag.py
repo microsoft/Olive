@@ -149,6 +149,9 @@ class OnnxDAG:
         nodes[name] = onnx_node
 
         for i in node_proto.input:
+            if i == "":
+                # some nodes have unnamed, unused inputs
+                continue
             if i not in ios:
                 raise ValueError(
                     f"Input {i} does not exist in the graph. Please process the nodes in topological order."

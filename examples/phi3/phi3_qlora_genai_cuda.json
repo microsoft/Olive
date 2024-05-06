@@ -21,7 +21,7 @@
                 "accelerators": [
                     {
                         "execution_providers": [
-                            "CPUExecutionProvider"
+                            "CUDAExecutionProvider"
                         ]
                     }
                 ]
@@ -30,21 +30,26 @@
     },
     "data_configs": [
         {
-            "name": "dataset_classification",
+            "name": "tiny_codes_train",
             "type": "HuggingfaceContainer",
+            "user_script": "user_script.py",
+            "components": {
+                "load_dataset": {
+                    "type": "load_tiny_code_dataset"
+                }
+            },
             "params_config": {
-                "data_name": "json", 
-                "data_files":"models/dataset-classification.json",
+                "data_name": "nampdn-ai/tiny-codes",
                 "split": "train",
                 "component_kwargs": {
+                    "load_dataset": {
+                        "language": "Python",
+                        "token": true
+                    },
                     "pre_process_data": {
-                        "dataset_type": "corpus",
-                        "text_cols": ["phrase", "tone"],
-                        "text_template": "### Text: {phrase}\n### The tone is:\n{tone}",
                         "corpus_strategy": "join",
-                        "source_max_len": 1024,
-                        "pad_to_max_len": false,
-                        "use_attention_mask": false
+                        "text_template": "### Question: {prompt} \n### Answer: {response}",
+                        "source_max_len": 1024
                     }
                 }
             }
@@ -55,22 +60,37 @@
             "type": "QLoRA",
             "config": {
                 "lora_dropout": 0.1,
-                "train_data_config": "dataset_classification",
-                "eval_dataset_size": 0.3,
+                "train_data_config": "tiny_codes_train",
+                "eval_dataset_size": 1024,
                 "training_args": {
                     "per_device_train_batch_size": 16,
                     "per_device_eval_batch_size": 16,
                     "gradient_accumulation_steps": 1,
                     "max_steps": 150,
+                    "logging_steps": 50,
+                    "save_steps": 50,
                     "evaluation_strategy": "steps",
-                    "eval_steps": 100,
-                    "logging_steps": 100,
-                    "group_by_length": true,
                     "adam_beta2": 0.999,
                     "max_grad_norm": 0.3,
                     "load_best_model_at_end": true,
-                    "output_dir": "models/phi3-classification-checkpoints"
+                    "output_dir": "models/phi3-qlora-checkpoints"
                 }
+            }
+        },
+        "builder": {
+            "type": "ModelBuilder",
+            "config": {
+                "precision": "int4",
+                "search": {
+                    "max_length": 2048,
+                    "min_length": 0
+                }
+            }
+        },
+        "extract": {
+            "type": "ExtractAdapters",
+            "config": {
+                "make_inputs": true
             }
         }
     },
@@ -78,6 +98,6 @@
         "host": "local_system",
         "target": "local_system",
         "cache_dir": "cache",
-        "output_dir" : "models/phi3-classification"
+        "output_dir" : "models/phi3-qlora-cuda"
     }
 }
