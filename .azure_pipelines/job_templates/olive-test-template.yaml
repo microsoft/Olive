@@ -56,7 +56,6 @@ jobs:
           call coverage xml
       displayName: Test Olive
       env:
-        OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)
         WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
         WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
         WORKSPACE_NAME: $(workspace-name)
@@ -70,7 +69,6 @@ jobs:
           coverage xml
       displayName: Test Olive
       env:
-        OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)
         WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
         WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
         WORKSPACE_NAME: $(workspace-name)

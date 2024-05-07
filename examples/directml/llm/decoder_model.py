@@ -69,6 +69,9 @@ class Model(torch.nn.Module):
 
         x = tokens_or_embeddings if self.use_embeddings else self.embed_tokens(tokens_or_embeddings)
 
+        if config.model_type == "gemma":
+            x *= np.round(np.sqrt(config.hidden_size), decimals=2)
+
         for layer_idx, layer in enumerate(self.layers):
             k_cache = past_key_values[layer_idx]["key"].clone().detach()
             v_cache = past_key_values[layer_idx]["value"].clone().detach()
@@ -87,10 +90,10 @@ def rotary_mat(
     head_scale=1.0,
     dtype=torch.float32,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    head_dim = head_scale * config.hidden_size / config.num_heads
+    scaled_head_dim = head_scale * config.head_dim
 
-    pos = torch.arange(0, head_dim, step=2, dtype=dtype)
-    freqs = 1.0 / (theta ** (pos / head_dim))
+    pos = torch.arange(0, scaled_head_dim, step=2, dtype=dtype)
+    freqs = 1.0 / (theta ** (pos / scaled_head_dim))
 
     idx = torch.arange(max_seq_len)
     freqs = torch.outer(idx.to(dtype), freqs)
@@ -114,6 +117,10 @@ class RMSNorm(torch.nn.Module):
         hidden_states = hidden_states.to(torch.float32)
         variance = hidden_states.pow(2).mean(-1, keepdim=True)
         hidden_states = hidden_states * torch.rsqrt(variance + self.eps)
+
+        if config.model_type == "gemma":
+            return (1.0 + self.weight) * hidden_states.to(input_dtype)
+
         return self.weight * hidden_states.to(input_dtype)
 
 
@@ -232,13 +239,14 @@ def broadcast_key_value(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor
 class SelfAttention(torch.nn.Module):
     def __init__(self) -> None:
         super().__init__()
-        self.head_dim = int(config.hidden_size / config.num_heads)
-
-        key_value_hidden_size = config.num_key_value_heads * self.head_dim
-        self.q_proj = torch.nn.Linear(config.hidden_size, config.hidden_size, bias=config.use_bias)
-        self.k_proj = torch.nn.Linear(config.hidden_size, key_value_hidden_size, bias=config.use_bias)
-        self.v_proj = torch.nn.Linear(config.hidden_size, key_value_hidden_size, bias=config.use_bias)
-        self.o_proj = torch.nn.Linear(config.hidden_size, config.hidden_size, bias=config.use_bias)
+        self.q_proj = torch.nn.Linear(config.hidden_size, config.num_heads * config.head_dim, bias=config.use_bias)
+        self.k_proj = torch.nn.Linear(
+            config.hidden_size, config.num_key_value_heads * config.head_dim, bias=config.use_bias
+        )
+        self.v_proj = torch.nn.Linear(
+            config.hidden_size, config.num_key_value_heads * config.head_dim, bias=config.use_bias
+        )
+        self.o_proj = torch.nn.Linear(config.num_heads * config.head_dim, config.hidden_size, bias=config.use_bias)
         self.apply_mask = ApplyMask()
         self.rotary_embedding = RotaryEmbedding()
 
@@ -261,17 +269,17 @@ class SelfAttention(torch.nn.Module):
         sequence_length = x.shape[1]
 
         # Split the attention heads
-        query = torch.reshape(query, [batch_size, sequence_length, config.num_heads, self.head_dim]).transpose(1, 2)
-        key = torch.reshape(key, [batch_size, sequence_length, config.num_key_value_heads, self.head_dim]).transpose(
+        query = torch.reshape(query, [batch_size, sequence_length, config.num_heads, config.head_dim]).transpose(1, 2)
+        key = torch.reshape(key, [batch_size, sequence_length, config.num_key_value_heads, config.head_dim]).transpose(
             1, 2
         )
         value = torch.reshape(
-            value, [batch_size, sequence_length, config.num_key_value_heads, self.head_dim]
+            value, [batch_size, sequence_length, config.num_key_value_heads, config.head_dim]
         ).transpose(1, 2)
 
         if config.partial_rotary_factor != 1.0:
             # Partial rotary embedding
-            partial_dim = int(config.partial_rotary_factor * self.head_dim)
+            partial_dim = int(config.partial_rotary_factor * config.head_dim)
 
             query_rot, query_pass = (
                 query[..., :partial_dim],
@@ -308,7 +316,7 @@ class SelfAttention(torch.nn.Module):
         key = key.permute([0, 1, 3, 2])
 
         # Calculate attention scores
-        score = torch.matmul(query, key) / np.sqrt(self.head_dim)
+        score = torch.matmul(query, key) / np.sqrt(config.head_dim)
 
         # Apply the mask
         score = self.apply_mask(use_cache, score, attention_mask, sequence_length)
@@ -318,7 +326,7 @@ class SelfAttention(torch.nn.Module):
         attn = torch.matmul(prob, value)
 
         # Merge attention heads
-        attn = attn.permute([0, 2, 1, 3]).reshape([batch_size, sequence_length, config.hidden_size])
+        attn = attn.permute([0, 2, 1, 3]).reshape([batch_size, sequence_length, config.num_heads * config.head_dim])
 
         return self.o_proj(attn), k_cache, v_cache
 
