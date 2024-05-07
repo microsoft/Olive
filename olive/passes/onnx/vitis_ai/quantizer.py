@@ -1365,10 +1365,6 @@ else:
             if "quant_type" in quant_overrides_for_channels[0]:
                 weight_qType = quant_overrides_for_channels[0]["quant_type"].tensor_type  # noqa: N806
 
-            symmetric = quant_overrides_for_channels[0].get(
-                "symmetric",
-                (self.is_weight_symmetric or weight_qType in (onnx.TensorProto.INT8, onnx.TensorProto.FLOAT8E4M3FN)),
-            )
             reduce_range = quant_overrides_for_channels[0].get("reduce_range", self.reduce_range and reduce_range)
             zero_point_list = []
             scale_list = []
