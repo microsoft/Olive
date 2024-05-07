@@ -278,6 +278,47 @@ input and return the loaded model.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">input_shapes:</span> <span class="pre">[List[List[int]]]</span></code> The input shapes of the model.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">output_names:</span> <span class="pre">[List[str]]</span></code> The output names of the model.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">dynamic_axes:</span> <span class="pre">[Dict[str,</span> <span class="pre">Dict[str,</span> <span class="pre">str]]]</span></code> The dynamic axes of the model. The key is the name of the input or output and the value is a dictionary that contains the dynamic axes of the input or output. The key of the value dictionary is the index of the dynamic axis and the value is the name of the dynamic axis. For example, <code class="docutils literal notranslate"><span class="pre">{&quot;input&quot;:</span> <span class="pre">{&quot;0&quot;:</span> <span class="pre">&quot;batch_size&quot;},</span> <span class="pre">&quot;output&quot;:</span> <span class="pre">{&quot;0&quot;:</span> <span class="pre">&quot;batch_size&quot;}}</span></code> means the first dimension of the input and output is dynamic and the name of the dynamic axis is <code class="docutils literal notranslate"><span class="pre">batch_size</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">string_to_int_dim_params:</span> <span class="pre">List[str]</span></code> The list of input names in dynamic axes that need to be converted to int value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">kv_cache:</span> <span class="pre">Union[bool,</span> <span class="pre">Dict[str,</span> <span class="pre">str]]</span></code> The key value cache configuration.</p>
+<ul>
+<li><p>If it is <code class="docutils literal notranslate"><span class="pre">False</span></code>, Olive will not use key value cache.</p></li>
+<li><p>If it is <code class="docutils literal notranslate"><span class="pre">True</span></code>, Olive will infer the cache configuration from the input_names/input_shapes and input model based on default <code class="docutils literal notranslate"><span class="pre">kv_cache</span></code>.</p></li>
+<li><p>If it is a dictionary, it should contains the key value cache configuration. Here is an default configuration example:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">ort_past_key_name</span></code>: “past_key_<id>”
+Template for the past key name. The <code class="docutils literal notranslate"><span class="pre">&lt;id&gt;</span></code> will be replaced by the id of the past key.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ort_past_value_name</span></code>: “past_value_<id>”
+Template for the past value name. The <code class="docutils literal notranslate"><span class="pre">&lt;id&gt;</span></code> will be replaced by the id of the past value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ort_present_key_name</span></code>: “present_key_<id>”
+Template for the present key name. The <code class="docutils literal notranslate"><span class="pre">&lt;id&gt;</span></code> will be replaced by the id of the present key.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ort_present_value_name</span></code>: “present_value_<id>”
+Template for the present value name. The <code class="docutils literal notranslate"><span class="pre">&lt;id&gt;</span></code> will be replaced by the id of the present value.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">world_size</span></code>: 1
+It is only used for distributed models.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_hidden_layers</span></code>: null
+If null, Olive will infer the number of hidden layers from the model.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_attention_heads</span></code>: null
+If null, Olive will infer the number of attention heads from the model.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hidden_size</span></code>: null
+If null, Olive will infer the hidden size from the model.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">past_sequence_length</span></code>: null
+If null, Olive will infer the past sequence length from the model.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">batch_size</span></code>: 0
+The batch size of the model. If it is 0, Olive will use the batch size from the input_shapes if <code class="docutils literal notranslate"><span class="pre">input_ids</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dtype</span></code>: “float32”
+The data type of the model.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">shared_kv</span></code>: false
+Whether to share the key value cache between the past and present key value cache. If it is true, the dynamic axes of the past and present key value cache will be the same.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sequence_length_idx</span></code>: 2
+For most of the cases, the input shape for kv_cache is like (batch_size, num_attention_heads/world_size, sequence_length, hidden_size/num_attention_heads). The <code class="docutils literal notranslate"><span class="pre">sequence_length</span></code> is the index of the sequence length in the input shape.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">past_kv_dynamic_axis</span></code>: null
+The dynamic axis of the past key value cache. If it is null, Olive will infer the dynamic axis.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">present_kv_dynamic_axis</span></code>: null
+The dynamic axis of the present key value cache. If it is null, Olive will infer the dynamic axis.</p></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </li>
 <li><p><a name="hf_config"></a> <code class="docutils literal notranslate"><span class="pre">hf_config:</span> <span class="pre">[Dict]</span></code> Instead of <code class="docutils literal notranslate"><span class="pre">model_path</span></code> or <code class="docutils literal notranslate"><span class="pre">model_loader</span></code>, the model can be specified using a dictionary describing a huggingface

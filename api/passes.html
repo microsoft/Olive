@@ -220,6 +220,15 @@
 </dd></dl>
 
 <dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-past_key_value_name">
+<span class="sig-name descname"><span class="pre">past_key_value_name</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-past_key_value_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>The arguments name to point to past key values. For model loaded from huggingface, it is ‘past_key_values’. Basically, it is used only when <cite>use_dynamo_exporter</cite> is True.</p>
+<p><strong>type:</strong> str</p>
+<p><strong>default_value:</strong> past_key_values</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-device">
 <span class="sig-name descname"><span class="pre">device</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-device" title="Permalink to this definition">¶</a></dt>
 <dd><p>The device to use for conversion, e.g., ‘cuda’ or ‘cpu’. If not specified, will use ‘cpu’ for PyTorch model and ‘cuda’ for DistributedPyTorchModel.</p>
