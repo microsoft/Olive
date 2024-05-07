@@ -17,10 +17,16 @@ from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import copy_dir
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
-from olive.model.config import HfComponent, HfConfig, IoConfig
+from olive.model.config import (
+    HfComponent,
+    HfConfig,
+    IoConfig,
+    complete_kv_cache_with_model_attributes,
+    extend_io_config_with_kv_cache,
+)
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
-from olive.model.handler.mixin import DummyInputsMixin, HfConfigMixin
+from olive.model.handler.mixin import DummyInputsMixin, HfConfigMixin, PytorchKvCacheMixin
 from olive.model.utils.hf_utils import load_hf_model_from_model_class
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, ResourceType, create_resource_path
 
@@ -28,7 +34,9 @@ logger = logging.getLogger(__name__)
 
 
 @model_handler_registry("PyTorchModel")
-class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  # pylint: disable=too-many-ancestors
+class PyTorchModelHandler(
+    OliveModelHandler, HfConfigMixin, DummyInputsMixin, PytorchKvCacheMixin
+):  # pylint: disable=too-many-ancestors
     """PyTorch model handler.
 
     Besides the model loading for PyTorch model, the model handler also provides the following functionalities:
@@ -246,22 +254,23 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
 
         If io_config is a string name or a callable, it will be called to get io_config.
         """
+        io_config_obj = None
         if isinstance(io_config, dict):
-            # io_config is provided
-            return io_config
-
-        if isinstance(io_config, IoConfig):
-            # io_config is an IoConfig
-            return io_config.dict()
-
-        if isinstance(io_config, (str, Callable)):
+            io_config_obj = IoConfig.parse_obj(io_config)
+        elif isinstance(io_config, IoConfig):
+            # return a new copy of io_config to avoid modifying the original one
+            io_config_obj = io_config.copy(deep=True)
+        elif isinstance(io_config, (str, Callable)):
             # io_config is a string name or a callable
             logger.debug("Calling %s to get io_config", io_config)
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             io_config = user_module_loader.call_object(io_config, self)
-            return validate_config(io_config, IoConfig).dict()
-
-        return None
+            io_config_obj = validate_config(io_config, IoConfig)
+        # TODO(anyone): infer if to use kv_cache from task config
+        if io_config_obj.kv_cache:
+            kv_cache_config = complete_kv_cache_with_model_attributes(io_config_obj.kv_cache, self.model_attributes)
+            io_config_obj = extend_io_config_with_kv_cache(io_config_obj, kv_cache_config)
+        return io_config_obj.dict(exclude_none=True)
 
     @property
     def io_config(self) -> Dict[str, Any]:

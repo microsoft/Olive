@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 
 from argparse import Namespace
-from itertools import chain
 from typing import List, Tuple, Union
 
 import torch
@@ -105,8 +104,8 @@ def flatten_past_kv_inputs(past_key_values: List[Tuple[torch.Tensor, torch.Tenso
     past_kv = {}
     # Convert list of past_kv to dict of past_key and past_value
     for i, (past_k, past_v) in enumerate(past_key_values):
-        past_kv[f"past_key_values.{i}.key"] = past_k
-        past_kv[f"past_key_values.{i}.value"] = past_v
+        past_kv[f"past_key_{i}"] = past_k
+        past_kv[f"past_value_{i}"] = past_v
     return past_kv
 
 
@@ -121,68 +120,6 @@ def enable_past_present_share_buffer(ort_inputs: dict, past_seq_len: int, max_se
             new_v[:batch_size, :num_heads, :past_seq_len, :head_size] = v
             ort_inputs[k] = new_v
     return ort_inputs
-
-
-# -----------------------------------------------------------------------------
-# Conversion Arguments (Inputs, Outputs, Dynamic Axes)
-# -----------------------------------------------------------------------------
-
-
-def get_merged_model_dynamic_axes(input_names: List[str], output_names: List[str]):
-    dynamic_axes = {}
-    for name in input_names + output_names:
-        if name in {"input_ids", "position_ids"}:
-            # shape is (batch_size, sequence_length)
-            dynamic_axes[name] = {0: "batch_size", 1: "sequence_length"}
-        elif name == "attention_mask":
-            # shape is (batch_size, past_sequence_length + sequence_length) = (batch_size, total_sequence_length)
-            # for prompt generation, past_sequence_length = 0
-            # for token generation, sequence_length = 1
-            dynamic_axes[name] = {0: "batch_size", 1: "total_sequence_length"}
-        elif "past" in name:
-            # shape is (batch_size, num_heads, past_sequence_length, head_size)
-            dynamic_axes[name] = {0: "batch_size", 2: "past_sequence_length"}
-        elif name == "logits":
-            # shape is (batch_size, sequence_length, vocab_size)
-            dynamic_axes[name] = {0: "batch_size", 1: "sequence_length"}
-        elif "present" in name:
-            # shape is (batch_size, num_heads, past_sequence_length + sequence_length, head_size)
-            #  = (batch_size, num_heads, total_sequence_length, head_size)
-            # for prompt generation, past_sequence_length = 0
-            # for token generation, sequence_length = 1
-            dynamic_axes[name] = {0: "batch_size", 2: "total_sequence_length"}
-        else:
-            raise ValueError("Unknown input or output name found")
-    return dynamic_axes
-
-
-def get_merged_decoder_with_past_io_config(model: PyTorchModelHandler):
-    if model.hf_config is not None:
-        config = model.get_hf_model_config()
-    else:
-        # Using Namespace class to access dict items like class attributes
-        config = Namespace(**model.model_attributes)
-
-    input_names = [
-        "input_ids",
-        "attention_mask",
-        "position_ids",
-        *list(
-            chain.from_iterable(
-                (f"past_key_values.{i}.key", f"past_key_values.{i}.value") for i in range(config.num_hidden_layers)
-            )
-        ),
-    ]
-    output_names = [
-        "logits",
-        *list(chain.from_iterable((f"present.{i}.key", f"present.{i}.value") for i in range(config.num_hidden_layers))),
-    ]
-    dynamic_axes = get_merged_model_dynamic_axes(input_names, output_names)
-    return {
-        "input_names": input_names,
-        "dynamic_axes": dynamic_axes,
-        "output_names": output_names,
-    }
 
 
 # -----------------------------------------------------------------------------
