@@ -108,7 +108,7 @@ class NVModelOptQuantization(Pass):
             from modelopt.onnx.quantization.int4 import quantize_int4  # type: ignore[import]
         except ImportError as exc:
             raise ImportError(
-                "Please install `olive-ai[nvmo]` or `nvidia-modelopt` to use INT4 AWQ quantization!"
+                "Please install `olive-ai[nvmo]` or `nvidia-modelopt[onnx]` to use INT4 AWQ quantization!"
             ) from exc
 
         calib_dataloader = self._user_module_loader.call_object(

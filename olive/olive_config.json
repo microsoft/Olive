@@ -240,7 +240,8 @@
             "onnxruntime-openvino"
         ],
         "nvmo": [
-            "nvidia-modelopt"
+            "nvidia-modelopt~=0.11.0",
+            "onnx-graphsurgeon"
         ]
     }
 }

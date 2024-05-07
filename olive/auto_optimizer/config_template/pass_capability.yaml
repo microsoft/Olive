@@ -73,7 +73,9 @@ OrtPerfTuning:
 NVModelOptQuantization:
   EP:
     - CPU
+    - CUDA
   precision:
     - int4
   accelerator:
     - cpu
+    - gpu
