@@ -124,6 +124,12 @@
                 "optimum"
             ]
         },
+        "AutoAWQQuantizer": {
+            "module_path": "olive.passes.pytorch.autoawq.AutoAWQQuantizer",
+            "module_dependencies": [
+                "autoawq"
+            ]
+        },
         "LoftQ": {
             "module_path": "olive.passes.pytorch.lora.LoftQ"
         },

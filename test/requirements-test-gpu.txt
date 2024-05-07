@@ -1,3 +1,5 @@
 -r requirements-test.txt
+auto-gptq
+autoawq
 # only available on Linux currently
 bitsandbytes
