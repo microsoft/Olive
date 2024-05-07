@@ -10,7 +10,6 @@ import pytest
 from onnxruntime.quantization.calibrate import CalibrationDataReader
 
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.vitis_ai.quant_utils import is_ort_version_below_1_18
 from olive.passes.onnx.vitis_ai_quantization import VitisAIQuantization
 
 
@@ -35,7 +34,6 @@ def dummy_calibration_reader(data_dir, batch_size, *args, **kwargs):
     return RandomDataReader()
 
 
-@pytest.mark.skipif(not is_ort_version_below_1_18(), reason="Vitis API only compatible with onnxruntime<=1.17")
 @pytest.mark.parametrize("calibrate_method", ["MinMSE", "NonOverflow"])
 def test_vitis_ai_quantization_pass(calibrate_method, tmp_path):
     # setup
