@@ -63,8 +63,8 @@ class ExtractAdapters(Pass):
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
-        if "lora_modules" not in model.model_attributes:
-            raise ValueError("Model does not contain lora_modules attribute")
+        if "lora_modules" not in (model.model_attributes or {}):
+            raise ValueError("Model does not contain lora_modules model_attribute")
 
         # create a dag from the model
         dag = OnnxDAG.from_model_path(model.model_path)
@@ -220,6 +220,11 @@ class ExtractAdapters(Pass):
             constant_inputs_file_name=weights_path.name if config["make_inputs"] else None,
         )
         output_model.model_attributes = deepcopy(model.model_attributes)
+        # add adapter weights to the model attributes
+        output_model.model_attributes["additional_files"] = additional_files = output_model.model_attributes.get(
+            "additional_files", []
+        )
+        additional_files.append(str(weights_path))
         # save information about the weights in the model attributes
         weights_info = {name: [list(value.shape), str(value.dtype)] for name, value in weights.items()}
         if not config["make_inputs"]:
