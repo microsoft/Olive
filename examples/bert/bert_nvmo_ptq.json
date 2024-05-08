@@ -23,7 +23,8 @@
             "type": "OrtTransformersOptimization",
             "disable_search": true,
             "config":{
-                "model_type": "bert"
+                "model_type": "bert",
+                "opt_level":0
             }
         },
         "quantization": {
