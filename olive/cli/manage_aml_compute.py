@@ -133,7 +133,7 @@ class ManageAMLComputeCommand(BaseOliveCLICommand):
                 "azure-identity is not installed. Please install azure-identity packages to use this command."
             ) from None
 
-        logger.info("Getting credentials for MLClient")
+        logger.info("Getting credentials for ManageAMLComputeCommand")
         try:
             credential = AzureCliCredential()
             credential.get_token("https://management.azure.com/.default")
