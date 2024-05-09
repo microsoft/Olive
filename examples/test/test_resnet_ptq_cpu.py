@@ -37,7 +37,7 @@ def setup():
     [
         "resnet_ptq_cpu.json",
         pytest.param(
-            "resnet_ptq_cpu_aml_dataset.json", marks=pytest.mark.xfail(reason="credential bug in azureml-fsspec")
+            "resnet_ptq_cpu_aml_dataset.json", marks=pytest.mark.skip(reason="credential bug in azureml-fsspec")
         ),
     ],
 )
