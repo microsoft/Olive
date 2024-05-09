@@ -24,13 +24,17 @@ class OnnxIOFloat16ToFloat32(Pass):
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "name_pattern": PassConfigParam(
-                type_=List[str], default_value="logits", description="Only convert inputs/outputs whose name matches this pattern"
+                type_=str, default_value="logits",
+                description=(
+                    "Only convert inputs/outputs whose name matches this pattern. By default"
+                    "looking for logits names"
+                )
             )
         }
         config.update(get_external_data_config())
         return config
 
-    def create_io_mapping(graph, i_map, o_map):
+    def create_io_mapping(self, graph, i_map, o_map):
         for n in graph.node:
             for i in n.input:
                 i_map[i].append(n)
@@ -39,7 +43,7 @@ class OnnxIOFloat16ToFloat32(Pass):
                 assert o not in o_map[o]
                 o_map[o] = [n]
 
-    def wrap_inputs(graph, i_map, names):
+    def wrap_inputs(self, graph, i_map, names):
         # 1. find fp16 inputs
         # 2. rewrite all consumers
         # 3. insert cast
@@ -65,7 +69,7 @@ class OnnxIOFloat16ToFloat32(Pass):
             i.type.tensor_type.elem_type = onnx.TensorProto.FLOAT
 
 
-    def wrap_outputs(graph, i_map, o_map, names):
+    def wrap_outputs(self, graph, i_map, o_map, names):
         # 1. find fp16 outputs
         # 2. rewrite all providers
         # 3. append cast
@@ -107,14 +111,14 @@ class OnnxIOFloat16ToFloat32(Pass):
         i_map = defaultdict(list)
         o_map = defaultdict(list)
 
-        self.create_io_mapping(model.graph, i_map, o_map)
+        self.create_io_mapping(ort_onnx_model.model.graph, i_map, o_map)
 
         pat = None
-        if args.name:
-            pat = re.compile(args.name)
+        if config["name_pattern"]:
+            pat = re.compile(config["name_pattern"])
 
-        self.wrap_inputs(model.graph, i_map, pat)
-        self.wrap_outputs(model.graph, i_map, o_map, pat)
+        self.wrap_inputs(ort_onnx_model.model.graph, i_map, pat)
+        self.wrap_outputs(ort_onnx_model.model.graph, i_map, o_map, pat)
 
         # save the model to the output path and return the model
         return model_proto_to_olive_model(ort_onnx_model.model, output_model_path, config)
