@@ -53,8 +53,14 @@ class TestAMLResourcePath:
         "resource_path_type",
         [
             ResourceType.AzureMLModel,
-            f"{ResourceType.AzureMLDatastore}_file",
-            f"{ResourceType.AzureMLDatastore}_folder",
+            pytest.param(
+                f"{ResourceType.AzureMLDatastore}_file",
+                marks=pytest.mark.xfail(reason="Credential bug in azureml-fsspec"),
+            ),
+            pytest.param(
+                f"{ResourceType.AzureMLDatastore}_folder",
+                marks=pytest.mark.xfail(reason="Credential bug in azureml-fsspec"),
+            ),
             ResourceType.AzureMLJobOutput,
         ],
     )
@@ -66,8 +72,14 @@ class TestAMLResourcePath:
         "resource_path_type",
         [
             ResourceType.AzureMLModel,
-            f"{ResourceType.AzureMLDatastore}_file",
-            f"{ResourceType.AzureMLDatastore}_folder",
+            pytest.param(
+                f"{ResourceType.AzureMLDatastore}_file",
+                marks=pytest.mark.xfail(reason="Credential bug in azureml-fsspec"),
+            ),
+            pytest.param(
+                f"{ResourceType.AzureMLDatastore}_folder",
+                marks=pytest.mark.xfail(reason="Credential bug in azureml-fsspec"),
+            ),
             ResourceType.AzureMLJobOutput,
         ],
     )
