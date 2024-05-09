@@ -6,12 +6,12 @@ import logging
 import math
 import re
 from test.unit_test.utils import create_dataloader, get_onnx_model
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import psutil
 import pytest
 
-from olive.evaluator.metric import flatten_metric_result
+from olive.evaluator.metric_result import flatten_metric_result
 from olive.evaluator.olive_evaluator import OliveEvaluator, OnnxEvaluator
 from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR, AcceleratorSpec, Device
 from olive.passes.olive_pass import create_pass_from_dict
@@ -209,7 +209,7 @@ def test_perf_tuning_with_force_evaluate(get_available_providers_mock, evaluate_
         )
 
 
-@patch("olive.model.ONNXModelHandler.get_io_config")
+@patch("olive.model.ONNXModelHandler.io_config", new_callable=PropertyMock)
 def test_ort_perf_tuning_pass_with_dynamic_shapes(mock_get_io_config, tmp_path):
     mock_get_io_config.return_value = {
         "input_names": ["input"],

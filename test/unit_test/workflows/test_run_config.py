@@ -11,7 +11,10 @@ import pytest
 
 from olive.common.pydantic_v1 import ValidationError
 from olive.data.config import DataConfig
-from olive.workflows.run.config import INPUT_MODEL_DATA_CONFIG, RunConfig
+from olive.data.container.huggingface_container import HuggingfaceContainer
+from olive.package_config import OlivePackageConfig
+from olive.workflows.run.config import RunConfig
+from olive.workflows.run.run import get_pass_module_path, is_execution_provider_required
 
 # pylint: disable=attribute-defined-outside-init, unsubscriptable-object
 
@@ -20,6 +23,7 @@ class TestRunConfig:
     # like: Systems/Evaluation/Model and etc.
     @pytest.fixture(autouse=True)
     def setup(self):
+        self.package_config = OlivePackageConfig.parse_file(OlivePackageConfig.get_default_config_path())
         self.user_script_config_file = Path(__file__).parent / "mock_data" / "user_script.json"
 
     @pytest.mark.parametrize(
@@ -34,7 +38,7 @@ class TestRunConfig:
     )
     def test_dataset_config_file(self, config_file):
         run_config = RunConfig.parse_file(config_file)
-        for dc in run_config.data_configs.values():
+        for dc in run_config.data_configs:
             dc.to_data_container().create_dataloader(data_root_path=None)
 
     @pytest.mark.parametrize("system", ["local_system", "azureml_system"])
@@ -130,7 +134,8 @@ class TestRunConfig:
             user_script_config = json.load(f)
 
         cfg = RunConfig.parse_obj(user_script_config)
-        assert cfg.engine.target.config.accelerators[0].device == "GPU"
+        assert cfg.engine.target.config.accelerators[0].device.lower() == "gpu"
+        assert cfg.engine.target.config.accelerators[0].execution_providers == ["CUDAExecutionProvider"]
 
     def test_default_engine(self):
         default_engine_config_file = Path(__file__).parent / "mock_data" / "default_engine.json"
@@ -149,6 +154,53 @@ class TestRunConfig:
         errors = e.value.errors()
         assert errors[0]["loc"] == ("engine", "execution_providers")
 
+    @pytest.mark.parametrize(("pass_type", "is_onnx"), [("IncQuantization", True), ("LoRA", False)])
+    def test_get_module_path(self, pass_type, is_onnx):
+        pass_module = get_pass_module_path(pass_type, self.package_config)
+        assert pass_module.startswith("olive.passes.onnx") == is_onnx
+
+    @pytest.mark.parametrize(
+        ("passes", "pass_flows", "is_onnx"),
+        [
+            (None, None, True),
+            (
+                {
+                    "lora": {"type": "LoRA"},
+                },
+                None,
+                False,
+            ),
+            (
+                {
+                    "lora": {"type": "LoRA"},
+                    "quantization": {"type": "IncQuantization"},
+                },
+                None,
+                True,
+            ),
+            (
+                {
+                    "lora": {"type": "LoRA"},
+                    "quantization": {"type": "IncQuantization"},
+                },
+                [["lora"]],
+                False,
+            ),
+        ],
+    )
+    def test_is_execution_provider_required(self, passes, pass_flows, is_onnx):
+        with self.user_script_config_file.open() as f:
+            user_script_config = json.load(f)
+
+        if passes:
+            user_script_config["passes"] = passes
+        if pass_flows:
+            user_script_config["pass_flows"] = pass_flows
+
+        run_config = RunConfig.parse_obj(user_script_config)
+        result = is_execution_provider_required(run_config, self.package_config)
+        assert result == is_onnx
+
 
 class TestDataConfigValidation:
     @pytest.fixture(autouse=True)
@@ -160,21 +212,20 @@ class TestDataConfigValidation:
                     "hf_config": {
                         "model_name": "dummy_model",
                         "task": "dummy_task",
-                        "dataset": {"name": "dummy_dataset"},
                     }
                 },
             },
-            "data_configs": {
-                "dummy_data_config2": {
+            "data_configs": [
+                {
                     "name": "dummy_data_config2",
-                    "type": "HuggingfaceContainer",
+                    "type": HuggingfaceContainer.__name__,
                     "params_config": {
                         "model_name": "dummy_model2",
                         "task": "dummy_task2",
                         "data_name": "dummy_dataset2",
                     },
                 }
-            },
+            ],
             "passes": {"tuning": {"type": "OrtPerfTuning"}},
             "engine": {"evaluate_input_model": False},
         }
@@ -190,15 +241,22 @@ class TestDataConfigValidation:
     )
     def test_auto_insert_model_name_and_task(self, model_name, task, expected_model_name, expected_task):
         config_dict = self.template.copy()
-        config_dict["data_configs"]["dummy_data_config2"]["params_config"] = {
-            "model_name": model_name,
-            "task": task,
-            "data_name": "dummy_dataset2",
-        }
+        config_dict["data_configs"] = [
+            {
+                "name": "dummy_data_config2",
+                "type": HuggingfaceContainer.__name__,
+                "params_config": {
+                    "model_name": model_name,
+                    "task": task,
+                    "data_name": "dummy_dataset2",
+                },
+            }
+        ]
 
         run_config = RunConfig.parse_obj(config_dict)
-        assert run_config.data_configs["dummy_data_config2"].params_config["model_name"] == expected_model_name
-        assert run_config.data_configs["dummy_data_config2"].params_config["task"] == expected_task
+        assert run_config.data_configs[0].name == "dummy_data_config2"
+        assert run_config.data_configs[0].params_config["model_name"] == expected_model_name
+        assert run_config.data_configs[0].params_config["task"] == expected_task
 
     # works similarly for trust_remote_args
     @pytest.mark.parametrize(
@@ -223,22 +281,25 @@ class TestDataConfigValidation:
                 "trust_remote_code": trust_remote_code
             }
         if data_config_trust_remote_code is not None:
-            config_dict["data_configs"]["dummy_data_config2"]["params_config"][
-                "trust_remote_code"
-            ] = data_config_trust_remote_code
+            config_dict["data_configs"] = [
+                {
+                    "name": "dummy_data_config2",
+                    "type": HuggingfaceContainer.__name__,
+                    "params_config": {"trust_remote_code": data_config_trust_remote_code},
+                }
+            ]
 
         run_config = RunConfig.parse_obj(config_dict)
+
+        assert run_config.data_configs[0].name == "dummy_data_config2"
         if expected_trust_remote_code is None:
-            assert "trust_remote_code" not in run_config.data_configs["dummy_data_config2"].params_config
+            assert "trust_remote_code" not in run_config.data_configs[0].params_config
         else:
-            assert (
-                run_config.data_configs["dummy_data_config2"].params_config["trust_remote_code"]
-                == expected_trust_remote_code
-            )
+            assert run_config.data_configs[0].params_config["trust_remote_code"] == expected_trust_remote_code
 
     @pytest.mark.parametrize(
         "data_config_str",
-        [None, INPUT_MODEL_DATA_CONFIG, "dummy_data_config2"],
+        [None, "dummy_data_config2"],
     )
     def test_str_to_data_config(self, data_config_str):
         config_dict = self.template.copy()

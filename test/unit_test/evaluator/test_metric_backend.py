@@ -9,8 +9,8 @@ from unittest.mock import patch
 
 import pytest
 
-from olive.evaluator.metric import SubMetricResult
 from olive.evaluator.metric_backend import HuggingfaceMetrics
+from olive.evaluator.metric_result import SubMetricResult
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.systems.local import LocalSystem
 

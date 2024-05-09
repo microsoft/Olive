@@ -87,7 +87,7 @@ class TestHFFromPretrainedArgs:
     def test_quant(self, quantization_method, quantization_config, valid):
         if not valid:
             with pytest.raises(ValidationError):
-                args = HfFromPretrainedArgs(
+                _ = HfFromPretrainedArgs(
                     quantization_method=quantization_method, quantization_config=quantization_config
                 )
 

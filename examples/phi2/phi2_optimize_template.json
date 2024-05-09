@@ -2,9 +2,18 @@
     "input_model": {
         "type": "PyTorchModel",
         "config": {
-            "model_script": "user_script.py",
-            "dummy_inputs_func": "dummy_inputs",
-            "io_config": "get_io_config",
+            "io_config": {
+                "input_names": ["input_ids", "attention_mask", "position_ids"],
+                "output_names": ["logits"],
+                "input_shapes": [[2,8], [2,40], [2,8]],
+                "input_types": ["int32", "int32", "int32"],
+                "dynamic_axes": {
+                    "input_ids": {"0": "batch_size", "1": "sequence_length"},
+                    "attention_mask": {"0": "batch_size", "1": "total_sequence_length"},
+                    "position_ids": {"0": "batch_size", "1": "sequence_length"}
+                },
+                "kv_cache": true
+            },
             "hf_config": {
                 "model_name": "microsoft/phi-2",
                 "task": "text-generation",
@@ -84,7 +93,7 @@
                     "gradient_accumulation_steps": 4,
                     "gradient_checkpointing": false,
                     "learning_rate": 0.0001,
-                    "num_train_epochs":3,
+                    "num_train_epochs": 3,
                     "max_steps": 10,
                     "logging_steps": 10,
                     "evaluation_strategy": "steps",
@@ -161,8 +170,8 @@
             }
         }
     },
-    "data_configs": {
-        "dataset_default_train": {
+    "data_configs": [
+        {
             "name": "tiny_codes_train",
             "type": "HuggingfaceContainer",
             "user_script": "user_script.py",
@@ -187,7 +196,7 @@
                 }
             }
         },
-        "wikitext2": {
+        {
             "name": "wikitext2",
             "type": "HuggingfaceContainer",
             "params_config": {
@@ -196,13 +205,15 @@
                 "split": "train",
                 "component_kwargs": {
                     "pre_process_data": {
-                        "text_cols": ["text"],
+                        "text_cols": [
+                            "text"
+                        ],
                         "source_max_len": 2048
                     }
                 }
             }
         }
-    },
+    ],
     "engine": {
         "evaluate_input_model": true,
         "evaluator": "common_evaluator",

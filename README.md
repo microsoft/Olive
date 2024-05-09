@@ -1,4 +1,6 @@
 # Olive
+[![PyPI release](https://img.shields.io/pypi/v/olive-ai)](https://pypi.org/project/olive-ai/)
+[![Documentation](https://img.shields.io/website/https/microsoft.github.io/Olive?down_color=red&down_message=offline&up_message=online)](https://microsoft.github.io/Olive/)
 
 Olive is an easy-to-use hardware-aware model optimization tool that composes industry-leading techniques
 across model compression, optimization, and compilation. Given a model and targeted hardware, Olive composes the best

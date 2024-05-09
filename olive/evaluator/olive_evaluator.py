@@ -22,18 +22,9 @@ from olive.common.pydantic_v1 import validator
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import tensor_data_to_device
 from olive.constants import Framework
-from olive.evaluator.metric import (
-    LatencySubType,
-    Metric,
-    MetricResult,
-    MetricType,
-    SubMetricResult,
-    ThroughputSubType,
-    flatten_metric_result,
-    get_latency_config_from_metric,
-    joint_metric_key,
-)
+from olive.evaluator.metric import LatencySubType, Metric, MetricType, ThroughputSubType, get_latency_config_from_metric
 from olive.evaluator.metric_backend import MetricBackend
+from olive.evaluator.metric_result import MetricResult, SubMetricResult, flatten_metric_result, joint_metric_key
 from olive.hardware import Device
 from olive.model import DistributedOnnxModelHandler, ONNXModelHandler
 from olive.model.config.io_config import is_io_config_static
@@ -235,11 +226,15 @@ class OliveEvaluator(ABC):
         if metric.data_config:
             return metric
 
-        io_config = model.get_io_config()
+        io_config = model.io_config
         if not io_config:
             return metric
 
         if not is_io_config_static(io_config):
+            # since Olive will not save the pytorch model's io_config to olive onnx model
+            # we cannot generate dummy data for the onnx model if this model has dynamic input shapes
+            # TODO(trajep): try to get static input shapes from onnx model.
+            # If so, we can move the dataloader for latency measurement.
             logger.debug(
                 "Model input shapes are not static. Cannot use inferred input shapes for creating dummy data. This will"
                 " cause an error when creating dummy data for tuning."
@@ -439,13 +434,18 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
         )
 
         # prepare for io binding
-        io_config = model.get_io_config()
+        io_config = model.io_config
         io_bind = OnnxEvaluator.io_bind_enabled(metric, model.inference_settings)
         shared_kv_buffer = metric.user_config.shared_kv_buffer
         use_fp16 = any(v == "float16" for v in io_config["input_types"])
         input_feed = None
         if io_bind and shared_kv_buffer and use_fp16:
             input_feed = OnnxEvaluator.format_input(next(iter(dataloader))[0], io_config)
+
+        # load constant inputs if any
+        constant_inputs = None
+        if model.constant_inputs_path:
+            constant_inputs = OnnxEvaluator.format_input(dict(np.load(model.constant_inputs_path)), io_config)
 
         # create session wrapper
         session_wrapper = OrtInferenceSession(
@@ -455,6 +455,7 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
             shared_kv_buffer=shared_kv_buffer,
             use_fp16=use_fp16,
             input_feed=input_feed,
+            constant_inputs=constant_inputs,
         )
 
         return session_wrapper, inference_settings
@@ -471,7 +472,7 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
         session, inference_settings = OnnxEvaluator.get_session_wrapper(
             model, metric, dataloader, device, execution_providers
         )
-        io_config = model.get_io_config()
+        io_config = model.io_config
 
         preds = []
         targets = []
@@ -534,7 +535,7 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
         session, inference_settings = OnnxEvaluator.get_session_wrapper(
             model, metric, dataloader, device, execution_providers
         )
-        io_config = model.get_io_config()
+        io_config = model.io_config
 
         input_data, _ = next(iter(dataloader))
         input_feed = OnnxEvaluator.format_input(input_data, io_config)
@@ -580,7 +581,7 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
         dataloader, _, post_func = OnnxEvaluator.get_user_config(model.framework, data_root, metric)
 
         session = model.prepare_session(inference_settings=inference_settings, device=Device.GPU, rank=int(local_rank))
-        io_config = model.get_io_config()
+        io_config = model.io_config
 
         preds = []
         targets = []
@@ -665,7 +666,7 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
         model = ONNXModelHandler(model_path, inference_settings=inference_settings)
         dataloader, _, _ = OnnxEvaluator.get_user_config(model.framework, data_root, metric)
         session = model.prepare_session(inference_settings=inference_settings, device=Device.GPU, rank=int(local_rank))
-        io_config = model.get_io_config()
+        io_config = model.io_config
 
         input_feed, _ = next(iter(dataloader))
         input_feed = OnnxEvaluator.format_input(input_feed, io_config)
@@ -918,7 +919,6 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
             # as the SNPE inference will return a list of outputs which is beyond the model output shape
             # we need to squeeze the fist dimensions of output to get right accuracy metrics
             for idx, output in enumerate(result.get("results")):
-                post_output = output
                 if post_func:
                     post_output = post_func(output)
                 else:
@@ -1058,7 +1058,6 @@ class QNNEvaluator(OliveEvaluator, framework=Framework.QNN):
         for data_dir, input_list, labels in dataloader:
             result = session(input_list, data_dir)
             for idx, output in enumerate(result.get("result")):
-                post_output = output
                 if post_func:
                     post_output = post_func(output)
                 else:

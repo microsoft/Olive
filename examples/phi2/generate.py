@@ -19,6 +19,7 @@ pt_to_np = {
 # flake8: noqa: T201
 
 
+# TODO(jambayk): Use ORTGenerator from example utils
 class ORTGenerator:
     def __init__(self, decoder_path):
         self.onnx_decoder_path = decoder_path

@@ -114,6 +114,12 @@ InsertBeamSearch
 --------------------
 .. autoconfigclass:: olive.passes.InsertBeamSearch
 
+.. _extract_adapters:
+
+ExtractAdapters
+----------------
+.. autoconfigclass:: olive.passes.ExtractAdapters
+
 .. _lora:
 
 LoRA
@@ -211,6 +217,12 @@ GptqQuantizer
 --------------------
 .. autoconfigclass:: olive.passes.GptqQuantizer
 
+.. _awq_quantizer:
+
+AutoAWQQuantizer
+--------------------
+.. autoconfigclass:: olive.passes.AutoAWQQuantizer
+
 .. _torch_trt_conversion:
 
 TorchTRTConversion
@@ -229,8 +241,8 @@ OptimumMerging
 --------------------
 .. autoconfigclass:: olive.passes.OptimumMerging
 
-.. _genai_model_exporter:
+.. model_builder:
 
-GenAIModelExporter
+ModelBuilder
 --------------------
-.. autoconfigclass:: olive.passes.GenAIModelExporter
+.. autoconfigclass:: olive.passes.ModelBuilder

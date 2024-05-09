@@ -11,8 +11,8 @@ from torchvision.transforms import ToTensor
 from olive.engine import Engine
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
-from olive.hardware.accelerator import create_accelerators
 from olive.passes.onnx.perf_tuning import OrtPerfTuning
+from olive.systems.accelerator_creator import create_accelerators
 
 # pylint: disable=redefined-outer-name
 
@@ -82,13 +82,11 @@ def create_and_run_workflow(tmp_path, system_config, model_config, metric, only_
     cache.mkdir()
     config = {
         "cache_dir": cache,
+        "target": system_config,
+        "host": system_config if not only_target else None,
+        "evaluator": evaluator_config,
     }
-    engine = Engine(
-        config=config,
-        target_config=system_config,
-        host_config=system_config if not only_target else None,
-        evaluator_config=evaluator_config,
-    )
+    engine = Engine(**config)
     engine.register(OrtPerfTuning)
     accelerator_specs = create_accelerators(system_config)
     output = engine.run(model_config, accelerator_specs, output_dir=output_dir, evaluate_input_model=True)

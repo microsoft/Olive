@@ -17,9 +17,11 @@ Olive needs information about your model. For example, how to load the model, na
 3. **Accelerate the model using Olive.**
 
 The last step is the simplest one. You just need to run following simple command.
+```bash
+olive run --config my_model_acceleration_description.json
 ```
-python -m olive.workflows.run --config my_model_acceleration_description.json
-```
+**Note:** If `olive` cannot be found in your path, you can use `python -m olive` instead.
+
 or in python code:
 ```python
 from olive.workflows import run as olive_run
@@ -29,7 +31,7 @@ olive_run("my_model_acceleration_description.json")
 ```{note}
 `olive.workflows.run` in python code also accepts python dictionary equivalent of the config JSON object.
 
-You can use setup mode `python -m olive.workflows.run --config my_model_acceleration_description.json --setup` to identify list of additional packages you may need to install for your workflow.
+You can use setup mode `olive run --config my_model_acceleration_description.json --setup` to identify list of additional packages you may need to install for your workflow.
 
 To include user implemented (or proprietary, or private) passes as part of workflow, clone olive_config.json and update it.
 Provide the path to the cloned _olive_config.json_ file at launch using the '--package-config' command line option.
@@ -40,10 +42,10 @@ Set this to a local directory if you want to avoid using the default tempdir for
 If you want to use different device ids specially for cuda device, please set `CUDA_VISIBLE_DEVICES` to the desired device ids, like:
 
     # linux
-    CUDA_VISIBLE_DEVICES=2,3 python -m olive.workflows.run --config my_model_acceleration_description.json
+    CUDA_VISIBLE_DEVICES=2,3 olive run --config my_model_acceleration_description.json
 
     # windows
-    set CUDA_VISIBLE_DEVICES=2,3 & python -m olive.workflows.run --config my_model_acceleration_description.json
+    set CUDA_VISIBLE_DEVICES=2,3 & olive run --config my_model_acceleration_description.json
 
     # python
     import os

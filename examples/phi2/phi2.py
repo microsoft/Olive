@@ -11,7 +11,7 @@ from pathlib import Path
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
 
-import olive.workflows.run as olive_run
+from olive.workflows import run as olive_run
 
 # flake8: noqa: T201
 
@@ -87,7 +87,7 @@ def get_args(raw_args):
     parser.add_argument(
         "--genai_optimization",
         action="store_true",
-        help="Use optimum optimization",
+        help="Use GenAI optimization",
     )
     parser.add_argument(
         "--slicegpt",

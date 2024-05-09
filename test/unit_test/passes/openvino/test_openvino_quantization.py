@@ -35,13 +35,14 @@ def test_openvino_quantization(data_source, tmp_path):
         config.update(
             {
                 "data_config": DataConfig(
+                    name="test_dc_config",
                     components={
                         "load_dataset": {
                             "name": "cifar10_dataset",
                             "type": "cifar10_dataset",
                             "params": {"data_dir": data_dir},
                         }
-                    }
+                    },
                 )
             }
         )
@@ -84,13 +85,14 @@ def test_openvino_quantization_with_accuracy(data_source, tmp_path):
         config.update(
             {
                 "data_config": DataConfig(
+                    name="test_dc_config",
                     components={
                         "load_dataset": {
                             "name": "cifar10_dataset",
                             "type": "cifar10_dataset",
                             "params": {"data_dir": data_dir},
                         }
-                    }
+                    },
                 )
             }
         )

@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from olive.common.utils import run_subprocess
-from olive.evaluator.metric import MetricResult
+from olive.evaluator.metric_result import MetricResult
 from olive.model import ModelConfig
 from olive.systems.common import AcceleratorConfig, SystemType
 from olive.systems.olive_system import OliveSystem

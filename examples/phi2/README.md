@@ -53,7 +53,7 @@ python phi2.py --model_type cuda_int4
 For using ONNX runtime GenAI to optimize, follow build and installation instructions [here](https://github.com/microsoft/onnxruntime-genai).
 Run the following command to execute the workflow:
 ```bash
-python -m olive.workflows.run --config phi2_genai.json
+olive run --config phi2_genai.json
 ```
 This `phi2_genai.json` config file will generate optimized models for `cpu_int4` and `cuda_int4` model types as onnxruntime-gpu support cpu ep and cuda ep both.
 If you only want cpu or cuda model, you can modify the config file by remove the unwanted execution providers.

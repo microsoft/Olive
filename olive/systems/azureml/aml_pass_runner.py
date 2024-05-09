@@ -29,10 +29,6 @@ def parse_pass_config_arg(raw_args):
 
     # parse config arg
     parser.add_argument("--pass_config", type=str, help="pass config", required=True)
-    parser.add_argument("--pass_accelerator_type", type=str, help="pass accelerator type", default="cpu")
-    parser.add_argument(
-        "--pass_execution_provider", type=str, help="pass execution provider", default="CPUExecutionProvider"
-    )
 
     return parser.parse_known_args(raw_args)
 
@@ -135,7 +131,7 @@ def main(raw_args=None):
             input_model_config["config"]["model_path"] = str(new_path)
 
     # pass specific args
-    accelerator_spec = AcceleratorSpec(pass_config_arg.pass_accelerator_type, pass_config_arg.pass_execution_provider)
+    accelerator_spec = AcceleratorSpec(**pass_config["accelerator"])
     pass_args, extra_args = parse_pass_args(pass_type, accelerator_spec, extra_args)
 
     # load input_model

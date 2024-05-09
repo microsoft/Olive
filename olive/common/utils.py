@@ -15,7 +15,7 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +26,15 @@ def run_subprocess(cmd, env=None, cwd=None, check=False):
     assert isinstance(cmd, (str, list)), f"cmd must be a string or a list, got {type(cmd)}."
     windows = platform.system() == "Windows"
     if isinstance(cmd, str):
+        # In posix model, the cmd string will be handled with specific posix rules.
+        # https://docs.python.org/3.8/library/shlex.html#parsing-rules
+        # We listed 2 typical examples:
+        # 1. The cmd may contain the folder/file path from windows. This kind of path is like: C:\\User\\xxx\\...
+        #   in posix mode, the shlex.split will split the path into ['C:Userxxx...'], which is not correct.
+        #   in non-posix mode, the shlex.split will split the path into ['C:\\User\\xxx\\...'].
+        # 2. The cmd may contain the quotes("" or ''). This kind of cmd is like: "str_0, 'str_1'"
+        #   in posix mode, the shlex.split will split the cmd into ["str_0", "str_1"]
+        #   in non-posix mode, the shlex.split will split the cmd into ["str_0", "'str_1'"]
         cmd = shlex.split(cmd, posix=not windows)
 
     try:
@@ -47,13 +56,13 @@ def run_subprocess(cmd, env=None, cwd=None, check=False):
 
 
 def hash_string(string):  # pragma: no cover
-    md5_hash = hashlib.md5()
+    md5_hash = hashlib.sha256()
     md5_hash.update(string.encode())
     return md5_hash.hexdigest()
 
 
 def hash_io_stream(f):  # pragma: no cover
-    md5_hash = hashlib.md5()
+    md5_hash = hashlib.sha256()
     # Read and update hash in chunks of 4K
     for byte_block in iter(lambda: f.read(4096), b""):
         md5_hash.update(byte_block)
@@ -85,18 +94,18 @@ def hash_update_from_dir(directory, hash_value):
 
 
 def hash_dir(directory):
-    return hash_update_from_dir(directory, hashlib.md5()).hexdigest()
+    return hash_update_from_dir(directory, hashlib.sha256()).hexdigest()
 
 
 def hash_dict(dictionary):  # pragma: no cover
-    md5_hash = hashlib.md5()
+    md5_hash = hashlib.sha256()
     encoded_dictionary = json.dumps(dictionary, sort_keys=True).encode()
     md5_hash.update(encoded_dictionary)
     return md5_hash.hexdigest()
 
 
 def hash_function(function):  # pragma: no cover
-    md5_hash = hashlib.md5()
+    md5_hash = hashlib.sha256()
     try:
         source = inspect.getsource(function)
     except OSError:
@@ -346,3 +355,16 @@ def set_tempdir(tempdir: str = None):
 
 def exclude_keys(original_dict: Dict, keys_to_exclude):
     return {k: v for k, v in original_dict.items() if k not in keys_to_exclude}
+
+
+def find_first_matched_value(original_dict: Dict, keys: Union[str, Tuple, List[str]], raise_key_error=False):
+    if isinstance(keys, str):
+        keys = [keys]
+
+    for possible_name in keys:
+        if possible_name in original_dict:
+            return original_dict[possible_name]
+
+    if raise_key_error:
+        raise KeyError(f"Keys {keys} not found in {original_dict}")
+    return None

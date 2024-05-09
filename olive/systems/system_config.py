@@ -146,8 +146,28 @@ class SystemConfig(ConfigBase):
         system_alias_class = getattr(system_alias, type_name, None)
         if system_alias_class:
             values["type"] = system_alias_class.system_type
+            if "config" not in values:
+                values["config"] = {}
+
+            if values["type"] == SystemType.AzureML and not values["config"].get("accelerators"):
+                raise ValueError("accelerators is required for AzureML system")
+
             if system_alias_class.accelerators:
-                values["config"]["accelerators"] = [{"device": acc} for acc in system_alias_class.accelerators]
+                valid_accelerators = []
+
+                if not values["config"].get("accelerators"):
+                    valid_accelerators = [
+                        {"device": acc, "execution_providers": None} for acc in system_alias_class.accelerators
+                    ]
+                else:
+                    for device in system_alias_class.accelerators:
+                        valid_accelerators.extend(
+                            {"device": acc["device"], "execution_providers": acc.get("execution_providers")}
+                            for acc in values["config"]["accelerators"]
+                            if acc["device"].lower() == device.lower()
+                        )
+
+                values["config"]["accelerators"] = valid_accelerators or None
             # TODO(myguo): consider how to use num_cpus and num_gpus in distributed inference.
         return values
 

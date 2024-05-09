@@ -108,7 +108,8 @@ def download_resource(resource_path: ResourcePath, cache_dir: Union[str, Path] =
     """
     non_local_resource_dir = get_cache_sub_dirs(cache_dir)[3]
 
-    resource_path_hash = hash_dict(resource_path.to_json())
+    # choose left 8 characters of hash as resource path hash to reduce the risk of length too long
+    resource_path_hash = hash_dict(resource_path.to_json())[:8]
     resource_path_json = non_local_resource_dir / f"{resource_path_hash}.json"
 
     # check if resource path is cached
@@ -242,6 +243,20 @@ def save_model(
 
         # save resource to output directory
         model_json["config"][resource_name] = local_resource_path.save_to_dir(save_dir, save_name, overwrite)
+
+    # Copy "additional files" to the output folder
+    model_attributes = model_json["config"].get("model_attributes") or {}
+    additional_files = model_attributes.get("additional_files", [])
+
+    for i, src_filepath in enumerate(additional_files):
+        dst_filepath = Path(output_dir) / output_name / Path(src_filepath).name
+        additional_files[i] = str(dst_filepath)
+
+        if not dst_filepath.exists():
+            shutil.copy(str(src_filepath), str(dst_filepath))
+
+    if additional_files:
+        model_json["config"]["model_attributes"]["additional_files"] = additional_files
 
     # save model json
     with (output_dir / f"{output_name}.json").open("w") as f:

@@ -104,19 +104,19 @@ class RegulatePassConfigMixin:
         return pass_config, pass_flows
 
     def regulate_data_config(self, pass_config, pass_flows):
-        from olive.workflows.run.config import INPUT_MODEL_DATA_CONFIG
-
-        data_configs = self.data_configs.get(INPUT_MODEL_DATA_CONFIG)
-        if not data_configs:
+        if not self.data_configs or not self.auto_optimizer_config or self.auto_optimizer_config.disable_auto_optimizer:
             return pass_config, pass_flows
 
-        # data_config
+        if len(self.data_configs) != 1:
+            raise ValueError("AutoOptimizer expects exactly one data config.")
+
         passes_require_data_config = ["OnnxQuantization", "OrtPerfTuning"]
         for p in passes_require_data_config:
             # TODO(anyone): support multi data_config for different passes, pass_flows
             p_names = self._find_pass_name_in_pass_flow(p, pass_flows)
             for pn in p_names:
-                pass_config[pn]["config"]["data_config"] = data_configs.to_json()
+                pass_config[pn]["config"]["data_config"] = self.data_configs[0]
+
         return pass_config, pass_flows
 
     def _allow_precision(self, precision):

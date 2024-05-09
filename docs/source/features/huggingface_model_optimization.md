@@ -117,7 +117,7 @@ Example:
 ```
 
 #### Script example
-```
+```python
 # my_script.py
 def get_dec_io_config(model: OliveModelHandler):
     # return your io dict
@@ -194,24 +194,22 @@ Pass config:
 
 Example: datasets in `data_configs`:
 ```json
-"data_configs": {
-    "oasst1_train": {
-        "name": "oasst1",
-        "type": "HuggingfaceContainer",
-        "params_config": {
-            "data_name": "timdettmers/openassistant-guanaco",
-            "split": "train",
-            "component_kwargs": {
-                "pre_process_data": {
-                    "text_cols": ["text"],
-                    "corpus_strategy": "line-by-line",
-                    "source_max_len": 512,
-                    "pad_to_max_len": false
-                }
+"data_configs": [{
+    "name": "oasst1_train",
+    "type": "HuggingfaceContainer",
+    "params_config": {
+        "data_name": "timdettmers/openassistant-guanaco",
+        "split": "train",
+        "component_kwargs": {
+            "pre_process_data": {
+                "text_cols": ["text"],
+                "corpus_strategy": "line-by-line",
+                "source_max_len": 512,
+                "pad_to_max_len": false
             }
         }
     }
-}
+}]
 ```
 
 Pass config:
@@ -252,7 +250,7 @@ Follow these steps to enable Huggingface login for AzureML system:
 1. Get your Huggingface token string from Settings -> [Access Tokens](https://huggingface.co/settings/tokens).
 1. Create or use an existing [Azure Key Vault](https://learn.microsoft.com/en-us/azure/key-vault/general/overview). Assume the key vault is named `my_keyvault_name`. Add a new secret named `hf-token`, and set the value as the token from the first step. It is important to note that Olive reserves `hf-token` secret name specifically for Huggingface login. Do not use this name in this keyvault for other purpose.
 1. Make sure you have `azureml_client` section in your configuration file, and add a new attribute `keyvault_name` to it. For example:
-    ```
+    ```json
     "azureml_client": {
         "subscription_id": "<subscription_id>",
         "resource_group": "<resource_group>",

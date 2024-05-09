@@ -16,7 +16,6 @@ class TestQnnToolkit:
     @pytest.fixture(autouse=True)
     def setup(self, tmp_path):
         """Download the qnn sdk."""
-        target_path = tmp_path
         blob, download_path = "", ""
         if platform.system() == "Windows":
             blob, download_path = "qnn_sdk_windows.zip", "qnn_sdk_windows.zip"
@@ -28,7 +27,7 @@ class TestQnnToolkit:
             blob=blob,
             download_path=download_path,
         )
-        target_path = Path().resolve() / "qnn_sdk"
+        target_path = tmp_path / "qnn_sdk"
         target_path.mkdir(parents=True, exist_ok=True)
         if platform.system() == "Windows":
             cmd = f"powershell Expand-Archive -Path {download_path} -DestinationPath {str(target_path)}"
@@ -48,7 +47,7 @@ class TestQnnToolkit:
             os.environ["USE_OLIVE_ENV"] = "1"
             # prepare model and data
             # retry since it fails randomly
-            run_subprocess(cmd="python -m olive.platform_sdk.qualcomm.configure --py_version 3.8 --sdk qnn", check=True)
+            run_subprocess(cmd="olive configure-qualcomm-sdk --py_version 3.8 --sdk qnn", check=True)
             # install dependencies
             python_cmd = ""
             if platform.system() == "Windows":

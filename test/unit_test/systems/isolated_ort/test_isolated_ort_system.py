@@ -175,15 +175,15 @@ class TestIsolatedORTEvaluator:
         # setup
         mock_wrapper = MagicMock()
         mock_wrapper_class.return_value = mock_wrapper
+        dummy_latencies = [1, 2, 3, 4]
+        dummy_output = np.array([1, 2])
+        sleep_time = 0
+        num_runs = 4
+        num_warmup = 2
+        num_batches = 3
         if mode == "inference":
-            num_batches = 3
-            dummy_output = np.array([1, 2])
             mock_wrapper.run.return_value = dummy_output
         else:
-            num_runs = 4
-            num_warmup = 2
-            sleep_time = 0
-            dummy_latencies = [1, 2, 3, 4]
             mock_wrapper.time_run.return_value = dummy_latencies
 
         model = "model.onnx"
@@ -233,7 +233,9 @@ class TestIsolatedORTEvaluator:
         inference_runner_main(args)
 
         # assert
-        mock_get_session.assert_called_once_with(Path(model), config["inference_settings"], False)
+        mock_get_session.assert_called_once_with(
+            Path(model), config["inference_settings"], False, external_initializers=None
+        )
         mock_wrapper_class.assert_called_once_with(
             mock_get_session.return_value,
             io_bind=False,
@@ -241,6 +243,7 @@ class TestIsolatedORTEvaluator:
             shared_kv_buffer=False,
             use_fp16=False,
             input_feed={"input": np.array([0])},
+            constant_inputs=None,
         )
         if mode == "inference":
             assert mock_wrapper.run.call_count == num_batches

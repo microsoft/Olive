@@ -39,9 +39,6 @@ class SearchAlgorithm(AutoConfigClass):
         self._higher_is_betters = higher_is_betters
 
         super().__init__(config)
-        # TODO(jambayk): Stop using _ private methods like _objectives, _config, etc
-        self._config = self.config
-        self.initialize()
 
     @abstractmethod
     def initialize(self):

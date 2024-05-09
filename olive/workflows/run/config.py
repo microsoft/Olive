@@ -10,7 +10,6 @@ from olive.auto_optimizer import AutoOptimizerConfig
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.pydantic_v1 import validator
-from olive.common.utils import exclude_keys
 from olive.data.config import DataConfig
 from olive.data.container.huggingface_container import HuggingfaceContainer
 from olive.engine import Engine, EngineConfig
@@ -42,23 +41,9 @@ class RunEngineConfig(EngineConfig):
     ort_py_log_severity_level: int = 3
     log_to_file: bool = False
 
-    def create_engine(self):
-        config = self.dict()
-        to_del = [
-            "evaluate_input_model",
-            "output_dir",
-            "output_name",
-            "packaging_config",
-            "log_severity_level",
-            "ort_log_severity_level",
-            "ort_py_log_severity_level",
-            "log_to_file",
-        ]
-        config = exclude_keys(config, to_del)
-        return Engine(config)
-
-
-INPUT_MODEL_DATA_CONFIG = "__input_model_data_config__"
+    def create_engine(self, azureml_client_config):
+        config = self.dict(include=EngineConfig.__fields__.keys())
+        return Engine(**config, azureml_client_config=azureml_client_config)
 
 
 class RunConfig(ConfigBase):
@@ -66,7 +51,7 @@ class RunConfig(ConfigBase):
     input_model: ModelConfig
     systems: Dict[str, SystemConfig] = None
     data_root: str = None
-    data_configs: Dict[str, DataConfig] = None
+    data_configs: List[DataConfig] = []  # noqa: RUF012
     evaluators: Dict[str, OliveEvaluatorConfig] = None
     engine: RunEngineConfig = None
     pass_flows: List[List[str]] = None
@@ -93,40 +78,6 @@ class RunConfig(ConfigBase):
             v = {}
         return v
 
-    @validator("data_configs", pre=True, always=True)
-    def insert_input_model_data_config(cls, v, values):
-        if "input_model" not in values:
-            raise ValueError("Invalid input model")
-
-        if not v:
-            # if data_configs is None, create an empty dict
-            v = {}
-
-        if INPUT_MODEL_DATA_CONFIG in v:
-            raise ValueError(f"Data config name {INPUT_MODEL_DATA_CONFIG} is reserved. Please use another name.")
-
-        # insert input model hf data config if present
-        hf_config = values["input_model"].dict()["config"].get("hf_config", {})
-        hf_config_dataset = hf_config.get("dataset", None)
-        if hf_config_dataset:
-            params_config = {
-                "model_name": hf_config.get("model_name", None),
-                "task": hf_config.get("task", None),
-                **hf_config_dataset,
-            }
-            # insert trust_remote_code from from_pretrained_args if present
-            # won't override if value was set to False explicitly
-            # will keep as list of keys for future extension
-            for key in ["trust_remote_code"]:
-                if hf_config.get("from_pretrained_args", {}).get(key) and params_config.get(key) is None:
-                    params_config[key] = hf_config["from_pretrained_args"][key]
-            v[INPUT_MODEL_DATA_CONFIG] = {
-                "name": INPUT_MODEL_DATA_CONFIG,
-                "type": HuggingfaceContainer.__name__,
-                "params_config": params_config,
-            }
-        return v
-
     @validator("data_configs", pre=True)
     def validate_data_config_names(cls, v):
         if not v:
@@ -134,7 +85,7 @@ class RunConfig(ConfigBase):
 
         # validate data config name is unique
         data_name_set = set()
-        for data_config in v.values():
+        for data_config in v:
             data_config_obj = validate_config(data_config, DataConfig)
             if data_config_obj.name in data_name_set:
                 raise ValueError(f"Data config name {data_config_obj.name} is duplicated. Please use another name.")
@@ -150,10 +101,6 @@ class RunConfig(ConfigBase):
 
         if isinstance(v, DataConfig):
             v = v.dict()
-
-        if v["name"] == INPUT_MODEL_DATA_CONFIG:
-            # skip validation for input model data config
-            return v
 
         if v["type"] == HuggingfaceContainer.__name__:
             # auto insert model_name and task from input model hf config if not present
@@ -228,9 +175,7 @@ class RunConfig(ConfigBase):
             if v["config"][param_name] == PassParamDefault.SEARCHABLE_VALUES:
                 searchable_configs.add(param_name)
             if param_name.endswith("data_config"):
-                # we won't auto insert the input model data config for pass
-                # user must explicitly set the data config to INPUT_MODEL_DATA_CONFIG if needed
-                v["config"] = _resolve_data_config(v["config"], values, param_name, auto_insert=False)
+                v["config"] = _resolve_data_config(v["config"], values, param_name)
 
         data_dir_config = v["config"].get("data_dir", None)
         if isinstance(data_dir_config, dict):
@@ -308,14 +253,26 @@ def _resolve_system(v, values, system_alias):
     return v
 
 
-def _resolve_data_config(v, values, data_config_alias, auto_insert=True):
-    # get the value for data_config_alias in v
-    data_container_config = v.get(data_config_alias, None)
-    # auto insert input model data config if data_container_config is None
-    if not data_container_config and INPUT_MODEL_DATA_CONFIG in values["data_configs"] and auto_insert:
-        v[data_config_alias] = INPUT_MODEL_DATA_CONFIG
+def _resolve_data_config(v, values, data_config_alias):
+    if not isinstance(v, dict):
+        # if not a dict, return the original value
+        return v
+
+    # get name of sub component
+    sub_component = v.get(data_config_alias)
+    if not isinstance(sub_component, str):
+        return v
+
     # resolve data_config_alias to data config
-    return _resolve_config_str(v, values, data_config_alias, component_name="data_configs")
+    components = values.get("data_configs") or []
+    component_map = {cmp.name: cmp for cmp in components}
+
+    # resolve sub component name to component config
+    if sub_component not in component_map:
+        raise ValueError(f"{data_config_alias} {sub_component} not found in {components}")
+
+    v[data_config_alias] = component_map[sub_component]
+    return v
 
 
 def _resolve_evaluator(v, values):

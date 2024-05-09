@@ -6,8 +6,11 @@
         "DynamicToFixedShape": {
             "module_path": "olive.passes.onnx.dynamic_to_fixed_shape.DynamicToFixedShape"
         },
-        "GenAIModelExporter": {
-            "module_path": "olive.passes.onnx.genai_model_exporter.GenAIModelExporter"
+        "ExtractAdapters": {
+            "module_path": "olive.passes.onnx.extract_adapters.ExtractAdapters"
+        },
+        "ModelBuilder": {
+            "module_path": "olive.passes.onnx.model_builder.ModelBuilder"
         },
         "IncDynamicQuantization": {
             "module_path": "olive.passes.onnx.inc_quantization.IncDynamicQuantization",
@@ -43,10 +46,7 @@
             "module_path": "olive.passes.onnx.quantization.OnnxDynamicQuantization"
         },
         "OnnxFloatToFloat16": {
-            "module_path": "olive.passes.onnx.float16_conversion.OnnxFloatToFloat16",
-            "module_dependencies": [
-                "onnxconverter-common"
-            ]
+            "module_path": "olive.passes.onnx.float16_conversion.OnnxFloatToFloat16"
         },
         "OnnxMatMul4Quantizer": {
             "module_path": "olive.passes.onnx.quantization.OnnxMatMul4Quantizer"
@@ -122,6 +122,12 @@
             "module_dependencies": [
                 "auto-gptq",
                 "optimum"
+            ]
+        },
+        "AutoAWQQuantizer": {
+            "module_path": "olive.passes.pytorch.autoawq.AutoAWQQuantizer",
+            "module_dependencies": [
+                "autoawq"
             ]
         },
         "LoftQ": {

@@ -18,13 +18,14 @@ import pytest
 
 from olive.common.utils import hash_dict
 from olive.engine import Engine
-from olive.evaluator.metric import AccuracySubType, MetricResult, joint_metric_key
+from olive.evaluator.metric import AccuracySubType
+from olive.evaluator.metric_result import MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
-from olive.hardware.accelerator import create_accelerators
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.optimum_conversion import OptimumConversion
 from olive.passes.onnx.quantization import OnnxDynamicQuantization, OnnxStaticQuantization
+from olive.systems.accelerator_creator import create_accelerators
 from olive.systems.common import SystemType
 from olive.systems.local import LocalSystem
 from olive.systems.system_config import LocalTargetUserConfig, SystemConfig
@@ -50,7 +51,7 @@ class TestEngine:
                 "search_algorithm": "random",
             },
         }
-        engine = Engine(options)
+        engine = Engine(**options)
 
         # execute
         engine.register(OnnxConversion, host=system, evaluator_config=evaluator_config)
@@ -69,7 +70,7 @@ class TestEngine:
             "clean_cache": True,
             "search_strategy": None,
         }
-        engine = Engine(options)
+        engine = Engine(**options)
 
         # execute
         engine.register(OnnxDynamicQuantization, disable_search=True)
@@ -87,7 +88,7 @@ class TestEngine:
             "clean_cache": True,
             "search_strategy": None,
         }
-        engine = Engine(options)
+        engine = Engine(**options)
 
         # execute
         engine.register(OnnxDynamicQuantization)
@@ -99,7 +100,7 @@ class TestEngine:
     def test_default_engine_run(self, tmpdir):
         # setup
         model_config = get_pytorch_model_config()
-        engine = Engine({"cache_dir": tmpdir})
+        engine = Engine(cache_dir=tmpdir)
         assert engine.no_search, "Expect no_search to be True by default"
 
         engine.register(OnnxConversion, name="converter_13", config={"target_opset": 13}, clean_run_cache=True)
@@ -116,7 +117,7 @@ class TestEngine:
     def test_run(self, mock_local_system, tmpdir):
         # setup
         model_config = get_pytorch_model_config()
-        input_model_id = hash_dict(model_config.to_json())
+        input_model_id = hash_dict(model_config.to_json())[:8]
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
@@ -127,6 +128,7 @@ class TestEngine:
                 "search_algorithm": "random",
             },
             "clean_evaluation_cache": True,
+            "evaluator": evaluator_config,
         }
         metric_result_dict = {
             joint_metric_key(metric.name, sub_metric.name): {
@@ -148,15 +150,15 @@ class TestEngine:
         ]
         system_object.olive_managed_env = False
 
-        engine = Engine(options, evaluator_config=evaluator_config)
+        engine = Engine(**options)
         engine.register(OnnxConversion, name="converter_13", config={"target_opset": 13}, clean_run_cache=True)
         engine.register(OnnxConversion, name="converter_14", config={"target_opset": 14}, clean_run_cache=True)
         engine.set_pass_flows([["converter_13"], ["converter_14"]])
         p1, pass_config1 = get_onnxconversion_pass(ignore_pass_config=False, target_opset=13)
         p2, pass_config2 = get_onnxconversion_pass(ignore_pass_config=False, target_opset=14)
         model_ids = [
-            f"0_{p1.__class__.__name__}-{input_model_id}-{hash_dict(pass_config1)}",
-            f"1_{p2.__class__.__name__}-{input_model_id}-{hash_dict(pass_config2)}",
+            f"0_{p1.__class__.__name__}-{input_model_id}-{hash_dict(pass_config1)[:8]}",
+            f"1_{p2.__class__.__name__}-{input_model_id}-{hash_dict(pass_config2)[:8]}",
         ]
         expected_res = {
             model_id: {
@@ -242,6 +244,7 @@ class TestEngine:
             "clean_cache": True,
             "search_strategy": None,
             "clean_evaluation_cache": True,
+            "evaluator": evaluator_config,
         }
         metric_result_dict = {
             joint_metric_key(metric.name, sub_metric.name): {
@@ -260,7 +263,7 @@ class TestEngine:
         mock_local_system.get_supported_execution_providers.return_value = ["CPUExecutionProvider"]
         mock_local_system.olive_managed_env = False
 
-        engine = Engine(options, evaluator_config=evaluator_config)
+        engine = Engine(**options)
         engine.register(OnnxConversion, disable_search=True, clean_run_cache=True)
         engine.set_pass_flows()
         # output model to output_dir
@@ -306,8 +309,9 @@ class TestEngine:
                     "execution_order": "joint",
                     "search_algorithm": "random",
                 },
+                "evaluator": evaluator_config,
             }
-            engine = Engine(options, evaluator_config=evaluator_config)
+            engine = Engine(**options)
             engine.register(OnnxConversion, clean_run_cache=True)
 
             model_config = get_pytorch_model_config()
@@ -330,6 +334,7 @@ class TestEngine:
             "clean_cache": True,
             "search_strategy": None,
             "clean_evaluation_cache": True,
+            "evaluator": evaluator_config,
         }
         metric_result_dict = {
             joint_metric_key(metric.name, sub_metric.name): {
@@ -347,7 +352,7 @@ class TestEngine:
         mock_local_system.olive_managed_env = False
         mock_local_system_init.return_value = mock_local_system
 
-        engine = Engine(options, evaluator_config=evaluator_config)
+        engine = Engine(**options)
         engine.register(OnnxConversion, clean_run_cache=True)
 
         # output model to output_dir
@@ -377,6 +382,7 @@ class TestEngine:
             "clean_cache": True,
             "search_strategy": None,
             "clean_evaluation_cache": True,
+            "evaluator": evaluator_config,
         }
         metric_result_dict = {
             joint_metric_key(metric.name, sub_metric.name): {
@@ -393,7 +399,7 @@ class TestEngine:
         mock_local_system.get_supported_execution_providers.return_value = ["CPUExecutionProvider"]
         mock_local_system_init.return_value = mock_local_system
 
-        engine = Engine(options, evaluator_config=evaluator_config)
+        engine = Engine(**options)
 
         # output model to output_dir
         output_dir = Path(tmpdir)
@@ -422,8 +428,9 @@ class TestEngine:
             "clean_cache": True,
             "search_strategy": None,
             "clean_evaluation_cache": True,
+            "evaluator": evaluator_config,
         }
-        engine = Engine(options, evaluator_config=evaluator_config)
+        engine = Engine(**options)
         engine.register(OnnxConversion, clean_run_cache=True)
 
         engine.initialize()
@@ -441,8 +448,9 @@ class TestEngine:
             "clean_cache": True,
             "search_strategy": None,
             "clean_evaluation_cache": True,
+            "evaluator": evaluator_config,
         }
-        engine = Engine(options, evaluator_config=evaluator_config)
+        engine = Engine(**options)
         engine.register(OnnxConversion, clean_run_cache=True)
         with patch.object(Path, "glob"):
             Path.glob.return_value = [Path("cache") / "output" / "435d_0.json"]
@@ -468,6 +476,7 @@ class TestEngine:
                 "search_algorithm": "random",
             },
             "clean_evaluation_cache": True,
+            "evaluator": evaluator_config,
         }
         mock_local_system = MagicMock()
         mock_local_system.system_type = SystemType.Local
@@ -489,7 +498,7 @@ class TestEngine:
         mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
         mock_local_system_init.return_value = mock_local_system
 
-        engine = Engine(options, evaluator_config=evaluator_config)
+        engine = Engine(**options)
         system_config = SystemConfig(
             type=SystemType.Local,
             config=LocalTargetUserConfig(
@@ -520,6 +529,7 @@ class TestEngine:
                 "search_algorithm": "random",
             },
             "clean_evaluation_cache": True,
+            "evaluator": evaluator_config,
         }
         mock_local_system = MagicMock()
         mock_local_system.system_type = SystemType.Local
@@ -541,7 +551,7 @@ class TestEngine:
         mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
         mock_local_system_init.return_value = mock_local_system
 
-        engine = Engine(options, evaluator_config=evaluator_config)
+        engine = Engine(**options)
         system_config = SystemConfig(
             type=SystemType.Local,
             config=LocalTargetUserConfig(
@@ -577,8 +587,9 @@ class TestEngine:
                     "execution_order": "joint",
                     "search_algorithm": "random",
                 },
+                "evaluator": evaluator_config,
             }
-            engine = Engine(options, evaluator_config=evaluator_config)
+            engine = Engine(**options)
             engine.register(OnnxConversion, clean_run_cache=True)
             model_config = get_pytorch_model_config()
             # execute
@@ -599,6 +610,8 @@ class TestEngine:
 
         # setup
         if is_search:
+            metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
+            evaluator_config = OliveEvaluatorConfig(metrics=[metric])
             options = {
                 "cache_dir": tmpdir,
                 "clean_cache": True,
@@ -606,10 +619,9 @@ class TestEngine:
                     "execution_order": "joint",
                     "search_algorithm": "random",
                 },
+                "evaluator": evaluator_config,
             }
-            metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
-            evaluator_config = OliveEvaluatorConfig(metrics=[metric])
-            engine = Engine(options, evaluator_config=evaluator_config)
+            engine = Engine(**options)
             engine.register(OnnxStaticQuantization, {"dataloader_func": lambda x, y: None})
             with patch("onnxruntime.quantization.quantize_static") as mock_quantize_static:
                 mock_quantize_static.side_effect = AttributeError("test")
@@ -623,7 +635,7 @@ class TestEngine:
                 "clean_cache": True,
                 "search_strategy": None,
             }
-            engine = Engine(options)
+            engine = Engine(**options)
             engine.register(OnnxDynamicQuantization, disable_search=True)
             with patch("onnxruntime.quantization.quantize_dynamic") as mock_quantize_dynamic:
                 mock_quantize_dynamic.side_effect = AttributeError("test")

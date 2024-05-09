@@ -1,5 +1,5 @@
 {
-    "input_model":{
+    "input_model": {
         "type": "PyTorchModel",
         "config": {
             "model_path": {
@@ -13,32 +13,47 @@
             "model_file_format": "PyTorch.MLflow",
             "hf_config": {
                 "model_name": "microsoft/deberta-base-mnli",
-                "task": "text-classification",
-                "dataset": {
-                    "data_name":"glue",
-                    "subset": "mnli_matched",
-                    "split": "validation",
-                    "input_cols": ["premise", "hypothesis"],
-                    "label_cols": ["label"],
-                    "batch_size": 1,
-                    "max_samples": 100,
-                    "component_kwargs": {
-                        "pre_process_data": {
-                            "align_labels": true
-                        }
+                "task": "text-classification"
+            }
+        }
+    },
+    "data_configs": [
+        {
+            "name": "glue_mnli_matched",
+            "type": "HuggingfaceContainer",
+            "params_config": {
+                "data_name": "glue",
+                "subset": "mnli_matched",
+                "split": "validation",
+                "input_cols": [
+                    "premise",
+                    "hypothesis"
+                ],
+                "label_cols": [
+                    "label"
+                ],
+                "batch_size": 1,
+                "max_samples": 100,
+                "component_kwargs": {
+                    "pre_process_data": {
+                        "align_labels": true
                     }
                 }
             }
         }
-    },
+    ],
     "evaluators": {
         "common_evaluator": {
-            "metrics":[
+            "metrics": [
                 {
                     "name": "latency",
                     "type": "latency",
+                    "data_config": "glue_mnli_matched",
                     "sub_types": [
-                        {"name": "avg", "priority": 1}
+                        {
+                            "name": "avg",
+                            "priority": 1
+                        }
                     ]
                 }
             ]
@@ -64,13 +79,13 @@
         "quantization": {
             "type": "OnnxQuantization",
             "config": {
-                "data_config": "__input_model_data_config__"
+                "data_config": "glue_mnli_matched"
             }
         },
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {
-                "data_config": "__input_model_data_config__"
+                "data_config": "glue_mnli_matched"
             }
         }
     },
@@ -86,6 +101,6 @@
         "clean_cache": true,
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
-        "output_dir" : "models/microsoft-deberta"
+        "output_dir": "models/microsoft-deberta"
     }
 }

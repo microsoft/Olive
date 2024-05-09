@@ -1,18 +1,10 @@
 {
-    "input_model":{
+    "input_model": {
         "type": "PyTorchModel",
         "config": {
             "hf_config": {
                 "model_name": "Intel/bert-base-uncased-mrpc",
-                "task": "text-classification",
-                "dataset": {
-                    "data_name":"glue",
-                    "subset": "mrpc",
-                    "split": "validation",
-                    "input_cols": ["sentence1", "sentence2"],
-                    "label_cols": ["label"],
-                    "batch_size": 1
-                }
+                "task": "text-classification"
             }
         }
     },
@@ -31,27 +23,72 @@
             }
         }
     },
+    "data_configs": [
+        {
+            "name": "glue_mrpc",
+            "type": "HuggingfaceContainer",
+            "params_config": {
+                "data_name": "glue",
+                "subset": "mrpc",
+                "split": "validation",
+                "input_cols": [
+                    "sentence1",
+                    "sentence2"
+                ],
+                "label_cols": [
+                    "label"
+                ],
+                "batch_size": 1
+            }
+        }
+    ],
     "evaluators": {
         "common_evaluator": {
-            "metrics":[
+            "metrics": [
                 {
                     "name": "accuracy",
                     "type": "accuracy",
+                    "data_config": "glue_mrpc",
                     "sub_types": [
-                        {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
-                        {"name": "f1_score"},
-                        {"name": "auroc"}
+                        {
+                            "name": "accuracy_score",
+                            "priority": 1,
+                            "goal": {
+                                "type": "max-degradation",
+                                "value": 0.01
+                            }
+                        },
+                        {
+                            "name": "f1_score"
+                        },
+                        {
+                            "name": "auroc"
+                        }
                     ]
                 },
                 {
                     "name": "latency",
                     "type": "latency",
+                    "data_config": "glue_mrpc",
                     "sub_types": [
-                        {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
-                        {"name": "max"},
-                        {"name": "min"}
+                        {
+                            "name": "avg",
+                            "priority": 2,
+                            "goal": {
+                                "type": "percent-min-improvement",
+                                "value": 20
+                            }
+                        },
+                        {
+                            "name": "max"
+                        },
+                        {
+                            "name": "min"
+                        }
                     ],
-                    "user_config": {"io_bind": true}
+                    "user_config": {
+                        "io_bind": true
+                    }
                 }
             ]
         }
@@ -68,9 +105,8 @@
             "config": {
                 "trt_fp16_enable": true,
                 "io_bind": true,
-                "data_config": "__input_model_data_config__"
+                "data_config": "glue_mrpc"
             }
-
         }
     },
     "engine": {
@@ -79,6 +115,6 @@
         "target": "local_system",
         "clean_cache": true,
         "cache_dir": "cache",
-        "output_dir" : "models/bert_trt"
+        "output_dir": "models/bert_trt"
     }
 }

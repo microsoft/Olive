@@ -103,7 +103,7 @@ def test_inc_quantization_with_data_config(mock_model_saver, tmp_path):
     ov_model = get_onnx_model(tmp_path)
     data_dir = tmp_path / "data"
     data_dir.mkdir(exist_ok=True)
-    config = {"approach": "static", "data_dir": data_dir, "data_config": DataConfig()}
+    config = {"approach": "static", "data_dir": data_dir, "data_config": DataConfig(name="test_dc_config")}
     output_folder = str(tmp_path / "quantized")
 
     mock_model_saver.return_value = ov_model

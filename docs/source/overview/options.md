@@ -102,7 +102,41 @@ find more details in [Olive Models](https://microsoft.github.io/Olive/api/models
         - `input_shapes: [List[List[int]]]` The input shapes of the model.
         - `output_names: [List[str]]` The output names of the model.
         - `dynamic_axes: [Dict[str, Dict[str, str]]]` The dynamic axes of the model. The key is the name of the input or output and the value is a dictionary that contains the dynamic axes of the input or output. The key of the value dictionary is the index of the dynamic axis and the value is the name of the dynamic axis. For example, `{"input": {"0": "batch_size"}, "output": {"0": "batch_size"}}` means the first dimension of the input and output is dynamic and the name of the dynamic axis is `batch_size`.
-
+        - `string_to_int_dim_params: List[str]` The list of input names in dynamic axes that need to be converted to int value.
+        - `kv_cache: Union[bool, Dict[str, str]]` The key value cache configuration.
+          - If it is `False`, Olive will not use key value cache.
+          - If it is `True`, Olive will infer the cache configuration from the input_names/input_shapes and input model based on default `kv_cache`.
+          - If it is a dictionary, it should contains the key value cache configuration. Here is an default configuration example:
+            - `ort_past_key_name`: "past_key_<id>"
+                Template for the past key name. The `<id>` will be replaced by the id of the past key.
+            - `ort_past_value_name`: "past_value_<id>"
+                Template for the past value name. The `<id>` will be replaced by the id of the past value.
+            - `ort_present_key_name`: "present_key_<id>"
+                Template for the present key name. The `<id>` will be replaced by the id of the present key.
+            - `ort_present_value_name`: "present_value_<id>"
+                Template for the present value name. The `<id>` will be replaced by the id of the present value.
+            - `world_size`: 1
+                It is only used for distributed models.
+            - `num_hidden_layers`: null
+                If null, Olive will infer the number of hidden layers from the model.
+            - `num_attention_heads`: null
+                If null, Olive will infer the number of attention heads from the model.
+            - `hidden_size`: null
+                If null, Olive will infer the hidden size from the model.
+            - `past_sequence_length`: null
+                If null, Olive will infer the past sequence length from the model.
+            - `batch_size`: 0
+                The batch size of the model. If it is 0, Olive will use the batch size from the input_shapes if `input_ids`.
+            - `dtype`: "float32"
+                The data type of the model.
+            - `shared_kv`: false
+                Whether to share the key value cache between the past and present key value cache. If it is true, the dynamic axes of the past and present key value cache will be the same.
+            - `sequence_length_idx`: 2
+                For most of the cases, the input shape for kv_cache is like (batch_size, num_attention_heads/world_size, sequence_length, hidden_size/num_attention_heads). The `sequence_length` is the index of the sequence length in the input shape.
+            - `past_kv_dynamic_axis`: null
+                The dynamic axis of the past key value cache. If it is null, Olive will infer the dynamic axis.
+            - `present_kv_dynamic_axis`: null
+                The dynamic axis of the present key value cache. If it is null, Olive will infer the dynamic axis.
     - <a name="hf_config"></a> `hf_config: [Dict]` Instead of `model_path` or `model_loader`, the model can be specified using a dictionary describing a huggingface
     model. This dictionary specifies the following items:
 
@@ -183,7 +217,7 @@ This is the root directory that contains the data for the model evaluation, quan
 if `data_root` is specified, the data_dir in metrics evaluation or other passes which are relative path will be concatenated to the `data_root`. If not specified, the data_dir in metrics evaluation or other passes will be used.
 On the other hand, if the `data_dir` is an absolute path, the `data_root` will be ignored. For example, if the `data_dir` is /home/user/data, then the `data_root` will be ignored and the final data_dir will be /home/user/data.
 
-The `data_root` could be passed either in config json or by command line like: python -m olive.workflows.run --config <config_file>.json --data_root /home/user/data config.json. If both are provided, the command line will override the config json.
+The `data_root` could be passed either in config json or by command line like: olive run --config <config_file>.json --data_root /home/user/data config.json. If both are provided, the command line will override the config json.
 
 ### Local Examples
 If `data_root` is /home/user/data, and the data_dir in metrics evaluation is `data_dir: "cifar-10-batches-py"`, then the final data_dir will be `/home/user/data/cifar-10-batches-py`.
@@ -406,7 +440,7 @@ Please also find the detailed options from following table for each pass:
 |:----------|:-------------|
 | [OnnxConversion](onnx_conversion) | Convert a PyTorch model to ONNX model |
 | [OnnxOpVersionConversion](onnx_op_version_conversion) | Convert a Onnx model to target op version |
-| [GenAIModelExporter](genai_model_exporter) | Convert a generative PyTorch model to ONNX model using [ONNX Runtime Generative AI](https://github.com/microsoft/onnxruntime-genai) module |
+| [ModelBuilder](model_builder) | Convert a generative PyTorch model to ONNX model using [ONNX Runtime Generative AI](https://github.com/microsoft/onnxruntime-genai) module |
 | [OnnxModelOptimizer](onnx_model_optimizer) | Optimize ONNX model by fusing nodes. |
 | [OnnxTransformersOptimization](onnx_transformers_optimization) | Optimize transformer based models in scenarios where ONNX Runtime does not apply the optimization at load time. It is based on onnxruntime.transformers.optimizer. |
 | [OrtPerfTuning](ort_perf_tuning) | Optimize ONNX Runtime inference settings. |
@@ -417,14 +451,16 @@ Please also find the detailed options from following table for each pass:
 | [IncStaticQuantization](inc_static_quantization) |  Intel® Neural Compressor Static Quantization Pass. |
 | [IncQuantization](inc_quantization) | Quantize ONNX model with Intel® Neural Compressor where we can search for best parameters for static/dynamic quantization at same time. |
 | [DynamicToFixedShape](dynamic_to_fixed_shape) | Convert dynamic shape to fixed shape for ONNX model |
+| [ExtractAdapters](extract_adapters) | Extract adapters from ONNX model |
 | [QuantizationAwareTraining](onnx_quantization_aware_training) | Run quantization aware training on PyTorch model. |
 | [OpenVINOConversion](openvino_conversion) | Converts PyTorch, ONNX or TensorFlow Model to OpenVino Model. |
 | [OpenVINOQuantization](openvino_quantization) | Post-training quantization for OpenVINO model. |
 | [SNPEConversion](snpe_conversion) | Convert ONNX or TensorFlow model to SNPE DLC. Uses snpe-tensorflow-to-dlc or snpe-onnx-to-dlc tools from the SNPE SDK. |
 | [SNPEQuantization](snpe_quantization) | Quantize SNPE model. Uses snpe-dlc-quantize tool from the SNPE SDK. |
 | [SNPEtoONNXConversion](snpe_to_onnx_conversion) | Convert a SNPE DLC to ONNX to use with SNPE Execution Provider. Creates a ONNX graph with the SNPE DLC as a node. |
-| [VitisAIQuantization](vitis_ai_quantization) | AMD-Xilinx Vitis-AI Quantization Pass.  |
-| [GptqQuantizer](gptq_quantizer) | GPTQ quantization Pass On Pytorch Model.  |
+| [VitisAIQuantization](vitis_ai_quantization) | AMD-Xilinx Vitis-AI Quantization Pass. |
+| [GptqQuantizer](gptq_quantizer) | GPTQ quantization Pass On Pytorch Model. |
+| [AutoAWQQuantizer](awq_quantizer) | AWQ quantization Pass On Pytorch Model. |
 | [OptimumConversion](optimum_conversion) | Convert huggingface models to ONNX via the Optimum library. |
 | [OptimumMerging](optimum_merging) | Merge 2 models together with an `if` node via the Optimum library. |
 

@@ -24,7 +24,7 @@ from transformers import AutoTokenizer
 
 from olive.common.config_utils import ConfigBase, ConfigWithExtraArgs
 from olive.common.pydantic_v1 import Field, validator
-from olive.common.utils import find_submodules
+from olive.common.utils import find_submodules, resolve_torch_dtype
 from olive.data.config import DataConfig
 from olive.data.constants import IGNORE_INDEX
 from olive.hardware.accelerator import AcceleratorSpec
@@ -648,25 +648,44 @@ class LoRABase(Pass):
 
                 trainer_cls = ORTTrainer
 
-            # get trainer
-            trainer = trainer_cls(
-                model=model,
-                tokenizer=tokenizer,
-                args=config.training_args.create_training_args(config.use_ort_trainer),
-                train_dataset=train_dataset,
-                eval_dataset=eval_dataset,
-                data_collator=partial(self.collate_batch, tokenizer=tokenizer),
-            )
-            # TODO(jambayk): trainer callback for saving might be needed for DDP training
-            # worry about this later
+            # there is a bug in accelerate where it assumes 4bit models on multiple gpus cannot be trained but it is
+            # not the case. refer to https://github.com/huggingface/accelerate/pull/2714 for more details
+            # we will force the accelerator to use the first device using the ACCELERATE_TORCH_DEVICE env variable
+            # only catches the bug on aml compute with multiple gpus where the model has no weights on device 0 for
+            # some reason
+            # TODO(jambayk): add a version check when the fix is released
+            accelerate_torch_device = os.environ.get("ACCELERATE_TORCH_DEVICE", None)
+            try:
+                # using a try finally block in case the environment variable is used elsewhere
+                first_device = next(iter(set(model.hf_device_map.values())))
+                first_device_index = first_device.index if isinstance(first_device, torch.device) else first_device
+                os.environ["ACCELERATE_TORCH_DEVICE"] = f"cuda:{first_device_index}"
+                logger.debug("ACCELERATE_TORCH_DEVICE set to: %s", os.environ["ACCELERATE_TORCH_DEVICE"])
 
-            # train
-            logger.info("Running fine-tuning")
-            train_result = trainer.train(resume_from_checkpoint=checkpoint)
-            logger.debug("train_result: %s", train_result)
+                # get trainer'
+                trainer = trainer_cls(
+                    model=model,
+                    tokenizer=tokenizer,
+                    args=config.training_args.create_training_args(config.use_ort_trainer),
+                    train_dataset=train_dataset,
+                    eval_dataset=eval_dataset,
+                    data_collator=partial(self.collate_batch, tokenizer=tokenizer),
+                )
+                # TODO(jambayk): trainer callback for saving might be needed for DDP training
+                # worry about this later
+
+                # train
+                logger.info("Running fine-tuning")
+                train_result = trainer.train(resume_from_checkpoint=checkpoint)
+                logger.debug("train_result: %s", train_result)
+            finally:
+                if accelerate_torch_device is not None:
+                    os.environ["ACCELERATE_TORCH_DEVICE"] = accelerate_torch_device
+                else:
+                    os.environ.pop("ACCELERATE_TORCH_DEVICE", None)
 
         if torch.cuda.is_available():
-            torch.backends.cuda.matmul.allow_tf32 = allow_tf32
+            torch.backends.cuda.matmul.allow_tf32 = allow_tf32  # lgtm
 
         # save adapter weights
         adapter_path = Path(output_model_path) / "adapter"
@@ -721,15 +740,9 @@ class LoRABase(Pass):
     @staticmethod
     def get_torch_dtype(torch_dtype: str) -> torch.dtype:
         """Get the torch dtype from the string."""
-        supported_dtypes = {
-            "bfloat16": torch.bfloat16,
-            "float16": torch.float16,
-            "float32": torch.float32,
-        }
-        assert (
-            torch_dtype in supported_dtypes
-        ), f"torch_dtype must be one of {list(supported_dtypes.keys())} but got {torch_dtype}"
-        return supported_dtypes[torch_dtype]
+        supported_dtypes = ("bfloat16", "float16", "float32")
+        assert torch_dtype in supported_dtypes, f"torch_dtype must be one of {supported_dtypes} but got {torch_dtype}"
+        return resolve_torch_dtype(torch_dtype)
 
     @classmethod
     def input_model_check(cls, model: PyTorchModelHandler) -> PyTorchModelHandler:

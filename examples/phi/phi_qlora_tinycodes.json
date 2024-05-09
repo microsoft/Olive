@@ -1,5 +1,5 @@
 {
-    "input_model":{
+    "input_model": {
         "type": "PyTorchModel",
         "config": {
             "hf_config": {
@@ -17,17 +17,14 @@
             "config": {
                 "accelerators": [
                     {
-                        "device": "gpu",
-                        "execution_providers": [
-                            "CPUExecutionProvider"
-                        ]
+                        "device": "gpu"
                     }
                 ]
             }
         }
     },
-    "data_configs": {
-        "tiny_codes_train": {
+    "data_configs": [
+        {
             "name": "tiny_codes_train",
             "type": "HuggingfaceContainer",
             "user_script": "user_script.py",
@@ -52,7 +49,7 @@
                 }
             }
         }
-    },
+    ],
     "passes": {
         "qlora": {
             "type": "QLoRA",
@@ -82,6 +79,6 @@
         "host": "local_system",
         "target": "local_system",
         "cache_dir": "cache",
-        "output_dir" : "models/phi_qlora_tinycodes"
+        "output_dir": "models/phi_qlora_tinycodes"
     }
 }

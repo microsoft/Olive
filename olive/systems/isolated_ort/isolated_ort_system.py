@@ -24,7 +24,8 @@ from olive.systems.system_config import IsolatedORTTargetUserConfig
 from olive.systems.utils import create_new_environ, run_available_providers_runner
 
 if TYPE_CHECKING:
-    from olive.evaluator.metric import Metric, MetricResult
+    from olive.evaluator.metric import Metric
+    from olive.evaluator.metric_result import MetricResult
     from olive.hardware.accelerator import AcceleratorSpec
     from olive.model import ModelConfig, ONNXModelHandler
     from olive.passes.olive_pass import Pass
@@ -118,28 +119,19 @@ class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_in
             "io_bind": cls.io_bind_enabled(metric, model.inference_settings),
             "device": str(device),
             "share_kv_buffer": metric.user_config.shared_kv_buffer,
-            "use_fp16": any(v == "float16" for v in model.get_io_config()["input_types"]),
+            "use_fp16": any(v == "float16" for v in model.io_config["input_types"]),
         }
 
-    def _run_inference(
-        self,
-        config_path: Union[str, Path],
-        model_path: Union[str, Path],
-        input_dir: Union[str, Path],
-        output_dir: Union[str, Path],
-    ):
-        command = [
-            self.executable,
-            str(self.inference_runner_path),
-            "--config_path",
-            str(config_path),
-            "--model_path",
-            str(model_path),
-            "--input_dir",
-            str(input_dir),
-            "--output_dir",
-            str(output_dir),
-        ]
+    def _run_inference(self, **kwargs):
+        """Run inference using the inference runner.
+
+        :param kwargs: arguments to be passed to the inference runner
+        """
+        command = [self.executable, str(self.inference_runner_path)]
+        for key, value in kwargs.items():
+            if not value:
+                continue
+            command.extend([f"--{key}", str(value)])
         run_subprocess(command, self.environ, check=True)
 
     def _inference(
@@ -154,7 +146,7 @@ class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_in
         inference_config = self._get_common_config(model, metric, device, execution_providers)
         inference_config["mode"] = "inference"
 
-        io_config = model.get_io_config()
+        io_config = model.io_config
 
         preds = []
         targets = []
@@ -186,7 +178,14 @@ class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_in
             logger.debug("Inference config: %s", inference_config)
 
             # run inference
-            self._run_inference(config_path, model.model_path, input_dir, output_dir)
+            self._run_inference(
+                config_path=config_path,
+                model_path=model.model_path,
+                input_dir=input_dir,
+                output_dir=output_dir,
+                external_initializers_path=model.external_initializers_path,
+                constant_inputs_path=model.constant_inputs_path,
+            )
 
             # load and process output
             for idx in range(num_batches):
@@ -248,7 +247,7 @@ class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_in
             }
         )
 
-        io_config = model.get_io_config()
+        io_config = model.io_config
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_dir_path = Path(temp_dir)
@@ -267,7 +266,14 @@ class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_in
                 json.dump(inference_config, f)
 
             # run inference
-            self._run_inference(config_path, model.model_path, input_dir, output_dir)
+            self._run_inference(
+                config_path=config_path,
+                model_path=model.model_path,
+                input_dir=input_dir,
+                output_dir=output_dir,
+                external_initializers_path=model.external_initializers_path,
+                constant_inputs_path=model.constant_inputs_path,
+            )
 
             # load output
             return np.load(output_dir / "output.npy").tolist()

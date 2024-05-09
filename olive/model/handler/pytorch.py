@@ -17,10 +17,16 @@ from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import copy_dir
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
-from olive.model.config import HfComponent, HfConfig, IoConfig
+from olive.model.config import (
+    HfComponent,
+    HfConfig,
+    IoConfig,
+    complete_kv_cache_with_model_attributes,
+    extend_io_config_with_kv_cache,
+)
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
-from olive.model.handler.mixin import DummyInputsMixin, HfConfigMixin
+from olive.model.handler.mixin import DummyInputsMixin, HfConfigMixin, PytorchKvCacheMixin
 from olive.model.utils.hf_utils import load_hf_model_from_model_class
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, ResourceType, create_resource_path
 
@@ -28,7 +34,9 @@ logger = logging.getLogger(__name__)
 
 
 @model_handler_registry("PyTorchModel")
-class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  # pylint: disable=too-many-ancestors
+class PyTorchModelHandler(
+    OliveModelHandler, HfConfigMixin, DummyInputsMixin, PytorchKvCacheMixin
+):  # pylint: disable=too-many-ancestors
     """PyTorch model handler.
 
     Besides the model loading for PyTorch model, the model handler also provides the following functionalities:
@@ -42,7 +50,6 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
     json_config_keys: Tuple[str, ...] = (
         "model_file_format",
         "model_loader",
-        "io_config",
         "dummy_inputs_func",
         "hf_config",
     )
@@ -77,6 +84,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
             model_file_format=model_file_format,
             model_path=model_path,
             model_attributes=model_attributes,
+            io_config=io_config,
         )
         self.add_resources(locals())
 
@@ -101,13 +109,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
                 ResourceType.StringName,
             ), "model_script must be a local file or a string name."
 
-        # io config for conversion to onnx
-        self.io_config = (
-            validate_config(io_config, IoConfig).dict() if isinstance(io_config, (IoConfig, dict)) else io_config
-        )
-
         self.dummy_inputs_func = dummy_inputs_func
-
         self.dummy_inputs = None
 
     @property
@@ -235,6 +237,8 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
+        # add _io_config to config to keep what was provided at init
+        config["config"]["io_config"] = self._io_config
         # only keep model_attributes that are not in hf_config
         if self.model_attributes and self.hf_config:
             model_attributes = {}
@@ -250,38 +254,42 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
 
         If io_config is a string name or a callable, it will be called to get io_config.
         """
+        io_config_obj = None
         if isinstance(io_config, dict):
-            # io_config is provided
-            return io_config
-
-        if isinstance(io_config, IoConfig):
-            # io_config is an IoConfig
-            return io_config.dict()
-
-        if isinstance(io_config, (str, Callable)):
+            io_config_obj = IoConfig.parse_obj(io_config)
+        elif isinstance(io_config, IoConfig):
+            # return a new copy of io_config to avoid modifying the original one
+            io_config_obj = io_config.copy(deep=True)
+        elif isinstance(io_config, (str, Callable)):
             # io_config is a string name or a callable
             logger.debug("Calling %s to get io_config", io_config)
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             io_config = user_module_loader.call_object(io_config, self)
-            return validate_config(io_config, IoConfig).dict()
+            io_config_obj = validate_config(io_config, IoConfig)
+        # TODO(anyone): infer if to use kv_cache from task config
+        if io_config_obj.kv_cache:
+            kv_cache_config = complete_kv_cache_with_model_attributes(io_config_obj.kv_cache, self.model_attributes)
+            io_config_obj = extend_io_config_with_kv_cache(io_config_obj, kv_cache_config)
+        return io_config_obj.dict(exclude_none=True)
 
-        return None
-
-    def get_io_config(self) -> Dict[str, Any]:
+    @property
+    def io_config(self) -> Dict[str, Any]:
         """Return io config of the model.
 
         Priority: io_config > hf_config (using onnx_config)
         """
         io_config = None
-        if self.io_config:
+        if self._io_config:
             # io_config is provided
-            io_config = self.get_user_io_config(self.io_config)
+            io_config = self.get_user_io_config(self._io_config)
         elif self.hf_config and self.hf_config.task and not self.hf_config.components:
             # hf_config is provided
-            logger.debug("Using hf onnx_config to get io_config")
+            logger.debug("Trying hf onnx_config to get io_config")
             # For MLFlow model, get io config from model_name instead of model_path
             # TODO(xiaoyu): more investigation on the integration between MLFlow and HF
             io_config = self.get_hf_io_config()
+            if io_config:
+                logger.debug("Got io_config from hf_config")
 
         return io_config
 
@@ -320,6 +328,7 @@ class DistributedPyTorchModelHandler(OliveModelHandler, HfConfigMixin):
             model_file_format=model_file_format,
             model_path=model_path,
             model_attributes=model_attributes,
+            io_config=io_config,
         )
 
         self.add_resources(locals())
@@ -327,9 +336,6 @@ class DistributedPyTorchModelHandler(OliveModelHandler, HfConfigMixin):
         self.model_name_pattern = model_name_pattern
         self.num_ranks = num_ranks
         self.model_loader = model_loader
-        self.io_config = (
-            validate_config(io_config, IoConfig).dict() if isinstance(io_config, (IoConfig, dict)) else io_config
-        )
         self.dummy_inputs_func = dummy_inputs_func
         self.hf_config = validate_config(hf_config, HfConfig) if hf_config else None
 
@@ -358,7 +364,7 @@ class DistributedPyTorchModelHandler(OliveModelHandler, HfConfigMixin):
             model_loader=self.model_loader,
             model_script=self.model_script,
             script_dir=self.script_dir,
-            io_config=self.io_config,
+            io_config=self._io_config,
             dummy_inputs_func=self.dummy_inputs_func,
             hf_config=self.hf_config,
             adapter_path=self.adapter_path,

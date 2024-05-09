@@ -6,7 +6,7 @@
 import logging
 from copy import deepcopy
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from olive.auto_optimizer.regulate_mixins import RegulatePassConfigMixin
 from olive.common.config_utils import ConfigBase
@@ -58,13 +58,13 @@ class AutoOptimizer(RegulatePassConfigMixin):
         evaluator_config: OliveEvaluatorConfig,
         accelerator_spec: AcceleratorSpec,
         auto_optimizer_config: Optional[AutoOptimizerConfig] = None,
-        data_configs: Optional[Dict[str, DataConfig]] = None,
+        data_configs: Optional[List[DataConfig]] = None,
     ):
         self.input_model_config = input_model_config
         self.evaluator_config = evaluator_config
         self.accelerator_spec = accelerator_spec
         self.auto_optimizer_config = auto_optimizer_config or AutoOptimizerConfig()
-        self.data_configs = data_configs or {}
+        self.data_configs = data_configs or []
         self._initialize()
 
     def _initialize(self):

@@ -31,28 +31,34 @@ Performs optimization pipeline:
 Requirements file: [requirements.txt](requirements.txt)
 
 ### Inference optimization with ONNNX Runtime with DirectML
-For Llama2 inference with DirectML on GPUs, pls refer to this [example](https://github.com/microsoft/Olive/tree/main/examples/directml/llama_v2).
+For Llama2 inference with DirectML on GPUs, pls refer to this [example](https://github.com/microsoft/Olive/tree/main/examples/directml/llm).
 
 ### Fine-tune on a code generation dataset using QLoRA and optimize using ONNX Runtime Tools
-This workflow fine-tunes Open LLaMA model using [QLoRA](https://arxiv.org/abs/2305.14314) to generate code given a prompt. The fine-tuned model is then optimized using ONNX Runtime Tools.
+This workflow fine-tunes Llama2 model using [QLoRA](https://arxiv.org/abs/2305.14314) to generate code given a prompt. The fine-tuned model is then optimized using ONNX Runtime Tools.
 Performs optimization pipeline:
-- GPU, NF4: *Pytorch Model -> Fine-tuned Pytorch Model -> Onnx Model -> Transformers Optimized Onnx Model fp16 -> Onnx Bitsandbytes 4bit Quantization*
+- GPU, FP16: *Pytorch Model -> Fine-tuned Pytorch Model -> Onnx Model -> Transformers Optimized Onnx Model fp16 -> Extract Adapter*
+<!-- TODO(jambayk): check if bnb quantization works between different adapters -->
 
 **Note:**
 - This workflow is only supported for GPU.
 - The relevant config file is [llama2_qlora.json](llama2_qlora.json). The code language is set to `Python` but can be changed to other languages by changing the `language` field in the config file.
 Supported languages are Python, TypeScript, JavaScript, Ruby, Julia, Rust, C++, Bash, Java, C#, and Go. Refer to the [dataset card](https://huggingface.co/datasets/nampdn-ai/tiny-codes) for more details on the dataset.
-- You must be logged in to HuggingFace using `huggingface-cli login` to download the dataset or update `token` field in the config file with your HuggingFace token.
+- You must first request access to the [nampdn-ai/tiny-codes](https://huggingface.co/datasets/nampdn-ai/tiny-codes) dataset. Then login in to HuggingFace on your machine using `huggingface-cli login` or update `token` field in the config file with your HuggingFace token.
 
 Requirements file: [requirements-qlora.txt](requirements-qlora.txt)
+
+Refer to the [llama_multilora notebook](notebook/llama_multilora/notebook.ipynb) for an end-to-end tutorial of the workflow above and how to deploy a model with different adapters.
 
 ### Inference optimization using ONNX Runtime GenAI
 For using ONNX runtime GenAI to optimize, follow build and installation instructions [here](https://github.com/microsoft/onnxruntime-genai).
 
 Run the following command to execute the workflow:
 ```bash
-python -m olive.workflows.run --config lamma2_genai.json
+python llama2_model_builder.py [--model_name <>] [--metadata_only]
 ```
+
+To generate metadata only for pre-exported onnx model, use the `--metadata_only` option.
+
 Snippet below shows an example run of generated llama2 model.
 ```python
 import onnxruntime_genai as og
@@ -165,7 +171,7 @@ python llama2.py --model_name meta-llama/Llama-2-7b-hf --gpu --use_gptq
 ### Fine-tune on a code generation dataset using QLoRA and optimize using ONNX Runtime Tools
 Run the following command to execute the workflow:
 ```bash
-python -m olive.workflows.run --config lamma2_qlora.json
+olive run --config lamma2_qlora.json
 ```
 
 # License

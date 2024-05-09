@@ -6,13 +6,24 @@
         }
     },
     "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "execution_providers": [
+                            "QNNExecutionProvider"
+                        ]
+                    }
+                ]
+            }
+        },
         "qnn_ep_env": {
             "type": "IsolatedORT",
             "config": {
                 "python_environment_path": "<qnn_env_path>",
                 "accelerators": [
                     {
-                        "device": "npu",
                         "execution_providers": [
                             "QNNExecutionProvider"
                         ]
@@ -67,7 +78,7 @@
     },
     "passes": {
         "qnn_preprocess": {
-            "type": "QnnPreprocess"
+            "type": "QNNPreprocess"
         },
         "quantization": {
             "type": "OnnxStaticQuantization",
@@ -85,6 +96,6 @@
         "evaluator": "<evaluator>",
         "evaluate_input_model": false,
         "cache_dir": "cache",
-        "output_dir": "models"
+        "output_dir": "models/mobilenet_qnn_ep"
     }
 }

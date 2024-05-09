@@ -26,7 +26,8 @@ from azure.core.exceptions import ResourceNotFoundError
 
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.data.config import DataConfig
-from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricResult
+from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric
+from olive.evaluator.metric_result import MetricResult
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
@@ -534,10 +535,6 @@ class TestAzureMLSystem:
             str(tmp_path / "pass_config.json"),
             "--pipeline_output",
             str(output_dir),
-            "--pass_accelerator_type",
-            f"{DEFAULT_CPU_ACCELERATOR.accelerator_type}",
-            "--pass_execution_provider",
-            f"{DEFAULT_CPU_ACCELERATOR.execution_provider}",
         ]
         aml_pass_runner_main(args)
 
