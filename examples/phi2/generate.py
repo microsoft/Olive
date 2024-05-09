@@ -16,6 +16,9 @@ pt_to_np = {
 }
 
 
+# flake8: noqa: T201
+
+
 # TODO(jambayk): Use ORTGenerator from example utils
 class ORTGenerator:
     def __init__(self, decoder_path):
@@ -266,6 +269,39 @@ class ORTGenerator:
         return self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
 
 
+def genai_run(prompts, model_path, max_length=200):
+    import time
+
+    import onnxruntime_genai as og
+
+    print("Loading model...")
+    app_started_timestamp = time.time()
+    model = og.Model(model_path)
+    model_loaded_timestamp = time.time()
+    print("Model loaded in {:.2f} seconds".format(model_loaded_timestamp - app_started_timestamp))
+    tokenizer = og.Tokenizer(model)
+
+    print("Creating generator ...")
+    params = og.GeneratorParams(model)
+    params.set_search_options(max_length=max_length)
+    params.input_ids = tokenizer.encode_batch(prompts)
+
+    print("Generating tokens ...")
+    start_time = time.time()
+    output_tokens = model.generate(params)
+    run_time = time.time() - start_time
+
+    print("Decoding generated tokens ...")
+    output_token_count = 0
+
+    for i, prompt in enumerate(prompts):
+        print(f"Prompt #{i+1:02d}: {prompt}")
+        print(tokenizer.decode(output_tokens[i]))
+        output_token_count += len(output_tokens[i])
+
+    print(f"Tokens: {output_token_count}, Time: {run_time:.2f}, Tokens per second: {output_token_count / run_time:.2f}")
+
+
 def run(
     prompt,
     onnx_model_path,
@@ -285,5 +321,5 @@ def run(
         texts = generator.optimum_generate(prompt, max_length=max_length)
 
     for i, text in enumerate(texts):
-        print(f"Prompt: {prompt[i]}")  # noqa: T201
+        print(f"Prompt: {prompt[i]}")
         yield text

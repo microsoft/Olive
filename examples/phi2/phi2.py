@@ -13,6 +13,9 @@ from packaging import version
 
 from olive.workflows import run as olive_run
 
+# flake8: noqa: T201
+
+
 SUPPORTED_WORKFLOWS = {
     "cpu_fp32": [["convert", "optimize_cpu", "perf_tuning"]],
     "cpu_int4": [["convert", "optimize_cpu", "blockwise_quant_int4", "perf_tuning"]],
@@ -134,7 +137,7 @@ def main(raw_args=None):
             template_json = json.load(f)
             ep_str, precision = model_type.split("_")
             device = "GPU" if ep_str == "cuda" else "CPU"
-            template_json["passes"]["genai_exporter"]["config"]["precision"] = precision
+            template_json["passes"]["builder"]["config"]["precision"] = precision
             template_json["systems"]["local_system"]["config"]["accelerators"] = [
                 {"device": device, "execution_providers": [DEVICE_TO_EP[device.lower()]]}
             ]
@@ -222,10 +225,14 @@ def main(raw_args=None):
 
     # only evaluate onnx generate model
     footprints = olive_run(new_json_file)  # pylint: disable=not-callable
+    output_model_path = get_output_model_path(footprints)
     if args.genai_optimization and args.inference:
-        print("GenAI optimization does not support inference")  # noqa: T201
+        # TODO(anyone): add genai generation script to examples/utils/generator.py
+        from generate import genai_run
+
+        prompts = args.prompt if isinstance(args.prompt, list) else [args.prompt]
+        genai_run(prompts, str(output_model_path.parent))
     elif model_type and not args.slicegpt:
-        output_model_path = get_output_model_path(footprints)
         if args.inference and model_type in SUPPORTED_INFERENCE_CONFIG:
             from generate import run as generate_run
 
@@ -236,8 +243,8 @@ def main(raw_args=None):
                 use_optimum=args.optimum_optimization,
                 max_length=args.max_length,
             ):
-                print(f"Generation output: {text}")  # noqa: T201
-                print("*" * 50)  # noqa: T201
+                print(f"Generation output: {text}")
+                print("*" * 50)
 
 
 def update_accelerator(config, device):
