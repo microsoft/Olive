@@ -36,6 +36,7 @@ def setup():
     "olive_json",
     [
         "resnet_ptq_cpu.json",
+        # TODO(trajep): remove skip once the bug of azureml-fsspec is fixed
         pytest.param(
             "resnet_ptq_cpu_aml_dataset.json", marks=pytest.mark.skip(reason="credential bug in azureml-fsspec")
         ),

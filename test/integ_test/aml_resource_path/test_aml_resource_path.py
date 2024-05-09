@@ -53,6 +53,7 @@ class TestAMLResourcePath:
         "resource_path_type",
         [
             ResourceType.AzureMLModel,
+            # TODO(trajep): remove skip once the bug of azureml-fsspec is fixed
             pytest.param(
                 f"{ResourceType.AzureMLDatastore}_file",
                 marks=pytest.mark.skip(reason="Credential bug in azureml-fsspec"),
@@ -72,6 +73,7 @@ class TestAMLResourcePath:
         "resource_path_type",
         [
             ResourceType.AzureMLModel,
+            # TODO(trajep): remove skip once the bug of azureml-fsspec is fixed
             pytest.param(
                 f"{ResourceType.AzureMLDatastore}_file",
                 marks=pytest.mark.skip(reason="Credential bug in azureml-fsspec"),
