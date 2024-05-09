@@ -216,7 +216,9 @@ class ModelBuilder(Pass):
         with open(genai_config_filepath) as istrm:
             genai_config = json.load(istrm)
 
-        genai_config["search"] = {**genai_config.get("search", {}), **config.get("search", {})}
+        new_search_options = config.get("search") or {}
+        new_search_options.update(genai_config.get("search") or {})
+        genai_config["search"] = new_search_options
 
         with open(genai_config_filepath, "w") as ostrm:
             json.dump(genai_config, ostrm, indent=4)
