@@ -231,8 +231,7 @@ def main(raw_args=None):
         from generate import genai_run
 
         prompts = args.prompt if isinstance(args.prompt, list) else [args.prompt]
-        for prompt in prompts:
-            genai_run(prompt, str(output_model_path.parent))
+        genai_run(prompts, str(output_model_path.parent))
     elif model_type and not args.slicegpt:
         if args.inference and model_type in SUPPORTED_INFERENCE_CONFIG:
             from generate import run as generate_run

@@ -269,7 +269,7 @@ class ORTGenerator:
         return self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
 
 
-def genai_run(prompt, model_path, max_length=200):
+def genai_run(prompts, model_path, max_length=200):
     import time
 
     import onnxruntime_genai as og
@@ -280,12 +280,11 @@ def genai_run(prompt, model_path, max_length=200):
     model_loaded_timestamp = time.time()
     print("Model loaded in {:.2f} seconds".format(model_loaded_timestamp - app_started_timestamp))
     tokenizer = og.Tokenizer(model)
-    input_tokens = tokenizer.encode(prompt)
 
     print("Creating generator ...")
     params = og.GeneratorParams(model)
     params.set_search_options(max_length=max_length)
-    params.input_ids = input_tokens
+    params.input_ids = tokenizer.encode_batch(prompts)
 
     print("Generating tokens ...")
     start_time = time.time()
@@ -295,9 +294,10 @@ def genai_run(prompt, model_path, max_length=200):
     print("Decoding generated tokens ...")
     output_token_count = 0
 
-    print(f"Prompt: {prompt}")
-    print(tokenizer.decode(output_tokens))
-    output_token_count += len(output_tokens)
+    for i, prompt in enumerate(prompts):
+        print(f"Prompt #{i+1:02d}: {prompt}")
+        print(tokenizer.decode(output_tokens[i]))
+        output_token_count += len(output_tokens[i])
 
     print(f"Tokens: {output_token_count}, Time: {run_time:.2f}, Tokens per second: {output_token_count / run_time:.2f}")
 
