@@ -247,7 +247,6 @@ class HfConfig(ConfigBase):
     # TODO(xiaoyu): remove model_class and only use task
     model_class: str = None
     components: List[HfComponent] = None
-    dataset: Dict[str, Any] = None
     from_pretrained_args: HfFromPretrainedArgs = None
 
     @validator("model_class", always=True)

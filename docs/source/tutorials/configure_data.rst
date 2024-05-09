@@ -122,31 +122,6 @@ Convert the huggingface data config to the data container.
                 },
             )
 
-.. note::
-    If the input model for Olive is huggingface model, we can update above config under ``input_model``:
-
-    .. code-block:: json
-
-        {
-            "input_model":{
-                "type": "PyTorchModel",
-                "config": {
-                    "hf_config": {
-                        "model_name": "Intel/bert-base-uncased-mrpc",
-                        "task": "text-classification",
-                        "dataset": {
-                            "data_name":"glue",
-                            "subset": "mrpc",
-                            "split": "validation",
-                            "input_cols": ["sentence1", "sentence2"],
-                            "label_cols": ["label"],
-                            "batch_size": 1
-                        }
-                    }
-                }
-            }
-        }
-
 
 3. `RawDataContainer <https://github.com/microsoft/Olive/blob/main/olive/data/template.py#L72>`_ :
 Convert the raw data config to the data container.
