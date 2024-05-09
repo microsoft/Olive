@@ -71,7 +71,7 @@
             "type": "SliceGPT",
             "config": {
                 "sparsity": 0.4,
-                "calibration_data_config": "wikitext2"
+                "calibration_data_config": "wikitext2_train"
             }
         },
         "qlora": {
@@ -192,6 +192,28 @@
                         "corpus_strategy": "join",
                         "text_template": "### Question: {prompt} \n### Answer: {response}",
                         "source_max_len": 1024
+                    }
+                }
+            }
+        },
+        {
+            "name": "wikitext2_train",
+            "type": "HuggingfaceContainer",
+            "params_config": {
+                "data_name": "wikitext",
+                "subset": "wikitext-2-raw-v1",
+                "split": "train",
+                "component_kwargs": {
+                    "pre_process_data": {
+                        "text_cols": [
+                            "text"
+                        ],
+                        "corpus_strategy": "join",
+                        "add_special_tokens": false,
+                        "source_max_len": 2048,
+                        "max_samples": 128,
+                        "joiner": "\n\n",
+                        "batch_size": 1
                     }
                 }
             }
