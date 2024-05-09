@@ -137,7 +137,7 @@ def main(raw_args=None):
             template_json = json.load(f)
             ep_str, precision = model_type.split("_")
             device = "GPU" if ep_str == "cuda" else "CPU"
-            template_json["passes"]["genai_exporter"]["config"]["precision"] = precision
+            template_json["passes"]["builder"]["config"]["precision"] = precision
             template_json["systems"]["local_system"]["config"]["accelerators"] = [
                 {"device": device, "execution_providers": [DEVICE_TO_EP[device.lower()]]}
             ]
@@ -227,12 +227,12 @@ def main(raw_args=None):
     footprints = olive_run(new_json_file)  # pylint: disable=not-callable
     output_model_path = get_output_model_path(footprints)
     if args.genai_optimization and args.inference:
+        # TODO(anyone): add genai generation script to examples/utils/generator.py
         from generate import genai_run
 
         prompts = args.prompt if isinstance(args.prompt, list) else [args.prompt]
         for prompt in prompts:
-            for text in genai_run(prompt, str(output_model_path.parent)):
-                print(f"Generation output: {text}")
+            genai_run(prompt, str(output_model_path.parent))
     elif model_type and not args.slicegpt:
         if args.inference and model_type in SUPPORTED_INFERENCE_CONFIG:
             from generate import run as generate_run

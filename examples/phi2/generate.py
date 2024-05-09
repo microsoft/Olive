@@ -280,47 +280,26 @@ def genai_run(prompt, model_path, max_length=200):
     model_loaded_timestamp = time.time()
     print("Model loaded in {:.2f} seconds".format(model_loaded_timestamp - app_started_timestamp))
     tokenizer = og.Tokenizer(model)
-    tokenizer_stream = tokenizer.create_stream()
     input_tokens = tokenizer.encode(prompt)
-    started_timestamp = time.time()
 
     print("Creating generator ...")
     params = og.GeneratorParams(model)
-    params.set_search_options(
-        {
-            "do_sample": False,
-            "max_length": max_length,
-            "min_length": 0,
-            "top_p": 0.9,
-            "top_k": 40,
-            "temperature": 1.0,
-            "repetition_penalty": 1.0,
-        }
-    )
+    params.set_search_options(max_length=max_length)
     params.input_ids = input_tokens
-    generator = og.Generator(model, params)
-    print("Generator created")
 
-    first = True
-    new_tokens = []
+    print("Generating tokens ...")
+    start_time = time.time()
+    output_tokens = model.generate(params)
+    run_time = time.time() - start_time
 
-    while not generator.is_done():
-        generator.compute_logits()
-        generator.generate_next_token()
-        if first:
-            first_token_timestamp = time.time()
-            first = False
+    print("Decoding generated tokens ...")
+    output_token_count = 0
 
-        new_token = generator.get_next_tokens()[0]
-        print(tokenizer_stream.decode(new_token), end="")
-        new_tokens.append(new_token)
+    print(f"Prompt: {prompt}")
+    print(tokenizer.decode(output_tokens))
+    output_token_count += len(output_tokens)
 
-    run_time = time.time() - started_timestamp
-    print(
-        f"Prompt tokens: {len(input_tokens)}, New tokens: {len(new_tokens)},"
-        f" Time to first: {(first_token_timestamp - started_timestamp):.2f}s,"
-        f" New tokens per second: {len(new_tokens)/run_time:.2f} tps"
-    )
+    print(f"Tokens: {output_token_count}, Time: {run_time:.2f}, Tokens per second: {output_token_count / run_time:.2f}")
 
 
 def run(

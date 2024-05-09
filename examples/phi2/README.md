@@ -50,7 +50,11 @@ python phi2.py --model_type cuda_int4
 ```
 
 ### GenAI Optimization
-For using ONNX runtime GenAI to optimize, follow build and installation instructions [here](https://github.com/microsoft/onnxruntime-genai).
+For using ONNX runtime GenAI to optimize, follow build and installation instructions [here](https://github.com/microsoft/onnxruntime-genai). **Note that:** for cuda optimization, please install the pre-release version of `onnxruntime-genai-cuda`.'
+```bash
+pip install onnxruntime-genai-cuda --pre --index-url=https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-genai/pypi/simple/
+```
+
 Run the following command to execute the workflow:
 ```bash
 olive run --config phi2_genai.json
@@ -118,6 +122,11 @@ text = tokenizer.decode(output_tokens)
 
 print("Output:")
 print(text)
+```
+
+Also you can use `--inference` argument to run inference with the optimized model.
+```bash
+python phi2.py --model_type cuda_int4 --genai_optimization --inference
 ```
 
 ### Optimum Optimization
