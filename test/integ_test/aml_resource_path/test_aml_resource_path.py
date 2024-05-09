@@ -53,8 +53,15 @@ class TestAMLResourcePath:
         "resource_path_type",
         [
             ResourceType.AzureMLModel,
-            f"{ResourceType.AzureMLDatastore}_file",
-            f"{ResourceType.AzureMLDatastore}_folder",
+            # TODO(trajep): remove skip once the bug of azureml-fsspec is fixed
+            pytest.param(
+                f"{ResourceType.AzureMLDatastore}_file",
+                marks=pytest.mark.skip(reason="Credential bug in azureml-fsspec"),
+            ),
+            pytest.param(
+                f"{ResourceType.AzureMLDatastore}_folder",
+                marks=pytest.mark.skip(reason="Credential bug in azureml-fsspec"),
+            ),
             ResourceType.AzureMLJobOutput,
         ],
     )
@@ -66,8 +73,15 @@ class TestAMLResourcePath:
         "resource_path_type",
         [
             ResourceType.AzureMLModel,
-            f"{ResourceType.AzureMLDatastore}_file",
-            f"{ResourceType.AzureMLDatastore}_folder",
+            # TODO(trajep): remove skip once the bug of azureml-fsspec is fixed
+            pytest.param(
+                f"{ResourceType.AzureMLDatastore}_file",
+                marks=pytest.mark.skip(reason="Credential bug in azureml-fsspec"),
+            ),
+            pytest.param(
+                f"{ResourceType.AzureMLDatastore}_folder",
+                marks=pytest.mark.skip(reason="Credential bug in azureml-fsspec"),
+            ),
             ResourceType.AzureMLJobOutput,
         ],
     )

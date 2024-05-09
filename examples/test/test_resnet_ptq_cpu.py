@@ -32,7 +32,16 @@ def setup():
 @pytest.mark.parametrize("search_algorithm", ["random"])
 @pytest.mark.parametrize("execution_order", ["pass-by-pass"])
 @pytest.mark.parametrize("system", ["local_system", "aml_system"])
-@pytest.mark.parametrize("olive_json", ["resnet_ptq_cpu.json", "resnet_ptq_cpu_aml_dataset.json"])
+@pytest.mark.parametrize(
+    "olive_json",
+    [
+        "resnet_ptq_cpu.json",
+        # TODO(trajep): remove skip once the bug of azureml-fsspec is fixed
+        pytest.param(
+            "resnet_ptq_cpu_aml_dataset.json", marks=pytest.mark.skip(reason="credential bug in azureml-fsspec")
+        ),
+    ],
+)
 @pytest.mark.skipif(
     version.parse(OrtVersion) == version.parse("1.16.0"),
     reason="resnet is not supported in ORT 1.16.0 caused by https://github.com/microsoft/onnxruntime/issues/17627",
