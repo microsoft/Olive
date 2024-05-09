@@ -42,6 +42,12 @@ OnnxFloatToFloat16
 --------------------
 .. autoconfigclass:: olive.passes.OnnxFloatToFloat16
 
+.. _onnx_io_float16_to_float32:
+
+OnnxIOFloat16ToFloat32
+--------------------
+.. autoconfigclass:: olive.passes.OnnxIOFloat16ToFloat32
+
 .. _ort_mixed_precision:
 
 OrtMixedPrecision

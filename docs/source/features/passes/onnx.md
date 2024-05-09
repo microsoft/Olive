@@ -428,6 +428,19 @@ b. More fine-grained control of the conversion conditions is also possible:
 
 See [Float16 Conversion](https://onnxruntime.ai/docs/performance/model-optimizations/float16.html#float16-conversion) for more detailed description of the available configuration parameters.
 
+## Inputs/Outputs Float16 to Float32 Conversion
+
+Certain environments such as Onnxruntime WebGPU prefers Float32 logits. The `OnnxIOFloat16ToFloat32` pass converts the inputs and outputs to use Float16 instead of Float32.
+
+### Example Configuration
+
+a. The most basic configuration, which is suitable for many models, leaves all configuration options set to their default values:
+```json
+{
+    "type": "OnnxIOFloat16ToFloat32"
+}
+```
+
 ## Mixed Precision Conversion
 Converting model to mixed precision.
 
