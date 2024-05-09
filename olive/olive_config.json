@@ -184,6 +184,12 @@
         },
         "SNPEtoONNXConversion": {
             "module_path": "olive.passes.snpe.snpe_to_onnx.SNPEtoONNXConversion"
+        },
+        "NVModelOptQuantization": {
+            "module_path": "olive.passes.onnx.nvmo_quantization.NVModelOptQuantization",
+            "extra_dependencies": [
+                "nvmo"
+            ]
         }
     },
     "extra_dependencies": {
@@ -238,6 +244,10 @@
             "onnxruntime-directml",
             "onnxruntime-gpu",
             "onnxruntime-openvino"
+        ],
+        "nvmo": [
+            "nvidia-modelopt~=0.11.0",
+            "onnx-graphsurgeon"
         ]
     }
 }
