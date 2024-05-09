@@ -12,7 +12,7 @@ import urllib.request
 from collections import OrderedDict
 from pathlib import Path
 from string import Template
-from typing import TYPE_CHECKING, Dict, List, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Union
 
 import pkg_resources
 
@@ -278,6 +278,11 @@ def _get_best_candidate_node(
     )
 
 
+def _is_generative_model(config: Dict[str, Any]) -> bool:
+    model_attributes = config.get("model_attributes") or {}
+    return model_attributes.get("is_generative", False)
+
+
 def _package_candidate_models(
     packaging_config: PackagingConfig,
     output_dir: Path,
@@ -296,11 +301,17 @@ def _package_candidate_models(
         tempdir = Path(temp_dir)
 
         if packaging_type == PackagingType.Zipfile:
+            best_node: FootprintNode = _get_best_candidate_node(pf_footprints, footprints)
+            is_generative = _is_generative_model(best_node.model_config["config"])
+
             if packaging_config.include_sample_code:
-                _package_sample_code(Path(__file__).parent, tempdir)
+                _package_sample_code(Path(__file__).parent, tempdir, is_generative)
 
             if packaging_config.include_runtime_packages:
-                _package_onnxruntime_packages(tempdir, next(iter(pf_footprints.values())))
+                if is_generative:
+                    _package_onnxruntime_genai_runtime_dependencies(tempdir)
+                else:
+                    _package_onnxruntime_runtime_dependencies(tempdir, next(iter(pf_footprints.values())))
 
         for accelerator_spec, pf_footprint in pf_footprints.items():
             footprint = footprints[accelerator_spec]
@@ -436,8 +447,9 @@ def _copy_models_rank(tempdir: Path, model_info_list: List[Dict]):
         f.write(json.dumps(model_info_list))
 
 
-def _package_sample_code(cur_path: Path, tempdir: Path):
-    copy_dir(cur_path / "sample_code", tempdir / "SampleCode")
+def _package_sample_code(cur_path: Path, tempdir: Path, is_generative: bool):
+    subdir_name = "GenAIOnnxModel" if is_generative else "ONNXModel"
+    copy_dir(cur_path / "sample_code" / subdir_name, tempdir / "SampleCode")
 
 
 def _package_zipfile_model(output_dir: Path, output_name: str, model_dir: Path):
@@ -565,7 +577,42 @@ def _generate_onnx_mlflow_model(model_dir: Path, inference_config: Dict):
     return mlflow_model_path
 
 
-def _package_onnxruntime_packages(tempdir: Path, pf_footprint: "Footprint"):
+def _package_onnxruntime_genai_runtime_dependencies(tempdir: Path):
+    # pylint: disable=not-an-iterable
+    installed_packages = [
+        pkg
+        for pkg in pkg_resources.working_set
+        if pkg.key.startswith("onnxruntime-genai") or pkg.project_name.startswith("onnxruntime-genai")
+    ]
+    if not installed_packages:
+        logger.warning("ONNXRuntime-GenAI package is not installed. Skip packaging runtime packages.")
+        return
+
+    DOWNLOAD_COMMAND_TEMPLATE = Template(
+        f"{sys.executable} -m pip download $package_name==$version --no-deps -d $python_download_path"
+    )
+    python_download_path = tempdir / "ONNXRuntimePackages" / "python"
+    python_download_path.mkdir(parents=True, exist_ok=True)
+    python_download_path = str(python_download_path)
+
+    for pkg in installed_packages:
+        pkg_name = pkg.key if pkg.key.startswith("onnxruntime-genai") else pkg.project_name
+        download_command = DOWNLOAD_COMMAND_TEMPLATE.substitute(
+            package_name=pkg_name, version=pkg.version, python_download_path=python_download_path
+        )
+
+        try:
+            run_subprocess(download_command)
+        except Exception:
+            logger.exception(
+                "Failed to download %s package. Please manually download & install the required package.", pkg_name
+            )
+
+        # Download CPP && CS onnxruntime-genai packages
+        # TODO(olive-devteam): As of this writing the native packages aren't published.
+
+
+def _package_onnxruntime_runtime_dependencies(tempdir: Path, pf_footprint: "Footprint"):
     # pylint: disable=not-an-iterable
     installed_packages = pkg_resources.working_set
     onnxruntime_pkg = [i for i in installed_packages if i.key.startswith("onnxruntime")]
@@ -581,19 +628,18 @@ def _package_onnxruntime_packages(tempdir: Path, pf_footprint: "Footprint"):
         logger.warning("Both ONNXRuntime and ort-nightly packages are installed. Package ort-nightly package only.")
 
     ort_version = ort_nightly_pkg[0].version if is_nightly else onnxruntime_pkg[0].version
+    package_name_list = set()
     use_ort_extensions = False
-
     for model_id in pf_footprint.nodes:
         if pf_footprint.get_use_ort_extensions(model_id):
             use_ort_extensions = True
+
         inference_settings = pf_footprint.get_model_inference_config(model_id)
-        package_name_list = []
-        if not inference_settings:
-            package_name_list.append(("onnxruntime", "ort-nightly"))
-        else:
+        if inference_settings:
             ep_list = inference_settings["execution_provider"]
-            package_name_list.extend([get_package_name_from_ep(ep[0]) for ep in ep_list])
-            package_name_list = set(package_name_list)
+            package_name_list.update([get_package_name_from_ep(ep[0]) for ep in ep_list])
+        else:
+            package_name_list.update(["onnxruntime", "ort-nightly"])
 
     try:
         # Download Python onnxruntime package
@@ -637,7 +683,7 @@ def _package_onnxruntime_packages(tempdir: Path, pf_footprint: "Footprint"):
             if is_nightly:
                 _skip_download_c_package(ort_download_path)
             else:
-                _download_c_packages(package_name_list, ort_version, ort_download_path)
+                _download_native_onnx_packages(package_name_list, ort_version, ort_download_path)
 
     except Exception:
         logger.exception("Failed to download onnxruntime package. Please manually download onnxruntime package.")
@@ -675,7 +721,7 @@ def _download_ort_extensions_package(use_ort_extensions: bool, download_path: st
             run_subprocess(download_command)
 
 
-def _download_c_packages(package_name_list: List[str], ort_version: str, ort_download_path: str):
+def _download_native_onnx_packages(package_name_list: List[str], ort_version: str, ort_download_path: str):
     PACKAGE_DOWNLOAD_LINK_MAPPING = {
         "onnxruntime": Template("https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime/$ort_version"),
         "onnxruntime-gpu": Template("https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime.Gpu/$ort_version"),
