@@ -26,12 +26,15 @@ def test_slicegpt(tmp_path):
         "component_kwargs": {
             "pre_process_data": {
                 "text_cols": ["text"],
+                "corpus_strategy": "join",
+                "add_special_tokens": False,
                 "source_max_len": 2048,
+                "max_samples": 128,
+                "joiner": "\n\n",
             }
         },
     }
     data_config = huggingface_data_config_template(model_name=model_name, task=task, **dataset)
-    data_config.name = "wikitext2"
     config = {
         "sparsity": 0.4,
         "calibration_data_config": data_config,

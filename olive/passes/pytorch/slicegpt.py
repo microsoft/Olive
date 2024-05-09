@@ -9,7 +9,9 @@ import sys
 from typing import Any, Dict, Union
 
 import torch
+from torch.utils.data import DataLoader, SubsetRandomSampler
 
+from olive.common.config_utils import validate_config
 from olive.constants import ModelFileFormat
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
@@ -49,18 +51,6 @@ class SliceGPT(Pass):
                 default_value=16,
                 description=("Batch size for loading the calibration data."),
             ),
-            "calibration_max_seqlen": PassConfigParam(
-                type_=int,
-                required=False,
-                default_value=2048,
-                description=("Maximum sequence length for the calibration data."),
-            ),
-            "varied_seqlen": PassConfigParam(
-                type_=bool,
-                required=False,
-                default_value=False,
-                description=("Varied sequence lengths in the calibration data."),
-            ),
             "seed": PassConfigParam(
                 type_=int,
                 required=False,
@@ -92,7 +82,6 @@ class SliceGPT(Pass):
             raise ValueError("SliceGPT requires python3.10 or higher")
 
         from slicegpt import layernorm_fusion, rotate
-        from slicegpt.data_utils import get_dataset, prepare_dataloader
         from slicegpt.hf_utils import get_model_and_tokenizer
         from slicegpt.slicing_scheduler import ConstSlicingScheduler
 
@@ -107,7 +96,7 @@ class SliceGPT(Pass):
         if model_handler.hf_config is None or model_handler.hf_config.model_name is None:
             raise ValueError("SliceGPT only supports select HuggingFace models")
 
-        model_adapter, tokenizer = get_model_and_tokenizer(model_handler.hf_config.model_name)
+        model_adapter, _ = get_model_and_tokenizer(model_handler.hf_config.model_name)
         model_handler.model = model_adapter.model
         model = model_handler.load_model()
 
@@ -128,16 +117,20 @@ class SliceGPT(Pass):
             100 * (1 - new_embedding_dim / model_adapter.hidden_size),
         )
 
-        train_dataset = get_dataset(config.calibration_data_config.name)["train"]
-        train_loader = prepare_dataloader(
-            dataset=train_dataset,
-            tokenizer=tokenizer,
-            max_seqlen=config.calibration_max_seqlen,
-            batch_size=config.calibration_batch_size,
-            nsamples=config.calibration_nsamples,
-            varied_seqlen=config.varied_seqlen,
-            seed=config.seed,
-        )
+        data_config = validate_config(config.calibration_data_config, DataConfig)
+        dataloader = data_config.to_data_container().create_dataloader(data_root)
+        dataset = [
+            {
+                "input_ids": data[0]["input_ids"].squeeze(),
+                "attention_mask": data[0]["attention_mask"].squeeze(),
+                "labels": data[1].squeeze(),
+            }
+            for data in dataloader
+        ]
+
+        torch.manual_seed(config.seed)
+        sampler = SubsetRandomSampler(torch.randperm(len(dataset))[: config.calibration_nsamples])
+        train_loader = DataLoader(dataset, batch_size=config.calibration_batch_size, sampler=sampler)
 
         # rotate and slice
         schedular = ConstSlicingScheduler(new_embedding_dim)

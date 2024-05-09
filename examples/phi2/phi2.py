@@ -129,7 +129,7 @@ def main(raw_args=None):
     if not args.model_type and not args.finetune_method and not args.slicegpt:
         raise ValueError("Please specify either model_type or finetune_method or args.slicegpt")
 
-    model_type = str(args.model_type) or ""
+    model_type = str(args.model_type) if args.model_type else ""
 
     if args.genai_optimization:
         json_file_template = "phi2_genai.json"
@@ -179,8 +179,6 @@ def main(raw_args=None):
         if args.slicegpt:
             pass_flows[0].extend(SUPPORTED_WORKFLOWS["slicegpt"][0])
             update_accelerator(template_json, "gpu")
-            del template_json["input_model"]["config"]["model_script"]
-            del template_json["input_model"]["config"]["dummy_inputs_func"]
             del template_json["input_model"]["config"]["io_config"]
 
         if model_type:
@@ -219,7 +217,7 @@ def main(raw_args=None):
                 }
             ]
 
-        new_json_file = f"phi2_{model_type}.json"
+        new_json_file = "phi2_slicegpt.json" if args.slicegpt else f"phi2_{model_type}.json"
         with open(new_json_file, "w") as f:
             json.dump(template_json, f, indent=4)
 
