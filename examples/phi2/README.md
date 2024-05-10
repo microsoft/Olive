@@ -50,10 +50,7 @@ python phi2.py --model_type cuda_int4
 ```
 
 ### GenAI Optimization
-For using ONNX runtime GenAI to optimize, follow build and installation instructions [here](https://github.com/microsoft/onnxruntime-genai). **Note that:** for cuda optimization, please install the pre-release version of `onnxruntime-genai-cuda`.'
-```bash
-pip install onnxruntime-genai-cuda --pre --index-url=https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-genai/pypi/simple/
-```
+For using ONNX runtime GenAI to optimize, follow build and installation instructions [here](https://github.com/microsoft/onnxruntime-genai) to install onnxruntime-genai package(>0.1.0).
 
 Run the following command to execute the workflow:
 ```bash
@@ -113,7 +110,7 @@ prompt = '''def print_prime(n):
 tokens = tokenizer.encode(prompt)
 
 params = og.GeneratorParams(model)
-params.set_search_options({"max_length":200})
+params.set_search_options(max_length=200)
 params.input_ids = tokens
 
 output_tokens = model.generate(params)

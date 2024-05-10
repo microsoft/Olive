@@ -1,11 +1,11 @@
 # Olive sample code instructions
 
 ## ONNXRuntime GenAI installation
-Install onnxruntime-genai package:
+Install onnxruntime-genai package(>0.1.0):
 
 ### install by pip (CPU)
 ```
-python -m pip install onnxruntime-genai
+python -m pip install onnxruntime-genai --pre
 ```
 
 ### install by pip (CUDA)
@@ -22,7 +22,7 @@ For updated instructions and/or configuring a locally built package, refer to th
 
 ## Running the same code
 ```
-python code_sample.py <Model's directory path> [prompt1, [prompt2, ...]]
+python code_sample.py <Model's directory path> --prompts [prompt1, [prompt2, ...]]
 ```
 
 For full list of available options, run the script in help mode.

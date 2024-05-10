@@ -50,7 +50,7 @@ Requirements file: [requirements-qlora.txt](requirements-qlora.txt)
 Refer to the [llama_multilora notebook](notebook/llama_multilora/notebook.ipynb) for an end-to-end tutorial of the workflow above and how to deploy a model with different adapters.
 
 ### Inference optimization using ONNX Runtime GenAI
-For using ONNX runtime GenAI to optimize, follow build and installation instructions [here](https://github.com/microsoft/onnxruntime-genai).
+For using ONNX runtime GenAI to optimize, follow build and installation instructions [here](https://github.com/microsoft/onnxruntime-genai) to install onnxruntime-genai package(>0.1.0).
 
 Run the following command to execute the workflow:
 ```bash
@@ -75,7 +75,7 @@ prompt = '''def print_prime(n):
 tokens = tokenizer.encode(prompt)
 
 params = og.GeneratorParams(model)
-params.set_search_options({"max_length":200})
+params.set_search_options(max_length=200)
 params.input_ids = tokens
 
 output_tokens = model.generate(params)
