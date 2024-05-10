@@ -1,11 +1,11 @@
 # Olive sample code instructions
 
 ## ONNXRuntime GenAI installation
-Install onnxruntime-genai package:
+Install onnxruntime-genai package(>0.1.0):
 
 ### install by pip (CPU)
 ```
-python -m pip install onnxruntime-genai
+python -m pip install onnxruntime-genai --pre
 ```
 
 ### install by pip (CUDA)
