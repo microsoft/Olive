@@ -75,7 +75,10 @@
             }
         },
         "auto_fusion": {
-            "type": "AutoFusion"
+            "type": "AutoFusion",
+            "config" : {
+                "rseed" : 45
+            }
         }
     },
     "engine": {

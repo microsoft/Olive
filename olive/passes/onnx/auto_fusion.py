@@ -47,6 +47,10 @@ class AutoFusion(Pass):
                     " `<onnxruntime-repo-dir> is the path to a local clone of the ort github repository."
                 ),
             ),
+            "rseed": PassConfigParam(
+                type_=int,
+                description="Random seed for random reasons.",
+            ),
         }
         config.update(get_external_data_config())
         return config
@@ -91,6 +95,7 @@ class AutoFusion(Pass):
                 continue
 
             node_names = fusion.get_node_names()
+            print(f' fusion candidates : {node_names}')
             fused_node, kernel_info = fusion.fuse()
             dag.replace_nodes(node_names, fused_node)
 
