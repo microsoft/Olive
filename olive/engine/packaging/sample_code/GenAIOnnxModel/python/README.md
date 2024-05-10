@@ -22,7 +22,7 @@ For updated instructions and/or configuring a locally built package, refer to th
 
 ## Running the same code
 ```
-python code_sample.py <Model's directory path> [prompt1, [prompt2, ...]]
+python code_sample.py <Model's directory path> --prompts [prompt1, [prompt2, ...]]
 ```
 
 For full list of available options, run the script in help mode.

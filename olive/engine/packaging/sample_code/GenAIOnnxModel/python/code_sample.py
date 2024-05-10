@@ -11,6 +11,7 @@ import sys
 import time
 
 import onnxruntime_genai as og
+from packaging import version
 
 # ruff: noqa
 
@@ -24,7 +25,7 @@ def _main():
     parser.add_argument(
         "--diversity_penalty",
         type=float,
-        help="This value is subtracted from a beam’s score if it generates a token same as any beam from other group at a particular time. Note that diversity_penalty is only effective if group beam search is enabled.",
+        help="This value is subtracted from a beam's score if it generates a token same as any beam from other group at a particular time. Note that diversity_penalty is only effective if group beam search is enabled.",
     )
     parser.add_argument(
         "--do_sample", type=bool, help="Whether or not to use sampling ; use greedy decoding otherwise."
@@ -108,7 +109,10 @@ def _main():
             if name in args and getattr(args, name)
         }
     )
-    params.set_search_options(search_options)
+    if version.parse(og.__version__) > version.parse("0.1.0"):
+        params.set_search_options(**search_options)
+    else:
+        params.set_generator_params(search_options)
 
     print("Encoding prompts ...")
     if args.prompts is not None:

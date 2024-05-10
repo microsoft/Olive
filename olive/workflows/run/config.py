@@ -302,6 +302,6 @@ def _have_aml_client(config_item, values):
         rp_aml_client = config_item.get("config", {}).get("azureml_client")
         if not rp_aml_client:
             if "azureml_client" not in values:
-                raise ValueError(f"azureml_client is required for azureml resource path in config if {config_item}")
+                raise ValueError(f"azureml_client is required for azureml resource path in config of {config_item}")
             return True
     return False
