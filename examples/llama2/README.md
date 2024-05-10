@@ -81,7 +81,7 @@ params = og.GeneratorParams(model)
 # onnxruntime-genai <= 0.1.0
 # params.set_search_options({"max_length":200})
 # onnxruntime-genai > 0.1.0
-params.set_search_options(max_length=200})
+params.set_search_options(max_length=200)
 params.input_ids = tokens
 
 output_tokens = model.generate(params)
