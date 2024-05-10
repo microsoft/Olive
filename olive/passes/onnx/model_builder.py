@@ -94,12 +94,6 @@ class ModelBuilder(Pass):
                     "for the CUDA graph to be used correctly."
                 ),
             ),
-            "enable_GQA_on_CPU": PassConfigParam(
-                type_=bool,
-                default_value=None,  # Explicitly setting to None to differentiate between user intent and default.
-                required=False,
-                description="Enable G(Group)Query(Q)Attention(A) on CPU.",
-            ),
         }
 
     def validate_search_point(
@@ -197,7 +191,7 @@ class ModelBuilder(Pass):
                 extra_args[arg] = True
 
         # args that are checked for presence and value (if present)
-        for arg in ["enable_cuda_graph", "enable_GQA_on_CPU"]:
+        for arg in ["enable_cuda_graph"]:
             if config[arg] is not None:
                 extra_args[arg] = "1" if config[arg] else "0"
 
