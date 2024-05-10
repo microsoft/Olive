@@ -41,7 +41,7 @@ def test_load_hf_model_from_task():
         ([None, ValueError("value error")], None, None),
         ([ValueError("value error"), None], None, None),
         ([ValueError("value error"), ImportError("import error")], ImportError, "import error"),
-        ([ValueError("value error 1"), ValueError("value error 2")], ValueError, "Failed to load model with task *"),
+        ([ValueError("value error 1"), ValueError("value error 2")], ValueError, "value error 2"),
     ],
 )
 def test_load_hf_model_from_task_exception_handling(exceptions, expected_exception, expected_message):

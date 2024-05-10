@@ -33,33 +33,39 @@ def load_hf_model_from_task(task: str, name: str, **kwargs) -> "PreTrainedModel"
     else:
         raise ValueError("unsupported transformers version")
 
-    model_class = {"pt": targeted_task["pt"]}
-    class_tuple = ()
-    class_tuple = class_tuple + model_class.get("pt", (AutoModel,))
-
-    exceptions = []
-    for model_class in class_tuple:
+    class_tuple = targeted_task["pt"] or (AutoModel,)
+    model = None
+    for i, model_class in enumerate(class_tuple):
         try:
             model = model_class.from_pretrained(name, **kwargs)
             logger.debug("Loaded model %s with name_or_path %s", model_class, name)
-            return model
+            break
         except (OSError, ValueError) as e:
-            if len(class_tuple) == 1:
-                # this covers most common tasks like text-generation, text-classification, etc
-                # raise the error since there is no model to return
-                # user gets the error message and the traceback
+            if i == len(class_tuple) - 1:
+                # len(class_tuple) == 1 covers most common tasks like text-generation, text-classification, etc
                 # error could be device OOM, device_map: "auto" not supported, etc
+
+                # len(class_tuple) > 1: not common - image-segmentation, conversational, etc
+                # there is no easy way to get tracebacks for earlier failures, so just raise from last
                 raise
             # the ValueError need to be caught since there will be multiple model_class for single task.
             # if the model_class is not the one for the task, it will raise ValueError and
             # next model_class will be tried.
-            # not common: image-segmentation, conversational, etc
-            exceptions.append((model_class, e))
-            # debug log so that even when return succeeds user can see what failed before
-            logger.debug("Failed to load model %s with name_or_path %s: %s", model_class, name, e)
+            logger.debug(
+                "Failed to load model %s with name_or_path %s.\n kwargs: %s.\n Exception raised: %s",
+                model_class,
+                name,
+                kwargs,
+                e,
+            )
 
-    # at this point there is no model to return
-    raise ValueError(f"Failed to load model with task {task} and name {name}. Exceptions: {exceptions}")
+    if model is None:
+        # don't expect for this condition to be true since class_tuple is never empty
+        # either model load worked or error raised
+        # just to be safe from_pretrained returned a model and to satisfy linter
+        raise ValueError(f"Failed to load model with name_or_path {name}. Class tuples were {class_tuple}.")
+
+    return model
 
 
 def huggingface_model_loader(model_loader: Union[str, Callable]) -> Callable:
