@@ -5,26 +5,22 @@
 import logging
 from functools import partial
 from itertools import chain
-from typing import Callable, Dict, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Callable, Dict, Optional, Tuple, Union
 
 import transformers
-from transformers import (
-    AutoConfig,
-    AutoModel,
-    AutoTokenizer,
-    GenerationConfig,
-    PretrainedConfig,
-    PreTrainedTokenizer,
-    PreTrainedTokenizerFast,
-)
+from transformers import AutoConfig, AutoModel, AutoTokenizer, GenerationConfig
 
 from olive.common.utils import get_attr
 from olive.model.utils.hf_mappings import FEATURE_TO_PEFT_TASK_TYPE, MODELS_TO_MAX_LENGTH_MAPPING, TASK_TO_FEATURE
 
+if TYPE_CHECKING:
+    from transformers import PretrainedConfig, PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
+    from transformers.onnx import OnnxConfig
+
 logger = logging.getLogger(__name__)
 
 
-def load_hf_model_from_task(task: str, name: str, **kwargs):
+def load_hf_model_from_task(task: str, name: str, **kwargs) -> "PreTrainedModel":
     """Load huggingface model from task and name."""
     from transformers.pipelines import check_task
 
@@ -37,26 +33,38 @@ def load_hf_model_from_task(task: str, name: str, **kwargs):
     else:
         raise ValueError("unsupported transformers version")
 
-    model_class = {"pt": targeted_task["pt"]}
-    class_tuple = ()
-    class_tuple = class_tuple + model_class.get("pt", (AutoModel,))
-
+    class_tuple = targeted_task["pt"] or (AutoModel,)
     model = None
-    for model_class in class_tuple:
+    for i, model_class in enumerate(class_tuple):
         try:
             model = model_class.from_pretrained(name, **kwargs)
             logger.debug("Loaded model %s with name_or_path %s", model_class, name)
-            return model
-        except (OSError, ValueError):
+            break
+        except (OSError, ValueError) as e:
+            if i == len(class_tuple) - 1:
+                # len(class_tuple) == 1 covers most common tasks like text-generation, text-classification, etc
+                # error could be device OOM, device_map: "auto" not supported, etc
+
+                # len(class_tuple) > 1: not common - image-segmentation, conversational, etc
+                # there is no easy way to get tracebacks for earlier failures, so just raise from last
+                raise
             # the ValueError need to be caught since there will be multiple model_class for single task.
             # if the model_class is not the one for the task, it will raise ValueError and
             # next model_class will be tried.
-            continue
+            logger.info(
+                "Failed to load model %s with name_or_path %s.\n kwargs: %s.\n Exception raised: %s",
+                model_class,
+                name,
+                kwargs,
+                e,
+            )
 
+    # this won't be None since class_tuple is never empty and we only reach here if model loaded successfully
+    # satisfies linter too
     return model
 
 
-def huggingface_model_loader(model_loader):
+def huggingface_model_loader(model_loader: Union[str, Callable]) -> Callable:
     if model_loader is None:
         model_loader = "AutoModel"
     if isinstance(model_loader, str):
@@ -70,12 +78,12 @@ def huggingface_model_loader(model_loader):
     return model_loader.from_pretrained
 
 
-def get_hf_model_config(model_name: str, **kwargs) -> PretrainedConfig:
+def get_hf_model_config(model_name: str, **kwargs) -> "PretrainedConfig":
     """Get HF Config for the given model name."""
     return AutoConfig.from_pretrained(model_name, **kwargs)
 
 
-def save_hf_model_config(config: PretrainedConfig, output_dir: str, **kwargs):
+def save_hf_model_config(config: "PretrainedConfig", output_dir: str, **kwargs):
     """Save input HF Config to output directory."""
     config.save_pretrained(output_dir, **kwargs)
 
@@ -90,13 +98,13 @@ def save_hf_model_generation_config(config: GenerationConfig, output_dir: str, *
     config.save_pretrained(output_dir, **kwargs)
 
 
-def get_hf_model_tokenizer(model_name: str, **kwargs) -> Union[PreTrainedTokenizer, PreTrainedTokenizerFast]:
+def get_hf_model_tokenizer(model_name: str, **kwargs) -> Union["PreTrainedTokenizer", "PreTrainedTokenizerFast"]:
     """Get HF model's tokenizer."""
     return AutoTokenizer.from_pretrained(model_name, **kwargs)
 
 
 def save_hf_model_tokenizer(
-    tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast], output_dir: str, **kwargs
+    tokenizer: Union["PreTrainedTokenizer", "PreTrainedTokenizerFast"], output_dir: str, **kwargs
 ) -> Tuple[str]:
     """Save input tokenizer to output directory."""
     return tokenizer.save_pretrained(output_dir, **kwargs)
@@ -137,7 +145,7 @@ def patched_supported_features_mapping(*supported_features: str, onnx_config_cls
     return mapping
 
 
-def get_onnx_config(model_name: str, task: str, feature: Optional[str] = None, **kwargs):
+def get_onnx_config(model_name: str, task: str, feature: Optional[str] = None, **kwargs) -> "OnnxConfig":
     # pylint: disable=protected-access
     from transformers.onnx import FeaturesManager
 
