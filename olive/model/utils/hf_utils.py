@@ -51,7 +51,7 @@ def load_hf_model_from_task(task: str, name: str, **kwargs) -> "PreTrainedModel"
             # the ValueError need to be caught since there will be multiple model_class for single task.
             # if the model_class is not the one for the task, it will raise ValueError and
             # next model_class will be tried.
-            logger.debug(
+            logger.info(
                 "Failed to load model %s with name_or_path %s.\n kwargs: %s.\n Exception raised: %s",
                 model_class,
                 name,
@@ -59,12 +59,8 @@ def load_hf_model_from_task(task: str, name: str, **kwargs) -> "PreTrainedModel"
                 e,
             )
 
-    if model is None:
-        # don't expect for this condition to be true since class_tuple is never empty
-        # either model load worked or error raised
-        # just to be safe from_pretrained returned a model and to satisfy linter
-        raise ValueError(f"Failed to load model with name_or_path {name}. Class tuples were {class_tuple}.")
-
+    # this won't be None since class_tuple is never empty and we only reach here if model loaded successfully
+    # satisfies linter too
     return model
 
 
