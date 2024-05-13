@@ -11,7 +11,7 @@ datasets_logging.disable_progress_bar()
 datasets_logging.set_verbosity_error()
 
 
-def load_pytorch_origin_model():
+def load_pytorch_origin_model(model_path):
     model = BertModel.from_pretrained("bert-base-uncased")
     model.eval()
     return model

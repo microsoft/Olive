@@ -441,7 +441,9 @@ class PerfTuningRunner:
 
             start_time = time.perf_counter()
             evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
-            metric_result = evaluator.evaluate(model, self.data_root, [latency_metric], self.config.device, None)
+            metric_result = evaluator.evaluate(
+                model, self.data_root, [latency_metric], self.config.device, inference_settings["execution_provider"]
+            )
 
             end_time = time.perf_counter()
             latency_ms = metric_result[joint_key].value
