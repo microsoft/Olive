@@ -26,5 +26,6 @@
         "host": "local_system",
         "target": "local_system",
         "clean_cache": true
-    }
+    },
+    "auto_optimizer_config": {"disable_auto_optimizer": true}
 }
