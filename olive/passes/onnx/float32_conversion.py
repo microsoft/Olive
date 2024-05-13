@@ -2,33 +2,36 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from pathlib import Path
-from typing import Any, Dict, List
-
+import logging
+import re
 from collections import defaultdict
+from pathlib import Path
+from typing import Any, Dict
+
 import onnx
+
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
-import re
+
+logger = logging.getLogger(__name__)
+
 
 class OnnxIOFloat16ToFloat32(Pass):
-    """Converts float16 model inputs/outputs to float32.
-
-    """
+    """Converts float16 model inputs/outputs to float32."""
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "name_pattern": PassConfigParam(
-                type_=str, default_value="logits",
+                type_=str,
+                default_value="logits",
                 description=(
-                    "Only convert inputs/outputs whose name matches this pattern. By default"
-                    "looking for logits names"
-                )
+                    "Only convert inputs/outputs whose name matches this pattern. By defaultlooking for logits names"
+                ),
             )
         }
         config.update(get_external_data_config())
@@ -40,7 +43,7 @@ class OnnxIOFloat16ToFloat32(Pass):
                 i_map[i].append(n)
         for n in graph.node:
             for o in n.output:
-                assert o not in o_map[o]
+                assert o not in o_map
                 o_map[o] = [n]
 
     def wrap_inputs(self, graph, i_map, names):
@@ -54,7 +57,7 @@ class OnnxIOFloat16ToFloat32(Pass):
                 match = names.search(i.name)
                 if not match:
                     continue
-            print(f"input {i.name} from fp32")
+            logger.debug("input %s from fp32", i.name)
             for n in i_map[i.name]:
                 for j, o in enumerate(n.input):
                     if o == i.name:
@@ -63,11 +66,10 @@ class OnnxIOFloat16ToFloat32(Pass):
                 "Cast",
                 inputs=[i.name],
                 outputs=[i.name + "_fp16"],
-                to=onnx.TensorProto.FLOAT16,
+                to=onnx.TensorProto.FLOAT,
             )
             graph.node.insert(0, cast)
             i.type.tensor_type.elem_type = onnx.TensorProto.FLOAT
-
 
     def wrap_outputs(self, graph, i_map, o_map, names):
         # 1. find fp16 outputs
@@ -80,7 +82,7 @@ class OnnxIOFloat16ToFloat32(Pass):
                 match = names.search(o.name)
                 if not match:
                     continue
-            print(f"output {o.name} to fp32")
+            logger.debug("output %s from fp32", o.name)
             for n in o_map[o.name]:
                 for j, i in enumerate(n.output):
                     if i == o.name:

@@ -28,7 +28,7 @@ DEVICE_TO_EXECUTION_PROVIDERS = {
         "MIGraphXExecutionProvider",
         "TensorrtExecutionProvider",
         "OpenVINOExecutionProvider",
-        "JsExecutionProvider"
+        "JsExecutionProvider",
     ],
     "npu": ["QNNExecutionProvider"],
 }
