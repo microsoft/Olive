@@ -13,6 +13,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, Union
 
+from olive.constants import ModelFileFormat
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModelHandler, PyTorchModelHandler
 from olive.model.utils import resolve_onnx_path
@@ -131,10 +132,15 @@ class ModelBuilder(Pass):
         precision = config["precision"]
         metadata_only = config["metadata_only"]
 
-        if not metadata_only and not model.hf_config:
+        if (
+            not metadata_only
+            and not model.hf_config
+            and model.model_file_format != ModelFileFormat.PYTORCH_MLFLOW_MODEL
+        ):
             raise ValueError(
                 "ModelBuilder pass only supports exporting HF models i.e. PyTorchModelHandler "
-                "with hf_config and exporting the metadata only for pre-optimized onnx models."
+                "with hf_config, mlflow-transformer model and exporting the metadata only for "
+                "pre-optimized onnx models."
             )
 
         if metadata_only:
@@ -174,7 +180,7 @@ class ModelBuilder(Pass):
             model_path = None
             input_path = str(model.get_resource("model_path"))
         else:
-            model_path = str(model.hf_config.model_name)
+            model_path = str(model.get_model_path_or_name())
             input_path = ""
 
         if config.get("int4_block_size"):

@@ -48,14 +48,14 @@ class HfConfigMixin:
         if self.hf_config is None:
             raise ValueError("HF model_config is not available")
 
-        return get_hf_model_config(self._get_model_path_or_name(), **self.hf_config.get_loading_args_from_pretrained())
+        return get_hf_model_config(self.get_model_path_or_name(), **self.hf_config.get_loading_args_from_pretrained())
 
     def _get_hf_model_generation_config(self):
         if self.hf_config is None:
             raise ValueError("HF model_config is not available")
 
         return get_hf_model_generation_config(
-            self._get_model_path_or_name(), **self.hf_config.get_loading_args_from_pretrained()
+            self.get_model_path_or_name(), **self.hf_config.get_loading_args_from_pretrained()
         )
 
     def _get_hf_model_tokenizer(self, **kwargs):
@@ -64,7 +64,7 @@ class HfConfigMixin:
 
         # don't provide loading args for tokenizer directly since it tries to serialize all kwargs
         # TODO(anyone): only provide relevant kwargs, no use case for now to provide kwargs
-        return get_hf_model_tokenizer(self._get_model_path_or_name(), **kwargs)
+        return get_hf_model_tokenizer(self.get_model_path_or_name(), **kwargs)
 
     def save_metadata_for_token_generation(self, output_dir: str, **kwargs) -> List[str]:
         """Save metadata for token generation.
@@ -93,7 +93,7 @@ class HfConfigMixin:
         """Get Io config for the model."""
         if self.hf_config and self.hf_config.task and not self.hf_config.components:
             return get_hf_model_io_config(
-                self._get_model_path_or_name(),
+                self.get_model_path_or_name(),
                 self.hf_config.task,
                 self.hf_config.feature,
                 **self.hf_config.get_loading_args_from_pretrained(),
@@ -123,7 +123,7 @@ class HfConfigMixin:
     def get_hf_dummy_inputs(self):
         """Get dummy inputs for the model."""
         return get_hf_model_dummy_input(
-            self._get_model_path_or_name(),
+            self.get_model_path_or_name(),
             self.hf_config.task,
             self.hf_config.feature,
             **self.hf_config.get_loading_args_from_pretrained(),
@@ -141,8 +141,10 @@ class HfConfigMixin:
             and (self.hf_config.model_class or self.hf_config.task)
         )
 
-    def _get_model_path_or_name(self):
+    def get_model_path_or_name(self):
         if self.model_file_format == ModelFileFormat.PYTORCH_MLFLOW_MODEL:
-            return self.hf_config.model_name
+            # both config.json and model file will be saved under data/model
+            # TODO(trajep): investigate to use olive cache to restore mlflow format to huggingface format
+            return str(Path(self.model_path) / "data" / "model")
         else:
             return self.model_path or self.hf_config.model_name
