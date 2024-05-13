@@ -145,6 +145,12 @@ class HfConfigMixin:
         if self.model_file_format == ModelFileFormat.PYTORCH_MLFLOW_MODEL:
             # both config.json and model file will be saved under data/model
             # TODO(trajep): investigate to use olive cache to restore mlflow format to huggingface format
-            return str(Path(self.model_path) / "data" / "model")
+            mlflow_model_config_path = Path(self.model_path) / "data" / "model"
+            if not mlflow_model_config_path.exists():
+                logger.debug(
+                    "Model path %s does not exist. Use hf_config.model_name instead.", mlflow_model_config_path
+                )
+                return self.hf_config.model_name
+            return str(mlflow_model_config_path)
         else:
             return self.model_path or self.hf_config.model_name
