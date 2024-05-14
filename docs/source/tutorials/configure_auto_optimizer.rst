@@ -96,15 +96,7 @@ Here is another quick comparison between Auto Optimizer and manual settings.
                     "config": {
                         "hf_config": {
                             "model_name": "Intel/bert-base-uncased-mrpc",
-                            "task": "text-classification",
-                            "dataset": {
-                                "data_name":"glue",
-                                "subset": "mrpc",
-                                "split": "validation",
-                                "input_cols": ["sentence1", "sentence2"],
-                                "label_cols": ["label"],
-                                "batch_size": 1
-                            }
+                            "task": "text-classification"
                         }
                     }
                 },
@@ -118,6 +110,18 @@ Here is another quick comparison between Auto Optimizer and manual settings.
                         }
                     }
                 },
+                "data_configs": [{
+                    "name": "glue",
+                    "type": "HuggingfaceContainer",
+                    "params_config": {
+                        "batch_size": 1,
+                        "data_name": "glue",
+                        "input_cols": [ "sentence1", "sentence2" ],
+                        "label_cols": [ "label" ],
+                        "split": "validation",
+                        "subset": "mrpc"
+                    }
+                }],
                 "evaluators": {
                     "common_evaluator": {
                         "metrics":[
@@ -125,6 +129,7 @@ Here is another quick comparison between Auto Optimizer and manual settings.
                                 "name": "accuracy",
                                 "type": "accuracy",
                                 "backend": "huggingface_metrics",
+                                "data_config": "glue",
                                 "sub_types": [
                                     {"name": "accuracy", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
                                     {"name": "f1"}
@@ -133,6 +138,7 @@ Here is another quick comparison between Auto Optimizer and manual settings.
                             {
                                 "name": "latency",
                                 "type": "latency",
+                                "data_config": "glue",
                                 "sub_types": [
                                     {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
                                     {"name": "max"},
@@ -170,15 +176,7 @@ Here is another quick comparison between Auto Optimizer and manual settings.
                     "config": {
                         "hf_config": {
                             "model_name": "Intel/bert-base-uncased-mrpc",
-                            "task": "text-classification",
-                            "dataset": {
-                                "data_name":"glue",
-                                "subset": "mrpc",
-                                "split": "validation",
-                                "input_cols": ["sentence1", "sentence2"],
-                                "label_cols": ["label"],
-                                "batch_size": 1
-                            }
+                            "task": "text-classification"
                         }
                     }
                 },
@@ -187,11 +185,24 @@ Here is another quick comparison between Auto Optimizer and manual settings.
                         "type": "LocalSystem",
                         "config": {
                             "accelerators": [
-                                {"device": "gpu", "execution_providers": ["CUDAExecutionProvider", "TensorrtExecutionProvider"]}
+                                { "device": "gpu", "execution_providers": ["CUDAExecutionProvider", "TensorrtExecutionProvider"] }
                             ]
                         }
                     }
                 },
+                "data_configs": [{
+                    "name": "glue",
+                    "type": "HuggingfaceContainer",
+                    "params_config": {
+                        "batch_size": 1,
+                        "max_samples": 100,
+                        "data_name": "glue",
+                        "input_cols": [ "sentence1", "sentence2" ],
+                        "label_cols": [ "label" ],
+                        "split": "validation",
+                        "subset": "mrpc"
+                    }
+                }],
                 "evaluators": {
                     "common_evaluator": {
                         "metrics":[
@@ -199,6 +210,7 @@ Here is another quick comparison between Auto Optimizer and manual settings.
                                 "name": "accuracy",
                                 "type": "accuracy",
                                 "backend": "huggingface_metrics",
+                                "data_config": "glue",
                                 "sub_types": [
                                     {"name": "accuracy", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
                                     {"name": "f1"}
@@ -207,6 +219,7 @@ Here is another quick comparison between Auto Optimizer and manual settings.
                             {
                                 "name": "latency",
                                 "type": "latency",
+                                "data_config": "glue",
                                 "sub_types": [
                                     {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
                                     {"name": "max"},
@@ -237,7 +250,7 @@ Here is another quick comparison between Auto Optimizer and manual settings.
                         "config": {
                             "enable_cuda_graph": true,
                             "io_bind": true,
-                            "data_config": "__input_model_data_config__"
+                            "data_config": "glue"
                         }
                     },
                     "trt_perf_tuning": {
@@ -246,7 +259,7 @@ Here is another quick comparison between Auto Optimizer and manual settings.
                             "enable_cuda_graph": false,
                             "enable_trt_fp16": true,
                             "io_bind": true,
-                            "data_config": "__input_model_data_config__"
+                            "data_config": "glue"
                         }
                     }
                 },

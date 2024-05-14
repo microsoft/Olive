@@ -16,13 +16,13 @@ class DummyInputsMixin:
     the dummy data is used to evaluate the latency if user doesn't provide the data for evaluation.
     """
 
-    def get_dummy_dataloader_from_io_config(self):
+    def _get_dummy_dataloader_from_io_config(self):
         dataloader = None
         # resolved self.io_config
         # won't use self.io_config since we don't want hf_config to be used
         resolved_io_config = self.get_user_io_config(self.io_config) or {}
         if resolved_io_config.get("input_shapes"):
-            logger.debug("Using io_config.input_shapes to get dummy dataloader")
+            logger.debug("Using io_config.input_shapes to build dummy dataloader")
             dataloader = (
                 # input_types is optional
                 data_config_template.dummy_data_config_template(
@@ -31,18 +31,6 @@ class DummyInputsMixin:
                     input_names=resolved_io_config.get("input_names"),
                 ).to_data_container()
             )
-        return dataloader
-
-    def get_dummy_dataloader_from_hf_config(self):
-        dataloader = None
-        if self.hf_config and self.hf_config.model_name and self.hf_config.task and self.hf_config.dataset:
-            # need both model_name and task to get dummy inputs
-            logger.debug("Using hf_config.dataset to get dummy dataloader")
-            dataloader = data_config_template.huggingface_data_config_template(
-                self.hf_config.model_name,
-                self.hf_config.task,
-                **self.hf_config.dataset,
-            ).to_data_container()
         return dataloader
 
     def get_dummy_inputs(self, filter_hook=None, filter_hook_kwargs=None):
@@ -59,10 +47,10 @@ class DummyInputsMixin:
             dummy_inputs = user_module_loader.call_object(self.dummy_inputs_func, self)
             # respect user's dummy_inputs_func, no hook
         else:
-            dataloader = self.get_dummy_dataloader_from_io_config() or self.get_dummy_dataloader_from_hf_config()
+            dataloader = self._get_dummy_dataloader_from_io_config()
             if dataloader:
                 dummy_inputs, _ = dataloader.get_first_batch()
-            elif not self.hf_config.components:
+            elif self.hf_config and not self.hf_config.components and self.hf_config.task:
                 logger.debug("Trying hf onnx_config to get dummy inputs")
                 dummy_inputs = self.get_hf_dummy_inputs()
                 if dummy_inputs is not None:
