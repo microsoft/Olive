@@ -123,7 +123,7 @@ class PileDataloader:
                     yield ort_input, 0
 
         except StopIteration:
-            return
+            pass
 
 
 def calib_dataloader(data_dir, batch_size, *args, **kwargs):
