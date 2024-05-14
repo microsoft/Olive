@@ -15,7 +15,7 @@ from olive.workflows import run as olive_run
 # flake8: noqa: T201
 
 
-TARGETS = ["cpu", "gpu", "mobile", "web"]
+TARGETS = ["cpu", "cuda", "mobile", "web"]
 
 TARGET_TO_EP = {
     "cpu": "CPUExecutionProvider",
@@ -32,13 +32,14 @@ def get_args(raw_args):
         "--target",
         type=str,
         default=None,
-        choices=["cpu", "cuda", "mobile", "web"],
+        required=True,
+        choices=TARGETS,
         help="Choose from cpu, cuda, mobile or web",
     )
     parser.add_argument(
         "--precision",
         type=str,
-        default=None,
+        default="int4",
         choices=["fp32", "fp16", "int4"],
         help="Choose from fp32 or int4(default) for cpu target; "
         "fp32 or fp16 or int4(default) for gpu target; int4(default) for mobile or web",
@@ -67,11 +68,6 @@ def get_args(raw_args):
 
 def main(raw_args=None):
     args = get_args(raw_args)
-    if not args.target:
-        raise ValueError("Please specify target")
-
-    if not args.precision:
-        args.precision = "int4"
     elif args.target in ("mobile", "web") and args.precision != "int4":
         raise ValueError("mobile or web only supports int4(default)")
     elif args.target == "cpu" and args.precision == "fp16":

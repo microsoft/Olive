@@ -31,6 +31,8 @@
     },
     "engine": {
         "cache_dir": "cache",
-        "output_dir": "Opt_model"
+        "output_dir": "Opt_model",
+        "host": "local_system",
+        "target": "local_system"
     }
 }
