@@ -235,31 +235,6 @@ Convert the huggingface data config to the data container.</p>
 </pre></div>
 </div>
 </div></div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>If the input model for Olive is huggingface model, we can update above config under <code class="docutils literal notranslate"><span class="pre">input_model</span></code>:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;input_model&quot;</span><span class="p">:{</span>
-<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PyTorchModel&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;hf_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">                </span><span class="nt">&quot;model_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Intel/bert-base-uncased-mrpc&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;task&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;text-classification&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;dataset&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">                    </span><span class="nt">&quot;data_name&quot;</span><span class="p">:</span><span class="s2">&quot;glue&quot;</span><span class="p">,</span>
-<span class="w">                    </span><span class="nt">&quot;subset&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mrpc&quot;</span><span class="p">,</span>
-<span class="w">                    </span><span class="nt">&quot;split&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;validation&quot;</span><span class="p">,</span>
-<span class="w">                    </span><span class="nt">&quot;input_cols&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;sentence1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sentence2&quot;</span><span class="p">],</span>
-<span class="w">                    </span><span class="nt">&quot;label_cols&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">],</span>
-<span class="w">                    </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
-<span class="w">                </span><span class="p">}</span>
-<span class="w">            </span><span class="p">}</span>
-<span class="w">        </span><span class="p">}</span>
-<span class="w">    </span><span class="p">}</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-</div>
 <p>3. <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/data/template.py#L72">RawDataContainer</a> :
 Convert the raw data config to the data container.</p>
 <div class="sphinx-tabs docutils container">

@@ -162,35 +162,9 @@ Please note the model for `Llama-2-7b` in Azure ML model catalog is a mlflow mod
 ## Huggingface datasets
 Olive supports automatically downloading and applying [Huggingface datasets](https://huggingface.co/datasets) to Passes and Evaluators.
 
-Datasets can be added to `hf_config`, or `data_configs` section in the configuration file with `"type": "HuggingfaceContainer"`. More details about `data_configs` can be found [here](../tutorials/configure_data.rst).
+Datasets can be added to `data_configs` section in the configuration file with `"type": "HuggingfaceContainer"`. More details about `data_configs` can be found [here](../tutorials/configure_data.rst).
 
 You can reference the dataset by its name in the Pass config
-
-Example: `datasets` in `hf_config`:
-```json
-"hf_config": {
-    "model_name": "bert-base-uncased",
-    "task": "text-classification",
-    "dataset": {
-        "data_name":"glue",
-        "subset": "mrpc",
-        "split": "validation",
-        "input_cols": ["sentence1", "sentence2"],
-        "label_cols": ["label"],
-        "batch_size": 1
-    }
-}
-```
-
-Pass config:
-```json
-"perf_tuning": {
-    "type": "OrtPerfTuning",
-    "config": {
-        "data_config": "__input_model_data_config__"
-    }
-}
-```
 
 Example: datasets in `data_configs`:
 ```json
@@ -231,6 +205,7 @@ Example metric config
     "name": "accuracy",
     "type": "accuracy",
     "backend": "huggingface_metrics",
+    "data_config": "oasst1_train",
     "sub_types": [
         {"name": "accuracy", "priority": -1},
         {"name": "f1"}
