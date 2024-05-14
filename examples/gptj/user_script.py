@@ -55,11 +55,8 @@ class Dataloader:
         return (torch.vstack(input_ids_padded), torch.vstack(attention_mask_padded)), torch.tensor(last_ind)
 
     def __iter__(self):
-        try:
-            for (input_ids, _attention_mask), last_ind in self.dataloader:
-                yield input_ids, last_ind
-        except StopIteration:
-            return
+        for (input_ids, _attention_mask), last_ind in self.dataloader:
+            yield input_ids, last_ind
 
     def __len__(self):
         return len(self.dataloader)
@@ -70,16 +67,13 @@ class OnnxDataloader(Dataloader):
         super().__init__(pad_max, batch_size)
 
     def __iter__(self):
-        try:
-            for (input_ids, attention_mask), last_ind in self.dataloader:
-                data = [input_ids.detach().cpu().numpy().astype("int64")]
-                for _ in range(28):
-                    data.append(np.zeros((input_ids.shape[0], 16, 1, 256), dtype="float32"))
-                    data.append(np.zeros((input_ids.shape[0], 16, 1, 256), dtype="float32"))
-                data.append(attention_mask.detach().cpu().numpy().astype("int64"))
-                yield data, last_ind.detach().cpu().numpy()
-        except StopIteration:
-            return
+        for (input_ids, attention_mask), last_ind in self.dataloader:
+            data = [input_ids.detach().cpu().numpy().astype("int64")]
+            for _ in range(28):
+                data.append(np.zeros((input_ids.shape[0], 16, 1, 256), dtype="float32"))
+                data.append(np.zeros((input_ids.shape[0], 16, 1, 256), dtype="float32"))
+            data.append(attention_mask.detach().cpu().numpy().astype("int64"))
+            yield data, last_ind.detach().cpu().numpy()
 
 
 def create_pt_dataloader(data_dir, batch_size, *args, **kwargs):

@@ -87,43 +87,39 @@ class PileDataloader:
             self.sess = ort.InferenceSession(decoder_model_path, providers=["CPUExecutionProvider"])
 
     def __iter__(self):
-        try:
+        while True:
             while True:
-                while True:
-                    i = random.randint(0, len(self.dataset) - 1)
-                    trainenc = self.dataset[i]
-                    if trainenc["input_ids"].shape[0] > self.seqlen:
-                        break
-                i = random.randint(0, trainenc["input_ids"].shape[0] - self.seqlen - 1)
-                j = i + self.seqlen
-                inp = trainenc["input_ids"][i:j].unsqueeze(0)
-                mask = torch.ones(inp.shape)
-                if self.sess is None:
-                    yield {
-                        "input_ids": inp.detach().cpu().numpy().astype("int64"),
-                        "attention_mask": mask.detach().cpu().numpy().astype("int64"),
-                    }, 0
-                else:
-                    outputs = self.sess.run(
-                        None,
-                        {
-                            "input_ids": inp[:, :-1].detach().cpu().numpy().astype("int64"),
-                            "attention_mask": mask[:, :-1].detach().cpu().numpy().astype("int64"),
-                        },
-                    )
-                    ort_input = {}
-                    ort_input["input_ids"] = inp[:, -1].unsqueeze(0).detach().cpu().numpy().astype("int64")
-                    for layer_index in range(config.num_hidden_layers):
-                        ort_input[f"past_key_values.{layer_index}.key"] = outputs[layer_index * 2 + 1]
-                        ort_input[f"past_key_values.{layer_index}.value"] = outputs[layer_index * 2 + 2]
+                i = random.randint(0, len(self.dataset) - 1)
+                trainenc = self.dataset[i]
+                if trainenc["input_ids"].shape[0] > self.seqlen:
+                    break
+            i = random.randint(0, trainenc["input_ids"].shape[0] - self.seqlen - 1)
+            j = i + self.seqlen
+            inp = trainenc["input_ids"][i:j].unsqueeze(0)
+            mask = torch.ones(inp.shape)
+            if self.sess is None:
+                yield {
+                    "input_ids": inp.detach().cpu().numpy().astype("int64"),
+                    "attention_mask": mask.detach().cpu().numpy().astype("int64"),
+                }, 0
+            else:
+                outputs = self.sess.run(
+                    None,
+                    {
+                        "input_ids": inp[:, :-1].detach().cpu().numpy().astype("int64"),
+                        "attention_mask": mask[:, :-1].detach().cpu().numpy().astype("int64"),
+                    },
+                )
+                ort_input = {}
+                ort_input["input_ids"] = inp[:, -1].unsqueeze(0).detach().cpu().numpy().astype("int64")
+                for layer_index in range(config.num_hidden_layers):
+                    ort_input[f"past_key_values.{layer_index}.key"] = outputs[layer_index * 2 + 1]
+                    ort_input[f"past_key_values.{layer_index}.value"] = outputs[layer_index * 2 + 2]
 
-                    ort_input["attention_mask"] = np.zeros(
-                        [self.batch_size, ort_input["past_key_values.0.key"].shape[2] + 1], dtype="int64"
-                    )
-                    yield ort_input, 0
-
-        except StopIteration:
-            return
+                ort_input["attention_mask"] = np.zeros(
+                    [self.batch_size, ort_input["past_key_values.0.key"].shape[2] + 1], dtype="int64"
+                )
+                yield ort_input, 0
 
 
 def calib_dataloader(data_dir, batch_size, *args, **kwargs):
