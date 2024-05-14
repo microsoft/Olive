@@ -36,9 +36,8 @@ class MLFlowMixin:
             return target_path
         return None
 
-    def get_mlflow_model_path_or_name(self, cache_dir=None):
+    def get_mlflow_model_path_or_name(self, cache_dir):
         # both config.json and model file will be saved under data/model
-        cache_dir = cache_dir or self.model_path
         mlflow_transformer_model_path = self.to_mlflow_transformer_model(cache_dir)
         if not mlflow_transformer_model_path:
             logger.debug(

@@ -80,8 +80,6 @@ class TestPyTorchMLflowModel(unittest.TestCase):
             model_path=self.model_path,
             model_file_format="PyTorch.MLflow",
             hf_config={
-                "task": self.task,
-                "model_name": self.architecture,
                 "from_pretrained_args": {"trust_remote_code": True},
             },
         ).load_model()

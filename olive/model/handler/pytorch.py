@@ -75,7 +75,7 @@ class PyTorchModelHandler(
             raise ValueError(
                 "model_path is required since model_loader is not callable or model_script is not provided"
             )
-
+        self.mlflow_transformer_model_cache_dir = mlflow_transformer_model_cache_dir or model_path
         self.model_loader = model_loader
         self.model = None
         super().__init__(
@@ -86,7 +86,6 @@ class PyTorchModelHandler(
             io_config=io_config,
         )
         self.add_resources(locals())
-
         self.hf_config = None
         if hf_config:
             self.hf_config = validate_config(hf_config, HfConfig)
@@ -110,7 +109,6 @@ class PyTorchModelHandler(
 
         self.dummy_inputs_func = dummy_inputs_func
         self.dummy_inputs = None
-        self.mlflow_transformer_model_cache_dir = mlflow_transformer_model_cache_dir
 
     @property
     def script_dir(self) -> str:
