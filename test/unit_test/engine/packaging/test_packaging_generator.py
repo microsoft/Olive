@@ -493,6 +493,7 @@ def get_footprints(model_id, model_path):
     return {acc_spec: footprint}
 
 
+# TODO(xiaoyu): check onnxruntime packages exist
 def verify_output_artifacts(output_dir):
     assert (output_dir / "SampleCode").exists()
     assert (output_dir / "CandidateModels").exists()

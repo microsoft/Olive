@@ -12,7 +12,7 @@ import urllib.request
 from collections import OrderedDict
 from pathlib import Path
 from string import Template
-from typing import TYPE_CHECKING, Any, Dict, List, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Set, Union
 
 import pkg_resources
 
@@ -608,8 +608,13 @@ def _package_onnxruntime_genai_runtime_dependencies(tempdir: Path):
                 "Failed to download %s package. Please manually download & install the required package.", pkg_name
             )
 
-        # Download CPP && CS onnxruntime-genai packages
-        # TODO(olive-devteam): As of this writing the native packages aren't published.
+    # Download CPP && CS onnxruntime-genai packages
+    ort_version = installed_packages[0].version
+    lang_list = ("cpp", "cs")
+    for language in lang_list:
+        ort_download_path = tempdir / "ONNXRuntimePackages" / language
+        ort_download_path.mkdir(parents=True, exist_ok=True)
+        _download_native_onnx_packages(installed_packages, ort_version, ort_download_path)
 
 
 def _package_onnxruntime_runtime_dependencies(tempdir: Path, pf_footprint: "Footprint"):
@@ -721,7 +726,7 @@ def _download_ort_extensions_package(use_ort_extensions: bool, download_path: st
             run_subprocess(download_command)
 
 
-def _download_native_onnx_packages(package_name_list: List[str], ort_version: str, ort_download_path: str):
+def _download_native_onnx_packages(package_name_list: Set[str], ort_version: str, ort_download_path: str):
     PACKAGE_DOWNLOAD_LINK_MAPPING = {
         "onnxruntime": Template("https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime/$ort_version"),
         "onnxruntime-gpu": Template("https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime.Gpu/$ort_version"),
@@ -729,10 +734,18 @@ def _download_native_onnx_packages(package_name_list: List[str], ort_version: st
             "https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime.DirectML/$ort_version"
         ),
         "onnxruntime-openvino": None,
+        "onnxruntime-genai": Template(
+            "https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntimeGenAI.Managed/$ort_version"
+        ),
+        "onnxruntime-genai-cuda": Template(
+            "https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime.OnnxRuntimeGenAI.Cuda/$ort_version"
+        ),
+        "onnxruntime-genai-directml": Template(
+            "https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime.OnnxRuntimeGenAI.DirectML/$ort_version"
+        ),
     }
-    for package_name_tuple in package_name_list:
-        package_name = package_name_tuple[0]
-        download_link = PACKAGE_DOWNLOAD_LINK_MAPPING[package_name]
+    for package_name in package_name_list:
+        download_link = PACKAGE_DOWNLOAD_LINK_MAPPING.get(package_name)
         download_path = str(ort_download_path / f"microsoft.ml.{package_name}.{ort_version}.nupkg")
         if download_link:
             urllib.request.urlretrieve(download_link.substitute(ort_version=ort_version), download_path)
