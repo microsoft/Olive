@@ -75,7 +75,7 @@ class PyTorchModelHandler(
             raise ValueError(
                 "model_path is required since model_loader is not callable or model_script is not provided"
             )
-        self.mlflow_transformer_model_cache_dir = mlflow_transformer_model_cache_dir or model_path
+        self.mlflow_transformer_model_cache_dir = mlflow_transformer_model_cache_dir
         self.model_loader = model_loader
         self.model = None
         super().__init__(
@@ -121,6 +121,9 @@ class PyTorchModelHandler(
     @property
     def adapter_path(self) -> str:
         return self.get_resource("adapter_path")
+
+    def get_mlflow_transformers_dir(self):
+        return self.mlflow_transformer_model_cache_dir or self.model_path
 
     def load_model(self, rank: int = None) -> torch.nn.Module:
         if self.model is not None:
@@ -193,7 +196,7 @@ class PyTorchModelHandler(
 
     def _load_mlflow_model(self):
         logger.info("Loading MLFlow model from %s", self.model_path)
-        mlflow_transformers_path = self.to_mlflow_transformer_model(self.mlflow_transformer_model_cache_dir)
+        mlflow_transformers_path = self.to_mlflow_transformer_model(self.get_mlflow_transformers_dir())
         with open(os.path.join(self.model_path, "MLmodel")) as fp:
             mlflow_data = yaml.safe_load(fp)
             # default flavor is "hftransformersv2" from azureml.evaluate.mlflow>=0.0.8

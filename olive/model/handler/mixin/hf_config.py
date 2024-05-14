@@ -143,6 +143,6 @@ class HfConfigMixin:
 
     def get_model_path_or_name(self):
         if self.model_file_format == ModelFileFormat.PYTORCH_MLFLOW_MODEL:
-            return self.get_mlflow_model_path_or_name(self.mlflow_transformer_model_cache_dir)
+            return self.get_mlflow_model_path_or_name(self.get_mlflow_transformers_dir())
         else:
             return self.model_path or self.hf_config.model_name
