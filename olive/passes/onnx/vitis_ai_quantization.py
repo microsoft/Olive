@@ -339,7 +339,6 @@ class VitisAIQuantization(Pass):
 
         # get the dataloader
         # TODO(XiaoSheng): only use data config
-        dataloader = None
         if config["dataloader_func"]:
             data_dir = get_local_path_from_root(data_root, config["data_dir"])
             dataloader = self._user_module_loader.call_object(

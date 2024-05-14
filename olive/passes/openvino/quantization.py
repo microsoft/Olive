@@ -175,7 +175,6 @@ class OpenVINOQuantizationBase(Pass):
         except ImportError:
             raise ImportError("Please install olive-ai[openvino] to use OpenVINO pass") from None
 
-        data_loader = None
         if config["dataloader_func"]:
             data_dir = get_local_path_from_root(data_root, config["data_dir"])
             data_loader = self._user_module_loader.call_object(
