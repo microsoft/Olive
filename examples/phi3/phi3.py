@@ -179,6 +179,7 @@ def genai_run(prompt, model_path, max_length):
     print("Generator created")
 
     first = True
+    first_token_timestamp = None
     new_tokens = []
 
     print("\n", prompt)
@@ -200,12 +201,15 @@ def genai_run(prompt, model_path, max_length):
     del generator
 
     run_time = time.time() - started_timestamp
-    print(
-        "\n\n"
-        f"Prompt tokens: {len(input_tokens)}, New tokens: {len(new_tokens)},"
-        f" Time to first: {(first_token_timestamp - started_timestamp):.2f}s,"
-        f" New tokens per second: {len(new_tokens)/run_time:.2f} tps"
-    )
+    if first_token_timestamp is None:
+        print("\n\nNo tokens generated")
+    else:
+        print(
+            "\n\n"
+            f"Prompt tokens: {len(input_tokens)}, New tokens: {len(new_tokens)},"
+            f" Time to first: {(first_token_timestamp - started_timestamp):.2f}s,"
+            f" New tokens per second: {len(new_tokens)/run_time:.2f} tps"
+        )
 
 
 if __name__ == "__main__":
