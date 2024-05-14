@@ -46,6 +46,7 @@ class SearchSpace:
         # sample from search space
         for space_name, param_name in self._iter_order:
             param = self._search_space[space_name][param_name]
+            options = []
             if isinstance(param, Conditional):
                 parent_vals = {parent: search_point[space_name][parent] for parent in param.parents}
                 options = param.get_support_with_args(parent_vals)

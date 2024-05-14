@@ -384,6 +384,7 @@ def test_azureml_deployment(mock_retry_func, inferencing_server_type):
     model_package_mock = Mock()
 
     inferencing_server = None
+    deployment = None
     if inferencing_server_type == InferencingServerType.AzureMLOnline:
         inferencing_server = AzureMLOnlineInferencingServer(code_configuration=code_configuration)
         deployment = ManagedOnlineDeployment(
