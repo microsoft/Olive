@@ -114,6 +114,9 @@ class OnnxDAG:
             ios[o.name] = OnnxIO(proto=o, destination=[SpecialOutput.OUTPUT], graph_idx=graph_idx)
         for initializer in graph.initializer:
             ios[initializer.name] = OnnxIO(proto=initializer, source=SpecialInput.INITIALIZER, graph_idx=graph_idx)
+        for vi in graph.value_info:
+            if vi.name not in ios:
+                ios[vi.name] = OnnxIO(proto=vi, graph_idx=graph_idx)
         return ios
 
     @staticmethod
@@ -146,6 +149,9 @@ class OnnxDAG:
         nodes[name] = onnx_node
 
         for i in node_proto.input:
+            if i == "":
+                # some nodes have unnamed, unused inputs
+                continue
             if i not in ios:
                 raise ValueError(
                     f"Input {i} does not exist in the graph. Please process the nodes in topological order."
