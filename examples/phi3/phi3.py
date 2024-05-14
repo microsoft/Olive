@@ -20,7 +20,7 @@ TARGETS = ["cpu", "cuda", "mobile", "web"]
 TARGET_TO_EP = {
     "cpu": "CPUExecutionProvider",
     "mobile": "CPUExecutionProvider",
-    "gpu": "CUDAExecutionProvider",
+    "cuda": "CUDAExecutionProvider",
     "web": "JsExecutionProvider",
 }
 
@@ -68,7 +68,7 @@ def get_args(raw_args):
 
 def main(raw_args=None):
     args = get_args(raw_args)
-    elif args.target in ("mobile", "web") and args.precision != "int4":
+    if args.target in ("mobile", "web") and args.precision != "int4":
         raise ValueError("mobile or web only supports int4(default)")
     elif args.target == "cpu" and args.precision == "fp16":
         raise ValueError("Choose from fp32 or int4(default) for cpu target")
