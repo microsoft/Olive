@@ -1,5 +1,5 @@
 # Phi3 optimization with Olive
-This folder contains an example of optimizing [the Phi-3-Mini-4K-Instruct](https://huggingface.co/microsoft/Phi-3-mini-4k-instruct) model in HF for different hardware targets with Olive. 
+This folder contains an example of optimizing [the Phi-3-Mini-4K-Instruct](https://huggingface.co/microsoft/Phi-3-mini-4k-instruct) model in HF for different hardware targets with Olive.
 
 
 ## Prerequisites
@@ -7,7 +7,7 @@ This folder contains an example of optimizing [the Phi-3-Mini-4K-Instruct](https
 * Pytorch: >=2.2.0 \
   _The [official website](https://pytorch.org/) offers packages compatible with CUDA 11.8 and 12.1. Please select the appropriate version according to your needs._
 * [Package onnxruntime](https://onnxruntime.ai/docs/install/#inference-install-table-for-all-languages): >=1.18.0
-* [Package onnxruntime-genai](https://github.com/microsoft/onnxruntime-genai): >=0.2.0. If you target GPU, pls install onnxruntime and onnxruntime-genai gpu packages. 
+* [Package onnxruntime-genai](https://github.com/microsoft/onnxruntime-genai): >=0.2.0. If you target GPU, pls install onnxruntime and onnxruntime-genai gpu packages.
 
 Install the dependencies
 ```
@@ -33,10 +33,10 @@ python phi3.py --target mobile --inference --prompt "Write a story starting with
 - `--max_length`: optional, the max length of the output from the model. Take effect only when `--inference` is set.
 
 
-This script includes 
-1. Generate the Olive configuration file for your need including the chosen HW target, the preferred model precision. 
+This script includes
+1. Generate the Olive configuration file for your need including the chosen HW target, the preferred model precision.
 2. Generate optimized model with Olive based on the configuration file for the chosen HW target
-3. (optional) Inference the optimized model with ONNX Runtime Generation API. Not supported for web target 
+3. (optional) Inference the optimized model with ONNX Runtime Generation API. Not supported for web target
 
 
 If you have an Olive configuration file, you can also run the olive command for model generation:

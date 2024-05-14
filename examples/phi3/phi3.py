@@ -5,15 +5,14 @@
 
 import argparse
 import json
-import platform
 import time
 from pathlib import Path
 
-from onnxruntime import __version__ as OrtVersion
 import onnxruntime_genai as og
-from packaging import version
 
 from olive.workflows import run as olive_run
+
+# flake8: noqa: T201
 
 
 TARGETS = ["cpu", "gpu", "mobile", "web"]
@@ -41,7 +40,8 @@ def get_args(raw_args):
         type=str,
         default=None,
         choices=["fp32", "fp16", "int4"],
-        help="Choose from fp32 or int4(default) for cpu target; fp32 or fp16 or int4(default) for gpu target; int4(default) for mobile or web",
+        help="Choose from fp32 or int4(default) for cpu target; "
+        "fp32 or fp16 or int4(default) for gpu target; int4(default) for mobile or web",
     )
     parser.add_argument(
         "--inference",
@@ -61,7 +61,7 @@ def get_args(raw_args):
         default=200,
         help="Max length for generation. Not supported with Web target.",
     )
-    
+
     return parser.parse_args(raw_args)
 
 
@@ -72,7 +72,7 @@ def main(raw_args=None):
 
     if not args.precision:
         args.precision = "int4"
-    elif(args.target == "mobile" or args.target == "web") and not(args.precision == "int4"):
+    elif args.target in ("mobile", "web") and args.precision != "int4":
         raise ValueError("mobile or web only supports int4(default)")
     elif args.target == "cpu" and args.precision == "fp16":
         raise ValueError("Choose from fp32 or int4(default) for cpu target")
@@ -80,23 +80,22 @@ def main(raw_args=None):
     if args.inference and args.target == "web":
         raise ValueError("Web model inference is not supported in this script")
 
-    #Generate Olive configuration file for specific target
+    # Generate Olive configuration file for specific target
     print("\nGenerating Olive configuration file...")
     config_file = generate_config(args)
     print("Olive configuration file is generated...\n")
 
-    # Generate optimized model for specific target 
+    # Generate optimized model for specific target
     print("Generating optimized model for", args.target, " ...\n")
     footprints = olive_run(config_file)
     if footprints:
         print("\nOptimized model is generated...")
 
     if args.inference:
-        prompts = "Write a joke" if not args.prompt else ''.join(args.prompt)
+        prompts = "Write a joke" if not args.prompt else "".join(args.prompt)
 
         chat_template = "<|user|>\n{input}<|end|>\n<|assistant|>"
-        prompts = f'{chat_template.format(input=prompts)}'
-
+        prompts = f"{chat_template.format(input=prompts)}"
 
         max_length = 200 if not args.max_length else args.max_length
 
@@ -104,15 +103,14 @@ def main(raw_args=None):
         genai_run(prompts, str(output_model_path), max_length)
 
 
-
 def generate_config(args):
 
     json_file_template = "phi3_template.json"
     with open(json_file_template) as f:
-            template_json = json.load(f)
+        template_json = json.load(f)
 
     target = str(args.target)
-    device = "GPU" if target == "cuda" or target == "web" else "CPU"
+    device = "GPU" if target in ("cuda", "web") else "CPU"
     execution_providers = [TARGET_TO_EP[target.lower()]]
     template_json["systems"]["local_system"]["config"]["accelerators"] = [
         {"device": device, "execution_providers": execution_providers}
@@ -120,8 +118,10 @@ def generate_config(args):
 
     model_builder = {
         "type": "ModelBuilder",
-        "config": {"precision": args.precision,}
-        }
+        "config": {
+            "precision": args.precision,
+        },
+    }
     template_json["passes"]["builder"] = model_builder
 
     if target == "mobile":
@@ -150,7 +150,7 @@ def get_output_model_path(footprints):
 def genai_run(prompt, model_path, max_length):
 
     print("\nModel inference starts...")
-    
+
     print("Loading model...")
     app_started_timestamp = time.time()
     model = og.Model(model_path)
@@ -165,14 +165,14 @@ def genai_run(prompt, model_path, max_length):
 
     print("Creating generator ...")
     params = og.GeneratorParams(model)
-    #optimal search options for Phi3
+    # optimal search options for Phi3
     search_options = {
-        'max_length': max_length,
-        'top_k': 40,
-        'top_p': 0.95,
-        'temperature': 0.8,
-        'repetition_penalty':1.0
-        }
+        "max_length": max_length,
+        "top_k": 40,
+        "top_p": 0.95,
+        "temperature": 0.8,
+        "repetition_penalty": 1.0,
+    }
     params.set_search_options(**search_options)
     params.input_ids = input_tokens
     generator = og.Generator(model, params)
@@ -195,17 +195,17 @@ def genai_run(prompt, model_path, max_length):
             print(tokenizer_stream.decode(new_token), end="", flush=True)
             new_tokens.append(new_token)
     except KeyboardInterrupt:
-            print("  --control+c pressed, aborting generation--")
-    
+        print("  --control+c pressed, aborting generation--")
+
     del generator
 
     run_time = time.time() - started_timestamp
-    print("\n\n"
+    print(
+        "\n\n"
         f"Prompt tokens: {len(input_tokens)}, New tokens: {len(new_tokens)},"
         f" Time to first: {(first_token_timestamp - started_timestamp):.2f}s,"
         f" New tokens per second: {len(new_tokens)/run_time:.2f} tps"
     )
-
 
 
 if __name__ == "__main__":

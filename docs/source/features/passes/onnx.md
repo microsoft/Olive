@@ -430,7 +430,7 @@ See [Float16 Conversion](https://onnxruntime.ai/docs/performance/model-optimizat
 
 ## Inputs/Outputs Float16 to Float32 Conversion
 
-Certain environments such as Onnxruntime WebGPU prefers Float32 logits. The `OnnxIOFloat16ToFloat32` pass converts the inputs and outputs to use Float16 instead of Float32.
+Certain environments such as Onnxruntime WebGPU prefers Float32 logits. The `OnnxIOFloat16ToFloat32` pass converts the inputs and outputs to use Float32 instead of Float16.
 
 ### Example Configuration
 

@@ -66,7 +66,7 @@ class OnnxIOFloat16ToFloat32(Pass):
                 "Cast",
                 inputs=[i.name],
                 outputs=[i.name + "_fp16"],
-                to=onnx.TensorProto.FLOAT,
+                to=onnx.TensorProto.FLOAT16,
             )
             graph.node.insert(0, cast)
             i.type.tensor_type.elem_type = onnx.TensorProto.FLOAT
