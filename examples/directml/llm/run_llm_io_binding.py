@@ -62,6 +62,8 @@ def run_llm_io_binding(
 
     data_type = np.float16
     num_layers = 0
+    num_key_value_heads = None
+    head_dim = None
     for inputs_meta in llm_session._inputs_meta:  # pylint: disable=protected-access
         if inputs_meta.name.startswith("past_key_values.") and inputs_meta.name.endswith(".key"):
             num_layers += 1

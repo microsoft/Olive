@@ -44,6 +44,7 @@ class SearchSpace:
         search_point = deepcopy(self._empty_search_point)
 
         # sample from search space
+        options = None
         for space_name, param_name in self._iter_order:
             param = self._search_space[space_name][param_name]
             if isinstance(param, Conditional):
