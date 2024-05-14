@@ -43,7 +43,7 @@ class OnnxIOFloat16ToFloat32(Pass):
                 i_map[i].append(n)
         for n in graph.node:
             for o in n.output:
-                assert o not in o_map
+                assert o not in o_map[o]
                 o_map[o] = [n]
 
     def wrap_inputs(self, graph, i_map, names):
