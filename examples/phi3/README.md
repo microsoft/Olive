@@ -1,5 +1,5 @@
 # Phi3 optimization with Olive
-This folder contains an example of optimizing [the Phi-3-Mini-4K-Instruct](https://ai.azure.com/explore/models/Phi-3-mini-4k-instruct/version/5/registry/azureml?tid=72f988bf-86f1-41af-91ab-2d7cd011db47) model in Azure ML Model Catalog for different hardware targets with Olive. 
+This folder contains an example of optimizing [the Phi-3-Mini-4K-Instruct](https://huggingface.co/microsoft/Phi-3-mini-4k-instruct) model in HF for different hardware targets with Olive. 
 
 
 ## Prerequisites
