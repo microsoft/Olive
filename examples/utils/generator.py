@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Union
 import numpy as np
 import onnx
 from kv_cache_utils import DynamicCache, DynamicIOBoundCache, GQASharedCache, StaticCache, StaticIOBoundCache
-from onnxruntime import InferenceSession, OrtValue, RunOptions, SessionOptions
+from onnxruntime import InferenceSession, OrtValue, SessionOptions
 from transformers import PreTrainedTokenizer
 
 if TYPE_CHECKING:
@@ -154,13 +154,8 @@ class ORTGenerator:
         provider_options = [{"device_id": device_id}] if device in {"cuda", "dml"} else None
         if adapter_mode == AdapterMode.inputs:
             # there is only one session
-            session_options = SessionOptions()
             # TODO(jambayk): test and enable graph for cuda and dml
-            # if execution_provider == "DmlExecutionProvider":
-            #     session_options.add_session_config_entry("ep.dml.enable_graph_capture", "1")
-            sessions["default"] = InferenceSession(
-                model_path, sess_options=session_options, providers=providers, provider_options=provider_options
-            )
+            sessions["default"] = InferenceSession(model_path, providers=providers, provider_options=provider_options)
             for name, info in adapter_info.items():
                 adapters[name] = {
                     "session": "default",
@@ -190,8 +185,6 @@ class ORTGenerator:
                         initializer_values.append(OrtValue.ortvalue_from_numpy(value))
 
                 session_options = SessionOptions()
-                # if execution_provider == "DmlExecutionProvider":
-                #     session_options.add_session_config_entry("ep.dml.enable_graph_capture", "1")
                 session_options.add_external_initializers(initializer_names, initializer_values)
 
                 sessions[name] = InferenceSession(
@@ -276,17 +269,7 @@ class ORTGenerator:
                 .astype(self.input_info["position_ids"]["dtype"])
             )
 
-        run_options = RunOptions()
         for idx in range(max_gen_len):
-            # if self.execution_provider == "DmlExecutionProvider" and idx == 0:
-            #     run_options.add_run_config_entry("gpu_graph_id", "-1")
-            # elif (
-            #     self.execution_provider == "DmlExecutionProvider"
-            #     and idx == 1
-            #     and use_io_binding
-            #     and cache_type == "static"
-            # ):
-            #     run_options.add_run_config_entry("gpu_graph_id", "1")
             if use_io_binding:
                 if idx < 2:
                     # need to bind logits twice, once for prompt processing and once for token generation
@@ -297,13 +280,13 @@ class ORTGenerator:
                 cache.bind_kv_io(io_binding)
 
                 io_binding.synchronize_inputs()
-                session.run_with_iobinding(io_binding, run_options)
+                session.run_with_iobinding(io_binding)
                 io_binding.synchronize_outputs()
 
                 outputs = io_binding.get_outputs()
                 logits = outputs[0].numpy()
             else:
-                outputs = session.run(None, {**inputs, **cache.get_kv_inputs()}, run_options)
+                outputs = session.run(None, {**inputs, **cache.get_kv_inputs()})
                 logits = outputs[0]
 
             # Decide the next token using your preferred sampling strategy.
