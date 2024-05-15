@@ -143,6 +143,7 @@
 <span class="kn">from</span> <span class="nn">azure.ai.ml.constants</span> <span class="kn">import</span> <span class="n">AssetTypes</span>
 <span class="kn">from</span> <span class="nn">azure.ai.ml.dsl</span> <span class="kn">import</span> <span class="n">pipeline</span>
 <span class="kn">from</span> <span class="nn">azure.ai.ml.entities</span> <span class="kn">import</span> <span class="n">BuildContext</span><span class="p">,</span> <span class="n">Environment</span><span class="p">,</span> <span class="n">Model</span><span class="p">,</span> <span class="n">UserIdentityConfiguration</span>
+<span class="kn">from</span> <span class="nn">azure.ai.ml.exceptions</span> <span class="kn">import</span> <span class="n">JobException</span>
 <span class="kn">from</span> <span class="nn">azure.core.exceptions</span> <span class="kn">import</span> <span class="n">HttpResponseError</span><span class="p">,</span> <span class="n">ServiceResponseError</span>
 
 <span class="kn">from</span> <span class="nn">olive.azureml.azureml_client</span> <span class="kn">import</span> <span class="n">AzureMLClientConfig</span>
@@ -619,7 +620,7 @@
             <span class="p">{</span><span class="s2">&quot;experiment_name&quot;</span><span class="p">:</span> <span class="n">experiment_name</span><span class="p">,</span> <span class="s2">&quot;tags&quot;</span><span class="p">:</span> <span class="n">tags</span><span class="p">},</span>
             <span class="n">max_tries</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">max_operation_retries</span><span class="p">,</span>
             <span class="n">delay</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">operation_retry_interval</span><span class="p">,</span>
-            <span class="n">exceptions</span><span class="o">=</span><span class="n">HttpResponseError</span><span class="p">,</span>
+            <span class="n">exceptions</span><span class="o">=</span><span class="p">(</span><span class="n">HttpResponseError</span><span class="p">,</span> <span class="n">JobException</span><span class="p">),</span>
         <span class="p">)</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Pipeline submitted. Job name: </span><span class="si">%s</span><span class="s2">. Job link: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">job</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">job</span><span class="o">.</span><span class="n">studio_url</span><span class="p">)</span>
         <span class="n">ml_client</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">stream</span><span class="p">(</span><span class="n">job</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
