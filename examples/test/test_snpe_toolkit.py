@@ -10,6 +10,9 @@ import pytest
 from utils import check_output, download_azure_blob
 
 from olive.common.utils import retry_func, run_subprocess
+from olive.logging import set_verbosity_debug
+
+set_verbosity_debug()
 
 
 class TestSnpeToolkit:
@@ -44,9 +47,11 @@ class TestSnpeToolkit:
         os.chdir(example_dir)
         if use_olive_env:
             os.environ["USE_OLIVE_ENV"] = "1"
-            # prepare model and data
             # retry since it fails randomly
-            run_subprocess(cmd="olive configure-qualcomm-sdk --py_version 3.8 --sdk snpe", check=True)
+            retry_func(
+                run_subprocess,
+                kwargs={"cmd": "olive configure-qualcomm-sdk --py_version 3.8 --sdk snpe", "check": True},
+            )
             # install dependencies
             python_cmd = ""
             if platform.system() == "Windows":
