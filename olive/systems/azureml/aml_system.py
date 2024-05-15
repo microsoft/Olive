@@ -14,6 +14,7 @@ from azure.ai.ml import Input, Output, command
 from azure.ai.ml.constants import AssetTypes
 from azure.ai.ml.dsl import pipeline
 from azure.ai.ml.entities import BuildContext, Environment, Model, UserIdentityConfiguration
+from azure.ai.ml.exceptions import JobException
 from azure.core.exceptions import HttpResponseError, ServiceResponseError
 
 from olive.azureml.azureml_client import AzureMLClientConfig
@@ -490,7 +491,7 @@ class AzureMLSystem(OliveSystem):
             {"experiment_name": experiment_name, "tags": tags},
             max_tries=self.azureml_client_config.max_operation_retries,
             delay=self.azureml_client_config.operation_retry_interval,
-            exceptions=HttpResponseError,
+            exceptions=(HttpResponseError, JobException),
         )
         logger.info("Pipeline submitted. Job name: %s. Job link: %s", job.name, job.studio_url)
         ml_client.jobs.stream(job.name)
