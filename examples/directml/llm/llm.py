@@ -52,7 +52,7 @@ def set_config_parameters(tokenizer: transformers.AutoTokenizer, repo_id: str, n
 
     config.hidden_size = llm_model.config.hidden_size
     config.num_heads = llm_model.config.num_attention_heads
-    config.head_dim = getattr(llm_model.config, "head_dim", config.hidden_size / config.num_heads)
+    config.head_dim = getattr(llm_model.config, "head_dim", config.hidden_size // config.num_heads)
     config.num_layers = num_layers or llm_model.config.num_hidden_layers
     config.vocab_size = llm_model.config.vocab_size
     config.model_type = main_model.config.model_type
