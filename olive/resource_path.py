@@ -384,7 +384,13 @@ class AzureMLRegistryModel(AzureMLResource):
             "azureml_client": ConfigParam(
                 type_=AzureMLClientConfig, required=False, description="AzureML client config."
             ),
-            "registry_name": ConfigParam(type_=str, required=True, description="Name of the registry."),
+            "registry_name": ConfigParam(
+                type_=str,
+                required=True,
+                description=(
+                    "Name of the registry. Basically, the value is parent directory name of given model in azureml"
+                ),
+            ),
             "name": ConfigParam(type_=str, required=True, description="Name of the model."),
             "version": ConfigParam(type_=Union[int, str], required=True, description="Version of the model."),
         }

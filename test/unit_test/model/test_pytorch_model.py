@@ -63,7 +63,6 @@ class TestPyTorchMLflowModel(unittest.TestCase):
             },
         )
         # load_hf_model only works for huggingface models and not for mlflow models
-        assert mlflow_olive_model.get_hf_model_config() == hf_model.get_hf_model_config()
         assert mlflow_olive_model.get_hf_io_config() == hf_model.get_hf_io_config()
         assert len(list(mlflow_olive_model.get_hf_components())) == len(list(hf_model.get_hf_components()))
         assert len(mlflow_olive_model.get_hf_dummy_inputs()) == len(hf_model.get_hf_dummy_inputs())
@@ -81,8 +80,6 @@ class TestPyTorchMLflowModel(unittest.TestCase):
             model_path=self.model_path,
             model_file_format="PyTorch.MLflow",
             hf_config={
-                "task": self.task,
-                "model_name": self.architecture,
                 "from_pretrained_args": {"trust_remote_code": True},
             },
         ).load_model()

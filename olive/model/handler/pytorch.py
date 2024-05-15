@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import logging
 import os
-import tempfile
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Dict, List, Optional, Tuple, Union
@@ -14,7 +13,6 @@ import yaml
 
 from olive.common.config_utils import serialize_to_json, validate_config
 from olive.common.user_module_loader import UserModuleLoader
-from olive.common.utils import copy_dir
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
 from olive.model.config import (
@@ -26,7 +24,7 @@ from olive.model.config import (
 )
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
-from olive.model.handler.mixin import DummyInputsMixin, HfConfigMixin, PytorchKvCacheMixin
+from olive.model.handler.mixin import DummyInputsMixin, HfConfigMixin, MLFlowMixin, PytorchKvCacheMixin
 from olive.model.utils.hf_utils import load_hf_model_from_model_class
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, ResourceType, create_resource_path
 
@@ -35,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 @model_handler_registry("PyTorchModel")
 class PyTorchModelHandler(
-    OliveModelHandler, HfConfigMixin, DummyInputsMixin, PytorchKvCacheMixin
+    OliveModelHandler, HfConfigMixin, DummyInputsMixin, PytorchKvCacheMixin, MLFlowMixin
 ):  # pylint: disable=too-many-ancestors
     """PyTorch model handler.
 
@@ -66,6 +64,7 @@ class PyTorchModelHandler(
         hf_config: Union[Dict[str, Any], HfConfig] = None,
         adapter_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         model_attributes: Optional[Dict[str, Any]] = None,
+        mlflow_transformer_model_cache_dir: Optional[str] = None,
     ):
         if not (
             isinstance(model_loader, Callable)
@@ -76,7 +75,7 @@ class PyTorchModelHandler(
             raise ValueError(
                 "model_path is required since model_loader is not callable or model_script is not provided"
             )
-
+        self.mlflow_transformer_model_cache_dir = mlflow_transformer_model_cache_dir
         self.model_loader = model_loader
         self.model = None
         super().__init__(
@@ -87,7 +86,6 @@ class PyTorchModelHandler(
             io_config=io_config,
         )
         self.add_resources(locals())
-
         self.hf_config = None
         if hf_config:
             self.hf_config = validate_config(hf_config, HfConfig)
@@ -123,6 +121,9 @@ class PyTorchModelHandler(
     @property
     def adapter_path(self) -> str:
         return self.get_resource("adapter_path")
+
+    def get_mlflow_transformers_dir(self):
+        return self.mlflow_transformer_model_cache_dir or self.model_path
 
     def load_model(self, rank: int = None) -> torch.nn.Module:
         if self.model is not None:
@@ -195,38 +196,34 @@ class PyTorchModelHandler(
 
     def _load_mlflow_model(self):
         logger.info("Loading MLFlow model from %s", self.model_path)
-        with tempfile.TemporaryDirectory(prefix="mlflow_tmp") as tmp_dir:
-            copy_dir(os.path.join(self.model_path, "data/model"), tmp_dir, dirs_exist_ok=True)
-            copy_dir(os.path.join(self.model_path, "data/config"), tmp_dir, dirs_exist_ok=True)
-            copy_dir(os.path.join(self.model_path, "data/tokenizer"), tmp_dir, dirs_exist_ok=True)
+        mlflow_transformers_path = self.to_mlflow_transformer_model(self.get_mlflow_transformers_dir())
+        with open(os.path.join(self.model_path, "MLmodel")) as fp:
+            mlflow_data = yaml.safe_load(fp)
+            # default flavor is "hftransformersv2" from azureml.evaluate.mlflow>=0.0.8
+            # "hftransformers" from azureml.evaluate.mlflow<0.0.8
+            # TODO(trajep): let user specify flavor name if needed
+            # to support other flavors in mlflow not only hftransformers
+            hf_pretrained_class = None
+            flavors = mlflow_data.get("flavors", {})
+            if not flavors:
+                raise ValueError(
+                    "Invalid MLFlow model format. Please make sure the input model"
+                    " format is same with the result of mlflow.transformers.save_model,"
+                    " or aml_mlflow.hftransformers.save_model from azureml.evaluate.mlflow"
+                )
 
-            with open(os.path.join(self.model_path, "MLmodel")) as fp:
-                mlflow_data = yaml.safe_load(fp)
-                # default flavor is "hftransformersv2" from azureml.evaluate.mlflow>=0.0.8
-                # "hftransformers" from azureml.evaluate.mlflow<0.0.8
-                # TODO(trajep): let user specify flavor name if needed
-                # to support other flavors in mlflow not only hftransformers
-                hf_pretrained_class = None
-                flavors = mlflow_data.get("flavors", {})
-                if not flavors:
-                    raise ValueError(
-                        "Invalid MLFlow model format. Please make sure the input model"
-                        " format is same with the result of mlflow.transformers.save_model,"
-                        " or aml_mlflow.hftransformers.save_model from azureml.evaluate.mlflow"
-                    )
-
-                if "hftransformersv2" in flavors:
-                    hf_pretrained_class = flavors["hftransformersv2"].get("hf_pretrained_class", "AutoModel")
-                elif "hftransformers" in flavors:
-                    hf_pretrained_class = flavors["hftransformers"].get("hf_pretrained_class", "AutoModel")
-                else:
-                    raise ValueError(
-                        "Unsupported MLFlow model flavor. Currently only support hftransformersv2/hftransformers."
-                    )
-            loading_args = self.hf_config.get_loading_args_from_pretrained() if self.hf_config else {}
-            loaded_model = load_hf_model_from_model_class(hf_pretrained_class, tmp_dir, **loading_args)
-            loaded_model.eval()
-            return loaded_model
+            if "hftransformersv2" in flavors:
+                hf_pretrained_class = flavors["hftransformersv2"].get("hf_pretrained_class", "AutoModel")
+            elif "hftransformers" in flavors:
+                hf_pretrained_class = flavors["hftransformers"].get("hf_pretrained_class", "AutoModel")
+            else:
+                raise ValueError(
+                    "Unsupported MLFlow model flavor. Currently only support hftransformersv2/hftransformers."
+                )
+        loading_args = self.hf_config.get_loading_args_from_pretrained() if self.hf_config else {}
+        loaded_model = load_hf_model_from_model_class(hf_pretrained_class, mlflow_transformers_path, **loading_args)
+        loaded_model.eval()
+        return loaded_model
 
     def _load_slicegpt_model(self):
         logger.info("Loading SliceGPT model from %s", self.model_path)
