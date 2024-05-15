@@ -172,12 +172,12 @@ def retry_func(func, args=None, kwargs=None, max_tries=3, delay=5, backoff=2, ex
             out = func(*args, **kwargs)
             logger.debug("Succeeded.")
             return out
-        except exceptions:
+        except exceptions as e:
             num_tries += 1
             if num_tries == max_tries:
                 logger.exception("The operation failed after the maximum number of retries.")
                 raise
-            logger.debug("Failed. Retrying in %d seconds...", sleep_time)
+            logger.debug("Failed with %s. Retrying in %d seconds...", e, sleep_time)
             time.sleep(sleep_time)
             sleep_time *= backoff
     return None
