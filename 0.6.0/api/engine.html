@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Engine &mdash; Olive  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
+      <link rel="stylesheet" type="text/css" href="../_static/tabs.css?v=a5c4661c" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/width.css?v=b55249da" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+        <script src="../_static/js/custom_version.js?v=3856a39b"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Passes" href="passes.html" />
+    <link rel="prev" title="SearchAlgorithms" href="search-algorithms.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Olive
+          </a>
+              <div class="version">
+                0.6.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">OVERVIEW</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview/olive.html">Olive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/quicktour.html">Quick Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/options.html">Olive Options</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">GET STARTED</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getstarted/quickstart_examples.html">Quickstart Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../features/cli.html">Command Line Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/custom_scripts.html">Custom Scripts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/azureml_integration.html">Azure ML integration</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../extending_olive/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_systems.html">How To Configure System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_auto_optimizer.html">How To Configure Auto Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_pass.html">How To Configure Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_data.html">How To Configure Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_model_path.html">How To Set Model Path</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/advanced_users.html">Advanced User Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/azure_arc.html">Self-hosted Kubernetes cluster</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/azureml_scripts.html">Azure ML scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="models.html">OliveModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="resource_path.html">ResourcePath</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systems.html">OliveSystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="evaluator.html">OliveEvaluator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="metric.html">Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="search-algorithms.html">SearchAlgorithms</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Engine</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#id2">Engine</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#olive.engine.Engine"><code class="docutils literal notranslate"><span class="pre">Engine</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#olive.engine.Engine.register"><code class="docutils literal notranslate"><span class="pre">Engine.register()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#olive.engine.Engine.run"><code class="docutils literal notranslate"><span class="pre">Engine.run()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#engineconfig">EngineConfig</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#olive.engine.EngineConfig"><code class="docutils literal notranslate"><span class="pre">EngineConfig</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#olive.strategy.search_strategy.SearchStrategyConfig"><code class="docutils literal notranslate"><span class="pre">SearchStrategyConfig</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#olive.evaluator.olive_evaluator.OliveEvaluatorConfig"><code class="docutils literal notranslate"><span class="pre">OliveEvaluatorConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#searchstrategy">SearchStrategy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#olive.strategy.search_strategy.SearchStrategy"><code class="docutils literal notranslate"><span class="pre">SearchStrategy</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="passes.html">Passes</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Olive</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Engine</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/engine.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="engine">
+<span id="id1"></span><h1>Engine<a class="headerlink" href="#engine" title="Permalink to this heading">¶</a></h1>
+<section id="id2">
+<h2>Engine<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="olive.engine.Engine">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">olive.engine.</span></span><span class="sig-name descname"><span class="pre">Engine</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">search_strategy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#olive.strategy.search_strategy.SearchStrategyConfig" title="olive.strategy.search_strategy.SearchStrategyConfig"><span class="pre">SearchStrategyConfig</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">host</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="systems.html#olive.systems.system_config.SystemConfig" title="olive.systems.system_config.SystemConfig"><span class="pre">SystemConfig</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="systems.html#olive.systems.system_config.SystemConfig" title="olive.systems.system_config.SystemConfig"><span class="pre">SystemConfig</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">evaluator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#olive.evaluator.olive_evaluator.OliveEvaluatorConfig" title="olive.evaluator.olive_evaluator.OliveEvaluatorConfig"><span class="pre">OliveEvaluatorConfig</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'.olive-cache'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clean_cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clean_evaluation_cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_pareto_frontier</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">azureml_client_config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/olive/engine/engine.html#Engine"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.engine.Engine" title="Permalink to this definition">¶</a></dt>
+<dd><p>The engine executes the registered Olive Steps.</p>
+<p>It facilitate evaluation of the output models using provided evaluation criteria and produces output model(s).</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="olive.engine.Engine.register">
+<span class="sig-name descname"><span class="pre">register</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pass_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Type</span><span class="p"><span class="pre">[</span></span><span class="pre">Pass</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">disable_search</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">host</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">OliveSystem</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">evaluator_config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#olive.evaluator.olive_evaluator.OliveEvaluatorConfig" title="olive.evaluator.olive_evaluator.OliveEvaluatorConfig"><span class="pre">OliveEvaluatorConfig</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clean_run_cache</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/olive/engine/engine.html#Engine.register"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.engine.Engine.register" title="Permalink to this definition">¶</a></dt>
+<dd><p>Register a pass configuration so that it could be instantiated and executed later.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="olive.engine.Engine.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_model_config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="models.html#olive.model.ModelConfig" title="olive.model.config.model_config.ModelConfig"><span class="pre">ModelConfig</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">accelerator_specs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">AcceleratorSpec</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_root</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">packaging_config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">PackagingConfig</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">PackagingConfig</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">evaluate_input_model</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/olive/engine/engine.html#Engine.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.engine.Engine.run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run all the registered Olive passes on the input model and produce one or more candidate models.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_model_config</strong> – input Olive model configuration</p></li>
+<li><p><strong>accelerator_specs</strong> – list of accelerator specs</p></li>
+<li><p><strong>data_root</strong> – data root for the input data</p></li>
+<li><p><strong>packaging_config</strong> – packaging configuration, if packaging_config is provided, the output
+model will be packaged into a zip file.</p></li>
+<li><p><strong>output_dir</strong> – output directory for the output model</p></li>
+<li><p><strong>output_name</strong> – output name for the output model, if output_name is provided, the output
+model will be saved to engine’s output_dir with the prefix of output_name.</p></li>
+<li><p><strong>evaluate_input_model</strong> – if evaluate_input_model is True, run the evaluation on the input model.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>if search strategy is None, all passes are run in the order they were registered.</dt><dd><ol class="arabic simple">
+<li><p>Final model -&gt; {output_dir}/{output_name}_{AcceleratorSpec}_model.onnx</p></li>
+<li><p>JSON file -&gt; {output_dir}/{output_name}_{AcceleratorSpec}_model.json</p></li>
+<li><p>Evaluation results of the final model -&gt; {output_dir}/{output_name}_{AcceleratorSpec}_metrics.json</p></li>
+</ol>
+</dd>
+</dl>
+<p>Return footprint/zip(packaging_config) of the final model and evaluation results of the final model.</p>
+<p>if search strategy is not None, run the search strategy to find candidate models.
+Return footprint/zip(packaging_config) of candidate models and evaluation results.</p>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>All parameters that of type <code class="code docutils literal notranslate"><span class="pre">...Config</span></code> or <code class="code docutils literal notranslate"><span class="pre">ConfigBase</span></code> class can be assigned dictionaries with keys corresponding
+to the fields of the class.</p>
+</div>
+<section id="engineconfig">
+<h3>EngineConfig<a class="headerlink" href="#engineconfig" title="Permalink to this heading">¶</a></h3>
+<dl class="py class pydantic_settings">
+<dt class="sig sig-object py" id="olive.engine.EngineConfig">
+<em class="property"><span class="pre">pydantic</span> <span class="pre">settings</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">olive.engine.</span></span><span class="sig-name descname"><span class="pre">EngineConfig</span></span><a class="reference internal" href="../_modules/olive/engine/config.html#EngineConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.engine.EngineConfig" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.engine.EngineConfig.search_strategy">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">search_strategy</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#olive.strategy.search_strategy.SearchStrategyConfig" title="olive.strategy.search_strategy.SearchStrategyConfig"><span class="pre">SearchStrategyConfig</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.engine.EngineConfig.search_strategy" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.engine.EngineConfig.host">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">host</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="systems.html#olive.systems.system_config.SystemConfig" title="olive.systems.system_config.SystemConfig"><span class="pre">SystemConfig</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.engine.EngineConfig.host" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.engine.EngineConfig.target">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">target</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="systems.html#olive.systems.system_config.SystemConfig" title="olive.systems.system_config.SystemConfig"><span class="pre">SystemConfig</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.engine.EngineConfig.target" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.engine.EngineConfig.evaluator">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">evaluator</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#olive.evaluator.olive_evaluator.OliveEvaluatorConfig" title="olive.evaluator.olive_evaluator.OliveEvaluatorConfig"><span class="pre">OliveEvaluatorConfig</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.engine.EngineConfig.evaluator" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.engine.EngineConfig.cache_dir">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">cache_dir</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'.olive-cache'</span></em><a class="headerlink" href="#olive.engine.EngineConfig.cache_dir" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.engine.EngineConfig.clean_cache">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">clean_cache</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#olive.engine.EngineConfig.clean_cache" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.engine.EngineConfig.clean_evaluation_cache">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">clean_evaluation_cache</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#olive.engine.EngineConfig.clean_evaluation_cache" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.engine.EngineConfig.plot_pareto_frontier">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">plot_pareto_frontier</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#olive.engine.EngineConfig.plot_pareto_frontier" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<p><strong>SearchStrategyConfig</strong></p>
+<dl class="py class pydantic_settings">
+<dt class="sig sig-object py" id="olive.strategy.search_strategy.SearchStrategyConfig">
+<em class="property"><span class="pre">pydantic</span> <span class="pre">settings</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">olive.strategy.search_strategy.</span></span><span class="sig-name descname"><span class="pre">SearchStrategyConfig</span></span><a class="reference internal" href="../_modules/olive/strategy/search_strategy.html#SearchStrategyConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.strategy.search_strategy.SearchStrategyConfig" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.strategy.search_strategy.SearchStrategyConfig.execution_order">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">execution_order</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"> <span class="pre">[Required]</span></em><a class="headerlink" href="#olive.strategy.search_strategy.SearchStrategyConfig.execution_order" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.strategy.search_strategy.SearchStrategyConfig.search_algorithm">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">search_algorithm</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"> <span class="pre">[Required]</span></em><a class="headerlink" href="#olive.strategy.search_strategy.SearchStrategyConfig.search_algorithm" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.strategy.search_strategy.SearchStrategyConfig.search_algorithm_config">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">search_algorithm_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ConfigBase</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.strategy.search_strategy.SearchStrategyConfig.search_algorithm_config" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.strategy.search_strategy.SearchStrategyConfig.output_model_num">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">output_model_num</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.strategy.search_strategy.SearchStrategyConfig.output_model_num" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.strategy.search_strategy.SearchStrategyConfig.stop_when_goals_met">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">stop_when_goals_met</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#olive.strategy.search_strategy.SearchStrategyConfig.stop_when_goals_met" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.strategy.search_strategy.SearchStrategyConfig.max_iter">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">max_iter</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.strategy.search_strategy.SearchStrategyConfig.max_iter" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.strategy.search_strategy.SearchStrategyConfig.max_time">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">max_time</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.strategy.search_strategy.SearchStrategyConfig.max_time" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<p><strong>SystemConfig</strong></p>
+<dl class="py class pydantic_settings">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">pydantic</span> <span class="pre">settings</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">olive.systems.system_config.</span></span><span class="sig-name descname"><span class="pre">SystemConfig</span></span><a class="reference internal" href="../_modules/olive/systems/system_config.html#SystemConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><dl class="py attribute pydantic_field">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="systems.html#olive.systems.common.SystemType" title="olive.systems.common.SystemType"><span class="pre">SystemType</span></a></em><em class="property"> <span class="pre">[Required]</span></em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">TargetUserConfig</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">create_system</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/olive/systems/system_config.html#SystemConfig.create_system"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">olive_managed_env</span></span></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<p><strong>OliveEvaluatorConfig</strong></p>
+<dl class="py class pydantic_settings">
+<dt class="sig sig-object py" id="olive.evaluator.olive_evaluator.OliveEvaluatorConfig">
+<em class="property"><span class="pre">pydantic</span> <span class="pre">settings</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">olive.evaluator.olive_evaluator.</span></span><span class="sig-name descname"><span class="pre">OliveEvaluatorConfig</span></span><a class="reference internal" href="../_modules/olive/evaluator/olive_evaluator.html#OliveEvaluatorConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.evaluator.olive_evaluator.OliveEvaluatorConfig" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.evaluator.olive_evaluator.OliveEvaluatorConfig.metrics">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">metrics</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="metric.html#olive.evaluator.metric.Metric" title="olive.evaluator.metric.Metric"><span class="pre">Metric</span></a><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">[]</span></em><a class="headerlink" href="#olive.evaluator.olive_evaluator.OliveEvaluatorConfig.metrics" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="olive.evaluator.olive_evaluator.OliveEvaluatorConfig.is_accuracy_drop_tolerance">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">is_accuracy_drop_tolerance</span></span><a class="headerlink" href="#olive.evaluator.olive_evaluator.OliveEvaluatorConfig.is_accuracy_drop_tolerance" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="searchstrategy">
+<h3>SearchStrategy<a class="headerlink" href="#searchstrategy" title="Permalink to this heading">¶</a></h3>
+<dl class="py class">
+<dt class="sig sig-object py" id="olive.strategy.search_strategy.SearchStrategy">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">olive.strategy.search_strategy.</span></span><span class="sig-name descname"><span class="pre">SearchStrategy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#olive.strategy.search_strategy.SearchStrategyConfig" title="olive.strategy.search_strategy.SearchStrategyConfig"><span class="pre">SearchStrategyConfig</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/olive/strategy/search_strategy.html#SearchStrategy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.strategy.search_strategy.SearchStrategy" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="search-algorithms.html" class="btn btn-neutral float-left" title="SearchAlgorithms" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="passes.html" class="btn btn-neutral float-right" title="Passes" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, olivedevteam@microsoft.com.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

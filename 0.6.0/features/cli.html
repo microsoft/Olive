@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Command Line Tools &mdash; Olive  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
+      <link rel="stylesheet" type="text/css" href="../_static/tabs.css?v=a5c4661c" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/width.css?v=b55249da" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+        <script src="../_static/js/custom_version.js?v=3856a39b"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Model Transformations and Optimizations" href="model_transformations_and_optimizations.html" />
+    <link rel="prev" title="Examples" href="../examples.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Olive
+          </a>
+              <div class="version">
+                0.6.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">OVERVIEW</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview/olive.html">Olive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/quicktour.html">Quick Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/options.html">Olive Options</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">GET STARTED</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getstarted/quickstart_examples.html">Quickstart Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Command Line Tools</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#Sub-commands">Sub-commands</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#run">run</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#named-arguments">Named Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#configure-qualcomm-sdk">configure-qualcomm-sdk</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#named-arguments_repeat1">Named Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#manage-aml-compute">manage-aml-compute</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#named-arguments_repeat2">Named Arguments</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#export-adapters">export-adapters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#named-arguments_repeat3">Named Arguments</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#int4-quantization-options">int4 quantization options</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="packaging_output_models.html">Packaging Olive artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_scripts.html">Custom Scripts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="azureml_integration.html">Azure ML integration</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../extending_olive/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_systems.html">How To Configure System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_auto_optimizer.html">How To Configure Auto Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_pass.html">How To Configure Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_data.html">How To Configure Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_model_path.html">How To Set Model Path</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/advanced_users.html">Advanced User Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/azure_arc.html">Self-hosted Kubernetes cluster</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/azureml_scripts.html">Azure ML scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/models.html">OliveModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/resource_path.html">ResourcePath</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/systems.html">OliveSystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/evaluator.html">OliveEvaluator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/metric.html">Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/search-algorithms.html">SearchAlgorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/engine.html">Engine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/passes.html">Passes</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Olive</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Command Line Tools</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/features/cli.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="command-line-tools">
+<span id="id1"></span><h1>Command Line Tools<a class="headerlink" href="#command-line-tools" title="Permalink to this heading">¶</a></h1>
+<p>Olive provides command line tools that can be invoked using the <code class="docutils literal notranslate"><span class="pre">olive</span></code> command. The command line tools are used to perform various tasks such as running an Olive workflow, managing AzureML compute, and more.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">olive</span></code> is not in your PATH, you can run the command line tools by replacing <code class="docutils literal notranslate"><span class="pre">olive</span></code> with <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">olive</span></code>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span>
+</pre></div>
+</div>
+<section id="Sub-commands">
+<h2>Sub-commands<a class="headerlink" href="#Sub-commands" title="Permalink to this heading">¶</a></h2>
+<section id="run">
+<h3>run<a class="headerlink" href="#run" title="Permalink to this heading">¶</a></h3>
+<p>Run an olive workflow</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">olive</span> <span class="n">run</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">package</span><span class="o">-</span><span class="n">config</span> <span class="n">PACKAGE_CONFIG</span><span class="p">]</span> <span class="o">--</span><span class="n">run</span><span class="o">-</span><span class="n">config</span> <span class="n">RUN_CONFIG</span>
+          <span class="p">[</span><span class="o">--</span><span class="n">setup</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">data</span><span class="o">-</span><span class="n">root</span> <span class="n">DATA_ROOT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">tempdir</span> <span class="n">TEMPDIR</span><span class="p">]</span>
+</pre></div>
+</div>
+<section id="named-arguments">
+<h4>Named Arguments<a class="headerlink" href="#named-arguments" title="Permalink to this heading">¶</a></h4>
+<dl class="option-list">
+<dt><kbd>--package-config</kbd></dt>
+<dd><p>For advanced users. Path to optional package (json) config file with location of individual pass module implementation and corresponding dependencies. Configuration might also include user owned/proprietary/private pass implementations.</p>
+</dd>
+<dt><kbd>--run-config, --config</kbd></dt>
+<dd><p>Path to json config file</p>
+</dd>
+<dt><kbd>--setup</kbd></dt>
+<dd><p>Whether run environment setup</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--data-root, --data_root</kbd></dt>
+<dd><p>The data root path for optimization</p>
+</dd>
+<dt><kbd>--tempdir</kbd></dt>
+<dd><p>Root directory for tempfile directories and files</p>
+</dd>
+</dl>
+</section>
+</section>
+<section id="configure-qualcomm-sdk">
+<h3>configure-qualcomm-sdk<a class="headerlink" href="#configure-qualcomm-sdk" title="Permalink to this heading">¶</a></h3>
+<p>Configure Qualcomm SDK for Olive</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">olive</span> <span class="n">configure</span><span class="o">-</span><span class="n">qualcomm</span><span class="o">-</span><span class="n">sdk</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">--</span><span class="n">py_version</span> <span class="p">{</span><span class="mf">3.6</span><span class="p">,</span><span class="mf">3.8</span><span class="p">}</span> <span class="o">--</span><span class="n">sdk</span> <span class="p">{</span><span class="n">snpe</span><span class="p">,</span><span class="n">qnn</span><span class="p">}</span>
+</pre></div>
+</div>
+<section id="named-arguments_repeat1">
+<h4>Named Arguments<a class="headerlink" href="#named-arguments_repeat1" title="Permalink to this heading">¶</a></h4>
+<dl class="option-list">
+<dt><kbd>--py_version</kbd></dt>
+<dd><p>Possible choices: 3.6, 3.8</p>
+<p>Python version: Use 3.6 for tensorflow 1.15 and 3.8 otherwise</p>
+</dd>
+<dt><kbd>--sdk</kbd></dt>
+<dd><p>Possible choices: snpe, qnn</p>
+<p>Qualcomm SDK: snpe or qnn</p>
+</dd>
+</dl>
+</section>
+</section>
+<section id="manage-aml-compute">
+<h3>manage-aml-compute<a class="headerlink" href="#manage-aml-compute" title="Permalink to this heading">¶</a></h3>
+<p>Create new compute in your AzureML workspace</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">olive</span> <span class="n">manage</span><span class="o">-</span><span class="n">aml</span><span class="o">-</span><span class="n">compute</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">(</span><span class="o">--</span><span class="n">create</span> <span class="o">|</span> <span class="o">--</span><span class="n">delete</span><span class="p">)</span>
+                         <span class="p">[</span><span class="o">--</span><span class="n">subscription_id</span> <span class="n">SUBSCRIPTION_ID</span><span class="p">]</span>
+                         <span class="p">[</span><span class="o">--</span><span class="n">resource_group</span> <span class="n">RESOURCE_GROUP</span><span class="p">]</span>
+                         <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
+                         <span class="p">[</span><span class="o">--</span><span class="n">aml_config_path</span> <span class="n">AML_CONFIG_PATH</span><span class="p">]</span> <span class="o">--</span><span class="n">compute_name</span>
+                         <span class="n">COMPUTE_NAME</span> <span class="p">[</span><span class="o">--</span><span class="n">vm_size</span> <span class="n">VM_SIZE</span><span class="p">]</span>
+                         <span class="p">[</span><span class="o">--</span><span class="n">location</span> <span class="n">LOCATION</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">min_nodes</span> <span class="n">MIN_NODES</span><span class="p">]</span>
+                         <span class="p">[</span><span class="o">--</span><span class="n">max_nodes</span> <span class="n">MAX_NODES</span><span class="p">]</span>
+                         <span class="p">[</span><span class="o">--</span><span class="n">idle_time_before_scale_down</span> <span class="n">IDLE_TIME_BEFORE_SCALE_DOWN</span><span class="p">]</span>
+</pre></div>
+</div>
+<section id="named-arguments_repeat2">
+<h4>Named Arguments<a class="headerlink" href="#named-arguments_repeat2" title="Permalink to this heading">¶</a></h4>
+<dl class="option-list">
+<dt><kbd>--create, -c</kbd></dt>
+<dd><p>Create new compute</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--delete, -d</kbd></dt>
+<dd><p>Delete existing compute</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--subscription_id</kbd></dt>
+<dd><p>Azure subscription ID</p>
+</dd>
+<dt><kbd>--resource_group</kbd></dt>
+<dd><p>Name of the Azure resource group</p>
+</dd>
+<dt><kbd>--workspace_name</kbd></dt>
+<dd><p>Name of the AzureML workspace</p>
+</dd>
+<dt><kbd>--aml_config_path</kbd></dt>
+<dd><p>Path to AzureML config file. If provided, subscription_id, resource_group and workspace_name are ignored</p>
+</dd>
+<dt><kbd>--compute_name</kbd></dt>
+<dd><p>Name of the new compute</p>
+</dd>
+<dt><kbd>--vm_size</kbd></dt>
+<dd><p>VM size of the new compute. This is required if you are creating a compute instance</p>
+</dd>
+<dt><kbd>--location</kbd></dt>
+<dd><p>Location of the new compute. This is required if you are creating a compute instance</p>
+</dd>
+<dt><kbd>--min_nodes</kbd></dt>
+<dd><p>Minimum number of nodes</p>
+<p>Default: 0</p>
+</dd>
+<dt><kbd>--max_nodes</kbd></dt>
+<dd><p>Maximum number of nodes</p>
+<p>Default: 2</p>
+</dd>
+<dt><kbd>--idle_time_before_scale_down</kbd></dt>
+<dd><p>Idle seconds before scaledown</p>
+<p>Default: 120</p>
+</dd>
+</dl>
+</section>
+</section>
+<section id="export-adapters">
+<h3>export-adapters<a class="headerlink" href="#export-adapters" title="Permalink to this heading">¶</a></h3>
+<p>Export lora adapter weights to a .npz file that will be consumed by ONNX models generated by Olive ExtractedAdapters pass.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">olive</span> <span class="n">export</span><span class="o">-</span><span class="n">adapters</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">adapter_path</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">output_path</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">dtype</span> <span class="p">{</span><span class="n">float32</span><span class="p">,</span><span class="n">float16</span><span class="p">}]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">pack_weights</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">quantize_int4</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">int4_block_size</span> <span class="p">{</span><span class="mi">16</span><span class="p">,</span><span class="mi">32</span><span class="p">,</span><span class="mi">64</span><span class="p">,</span><span class="mi">128</span><span class="p">,</span><span class="mi">256</span><span class="p">}]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">int4_quantization_mode</span> <span class="p">{</span><span class="n">symmetric</span><span class="p">,</span><span class="n">asymmetric</span><span class="p">}]</span>
+</pre></div>
+</div>
+<section id="named-arguments_repeat3">
+<h4>Named Arguments<a class="headerlink" href="#named-arguments_repeat3" title="Permalink to this heading">¶</a></h4>
+<dl class="option-list">
+<dt><kbd>--adapter_path</kbd></dt>
+<dd><p>Path to the adapters weights saved after peft fine-tuning. Can be a local folder or huggingface id.</p>
+</dd>
+<dt><kbd>--output_path</kbd></dt>
+<dd><p>Path to save the exported weights. Will be saved as a .npz file.</p>
+</dd>
+<dt><kbd>--dtype</kbd></dt>
+<dd><p>Possible choices: float32, float16</p>
+<p>Data type to save float weights as. If quantize_int4 is True, this is the data type of the quantization scales. Default is float32.</p>
+<p>Default: “float32”</p>
+</dd>
+<dt><kbd>--pack_weights</kbd></dt>
+<dd><p>Whether to pack the weights. If True, the weights for each module type will be packed into a single array.</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--quantize_int4</kbd></dt>
+<dd><p>Quantize the weights to int4 using blockwise quantization.</p>
+<p>Default: False</p>
+</dd>
+</dl>
+</section>
+<section id="int4-quantization-options">
+<h4>int4 quantization options<a class="headerlink" href="#int4-quantization-options" title="Permalink to this heading">¶</a></h4>
+<dl class="option-list">
+<dt><kbd>--int4_block_size</kbd></dt>
+<dd><p>Possible choices: 16, 32, 64, 128, 256</p>
+<p>Block size for int4 quantization. Default is 32.</p>
+<p>Default: 32</p>
+</dd>
+<dt><kbd>--int4_quantization_mode</kbd></dt>
+<dd><p>Possible choices: symmetric, asymmetric</p>
+<p>Quantization mode for int4 quantization. Default is symmetric.</p>
+<p>Default: “symmetric”</p>
+</dd>
+</dl>
+</section>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../examples.html" class="btn btn-neutral float-left" title="Examples" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="model_transformations_and_optimizations.html" class="btn btn-neutral float-right" title="Model Transformations and Optimizations" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, olivedevteam@microsoft.com.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
