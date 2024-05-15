@@ -161,6 +161,8 @@ class ModelBuilder(Pass):
             target_execution_provider = "dml"
         elif self.accelerator_spec.execution_provider == "CUDAExecutionProvider":
             target_execution_provider = "cuda"
+        elif self.accelerator_spec.execution_provider == "JsExecutionProvider":
+            target_execution_provider = "web"
         else:
             target_execution_provider = "cpu"
 

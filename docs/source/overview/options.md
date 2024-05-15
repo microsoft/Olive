@@ -156,25 +156,6 @@ find more details in [Olive Models](https://microsoft.github.io/Olive/api/models
                 - `io_config: [Dict[str, Any] | IoConfig | str | Callable]`: The io_config of this component. If `str`, Olive will load `io_config` from `model_script`.
                 - `component_func: [str]`: The component function name will be loaded from `model_script`.
                 - `dummy_inputs_func: [str]`: The dummy input function name will be loaded from `model_script`.
-
-        - `dataset: [dict]`: If you want to use the huggingface dataset, you need to provide the dataset config. See [huggingface datasets](https://huggingface.co/docs/datasets/loading). Olive exposes the following configs(which will be extended in the future):
-            ```python
-            "dataset": {
-                "model_name": "distilbert-base-uncased",  # the model name of the huggingface model, if not provided, it will use the model_name in hf_config
-                "task": "text-classification",  # the task type for the model, if not provided, it will use the task in hf_config
-                "data_name":"glue",  # the name of the dataset
-                "subset": "mrpc",  # the subset of the dataset, could be "mrpc", "mnli" and etc. You can find the available subsets in the dataset page.
-                "split": "validation",  # the split of the dataset, could be "train", "validation", "test" and etc. You can find the available splits in the dataset page.
-                "input_cols": ["sentence1", "sentence2"],  # the input columns of the dataset
-                "label_cols": ["label"],  # the label columns of the dataset
-                "batch_size": 1  # the batch size of the dataloader
-                "component_kwargs": {
-                    "pre_process_data": {
-                        "align_labels": true # whether to align the dataset labels with huggingface model config(label2id), more details in https://huggingface.co/docs/datasets/nlp_process#align
-                        "model_config_path": "model_config.json" # model config used to process dataset, if not set, it will use the model name to fetch config from huggingface hub.
-                    }
-                }
-            }
             ```
             For cases where you do not want to use the huggingface model but want to use the huggingface dataset, you can provide `dataset` config only like above.
 

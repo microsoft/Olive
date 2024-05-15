@@ -384,6 +384,7 @@ def test_azureml_deployment(mock_retry_func, inferencing_server_type):
     model_package_mock = Mock()
 
     inferencing_server = None
+    deployment = None
     if inferencing_server_type == InferencingServerType.AzureMLOnline:
         inferencing_server = AzureMLOnlineInferencingServer(code_configuration=code_configuration)
         deployment = ManagedOnlineDeployment(
@@ -493,6 +494,7 @@ def get_footprints(model_id, model_path):
     return {acc_spec: footprint}
 
 
+# TODO(xiaoyu): check onnxruntime packages exist
 def verify_output_artifacts(output_dir):
     assert (output_dir / "SampleCode").exists()
     assert (output_dir / "CandidateModels").exists()

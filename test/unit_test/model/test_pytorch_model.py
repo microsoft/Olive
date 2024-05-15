@@ -224,24 +224,6 @@ class TestPytorchDummyInput:
         assert io_config == self.io_config
         get_hf_model_io_config.assert_called_once_with(self.model_name, self.task, None)
 
-    def common_data_config_test(self, olive_model, data_config_template):
-        # mock data config
-        data_config = MagicMock()
-        # mock data container
-        data_container = MagicMock()
-        data_container.get_first_batch.return_value = 1, 0
-        data_config.to_data_container.return_value = data_container
-        # mock data config template
-        data_config_template.return_value = data_config
-
-        # get dummy inputs
-        dummy_inputs = olive_model.get_dummy_inputs()
-
-        data_config_template.assert_called_once()
-        data_config.to_data_container.assert_called_once()
-        data_container.get_first_batch.assert_called_once()
-        assert dummy_inputs == 1
-
     def test_custom_dummy_inputs(self):
         dummy_inputs_func = MagicMock(spec=FunctionType)
         dummy_inputs_func.return_value = 1
@@ -259,14 +241,22 @@ class TestPytorchDummyInput:
         olive_model = PyTorchModelHandler(
             hf_config={"task": self.task, "model_name": self.model_name}, io_config=self.io_config
         )
-        self.common_data_config_test(olive_model, dummy_data_config_template)
+        # mock data config
+        data_config = MagicMock()
+        # mock data container
+        data_container = MagicMock()
+        data_container.get_first_batch.return_value = 1, 0
+        data_config.to_data_container.return_value = data_container
+        # mock data config template
+        dummy_data_config_template.return_value = data_config
 
-    @patch("olive.data.template.huggingface_data_config_template")
-    def test_hf_config_dataset_dummy_inputs(self, hf_data_config_template):
-        olive_model = PyTorchModelHandler(
-            hf_config={"task": self.task, "model_name": self.model_name, "dataset": self.dataset}
-        )
-        self.common_data_config_test(olive_model, hf_data_config_template)
+        # get dummy inputs
+        dummy_inputs = olive_model.get_dummy_inputs()
+
+        dummy_data_config_template.assert_called_once()
+        data_config.to_data_container.assert_called_once()
+        data_container.get_first_batch.assert_called_once()
+        assert dummy_inputs == 1
 
     @patch("olive.model.handler.mixin.hf_config.get_hf_model_dummy_input")
     def test_hf_onnx_config_dummy_inputs(self, get_hf_model_dummy_input):

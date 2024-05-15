@@ -22,6 +22,7 @@ SUPPORTED_WORKFLOWS = {
     "cuda_fp16": [["convert", "optimize_cuda", "perf_tuning"]],
     "cuda_int4": [["convert", "optimize_cuda", "blockwise_quant_int4", "perf_tuning"]],
     "slicegpt": [["slice"]],
+    "web": [["builder", "io_float16_to_float32"]],
 }
 SUPPORTED_INFERENCE_CONFIG = {
     "cpu_fp32": {
@@ -54,6 +55,7 @@ SUPPORTED_INFERENCE_CONFIG = {
 DEVICE_TO_EP = {
     "cpu": "CPUExecutionProvider",
     "gpu": "CUDAExecutionProvider",
+    "web": "JsExecutionProvider",
 }
 
 
@@ -64,8 +66,8 @@ def get_args(raw_args):
         "--model_type",
         type=str,
         default=None,
-        choices=["cpu_fp32", "cpu_int4", "cuda_fp16", "cuda_int4"],
-        help="Choose from cpu_fp32, cpu_int4, cuda_fp16, cuda_int4",
+        choices=["cpu_fp32", "cpu_int4", "cuda_fp16", "cuda_int4", "web"],
+        help="Choose from cpu_fp32, cpu_int4, cuda_fp16, cuda_int4 or web",
     )
     parser.add_argument(
         "--finetune_method",
@@ -141,11 +143,22 @@ def main(raw_args=None):
             template_json["systems"]["local_system"]["config"]["accelerators"] = [
                 {"device": device, "execution_providers": [DEVICE_TO_EP[device.lower()]]}
             ]
-
-        new_json_file = f"phi2_genai_{device.lower()}.json"
+        new_json_file = "phi2_web.json"
         with open(new_json_file, "w") as f:
             json.dump(template_json, f, indent=4)
-
+    elif model_type == "web":
+        json_file_template = "phi2_genai.json"
+        with open(json_file_template) as f:
+            template_json = json.load(f)
+            template_json["passes"]["builder"]["config"]["precision"] = "int4"
+            template_json["systems"]["local_system"]["config"]["accelerators"] = [
+                {"device": "GPU", "execution_providers": ["JsExecutionProvider"]}
+            ]
+            fl_type = {"type": "OnnxIOFloat16ToFloat32"}
+            template_json["passes"]["fp32_logits"] = fl_type
+        new_json_file = "phi2_web.json"
+        with open(new_json_file, "w") as f:
+            json.dump(template_json, f, indent=4)
     else:
         if not args.optimum_optimization and not args.slicegpt and version.parse(OrtVersion) < version.parse("1.18.0"):
             # Check if onnxruntime version is supported
