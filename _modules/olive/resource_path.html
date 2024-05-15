@@ -513,7 +513,13 @@
             <span class="s2">&quot;azureml_client&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span>
                 <span class="n">type_</span><span class="o">=</span><span class="n">AzureMLClientConfig</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;AzureML client config.&quot;</span>
             <span class="p">),</span>
-            <span class="s2">&quot;registry_name&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Name of the registry.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;registry_name&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span>
+                <span class="n">type_</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+                <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+                    <span class="s2">&quot;Name of the registry. Basically, the value is parent directory name of given model in azureml&quot;</span>
+                <span class="p">),</span>
+            <span class="p">),</span>
             <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Name of the model.&quot;</span><span class="p">),</span>
             <span class="s2">&quot;version&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Version of the model.&quot;</span><span class="p">),</span>
         <span class="p">}</span>
