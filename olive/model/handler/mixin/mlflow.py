@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 
 import logging
-import os
 from pathlib import Path
 
 from olive.common.utils import copy_dir
@@ -30,11 +29,9 @@ class MLFlowMixin:
             logger.debug("Use cached mlflow-transformers models from %s", target_path)
             return target_path
         if (Path(self.model_path) / "data" / "model").exists():
-            copy_dir(Path(self.model_path) / "data" / "model", target_path, dirs_exist_ok=True, copy_function=os.link)
-            copy_dir(Path(self.model_path) / "data" / "config", target_path, dirs_exist_ok=True, copy_function=os.link)
-            copy_dir(
-                Path(self.model_path) / "data" / "tokenizer", target_path, dirs_exist_ok=True, copy_function=os.link
-            )
+            copy_dir(Path(self.model_path) / "data" / "model", target_path, dirs_exist_ok=True)
+            copy_dir(Path(self.model_path) / "data" / "config", target_path, dirs_exist_ok=True)
+            copy_dir(Path(self.model_path) / "data" / "tokenizer", target_path, dirs_exist_ok=True)
             return target_path
         return None
 
