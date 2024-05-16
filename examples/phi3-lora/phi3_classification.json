@@ -1,0 +1,80 @@
+{
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "hf_config": {
+                "model_name": "microsoft/Phi-3-mini-4k-instruct",
+                "task": "text-generation",
+                "from_pretrained_args": {
+                    "trust_remote_code": true
+                }
+            }
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "execution_providers": [
+                            "CPUExecutionProvider"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
+    "data_configs": [
+        {
+            "name": "dataset_classification",
+            "type": "HuggingfaceContainer",
+            "params_config": {
+                "data_name": "json",
+                "data_files":"models/dataset-classification.json",
+                "split": "train",
+                "component_kwargs": {
+                    "pre_process_data": {
+                        "dataset_type": "corpus",
+                        "text_cols": ["phrase", "tone"],
+                        "text_template": "### Text: {phrase}\n### The tone is:\n{tone}",
+                        "corpus_strategy": "join",
+                        "source_max_len": 1024,
+                        "pad_to_max_len": false,
+                        "use_attention_mask": false
+                    }
+                }
+            }
+        }
+    ],
+    "passes": {
+        "qlora": {
+            "type": "QLoRA",
+            "config": {
+                "lora_dropout": 0.1,
+                "train_data_config": "dataset_classification",
+                "eval_dataset_size": 0.3,
+                "training_args": {
+                    "per_device_train_batch_size": 16,
+                    "per_device_eval_batch_size": 16,
+                    "gradient_accumulation_steps": 1,
+                    "max_steps": 150,
+                    "evaluation_strategy": "steps",
+                    "eval_steps": 100,
+                    "logging_steps": 100,
+                    "group_by_length": true,
+                    "adam_beta2": 0.999,
+                    "max_grad_norm": 0.3,
+                    "load_best_model_at_end": true,
+                    "output_dir": "models/phi3-classification-checkpoints"
+                }
+            }
+        }
+    },
+    "engine": {
+        "host": "local_system",
+        "target": "local_system",
+        "cache_dir": "cache",
+        "output_dir" : "models/phi3-classification"
+    }
+}

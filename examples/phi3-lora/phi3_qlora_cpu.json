@@ -1,0 +1,100 @@
+{
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "hf_config": {
+                "model_name": "microsoft/Phi-3-mini-4k-instruct",
+                "task": "text-generation",
+                "from_pretrained_args": {
+                    "trust_remote_code": true
+                }
+            }
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "execution_providers": [
+                            "CPUExecutionProvider"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
+    "data_configs": [
+        {
+            "name": "tiny_codes_train",
+            "type": "HuggingfaceContainer",
+            "user_script": "user_script.py",
+            "components": {
+                "load_dataset": {
+                    "type": "load_tiny_code_dataset"
+                }
+            },
+            "params_config": {
+                "data_name": "nampdn-ai/tiny-codes",
+                "split": "train",
+                "component_kwargs": {
+                    "load_dataset": {
+                        "language": "Python",
+                        "token": true
+                    },
+                    "pre_process_data": {
+                        "corpus_strategy": "join",
+                        "text_template": "### Question: {prompt} \n### Answer: {response}",
+                        "source_max_len": 1024
+                    }
+                }
+            }
+        }
+    ],
+    "passes": {
+        "qlora": {
+            "type": "QLoRA",
+            "config": {
+                "lora_dropout": 0.1,
+                "train_data_config": "tiny_codes_train",
+                "eval_dataset_size": 512,
+                "training_args": {
+                    "per_device_train_batch_size": 16,
+                    "per_device_eval_batch_size": 16,
+                    "gradient_accumulation_steps": 1,
+                    "max_steps": 150,
+                    "logging_steps": 50,
+                    "save_steps": 50,
+                    "evaluation_strategy": "steps",
+                    "adam_beta2": 0.999,
+                    "max_grad_norm": 0.3,
+                    "load_best_model_at_end": true,
+                    "output_dir": "models/phi3-qlora-checkpoints"
+                }
+            }
+        },
+        "builder": {
+            "type": "ModelBuilder",
+            "config": {
+                "precision": "int4",
+                "search": {
+                    "max_length": 2048,
+                    "min_length": 0
+                }
+            }
+        },
+        "extract": {
+            "type": "ExtractAdapters",
+            "config": {
+                "make_inputs": true
+            }
+        }
+    },
+    "engine": {
+        "host": "local_system",
+        "target": "local_system",
+        "cache_dir": "cache",
+        "output_dir" : "models/phi3-qlora-cpu"
+    }
+}
