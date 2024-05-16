@@ -163,6 +163,9 @@ def run_with_config(tool, olive_config, metric_res):
     print(f"Start evaluating {tool} model")
     outputs = olive_run(olive_config)
     if tool == "olive":
+        if not outputs:
+            print("No outputs meet the criteria, skip this run.")
+            return
         metric = str(next(iter(next(iter(outputs.values())).nodes.values())).metrics.value)
     else:
         metric = str(next(iter(outputs.values())))
@@ -340,6 +343,10 @@ def regression_cal(best_metric, real_metric, is_acc):
 
 def main():
     args = get_args()
+
+    args.model_name = "distilbert"
+    args.device = "cpu"
+
     model_name = args.model_name
     model_id = MODEL_NAME_MAP[model_name]
     device = args.device
