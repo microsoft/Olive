@@ -41,7 +41,7 @@
                             "priority": 1,
                             "goal": {
                                 "type": "max-degradation",
-                                "value": 0.01
+                                "value": 0.1
                             }
                         }
                     ]

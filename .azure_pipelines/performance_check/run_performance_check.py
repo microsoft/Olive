@@ -163,9 +163,6 @@ def run_with_config(tool, olive_config, metric_res):
     print(f"Start evaluating {tool} model")
     outputs = olive_run(olive_config)
     if tool == "olive":
-        if not outputs:
-            print("No outputs meet the criteria, skip this run.")
-            return
         metric = str(next(iter(next(iter(outputs.values())).nodes.values())).metrics.value)
     else:
         metric = str(next(iter(outputs.values())))
