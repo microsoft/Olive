@@ -143,7 +143,7 @@ def main(raw_args=None):
             template_json["systems"]["local_system"]["config"]["accelerators"] = [
                 {"device": device, "execution_providers": [DEVICE_TO_EP[device.lower()]]}
             ]
-        new_json_file = "phi2_web.json"
+        new_json_file = f"phi2_genai_{device.lower()}.json"
         with open(new_json_file, "w") as f:
             json.dump(template_json, f, indent=4)
     elif model_type == "web":

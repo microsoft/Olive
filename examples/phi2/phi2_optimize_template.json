@@ -172,7 +172,7 @@
     },
     "data_configs": [
         {
-            "name": "tiny_codes_train",
+            "name": "dataset_default_train",
             "type": "HuggingfaceContainer",
             "user_script": "user_script.py",
             "components": {
