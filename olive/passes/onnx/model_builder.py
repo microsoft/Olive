@@ -13,6 +13,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, Union
 
+from olive.common.utils import hash_string
 from olive.constants import ModelFileFormat
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModelHandler, PyTorchModelHandler
@@ -45,6 +46,11 @@ class ModelBuilder(Pass):
 
         def __str__(self) -> str:
             return str(self.value)
+
+    def _initialize(self):
+        super()._initialize()
+        # pylint: disable=attribute-defined-outside-init
+        self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -93,6 +99,18 @@ class ModelBuilder(Pass):
                     "The model can use CUDA graph capture for CUDA execution provider. "
                     "If enabled, all nodes being placed on the CUDA EP is the prerequisite "
                     "for the CUDA graph to be used correctly."
+                ),
+            ),
+            # olive specific parameters. These are not passed to the model builder
+            "merge_adapter_weights": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                required=False,
+                description=(
+                    "Whether to merge adapter weights before run model builder. "
+                    "After merging, the model structure is consistent with base model. "
+                    "That is useful if you cannot run model builder for some fine-tuned "
+                    "models with adapter weights"
                 ),
             ),
         }
@@ -149,6 +167,29 @@ class ModelBuilder(Pass):
         else:
             if not isinstance(model, PyTorchModelHandler):
                 raise ValueError("metadata_only has to be true with ONNXModel as input.")
+
+        merged_model_path = None
+        if config["merge_adapter_weights"] and model.adapter_path:
+            pytorch_model = model.load_model()
+            logger.debug("Merging adapter weights into base model, then save. This is specific to PeftModel.")
+            merged_model = pytorch_model.merge_and_unload()
+            merged_model_path = (
+                Path(self.tmp_dir.name) / f"{hash_string(str(Path(model.adapter_path).resolve()))[:8]}" / "merged_model"
+            )
+            merged_model_path.parent.mkdir(exist_ok=True, parents=True)
+
+            if not merged_model_path.exists():
+                merged_model.save_pretrained(merged_model_path)
+                model.save_metadata_for_token_generation(merged_model_path)
+            model = PyTorchModelHandler(
+                merged_model_path,
+                model_attributes=model.model_attributes,
+                model_file_format=model.model_file_format,
+                io_config=model.io_config,
+                hf_config=model.hf_config,
+                adapter_path=None,
+                mlflow_transformer_model_cache_dir=model.mlflow_transformer_model_cache_dir,
+            )
 
         Path(output_model_path).mkdir(parents=True, exist_ok=True)
         output_model_filepath = (

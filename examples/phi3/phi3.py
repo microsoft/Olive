@@ -37,6 +37,14 @@ def get_args(raw_args):
         help="Choose from cpu, cuda, mobile or web",
     )
     parser.add_argument(
+        "--finetune_method",
+        type=str,
+        default=None,
+        choices=["qlora", "lora"],
+        help="Finetune method before onnxruntime optimization. "
+        "qlora finetuned model cannot be converted to onnx by model builder.",
+    )
+    parser.add_argument(
         "--precision",
         type=str,
         default="int4",
@@ -99,11 +107,28 @@ def main(raw_args=None):
         genai_run(prompts, str(output_model_path), max_length)
 
 
+def get_finetune_passes():
+    with open("pass_configs/finetune.json") as f:
+        return json.load(f)
+
+
+def get_data_configs():
+    with open("pass_configs/data_configs.json") as f:
+        return json.load(f)
+
+
 def generate_config(args):
 
     json_file_template = "phi3_template.json"
     with open(json_file_template) as f:
         template_json = json.load(f)
+
+    # finetune
+    if args.finetune_method and args.target == "cuda":
+        finetune_passes = get_finetune_passes()
+        data_configs = get_data_configs()
+        template_json["data_configs"] = data_configs
+        template_json["passes"][args.finetune_method] = finetune_passes[args.finetune_method]
 
     target = str(args.target)
     device = "GPU" if target in ("cuda", "web") else "CPU"
@@ -118,7 +143,8 @@ def generate_config(args):
             "precision": args.precision,
         },
     }
-    template_json["passes"]["builder"] = model_builder
+    if args.finetune_method is None or args.finetune_method == "lora":
+        template_json["passes"]["builder"] = model_builder
 
     if target == "mobile":
         template_json["passes"]["builder"]["config"]["int4_accuracy_level"] = 4
