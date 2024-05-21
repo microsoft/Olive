@@ -7,6 +7,7 @@ import inspect
 import io
 import json
 import logging
+import os
 import pickle
 import platform
 import shlex
@@ -272,8 +273,6 @@ def huggingface_login(token: str):
 
 
 def aml_runner_hf_login():
-    import os
-
     hf_login = os.environ.get("HF_LOGIN")
     if hf_login:
         from azure.identity import DefaultAzureCredential
@@ -336,6 +335,54 @@ def copy_dir(src_dir, dst_dir, ignore=None, **kwargs):
                 "Assuming all files were copied successfully and continuing.",
                 e,
             )
+
+
+def hardlink_copy_file(src, dst, *, follow_symlinks=True):
+    """Copy a file using hardlink if possible, otherwise use shutil.copy2.
+
+    Similar to shutil.copy2, if the destination is a directory, the file will be copied into the directory with the
+    same name.
+    If the destination file exists, it will be overwritten.
+    """
+    src = Path(src).resolve()  # NOTE: This call resolves any symlinks
+    dst = Path(dst).resolve()
+
+    if not src.exists():
+        raise ValueError("Input source doesn't exist.", src)
+    elif not src.is_file():
+        raise ValueError("Input source is expected to be a file.", src)
+
+    if dst.is_dir():
+        dst = Path(dst) / src.name
+
+    if dst.exists():
+        logger.debug("Destination %s already exists. Removing.", dst)
+        dst.unlink()
+
+    try:
+        os.link(src, dst, follow_symlinks=follow_symlinks)
+    except OSError as e:
+        # for instance, hardlinking across filesystems is not supported
+        logger.debug("Linking failed with %s. Copying.", e)
+        shutil.copy2(src, dst, follow_symlinks=follow_symlinks)
+
+
+def hardlink_copy_dir(src_dir, dst_dir, **kwargs):
+    """Copy a directory recursively using hardlinks. If hardlinking is not possible, use shutil.copy2.
+
+    All kwargs are the same as shutil.copytree except for copy_function which is not supported.
+    """
+    # TODO(olivedevteam): What if dst_dir is a sub-directory of src_dir?
+    # i.e. dst_dir.is_relative_to(src_dir) == True
+    # Unsure if even shutil.copytree handles this scenario gracefully!!
+
+    if kwargs.pop("copy_function", None) is not None:
+        logger.warning("copy_function is not supported for hardlink_copy_dir. Ignoring.")
+
+    if kwargs.pop("dirs_exist_ok", None) is not None:
+        logger.warning("dirs_exist_ok is not supported for hardlink_copy_dir. Ignoring.")
+
+    copy_dir(src_dir, dst_dir, copy_function=hardlink_copy_file, dirs_exist_ok=True, **kwargs)
 
 
 def set_tempdir(tempdir: str = None):
