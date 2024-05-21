@@ -90,7 +90,7 @@ def main(raw_args=None):
     print("Olive configuration file is generated...\n")
 
     # Generate optimized model for specific target
-    print("Generating optimized model for", args.target, " ...\n")
+    print("Generating optimized model for", args.target, "...\n")
     footprints = olive_run(config_file)
     if footprints:
         print("\nOptimized model is generated...")
@@ -141,6 +141,7 @@ def generate_config(args):
         "type": "ModelBuilder",
         "config": {
             "precision": args.precision,
+            "merge_adapter_weights": args.finetune_method == "lora",
         },
     }
     if args.finetune_method is None or args.finetune_method == "lora":
