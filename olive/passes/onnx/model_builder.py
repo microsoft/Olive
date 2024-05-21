@@ -49,7 +49,7 @@ class ModelBuilder(Pass):
 
     def _initialize(self):
         super()._initialize()
-        # pylint: disable=attribute-defined-outside-init
+        # pylint: disable=attribute-defined-outside-init, consider-using-with
         self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
 
     @classmethod
