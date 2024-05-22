@@ -35,7 +35,11 @@ class MergeLoraWeights(Pass):
         merged_model = pytorch_model.merge_and_unload()
 
         merged_model.save_pretrained(output_model_path)
-        model.save_metadata_for_token_generation(output_model_path)
+        model.save_metadata_for_token_generation(
+            output_model_path,
+            skip_config=True,
+            skip_generation_config=True,
+        )
         return PyTorchModelHandler(
             output_model_path,
             model_attributes=model.model_attributes,
