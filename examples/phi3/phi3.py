@@ -129,6 +129,10 @@ def generate_config(args):
         data_configs = get_data_configs()
         template_json["data_configs"] = data_configs
         template_json["passes"][args.finetune_method] = finetune_passes[args.finetune_method]
+        template_json["passes"]["merge_adapter_weights"] = {
+            "type": "MergeLoraWeights",
+            "config": {},
+        }
 
     target = str(args.target)
     device = "GPU" if target in ("cuda", "web") else "CPU"
