@@ -176,6 +176,16 @@ Please refer to [AutoAWQQuantizer](awq_quantizer) for more details about the pas
 }
 ```
 
+## MergeLoraWeights
+Merge Lora weights into a complete model. After running the LoRA pass, the model will only have LoRA adapters. This pass merges the LoRA adapters into the original model and download the context(config/generation_config/tokenizer) of the model.
+
+### Example Configuration
+```json
+{
+    "type": "MergeLoraWeights"
+}
+```
+
 ## SparseGPT
 `SparseGPT` prunes GPT like models using a pruning method called [SparseGPT](https://arxiv.org/abs/2301.00774). This one-shot pruning method can perform unstructured
 sparsity up to 60% on large models like OPT-175B and BLOOM-176B efficiently with negligible perplexity increase. It also supports semi-structured sparsity patterns such
