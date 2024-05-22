@@ -124,7 +124,7 @@ def generate_config(args):
     with open(json_file_template) as f:
         template_json = json.load(f)
 
-    if args.source == "AzureML":        
+    if args.source == "AzureML":
         template_json["input_model"]["config"] = AML_MODEL_Path
 
     target = str(args.target)
