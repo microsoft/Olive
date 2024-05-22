@@ -24,6 +24,18 @@ TARGET_TO_EP = {
     "web": "JsExecutionProvider",
 }
 
+AML_MODEL_Path = {
+    "model_path": {
+        "type": "azureml_registry_model",
+        "config": {
+            "registry_name": "azureml",
+            "name": "Phi-3-mini-4k-instruct",
+            "version": "7"
+        }
+    },
+    "model_file_format": "PyTorch.MLflow"
+}
+
 
 def get_args(raw_args):
     parser = argparse.ArgumentParser(description="phi3 optimization")
@@ -61,6 +73,13 @@ def get_args(raw_args):
         type=int,
         default=200,
         help="Max length for generation. Not supported with Web target.",
+    )
+    parser.add_argument(
+        "--source",
+        type=str,
+        default="HF",
+        choices=["HF","AzureML"],
+        help="Choose from HF(default), AzureML",
     )
 
     return parser.parse_args(raw_args)
@@ -104,6 +123,9 @@ def generate_config(args):
     json_file_template = "phi3_template.json"
     with open(json_file_template) as f:
         template_json = json.load(f)
+
+    if args.source == "AzureML":        
+        template_json["input_model"]["config"] = AML_MODEL_Path
 
     target = str(args.target)
     device = "GPU" if target in ("cuda", "web") else "CPU"
