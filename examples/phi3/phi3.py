@@ -27,13 +27,9 @@ TARGET_TO_EP = {
 AML_MODEL_Path = {
     "model_path": {
         "type": "azureml_registry_model",
-        "config": {
-            "registry_name": "azureml",
-            "name": "Phi-3-mini-4k-instruct",
-            "version": "7"
-        }
+        "config": {"registry_name": "azureml", "name": "Phi-3-mini-4k-instruct", "version": "7"},
     },
-    "model_file_format": "PyTorch.MLflow"
+    "model_file_format": "PyTorch.MLflow",
 }
 
 
@@ -78,7 +74,7 @@ def get_args(raw_args):
         "--source",
         type=str,
         default="HF",
-        choices=["HF","AzureML"],
+        choices=["HF", "AzureML"],
         help="Choose from HF(default), AzureML",
     )
 
