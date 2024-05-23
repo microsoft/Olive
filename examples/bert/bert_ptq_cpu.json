@@ -4,7 +4,10 @@
         "config": {
             "hf_config": {
                 "model_name": "Intel/bert-base-uncased-mrpc",
-                "task": "text-classification"
+                "task": "text-classification",
+                "from_pretrained_args": {
+                    "attn_implementation": "eager"
+                }
             }
         }
     },
