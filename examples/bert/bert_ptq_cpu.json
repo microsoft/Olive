@@ -109,7 +109,7 @@
         "conversion": {
             "type": "OnnxConversion",
             "config": {
-                "target_opset": 14
+                "target_opset": 13
             }
         },
         "transformers_optimization": {
