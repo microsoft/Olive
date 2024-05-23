@@ -69,3 +69,8 @@ olive run [--config CONFIGURATION_FILE]
 # Examples
 olive run --config phi3_mobile_int4.json
 ```
+
+## More Inference Examples
+- [Android chat APP with Phi-3 and ONNX Runtime Mobile](https://github.com/microsoft/onnxruntime-inference-examples/tree/main/mobile/examples/phi-3/android)
+
+- [Web chat APP with Phi-3 and ONNX Runtime Web](https://github.com/microsoft/onnxruntime-inference-examples/tree/gs/chat/js/chat)
