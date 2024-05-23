@@ -1052,7 +1052,7 @@ class LoftQ(QLoRABase):
         pytorch_model.save_pretrained(loftq_init_adapter_path)
 
         # unload adapter and get the base model with new weights
-        pytorch_model: "PreTrainedModel" = pytorch_model.unload()
+        pytorch_model: PreTrainedModel = pytorch_model.unload()
 
         # save the new master weights
         new_master_weights_path = output_model_path / "model"
@@ -1063,7 +1063,7 @@ class LoftQ(QLoRABase):
         new_model_handler.set_resource("model_path", new_master_weights_path)
 
         # load the quantized model with new master weights
-        pytorch_model: "PreTrainedModel" = new_model_handler.load_model()
+        pytorch_model: PreTrainedModel = new_model_handler.load_model()
         pytorch_model.config.torch_dtype = pytorch_model.dtype
 
         # tokenizer

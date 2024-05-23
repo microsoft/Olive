@@ -376,7 +376,7 @@ class Engine:
         # clean the passes
         self.passes.clear()
         for name, config in self.pass_config.items():
-            pass_cls: Type["Pass"] = config["type"]
+            pass_cls: Type[Pass] = config["type"]
             pass_cfg = config["config"]
             pass_cfg = pass_cls.generate_search_space(accelerator_spec, pass_cfg, config["disable_search"])
             p = pass_cls(accelerator_spec, pass_cfg, config["disable_search"], host_device)
@@ -394,7 +394,7 @@ class Engine:
         for pass_flow in self.pass_flows:
             pass_search_spaces = []
             for pass_name in pass_flow:
-                p: "Pass" = self.passes[pass_name]["pass"]
+                p: Pass = self.passes[pass_name]["pass"]
                 pass_search_spaces.append((pass_name, p.search_space))
             self.pass_flows_search_spaces.append(pass_search_spaces)
 
@@ -860,7 +860,7 @@ class Engine:
     ):
         """Run a pass on the input model."""
         # pass
-        p: "Pass" = self.passes[pass_id]["pass"]
+        p: Pass = self.passes[pass_id]["pass"]
         pass_name = p.__class__.__name__
         logger.info("Running pass %s:%s", pass_id, pass_name)
         pass_config = p.config_at_search_point(pass_search_point)

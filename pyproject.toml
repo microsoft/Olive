@@ -172,7 +172,6 @@ ignore = [
   "TRY004", # Ignore prefer TypeError over ValueError
   "TRY300", # Ignore check if return in try block
   "UP032", # Ignore string format calls
-  "UP037", # Ignore quoted annotations for TYPECHECKING
   "UP038" # Ignore old isinstance hints
 ]
 ignore-init-module-imports = true
