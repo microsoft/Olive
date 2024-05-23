@@ -75,7 +75,7 @@
         "conversion": {
             "type": "OnnxConversion",
             "config": {
-                "target_opset": 13
+                "target_opset": 14
             }
         },
         "dynamic_shape_to_fixed": {
