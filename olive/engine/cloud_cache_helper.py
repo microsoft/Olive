@@ -2,12 +2,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from enum import Enum
 import io
 import json
 import logging
 import os
 from copy import deepcopy
+from enum import Enum
 from pathlib import Path
 from typing import Any, Dict
 
@@ -32,6 +32,7 @@ class CloudModelInvalidStatus(str, Enum):
     NO_MODEL_FILE = "NO_MODEL_FILE"
     FAILED_CONFIG = "FAILED_CONFIG"
 
+
 class CloudCacheHelper:
     def __init__(
         self,
@@ -43,10 +44,10 @@ class CloudCacheHelper:
     ):
         try:
             from azure.storage.blob import ContainerClient
-        except ImportError:
+        except ImportError as exc:
             raise ImportError(
                 "Please install azure-storage-blob and azure-identity to use the cloud model cache feature."
-            )
+            ) from exc
         credential = get_credentials()
         self.container_name = container_name
         self.container_client = ContainerClient(
@@ -63,14 +64,14 @@ class CloudCacheHelper:
         self.hf_cache_path = hf_cache_path
 
     def update_model_config(self, cloud_model_path, model_config, input_model_hash):
-        logger.info(f"Updating model config with cloud model path: {cloud_model_path}")
+        logger.info("Updating model config with cloud model path: %s", cloud_model_path)
         model_directory_prefix = f"{input_model_hash}/model"
         blob_list = self.container_client.list_blobs(name_starts_with=model_directory_prefix)
 
         for blob in blob_list:
             blob_client = self.container_client.get_blob_client(blob)
             local_file_path = self.output_model_path / blob.name[len(model_directory_prefix) + 1 :]
-            logger.info(f"Downloading {blob.name} to {local_file_path}")
+            logger.info("Downloading %s to %s", blob.name, local_file_path)
             local_file_path.parent.mkdir(parents=True, exist_ok=True)
             with open(local_file_path, "wb") as download_file:
                 download_stream = blob_client.download_blob()
@@ -81,7 +82,7 @@ class CloudCacheHelper:
         return model_config
 
     def download_model_cache_map(self):
-        logger.info(f"Downloading model cache map from {self.map_blob}")
+        logger.info("Downloading model cache map from %s", self.map_blob)
         blob_client = self.container_client.get_blob_client(self.map_blob)
 
         if not blob_client.exists():
@@ -95,9 +96,7 @@ class CloudCacheHelper:
             download_file.write(download_stream.readall())
 
         with open(self.local_map_path) as file:
-            map_dict = json.load(file)
-            
-        return map_dict
+            return json.load(file)
 
     def get_hash_key(self, model_config: ModelConfig, pass_search_point: Dict[str, Any], input_model_hash: str):
         hf_hub_model_commit_id = None
@@ -111,7 +110,7 @@ class CloudCacheHelper:
                 model_name = f"models--{model_config_copy.config['hf_config']['model_name'].replace('/', '--')}"
                 commit_path = model_cache_dir / model_name / "refs" / "main"
                 if not commit_path.exists():
-                    raise Exception(
+                    raise ValueError(
                         "Huggingface cache not found. Please specify 'hf_cache_path' in 'enable_cloud_cache' config."
                     )
                 with open(commit_path) as file:
@@ -143,7 +142,7 @@ class CloudCacheHelper:
         model_config_path = model_config_path / "model_config.json"
 
         blob_client = self.container_client.get_blob_client(model_config_blob)
-        logger.info(f"Downloading {model_config_blob} to {model_config_path}")
+        logger.info("Downloading %s to %s", model_config_blob, model_config_path)
 
         with open(model_config_path, "wb") as download_file:
             download_stream = blob_client.download_blob()
@@ -209,10 +208,10 @@ def check_model_cache(cloud_cache_helper: CloudCacheHelper, input_model_config, 
     output_model_config = None
     logger.info("Cloud model cache is enabled. Check cloud model cache ...")
 
-    output_model_hash = cloud_cache_helper.get_hash_key(
-        input_model_config, pass_search_point, input_model_hash
+    output_model_hash = cloud_cache_helper.get_hash_key(input_model_config, pass_search_point, input_model_hash)
+    cloud_model_path = cloud_cache_helper.exist_in_model_cache_map(
+        cloud_cache_helper.cloud_cache_map, output_model_hash
     )
-    cloud_model_path = cloud_cache_helper.exist_in_model_cache_map(cloud_cache_helper.cloud_cache_map, output_model_hash)
     if cloud_model_path is not None:
         if cloud_model_path == CloudModelInvalidStatus.FAILED_CONFIG:
             logger.info("Model is pruned in cloud cache.")
@@ -226,20 +225,20 @@ def check_model_cache(cloud_cache_helper: CloudCacheHelper, input_model_config, 
             pass_run_locally = False
     return pass_run_locally, output_model_config
 
+
 def update_input_model_config(cloud_cache_helper: CloudCacheHelper, input_model_config, input_model_hash):
     # download model files
     logger.info("Cloud model cache is enabled. Downloading input model files ...")
     cloud_model_path = cloud_cache_helper.exist_in_model_cache_map(cloud_cache_helper.cloud_cache_map, input_model_hash)
     if cloud_model_path is not None:
         cloud_cache_helper.update_model_config(cloud_model_path, input_model_config, input_model_hash)
-        
-def upload_model_to_cloud(cloud_cache_helper: CloudCacheHelper, input_model_config, pass_search_point, input_model_hash, output_model_config):
-    output_model_hash = cloud_cache_helper.get_hash_key(
-        input_model_config, pass_search_point, input_model_hash
-    )
+
+
+def upload_model_to_cloud(
+    cloud_cache_helper: CloudCacheHelper, input_model_config, pass_search_point, input_model_hash, output_model_config
+):
+    output_model_hash = cloud_cache_helper.get_hash_key(input_model_config, pass_search_point, input_model_hash)
     cloud_model_path = "FAILED_CONFIG"
     if output_model_config not in PRUNED_CONFIGS:
-        cloud_model_path = cloud_cache_helper.upload_model_to_cloud_cache(
-            output_model_hash, output_model_config
-        )
+        cloud_model_path = cloud_cache_helper.upload_model_to_cloud_cache(output_model_hash, output_model_config)
     cloud_cache_helper.update_model_cache_map(output_model_hash, cloud_model_path)
