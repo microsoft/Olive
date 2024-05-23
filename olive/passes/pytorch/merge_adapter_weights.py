@@ -15,8 +15,8 @@ from olive.passes.pass_config import PassConfigParam
 logger = logging.getLogger(__name__)
 
 
-class MergeLoraWeights(Pass):
-    """Merge Lora weights into a complete model."""
+class MergeAdapterWeights(Pass):
+    """Merge adapter weights into the base model."""
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -29,7 +29,7 @@ class MergeLoraWeights(Pass):
         if not model.adapter_path:
             raise RuntimeError(
                 "No adapter path found in the model. Please check your input "
-                "model type or remove `MergeLoraWeights` from passes configs"
+                "model type or remove `MergeAdapterWeights` from passes configs"
             )
         pytorch_model = model.load_model()
         merged_model = pytorch_model.merge_and_unload()

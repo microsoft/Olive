@@ -442,7 +442,7 @@ Please also find the detailed options from following table for each pass:
 | [VitisAIQuantization](vitis_ai_quantization) | AMD-Xilinx Vitis-AI Quantization Pass. |
 | [GptqQuantizer](gptq_quantizer) | GPTQ quantization Pass On Pytorch Model. |
 | [AutoAWQQuantizer](awq_quantizer) | AWQ quantization Pass On Pytorch Model. |
-| [MergeLoraWeights](merge_lora_weights) | Merge Lora weights into the base model and save transformer context files. |
+| [MergeAdapterWeights](merge_adapter_weights) | Merge adapter weights into the base model and save transformer context files. |
 | [OptimumConversion](optimum_conversion) | Convert huggingface models to ONNX via the Optimum library. |
 | [OptimumMerging](optimum_merging) | Merge 2 models together with an `if` node via the Optimum library. |
 

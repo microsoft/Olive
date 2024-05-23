@@ -96,6 +96,11 @@ def main(raw_args=None):
         print("\nOptimized model is generated...")
 
     if args.inference:
+        if args.finetune_method == "qlora":
+            raise ValueError(
+                "qlora finetuned model cannot be converted to onnx "
+                "by model builder as of now. Please remove --inference flag"
+            )
         prompts = "Write a joke" if not args.prompt else "".join(args.prompt)
 
         chat_template = "<|user|>\n{input}<|end|>\n<|assistant|>"
@@ -124,13 +129,14 @@ def generate_config(args):
         template_json = json.load(f)
 
     # finetune
-    if args.finetune_method and args.target == "cuda":
+    if args.finetune_method:
+        assert args.target == "cuda", "Finetune only supports cuda target"
         finetune_passes = get_finetune_passes()
         data_configs = get_data_configs()
         template_json["data_configs"] = data_configs
         template_json["passes"][args.finetune_method] = finetune_passes[args.finetune_method]
         template_json["passes"]["merge_adapter_weights"] = {
-            "type": "MergeLoraWeights",
+            "type": "MergeAdapterWeights",
             "config": {},
         }
 

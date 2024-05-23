@@ -176,13 +176,13 @@ Please refer to [AutoAWQQuantizer](awq_quantizer) for more details about the pas
 }
 ```
 
-## MergeLoraWeights
+## MergeAdapterWeights
 Merge Lora weights into a complete model. After running the LoRA pass, the model will only have LoRA adapters. This pass merges the LoRA adapters into the original model and download the context(config/generation_config/tokenizer) of the model.
 
 ### Example Configuration
 ```json
 {
-    "type": "MergeLoraWeights"
+    "type": "MergeAdapterWeights"
 }
 ```
 

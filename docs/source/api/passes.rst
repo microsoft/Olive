@@ -205,11 +205,11 @@ QNNContextBinaryGenerator
 -------------------------
 .. autoconfigclass:: olive.passes.QNNContextBinaryGenerator
 
-.. _merge_lora_weights:
+.. _merge_adapter_weights:
 
-MergeLoraWeights
+MergeAdapterWeights
 ----------------
-.. autoconfigclass:: olive.passes.MergeLoraWeights
+.. autoconfigclass:: olive.passes.MergeAdapterWeights
 
 .. _sparsegpt:
 
