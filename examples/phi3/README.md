@@ -43,7 +43,7 @@ python phi3.py [--target HARDWARE_TARGET] [--precision DATA_TYPE] [--source SOUR
 # Examples
 python phi3.py --target mobile
 
-python phi3.py --target model --source AzureML
+python phi3.py --target mobile --source AzureML
 
 python phi3.py --target mobile --inference --prompt "Write a story starting with once upon a time" --max_length 200
 ```
