@@ -83,7 +83,7 @@ def get_hf_model_config(model_name: str, **kwargs) -> "PretrainedConfig":
     return AutoConfig.from_pretrained(model_name, **kwargs)
 
 
-def save_hf_model_config(config: "PretrainedConfig", output_dir: str, **kwargs):
+def save_hf_model_config(config: Union["PretrainedConfig", "GenerationConfig"], output_dir: str, **kwargs):
     """Save input HF Config to output directory."""
     config.save_pretrained(output_dir, **kwargs)
 
@@ -91,11 +91,6 @@ def save_hf_model_config(config: "PretrainedConfig", output_dir: str, **kwargs):
 def get_hf_model_generation_config(model_name: str, **kwargs) -> GenerationConfig:
     """Get HF model's generation config for the given model name."""
     return GenerationConfig.from_pretrained(model_name, **kwargs)
-
-
-def save_hf_model_generation_config(config: GenerationConfig, output_dir: str, **kwargs):
-    """Save input HF generation Config to output directory."""
-    config.save_pretrained(output_dir, **kwargs)
 
 
 def get_hf_model_tokenizer(model_name: str, **kwargs) -> Union["PreTrainedTokenizer", "PreTrainedTokenizerFast"]:

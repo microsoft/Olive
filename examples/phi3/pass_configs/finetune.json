@@ -6,7 +6,6 @@
                 "o_proj",
                 "qkv_proj"
             ],
-            "double_quant": true,
             "lora_r": 64,
             "lora_alpha": 64,
             "lora_dropout": 0.1,

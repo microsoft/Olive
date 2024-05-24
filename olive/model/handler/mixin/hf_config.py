@@ -16,7 +16,6 @@ from olive.model.utils.hf_utils import (
     load_hf_model_from_model_class,
     load_hf_model_from_task,
     save_hf_model_config,
-    save_hf_model_generation_config,
     save_hf_model_tokenizer,
 )
 
@@ -50,7 +49,7 @@ class HfConfigMixin:
 
         return get_hf_model_config(self.get_model_path_or_name(), **self.hf_config.get_loading_args_from_pretrained())
 
-    def _get_hf_model_generation_config(self):
+    def get_hf_model_generation_config(self):
         if self.hf_config is None:
             raise ValueError("HF model_config is not available")
 
@@ -58,7 +57,7 @@ class HfConfigMixin:
             self.get_model_path_or_name(), **self.hf_config.get_loading_args_from_pretrained()
         )
 
-    def _get_hf_model_tokenizer(self, **kwargs):
+    def get_hf_model_tokenizer(self, **kwargs):
         if self.hf_config is None:
             raise ValueError("HF model_config is not available")
 
@@ -66,31 +65,28 @@ class HfConfigMixin:
         # TODO(anyone): only provide relevant kwargs, no use case for now to provide kwargs
         return get_hf_model_tokenizer(self.get_model_path_or_name(), **kwargs)
 
-    def save_metadata_for_token_generation(
-        self, output_dir: str, skip_config: bool = False, skip_generation_config: bool = False, **kwargs
-    ) -> List[str]:
+    def save_metadata_for_token_generation(self, output_dir: str, **kwargs) -> List[str]:
         """Save metadata for token generation.
 
         :param output_dir: output directory to save metadata files
         :param kwargs: additional keyword arguments to pass to `save_pretrained` method
         :return: list of file paths
         """
-        rls_list = []
-        output_dir = Path(output_dir)
         if self.hf_config is None:
             raise ValueError("HF model_config is not available.")
         if not Path(output_dir).is_dir():
             raise ValueError("Expecting a directory as input.")
-        if not skip_config:
-            save_hf_model_config(self.get_hf_model_config(), output_dir, **kwargs)
-            rls_list.append(str(output_dir / "config.json"))
-        if not skip_generation_config:
-            save_hf_model_generation_config(self._get_hf_model_generation_config(), output_dir, **kwargs)
-            rls_list.append(str(output_dir / "generation_config.json"))
-        tokenizer_filepaths = save_hf_model_tokenizer(self._get_hf_model_tokenizer(), output_dir, **kwargs)
-        rls_list.extend([fp for fp in tokenizer_filepaths if Path(fp).exists()])
 
-        return rls_list
+        save_hf_model_config(self.get_hf_model_config(), output_dir, **kwargs)
+        save_hf_model_config(self.get_hf_model_generation_config(), output_dir, **kwargs)
+        tokenizer_filepaths = save_hf_model_tokenizer(self.get_hf_model_tokenizer(), output_dir, **kwargs)
+
+        output_dir = Path(output_dir)
+        return [
+            str(output_dir / "config.json"),
+            str(output_dir / "generation_config.json"),
+            *[fp for fp in tokenizer_filepaths if Path(fp).exists()],
+        ]
 
     def get_hf_io_config(self):
         """Get Io config for the model."""

@@ -9,6 +9,7 @@ import torch
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import PyTorchModelHandler
+from olive.model.utils.hf_utils import save_hf_model_tokenizer
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
 
@@ -35,11 +36,10 @@ class MergeAdapterWeights(Pass):
         merged_model = pytorch_model.merge_and_unload()
 
         merged_model.save_pretrained(output_model_path)
-        model.save_metadata_for_token_generation(
-            output_model_path,
-            skip_config=True,
-            skip_generation_config=True,
+        save_hf_model_tokenizer(
+            model.get_hf_model_tokenizer(), output_model_path, **model.hf_config.get_loading_args_from_pretrained()
         )
+
         return PyTorchModelHandler(
             output_model_path,
             model_attributes=model.model_attributes,

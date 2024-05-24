@@ -150,10 +150,7 @@ def generate_config(args):
         data_configs = get_data_configs()
         template_json["data_configs"] = data_configs
         template_json["passes"][args.finetune_method] = finetune_passes[args.finetune_method]
-        template_json["passes"]["merge_adapter_weights"] = {
-            "type": "MergeAdapterWeights",
-            "config": {},
-        }
+        template_json["passes"]["merge_adapter_weights"] = {"type": "MergeAdapterWeights"}
     if args.source == "AzureML":
         template_json["input_model"]["config"] = AML_MODEL_Path
 
@@ -166,10 +163,7 @@ def generate_config(args):
 
     model_builder = {
         "type": "ModelBuilder",
-        "config": {
-            "precision": args.precision,
-            "merge_adapter_weights": args.finetune_method == "lora",
-        },
+        "config": {"precision": args.precision},
     }
     if args.finetune_method is None or args.finetune_method == "lora":
         template_json["passes"]["builder"] = model_builder
