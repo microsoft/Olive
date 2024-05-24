@@ -5,8 +5,6 @@ pandas
 protobuf<4.0.0
 pydantic
 pyyaml
-# Temp pinning to 2.31.0 to avoid breaking changes described in https://github.com/docker/docker-py/issues/3256
-requests==2.31.0
 torch
 torchmetrics>=1.0.0
 transformers

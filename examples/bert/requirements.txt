@@ -1,7 +1,7 @@
 azure-ai-ml
 azure-identity
 datasets
-docker
+docker>=7.1.0
 evaluate
 neural-compressor
 scikit-learn
