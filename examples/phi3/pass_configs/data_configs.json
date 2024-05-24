@@ -1,0 +1,27 @@
+[
+    {
+        "name": "dataset_default_train",
+        "type": "HuggingfaceContainer",
+        "user_script": "user_script.py",
+        "components": {
+            "load_dataset": {
+                "type": "load_tiny_code_dataset"
+            }
+        },
+        "params_config": {
+            "data_name": "nampdn-ai/tiny-codes",
+            "split": "train",
+            "component_kwargs": {
+                "load_dataset": {
+                    "language": "Python",
+                    "token": true
+                },
+                "pre_process_data": {
+                    "corpus_strategy": "join",
+                    "text_template": "### Question: {prompt} \n### Answer: {response}",
+                    "source_max_len": 1024
+                }
+            }
+        }
+    }
+]

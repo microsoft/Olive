@@ -133,6 +133,9 @@
                 "autoawq"
             ]
         },
+        "MergeAdapterWeights": {
+            "module_path": "olive.passes.pytorch.merge_adapter_weights.MergeAdapterWeights"
+        },
         "LoftQ": {
             "module_path": "olive.passes.pytorch.lora.LoftQ"
         },

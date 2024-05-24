@@ -16,7 +16,6 @@ from olive.model.utils.hf_utils import (
     load_hf_model_from_model_class,
     load_hf_model_from_task,
     save_hf_model_config,
-    save_hf_model_generation_config,
     save_hf_model_tokenizer,
 )
 
@@ -50,7 +49,7 @@ class HfConfigMixin:
 
         return get_hf_model_config(self.get_model_path_or_name(), **self.hf_config.get_loading_args_from_pretrained())
 
-    def _get_hf_model_generation_config(self):
+    def get_hf_model_generation_config(self):
         if self.hf_config is None:
             raise ValueError("HF model_config is not available")
 
@@ -58,7 +57,7 @@ class HfConfigMixin:
             self.get_model_path_or_name(), **self.hf_config.get_loading_args_from_pretrained()
         )
 
-    def _get_hf_model_tokenizer(self, **kwargs):
+    def get_hf_model_tokenizer(self, **kwargs):
         if self.hf_config is None:
             raise ValueError("HF model_config is not available")
 
@@ -79,8 +78,8 @@ class HfConfigMixin:
             raise ValueError("Expecting a directory as input.")
 
         save_hf_model_config(self.get_hf_model_config(), output_dir, **kwargs)
-        save_hf_model_generation_config(self._get_hf_model_generation_config(), output_dir, **kwargs)
-        tokenizer_filepaths = save_hf_model_tokenizer(self._get_hf_model_tokenizer(), output_dir, **kwargs)
+        save_hf_model_config(self.get_hf_model_generation_config(), output_dir, **kwargs)
+        tokenizer_filepaths = save_hf_model_tokenizer(self.get_hf_model_tokenizer(), output_dir, **kwargs)
 
         output_dir = Path(output_dir)
         return [

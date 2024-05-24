@@ -35,10 +35,10 @@ if you have not loged in Azure account,
 
 
 ## Usage
-we will use the `phi3.py` script to generate optimized model for a chosen hardware target by running the following commands.
+we will use the `phi3.py` script to fine-tune and optimize model for a chosen hardware target by running the following commands.
 
 ```
-python phi3.py [--target HARDWARE_TARGET] [--precision DATA_TYPE] [--source SOURCE] [--inference] [--prompt PROMPT] [--max_length LENGTH]
+python phi3.py [--target HARDWARE_TARGET] [--precision DATA_TYPE] [--source SOURCE] [--finetune_method METHOD] [--inference] [--prompt PROMPT] [--max_length LENGTH]
 
 # Examples
 python phi3.py --target mobile
@@ -46,9 +46,14 @@ python phi3.py --target mobile
 python phi3.py --target mobile --source AzureML
 
 python phi3.py --target mobile --inference --prompt "Write a story starting with once upon a time" --max_length 200
+
+python phi3.py --target cuda --finetune_method lora --inference --prompt "Write a story starting with once upon a time" --max_length 200
+# qlora introduce the quantization into base model which is not supported by onnxruntime-genai as of now!
+python phi3.py --target cuda --finetune_method qlora
 ```
 
 - `--target`: cpu, cuda, mobile, web
+- `--finetune_method`: optional. The method used for fine-tuning. Options: `qlora`, `lora`. Default is none. Note that onnxruntime-genai only supports `lora` method as of now.
 - `--precision`: optional, for data precision. fp32 or int4 (default) for cpu target; fp32, fp16, or int4 (default) for GPU target; int4 (default) for mobile or web.
 - `--source`: optional, for model path. HF or AzureML. HF(Hugging Face model) by default.
 - `--inference`: optional, for non-web models inference/validation.
@@ -58,6 +63,7 @@ python phi3.py --target mobile --inference --prompt "Write a story starting with
 
 This script includes
 - Generate the Olive configuration file for the chosen HW target
+- Fine-tune model by lora or qlora method with dataset of `nampdn-ai/tiny-codes`.
 - Generate optimized model with Olive based on the configuration file for the chosen HW target
 - (optional) Inference the optimized model with ONNX Runtime Generate() API with non-web target
 
