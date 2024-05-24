@@ -513,6 +513,10 @@ class OnnxQuantization(Pass):
                     activation_type=run_config["activation_type"],
                     weight_type=run_config["weight_type"],
                     per_channel=run_config["per_channel"],
+                    init_overrides=run_config["init_overrides"],
+                    add_qtype_converts=run_config["add_qtype_converts"],
+                    activation_symmetric=run_config["activation_symmetric"],
+                    weight_symmetric=run_config["weight_symmetric"],
                 )
                 # override the run_config with qnn_config
                 # get all attributes of qnn_config
@@ -520,7 +524,13 @@ class OnnxQuantization(Pass):
                 # remove the calibration_data_reader from run_config
                 run_config.pop("calibration_data_reader", None)
 
-            run_config = exclude_keys(run_config, ("calibration_data_reader", "use_external_data_format"))
+            run_config = exclude_keys(
+                run_config,
+                (
+                    "calibration_data_reader",
+                    "use_external_data_format",
+                ),
+            )
             try:
                 quantize_static(
                     model_input=model.model_path,
