@@ -205,6 +205,12 @@ QNNContextBinaryGenerator
 -------------------------
 .. autoconfigclass:: olive.passes.QNNContextBinaryGenerator
 
+.. _merge_adapter_weights:
+
+MergeAdapterWeights
+-------------------
+.. autoconfigclass:: olive.passes.MergeAdapterWeights
+
 .. _sparsegpt:
 
 SparseGPT
