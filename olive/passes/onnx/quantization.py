@@ -227,6 +227,63 @@ _static_optional_config = {
             Should be set to True if model is targeted for QNN EP.
         """,
     ),
+    "init_overrides": PassConfigParam(
+        type_=dict,
+        default_value=None,
+        description="""
+            Initial tensor-level quantization overrides. Defaults to None. This function updates of a copy
+            of these overrides with any necessary adjustments and includes them in the returned
+            configuration object (i.e., config.extra_options['TensorQuantOverrides']).
+
+            The key is a tensor name and the value is a list of dictionaries. For per-tensor quantization, the list
+            contains a single dictionary. For per-channel quantization, the list contains either a dictionary for
+            each channel in the tensor or a single dictionary that is assumed to apply to all channels. An 'axis'
+            key must be present in the first dictionary for per-channel quantization.
+
+            Each dictionary contains optional overrides with the following keys and values.
+                'quant_type' = QuantType : The tensor's quantization data type.
+                'axis' = Int             : The per-channel axis. Must be present for per-channel weights.
+                'scale' =  Float         : The scale value to use. Must also specify `zero_point` if set.
+                'zero_point' = Int       : The zero-point value to use. Must also specify `scale` is set.
+                'symmetric' = Bool       : If the tensor should use symmetric quantization. Invalid if also
+                                            set `scale` or `zero_point`.
+                'reduce_range' = Bool    : If the quantization range should be reduced. Invalid if also
+                                            set `scale` or `zero_point`. Only valid for initializers.
+                'rmax' = Float           : Override the maximum real tensor value in calibration data.
+                                            Invalid if also set `scale` or `zero_point`.
+                'rmin' = Float           : Override the minimum real tensor value in calibration data.
+                                            Invalid if also set `scale` or `zero_point`.
+                'convert' = Dict         : A nested dictionary with the same keys for an activation
+                                           tensor that should be converted to another quantization type.
+                'convert["recv_nodes"] = Set : Set of node names that consume the converted activation,
+                                               other nodes get the original type. If not specified,
+                                               assume all consumer nodes get the converted type.
+        """,
+    ),
+    "add_qtype_converts": PassConfigParam(
+        type_=bool,
+        default_value=True,
+        description="""
+            True if this function should automatically add "convert" entries to the provided
+            `init_overrides` to ensure that operators use valid input/output types (activations only).
+            Ex: if you override the output of an Add to 16-bit, this option ensures that the activation inputs
+            of the Add are also up-converted to 16-bit and that data types for surrounding ops are converted
+            appropriately. Refer to the documentation in mixed_precision_overrides_utils.py for additional details.
+        """,
+    ),
+    "activation_symmetric": PassConfigParam(
+        type_=bool,
+        default_value=False,
+        description="Symmetrize calibration data for activations.",
+    ),
+    "weight_symmetric": PassConfigParam(
+        type_=bool,
+        default_value=None,
+        description="""
+            True if weights should be quantized symmetrically (i.e., rmax == -rmin) by default.
+            Defaults to None. If set to None, weight_symmetric is assumed true if the weight_type is a signed int.
+        """,
+    ),
 }
 
 
