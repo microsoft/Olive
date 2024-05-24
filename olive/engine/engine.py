@@ -906,7 +906,6 @@ class Engine:
         ):
             # download model files
             logger.info("Cloud model cache is enabled. Download final model files ...")
-            cloud_cache_map = self.cloud_cache_helper.download_model_cache_map()
             cloud_model_path = self.cloud_cache_helper.exist_in_model_cache_map(output_model_hash)
             self.cloud_cache_helper.update_model_config(cloud_model_path, model_config, output_model_hash)
 
