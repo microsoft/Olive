@@ -496,7 +496,7 @@ class OnnxQuantization(Pass):
                 from onnxruntime.quantization.execution_providers.qnn import get_qnn_qdq_config
 
                 qnn_extra_options = (
-                    {} if version.parse(OrtVersion) < version.parse("1.18.0") else config["qnn_extra_options"]
+                    {} if version.parse(OrtVersion) < version.parse("1.18.0") else config["qnn_extra_options"] or {}
                 )
                 qnn_config = get_qnn_qdq_config(
                     model_input=model.model_path,
