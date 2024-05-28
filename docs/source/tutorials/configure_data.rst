@@ -213,7 +213,6 @@ Then the complete config would be like:
                 "type": "DataContainer",
                 "components": {
                     "load_dataset": {
-                        "name": "_huggingface_dataset",
                         "type": "huggingface_dataset",
                         "params": {
                             "data_dir": null,
@@ -224,7 +223,6 @@ Then the complete config would be like:
                         }
                     },
                     "pre_process_data": {
-                        "name": "_huggingface_pre_process",
                         "type": "huggingface_pre_process",
                         "params": {
                             "model_name": "Intel/bert-base-uncased-mrpc",
@@ -239,12 +237,10 @@ Then the complete config would be like:
                         }
                     },
                     "post_process_data": {
-                        "name": "_text_classification_post_process",
                         "type": "text_classification_post_process",
                         "params": {}
                     },
                     "dataloader": {
-                        "name": "_default_dataloader",
                         "type": "default_dataloader",
                         "params": {
                             "batch_size": 1
@@ -263,7 +259,6 @@ Then the complete config would be like:
                 type="DataContainer",
                 components={
                     "load_dataset": {
-                        "name": "_huggingface_dataset",
                         "type": "huggingface_dataset",
                         "params": {
                             "data_dir": null,
@@ -274,7 +269,6 @@ Then the complete config would be like:
                         }
                     },
                     "pre_process_data": {
-                        "name": "_huggingface_pre_process",
                         "type": "huggingface_pre_process",
                         "params": {
                             "model_name": "Intel/bert-base-uncased-mrpc",
@@ -289,12 +283,10 @@ Then the complete config would be like:
                         }
                     },
                     "post_process_data": {
-                        "name": "_text_classification_post_process",
                         "type": "text_classification_post_process",
                         "params": {}
                     },
                     "dataloader": {
-                        "name": "_default_dataloader",
                         "type": "default_dataloader",
                         "params": {
                             "batch_size": 1
@@ -322,7 +314,6 @@ The above case shows to rewrite all the components in data config. But sometime,
                 "script_dir": "user_dir",
                 "components": {
                     "load_dataset": {
-                        "name": "_huggingface_dataset",
                         "type": "customized_huggingface_dataset",
                         "params": {
                             "data_dir": null,
@@ -351,7 +342,6 @@ The above case shows to rewrite all the components in data config. But sometime,
                 script_dir="user_dir",
                 components={
                     "load_dataset": {
-                        "name": "_huggingface_dataset",
                         "type": "customized_huggingface_dataset",
                         "params": {
                             "data_dir": null,
