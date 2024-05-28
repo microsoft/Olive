@@ -112,7 +112,6 @@ def get_data_config():
                 name="test_data_config",
                 components={
                     "load_dataset": {
-                        "name": "dummy_dataset_dataroot",
                         "type": "dummy_dataset_dataroot",
                         "params": {"data_dir": "data"},
                     },
@@ -152,7 +151,6 @@ def get_data_config():
                         name="test_data_config",
                         components={
                             "load_dataset": {
-                                "name": "dummy_dataset_dataroot",
                                 "type": "dummy_dataset_dataroot",
                                 "params": {"data_dir": "perfdata"},
                             },

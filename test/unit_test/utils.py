@@ -289,12 +289,10 @@ def get_data_config():
         name="test_data_config",
         components={
             "load_dataset": {
-                "name": "test_dataset",
                 "type": "test_dataset",  # renamed by Registry.register_dataset
                 "params": {"test_value": "test_value"},
             },
             "dataloader": {
-                "name": "test_dataloader",
                 "type": "_test_dataloader",  # This is the key to get dataloader
                 "params": {"test_value": "test_value"},
             },
