@@ -2,13 +2,14 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import platform
 from pathlib import Path
 
 import numpy as np
 import onnx
 import pytest
 from onnxruntime.quantization.calibrate import CalibrationDataReader
+from peft import LoraConfig, get_peft_model
+from peft.tuners.lora import LoraLayer
 from transformers import AutoModelForCausalLM
 
 from olive.common.utils import find_submodules
@@ -43,9 +44,6 @@ def get_calib_data_loader(dummy_input):
 
 @pytest.fixture(name="input_model_info", scope="module")
 def input_model_info_fixture(tmp_path_factory):
-    from peft import LoraConfig, get_peft_model
-    from peft.tuners.lora import LoraLayer
-
     # this tmp_path exists for the duration of the test session
     # module is scope is used to ensure that the fixture is only created once
     tmp_path = tmp_path_factory.mktemp("extract-adapters-test")
@@ -129,10 +127,6 @@ def input_model_info_fixture(tmp_path_factory):
     }
 
 
-# TODO(jambayk): re-enable this test once import issue is resolved
-@pytest.mark.skipif(
-    platform.system() == "Windows", reason="Peft import sometimes fails on Windows after version 0.11.0"
-)
 @pytest.mark.parametrize("model_type", ["float", "qdq", "int4"])
 def test_extract_adapters_as_initializers(tmp_path, input_model_info, model_type):
     # setup
@@ -159,9 +153,6 @@ def test_extract_adapters_as_initializers(tmp_path, input_model_info, model_type
     assert seen_weights == expected_weights
 
 
-@pytest.mark.skipif(
-    platform.system() == "Windows", reason="Peft import sometimes fails on Windows after version 0.11.0"
-)
 @pytest.mark.parametrize("model_type", ["float", "qdq", "int4"])
 @pytest.mark.parametrize("pack_inputs", [True, False])
 def test_extract_adapters_as_inputs(tmp_path, input_model_info, pack_inputs, model_type):
@@ -186,9 +177,6 @@ def test_extract_adapters_as_inputs(tmp_path, input_model_info, pack_inputs, mod
     assert all(i in io_config["input_names"] for i in expected_weights)
 
 
-@pytest.mark.skipif(
-    platform.system() == "Windows", reason="Peft import sometimes fails on Windows after version 0.11.0"
-)
 @pytest.mark.parametrize("quantize_int4", [1, 0])
 @pytest.mark.parametrize("pack_weights", [True, False])
 def test_export_adapters_command(tmp_path, input_model_info, quantize_int4, pack_weights):
