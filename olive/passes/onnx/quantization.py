@@ -227,6 +227,49 @@ _static_optional_config = {
             Should be set to True if model is targeted for QNN EP.
         """,
     ),
+    "qnn_extra_options": PassConfigParam(
+        type_=dict,
+        default_value=None,
+        description="""
+            Extra options for QNN quantization. Please refer to
+            onnxruntime.quantization.execution_providers.qnn.get_qnn_qdq_config.
+            By default, the options are set to None. Options are only used if
+            prepare_qnn_config is set to True. Available options are:
+            - `init_overrides:dict = None`: Initial tensor-level quantization overrides. Defaults to None. This function
+                updates of a copy of these overrides with any necessary adjustments and includes them in the returned
+                configuration object (i.e., config.extra_options['TensorQuantOverrides']).
+
+                The key is a tensor name and the value is a list of dictionaries. For per-tensor quantization, the list
+                contains a single dictionary. For per-channel quantization, the list contains either a dictionary for
+                each channel in the tensor or a single dictionary that is assumed to apply to all channels. An 'axis'
+                key must be present in the first dictionary for per-channel quantization.
+
+                Each dictionary contains optional overrides with the following keys and values.
+                    'quant_type' = QuantType : The tensor's quantization data type.
+                    'axis' = Int             : The per-channel axis. Must be present for per-channel weights.
+                    'scale' =  Float         : The scale value to use. Must also specify `zero_point` if set.
+                    'zero_point' = Int       : The zero-point value to use. Must also specify `scale` is set.
+                    'symmetric' = Bool       : If the tensor should use symmetric quantization. Invalid if also
+                                                set `scale` or `zero_point`.
+                    'reduce_range' = Bool    : If the quantization range should be reduced. Invalid if also
+                                                set `scale` or `zero_point`. Only valid for initializers.
+                    'rmax' = Float           : Override the maximum real tensor value in calibration data.
+                                                Invalid if also set `scale` or `zero_point`.
+                    'rmin' = Float           : Override the minimum real tensor value in calibration data.
+                                                Invalid if also set `scale` or `zero_point`.
+                    'convert' = Dict         : A nested dictionary with the same keys for an activation
+                                            tensor that should be converted to another quantization type.
+                    'convert["recv_nodes"] = Set : Set of node names that consume the converted activation,
+                                                other nodes get the original type. If not specified,
+                                                assume all consumer nodes get the converted type.
+            - `add_qtype_converts: bool = True`: True if this function should automatically add "convert" entries to
+                the provided `init_overrides` to ensure that operators use valid input/output types (activations only).
+                Ex: if you override the output of an Add to 16-bit, this option ensures that the activation inputs
+                of the Add are also up-converted to 16-bit and that data types for surrounding ops are converted
+                appropriately. Refer to the documentation in mixed_precision_overrides_utils.py for additional details.
+            To be noted that the options might be updated in the further version of onnxruntime.
+        """,
+    ),
 }
 
 
@@ -449,6 +492,14 @@ class OnnxQuantization(Pass):
 
                 from onnxruntime.quantization.execution_providers.qnn import get_qnn_qdq_config
 
+                symmetric_options, qnn_extra_options = {}, {}
+
+                if version.parse(OrtVersion) >= version.parse("1.18.0"):
+                    symmetric_options = {
+                        "activation_symmetric": config["ActivationSymmetric"],
+                        "weight_symmetric": config["WeightSymmetric"],
+                    }
+                    qnn_extra_options = config["qnn_extra_options"] or {}
                 qnn_config = get_qnn_qdq_config(
                     model_input=model.model_path,
                     calibration_data_reader=dataloader,
@@ -456,14 +507,18 @@ class OnnxQuantization(Pass):
                     activation_type=run_config["activation_type"],
                     weight_type=run_config["weight_type"],
                     per_channel=run_config["per_channel"],
+                    **symmetric_options,
+                    **qnn_extra_options,
                 )
                 # override the run_config with qnn_config
                 # get all attributes of qnn_config
                 run_config = {k: v for k, v in inspect.getmembers(qnn_config) if not k.startswith("_")}
                 # remove the calibration_data_reader from run_config
-                run_config.pop("calibration_data_reader", None)
 
-            run_config = exclude_keys(run_config, ("calibration_data_reader", "use_external_data_format"))
+            run_config = exclude_keys(
+                run_config,
+                ("calibration_data_reader", "use_external_data_format", "qnn_extra_options"),
+            )
             try:
                 quantize_static(
                     model_input=model.model_path,
@@ -576,6 +631,9 @@ class OnnxStaticQuantization(OnnxQuantization):
             config["weight_type"].searchable_values = Categorical(["QInt8", "QUInt8", "QUInt16", "QInt16"])
             config["prepare_qnn_config"].default_value = True
             config["quant_preprocess"].default_value = False
+            # in QNN EP, the default value WeightSymmetric is None
+            # but in base quantizer, the default value is True.
+            config["WeightSymmetric"].default_value = None
         return config
 
 
