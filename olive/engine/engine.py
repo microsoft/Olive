@@ -980,6 +980,7 @@ class Engine:
     def save_olive_config(self, olive_config: dict):
         """Save the olive config to the output directory."""
         olive_config_path = Path(self.cache_dir) / "olive_config.json"
+        olive_config_path.parent.mkdir(parents=True, exist_ok=True)
         with olive_config_path.open("w") as f:
             json.dump(olive_config, f, indent=4)
         logger.info("Saved Olive config to %s", olive_config_path)
