@@ -79,11 +79,11 @@ def test_qnn_quantization(tmp_path):
         "dataloader_func": dummpy_dataloader_func,
         "weight_type": "QUInt8",
         "activation_type": "QUInt16",
+        "WeightSymmetric": None,
+        "ActivationSymmetric": True,
         "qnn_extra_options": {
             "init_overrides": None,
             "add_qtype_converts": True,
-            "activation_symmetric": True,
-            "weight_symmetric": None,
         },
     }
     accelerator_spec = AcceleratorSpec(

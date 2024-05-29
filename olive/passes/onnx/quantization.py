@@ -267,9 +267,6 @@ _static_optional_config = {
                 Ex: if you override the output of an Add to 16-bit, this option ensures that the activation inputs
                 of the Add are also up-converted to 16-bit and that data types for surrounding ops are converted
                 appropriately. Refer to the documentation in mixed_precision_overrides_utils.py for additional details.
-            - `activation_symmetric: bool = False`: Symmetrize calibration data for activations.
-            - `weight_symmetric: bool = None`: True if weights should be quantized symmetrically (i.e., rmax == -rmin)
-                Defaults to None. If set to None, weight_symmetric is assumed true if the weight_type is a signed int.
             To be noted that the options might be updated in the further version of onnxruntime.
         """,
     ),
@@ -495,9 +492,14 @@ class OnnxQuantization(Pass):
 
                 from onnxruntime.quantization.execution_providers.qnn import get_qnn_qdq_config
 
-                qnn_extra_options = (
-                    {} if version.parse(OrtVersion) < version.parse("1.18.0") else config["qnn_extra_options"] or {}
-                )
+                symmetric_options, qnn_extra_options = {}, {}
+
+                if version.parse(OrtVersion) >= version.parse("1.18.0"):
+                    symmetric_options = {
+                        "activation_symmetric": config["ActivationSymmetric"],
+                        "weight_symmetric": config["WeightSymmetric"],
+                    }
+                    qnn_extra_options = config["qnn_extra_options"] or {}
                 qnn_config = get_qnn_qdq_config(
                     model_input=model.model_path,
                     calibration_data_reader=dataloader,
@@ -505,6 +507,7 @@ class OnnxQuantization(Pass):
                     activation_type=run_config["activation_type"],
                     weight_type=run_config["weight_type"],
                     per_channel=run_config["per_channel"],
+                    **symmetric_options,
                     **qnn_extra_options,
                 )
                 # override the run_config with qnn_config
@@ -628,6 +631,9 @@ class OnnxStaticQuantization(OnnxQuantization):
             config["weight_type"].searchable_values = Categorical(["QInt8", "QUInt8", "QUInt16", "QInt16"])
             config["prepare_qnn_config"].default_value = True
             config["quant_preprocess"].default_value = False
+            # in QNN EP, the default value WeightSymmetric is None
+            # but in base quantizer, the default value is True.
+            config["WeightSymmetric"].default_value = None
         return config
 
 
