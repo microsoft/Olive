@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 
 import olive.cache as cache_utils
 from olive.common.config_utils import validate_config
+from olive.common.constants import DEFAULT_WORKFLOW_ID
 from olive.common.utils import hash_dict
 from olive.engine.config import FAILED_CONFIG, INVALID_CONFIG, PRUNED_CONFIGS
 from olive.engine.footprint import Footprint, FootprintNodeMetric
@@ -44,7 +45,7 @@ class Engine:
 
     def __init__(
         self,
-        workflow_id: str,
+        workflow_id: str = DEFAULT_WORKFLOW_ID,
         search_strategy: Optional[Union[Dict[str, Any], SearchStrategyConfig]] = None,
         host: Optional[Union[Dict[str, Any], "SystemConfig"]] = None,
         target: Optional[Union[Dict[str, Any], "SystemConfig"]] = None,

@@ -9,6 +9,7 @@ from typing import Dict, List, Union
 from olive.auto_optimizer import AutoOptimizerConfig
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
+from olive.common.constants import DEFAULT_WORKFLOW_ID
 from olive.common.pydantic_v1 import validator
 from olive.data.config import DataConfig
 from olive.data.container.huggingface_container import HuggingfaceContainer
@@ -47,7 +48,7 @@ class RunEngineConfig(EngineConfig):
 
 
 class RunConfig(ConfigBase):
-    workflow_id: str = "default_workflow"
+    workflow_id: str = DEFAULT_WORKFLOW_ID
     azureml_client: AzureMLClientConfig = None
     input_model: ModelConfig
     systems: Dict[str, SystemConfig] = None
