@@ -134,6 +134,9 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig, data_r
 
     from olive.passes import Pass
 
+    workflow_id = run_config.workflow_id
+    logger.info("Running workflow %s", workflow_id)
+
     # for onnxruntime
     # ort_py_log_severity_level: python logging levels
     set_ort_logger_severity(run_config.engine.ort_py_log_severity_level)
@@ -145,7 +148,10 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig, data_r
     input_model = run_config.input_model
 
     # Azure ML Client
-    engine = run_config.engine.create_engine(run_config.azureml_client)
+    engine = run_config.engine.create_engine(run_config.azureml_client, workflow_id)
+
+    olive_config = run_config.to_json()
+    engine.save_olive_config(olive_config)
 
     # run_config file will be uploaded to AML job
     is_azureml_system = (run_config.engine.host is not None and run_config.engine.host.type == SystemType.AzureML) or (
@@ -155,7 +161,7 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig, data_r
     if is_azureml_system:
         from olive.systems.azureml.aml_system import AzureMLSystem
 
-        AzureMLSystem.olive_config = run_config.to_json()
+        AzureMLSystem.olive_config = olive_config
 
     auto_optimizer_enabled = (
         not run_config.passes

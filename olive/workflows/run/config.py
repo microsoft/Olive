@@ -41,12 +41,13 @@ class RunEngineConfig(EngineConfig):
     ort_py_log_severity_level: int = 3
     log_to_file: bool = False
 
-    def create_engine(self, azureml_client_config):
+    def create_engine(self, azureml_client_config, workflow_id):
         config = self.dict(include=EngineConfig.__fields__.keys())
-        return Engine(**config, azureml_client_config=azureml_client_config)
+        return Engine(**config, azureml_client_config=azureml_client_config, workflow_id=workflow_id)
 
 
 class RunConfig(ConfigBase):
+    workflow_id: str = "default_workflow"
     azureml_client: AzureMLClientConfig = None
     input_model: ModelConfig
     systems: Dict[str, SystemConfig] = None
