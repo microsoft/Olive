@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Set, Union
 
 import pkg_resources
 
+from olive.common.constants import OS
 from olive.common.utils import copy_dir, retry_func, run_subprocess
 from olive.engine.packaging.packaging_config import (
     AzureMLDeploymentPackagingConfig,
@@ -707,14 +708,14 @@ def _download_ort_extensions_package(use_ort_extensions: bool, download_path: st
         # Hardcode the nightly version number for now until we have a better way to identify nightly version
         if version.startswith("0.8.0."):
             system = platform.system()
-            if system == "Windows":
+            if system == OS.WINDOWS:
                 download_command = (
                     f"{sys.executable} -m pip download -i "
                     "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ "
                     f"onnxruntime-extensions=={version} --no-deps -d {download_path}"
                 )
                 run_subprocess(download_command)
-            elif system == "Linux":
+            elif system == OS.LINUX:
                 logger.warning(
                     "ONNXRuntime-Extensions nightly package is not available for Linux. "
                     "Skip packaging ONNXRuntime-Extensions package. Please manually install ONNXRuntime-Extensions."

@@ -11,6 +11,7 @@ from pathlib import Path
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
 
+from olive.common.constants import OS
 from olive.workflows import run as olive_run
 
 # flake8: noqa: T201
@@ -30,25 +31,25 @@ SUPPORTED_INFERENCE_CONFIG = {
         # -1 to use CPU
         "device_id": -1,
         "use_fp16": False,
-        "use_step": platform.system() == "Linux",
+        "use_step": platform.system() == OS.LINUX,
     },
     "cpu_int4": {
         "use_buffer_share": False,
         "device_id": -1,
         "use_fp16": False,
-        "use_step": platform.system() == "Linux",
+        "use_step": platform.system() == OS.LINUX,
     },
     "cuda_fp16": {
         "use_buffer_share": False,
         "device_id": 0,
         "use_fp16": True,
-        "use_step": platform.system() == "Linux",
+        "use_step": platform.system() == OS.LINUX,
     },
     "cuda_int4": {
         "use_buffer_share": False,
         "device_id": 0,
         "use_fp16": True,
-        "use_step": platform.system() == "Linux",
+        "use_step": platform.system() == OS.LINUX,
     },
 }
 
@@ -180,7 +181,7 @@ def main(raw_args=None):
         with open(json_file_template) as f:
             template_json = json.load(f)
 
-        if platform.system() == "Windows":
+        if platform.system() == OS.WINDOWS:
             legacy_optimization_setting(template_json)
 
         # add pass flows

@@ -13,6 +13,7 @@ from typing import Dict, Optional
 import numpy as np
 
 from olive.common.config_utils import ConfigBase
+from olive.common.constants import OS
 from olive.constants import ModelFileFormat
 from olive.platform_sdk.qualcomm.runner import QNNSDKRunner
 from olive.platform_sdk.qualcomm.utils.input_list import get_input_ids
@@ -128,7 +129,7 @@ class QNNInferenceSession:
             # copy the raw file to the workspace and rename it
             if output_dir is not None:
                 output_file = output_dir / f"{input_id}.raw"
-                if platform.system() == "Windows":
+                if platform.system() == OS.WINDOWS:
                     output_file = output_dir / f"{input_id}.raw".replace(":", "_")
                 raw_file.rename(output_file)
                 result_files.append((input_id, output_file))

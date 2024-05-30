@@ -12,6 +12,7 @@ from unittest.mock import patch
 import pytest
 
 from olive.cache import clean_pass_run_cache, create_cache, download_resource, get_cache_sub_dirs, save_model
+from olive.common.constants import OS
 from olive.resource_path import AzureMLModel
 
 
@@ -47,7 +48,7 @@ class TestCache:
         model_cache_file_path = str((model_cache_dir / "0_p(･◡･)p.json").resolve())
         with open(model_cache_file_path, "w") as model_cache_file:
             model_data = f'{{"model_path": "{model_p}"}}'
-            if platform.system() == "Windows":
+            if platform.system() == OS.WINDOWS:
                 model_data = model_data.replace("\\", "//")
             model_cache_file.write(model_data)
 

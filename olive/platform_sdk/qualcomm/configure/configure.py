@@ -10,6 +10,7 @@ import shutil
 from importlib import resources
 from pathlib import Path
 
+from olive.common.constants import OS
 from olive.common.utils import run_subprocess
 from olive.platform_sdk.qualcomm.constants import SDKTargetDevice
 from olive.platform_sdk.qualcomm.qnn.env import QNNSDKEnv
@@ -31,14 +32,14 @@ def configure_dev(py_version: str, sdk: str):
     if sdk_arch not in (SDKTargetDevice.x86_64_linux, SDKTargetDevice.x86_64_windows):
         return
 
-    script_name = "create_python_env.sh" if platform.system() == "Linux" else "create_python_env.ps1"
+    script_name = "create_python_env.sh" if platform.system() == OS.LINUX else "create_python_env.ps1"
 
     logger.info("Configuring %s for %s with python %s...", sdk, sdk_arch, py_version)
     cmd = None
     with resources.path(resource_path, script_name) as create_python_env_path:
-        if platform.system() == "Linux":
+        if platform.system() == OS.LINUX:
             cmd = f"bash {create_python_env_path} -v {py_version} --sdk {sdk}"
-        elif platform.system() == "Windows":
+        elif platform.system() == OS.WINDOWS:
             cmd = f"powershell {create_python_env_path} {py_version} {sdk}"
         run_subprocess(cmd, check=True)
     logger.info("Done")

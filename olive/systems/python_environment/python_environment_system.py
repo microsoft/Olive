@@ -11,6 +11,7 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
+from olive.common.constants import OS
 from olive.common.utils import run_subprocess
 from olive.evaluator.metric_result import MetricResult
 from olive.model import ModelConfig
@@ -52,7 +53,7 @@ class PythonEnvironmentSystem(OliveSystem):
             prepend_to_path=prepend_to_path,
         )
         if olive_managed_env:
-            if platform.system() == "Linux":
+            if platform.system() == OS.LINUX:
                 temp_dir = os.path.join(os.environ.get("HOME", ""), "tmp")
                 if not os.path.exists(temp_dir):
                     os.makedirs(temp_dir)
@@ -189,7 +190,7 @@ class PythonEnvironmentSystem(OliveSystem):
         except FileNotFoundError:
             pass
 
-        if platform.system() == "Linux":
+        if platform.system() == OS.LINUX:
             try:
                 shutil.rmtree(self.environ["TMPDIR"])
                 logger.info("Temporary directory '%s' removed.", self.environ["TMPDIR"])

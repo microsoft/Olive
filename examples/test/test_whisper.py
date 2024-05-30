@@ -11,6 +11,8 @@ from pathlib import Path
 import pytest
 from utils import check_output
 
+from olive.common.constants import OS
+
 
 @pytest.fixture(scope="module", autouse=True)
 def setup():
@@ -34,7 +36,7 @@ def setup():
 def test_whisper(device_precision):
     from olive.workflows import run as olive_run
 
-    if platform.system() == "Windows" and device_precision[1].startswith("inc_int8"):
+    if platform.system() == OS.WINDOWS and device_precision[1].startswith("inc_int8"):
         pytest.skip("Skip test on Windows. neural-compressor import is hanging on Windows.")
 
     device, precision = device_precision

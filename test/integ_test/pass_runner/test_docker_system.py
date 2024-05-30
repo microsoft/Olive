@@ -9,6 +9,7 @@ from test.integ_test.evaluator.docker_eval.utils import (
 
 import pytest
 
+from olive.common.constants import OS
 from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR
 from olive.logging import set_default_logger_severity
 from olive.model.config.model_config import ModelConfig
@@ -16,7 +17,7 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.perf_tuning import OrtPerfTuning
 
 
-@pytest.mark.skipif(platform.system() == "Windows", reason="Docker target does not support windows")
+@pytest.mark.skipif(platform.system() == OS.WINDOWS, reason="Docker target does not support windows")
 @pytest.fixture(scope="module", autouse=True)
 def setup():
     get_directories()
@@ -25,7 +26,7 @@ def setup():
     delete_directories()
 
 
-@pytest.mark.skipif(platform.system() == "Windows", reason="Docker target does not support windows")
+@pytest.mark.skipif(platform.system() == OS.WINDOWS, reason="Docker target does not support windows")
 def test_pass_runner(tmp_path):
     docker_target = get_docker_target()
     model_config = get_onnx_model()

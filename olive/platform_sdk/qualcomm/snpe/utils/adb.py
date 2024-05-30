@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 from typing import Tuple
 
+from olive.common.constants import OS
 from olive.common.utils import run_subprocess
 
 logger = logging.getLogger(__name__)
@@ -64,9 +65,9 @@ def run_adb_command(
 
     # platform specific shell command
     if shell_cmd:
-        if platform.system() == "Windows":
+        if platform.system() == OS.WINDOWS:
             cmd = f"shell {cmd}"
-        elif platform.system() == "Linux":
+        elif platform.system() == OS.LINUX:
             cmd = f'shell "{cmd}"'
 
     # run the command

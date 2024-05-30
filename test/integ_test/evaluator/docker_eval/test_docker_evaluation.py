@@ -21,6 +21,7 @@ from typing import ClassVar, List
 
 import pytest
 
+from olive.common.constants import OS
 from olive.evaluator.metric_result import joint_metric_key
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import ModelConfig
@@ -55,7 +56,7 @@ class TestDockerEvaluation:
         ("model_type", "model_config_func", "metric_func", "expected_res"),
         EVALUATION_TEST_CASE,
     )
-    @pytest.mark.skipif(platform.system() == "Windows", reason="Docker target does not support windows")
+    @pytest.mark.skipif(platform.system() == OS.WINDOWS, reason="Docker target does not support windows")
     def test_evaluate_model(self, model_type, model_config_func, metric_func, expected_res):
         docker_target = get_docker_target()
         model_config = model_config_func()

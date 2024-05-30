@@ -8,13 +8,14 @@ from pathlib import Path
 
 import pytest
 
+from olive.common.constants import OS
 from olive.logging import set_default_logger_severity
 from olive.model import ModelConfig
 
 # pylint: disable=attribute-defined-outside-init
 
 
-@pytest.mark.skipif(platform.system() == "Windows", reason="Docker target does not support windows")
+@pytest.mark.skipif(platform.system() == OS.WINDOWS, reason="Docker target does not support windows")
 class TestOliveManagedDockerSystem:
     @pytest.fixture(autouse=True)
     def setup(self):

@@ -7,6 +7,8 @@ import json
 import platform
 from pathlib import Path
 
+from olive.common.constants import OS
+
 
 def raw_qnn_config():
     # pylint: disable=redefined-outer-name
@@ -16,20 +18,20 @@ def raw_qnn_config():
 
     sys_platform = platform.system()
 
-    if sys_platform == "Linux":
+    if sys_platform == OS.LINUX:
         raw_qnn_config["passes"]["qnn_context_binary"] = {
             "type": "QNNContextBinaryGenerator",
             "config": {"backend": "libQnnHtp.so"},
         }
         raw_qnn_config["pass_flows"].append(["converter", "build_model_lib", "qnn_context_binary"])
         raw_qnn_config["passes"]["build_model_lib"]["config"]["lib_targets"] = "x86_64-linux-clang"
-    elif sys_platform == "Windows":
+    elif sys_platform == OS.WINDOWS:
         raw_qnn_config["passes"]["build_model_lib"]["config"]["lib_targets"] = "x86_64-windows-msvc"
 
     for metric_config in raw_qnn_config["evaluators"]["common_evaluator"]["metrics"]:
-        if sys_platform == "Windows":
+        if sys_platform == OS.WINDOWS:
             metric_config["user_config"]["inference_settings"]["qnn"]["backend"] = "QnnCpu"
-        elif sys_platform == "Linux":
+        elif sys_platform == OS.LINUX:
             metric_config["user_config"]["inference_settings"]["qnn"]["backend"] = "libQnnCpu"
 
     with Path("raw_qnn_sdk_config.json").open("w") as f:

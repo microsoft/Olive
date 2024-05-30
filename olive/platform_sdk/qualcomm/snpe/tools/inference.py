@@ -14,6 +14,7 @@ import numpy as np
 
 import olive.platform_sdk.qualcomm.snpe.utils.adb as adb_utils
 from olive.common.config_utils import validate_enum
+from olive.common.constants import OS
 from olive.platform_sdk.qualcomm.constants import PerfProfile, ProfilingLevel, SNPEDevice
 from olive.platform_sdk.qualcomm.runner import SNPESDKRunner as SNPERunner
 from olive.platform_sdk.qualcomm.utils.input_list import get_input_ids, resolve_input_list
@@ -97,7 +98,7 @@ def _snpe_net_run_adb(
         adb_utils.run_snpe_adb_command(cmd, android_target, push_snpe, runs=runs, sleep=sleep)
 
         # replace ":" in output filenames with "_" if on windows before pulling
-        if platform.system() == "Windows":
+        if platform.system() == OS.WINDOWS:
             rename_cmd = (
                 f"cd {target_output_dir} &&"
                 " find -name '*:*' -exec sh -c 'for x; do mv $x $(echo $x | sed \"s/:/_/g\"); done' _ {} +"
@@ -214,9 +215,9 @@ def snpe_net_run(
 
     # get the delimiter for the output files
     delimiter = None
-    if platform.system() == "Linux":
+    if platform.system() == OS.LINUX:
         delimiter = ":"
-    elif platform.system() == "Windows":
+    elif platform.system() == OS.WINDOWS:
         delimiter = "_"
 
     # dictionary to store the results as numpy arrays
@@ -242,7 +243,7 @@ def snpe_net_run(
             if not (member / output_file_name).exists():
                 # `:0` is already in the output name or source model was not tensorflow
                 output_file_name = f"{output_name}.raw"
-            if platform.system() == "Windows":
+            if platform.system() == OS.WINDOWS:
                 # replace ":" with "_" in the file name.
                 output_file_name = output_file_name.replace(":", "_")
             raw_file = member / output_file_name
@@ -250,7 +251,7 @@ def snpe_net_run(
             # copy the raw file to the workspace and rename it
             if output_dir is not None:
                 output_file = output_dir / f"{input_id}.{output_name}.raw"
-                if platform.system() == "Windows":
+                if platform.system() == OS.WINDOWS:
                     # replace ":" with "_" in the file name.
                     output_file = output_dir / f"{input_id}.{output_name}.raw".replace(":", "_")
                 if len(output_names) == 1:

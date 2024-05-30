@@ -7,6 +7,7 @@ import os
 import platform
 from pathlib import Path
 
+from olive.common.constants import OS
 from olive.platform_sdk.qualcomm.constants import SDKTargetDevice
 
 
@@ -37,14 +38,14 @@ class SDKEnv:
         """Infer the target architecture from the SDK root path based on platform and processor."""
         system = platform.system()
         target_arch = None
-        if system == "Linux":
+        if system == OS.LINUX:
             machine = platform.machine()
             if machine == "x86_64":
                 target_arch = SDKTargetDevice.x86_64_linux
             else:
                 if fail_on_unsupported:
                     raise ValueError(f"Unsupported machine {machine} on system {system}")
-        elif system == "Windows":
+        elif system == OS.WINDOWS:
             processor_identifier = os.environ.get("PROCESSOR_IDENTIFIER", "")
             if "ARM" in processor_identifier:
                 target_arch = SDKTargetDevice.arm64x_windows
@@ -84,7 +85,7 @@ class SDKEnv:
         if platform.system() == "Linux":
             bin_path += delimiter + "/usr/bin"
             env["LD_LIBRARY_PATH"] = lib_path
-        elif platform.system() == "Windows":
+        elif platform.system() == OS.WINDOWS:
             bin_path += delimiter + lib_path
 
         env["PATH"] = bin_path

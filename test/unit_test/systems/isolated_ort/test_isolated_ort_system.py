@@ -16,6 +16,7 @@ import numpy as np
 import pytest
 import torch
 
+from olive.common.constants import OS
 from olive.common.utils import run_subprocess
 from olive.constants import Framework
 from olive.evaluator.metric import AccuracySubType, LatencySubType
@@ -107,7 +108,7 @@ class TestIsolatedORTEvaluator:
         venv_path = tmp_path / "venv"
         venv.create(venv_path, with_pip=True)
         # python path
-        if platform.system() == "Windows":
+        if platform.system() == OS.WINDOWS:
             python_environment_path = f"{venv_path}/Scripts"
         else:
             python_environment_path = f"{venv_path}/bin"

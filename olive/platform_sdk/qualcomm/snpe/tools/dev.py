@@ -12,6 +12,7 @@ from typing import List
 import onnx
 from onnx import TensorProto, helper
 
+from olive.common.constants import OS
 from olive.platform_sdk.qualcomm.runner import SNPESDKRunner as SNPERunner
 
 logger = logging.getLogger(__name__)
@@ -191,7 +192,7 @@ def quantize_dlc(dlc_path: str, input_list: str, config: dict, output_file: str)
         extra_args: str = extra arguments to pass to the quantizer.
     """
     quant_cmd = "snpe-dlc-quantize"
-    if platform.system() == "Windows":
+    if platform.system() == OS.WINDOWS:
         # snpe-dlc-quant is the Windows version of the quantizer tool
         # and it does not support the --enable_htp flag
         quant_cmd = "snpe-dlc-quant"
@@ -199,7 +200,7 @@ def quantize_dlc(dlc_path: str, input_list: str, config: dict, output_file: str)
     if config["use_enhanced_quantizer"]:
         cmd += " --use_enhanced_quantizer"
     if config["enable_htp"]:
-        if platform.system() == "Windows":
+        if platform.system() == OS.WINDOWS:
             logger.warning("--enable_htp is not supported on Windows")
         else:
             cmd += " --enable_htp"

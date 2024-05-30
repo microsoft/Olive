@@ -7,12 +7,13 @@ from pathlib import Path
 
 import pytest
 
+from olive.common.constants import OS
 from olive.model import ModelConfig
 
 # pylint: disable=attribute-defined-outside-init
 
 
-@pytest.mark.skipif(platform.system() == "Windows", reason="Skip test on Windows.")
+@pytest.mark.skipif(platform.system() == OS.WINDOWS, reason="Skip test on Windows.")
 class TestOliveAzureMLSystem:
     @pytest.fixture(autouse=True)
     def setup(self):

@@ -18,6 +18,8 @@ import time
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
+from olive.common.constants import OS
+
 logger = logging.getLogger(__name__)
 
 
@@ -25,7 +27,7 @@ def run_subprocess(cmd, env=None, cwd=None, check=False):
     logger.debug("Running command: %s", cmd)
 
     assert isinstance(cmd, (str, list)), f"cmd must be a string or a list, got {type(cmd)}."
-    windows = platform.system() == "Windows"
+    windows = platform.system() == OS.WINDOWS
     if isinstance(cmd, str):
         # In posix model, the cmd string will be handled with specific posix rules.
         # https://docs.python.org/3.8/library/shlex.html#parsing-rules
