@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How to add new optimization Pass &mdash; Olive  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
+      <link rel="stylesheet" type="text/css" href="../_static/tabs.css?v=a5c4661c" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/width.css?v=b55249da" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+        <script src="../_static/js/custom_version.js?v=3856a39b"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="How To Configure System" href="../tutorials/configure_systems.html" />
+    <link rel="prev" title="Design" href="design.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Olive
+          </a>
+              <div class="version">
+                0.6.1
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">OVERVIEW</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview/olive.html">Olive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/quicktour.html">Quick Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/options.html">Olive Options</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">GET STARTED</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getstarted/quickstart_examples.html">Quickstart Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../features/cli.html">Command Line Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/custom_scripts.html">Custom Scripts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/azureml_integration.html">Azure ML integration</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="design.html">Design</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">How to add new optimization Pass</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#define-a-new-class">1. Define a new class</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#define-configuration">2. Define configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#example">Example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#implement-the-run-function">3. Implement the run function</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_systems.html">How To Configure System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_auto_optimizer.html">How To Configure Auto Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_pass.html">How To Configure Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_data.html">How To Configure Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_model_path.html">How To Set Model Path</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/advanced_users.html">Advanced User Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/azure_arc.html">Self-hosted Kubernetes cluster</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/azureml_scripts.html">Azure ML scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/models.html">OliveModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/resource_path.html">ResourcePath</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/systems.html">OliveSystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/evaluator.html">OliveEvaluator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/metric.html">Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/search-algorithms.html">SearchAlgorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/engine.html">Engine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/passes.html">Passes</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Olive</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">How to add new optimization Pass</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/extending_olive/how_to_add_optimization_pass.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="how-to-add-new-optimization-pass">
+<h1>How to add new optimization Pass<a class="headerlink" href="#how-to-add-new-optimization-pass" title="Permalink to this heading">¶</a></h1>
+<p>Olive provides simple interface to introduce new model optimization techniques. Each optimization technique is
+represented as a Pass in Olive.</p>
+<p>To introduce a new Pass follow these 3 steps.</p>
+<section id="define-a-new-class">
+<h2>1. Define a new class<a class="headerlink" href="#define-a-new-class" title="Permalink to this heading">¶</a></h2>
+<p>Define a new class using Pass as the base class. For example</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.passes</span> <span class="kn">import</span> <span class="n">Pass</span>
+
+<span class="k">class</span> <span class="nc">NewOptimizationTrick</span><span class="p">(</span><span class="n">Pass</span><span class="p">):</span>
+
+    <span class="c1"># set this to True if the pass has parameters that are functions or objects and the user script is required</span>
+    <span class="c1"># to import the module containing the function or object</span>
+    <span class="n">_requires_user_script</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+</pre></div>
+</div>
+</section>
+<section id="define-configuration">
+<h2>2. Define configuration<a class="headerlink" href="#define-configuration" title="Permalink to this heading">¶</a></h2>
+<p>Next, define the options used to configure this new technique by defining static method <code class="docutils literal notranslate"><span class="pre">_default_config</span></code>. This method
+takes an <code class="docutils literal notranslate"><span class="pre">AcceleratorSpec</span></code> as input and returns <code class="docutils literal notranslate"><span class="pre">Dict[str,</span> <span class="pre">PassConfigParam]</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">AcceleratorSpec</span></code> is a dataclass that holds the information about the accelerator. The dataclass has the following fields:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">accelerator_type</span></code>: type of the accelerator. For example, <code class="docutils literal notranslate"><span class="pre">CPU</span></code>, <code class="docutils literal notranslate"><span class="pre">GPU</span></code> etc.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">execution_provider</span></code>: execution provider for the accelerator. For example, <code class="docutils literal notranslate"><span class="pre">CPUExecutionProvider</span></code>, <code class="docutils literal notranslate"><span class="pre">CUDAExecutionProvider</span></code> etc.
+Please note if user specify some execution providers that don’t belong to the installed onnxruntime, these execution providers
+will be ignored. For example, if user specify CUDA, TensorRT, DML execution provider, but the onnxruntime-gpu is installed then
+the DML execution provider will be ignored since it is only available in onnxruntime-directml package.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">PassConfigParam</span></code> is a dataclass that holds the information about the configuration option. The dataclass has the following fields:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">type_</span></code> : type of the parameter</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">required</span></code> : whether the parameter is required</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">category</span></code>: The param category. It could be the following values:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">object</span></code> : whether the parameter is an object/function. If so, this parameter accepts the object or a string with the
+name of the object in the user script. The type must include <code class="docutils literal notranslate"><span class="pre">str</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">path</span></code> : whether the parameter is a path. If so, this file/folder will be uploaded to the host system.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">data</span></code>: whether the parameter is a data path, which will be used to do data path normalization based on the data root.</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">description</span></code> : description of the parameter</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">default_value</span></code>: default value for the parameter. This value is used as the default if <code class="docutils literal notranslate"><span class="pre">disable_search=False</span></code> or there are no searchable values.
+Must be the same type as the parameter or a ConditionalDefault SearchParameter.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">searchable_values</span></code>: default searchable values for the parameter. This value is used as the default if <code class="docutils literal notranslate"><span class="pre">disable_search=True</span></code>.
+Must be a Categorical or Conditional SearchParameter.</p></li>
+</ul>
+<section id="example">
+<h3>Example<a class="headerlink" href="#example" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_default_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="c1"># required parameter</span>
+            <span class="s2">&quot;param1&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;param1 description&quot;</span><span class="p">),</span>
+            <span class="c1"># optional parameter with default value</span>
+            <span class="s2">&quot;param2&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;param2 description&quot;</span><span class="p">),</span>
+            <span class="c1"># optional parameter with default value and searchable values</span>
+            <span class="s2">&quot;param3&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+                <span class="n">type_</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">searchable_values</span><span class="o">=</span><span class="n">Categorical</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]),</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;param3 description&quot;</span>
+            <span class="p">),</span>
+            <span class="c1"># optional parameter with `category` set to `object`</span>
+            <span class="c1"># the value of this parameter can be a string or a function that takes a string and returns the object,</span>
+            <span class="c1"># say a class ObjectClass</span>
+            <span class="s2">&quot;param4&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+                <span class="n">type_</span><span class="o">=</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Pass</span><span class="p">]],</span> <span class="n">category</span><span class="o">=</span><span class="n">ParamCategory</span><span class="o">.</span><span class="n">OBJECT</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;param4 description&quot;</span>
+            <span class="p">),</span>
+            <span class="c1"># optional parameter with default_value that depends on another parameter value</span>
+            <span class="s2">&quot;param5&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+                <span class="n">type_</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+                <span class="n">default_value</span><span class="o">=</span><span class="n">ConditionalDefault</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="s2">&quot;param2&quot;</span><span class="p">,</span> <span class="n">support</span><span class="o">=</span><span class="p">{(</span><span class="mi">1</span><span class="p">,):</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,):</span> <span class="mi">3</span><span class="p">},</span> <span class="n">default</span><span class="o">=</span><span class="mi">4</span><span class="p">),</span>
+                <span class="n">description</span><span class="o">=</span><span class="s2">&quot;param5 description&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="c1"># optional parameter with searchable_values that depends on other parameter values</span>
+            <span class="s2">&quot;param6&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+                <span class="n">type_</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+                <span class="n">default_value</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                <span class="n">searchable_values</span><span class="o">=</span><span class="n">Conditional</span><span class="p">(</span>
+                    <span class="n">parents</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;param2&quot;</span><span class="p">,</span> <span class="s2">&quot;param3&quot;</span><span class="p">),</span>
+                    <span class="c1"># invalid if (param2, param3) not in [(1, 1), (1, 2)]</span>
+                    <span class="n">support</span><span class="o">=</span><span class="p">{</span>
+                        <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span> <span class="n">Categorical</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]),</span>
+                        <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span> <span class="n">Categorical</span><span class="p">([</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">]),</span>
+                    <span class="p">},</span>
+                <span class="p">),</span>
+                <span class="n">description</span><span class="o">=</span><span class="s2">&quot;param6 description&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">}</span>
+
+</pre></div>
+</div>
+</section>
+</section>
+<section id="implement-the-run-function">
+<h2>3. Implement the run function<a class="headerlink" href="#implement-the-run-function" title="Permalink to this heading">¶</a></h2>
+<p>The final step is to implement the <code class="docutils literal notranslate"><span class="pre">_run_for_config</span></code> method to optimize the input model. Olive Engine will invoke the
+method while auto tuning the model. This method will also receive a search point (one set of configuration option from
+the search space created based on the options defined in <code class="docutils literal notranslate"><span class="pre">_default_config(cls,</span> <span class="pre">accelerator_spec:</span> <span class="pre">AcceleratorSpec)</span></code>) along
+with output path. The method should return a valid OliveModelHandler which can be used as an input for the next Pass.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="k">def</span> <span class="nf">_run_for_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">ONNXModelHandler</span><span class="p">,</span> <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ONNXModelHandler</span><span class="p">:</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="design.html" class="btn btn-neutral float-left" title="Design" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../tutorials/configure_systems.html" class="btn btn-neutral float-right" title="How To Configure System" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, olivedevteam@microsoft.com.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
