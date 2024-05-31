@@ -9,6 +9,7 @@ from typing import Dict, List, Union
 from olive.auto_optimizer import AutoOptimizerConfig
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
+from olive.common.constants import DEFAULT_WORKFLOW_ID
 from olive.common.pydantic_v1 import validator
 from olive.data.config import DataConfig
 from olive.data.container.huggingface_container import HuggingfaceContainer
@@ -41,12 +42,13 @@ class RunEngineConfig(EngineConfig):
     ort_py_log_severity_level: int = 3
     log_to_file: bool = False
 
-    def create_engine(self, azureml_client_config):
+    def create_engine(self, azureml_client_config, workflow_id):
         config = self.dict(include=EngineConfig.__fields__.keys())
-        return Engine(**config, azureml_client_config=azureml_client_config)
+        return Engine(**config, azureml_client_config=azureml_client_config, workflow_id=workflow_id)
 
 
 class RunConfig(ConfigBase):
+    workflow_id: str = DEFAULT_WORKFLOW_ID
     azureml_client: AzureMLClientConfig = None
     input_model: ModelConfig
     systems: Dict[str, SystemConfig] = None

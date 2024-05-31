@@ -6,6 +6,7 @@ to apply from user in the form of a json dictionary. In this document, we docume
 
 The options are organized into following sections:
 
+- [Workflow id](#workflow-id) `workflow_id`
 - [Azure ML client](#azure-ml-client) `azureml_client`
 - [Input Model Information](#input-model-information) `input_model`
 - [Data Information](#data-information) `data_root`
@@ -13,6 +14,10 @@ The options are organized into following sections:
 - [Evaluators Information](#evaluators-information) `evaluators`
 - [Passes Information](#passes-information) `passes`
 - [Engine Information](#engine-information) `engine`
+
+## Workflow ID
+
+You can name the workflow run by specifying `workflow_id` section in your config file. Olive will save the cache under `<cache_dir>/<workflow_id>` folder, and automatically save the current running config in the cache folder.
 
 ## Azure ML Client
 

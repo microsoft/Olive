@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 
 import olive.cache as cache_utils
 from olive.common.config_utils import validate_config
+from olive.common.constants import DEFAULT_WORKFLOW_ID
 from olive.common.utils import hash_dict
 from olive.engine.config import FAILED_CONFIG, INVALID_CONFIG, PRUNED_CONFIGS
 from olive.engine.footprint import Footprint, FootprintNodeMetric
@@ -44,6 +45,7 @@ class Engine:
 
     def __init__(
         self,
+        workflow_id: str = DEFAULT_WORKFLOW_ID,
         search_strategy: Optional[Union[Dict[str, Any], SearchStrategyConfig]] = None,
         host: Optional[Union[Dict[str, Any], "SystemConfig"]] = None,
         target: Optional[Union[Dict[str, Any], "SystemConfig"]] = None,
@@ -77,7 +79,7 @@ class Engine:
         # default evaluator
         self.evaluator_config = validate_config(evaluator, OliveEvaluatorConfig) if evaluator else None
 
-        self.cache_dir = cache_dir
+        self.cache_dir = str(Path(cache_dir) / workflow_id)
         self.clean_cache = clean_cache
         self.clean_evaluation_cache = clean_evaluation_cache
         self.plot_pareto_frontier = plot_pareto_frontier
@@ -974,6 +976,14 @@ class Engine:
     def get_evaluation_json_path(self, model_id: str):
         """Get the path to the evaluation json."""
         return self._evaluation_cache_path / f"{model_id}.json"
+
+    def save_olive_config(self, olive_config: dict):
+        """Save the olive config to the output directory."""
+        olive_config_path = Path(self.cache_dir) / "olive_config.json"
+        olive_config_path.parent.mkdir(parents=True, exist_ok=True)
+        with olive_config_path.open("w") as f:
+            json.dump(olive_config, f, indent=4)
+        logger.info("Saved Olive config to %s", olive_config_path)
 
     def _cache_evaluation(self, model_id: str, signal: MetricResult):
         """Cache the evaluation in the cache directory."""
