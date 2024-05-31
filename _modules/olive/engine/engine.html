@@ -142,6 +142,7 @@
 
 <span class="kn">import</span> <span class="nn">olive.cache</span> <span class="k">as</span> <span class="nn">cache_utils</span>
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">validate_config</span>
+<span class="kn">from</span> <span class="nn">olive.common.constants</span> <span class="kn">import</span> <span class="n">DEFAULT_WORKFLOW_ID</span>
 <span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">hash_dict</span>
 <span class="kn">from</span> <span class="nn">olive.engine.config</span> <span class="kn">import</span> <span class="n">FAILED_CONFIG</span><span class="p">,</span> <span class="n">INVALID_CONFIG</span><span class="p">,</span> <span class="n">PRUNED_CONFIGS</span>
 <span class="kn">from</span> <span class="nn">olive.engine.footprint</span> <span class="kn">import</span> <span class="n">Footprint</span><span class="p">,</span> <span class="n">FootprintNodeMetric</span>
@@ -173,6 +174,7 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
+        <span class="n">workflow_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_WORKFLOW_ID</span><span class="p">,</span>
         <span class="n">search_strategy</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">SearchStrategyConfig</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">host</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="s2">&quot;SystemConfig&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">target</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="s2">&quot;SystemConfig&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -206,7 +208,7 @@
         <span class="c1"># default evaluator</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">evaluator</span><span class="p">,</span> <span class="n">OliveEvaluatorConfig</span><span class="p">)</span> <span class="k">if</span> <span class="n">evaluator</span> <span class="k">else</span> <span class="kc">None</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span> <span class="o">=</span> <span class="n">cache_dir</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">cache_dir</span><span class="p">)</span> <span class="o">/</span> <span class="n">workflow_id</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">clean_cache</span> <span class="o">=</span> <span class="n">clean_cache</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">clean_evaluation_cache</span> <span class="o">=</span> <span class="n">clean_evaluation_cache</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">plot_pareto_frontier</span> <span class="o">=</span> <span class="n">plot_pareto_frontier</span>
@@ -1103,6 +1105,14 @@
     <span class="k">def</span> <span class="nf">get_evaluation_json_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the path to the evaluation json.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluation_cache_path</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">model_id</span><span class="si">}</span><span class="s2">.json&quot;</span>
+
+    <span class="k">def</span> <span class="nf">save_olive_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">olive_config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Save the olive config to the output directory.&quot;&quot;&quot;</span>
+        <span class="n">olive_config_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;olive_config.json&quot;</span>
+        <span class="n">olive_config_path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">olive_config_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">olive_config</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Saved Olive config to </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">olive_config_path</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_cache_evaluation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">signal</span><span class="p">:</span> <span class="n">MetricResult</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Cache the evaluation in the cache directory.&quot;&quot;&quot;</span>

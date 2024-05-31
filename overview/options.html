@@ -56,6 +56,7 @@
 <li class="toctree-l1"><a class="reference internal" href="olive.html">Olive</a></li>
 <li class="toctree-l1"><a class="reference internal" href="quicktour.html">Quick Tour</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Olive Options</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#workflow-id">Workflow ID</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#azure-ml-client">Azure ML Client</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#example">Example</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#azureml-client-with-aml-config-path"><code class="docutils literal notranslate"><span class="pre">azureml_client</span></code> with <code class="docutils literal notranslate"><span class="pre">aml_config_path</span></code>:</a></li>
@@ -174,6 +175,7 @@ used to compose a pipeline. Olive receives input model, target hardware, perform
 to apply from user in the form of a json dictionary. In this document, we document the options user can set in this dictionary.</p>
 <p>The options are organized into following sections:</p>
 <ul class="simple">
+<li><p><a class="reference internal" href="#workflow-id"><span class="xref myst">Workflow id</span></a> <code class="docutils literal notranslate"><span class="pre">workflow_id</span></code></p></li>
 <li><p><a class="reference internal" href="#azure-ml-client"><span class="xref myst">Azure ML client</span></a> <code class="docutils literal notranslate"><span class="pre">azureml_client</span></code></p></li>
 <li><p><a class="reference internal" href="#input-model-information"><span class="xref myst">Input Model Information</span></a> <code class="docutils literal notranslate"><span class="pre">input_model</span></code></p></li>
 <li><p><a class="reference internal" href="#data-information"><span class="xref myst">Data Information</span></a> <code class="docutils literal notranslate"><span class="pre">data_root</span></code></p></li>
@@ -182,6 +184,10 @@ to apply from user in the form of a json dictionary. In this document, we docume
 <li><p><a class="reference internal" href="#passes-information"><span class="xref myst">Passes Information</span></a> <code class="docutils literal notranslate"><span class="pre">passes</span></code></p></li>
 <li><p><a class="reference internal" href="#engine-information"><span class="xref myst">Engine Information</span></a> <code class="docutils literal notranslate"><span class="pre">engine</span></code></p></li>
 </ul>
+<section id="workflow-id">
+<h2>Workflow ID<a class="headerlink" href="#workflow-id" title="Permalink to this heading">¶</a></h2>
+<p>You can name the workflow run by specifying <code class="docutils literal notranslate"><span class="pre">workflow_id</span></code> section in your config file. Olive will save the cache under <code class="docutils literal notranslate"><span class="pre">&lt;cache_dir&gt;/&lt;workflow_id&gt;</span></code> folder, and automatically save the current running config in the cache folder.</p>
+</section>
 <section id="azure-ml-client">
 <h2>Azure ML Client<a class="headerlink" href="#azure-ml-client" title="Permalink to this heading">¶</a></h2>
 <p>If you will use Azure ML resources and assets, you need to provide your Azure ML client configurations. For example:</p>
