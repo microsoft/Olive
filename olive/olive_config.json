@@ -3,6 +3,9 @@
         "AppendPrePostProcessingOps": {
             "module_path": "olive.passes.onnx.append_pre_post_processing_ops.AppendPrePostProcessingOps"
         },
+        "AutoFusion": {
+            "module_path": "olive.passes.onnx.auto_fusion.AutoFusion"
+        },
         "DynamicToFixedShape": {
             "module_path": "olive.passes.onnx.dynamic_to_fixed_shape.DynamicToFixedShape"
         },
