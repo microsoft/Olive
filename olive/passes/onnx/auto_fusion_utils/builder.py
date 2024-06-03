@@ -143,7 +143,7 @@ class Builder:
         linker_path = Path(triton.tools.__path__[0]) / "link.py"
 
         h_files = [str(file) for file in Path(out_dir).glob(f"{kernel_name}*.h")]
-        run_subprocess(f"python {linker_path} {' '.join(h_files)} -o {kernel_name}", check=True, cwd=out_dir)
+        run_subprocess(f"{sys.executable} {linker_path} {' '.join(h_files)} -o {kernel_name}", check=True, cwd=out_dir)
 
         # need to add extern C to the header file to avoid name mangling
         # header is used in c++ code also
