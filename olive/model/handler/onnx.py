@@ -85,6 +85,8 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
     def custom_op_lib_path(self) -> Optional[str]:
         model_path = super().model_path
         return get_custom_op_lib_path(model_path, self.custom_op_lib) if model_path else None
+
+    @property
     def external_initializers_path(self) -> Optional[str]:
         model_path = super().model_path
         return get_additional_file_path(model_path, self.external_initializers_file_name) if model_path else None
