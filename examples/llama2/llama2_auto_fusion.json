@@ -84,7 +84,6 @@
     "engine": {
         "search_strategy": false,
         "evaluator": "merged_evaluator",
-        "execution_providers": ["CUDAExecutionProvider"],
         "cache_dir": "cache",
         "output_dir" : "models/auto_fusion"
     }
