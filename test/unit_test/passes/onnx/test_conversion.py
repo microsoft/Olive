@@ -18,6 +18,7 @@ from unittest.mock import patch
 import pytest
 import torch
 
+from olive.common.constants import OS
 from olive.model import PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion
@@ -38,7 +39,7 @@ def test_onnx_conversion_pass(input_model, tmp_path):
 
 
 @pytest.mark.skipif(
-    platform.system() == "Windows" or not torch.cuda.is_available(),
+    platform.system() == OS.WINDOWS or not torch.cuda.is_available(),
     reason="bitsandbytes requires Linux GPU.",
 )
 @pytest.mark.parametrize("add_quantized_modules", [True, False])

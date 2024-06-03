@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import torch
 
+from olive.common.constants import OS
 from olive.data.template import huggingface_data_config_template
 from olive.model import PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
@@ -83,7 +84,7 @@ def test_lora(tmp_path):
 
 
 @pytest.mark.skipif(
-    platform.system() == "Windows" or not torch.cuda.is_available(),
+    platform.system() == OS.WINDOWS or not torch.cuda.is_available(),
     reason="bitsandbytes requires Linux GPU.",
 )
 def test_qlora(tmp_path):
@@ -96,7 +97,7 @@ def test_qlora(tmp_path):
 
 
 @pytest.mark.skipif(
-    platform.system() == "Windows" or not torch.cuda.is_available(),
+    platform.system() == OS.WINDOWS or not torch.cuda.is_available(),
     reason="bitsandbytes requires Linux GPU.",
 )
 def test_loftq(tmp_path):

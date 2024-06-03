@@ -7,6 +7,7 @@ import platform
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+from olive.common.constants import OS
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
 from olive.model.config import IoConfig
@@ -55,10 +56,10 @@ class QNNModelHandler(OliveModelHandler):
                 logger.debug(
                     "QNNModelHandler: lib_targets is not provided, using default lib_targets x86_64-linux-clang"
                 )
-                if platform.system() == "Linux":
+                if platform.system() == OS.LINUX:
                     lib_targets = "x86_64-linux-clang"
                     model_lib_suffix = ".so"
-                elif platform.system() == "Windows":
+                elif platform.system() == OS.WINDOWS:
                     # might be different for arm devices
                     lib_targets = "x64"
                     model_lib_suffix = ".dll"

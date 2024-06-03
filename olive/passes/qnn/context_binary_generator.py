@@ -8,6 +8,7 @@ import platform
 from pathlib import Path
 from typing import Any, Dict
 
+from olive.common.constants import OS
 from olive.constants import ModelFileFormat
 from olive.hardware import AcceleratorSpec
 from olive.model import QNNModelHandler
@@ -26,7 +27,7 @@ class QNNContextBinaryGenerator(Pass):
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        if platform.system() == "Windows":
+        if platform.system() == OS.WINDOWS:
             raise NotImplementedError("QNNContextBinaryGenerator is not supported on Windows.")
 
         return {

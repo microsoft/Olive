@@ -7,6 +7,7 @@ import platform
 from pathlib import Path
 from typing import Any, Dict, List, Union
 
+from olive.common.constants import OS
 from olive.constants import ModelFileFormat
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler, PyTorchModelHandler, QNNModelHandler, TensorFlowModelHandler
@@ -82,7 +83,7 @@ class QNNConversion(Pass):
         converter_program = [f"qnn-{converter_platform}-converter"]
 
         runner = QNNSDKRunner(use_dev_tools=True)
-        if platform.system() == "Windows":
+        if platform.system() == OS.WINDOWS:
             converter_program = [
                 "python",
                 str(Path(runner.sdk_env.sdk_root_path) / "bin" / runner.sdk_env.target_arch / converter_program[0]),

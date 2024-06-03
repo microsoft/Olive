@@ -11,6 +11,7 @@ import torch
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
+from olive.common.constants import OS
 from olive.data.config import DataConfig
 from olive.model import PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
@@ -19,7 +20,7 @@ from olive.passes.onnx.inc_quantization import IncDynamicQuantization, IncQuanti
 
 
 @pytest.mark.skipif(
-    platform.system() == "Windows", reason="Skip test on Windows. neural-compressor import is hanging on Windows."
+    platform.system() == OS.WINDOWS, reason="Skip test on Windows. neural-compressor import is hanging on Windows."
 )
 def test_inc_quantization(tmp_path):
     ov_model = get_onnx_model(tmp_path)
@@ -64,7 +65,7 @@ def test_inc_quantization(tmp_path):
 
 
 @pytest.mark.skipif(
-    platform.system() == "Windows", reason="Skip test on Windows. neural-compressor import is hanging on Windows."
+    platform.system() == OS.WINDOWS, reason="Skip test on Windows. neural-compressor import is hanging on Windows."
 )
 def test_inc_weight_only_quantization(tmp_path):
     ov_model = get_onnx_model(tmp_path)
@@ -95,7 +96,7 @@ def test_inc_weight_only_quantization(tmp_path):
 
 
 @pytest.mark.skipif(
-    platform.system() == "Windows", reason="Skip test on Windows. neural-compressor import is hanging on Windows."
+    platform.system() == OS.WINDOWS, reason="Skip test on Windows. neural-compressor import is hanging on Windows."
 )
 @patch.dict("neural_compressor.quantization.STRATEGIES", {"auto": MagicMock()})
 @patch("olive.passes.onnx.inc_quantization.model_proto_to_olive_model")

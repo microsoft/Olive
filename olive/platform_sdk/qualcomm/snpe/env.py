@@ -7,6 +7,7 @@ import os
 import platform
 from pathlib import Path
 
+from olive.common.constants import OS
 from olive.platform_sdk.qualcomm.constants import SDKTargetDevice
 from olive.platform_sdk.qualcomm.env import SDKEnv
 
@@ -21,7 +22,7 @@ class SNPESDKEnv(SDKEnv):
         target_arch = self.target_arch
         sdk_root_path = self.sdk_root_path
         delimiter = os.path.pathsep
-        python_env_parent_folder = "" if platform.system() == "Windows" else "bin"
+        python_env_parent_folder = "" if platform.system() == OS.WINDOWS else "bin"
         python_env_bin_path = str(Path(f"{sdk_root_path}/olive-pyenv/{python_env_parent_folder}"))
 
         env["PATH"] += delimiter + os.environ["PATH"]
@@ -35,7 +36,7 @@ class SNPESDKEnv(SDKEnv):
 
             env["PATH"] = python_env_bin_path + delimiter + env["PATH"]
 
-        if platform.system() == "Windows":
+        if platform.system() == OS.WINDOWS:
             os_env = os.environ.copy()
             os_env.update(env)
             env = os_env

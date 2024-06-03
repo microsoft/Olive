@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from olive.common.constants import OS
 from olive.common.utils import run_subprocess
 
 # pylint: disable=redefined-outer-name
@@ -25,7 +26,7 @@ class DependencySetupEnvBuilder(venv.EnvBuilder):
 
 @pytest.fixture()
 def config_json(tmp_path):
-    if platform.system() == "Windows":
+    if platform.system() == OS.WINDOWS:
         ep = "DmlExecutionProvider"
     else:
         ep = "CUDAExecutionProvider"
@@ -45,7 +46,7 @@ def test_dependency_setup(tmp_path, config_json):
     builder = DependencySetupEnvBuilder(with_pip=True)
     builder.create(str(tmp_path))
 
-    if platform.system() == "Windows":
+    if platform.system() == OS.WINDOWS:
         python_path = tmp_path / "Scripts" / "python"
         ort_extra = "onnxruntime-directml"
     else:

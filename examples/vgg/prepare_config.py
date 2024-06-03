@@ -6,6 +6,8 @@ import json
 import platform
 from pathlib import Path
 
+from olive.common.constants import OS
+
 
 def resolve_windows_config():
 
@@ -18,5 +20,5 @@ def resolve_windows_config():
 
 
 if __name__ == "__main__":
-    if platform.system() == "Windows":
+    if platform.system() == OS.WINDOWS:
         resolve_windows_config()

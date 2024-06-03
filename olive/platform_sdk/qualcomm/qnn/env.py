@@ -7,6 +7,7 @@ import os
 import platform
 from pathlib import Path
 
+from olive.common.constants import OS
 from olive.platform_sdk.qualcomm.env import SDKEnv
 
 
@@ -19,7 +20,7 @@ class QNNSDKEnv(SDKEnv):
         env = super().env
         sdk_root_path = self.sdk_root_path
         delimiter = os.path.pathsep
-        python_env_parent_folder = "Scripts" if platform.system() == "Windows" else "bin"
+        python_env_parent_folder = "Scripts" if platform.system() == OS.WINDOWS else "bin"
         python_env_bin_path = str(Path(f"{sdk_root_path}/olive-pyenv/{python_env_parent_folder}"))
 
         env["PATH"] += delimiter + os.environ["PATH"]
@@ -31,7 +32,7 @@ class QNNSDKEnv(SDKEnv):
                     " to add the missing file."
                 )
             env["PATH"] = python_env_bin_path + delimiter + env["PATH"]
-        if platform.system() == "Windows":
+        if platform.system() == OS.WINDOWS:
             for k, v in os.environ.items():
                 if k not in env:
                     env[k] = v
@@ -41,7 +42,7 @@ class QNNSDKEnv(SDKEnv):
     def get_qnn_backend(self, backend_name):
         backend_path = Path(self.sdk_root_path) / "lib" / self.target_arch / backend_name
         backend_path = (
-            backend_path.with_suffix(".dll") if platform.system() == "Windows" else backend_path.with_suffix(".so")
+            backend_path.with_suffix(".dll") if platform.system() == OS.WINDOWS else backend_path.with_suffix(".so")
         )
 
         if not backend_path.exists():
