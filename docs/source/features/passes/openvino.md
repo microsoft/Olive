@@ -11,12 +11,12 @@ Read more at: [Intel® Distribution of OpenVINO™ Toolkit](https://www.intel.co
 Note: OpenVINO version in Olive: 2023.2.0
 
 ### Option 1: install Olive with OpenVINO extras
-```
+```bash
 pip install olive-ai[openvino]
 ```
 
 ### Option 2: Install OpenVINO Runtime and OpenVINO Development Tools from Pypi
-```
+```bash
 pip install openvino==2023.2.0
 ```
 

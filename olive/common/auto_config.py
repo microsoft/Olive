@@ -59,7 +59,7 @@ class AutoConfigClass(ABC):
 
     def __init__(self, config: Union[ConfigBase, Dict[str, Any]]) -> None:
         self.config_class = self.get_config_class()
-        self.config = validate_config(config, self._config_base, self.config_class)
+        self.config = validate_config(config, self.config_class)
 
     @classmethod
     @abstractmethod

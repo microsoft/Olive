@@ -16,13 +16,15 @@ from docker.errors import BuildError, ContainerError
 import olive.systems.docker.utils as docker_utils
 from olive.cache import get_local_path_from_root
 from olive.common.config_utils import ParamCategory, validate_config
-from olive.evaluator.metric import Metric, MetricResult
+from olive.evaluator.metric_result import MetricResult
 from olive.hardware import Device
 from olive.model import ModelConfig
-from olive.systems.common import LocalDockerConfig, SystemType
+from olive.systems.common import AcceleratorConfig, LocalDockerConfig, SystemType
 from olive.systems.olive_system import OliveSystem
+from olive.systems.system_config import DockerTargetUserConfig
 
 if TYPE_CHECKING:
+    from olive.evaluator.metric import Metric
     from olive.hardware.accelerator import AcceleratorSpec
     from olive.passes import Pass
 
@@ -37,18 +39,14 @@ class DockerSystem(OliveSystem):
     def __init__(
         self,
         local_docker_config: Union[Dict[str, Any], LocalDockerConfig],
-        accelerators: List[str] = None,
+        accelerators: List[AcceleratorConfig] = None,
         is_dev: bool = False,
-        olive_managed_env: bool = False,
         hf_token: bool = None,
         requirements_file: Optional[Union[Path, str]] = None,
-        **kwargs,  # used to hold the rest of the arguments which is not used by dockersystem
+        **kwargs,  # used to hold the rest of the arguments not used by dockersystem.
     ):
-        super().__init__(
-            accelerators=accelerators,
-            olive_managed_env=olive_managed_env,
-            hf_token=hf_token,
-        )
+        super().__init__(accelerators=accelerators, hf_token=hf_token)
+
         logger.info("Initializing Docker System...")
         self.is_dev = is_dev
         self.docker_client = docker.from_env()
@@ -58,6 +56,8 @@ class DockerSystem(OliveSystem):
         local_docker_config = validate_config(local_docker_config, LocalDockerConfig)
         if not local_docker_config.build_context_path and not local_docker_config.dockerfile and not requirements_file:
             raise ValueError("build_context_path, dockerfile and requirements_file cannot be None at the same time.")
+
+        self.config = DockerTargetUserConfig(**locals(), **kwargs)
 
         self.run_params = local_docker_config.run_params
         try:
@@ -219,7 +219,7 @@ class DockerSystem(OliveSystem):
             return None
 
     def evaluate_model(
-        self, model_config: "ModelConfig", data_root: str, metrics: List[Metric], accelerator: "AcceleratorSpec"
+        self, model_config: "ModelConfig", data_root: str, metrics: List["Metric"], accelerator: "AcceleratorSpec"
     ) -> Dict[str, Any]:
         container_root_path = Path("/olive-ws/")
         with tempfile.TemporaryDirectory() as tempdir:
@@ -239,7 +239,7 @@ class DockerSystem(OliveSystem):
         workdir,
         model_config: "ModelConfig",
         data_root: str,
-        metrics: List[Metric],
+        metrics: List["Metric"],
         accelerator: "AcceleratorSpec",
         container_root_path: Path,
     ):
@@ -300,7 +300,7 @@ class DockerSystem(OliveSystem):
         return self._run_container(eval_command, volumes_list, output_local_path, eval_output_name, accelerator)
 
     @staticmethod
-    def _create_eval_config(model_config: "ModelConfig", metrics: List[Metric], model_mounts: Dict[str, str]):
+    def _create_eval_config(model_config: "ModelConfig", metrics: List["Metric"], model_mounts: Dict[str, str]):
         model_json = model_config.to_json(check_object=True)
         for k, v in model_mounts.items():
             model_json["config"][k] = v

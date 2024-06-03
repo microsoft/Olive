@@ -24,6 +24,7 @@ class ModelFileFormat(str, Enum):
     PYTORCH_STATE_DICT = "PyTorch.StateDict"
     PYTORCH_TORCH_SCRIPT = "PyTorch.TorchScript"
     PYTORCH_MLFLOW_MODEL = "PyTorch.MLflow"
+    PYTORCH_SLICE_GPT_MODEL = "PyTorch.SliceGPT"
     TENSORFLOW_PROTOBUF = "TensorFlow.Protobuf"
     TENSORFLOW_SAVED_MODEL = "TensorFlow.SavedModel"
     SNPE_DLC = "SNPE.DLC"

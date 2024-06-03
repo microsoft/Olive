@@ -9,9 +9,16 @@ from typing import TYPE_CHECKING, Any, Dict, List, Union
 
 import onnx
 
+from olive.common.utils import exclude_keys
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModelHandler
-from olive.model.utils import HIDDEN_SIZE_NAMES, MODEL_TYPE_MAPPING, NUM_HEADS_NAMES, resolve_onnx_path
+from olive.model.utils import (
+    HIDDEN_SIZE_NAMES,
+    MODEL_TYPE_MAPPING,
+    NUM_HEADS_NAMES,
+    NUM_KEY_VALUE_HEADS_NAMES,
+    resolve_onnx_path,
+)
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
@@ -30,6 +37,11 @@ class OrtTransformersOptimization(Pass):
     It is based on onnxruntime.transformers.optimizer.
     """
 
+    # NOTE: Don't run this on target since it only needs to create an inference session if `opt_level` > 0
+    # this is not common and running on target blocks cross platform workflows such as optimizing for DML EP
+    # using a Linux machine which doesn't support onnxruntime-directml package.
+    # It is enough for the pass to fail if `opt_level` > 0 and the host doesn't have the required packages.
+
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
         """Override this method to return False by using the accelerator spec information."""
@@ -42,7 +54,11 @@ class OrtTransformersOptimization(Pass):
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         from onnxruntime.transformers.fusion_options import FusionOptions
 
-        is_gpu = accelerator_spec.accelerator_type == Device.GPU
+        # if device is GPU, but user choose CPU EP, the is_gpu should be False
+        is_gpu = (
+            accelerator_spec.accelerator_type == Device.GPU
+            and accelerator_spec.execution_provider != "CPUExecutionProvider"
+        )
 
         config = {
             "model_type": PassConfigParam(
@@ -55,6 +71,9 @@ class OrtTransformersOptimization(Pass):
                 ),
             ),
             "num_heads": PassConfigParam(type_=int, default_value=0, description="Number of attention heads."),
+            "num_key_value_heads": PassConfigParam(
+                type_=int, default_value=0, description="Number of key/value attention heads."
+            ),
             "hidden_size": PassConfigParam(type_=int, default_value=0, description="Number of hidden nodes."),
             # TODO(jambayk): Figure out what the expected type is
             "optimization_options": PassConfigParam(
@@ -206,6 +225,8 @@ class OrtTransformersOptimization(Pass):
     ) -> ONNXModelHandler:
         from onnxruntime.transformers import optimizer as transformers_optimizer
 
+        num_kv_heads = config["num_key_value_heads"]
+
         # start with a copy of the config
         run_config = deepcopy(config)
         keys_to_remove = [
@@ -216,10 +237,10 @@ class OrtTransformersOptimization(Pass):
             "force_fp16_inputs",
             "use_gqa",
             "input_int32",
+            "num_key_value_heads",
         ]
         keys_to_remove += get_external_data_config()
-        for key in keys_to_remove:
-            del run_config[key]
+        run_config = exclude_keys(run_config, keys_to_remove)
 
         if model.model_attributes:
             model_attributes = model.model_attributes
@@ -228,16 +249,25 @@ class OrtTransformersOptimization(Pass):
                 model_type = MODEL_TYPE_MAPPING.get(input_model_type, input_model_type)
             else:
                 model_type = None
+            if not run_config["model_type"] and model_type:
+                logger.debug("model_type is set to %s from model attributes", model_type)
             run_config["model_type"] = run_config["model_type"] or model_type
             if run_config["num_heads"] == 0:
                 for num_heads_name in NUM_HEADS_NAMES:
                     if num_heads_name in model_attributes:
                         run_config["num_heads"] = model_attributes[num_heads_name]
+                        logger.debug("num_heads is set to %d from model attributes", run_config["num_heads"])
                         break
             if run_config["hidden_size"] == 0:
                 for hidden_size_name in HIDDEN_SIZE_NAMES:
                     if hidden_size_name in model_attributes:
                         run_config["hidden_size"] = model_attributes[hidden_size_name]
+                        logger.debug("hidden_size is set to %d from model attributes", run_config["hidden_size"])
+                        break
+            if num_kv_heads == 0:
+                for num_key_value_heads_name in NUM_KEY_VALUE_HEADS_NAMES:
+                    if num_key_value_heads_name in model_attributes:
+                        num_kv_heads = model_attributes[num_key_value_heads_name]
                         break
 
         if run_config["model_type"] is None or run_config["model_type"] not in transformers_optimizer.MODEL_TYPES:
@@ -286,16 +316,7 @@ class OrtTransformersOptimization(Pass):
             )
 
             if config["use_gqa"]:
-                # Replace MultiHeadAttention with GroupQueryAttention
-                # TODO(anyone): treat `num_key_value_heads` like `num_heads` and `hidden_size`.
-                # Should be provided either in the model attributes or in the config.
-                num_kv_heads = model.model_attributes.get("num_key_value_heads", None)
-                if num_kv_heads is None:
-                    raise ValueError(
-                        "num_key_value_heads is not specified in the model attributes. "
-                        "Please specify it in the model attributes."
-                    )
-                world_size = model.model_attributes.get("world_size") or 1
+                world_size = model.model_attributes.get("world_size", 1) if model.model_attributes is not None else 1
                 optimizer = self._replace_mha_with_gqa(optimizer, kv_num_heads=num_kv_heads, world_size=world_size)
                 optimizer.prune_graph()
                 # add allow_remove_graph_inputs to pass config
@@ -403,4 +424,5 @@ class OrtTransformersOptimization(Pass):
             )
             model.model.graph.node.remove(node)
             model.model.graph.node.extend([gqa_node])
+        logger.info("Replaced %d MultiHeadAttention nodes with GroupQueryAttention", len(mha_nodes))
         return model

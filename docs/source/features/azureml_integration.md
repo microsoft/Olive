@@ -8,7 +8,7 @@ To use Azure Machine Learning assets in your workspace, please include your work
 ## Olive Core
 ### Using AzureML registered model
 You can run Olive workflow with your AML workspace registered model. In the input model section, define the model config as:
-```
+```json
 "model_path": {
     "type": "azureml_model",
     "config": {
@@ -22,7 +22,7 @@ Olive will automatically download the model and run the workflow in the specifie
 
 ### Using AzureML curated model
 You can run Olive workflow with AML registered model. In the input model section, define the model config as:
-```
+```json
 "model_path": {
     "type": "azureml_registry_model",
     "config": {
@@ -38,7 +38,7 @@ Note: you don't need the `azureml_client` section for AzureML curated model.
 
 ### Using model stored in AzureML datastore
 You can specify your model path from an AzureML datastore as:
-```
+```json
 "model_path": {
     "type": "azureml_datastore",
     "config": {
@@ -55,7 +55,7 @@ You can specify your model path from an AzureML datastore as:
 
 ### Using a model from an AzureML job output
 You can specify your model path from an AzureML job output as:
-```
+```json
 "model_path": {
     "type": "azureml_job_output",
     "config": {
@@ -73,7 +73,7 @@ You can specify your model path from an AzureML job output as:
 
 ### Using data stored in AzureML datastore
 You can use data files or folders that are stored in your Azure ML datastore as:
-```
+```json
 "data_dir": {
     "type": "azureml_datastore",
     "config": {
@@ -90,7 +90,7 @@ You can use data files or folders that are stored in your Azure ML datastore as:
 
 ### Using Azure ML compute as host or target
 You can specify your Azure ML Compute as an Olive System and use it as a host to run Pass, or a target to evaluate the model.
-```
+```json
 "systems": {
     "aml_system": {
         "type": "AzureML",
@@ -105,12 +105,21 @@ You can specify your Azure ML Compute as an Olive System and use it as a host to
 }
 ```
 Then you can specify where to use it in the Engine config:
-```
+```json
 {
     "host": "aml_system",
     "target": "aml_system",
 }
 ```
+
+### Packaging the output models to AzureML workspace
+#### Azure ML Models
+AzureMLModels packaging will register the output models to your Azure Machine Learning workspace. Please find more details [here](packaging_output_models.md#azuremlmodels).
+
+
+#### Azure ML Data
+AzureMLData packaging will upload the output models to your Azure Machine Learning workspace as Data assets. Please find more details [here](packaging_output_models.md#azuremldata).
+
 
 ## Connect your own device to Azure ML as target or host by Azure Arc
 If you have your own device, you have the option to link it to your Azure ML Workspace as a Compute via Azure Arc. This allows you to use it as a Target for evaluating your model.

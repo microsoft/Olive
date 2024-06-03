@@ -32,6 +32,7 @@ This document introduces Olive and provides some examples to get you started.
    :maxdepth: 1
    :caption: FEATURES
 
+   features/cli
    features/model_transformations_and_optimizations
    features/huggingface_model_optimization
    features/packaging_output_models

@@ -6,18 +6,16 @@ import logging
 import math
 import re
 from test.unit_test.utils import create_dataloader, get_onnx_model
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import psutil
 import pytest
 
-from olive.evaluator.metric import flatten_metric_result
+from olive.evaluator.metric_result import flatten_metric_result
 from olive.evaluator.olive_evaluator import OliveEvaluator, OnnxEvaluator
 from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR, AcceleratorSpec, Device
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx import OrtPerfTuning
-from olive.passes.onnx.perf_tuning import PERFTUNING_BASELINE, PerfTuningRunner, generate_test_name
-from olive.systems.local import LocalSystem
+from olive.passes.onnx.perf_tuning import PERFTUNING_BASELINE, OrtPerfTuning, PerfTuningRunner, generate_test_name
 
 
 @pytest.mark.parametrize(
@@ -39,7 +37,7 @@ def test_ort_perf_tuning_pass(config, tmp_path):
     p.run(input_model, None, output_folder)
 
 
-@patch("olive.passes.onnx.OrtPerfTuning._run_for_config")
+@patch("olive.passes.onnx.perf_tuning.OrtPerfTuning._run_for_config")
 @pytest.mark.parametrize(
     "config",
     [
@@ -211,7 +209,7 @@ def test_perf_tuning_with_force_evaluate(get_available_providers_mock, evaluate_
         )
 
 
-@patch("olive.model.ONNXModelHandler.get_io_config")
+@patch("olive.model.ONNXModelHandler.io_config", new_callable=PropertyMock)
 def test_ort_perf_tuning_pass_with_dynamic_shapes(mock_get_io_config, tmp_path):
     mock_get_io_config.return_value = {
         "input_names": ["input"],
@@ -351,14 +349,3 @@ def test_rocm_tuning_enable(get_available_providers_mock, inference_session_mock
     set_tuning_result_count = 3 * set_tuning_result_binary_search_count_per_iteration
     assert mock.set_tuning_results.call_count >= set_tuning_result_count
     assert mock.get_tuning_results.call_count == mock.set_tuning_results.call_count + 1
-
-
-def test_perf_tuning_with_target(tmp_path):
-    # setup
-    input_model = get_onnx_model()
-    p = create_pass_from_dict(OrtPerfTuning, {}, disable_search=True)
-    output_folder = str(tmp_path / "onnx")
-
-    # execute
-    p.set_target(LocalSystem())
-    p.run(input_model, None, output_folder)

@@ -4,7 +4,7 @@
         "resource_group": "<place_holder>",
         "workspace_name": "<place_holder>"
     },
-    "input_model":{
+    "input_model": {
         "type": "PyTorchModel",
         "config": {
             "model_path": {
@@ -16,33 +16,52 @@
             },
             "hf_config": {
                 "model_name": "Intel/bert-base-uncased-mrpc",
-                "task": "text-classification",
-                "dataset": {
-                    "data_name":"glue",
-                    "subset": "mrpc",
-                    "split": "validation",
-                    "input_cols": ["sentence1", "sentence2"],
-                    "label_cols": ["label"],
-                    "batch_size": 1
-                }
+                "task": "text-classification"
             }
         }
     },
+    "data_configs": [
+        {
+            "name": "glue_mrpc",
+            "type": "HuggingfaceContainer",
+            "params_config": {
+                "data_name": "glue",
+                "subset": "mrpc",
+                "split": "validation",
+                "input_cols": [
+                    "sentence1",
+                    "sentence2"
+                ],
+                "label_cols": [
+                    "label"
+                ],
+                "batch_size": 1
+            }
+        }
+    ],
     "evaluators": {
         "common_evaluator": {
-            "metrics":[
+            "metrics": [
                 {
                     "name": "accuracy",
                     "type": "accuracy",
+                    "data_config": "glue_mrpc",
                     "sub_types": [
-                        {"name": "accuracy_score", "priority": 1}
+                        {
+                            "name": "accuracy_score",
+                            "priority": 1
+                        }
                     ]
                 },
                 {
                     "name": "latency",
                     "type": "latency",
+                    "data_config": "glue_mrpc",
                     "sub_types": [
-                        {"name": "avg", "priority": 2}
+                        {
+                            "name": "avg",
+                            "priority": 2
+                        }
                     ]
                 }
             ]
@@ -52,7 +71,7 @@
         "conversion": {
             "type": "OnnxConversion",
             "config": {
-                "target_opset": 13
+                "target_opset": 14
             }
         },
         "transformers_optimization": {
@@ -69,18 +88,17 @@
                 "per_channel": false,
                 "reduce_range": false,
                 "calibrate_method": "MinMax",
-                "data_config": "__input_model_data_config__"
+                "data_config": "glue_mrpc"
             }
         },
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {
-                "data_config": "__input_model_data_config__"
+                "data_config": "glue_mrpc"
             }
         }
     },
     "engine": {
-        "execution_providers": ["CPUExecutionProvider"],
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
         "output_dir": "models/bert_hf_cpu_aml"

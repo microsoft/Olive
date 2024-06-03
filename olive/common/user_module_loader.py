@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import sys
 from pathlib import Path
 from types import FunctionType, MethodType
 from typing import Any, Callable, Optional, Union
@@ -20,6 +21,7 @@ class UserModuleLoader:
         self.script_dir = script_dir
         if self.user_script:
             self.user_module = import_user_module(user_script, script_dir)
+            sys.modules[self.user_module.__name__] = self.user_module
         else:
             self.user_module = None
 

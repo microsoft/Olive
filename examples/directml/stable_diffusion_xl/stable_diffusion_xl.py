@@ -300,7 +300,9 @@ def update_config_with_provider(config: Dict, provider: str, is_fp16: bool) -> D
         if is_fp16:
             config["passes"]["optimize_cuda"]["config"].update({"float16": True, "keep_io_types": False})
         config["pass_flows"] = [["convert", "optimize_cuda"]]
-        config["engine"]["execution_providers"] = ["CUDAExecutionProvider"]
+        config["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [
+            "CUDAExecutionProvider"
+        ]
         return config
     else:
         raise ValueError(f"Unsupported provider: {provider}")

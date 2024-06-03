@@ -42,19 +42,21 @@ This Python script provides a command-line interface for managing compute resour
 
 #### Usage
 
-You can run the script to create an AzureML compute instance from the command line like this:
+You can use ``olive manage-aml-compute`` command line tool to create an AzureML compute instance from the command line like this:
 
-```
-python -m olive.scripts.manage_compute_instance --create --subscription_id <subscription_id> --resource_group <resource_group> --workspace_name <workspace_name> --compute_name <compute_name> --vm_size <vm_size> --location <location> --min_nodes <min_nodes> --max_nodes <max_nodes> --idle_time_before_scale_down <idle_time_before_scale_down>
+```bash
+olive manage-aml-compute --create --subscription_id <subscription_id> --resource_group <resource_group> --workspace_name <workspace_name> --compute_name <compute_name> --vm_size <vm_size> --location <location> --min_nodes <min_nodes> --max_nodes <max_nodes> --idle_time_before_scale_down <idle_time_before_scale_down>
 ```
 
 or
 
-```
-python -m olive.scripts.manage_compute_instance --create --aml_config_path </path/to/aml_config.json> --compute_name <compute_name> --vm_size <vm_size> --location <location> --min_nodes <min_nodes> --max_nodes <max_nodes> --idle_time_before_scale_down <idle_time_before_scale_down>
+```bash
+olive manage-aml-compute --create --aml_config_path </path/to/aml_config.json> --compute_name <compute_name> --vm_size <vm_size> --location <location> --min_nodes <min_nodes> --max_nodes <max_nodes> --idle_time_before_scale_down <idle_time_before_scale_down>
 ```
 
 You can delete an AzureML compute instance by:
+```bash
+olive manage-aml-compute --delete --compute_name <compute_name>
 ```
-python -m olive.scripts.manage_compute_instance --delete --compute_name <compute_name>
-```
+
+More details can be found at [Command Line Tools](command_line_tools).

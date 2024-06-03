@@ -12,26 +12,27 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 
 import olive.cache as cache_utils
-from olive.common.config_utils import ConfigBase, validate_config
+from olive.common.config_utils import validate_config
+from olive.common.constants import DEFAULT_WORKFLOW_ID
 from olive.common.utils import hash_dict
-from olive.engine.config import FAILED_CONFIG, INVALID_CONFIG, PRUNED_CONFIGS, EngineConfig
+from olive.engine.config import FAILED_CONFIG, INVALID_CONFIG, PRUNED_CONFIGS
 from olive.engine.footprint import Footprint, FootprintNodeMetric
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
-from olive.evaluator.metric import Metric, MetricResult, joint_metric_key
+from olive.evaluator.metric import Metric
+from olive.evaluator.metric_result import MetricResult, joint_metric_key
+from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.exception import EXCEPTIONS_TO_RAISE, OlivePassError
+from olive.hardware import AcceleratorSpec
 from olive.model import ModelConfig
-from olive.strategy.search_strategy import SearchStrategy
+from olive.strategy.search_strategy import SearchStrategy, SearchStrategyConfig
 from olive.systems.common import SystemType
-from olive.systems.local import LocalSystem
-from olive.systems.olive_system import OliveSystem
-from olive.systems.system_config import LocalTargetUserConfig, SystemConfig
-from olive.systems.utils import create_new_system_with_cache
+from olive.systems.system_config import SystemConfig
+from olive.systems.utils import create_managed_system_with_cache
 
 if TYPE_CHECKING:
     from olive.engine.packaging.packaging_config import PackagingConfig
-    from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
-    from olive.hardware import AcceleratorSpec
     from olive.passes.olive_pass import Pass
+    from olive.systems.olive_system import OliveSystem
 
 logger = logging.getLogger(__name__)
 
@@ -44,52 +45,45 @@ class Engine:
 
     def __init__(
         self,
-        config: Union[Dict[str, Any], EngineConfig] = None,
-        search_strategy: Optional[SearchStrategy] = None,
-        host_config: Optional[SystemConfig] = None,
-        target_config: Optional[SystemConfig] = None,
-        evaluator_config: Optional["OliveEvaluatorConfig"] = None,
+        workflow_id: str = DEFAULT_WORKFLOW_ID,
+        search_strategy: Optional[Union[Dict[str, Any], SearchStrategyConfig]] = None,
+        host: Optional[Union[Dict[str, Any], "SystemConfig"]] = None,
+        target: Optional[Union[Dict[str, Any], "SystemConfig"]] = None,
+        evaluator: Optional[Union[Dict[str, Any], "OliveEvaluatorConfig"]] = None,
+        cache_dir=".olive-cache",
+        clean_cache=False,
+        clean_evaluation_cache=False,
+        plot_pareto_frontier=False,
+        *,
+        azureml_client_config=None,
     ):
-        self._config = validate_config(config, EngineConfig)
-
         self.no_search = False
-        # default search strategy
-        self.search_strategy = SearchStrategy({"execution_order": "joint", "search_algorithm": "exhaustive"})
-        if search_strategy is not None:
-            # if search strategy is provided, use it. It takes precedence
-            self.search_strategy = search_strategy
-        elif isinstance(self._config.search_strategy, (ConfigBase, dict)):
-            # if search strategy is provided in config, use it
-            self.search_strategy = SearchStrategy(self._config.search_strategy)
-        elif not self._config.search_strategy:
+        if not search_strategy:
             # if search strategy is None or False, disable search
             self.no_search = True
+            self.search_strategy = None
+        else:
+            # if search strategy is provided in config, use it
+            self.search_strategy = SearchStrategy(search_strategy)
 
         # default host
-        if host_config is not None:
-            self.host_config = host_config
-        elif self._config.host is not None:
-            self.host_config = self._config.host
-        else:
-            # host accelerator is not used, so no need to specify it
-            self.host_config = SystemConfig(type=SystemType.Local, config=LocalTargetUserConfig())
+        host = host or {"type": SystemType.Local}
+        self.host_config = validate_config(host, SystemConfig)
         self.host = None
 
         # engine target
-        if target_config is not None:
-            self.target_config = target_config
-        elif self._config.target is not None:
-            self.target_config = self._config.target
-        else:
-            self.target_config = SystemConfig(type=SystemType.Local, config=LocalTargetUserConfig())
+        target = target or {"type": SystemType.Local}
+        self.target_config = validate_config(target, SystemConfig)
         self.target = None
 
         # default evaluator
-        self.evaluator_config = None
-        if evaluator_config is not None:
-            self.evaluator_config = evaluator_config
-        elif self._config.evaluator is not None:
-            self.evaluator_config = self._config.evaluator
+        self.evaluator_config = validate_config(evaluator, OliveEvaluatorConfig) if evaluator else None
+
+        self.cache_dir = str(Path(cache_dir) / workflow_id)
+        self.clean_cache = clean_cache
+        self.clean_evaluation_cache = clean_evaluation_cache
+        self.plot_pareto_frontier = plot_pareto_frontier
+        self.azureml_client_config = azureml_client_config
 
         # dictionary of passes
         self.pass_config = OrderedDict()
@@ -100,24 +94,23 @@ class Engine:
         self.pass_flows_search_spaces = None
 
         self.footprints = defaultdict(Footprint)
-        self.azureml_client_config = self._config.azureml_client_config
+
         self._initialized = False
 
     def initialize(self):
         """Initialize engine state. This should be done before running the registered passes."""
         # pylint: disable=attribute-defined-outside-init
 
-        cache_dir = self._config.cache_dir
-        if self._config.clean_cache:
-            cache_utils.clean_cache(cache_dir)
-        if self._config.clean_evaluation_cache:
-            cache_utils.clean_evaluation_cache(cache_dir)
+        if self.clean_cache:
+            cache_utils.clean_cache(self.cache_dir)
+        if self.clean_evaluation_cache:
+            cache_utils.clean_evaluation_cache(self.cache_dir)
 
-        logger.info("Using cache directory: %s", cache_dir)
+        logger.info("Using cache directory: %s", self.cache_dir)
         self._model_cache_path, self._run_cache_path, self._evaluation_cache_path, _ = cache_utils.get_cache_sub_dirs(
-            cache_dir
+            self.cache_dir
         )
-        cache_utils.create_cache(cache_dir)
+        cache_utils.create_cache(self.cache_dir)
 
         # initialize counters
         # we do this before cleaning pass run caches to ensure we don't reuse model numbers even if the model was
@@ -136,7 +129,7 @@ class Engine:
         for pass_config in self.pass_config.values():
             clean_run_cache = pass_config["clean_run_cache"]
             if clean_run_cache:
-                cache_utils.clean_pass_run_cache(pass_config["type"].__name__, cache_dir)
+                cache_utils.clean_pass_run_cache(pass_config["type"].__name__, self.cache_dir)
 
         self.set_pass_flows(self.pass_flows)
         self._initialized = True
@@ -147,7 +140,7 @@ class Engine:
         config: Dict[str, Any] = None,
         disable_search=False,
         name: str = None,
-        host: OliveSystem = None,
+        host: "OliveSystem" = None,
         evaluator_config: "OliveEvaluatorConfig" = None,
         clean_run_cache: bool = False,
         output_name: str = None,
@@ -179,7 +172,7 @@ class Engine:
         self,
         p: "Pass",
         name: str = None,
-        host: OliveSystem = None,
+        host: "OliveSystem" = None,
         evaluator_config: "OliveEvaluatorConfig" = None,
         output_name: str = None,
     ):
@@ -227,7 +220,7 @@ class Engine:
         input_model_config: ModelConfig,
         accelerator_specs: List["AcceleratorSpec"],
         data_root: str = None,
-        packaging_config: Optional["PackagingConfig"] = None,
+        packaging_config: Optional[Union["PackagingConfig", List["PackagingConfig"]]] = None,
         output_dir: str = None,
         output_name: str = None,
         evaluate_input_model: bool = True,
@@ -270,7 +263,7 @@ class Engine:
 
         for accelerator_spec in accelerator_specs:
             logger.info("Running Olive on accelerator: %s", accelerator_spec)
-            with self.create_managed_environment(accelerator_spec):
+            with self._create_system(accelerator_spec):
                 run_result = self.run_accelerator(
                     input_model_config,
                     data_root,
@@ -298,6 +291,7 @@ class Engine:
                 self.footprints,
                 outputs,
                 output_dir,
+                self.azureml_client_config,
             )
         else:
             logger.info("No packaging config provided, skip packaging artifacts")
@@ -372,14 +366,22 @@ class Engine:
         logger.debug("run_accelerator done")
         return output_footprint
 
+    def get_host_device(self):
+        if self.host_config.config.accelerators:
+            # for host device, we will always use the first accelerator device
+            return self.host_config.config.accelerators[0].device
+        else:
+            return None
+
     def setup_passes(self, accelerator_spec: "AcceleratorSpec"):
+        host_device = self.get_host_device()
         # clean the passes
         self.passes.clear()
         for name, config in self.pass_config.items():
-            pass_cls: Type["Pass"] = config["type"]
+            pass_cls: Type[Pass] = config["type"]
             pass_cfg = config["config"]
             pass_cfg = pass_cls.generate_search_space(accelerator_spec, pass_cfg, config["disable_search"])
-            p = pass_cls(accelerator_spec, pass_cfg, config["disable_search"])
+            p = pass_cls(accelerator_spec, pass_cfg, config["disable_search"], host_device)
             self.register_pass(
                 p,
                 name=name,
@@ -394,7 +396,7 @@ class Engine:
         for pass_flow in self.pass_flows:
             pass_search_spaces = []
             for pass_name in pass_flow:
-                p: "Pass" = self.passes[pass_name]["pass"]
+                p: Pass = self.passes[pass_name]["pass"]
                 pass_search_spaces.append((pass_name, p.search_space))
             self.pass_flows_search_spaces.append(pass_search_spaces)
 
@@ -458,8 +460,10 @@ class Engine:
                     output_dir=output_dir_with_pf,
                     output_name=f"{pass_output_name}_model",
                     overwrite=True,
-                    cache_dir=self._config.cache_dir,
+                    cache_dir=self.cache_dir,
                 )
+                # it is not supported to save compositepytorchmodel/compositemodel again
+                # so the output_model_json could be None
                 output_models[pass_output_model_id] = output_model_json
 
             # save the evaluation results to output_dir
@@ -472,7 +476,8 @@ class Engine:
         fp_outputs = self.footprints[accelerator_spec].create_footprints_by_model_ids(output_model_ids)
         # update the output model config
         for model_id, model_config in output_models.items():
-            fp_outputs.nodes[model_id].model_config = model_config
+            if model_config:
+                fp_outputs.nodes[model_id].model_config = model_config
 
         return fp_outputs
 
@@ -546,7 +551,7 @@ class Engine:
             return None
         pf_footprints.to_file(output_dir / f"{prefix_output_name}_pareto_frontier_footprints.json")
 
-        if self._config.plot_pareto_frontier:
+        if self.plot_pareto_frontier:
             pf_footprints.plot_pareto_frontier_to_html(
                 save_path=output_dir / f"{prefix_output_name}_pareto_frontier_footprints_chart.html"
             )
@@ -729,7 +734,7 @@ class Engine:
         for resource_name, resource_path in resource_paths.items():
             if not resource_path or resource_path.is_local_resource_or_string_name():
                 continue
-            downloaded_resource_path = cache_utils.download_resource(resource_path, self._config.cache_dir)
+            downloaded_resource_path = cache_utils.download_resource(resource_path, self.cache_dir)
             if downloaded_resource_path:
                 # set local resource path
                 model_config.config[resource_name] = downloaded_resource_path
@@ -738,7 +743,7 @@ class Engine:
 
     def _init_input_model(self, input_model_config: ModelConfig):
         """Initialize the input model."""
-        model_hash = hash_dict(input_model_config.to_json())
+        model_hash = hash_dict(input_model_config.to_json())[:8]
 
         # cache the model
         self._cache_model(input_model_config, model_hash, check_object=False)
@@ -753,7 +758,7 @@ class Engine:
         accelerator_spec: "AcceleratorSpec",
     ):
         """Get the path to the run json."""
-        pass_config_hash = hash_dict(pass_config)
+        pass_config_hash = hash_dict(pass_config)[:8]
         if not accelerator_spec:
             run_json_path = self._run_cache_path / f"{pass_name}-{input_model_number}-{pass_config_hash}.json"
         else:
@@ -857,7 +862,7 @@ class Engine:
     ):
         """Run a pass on the input model."""
         # pass
-        p: "Pass" = self.passes[pass_id]["pass"]
+        p: Pass = self.passes[pass_id]["pass"]
         pass_name = p.__class__.__name__
         logger.info("Running pass %s:%s", pass_id, pass_name)
         pass_config = p.config_at_search_point(pass_search_point)
@@ -903,7 +908,7 @@ class Engine:
         output_model_id_parts = [
             f"{self._get_new_model_number()}_{pass_name}",
             input_model_number,
-            hash_dict(pass_config),
+            hash_dict(pass_config)[:8],
         ]
 
         if not p.is_accelerator_agnostic(accelerator_spec):
@@ -921,16 +926,13 @@ class Engine:
 
         run_start_time = datetime.now().timestamp()
         try:
-            from olive.passes.onnx.perf_tuning import OrtPerfTuning
-
-            # For perf-tuning, we need the model evaluation happens in target even if it is a pass.
-            # TODO(myguo): consider more better way to handle System doesn't support run pass like DockerSystem
-            if (
-                isinstance(p, OrtPerfTuning)
-                and isinstance(host, LocalSystem)
-                and not isinstance(self.target, LocalSystem)
-            ):
-                p.set_target(self.target)
+            if p.run_on_target:
+                if self.target.system_type == SystemType.IsolatedORT:
+                    logger.warning(
+                        "Cannot run pass %s on IsolatedORT target, will use the host to run the pass.", pass_id
+                    )
+                else:
+                    host = self.target
 
             output_model_config = host.run_pass(p, input_model_config, data_root, output_model_path, pass_search_point)
         except OlivePassError:
@@ -974,6 +976,14 @@ class Engine:
     def get_evaluation_json_path(self, model_id: str):
         """Get the path to the evaluation json."""
         return self._evaluation_cache_path / f"{model_id}.json"
+
+    def save_olive_config(self, olive_config: dict):
+        """Save the olive config to the output directory."""
+        olive_config_path = Path(self.cache_dir) / "olive_config.json"
+        olive_config_path.parent.mkdir(parents=True, exist_ok=True)
+        with olive_config_path.open("w") as f:
+            json.dump(olive_config, f, indent=4)
+        logger.info("Saved Olive config to %s", olive_config_path)
 
     def _cache_evaluation(self, model_id: str, signal: MetricResult):
         """Cache the evaluation in the cache directory."""
@@ -1059,30 +1069,46 @@ class Engine:
         return f"{output_name}_{accelerator_spec}" if output_name else str(accelerator_spec)
 
     @contextmanager
-    def create_managed_environment(self, accelerator_spec):
+    def _create_system(self, accelerator_spec):
         def create_system(config: "SystemConfig", accelerator_spec):
             assert config, "System config is not provided"
             if config.olive_managed_env:
                 logger.debug(
                     "Creating olive_managed_env %s with EP %s", config.type, accelerator_spec.execution_provider
                 )
-                return create_new_system_with_cache(config, accelerator_spec)
+                return create_managed_system_with_cache(config, accelerator_spec)
             else:
                 logger.debug("create native OliveSystem %s", config.type)
                 return config.create_system()
 
         if not self.target:
+            logger.info("Creating target system ...")
+            target_start_time = time.time()
             self.target = create_system(self.target_config, accelerator_spec)
+            logger.info("Target system created in %f seconds", time.time() - target_start_time)
         if not self.host:
-            self.host = create_system(self.host_config, accelerator_spec)
+            host_accelerators = self.host_config.config.accelerators
+            if host_accelerators and host_accelerators[0].execution_providers:
+                host_accelerator_spec = AcceleratorSpec(
+                    host_accelerators[0].device, host_accelerators[0].execution_providers[0]
+                )
+            else:
+                host_accelerator_spec = None
+            logger.info("Creating host system ...")
+            host_start_time = time.time()
+            self.host = create_system(self.host_config, host_accelerator_spec)
+            logger.info("Host system created in %f seconds", time.time() - host_start_time)
 
         yield
 
         if self.target_config.olive_managed_env:
+            # could we put it under cache system for reusing?
+            logger.info("Removing target system ...")
             self.target.remove()
             self.target = None
         if self.host_config.olive_managed_env:
+            logger.info("Removing host system ...")
             self.host.remove()
             self.host = None
 
-        create_new_system_with_cache.cache_clear()
+        create_managed_system_with_cache.cache_clear()

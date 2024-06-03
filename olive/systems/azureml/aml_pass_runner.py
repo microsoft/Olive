@@ -17,6 +17,7 @@ from olive.data.config import DataConfig
 from olive.hardware import AcceleratorSpec
 from olive.logging import set_verbosity_from_env
 from olive.model import ModelConfig
+from olive.package_config import OlivePackageConfig
 from olive.passes import REGISTRY as PASS_REGISTRY
 from olive.passes import FullPassConfig, Pass
 from olive.resource_path import create_resource_path
@@ -28,10 +29,6 @@ def parse_pass_config_arg(raw_args):
 
     # parse config arg
     parser.add_argument("--pass_config", type=str, help="pass config", required=True)
-    parser.add_argument("--pass_accelerator_type", type=str, help="pass accelerator type", default="cpu")
-    parser.add_argument(
-        "--pass_execution_provider", type=str, help="pass execution provider", default="CPUExecutionProvider"
-    )
 
     return parser.parse_known_args(raw_args)
 
@@ -108,6 +105,10 @@ def main(raw_args=None):
         pass_config = json.load(f)
     pass_type = pass_config["type"].lower()
 
+    # Import the pass package configuration from the package_config
+    package_config = OlivePackageConfig.load_default_config()
+    package_config.import_pass_module(pass_config["type"])
+
     if version.parse(ort_version) < version.parse("1.16.0"):
         # In onnxruntime, the following PRs will make the optimize_model save external data in the temporary folder
         # * https://github.com/microsoft/onnxruntime/pull/16531
@@ -130,7 +131,7 @@ def main(raw_args=None):
             input_model_config["config"]["model_path"] = str(new_path)
 
     # pass specific args
-    accelerator_spec = AcceleratorSpec(pass_config_arg.pass_accelerator_type, pass_config_arg.pass_execution_provider)
+    accelerator_spec = AcceleratorSpec(**pass_config["accelerator"])
     pass_args, extra_args = parse_pass_args(pass_type, accelerator_spec, extra_args)
 
     # load input_model

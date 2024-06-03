@@ -9,21 +9,19 @@ import logging
 import tempfile
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, Union
 
 from olive.common.ort_inference import check_and_normalize_provider_args
 from olive.data.config import DataConfig
-from olive.evaluator.metric import LatencySubType, Metric, MetricType, joint_metric_key
+from olive.evaluator.metric import LatencySubType, Metric, MetricType
 from olive.evaluator.metric_config import get_user_config_properties_from_metric_type
+from olive.evaluator.metric_result import joint_metric_key
 from olive.exception import EXCEPTIONS_TO_RAISE
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import ParamCategory, PassConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
-
-if TYPE_CHECKING:
-    from olive.systems.olive_system import OliveSystem
 
 logger = logging.getLogger(__name__)
 
@@ -197,15 +195,7 @@ class OrtPerfTuning(Pass):
     """Optimize ONNX Runtime inference settings."""
 
     _requires_user_script = True
-
-    def __init__(
-        self, accelerator_spec: AcceleratorSpec, config: Dict[str, Any], disable_search: Optional[bool] = False
-    ):
-        super().__init__(accelerator_spec, config, disable_search)
-        self.target = None
-
-    def set_target(self, target: "OliveSystem"):
-        self.target = target
+    run_on_target = True
 
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
@@ -309,19 +299,16 @@ class OrtPerfTuning(Pass):
         # TODO(jambayk): decide on whether to ignore the output_model_path
         # if we want to ignore it, we can just return the model
         # otherwise save or symlink the original model to the output_model_path
-        runner = PerfTuningRunner(self.accelerator_spec, self.target, config, data_root)
+        runner = PerfTuningRunner(self.accelerator_spec, config, data_root)
         return runner.tune_onnx_model(model)
 
 
 class PerfTuningRunner:
-    def __init__(
-        self, accelerator_spec: AcceleratorSpec, target: "OliveSystem", config: Dict[str, Any], data_root: str = None
-    ):
+    def __init__(self, accelerator_spec: AcceleratorSpec, config: Dict[str, Any], data_root: str = None):
         assert accelerator_spec, "accelerator_spec should not be None"
         assert config, "config should not be None"
 
         self.accelerator_spec = accelerator_spec
-        self.target = target
         self.config = config
         self.data_root = data_root
 
@@ -421,7 +408,6 @@ class PerfTuningRunner:
         import onnxruntime as ort
 
         from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
-        from olive.model.config.model_config import ModelConfig
 
         # prepare the inference_settings for metrics.
         tuning_result_file = None
@@ -431,10 +417,7 @@ class PerfTuningRunner:
         else:
             inference_settings = copy.deepcopy(model.inference_settings) if model.inference_settings else {}
             # put the execution_provider and provider_options in inference_settings for baseline evaluation
-            if self.target is None:
-                available_eps = ort.get_available_providers()
-            else:
-                available_eps = None
+            available_eps = ort.get_available_providers()
             execution_providers, provider_options = check_and_normalize_provider_args(
                 self.config.providers_list, None, available_eps
             )
@@ -448,7 +431,7 @@ class PerfTuningRunner:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             enable_rocm_op_tuning(inference_settings, tuning_result, temp_dir)
-            # set the session_options for metrics so that the evalute will use them by default
+            # set the session_options for metrics so that the evaluate will use them by default
             latency_metric.user_config.io_bind = io_bind
             latency_metric.user_config.inference_settings = {"onnx": inference_settings}
 
@@ -457,15 +440,8 @@ class PerfTuningRunner:
             joint_key = joint_metric_key(latency_metric.name, latency_metric.sub_types[0].name)
 
             start_time = time.perf_counter()
-            # TODO(myguo): consider set the ep in accelrator to None for local system
-            if self.target:
-                model_config = ModelConfig.from_json(model.to_json())
-                metric_result = self.target.evaluate_model(
-                    model_config, self.data_root, [latency_metric], self.accelerator_spec
-                )
-            else:
-                evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
-                metric_result = evaluator.evaluate(model, self.data_root, [latency_metric], self.config.device, None)
+            evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
+            metric_result = evaluator.evaluate(model, self.data_root, [latency_metric], self.config.device, None)
 
             end_time = time.perf_counter()
             latency_ms = metric_result[joint_key].value
@@ -545,16 +521,19 @@ class PerfTuningRunner:
         import psutil
 
         # prepare the inter_op_num_threads/intra_op_num_threads to be tune.
+        threads_names = []
         extra_session_config = test_params["session_options"].get("extra_session_config")
         if extra_session_config:
             affinity_str = extra_session_config.get("session.intra_op_thread_affinities")
             if affinity_str:
                 test_params["session_options"]["intra_op_num_threads"] = get_thread_affinity_nums(affinity_str) + 1
                 threads_names = ["inter_op_num_threads"]
-        elif test_params["session_options"].get("execution_mode") == ort.ExecutionMode.ORT_SEQUENTIAL:
-            threads_names = ["intra_op_num_threads"]
-        else:
-            threads_names = ["inter_op_num_threads", "intra_op_num_threads"]
+
+        if not threads_names:
+            if test_params["session_options"].get("execution_mode") == ort.ExecutionMode.ORT_SEQUENTIAL:
+                threads_names = ["intra_op_num_threads"]
+            else:
+                threads_names = ["inter_op_num_threads", "intra_op_num_threads"]
 
         if (
             test_params["session_options"].get("inter_op_num_threads") is not None

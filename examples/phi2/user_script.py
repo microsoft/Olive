@@ -3,14 +3,15 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from itertools import chain
-from typing import TYPE_CHECKING, List, Tuple
+from typing import TYPE_CHECKING, List, Tuple, Union
 
 import numpy as np
 import torch
+from datasets import load_dataset
 from transformers import AutoConfig
 
 from olive.constants import Framework
+from olive.data.registry import Registry
 
 if TYPE_CHECKING:
     from transformers import PhiConfig
@@ -21,44 +22,10 @@ model_id = "microsoft/phi-2"
 config: "PhiConfig" = AutoConfig.from_pretrained(model_id, trust_remote_code=True)
 
 
-def dummy_inputs(model):
-    """Get dummy inputs for merged decoder model with past_key_values."""
-    batch_size, sequence_length, past_sequence_length = 2, 8, config.num_hidden_layers
-    max_sequence_length = 512
-
-    return get_merged_sample_with_past_kv_inputs(
-        config,
-        torch.device("cpu"),
-        batch_size,
-        sequence_length,
-        past_sequence_length,
-        max_sequence_length,
-        use_fp16=False,
-        use_gqa=False,
-        engine="pt",
-        return_dict=True,
-        world_size=1,
-    )
-
-
-def get_io_config(model):
-    input_names = [
-        "input_ids",
-        "attention_mask",
-        *list(chain.from_iterable((f"past_key_{i}", f"past_value_{i}") for i in range(config.num_hidden_layers))),
-    ]
-    output_names = [
-        "logits",
-        *list(chain.from_iterable((f"present_key_{i}", f"present_value_{i}") for i in range(config.num_hidden_layers))),
-    ]
-    input_types = ["int32", "int32"] + ["float32", "float32"] * config.num_hidden_layers
-    dynamic_axes = get_merged_model_dynamic_axes(input_names, output_names)
-    return {
-        "input_names": input_names,
-        "input_types": input_types,
-        "output_names": output_names,
-        "dynamic_axes": dynamic_axes,
-    }
+@Registry.register_dataset()
+def load_tiny_code_dataset(data_name: str, split: str, language: str, token: Union[bool, str] = True):
+    dataset = load_dataset(data_name, split=split, token=token)
+    return dataset.filter(lambda x: x["programming_language"] == language)
 
 
 def create_dataloader(data_dir, batch_size, *args, **kwargs):

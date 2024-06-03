@@ -239,16 +239,6 @@ def validate_object(v, values, field):
     return v
 
 
-def validate_resource_path(v, values, field):
-    from olive.resource_path import create_resource_path
-
-    try:
-        v = create_resource_path(v)
-    except ValueError as e:
-        raise ValueError(f"Invalid resource path '{v}': {e}") from None
-    return v
-
-
 def create_config_class(
     class_name: str,
     default_config: Dict[str, ConfigParam],
@@ -259,9 +249,6 @@ def create_config_class(
     config = {}
     validators = validators.copy() if validators else {}
     for param, param_config in default_config.items():
-        if param == "data_dir":
-            validator_name = f"validate_{param}_resource_path"
-            validators[validator_name] = validator(param, allow_reuse=True)(validate_resource_path)
         # automatically add validator for object params
         if param_config.category == ParamCategory.OBJECT:
             validator_name = f"validate_{param}_object"
@@ -286,8 +273,7 @@ T = TypeVar("T", bound=ConfigBase)
 
 def validate_config(
     config: Union[Dict[str, Any], ConfigBase, None],
-    base_class: Type[T],
-    instance_class: Optional[Type[T]] = None,
+    instance_class: Type[T],
     warn_unused_keys: bool = True,
 ) -> T:
     """Validate a config dictionary or object against a base class and instance class.
@@ -296,9 +282,6 @@ def validate_config(
     """
     config = config or {}
 
-    if instance_class is None:
-        instance_class = base_class
-
     if isinstance(config, dict):
         user_keys = set(config.keys())
         config = instance_class(**config)
@@ -306,7 +289,12 @@ def validate_config(
         unused_keys = user_keys - config_keys
         if unused_keys and warn_unused_keys:
             logger.warning("Keys %s are not part of %s. Ignoring them.", unused_keys, instance_class.__name__)
-    elif isinstance(config, base_class) and config.__class__.__name__ == instance_class.__name__:
+    # for dynamically created class by Pydantic create_model, the classes are different even if the class names are same
+    elif (
+        isinstance(config, ConfigBase)
+        and config.__class__.__module__ == instance_class.__module__
+        and config.__class__.__name__ == instance_class.__name__
+    ):
         pass
     else:
         raise ValueError(

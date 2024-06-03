@@ -15,7 +15,11 @@
         "local_system": {
             "type": "LocalSystem",
             "config": {
-                "accelerators": ["gpu"]
+                "accelerators": [
+                    {
+                        "device": "gpu"
+                    }
+                ]
             }
         }
     },

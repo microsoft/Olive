@@ -27,14 +27,14 @@ class TestOliveManagedPythonEnvironmentSystem:
         system_config = SystemConfig(
             type="PythonEnvironment",
             config=PythonEnvironmentTargetUserConfig(
-                accelerators=["gpu"],
+                accelerators=[
+                    {"device": "gpu", "execution_providers": ["DmlExecutionProvider", "OpenVINOExecutionProvider"]}
+                ],
                 olive_managed_env=True,
             ),
         )
-        execution_providers = ["DmlExecutionProvider", "OpenVINOExecutionProvider"]
-
         dml_res, openvino_res = create_and_run_workflow(
-            tmp_path, system_config, execution_providers, self.input_model_config, get_custom_metric()
+            tmp_path, system_config, self.input_model_config, get_custom_metric()
         )
         assert dml_res.metrics.value.__root__
         assert openvino_res.metrics.value.__root__
@@ -48,14 +48,14 @@ class TestOliveManagedPythonEnvironmentSystem:
         system_config = SystemConfig(
             type="PythonEnvironment",
             config=PythonEnvironmentTargetUserConfig(
-                accelerators=["cpu"],
+                accelerators=[
+                    {"device": "cpu", "execution_providers": ["CPUExecutionProvider", "OpenVINOExecutionProvider"]}
+                ],
                 olive_managed_env=True,
             ),
         )
-        execution_providers = ["CPUExecutionProvider", "OpenVINOExecutionProvider"]
-
         cpu_res, openvino_res = create_and_run_workflow(
-            tmp_path, system_config, execution_providers, self.input_model_config, get_custom_metric()
+            tmp_path, system_config, self.input_model_config, get_custom_metric()
         )
         assert cpu_res.metrics.value.__root__
         assert openvino_res.metrics.value.__root__

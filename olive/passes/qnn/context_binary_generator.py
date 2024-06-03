@@ -13,7 +13,6 @@ from olive.hardware import AcceleratorSpec
 from olive.model import QNNModelHandler
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import PassConfigParam
-from olive.passes.qnn.common import get_env_config
 from olive.platform_sdk.qualcomm.runner import QNNSDKRunner
 
 logger = logging.getLogger(__name__)
@@ -30,7 +29,7 @@ class QNNContextBinaryGenerator(Pass):
         if platform.system() == "Windows":
             raise NotImplementedError("QNNContextBinaryGenerator is not supported on Windows.")
 
-        config = {
+        return {
             "backend": PassConfigParam(
                 type_=str,
                 required=True,
@@ -50,8 +49,6 @@ class QNNContextBinaryGenerator(Pass):
                 type_=str, default_value=None, description="Extra arguments to qnn-context-binary-generator"
             ),
         }
-        config.update(get_env_config())
-        return config
 
     def _run_for_config(
         self,
@@ -82,7 +79,7 @@ class QNNContextBinaryGenerator(Pass):
             config["extra_args"] or "",
         ]
 
-        runner.run(" ".join(cmd_list), use_olive_env=config["use_olive_env"])
+        runner.run(" ".join(cmd_list))
         return QNNModelHandler(
             output_model_full_path,
             model_file_format=ModelFileFormat.QNN_SERIALIZED_BIN,

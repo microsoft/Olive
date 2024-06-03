@@ -44,11 +44,11 @@ This pass only supports Hugging Face transformers PyTorch models. Please refer t
     "config": {
         "compute_dtype": "bfloat16",
         "quant_type": "nf4",
-        "train_data_config": // ...,
         "training_args": {
             "learning_rate": 0.0002,
             // ...
-        }
+        },
+        "train_data_config": // ...,
     }
 }
 ```
@@ -68,11 +68,11 @@ This pass only supports Hugging Face transformers PyTorch models. Please refer t
     "type": "LoftQ",
     "config": {
         "compute_dtype": "bfloat16",
-        "train_data_config": // ...,
         "training_args": {
             "learning_rate": 0.0002,
             // ...
-        }
+        },
+        "train_data_config": // ...,
     }
 }
 ```
@@ -136,9 +136,59 @@ c. Run QAT training with default training loop.
 Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/resnet/user_script.py)
 for an example implementation of `"user_script.py"` and `"create_train_dataloader"`.
 
+## AutoGPTQ
+Olive also integrates [AutoGPTQ](https://github.com/AutoGPTQ/AutoGPTQ) for quantization.
+
+AutoGPTQ is an easy-to-use LLM quantization package with user-friendly APIs, based on GPTQ algorithm (weight-only quantization). With GPTQ quantization, you can quantize your favorite language model to 8, 4, 3 or even 2 bits. This comes without a big drop of performance and with faster inference speed. This is supported by most GPU hardwares.
+
+Olive consolidates the GPTQ quantization into a single pass called GptqQuantizer which supports tune GPTQ quantization with hyperparameters for trade-off between accuracy and speed.
+
+Please refer to [GptqQuantizer](gptq_quantizer) for more details about the pass and its config parameters.
+
+### Example Configuration
+```json
+{
+    "type": "GptqQuantizer",
+    "config": {
+        "data_config": "wikitext2_train"
+    }
+}
+```
+
+Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/llama2/llama2_template.json)
+for an example implementation of `"wikitext2_train"`.
+
+## AutoAWQ
+AutoAWQ is an easy-to-use package for 4-bit quantized models and it speeds up models by 3x and reduces memory requirements by 3x compared to FP16. AutoAWQ implements the Activation-aware Weight Quantization (AWQ) algorithm for quantizing LLMs. AutoAWQ was created and improved upon from the original work from MIT.
+
+Olive integrates [AutoAWQ](https://github.com/casper-hansen/AutoAWQ) for quantization and make it possible to convert the AWQ quantized torch model to onnx model. You can enable `pack_model_for_onnx_conversion` to pack the model for onnx conversion.
+
+Please refer to [AutoAWQQuantizer](awq_quantizer) for more details about the pass and its config parameters.
+
+### Example Configuration
+```json
+{
+    "type": "AutoAWQQuantizer",
+    "config": {
+        "w_bit": 4,
+        "pack_model_for_onnx_conversion": true
+    }
+}
+```
+
+## MergeAdapterWeights
+Merge Lora weights into a complete model. After running the LoRA pass, the model will only have LoRA adapters. This pass merges the LoRA adapters into the original model and download the context(config/generation_config/tokenizer) of the model.
+
+### Example Configuration
+```json
+{
+    "type": "MergeAdapterWeights"
+}
+```
+
 ## SparseGPT
 `SparseGPT` prunes GPT like models using a pruning method called [SparseGPT](https://arxiv.org/abs/2301.00774). This one-shot pruning method can perform unstructured
-sparsity upto 60% on large models like OPT-175B and BLOOM-176B efficiently with negligible perplexity increase. It also supports semi-structured sparsity patterns such
+sparsity up to 60% on large models like OPT-175B and BLOOM-176B efficiently with negligible perplexity increase. It also supports semi-structured sparsity patterns such
 as 2:4 and 4:8 patterns.
 
 Please refer to the original paper linked above for more details on the algorithm and performance results for different models, sparsities and datasets.
@@ -158,6 +208,24 @@ This pass only supports Hugging Face transformers PyTorch models. Please refer t
 {
     "type": "SparseGPT",
     "config": {"sparsity": [2,4]}
+}
+```
+
+## SliceGPT
+`SliceGPT` is post-training sparsification scheme that makes transformer networks smaller by applying orthogonal transformations to each transformer layer that reduces the model size by slicing off the least-significant rows and columns of the weight matrices. This results in speedups and a reduced memory footprint.
+
+Please refer to the original [paper](https://arxiv.org/abs/2401.15024) for more details on the algorithm and expected results for different models, sparsities and datasets.
+
+This pass only supports HuggingFace transformer PyTorch models. Please refer to [SliceGPT](slicegpt) for more details on the types of transformers models supported.
+
+### Example Configuration
+```json
+{
+    "type": "SliceGPT",
+    "config": {
+        "sparsity": 0.4,
+        "calibration_data_config": "wikitext2"
+    }
 }
 ```
 

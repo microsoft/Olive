@@ -5,8 +5,8 @@
             "model_path": "models/inception_v3.pb"
         }
     },
-    "data_configs": {
-        "raw_data": {
+    "data_configs": [
+        {
             "name": "raw_data",
             "type": "RawDataContainer",
             "user_script": "user_script.py",
@@ -31,6 +31,18 @@
                 "input_order_file": "input_order.txt",
                 "annotations_file": "labels.npy",
                 "batch_size": 7
+            }
+        }
+    ],
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "device": "cpu"
+                    }
+                ]
             }
         }
     },
@@ -120,6 +132,8 @@
         "log_severity_level": 0,
         "evaluate_input_model": false,
         "clean_cache": true,
+        "target": "local_system",
+        "host": "local_system",
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
         "output_dir": "outputs",

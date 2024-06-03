@@ -35,9 +35,11 @@ MODEL_NAME_MAP = {
 
 MODEL_NAME_TO_CONFIG_MAP = {
     "bert": {
-        "model_name": "Intel/bert-base-uncased-mrpc",
-        "task": "text-classification",
-        "dataset": {
+        "hf_config": {
+            "model_name": "Intel/bert-base-uncased-mrpc",
+            "task": "text-classification",
+        },
+        "data_config_params": {
             "data_name": "glue",
             "subset": "mrpc",
             "split": "validation",
@@ -48,9 +50,11 @@ MODEL_NAME_TO_CONFIG_MAP = {
         },
     },
     "deberta": {
-        "model_name": "microsoft/deberta-base-mnli",
-        "task": "text-classification",
-        "dataset": {
+        "hf_config": {
+            "model_name": "microsoft/deberta-base-mnli",
+            "task": "text-classification",
+        },
+        "data_config_params": {
             "data_name": "glue",
             "subset": "mnli_matched",
             "split": "validation",
@@ -62,9 +66,11 @@ MODEL_NAME_TO_CONFIG_MAP = {
         },
     },
     "distilbert": {
-        "model_name": "distilbert-base-uncased-finetuned-sst-2-english",
-        "task": "text-classification",
-        "dataset": {
+        "hf_config": {
+            "model_name": "distilbert-base-uncased-finetuned-sst-2-english",
+            "task": "text-classification",
+        },
+        "data_config_params": {
             "data_name": "glue",
             "subset": "sst2",
             "split": "validation",
@@ -76,9 +82,11 @@ MODEL_NAME_TO_CONFIG_MAP = {
         },
     },
     "roberta_large": {
-        "model_name": "roberta-large-mnli",
-        "task": "text-classification",
-        "dataset": {
+        "hf_config": {
+            "model_name": "roberta-large-mnli",
+            "task": "text-classification",
+        },
+        "data_config_params": {
             "data_name": "glue",
             "subset": "mnli_matched",
             "split": "validation",
@@ -195,7 +203,7 @@ def run_perf_comparison(cur_dir, model_name, device, model_root_path, test_num):
             with config_json_path.open() as fin:
                 olive_config = json.load(fin)
                 user_script_path = str(cur_dir / "user_scripts" / f"{model_name}.py")
-                hf_model_config = MODEL_NAME_TO_CONFIG_MAP[model_name]
+                hf_model_config = MODEL_NAME_TO_CONFIG_MAP[model_name]["hf_config"]
                 if optimized_model == "onnx":
                     olive_config["input_model"]["config"]["model_path"] = str(
                         Path(model_root_path / optimized_model / "model.onnx")
@@ -217,24 +225,23 @@ def run_perf_comparison(cur_dir, model_name, device, model_root_path, test_num):
                     olive_config["input_model"]["config"]["model_script"] = user_script_path
                     olive_config["input_model"]["config"]["model_loader"] = "torch_complied_model"
 
-                olive_config["systems"]["local_system"]["config"]["accelerators"] = (
-                    ["cpu"] if device == "cpu" else ["gpu"]
-                )
                 olive_config["engine"]["cache_dir"] = str(Path(model_root_path / optimized_model / "cache"))
                 olive_config["engine"]["output_dir"] = str(Path(model_root_path / optimized_model / "output"))
-                olive_config["engine"]["execution_providers"] = (
-                    ["CPUExecutionProvider"] if device == "cpu" else ["CUDAExecutionProvider"]
-                )
+                olive_config = update_accelerator_config(olive_config, device)
                 olive_config["evaluators"]["common_evaluator"]["metrics"].append(accuracy_metric)
                 olive_config["evaluators"]["common_evaluator"]["metrics"].append(latency_metric)
                 olive_config["evaluators"]["common_evaluator"]["metrics"][0]["data_config"] = (
                     huggingface_data_config_template(
-                        hf_model_config["model_name"], hf_model_config["task"], **hf_model_config["dataset"]
+                        hf_model_config["model_name"],
+                        hf_model_config["task"],
+                        **MODEL_NAME_TO_CONFIG_MAP[model_name]["data_config_params"],
                     )
                 )
                 olive_config["evaluators"]["common_evaluator"]["metrics"][1]["data_config"] = (
                     huggingface_data_config_template(
-                        hf_model_config["model_name"], hf_model_config["task"], **hf_model_config["dataset"]
+                        hf_model_config["model_name"],
+                        hf_model_config["task"],
+                        **MODEL_NAME_TO_CONFIG_MAP[model_name]["data_config_params"],
                     )
                 )
 
@@ -250,6 +257,26 @@ def run_perf_comparison(cur_dir, model_name, device, model_root_path, test_num):
             v[metric_name] = round((vsum / len(metric_value_list)), 4)
     print(f"Avg metric results {metric_res}")
     return metric_res
+
+
+def update_accelerator_config(config, device):
+    if "systems" not in config:
+        config["systems"] = {
+            "local_system": {
+                "type": "LocalSystem",
+                "config": {"accelerators": [{"device": "cpu" if device == "cpu" else "gpu"}]},
+            }
+        }
+        config["engine"]["host"] = "local_system"
+        config["engine"]["target"] = "local_system"
+    else:
+        config["systems"]["local_system"]["config"]["accelerators"][0]["device"] = "cpu" if device == "cpu" else "gpu"
+
+    config["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = (
+        ["CPUExecutionProvider"] if device == "cpu" else ["CUDAExecutionProvider"]
+    )
+
+    return config
 
 
 def print_perf_table(metric_res, device):

@@ -52,7 +52,7 @@ def _update_sess_options(sess_options, session_options):
         sess_options.inter_op_num_threads = inter_op_num_threads
     if intra_op_num_threads:
         sess_options.intra_op_num_threads = intra_op_num_threads
-    if execution_mode:
+    if execution_mode is not None:
         if execution_mode == 0:
             sess_options.execution_mode = onnxruntime.ExecutionMode.ORT_SEQUENTIAL
         elif execution_mode == 1:

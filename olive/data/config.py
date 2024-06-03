@@ -21,7 +21,6 @@ if TYPE_CHECKING:
 
 
 class DataComponentConfig(ConfigBase):
-    name: str = None
     type: str = None
     params: Dict = None
 
@@ -35,7 +34,7 @@ DefaultDataComponentCombos = {
 
 
 class DataConfig(ConfigBase):
-    name: str = DefaultDataContainer.DATA_CONTAINER.value
+    name: str
     type: str = DefaultDataContainer.DATA_CONTAINER.value
 
     # used to store the params for each component
@@ -95,7 +94,6 @@ class DataConfig(ConfigBase):
             else:
                 # both are strings, so we don't need to deepcopy
                 self.components[k].type = self.components[k].type or v.type
-                self.components[k].name = self.components[k].name or v.name
                 # v.params is a dict, so we deepcopy it
                 self.components[k].params = self.components[k].params or deepcopy(v.params)
 
@@ -115,7 +113,7 @@ class DataConfig(ConfigBase):
     def _update_default_component(self):
         """Resolve the default component type."""
         for k, v in self.default_components_type.items():
-            self.default_components[k] = DataComponentConfig(type=v, name=v, params={})
+            self.default_components[k] = DataComponentConfig(type=v, params={})
 
     def fill_in_params(self):
         """Fill in the default parameters for each component.

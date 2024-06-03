@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import logging
 import os
-import tempfile
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Dict, List, Optional, Tuple, Union
@@ -14,21 +13,28 @@ import yaml
 
 from olive.common.config_utils import serialize_to_json, validate_config
 from olive.common.user_module_loader import UserModuleLoader
-from olive.common.utils import copy_dir
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
-from olive.model.config import HfComponent, HfConfig, IoConfig
+from olive.model.config import (
+    HfComponent,
+    HfConfig,
+    IoConfig,
+    complete_kv_cache_with_model_attributes,
+    extend_io_config_with_kv_cache,
+)
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
-from olive.model.handler.mixin import DummyInputsMixin, HfConfigMixin
-from olive.model.utils.hf_utils import huggingface_model_loader
+from olive.model.handler.mixin import DummyInputsMixin, HfConfigMixin, MLFlowMixin, PytorchKvCacheMixin
+from olive.model.utils.hf_utils import load_hf_model_from_model_class
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, ResourceType, create_resource_path
 
 logger = logging.getLogger(__name__)
 
 
 @model_handler_registry("PyTorchModel")
-class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  # pylint: disable=too-many-ancestors
+class PyTorchModelHandler(
+    OliveModelHandler, HfConfigMixin, DummyInputsMixin, PytorchKvCacheMixin, MLFlowMixin
+):  # pylint: disable=too-many-ancestors
     """PyTorch model handler.
 
     Besides the model loading for PyTorch model, the model handler also provides the following functionalities:
@@ -42,7 +48,6 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
     json_config_keys: Tuple[str, ...] = (
         "model_file_format",
         "model_loader",
-        "io_config",
         "dummy_inputs_func",
         "hf_config",
     )
@@ -59,6 +64,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
         hf_config: Union[Dict[str, Any], HfConfig] = None,
         adapter_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         model_attributes: Optional[Dict[str, Any]] = None,
+        mlflow_transformer_model_cache_dir: Optional[str] = None,
     ):
         if not (
             isinstance(model_loader, Callable)
@@ -69,7 +75,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
             raise ValueError(
                 "model_path is required since model_loader is not callable or model_script is not provided"
             )
-
+        self.mlflow_transformer_model_cache_dir = mlflow_transformer_model_cache_dir
         self.model_loader = model_loader
         self.model = None
         super().__init__(
@@ -77,9 +83,9 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
             model_file_format=model_file_format,
             model_path=model_path,
             model_attributes=model_attributes,
+            io_config=io_config,
         )
         self.add_resources(locals())
-
         self.hf_config = None
         if hf_config:
             self.hf_config = validate_config(hf_config, HfConfig)
@@ -101,13 +107,7 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
                 ResourceType.StringName,
             ), "model_script must be a local file or a string name."
 
-        # io config for conversion to onnx
-        self.io_config = (
-            validate_config(io_config, IoConfig).dict() if isinstance(io_config, (IoConfig, dict)) else io_config
-        )
-
         self.dummy_inputs_func = dummy_inputs_func
-
         self.dummy_inputs = None
 
     @property
@@ -122,13 +122,18 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
     def adapter_path(self) -> str:
         return self.get_resource("adapter_path")
 
+    def get_mlflow_transformers_dir(self):
+        return self.mlflow_transformer_model_cache_dir or self.model_path
+
     def load_model(self, rank: int = None) -> torch.nn.Module:
         if self.model is not None:
             return self.model
 
+        # Load user module at the beginning since we may need user defined models to load model
+        user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
+
         # Load special path or format model -> load model from hf config -> load normal path model
         if self.model_loader is not None:
-            user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             model = user_module_loader.call_object(self.model_loader, self.model_path)
         elif self.model_file_format == ModelFileFormat.PYTORCH_TORCH_SCRIPT:
             model = torch.jit.load(self.model_path)
@@ -138,6 +143,8 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
             model = self.load_hf_model(self.model_path)
         elif self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
             model = torch.load(self.model_path)
+        elif self.model_file_format == ModelFileFormat.PYTORCH_SLICE_GPT_MODEL:
+            model = self._load_slicegpt_model()
         elif self.model_file_format == ModelFileFormat.PYTORCH_STATE_DICT:
             raise ValueError("Please use customized model loader to load state dict of model.")
         else:
@@ -189,42 +196,46 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
 
     def _load_mlflow_model(self):
         logger.info("Loading MLFlow model from %s", self.model_path)
-        with tempfile.TemporaryDirectory(prefix="mlflow_tmp") as tmp_dir:
-            copy_dir(os.path.join(self.model_path, "data/model"), tmp_dir, dirs_exist_ok=True)
-            copy_dir(os.path.join(self.model_path, "data/config"), tmp_dir, dirs_exist_ok=True)
-            copy_dir(os.path.join(self.model_path, "data/tokenizer"), tmp_dir, dirs_exist_ok=True)
+        mlflow_transformers_path = self.to_mlflow_transformer_model(self.get_mlflow_transformers_dir())
+        with open(os.path.join(self.model_path, "MLmodel")) as fp:
+            mlflow_data = yaml.safe_load(fp)
+            # default flavor is "hftransformersv2" from azureml.evaluate.mlflow>=0.0.8
+            # "hftransformers" from azureml.evaluate.mlflow<0.0.8
+            # TODO(trajep): let user specify flavor name if needed
+            # to support other flavors in mlflow not only hftransformers
+            hf_pretrained_class = None
+            flavors = mlflow_data.get("flavors", {})
+            if not flavors:
+                raise ValueError(
+                    "Invalid MLFlow model format. Please make sure the input model"
+                    " format is same with the result of mlflow.transformers.save_model,"
+                    " or aml_mlflow.hftransformers.save_model from azureml.evaluate.mlflow"
+                )
 
-            with open(os.path.join(self.model_path, "MLmodel")) as fp:
-                mlflow_data = yaml.safe_load(fp)
-                # default flavor is "hftransformersv2" from azureml.evaluate.mlflow>=0.0.8
-                # "hftransformers" from azureml.evaluate.mlflow<0.0.8
-                # TODO(trajep): let user specify flavor name if needed
-                # to support other flavors in mlflow not only hftransformers
-                hf_pretrained_class = None
-                flavors = mlflow_data.get("flavors", {})
-                if not flavors:
-                    raise ValueError(
-                        "Invalid MLFlow model format. Please make sure the input model"
-                        " format is same with the result of mlflow.transformers.save_model,"
-                        " or aml_mlflow.hftransformers.save_model from azureml.evaluate.mlflow"
-                    )
+            if "hftransformersv2" in flavors:
+                hf_pretrained_class = flavors["hftransformersv2"].get("hf_pretrained_class", "AutoModel")
+            elif "hftransformers" in flavors:
+                hf_pretrained_class = flavors["hftransformers"].get("hf_pretrained_class", "AutoModel")
+            else:
+                raise ValueError(
+                    "Unsupported MLFlow model flavor. Currently only support hftransformersv2/hftransformers."
+                )
+        loading_args = self.hf_config.get_loading_args_from_pretrained() if self.hf_config else {}
+        loaded_model = load_hf_model_from_model_class(hf_pretrained_class, mlflow_transformers_path, **loading_args)
+        loaded_model.eval()
+        return loaded_model
 
-                if "hftransformersv2" in flavors:
-                    hf_pretrained_class = flavors["hftransformersv2"].get("hf_pretrained_class", "AutoModel")
-                elif "hftransformers" in flavors:
-                    hf_pretrained_class = flavors["hftransformers"].get("hf_pretrained_class", "AutoModel")
-                else:
-                    raise ValueError(
-                        "Unsupported MLFlow model flavor. Currently only support hftransformersv2/hftransformers."
-                    )
+    def _load_slicegpt_model(self):
+        logger.info("Loading SliceGPT model from %s", self.model_path)
+        from slicgpt.hf_utils import load_sliced_model
 
-            model_loader = huggingface_model_loader(hf_pretrained_class)
-            loaded_model = model_loader(tmp_dir)
-            loaded_model.eval()
-            return loaded_model
+        loaded_model, _ = load_sliced_model(self.hf_config.model_name, self.model_path)
+        return loaded_model
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
+        # add _io_config to config to keep what was provided at init
+        config["config"]["io_config"] = self._io_config
         # only keep model_attributes that are not in hf_config
         if self.model_attributes and self.hf_config:
             model_attributes = {}
@@ -240,38 +251,42 @@ class PyTorchModelHandler(OliveModelHandler, HfConfigMixin, DummyInputsMixin):  
 
         If io_config is a string name or a callable, it will be called to get io_config.
         """
+        io_config_obj = None
         if isinstance(io_config, dict):
-            # io_config is provided
-            return io_config
-
-        if isinstance(io_config, IoConfig):
-            # io_config is an IoConfig
-            return io_config.dict()
-
-        if isinstance(io_config, (str, Callable)):
+            io_config_obj = IoConfig.parse_obj(io_config)
+        elif isinstance(io_config, IoConfig):
+            # return a new copy of io_config to avoid modifying the original one
+            io_config_obj = io_config.copy(deep=True)
+        elif isinstance(io_config, (str, Callable)):
             # io_config is a string name or a callable
             logger.debug("Calling %s to get io_config", io_config)
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             io_config = user_module_loader.call_object(io_config, self)
-            return validate_config(io_config, IoConfig).dict()
+            io_config_obj = validate_config(io_config, IoConfig)
+        # TODO(anyone): infer if to use kv_cache from task config
+        if io_config_obj.kv_cache:
+            kv_cache_config = complete_kv_cache_with_model_attributes(io_config_obj.kv_cache, self.model_attributes)
+            io_config_obj = extend_io_config_with_kv_cache(io_config_obj, kv_cache_config)
+        return io_config_obj.dict(exclude_none=True)
 
-        return None
-
-    def get_io_config(self) -> Dict[str, Any]:
+    @property
+    def io_config(self) -> Dict[str, Any]:
         """Return io config of the model.
 
         Priority: io_config > hf_config (using onnx_config)
         """
         io_config = None
-        if self.io_config:
+        if self._io_config:
             # io_config is provided
-            io_config = self.get_user_io_config(self.io_config)
+            io_config = self.get_user_io_config(self._io_config)
         elif self.hf_config and self.hf_config.task and not self.hf_config.components:
             # hf_config is provided
-            logger.debug("Using hf onnx_config to get io_config")
+            logger.debug("Trying hf onnx_config to get io_config")
             # For MLFlow model, get io config from model_name instead of model_path
             # TODO(xiaoyu): more investigation on the integration between MLFlow and HF
             io_config = self.get_hf_io_config()
+            if io_config:
+                logger.debug("Got io_config from hf_config")
 
         return io_config
 
@@ -310,6 +325,7 @@ class DistributedPyTorchModelHandler(OliveModelHandler, HfConfigMixin):
             model_file_format=model_file_format,
             model_path=model_path,
             model_attributes=model_attributes,
+            io_config=io_config,
         )
 
         self.add_resources(locals())
@@ -317,9 +333,6 @@ class DistributedPyTorchModelHandler(OliveModelHandler, HfConfigMixin):
         self.model_name_pattern = model_name_pattern
         self.num_ranks = num_ranks
         self.model_loader = model_loader
-        self.io_config = (
-            validate_config(io_config, IoConfig).dict() if isinstance(io_config, (IoConfig, dict)) else io_config
-        )
         self.dummy_inputs_func = dummy_inputs_func
         self.hf_config = validate_config(hf_config, HfConfig) if hf_config else None
 
@@ -348,7 +361,7 @@ class DistributedPyTorchModelHandler(OliveModelHandler, HfConfigMixin):
             model_loader=self.model_loader,
             model_script=self.model_script,
             script_dir=self.script_dir,
-            io_config=self.io_config,
+            io_config=self._io_config,
             dummy_inputs_func=self.dummy_inputs_func,
             hf_config=self.hf_config,
             adapter_path=self.adapter_path,

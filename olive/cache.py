@@ -7,7 +7,7 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 
 from olive.common.config_utils import serialize_to_json
 from olive.common.utils import hash_dict
@@ -108,7 +108,8 @@ def download_resource(resource_path: ResourcePath, cache_dir: Union[str, Path] =
     """
     non_local_resource_dir = get_cache_sub_dirs(cache_dir)[3]
 
-    resource_path_hash = hash_dict(resource_path.to_json())
+    # choose left 8 characters of hash as resource path hash to reduce the risk of length too long
+    resource_path_hash = hash_dict(resource_path.to_json())[:8]
     resource_path_json = non_local_resource_dir / f"{resource_path_hash}.json"
 
     # check if resource path is cached
@@ -176,7 +177,8 @@ def normalize_data_path(data_root: Union[str, Path], data_dir: Union[str, Path, 
             # change the data_root to azureml:/, which is not a valid path
             data_full_path = os.path.join(data_root, data_dir_str).replace("\\", "/")
         else:
-            data_full_path = data_dir_str
+            # will keep this as is so that we don't lose information inside ResourcePath
+            data_full_path = data_dir
 
     return create_resource_path(data_full_path)
 
@@ -197,7 +199,7 @@ def save_model(
     output_name: Union[str, Path] = None,
     overwrite: bool = False,
     cache_dir: Union[str, Path] = ".olive-cache",
-):
+) -> Optional[Dict]:
     """Save a model from the cache to a given path."""
     # This function should probably be outside of the cache module
     # just to be safe, import lazily to avoid any future circular imports
@@ -241,6 +243,20 @@ def save_model(
 
         # save resource to output directory
         model_json["config"][resource_name] = local_resource_path.save_to_dir(save_dir, save_name, overwrite)
+
+    # Copy "additional files" to the output folder
+    model_attributes = model_json["config"].get("model_attributes") or {}
+    additional_files = model_attributes.get("additional_files", [])
+
+    for i, src_filepath in enumerate(additional_files):
+        dst_filepath = Path(output_dir) / output_name / Path(src_filepath).name
+        additional_files[i] = str(dst_filepath)
+
+        if not dst_filepath.exists():
+            shutil.copy(str(src_filepath), str(dst_filepath))
+
+    if additional_files:
+        model_json["config"]["model_attributes"]["additional_files"] = additional_files
 
     # save model json
     with (output_dir / f"{output_name}.json").open("w") as f:

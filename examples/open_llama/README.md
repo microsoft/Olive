@@ -233,7 +233,7 @@ Requirements file: [requirements-lora.txt](requirements-lora.txt)
 The code language is set to `Python` but can be changed to other languages by changing the `language` field in the config file.
 Supported languages are Python, TypeScript, JavaScript, Ruby, Julia, Rust, C++, Bash, Java, C#, and Go. Refer to the [dataset card](https://huggingface.co/datasets/nampdn-ai/tiny-codes) for more details on the dataset.
 
-Note: You must be logged in to HuggingFace using `huggingface-cli login` to download the dataset or update `token` field in the config file with your HuggingFace token.
+Note: You must first request access to the [nampdn-ai/tiny-codes](https://huggingface.co/datasets/nampdn-ai/tiny-codes) datatset. Then login in to HuggingFace on your machine using `huggingface-cli login` or update `token` field in the config file with your HuggingFace token.
 
 ### Fine-tune OpenLlama model using QLoRA with ONNX Runtime Training
 You can also train the model using [ONNX Runtime Training](https://techcommunity.microsoft.com/t5/ai-machine-learning-blog/onnx-runtime-training-technical-deep-dive/ba-p/1398310).
@@ -263,12 +263,12 @@ The optimization techniques to run are specified in the relevant config json fil
 
 First, install required packages according to passes.
 ```
-python -m olive.workflows.run --config <config_file>.json --setup
+olive run --config <config_file>.json --setup
 ```
 
 Then, optimize the model
 ```
-python -m olive.workflows.run --config <config_file>.json
+olive run --config <config_file>.json
 ```
 
 or run simply with python code:

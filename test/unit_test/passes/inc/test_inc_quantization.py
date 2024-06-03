@@ -4,12 +4,14 @@
 # --------------------------------------------------------------------------
 import platform
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
+from olive.data.config import DataConfig
 from olive.model import PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
@@ -84,6 +86,29 @@ def test_inc_weight_only_quantization(tmp_path):
     del p
     # create IncStaticQuantization pass
     p = create_pass_from_dict(IncStaticQuantization, config, disable_search=True)
+    # execute
+    quantized_model = p.run(ov_model, None, output_folder)
+    # assert
+    assert quantized_model.model_path.endswith(".onnx")
+    assert Path(quantized_model.model_path).exists()
+    assert Path(quantized_model.model_path).is_file()
+
+
+@pytest.mark.skipif(
+    platform.system() == "Windows", reason="Skip test on Windows. neural-compressor import is hanging on Windows."
+)
+@patch.dict("neural_compressor.quantization.STRATEGIES", {"auto": MagicMock()})
+@patch("olive.passes.onnx.inc_quantization.model_proto_to_olive_model")
+def test_inc_quantization_with_data_config(mock_model_saver, tmp_path):
+    ov_model = get_onnx_model(tmp_path)
+    data_dir = tmp_path / "data"
+    data_dir.mkdir(exist_ok=True)
+    config = {"approach": "static", "data_dir": data_dir, "data_config": DataConfig(name="test_dc_config")}
+    output_folder = str(tmp_path / "quantized")
+
+    mock_model_saver.return_value = ov_model
+    # create IncQuantization pass
+    p = create_pass_from_dict(IncQuantization, config, disable_search=True)
     # execute
     quantized_model = p.run(ov_model, None, output_folder)
     # assert

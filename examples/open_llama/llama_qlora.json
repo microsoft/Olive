@@ -1,5 +1,5 @@
 {
-    "input_model":{
+    "input_model": {
         "type": "PyTorchModel",
         "config": {
             "hf_config": {
@@ -8,8 +8,20 @@
             }
         }
     },
-    "data_configs": {
-        "oasst1_train": {
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "device": "gpu"
+                    }
+                ]
+            }
+        }
+    },
+    "data_configs": [
+        {
             "name": "oasst1",
             "type": "HuggingfaceContainer",
             "params_config": {
@@ -17,7 +29,9 @@
                 "split": "train",
                 "component_kwargs": {
                     "pre_process_data": {
-                        "text_cols": ["text"],
+                        "text_cols": [
+                            "text"
+                        ],
                         "corpus_strategy": "line-by-line",
                         "source_max_len": 512,
                         "pad_to_max_len": false
@@ -25,7 +39,7 @@
                 }
             }
         }
-    },
+    ],
     "passes": {
         "qlora": {
             "type": "QLoRA",
@@ -61,14 +75,9 @@
     "engine": {
         "log_severity_level": 0,
         "evaluate_input_model": false,
-        "target": {
-            "type": "LocalSystem",
-            "config": {
-                "accelerators": ["gpu"]
-            }
-        },
-        "execution_providers": ["CPUExecutionProvider"],
+        "host": "local_system",
+        "target": "local_system",
         "cache_dir": "cache",
-        "output_dir" : "models/huggyllama_qlora"
+        "output_dir": "models/huggyllama_qlora"
     }
 }

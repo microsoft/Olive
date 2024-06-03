@@ -4,11 +4,12 @@
 # --------------------------------------------------------------------------
 from enum import Enum
 from pathlib import Path
-from typing import Callable, Dict, Optional, Type, Union
+from typing import Callable, ClassVar, Dict, List, Optional, Type, Union
 
-from olive.common.config_utils import ConfigBase, ConfigParam, ParamCategory, validate_object, validate_resource_path
+from olive.common.config_utils import ConfigBase, ConfigParam, ParamCategory, validate_object
 from olive.common.pydantic_v1 import create_model, validator
-from olive.strategy.search_parameter import SearchParameter, json_to_search_parameter
+from olive.resource_path import validate_resource_path
+from olive.strategy.search_parameter import SearchParameter, SpecialParamValue, json_to_search_parameter
 
 
 class PassParamDefault(str, Enum):
@@ -80,15 +81,20 @@ def get_user_script_config(
     return user_script_config  # noqa: RET504
 
 
+DEFAULT_SET = set(PassParamDefault)
+
+
 class PassConfigBase(ConfigBase):
+
     @validator("*", pre=True)
     def _validate_default_str(cls, v, field):
-        try:
-            v = PassParamDefault(v)
-        finally:
-            if field.required and isinstance(v, PassParamDefault):
-                raise ValueError(f"{field.name} is required and cannot be set to {v.value}")
-            return v  # noqa: B012 # pylint: disable=lost-exception, return-in-finally
+        if not isinstance(v, (str, PassParamDefault)) or v not in DEFAULT_SET:
+            return v
+
+        if field.required:
+            raise ValueError(f"{field.name} is required and cannot be set to {v}")
+
+        return PassParamDefault(v)
 
     @validator("*", pre=True)
     def _validate_search_parameter(cls, v):
@@ -117,10 +123,29 @@ def create_config_class(
             config[param] = (type_, ...)
             continue
 
-        type_ = Optional[Union[type_, SearchParameter, PassParamDefault]]
+        # Value can be one of
+        # 1. Instance of type_ if search is disabled or searchable_values is None
+        # 2. Search Parameter if search is enabled and searchable_values is not None
+        # 3. PassParamDefault if value is set to "DEFAULT_VALUE" or "SEARCHABLE_VALUES"
+        # 4. SpecialParamValue.IGNORED if the param is ignored for a specific search point. This is used to ignore
+        #    parameters that are only used conditional on other parameters. Such as static quantization parameters
+        #    that are only used if the quantization mode is static.
+        type_ = Optional[Union[type_, SearchParameter, PassParamDefault, SpecialParamValue]]
         if not disable_search and param_config.searchable_values is not None:
             config[param] = (type_, param_config.searchable_values)
         else:
             config[param] = (type_, param_config.default_value)
 
     return create_model(f"{pass_type}Config", **config, __base__=PassConfigBase, __validators__=validators)
+
+
+class PassModuleConfig(ConfigBase):
+    module_path: str
+    module_dependencies: ClassVar[List[str]] = []
+    extra_dependencies: ClassVar[List[str]] = []
+
+    @validator("module_path", pre=True)
+    def validate_module_path(cls, v, values):
+        if not v:
+            raise ValueError("module_path cannot be empty or None")
+        return v

@@ -4,10 +4,11 @@
 # --------------------------------------------------------------------------
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 from olive.common.config_utils import ConfigBase
 from olive.common.pydantic_v1 import validator
+from olive.hardware.accelerator import Device
 
 
 class SystemType(str, Enum):
@@ -16,6 +17,17 @@ class SystemType(str, Enum):
     AzureML = "AzureML"
     PythonEnvironment = "PythonEnvironment"
     IsolatedORT = "IsolatedORT"
+
+
+class AcceleratorConfig(ConfigBase):
+    device: Union[str, Device] = None
+    execution_providers: List[str] = None
+
+    @validator("execution_providers", always=True)
+    def validate_device_and_execution_providers(cls, v, values):
+        if v is None and values.get("device") is None:
+            raise ValueError("Either device or execution_providers must be provided")
+        return v
 
 
 class AzureMLDockerConfig(ConfigBase):

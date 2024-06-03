@@ -35,7 +35,7 @@ Passes are the building blocks of an Olive workflow. Olive uses multiple Passes 
 The base class for Pass:
 ```python
 class Pass(ABC):
-    def __init__(self, accelerator_spec: AcceleratorSpec, config: Union[Dict[str, Any], BaseModel], disable_search: Optional[bool] = False):
+    def __init__(self, accelerator_spec: AcceleratorSpec, config: Union[Dict[str, Any], BaseModel], disable_search: Optional[bool] = False, host_device: Optional[str] = None):
         ...
 
     @classmethod
@@ -286,12 +286,10 @@ Then the design for `DataContainer` interface will be like:
     DataConfig(
         components={
             "load_dataset": {
-                "name": "test_dataset",
                 "type": "test_dataset",
                 "params": {"test_value": "test_value"},
             },
             "dataloader": {
-                "name": "test_dataloader",
                 "type": "_test_dataloader",  # This is the key to get dataloader
                 "params": {"test_value": "test_value"},
             },

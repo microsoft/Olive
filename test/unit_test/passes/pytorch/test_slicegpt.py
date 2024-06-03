@@ -1,0 +1,47 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
+import sys
+
+import pytest
+
+from olive.data.template import huggingface_data_config_template
+from olive.model import PyTorchModelHandler
+from olive.passes.olive_pass import create_pass_from_dict
+
+
+@pytest.mark.skipif(sys.version_info < (3, 10), reason="requires python3.10 or higher")
+def test_slicegpt(tmp_path):
+    from olive.passes.pytorch.slicegpt import SliceGPT
+
+    # setup
+    model_name = "facebook/opt-125m"
+    task = "text-generation"
+    input_model = PyTorchModelHandler(hf_config={"model_name": model_name, "task": task})
+    dataset = {
+        "data_name": "wikitext",
+        "subset": "wikitext-2-raw-v1",
+        "split": "train",
+        "component_kwargs": {
+            "pre_process_data": {
+                "text_cols": ["text"],
+                "corpus_strategy": "join",
+                "add_special_tokens": False,
+                "source_max_len": 2048,
+                "max_samples": 128,
+                "joiner": "\n\n",
+            }
+        },
+    }
+    data_config = huggingface_data_config_template(model_name=model_name, task=task, **dataset)
+    config = {
+        "sparsity": 0.4,
+        "calibration_data_config": data_config,
+    }
+
+    p = create_pass_from_dict(SliceGPT, config, disable_search=True)
+    output_folder = str(tmp_path / "slicegpt")
+
+    # execute
+    p.run(input_model, None, output_folder)

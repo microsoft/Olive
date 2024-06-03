@@ -93,25 +93,20 @@ def model_proto_to_file(
     output_dir = output_path.parent
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    model_size = model.ByteSize()
+    # model size for large models might be negative (overflow?) on Windows
+    # see https://github.com/onnx/onnx/issues/5861
+    if not save_as_external_data and (model_size <= 0 or model_size >= onnx.checker.MAXIMUM_PROTOBUF):
+        save_as_external_data = True
+        logger.info(
+            "Model is too large to save as a single file but 'save_as_external_data' is False. Saving tensors as"
+            " external data, regardless."
+        )
+
     if not save_as_external_data:
-        try:
-            # save model
-            onnx.save_model(model, str(output_path))
-            return False
-        except ValueError as e:
-            # there are different types of error message for large model (>2GB) based on onnx version
-            # just try to save as external data
-            # if it fails, raise the original error
-            try:
-                logger.debug("Model save failed with error: %s. Trying to save as external data.", e)
-                model_proto_to_file(model, output_path, True, all_tensors_to_one_file, external_data_name)
-                logger.warning(
-                    "Model is too large to save as a single file but 'save_as_external_data' is False. Saved tensors"
-                    " as external data regardless."
-                )
-                return True
-            except Exception:
-                raise e from None
+        # save model
+        onnx.save_model(model, str(output_path))
+        return False
 
     # location for external data
     external_data_path = output_dir / (external_data_name if external_data_name else f"{output_path.name}.data")
@@ -144,6 +139,8 @@ def model_proto_to_olive_model(
     output_model_path: Union[str, Path],
     external_data_config: dict,
     check_model: bool = False,
+    external_initializers_file_name: Optional[str] = None,
+    constant_inputs_file_name: Optional[str] = None,
     custom_op_lib: Optional[str] = None,
 ) -> ONNXModelHandler:
     """Save the ONNX model to the specified path and return the ONNXModelHandler.
@@ -152,8 +149,9 @@ def model_proto_to_olive_model(
     :param output_model_path: The path to save the ONNX model to.
     :param external_data_config: The external data configuration. Must be a dictionary with keys
         "save_as_external_data", "all_tensors_to_one_file", and "external_data_name".
-    :param name: The name of the model.
-    :check_model: If True, run onnx.checker.check_model on the model before returning.
+    :param check_model: If True, run onnx.checker.check_model on the model before returning.
+    :param external_initializers_file_name: The name of the external initializers file.
+    :param constant_inputs_file_name: The name of the constant inputs file.
 
     :return: The ONNXModelHandler.
     """
@@ -167,7 +165,7 @@ def model_proto_to_olive_model(
     has_external_data = model_proto_to_file(
         model_proto, output_model_path, **{k: external_data_config[k] for k in config_keys if k in external_data_config}
     )
-    if has_external_data or custom_op_lib:
+    if has_external_data or external_initializers_file_name or constant_inputs_file_name or custom_op_lib:
         model_path = LocalFolder({"path": Path(output_model_path).parent})
 
         onnx_file_name = Path(output_model_path).name
@@ -175,7 +173,13 @@ def model_proto_to_olive_model(
         model_path = LocalFile({"path": output_model_path})
         onnx_file_name = None
 
-    olive_model = ONNXModelHandler(model_path=model_path, onnx_file_name=onnx_file_name, custom_op_lib=custom_op_lib)
+    olive_model = ONNXModelHandler(
+        model_path=model_path,
+        onnx_file_name=onnx_file_name,
+        external_initializers_file_name=external_initializers_file_name,
+        constant_inputs_file_name=constant_inputs_file_name,
+        custom_op_lib=custom_op_lib
+    )
 
     if check_model:
         onnx.checker.check_model(olive_model.model_path)

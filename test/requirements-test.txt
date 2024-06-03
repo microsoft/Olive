@@ -9,17 +9,22 @@ azureml-fsspec
 azureml-metrics[all]>=0.0.26
 coverage
 datasets
-docker
+docker>=7.1.0
 evaluate
+git+https://github.com/microsoft/TransformerCompression.git ; python_version >= "3.10"
 mlflow>=2.4.0
 neural-compressor
 nncf==2.7.0
+nvidia-modelopt~=0.11.0
+onnx-graphsurgeon
 onnxconverter_common
 onnxruntime-extensions
 openvino==2023.2.0
-optimum
+optimum>=1.17.0
 pandas
-peft
+# TODO(anyone): Unpin peft once the issue is resolved
+# occasional import error on Windows with peft 0.11.1
+peft==0.10.0
 plotly
 protobuf==3.20.3
 psutil

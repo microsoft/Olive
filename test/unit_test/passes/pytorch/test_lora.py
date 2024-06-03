@@ -15,7 +15,7 @@ import torch
 from olive.data.template import huggingface_data_config_template
 from olive.model import PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.pytorch import LoftQ, LoRA, QLoRA
+from olive.passes.pytorch.lora import LoftQ, LoRA, QLoRA
 
 # pylint: disable=redefined-outer-name
 

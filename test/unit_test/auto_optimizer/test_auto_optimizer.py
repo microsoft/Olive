@@ -30,7 +30,7 @@ class TestAutoOptimizer:
                 }
             },
         )
-        self.data_configs = {"__input_model_data_config__": get_glue_huggingface_data_config()}
+        self.data_configs = [get_glue_huggingface_data_config()]
 
     @pytest.mark.parametrize(
         ("accelerator_spec", "auto_optimizer_config", "expected_cuda_fp16", "expected_trt_fp16"),
@@ -53,6 +53,8 @@ class TestAutoOptimizer:
     )
     def test_regulate_fp16(self, accelerator_spec, auto_optimizer_config, expected_cuda_fp16, expected_trt_fp16):
         metrics = [get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, goal_type="max-degradation")]
+        for metric in metrics:
+            metric.data_config = self.data_configs[0]
         evaluator_config = OliveEvaluatorConfig(metrics=metrics)
         auto_optimizer = AutoOptimizer(
             input_model_config=self.input_model_config,
@@ -108,6 +110,8 @@ class TestAutoOptimizer:
     )
     def test_regulate_pass(self, metrics_configs, accelerator_spec, auto_optimizer_config, expected_pass_flows):
         metrics = [get_accuracy_metric(*mc["args"], **mc["kwargs"]) for mc in metrics_configs]
+        for metric in metrics:
+            metric.data_config = self.data_configs[0]
         evaluator_config = OliveEvaluatorConfig(metrics=metrics)
         auto_optimizer = AutoOptimizer(
             input_model_config=self.input_model_config,
@@ -131,3 +135,15 @@ class TestAutoOptimizer:
             accelerator, ep, precision = k_list[0], k_list[1], k_list[2]
             rls_pf = get_pass_flows_by_accelerator_ep_precision(0, accelerator, ep, precision)
             assert sorted(rls_pf) == sorted(pf)
+
+    def test_pass_config_when_no_evaluator(self):
+        auto_optimizer = AutoOptimizer(
+            input_model_config=self.input_model_config,
+            evaluator_config=None,
+            accelerator_spec=DEFAULT_CPU_ACCELERATOR,
+            auto_optimizer_config=None,
+            data_configs=self.data_configs,
+        )
+        pass_config, _ = auto_optimizer.suggest()
+        for pass_name in pass_config:
+            assert pass_config[pass_name]["disable_search"] is True

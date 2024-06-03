@@ -11,6 +11,8 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset as TorchDataset
 
+from olive.common.utils import resolve_torch_dtype
+
 
 class BaseDataset(TorchDataset):
     """Define the Olive dataset which should return the data with following format.
@@ -113,15 +115,7 @@ class DummyDataset(BaseDataset):
         if index < 0 or index >= len(self):
             raise IndexError("Index out of range")
 
-        str_to_type = {
-            "float32": torch.float32,
-            "float16": torch.float16,
-            "int32": torch.int32,
-            "int64": torch.int64,
-            "int8": torch.int8,
-            "bool": torch.bool,
-        }
-        input_types = [str_to_type[type_] for type_ in self.input_types]
+        input_types = [resolve_torch_dtype(dtype_str) for dtype_str in self.input_types]
 
         if not self.input_names:
             dummy_inputs = []

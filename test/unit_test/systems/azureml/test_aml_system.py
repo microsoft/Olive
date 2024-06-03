@@ -26,7 +26,8 @@ from azure.core.exceptions import ResourceNotFoundError
 
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.data.config import DataConfig
-from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricResult
+from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric
+from olive.evaluator.metric_result import MetricResult
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
@@ -534,10 +535,6 @@ class TestAzureMLSystem:
             str(tmp_path / "pass_config.json"),
             "--pipeline_output",
             str(output_dir),
-            "--pass_accelerator_type",
-            f"{DEFAULT_CPU_ACCELERATOR.accelerator_type}",
-            "--pass_execution_provider",
-            f"{DEFAULT_CPU_ACCELERATOR.execution_provider}",
         ]
         aml_pass_runner_main(args)
 
@@ -609,7 +606,7 @@ def test__get_enironment_from_config(mock_retry_func):
 @patch.object(AzureMLClientConfig, "create_client")
 def test_create_managed_env(create_client_mock):
     from olive.systems.system_config import AzureMLTargetUserConfig, SystemConfig
-    from olive.systems.utils import create_new_system
+    from olive.systems.utils import create_managed_system
 
     ml_client = MagicMock()
     ml_client.environments.get.side_effect = ResourceNotFoundError()
@@ -629,8 +626,11 @@ def test_create_managed_env(create_client_mock):
             olive_managed_env=True,
         ),
     )
-    system = create_new_system(system_config, DEFAULT_CPU_ACCELERATOR)
-    assert system.olive_managed_env
+    system = create_managed_system(system_config, DEFAULT_CPU_ACCELERATOR)
+    assert system.config.olive_managed_env
+
+    host_system = create_managed_system(system_config, None)
+    assert host_system.config.olive_managed_env
 
     ml_client = MagicMock()
     ml_client.environments.get.return_value = MagicMock()
@@ -651,4 +651,4 @@ def test_create_managed_env(create_client_mock):
         ),
     )
     system = system_config.create_system()
-    assert not system.olive_managed_env
+    assert not system.config.olive_managed_env

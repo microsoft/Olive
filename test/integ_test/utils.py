@@ -4,8 +4,6 @@
 # --------------------------------------------------------------------------
 import os
 
-from azure.storage.blob import BlobClient
-
 # pylint: disable=broad-exception-raised
 
 
@@ -22,20 +20,27 @@ def get_olive_workspace_config():
     if workspace_name is None:
         raise Exception("Please set the environment variable WORKSPACE_NAME")
 
+    client_id = os.environ.get("MANAGED_IDENTITY_CLIENT_ID")
+    if client_id is None:
+        raise Exception("Please set the environment variable MANAGED_IDENTITY_CLIENT_ID")
+
     return {
         "subscription_id": subscription_id,
         "resource_group": resource_group,
         "workspace_name": workspace_name,
+        # pipeline agents have multiple managed identities, so we need to specify the client_id
+        "default_auth_params": {"managed_identity_client_id": client_id},
     }
 
 
-def download_azure_blob(container, blob, download_path):
-    try:
-        conn_str = os.environ["OLIVEWHEELS_STORAGE_CONNECTION_STRING"]
-    except KeyError as e:
-        raise Exception("Please set the environment variable OLIVEWHEELS_STORAGE_CONNECTION_STRING") from e
+def download_azure_blob(container, blob, download_path, storage_account="olivewheels"):
+    from azure.identity import ManagedIdentityCredential
+    from azure.storage.blob import BlobClient
 
-    blob = BlobClient.from_connection_string(conn_str=conn_str, container_name=container, blob_name=blob)
+    blob = BlobClient.from_blob_url(
+        f"https://{storage_account}.blob.core.windows.net/{container}/{blob}",
+        credential=ManagedIdentityCredential(client_id=os.environ.get("MANAGED_IDENTITY_CLIENT_ID")),
+    )
 
     with open(download_path, "wb") as my_blob:
         blob_data = blob.download_blob()

@@ -13,7 +13,6 @@ from olive.model import ONNXModelHandler, PyTorchModelHandler, QNNModelHandler, 
 from olive.model.utils import normalize_path_suffix
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import PassConfigParam
-from olive.passes.qnn.common import get_env_config
 from olive.platform_sdk.qualcomm.runner import QNNSDKRunner
 
 
@@ -26,7 +25,7 @@ class QNNConversion(Pass):
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        config = {
+        return {
             # input_network is required for qnn conversion, but we don't have it in the config.
             # The `input_network` will be set in the runtime.
             "input_dim": PassConfigParam(
@@ -35,11 +34,11 @@ class QNNConversion(Pass):
                 description=(
                     "The names and dimensions of the network input layers specified in the format"
                     " [input_name comma-separated-dimensions], for example:"
-                    "        [\"'data' 1,224,224,3\"]"
+                    '        ["data 1,224,224,3"]'
                     " Note that the quotes should always be included in order to"
                     " handle special characters, spaces, etc."
                     " For multiple inputs specify multiple --input_dim on the command line like:"
-                    "        [\"'data' 1,224,224,3\", \"'data2' 1,224,224,3\"]"
+                    '        ["data 1,224,224,3", "data2 1,224,224,3"]'
                     " If --input_dim is not specified, the input dimensions will be inferred from the model."
                     " If --input_dim is specified, the input dimensions will be used as-is."
                 ),
@@ -63,8 +62,6 @@ class QNNConversion(Pass):
                 ),
             ),
         }
-        config.update(get_env_config())
-        return config
 
     def _run_for_config(
         self,
@@ -82,38 +79,46 @@ class QNNConversion(Pass):
         else:
             # TODO(trajep): add tflite support
             raise NotImplementedError(f"Unsupported model handler type: {type(model)}")
-        converter_program = f"qnn-{converter_platform}-converter"
+        converter_program = [f"qnn-{converter_platform}-converter"]
 
         runner = QNNSDKRunner(use_dev_tools=True)
         if platform.system() == "Windows":
-            converter_program = "python " + str(
-                Path(runner.sdk_env.sdk_root_path) / "bin" / runner.sdk_env.target_arch / converter_program
-            )
+            converter_program = [
+                "python",
+                str(Path(runner.sdk_env.sdk_root_path) / "bin" / runner.sdk_env.target_arch / converter_program[0]),
+            ]
 
         # get input dim from io_config
         input_dims = None
         if config.get("input_dim"):
-            input_dims = config["input_dim"]
+            input_dims = map(str.split, config["input_dim"])
         elif model.io_config:
-            input_dims_tuple = zip(model.io_config.input_names, model.io_config.input_shapes)
-            # '{name}' is required to wrap the input name
-            input_dims = [f"'{name}' {','.joint(shape)}" for name, shape in input_dims_tuple]
+            input_dims_tuple = zip(model.io_config["input_names"], model.io_config["input_shapes"])
+            input_dims = [[name, ",".join(map(str, shape))] for name, shape in input_dims_tuple]
 
         out_nodes = None
         if config.get("out_node"):
             out_nodes = config["out_node"]
         elif model.io_config:
-            out_nodes = model.io_config.output_names
+            out_nodes = model.io_config["output_names"]
 
         output_model_path = normalize_path_suffix(output_model_path, "model.cpp")
-
+        # TODO(anyone): unify other cmd to list to avoid shlex.split error in non-posix mode
         cmd_list = [
-            converter_program,
-            f"--input_network {model.model_path}",
-            f"--output_path {output_model_path}",
-            " ".join([f"--input_dim {i}" for i in input_dims]) if input_dims else "",
-            " ".join([f"--out_node {o}" for o in out_nodes]) if out_nodes else "",
-            config["extra_args"] or "",
+            *converter_program,
+            "--input_network",
+            model.model_path,
+            "--output_path",
+            output_model_path,
         ]
-        runner.run(" ".join(cmd_list), use_olive_env=config["use_olive_env"])
+        if input_dims:
+            for i in input_dims:
+                cmd_list.extend(["--input_dim", *i])
+        if out_nodes:
+            for o in out_nodes:
+                cmd_list.extend(["--out_node", o])
+        if config["extra_args"]:
+            cmd_list.extend(config["extra_args"].split())
+
+        runner.run(cmd_list)
         return QNNModelHandler(output_model_path, model_file_format=ModelFileFormat.QNN_CPP)

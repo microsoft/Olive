@@ -6,14 +6,15 @@ import json
 import logging
 import os
 import platform
+import shutil
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from olive.common.utils import run_subprocess
-from olive.evaluator.metric import MetricResult
+from olive.evaluator.metric_result import MetricResult
 from olive.model import ModelConfig
-from olive.systems.common import SystemType
+from olive.systems.common import AcceleratorConfig, SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import PythonEnvironmentTargetUserConfig
 from olive.systems.utils import create_new_environ, get_package_name_from_ep, run_available_providers_runner
@@ -35,26 +36,22 @@ class PythonEnvironmentSystem(OliveSystem):
         python_environment_path: Union[Path, str] = None,
         environment_variables: Dict[str, str] = None,
         prepend_to_path: List[str] = None,
-        accelerators: List[str] = None,
+        accelerators: List[AcceleratorConfig] = None,
         olive_managed_env: bool = False,
         requirements_file: Union[Path, str] = None,
         hf_token: bool = None,
     ):
-        super().__init__(accelerators=accelerators, olive_managed_env=olive_managed_env)
-        self.config = PythonEnvironmentTargetUserConfig(
+        if python_environment_path is None:
+            raise ValueError("python_environment_path is required for PythonEnvironmentSystem.")
+
+        super().__init__(accelerators=accelerators, hf_token=hf_token)
+        self.config = PythonEnvironmentTargetUserConfig(**locals())
+        self.environ = create_new_environ(
             python_environment_path=python_environment_path,
             environment_variables=environment_variables,
             prepend_to_path=prepend_to_path,
-            accelerators=accelerators,
-            olive_managed_env=olive_managed_env,
-            requirements_file=requirements_file,
         )
-        self.environ = create_new_environ(
-            python_environment_path=self.config.python_environment_path,
-            environment_variables=self.config.environment_variables,
-            prepend_to_path=self.config.prepend_to_path,
-        )
-        if self.config.olive_managed_env:
+        if olive_managed_env:
             if platform.system() == "Linux":
                 temp_dir = os.path.join(os.environ.get("HOME", ""), "tmp")
                 if not os.path.exists(temp_dir):
@@ -63,6 +60,7 @@ class PythonEnvironmentSystem(OliveSystem):
             else:
                 self.environ["TMPDIR"] = tempfile.TemporaryDirectory().name  # pylint: disable=consider-using-with
 
+        self.executable = shutil.which("python", path=self.environ["PATH"])
         # available eps. This will be populated the first time self.get_supported_execution_providers() is called.
         # used for caching the available eps
         self.available_eps = None
@@ -78,7 +76,7 @@ class PythonEnvironmentSystem(OliveSystem):
             tmp_dir_path = Path(tmp_dir).resolve()
 
             # command to run
-            command = ["python", str(script_path)]
+            command = [self.executable, str(script_path)]
 
             # write config jsons to files
             for key, config_json in config_jsons.items():
@@ -171,18 +169,18 @@ class PythonEnvironmentSystem(OliveSystem):
         packages.append(onnxruntime_package)
 
         _, stdout, _ = run_subprocess(
-            f"pip install --cache-dir {self.environ['TMPDIR']} {' '.join(packages)}",
+            f"{self.executable} -m pip install --cache-dir {self.environ['TMPDIR']} {' '.join(packages)}",
             env=self.environ,
             check=True,
         )
         log_stdout(stdout)
 
-        _, stdout, _ = run_subprocess(f"pip show {onnxruntime_package}", env=self.environ, check=True)
+        _, stdout, _ = run_subprocess(
+            f"{self.executable} -m pip show {onnxruntime_package}", env=self.environ, check=True
+        )
         log_stdout(stdout)
 
     def remove(self):
-        import shutil
-
         vitual_env_path = Path(self.config.python_environment_path).resolve().parent
 
         try:

@@ -1,38 +1,80 @@
 {
-    "input_model":{
+    "input_model": {
         "type": "PyTorchModel",
         "config": {
             "hf_config": {
                 "model_name": "Intel/bert-base-uncased-mrpc",
-                "task": "text-classification",
-                "dataset": {
-                    "data_name":"glue",
-                    "subset": "mrpc",
-                    "split": "validation",
-                    "input_cols": ["sentence1", "sentence2"],
-                    "label_cols": ["label"],
-                    "batch_size": 1,
-                    "max_samples": 100
-                }
+                "task": "text-classification"
             }
         }
     },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [
+                    {
+                        "device": "gpu",
+                        "execution_providers": [
+                            "CUDAExecutionProvider"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
+    "data_configs": [
+        {
+            "name": "glue_mrpc",
+            "type": "HuggingfaceContainer",
+            "params_config": {
+                "batch_size": 1,
+                "max_samples": 100,
+                "data_name": "glue",
+                "input_cols": [
+                    "sentence1",
+                    "sentence2"
+                ],
+                "label_cols": [
+                    "label"
+                ],
+                "split": "validation",
+                "subset": "mrpc"
+            }
+        }
+    ],
     "evaluators": {
         "common_evaluator": {
-            "metrics":[
+            "metrics": [
                 {
                     "name": "accuracy",
                     "type": "accuracy",
                     "backend": "huggingface_metrics",
+                    "data_config": "glue_mrpc",
                     "sub_types": [
-                        {"name": "accuracy", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}}
+                        {
+                            "name": "accuracy",
+                            "priority": 1,
+                            "goal": {
+                                "type": "max-degradation",
+                                "value": 0.01
+                            }
+                        }
                     ]
                 },
                 {
                     "name": "latency",
                     "type": "latency",
+                    "data_config": "glue_mrpc",
                     "sub_types": [
-                        {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}}
+                        {
+                            "name": "avg",
+                            "priority": 2,
+                            "goal": {
+                                "type": "percent-min-improvement",
+                                "value": 20
+                            }
+                        }
                     ]
                 }
             ]
@@ -56,13 +98,20 @@
             "type": "OrtPerfTuning",
             "config": {
                 "enable_cuda_graph": true,
-                "data_config": "__input_model_data_config__"
+                "data_config": "glue_mrpc"
             }
         }
     },
     "pass_flows": [
-        ["conversion", "transformers_optimization", "perf_tuning"],
-        ["conversion", "perf_tuning"]
+        [
+            "conversion",
+            "transformers_optimization",
+            "perf_tuning"
+        ],
+        [
+            "conversion",
+            "perf_tuning"
+        ]
     ],
     "engine": {
         "search_strategy": {
@@ -74,9 +123,10 @@
             }
         },
         "evaluator": "common_evaluator",
-        "execution_providers": ["CUDAExecutionProvider"],
+        "host": "local_system",
+        "target": "local_system",
         "clean_cache": true,
         "cache_dir": "run_cache/olive/cache",
-        "output_dir" : "run_cache/olive/bert_gpu"
+        "output_dir": "run_cache/olive/bert_gpu"
     }
 }

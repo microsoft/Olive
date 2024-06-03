@@ -76,12 +76,13 @@ def main(raw_args=None):
         args.predict_timestamps = False
 
     # get device and ep
-    device = config["systems"]["local_system"]["config"]["accelerators"][0]
-    ep = config["engine"]["execution_providers"][0]
+    device = config["systems"]["local_system"]["config"]["accelerators"][0]["device"]
+    ep = config["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"][0]
     accelerator_spec = AcceleratorSpec(accelerator_type=device, execution_provider=ep)
 
     # load output model json
     output_model_json_path = Path(config["engine"]["output_dir"])
+    output_model_json = {}
     for model_json in output_model_json_path.glob(
         f"**/{config['engine']['output_name']}_{accelerator_spec}_model.json"
     ):
@@ -118,7 +119,7 @@ def main(raw_args=None):
 
     # get output
     input_data, _ = dataset[0]
-    input_data = OnnxEvaluator.format_input(input_data, olive_model.get_io_config())
+    input_data = OnnxEvaluator.format_input(input_data, olive_model.io_config)
     output = session.run(None, input_data)
     return output[0][0]
 

@@ -5,6 +5,7 @@
 import collections
 import json
 import logging
+import shutil
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
@@ -17,13 +18,14 @@ from olive.common.utils import run_subprocess
 from olive.evaluator.metric import get_latency_config_from_metric
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveModelOutput, OnnxEvaluatorMixin
 from olive.hardware import Device
-from olive.systems.common import SystemType
+from olive.systems.common import AcceleratorConfig, SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import IsolatedORTTargetUserConfig
 from olive.systems.utils import create_new_environ, run_available_providers_runner
 
 if TYPE_CHECKING:
-    from olive.evaluator.metric import Metric, MetricResult
+    from olive.evaluator.metric import Metric
+    from olive.evaluator.metric_result import MetricResult
     from olive.hardware.accelerator import AcceleratorSpec
     from olive.model import ModelConfig, ONNXModelHandler
     from olive.passes.olive_pass import Pass
@@ -39,20 +41,18 @@ class IsolatedORTSystem(OliveSystem):
         python_environment_path: Union[Path, str] = None,
         environment_variables: Dict[str, str] = None,
         prepend_to_path: List[str] = None,
-        accelerators: List[str] = None,
+        accelerators: List[AcceleratorConfig] = None,
         hf_token: bool = None,
     ):
-        super().__init__(accelerators=accelerators, olive_managed_env=False)
-        self.config = IsolatedORTTargetUserConfig(
+        if python_environment_path is None:
+            raise ValueError("python_environment_path is required for PythonEnvironmentSystem.")
+
+        super().__init__(accelerators=accelerators, hf_token=hf_token)
+        self.config = IsolatedORTTargetUserConfig(**locals())
+        self.environ = create_new_environ(
             python_environment_path=python_environment_path,
             environment_variables=environment_variables,
             prepend_to_path=prepend_to_path,
-            accelerators=accelerators,
-        )
-        self.environ = create_new_environ(
-            python_environment_path=self.config.python_environment_path,
-            environment_variables=self.config.environment_variables,
-            prepend_to_path=self.config.prepend_to_path,
         )
 
         # available eps. This will be populated the first time self.get_supported_execution_providers() is called.
@@ -95,15 +95,17 @@ class IsolatedORTSystem(OliveSystem):
         return self.available_eps
 
     def remove(self):
-        raise ValueError("ORT inference system does not support system removal")
+        raise NotImplementedError("ORT inference system does not support system removal")
 
 
 class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_inference"):
     def __init__(self, environ: Dict[str, str]):
         super().__init__()
 
+        assert environ, "environ should not be None"
         self.environ = environ
         self.inference_runner_path = Path(__file__).parent.resolve() / "inference_runner.py"
+        self.executable = shutil.which("python", path=self.environ["PATH"])
 
     @classmethod
     def _get_common_config(
@@ -117,28 +119,19 @@ class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_in
             "io_bind": cls.io_bind_enabled(metric, model.inference_settings),
             "device": str(device),
             "share_kv_buffer": metric.user_config.shared_kv_buffer,
-            "use_fp16": any(v == "float16" for v in model.get_io_config()["input_types"]),
+            "use_fp16": any(v == "float16" for v in model.io_config["input_types"]),
         }
 
-    def _run_inference(
-        self,
-        config_path: Union[str, Path],
-        model_path: Union[str, Path],
-        input_dir: Union[str, Path],
-        output_dir: Union[str, Path],
-    ):
-        command = [
-            "python",
-            str(self.inference_runner_path),
-            "--config_path",
-            str(config_path),
-            "--model_path",
-            str(model_path),
-            "--input_dir",
-            str(input_dir),
-            "--output_dir",
-            str(output_dir),
-        ]
+    def _run_inference(self, **kwargs):
+        """Run inference using the inference runner.
+
+        :param kwargs: arguments to be passed to the inference runner
+        """
+        command = [self.executable, str(self.inference_runner_path)]
+        for key, value in kwargs.items():
+            if not value:
+                continue
+            command.extend([f"--{key}", str(value)])
         run_subprocess(command, self.environ, check=True)
 
     def _inference(
@@ -153,7 +146,7 @@ class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_in
         inference_config = self._get_common_config(model, metric, device, execution_providers)
         inference_config["mode"] = "inference"
 
-        io_config = model.get_io_config()
+        io_config = model.io_config
 
         preds = []
         targets = []
@@ -185,7 +178,14 @@ class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_in
             logger.debug("Inference config: %s", inference_config)
 
             # run inference
-            self._run_inference(config_path, model.model_path, input_dir, output_dir)
+            self._run_inference(
+                config_path=config_path,
+                model_path=model.model_path,
+                input_dir=input_dir,
+                output_dir=output_dir,
+                external_initializers_path=model.external_initializers_path,
+                constant_inputs_path=model.constant_inputs_path,
+            )
 
             # load and process output
             for idx in range(num_batches):
@@ -247,7 +247,7 @@ class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_in
             }
         )
 
-        io_config = model.get_io_config()
+        io_config = model.io_config
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_dir_path = Path(temp_dir)
@@ -266,7 +266,14 @@ class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_in
                 json.dump(inference_config, f)
 
             # run inference
-            self._run_inference(config_path, model.model_path, input_dir, output_dir)
+            self._run_inference(
+                config_path=config_path,
+                model_path=model.model_path,
+                input_dir=input_dir,
+                output_dir=output_dir,
+                external_initializers_path=model.external_initializers_path,
+                constant_inputs_path=model.constant_inputs_path,
+            )
 
             # load output
             return np.load(output_dir / "output.npy").tolist()

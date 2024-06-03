@@ -40,9 +40,9 @@ python -m pip install ort-nightly-qnn --extra-index-url https://aiinfra.pkgs.vis
 deactivate
 ```
 
-Set the environment variable `QNN_EP_ENV` to the directory where the python executable is located:
+Set the environment variable `QNN_ENV_PATH` to the directory where the python executable is located:
 ```bash
-set QNN_EP_ENV=C:\path\to\qnn-ep-env\Scripts
+set QNN_ENV_PATH=C:\path\to\qnn-ep-env\Scripts
 ```
 
 **Note:** Using a virtual environment is optional but recommended to better manage the dependencies.
@@ -61,9 +61,9 @@ Run the following command to quantize the model and evaluate it on the NPU:
 python mobilenet_qnn_ep.py --evaluate
 ```
 
-**NOTE:** You can also only dump the workflow configuration file by adding the `--only_config` flag to the command.
+**NOTE:** You can also only dump the workflow configuration file by adding the `--config_only` flag to the command.
 
 The configuration file will be saved as `mobilenet_qnn_ep_{eval|no_eval}.json` in the current directory and can be run using the Olive CLI.
 ```bash
-python -m olive.workflows.run --config mobilenet_qnn_ep_{eval|no_eval}.json
+olive run --config mobilenet_qnn_ep_{eval|no_eval}.json
 ```

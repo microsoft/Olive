@@ -7,6 +7,7 @@ import inspect
 import io
 import json
 import logging
+import os
 import pickle
 import platform
 import shlex
@@ -15,6 +16,7 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
+from typing import Dict, List, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +27,17 @@ def run_subprocess(cmd, env=None, cwd=None, check=False):
     assert isinstance(cmd, (str, list)), f"cmd must be a string or a list, got {type(cmd)}."
     windows = platform.system() == "Windows"
     if isinstance(cmd, str):
+        # In posix model, the cmd string will be handled with specific posix rules.
+        # https://docs.python.org/3.8/library/shlex.html#parsing-rules
+        # We listed 2 typical examples:
+        # 1. The cmd may contain the folder/file path from windows. This kind of path is like: C:\\User\\xxx\\...
+        #   in posix mode, the shlex.split will split the path into ['C:Userxxx...'], which is not correct.
+        #   in non-posix mode, the shlex.split will split the path into ['C:\\User\\xxx\\...'].
+        # 2. The cmd may contain the quotes("" or ''). This kind of cmd is like: "str_0, 'str_1'"
+        #   in posix mode, the shlex.split will split the cmd into ["str_0", "str_1"]
+        #   in non-posix mode, the shlex.split will split the cmd into ["str_0", "'str_1'"]
         cmd = shlex.split(cmd, posix=not windows)
-    if windows:
-        path = env.get("PATH") if env else None
-        cmd_exe = shutil.which(cmd[0], path=path)
-        cmd[0] = cmd_exe
+
     try:
         out = subprocess.run(cmd, env=env, cwd=cwd, capture_output=True, check=check)
     except subprocess.CalledProcessError as e:
@@ -49,13 +57,13 @@ def run_subprocess(cmd, env=None, cwd=None, check=False):
 
 
 def hash_string(string):  # pragma: no cover
-    md5_hash = hashlib.md5()
+    md5_hash = hashlib.sha256()
     md5_hash.update(string.encode())
     return md5_hash.hexdigest()
 
 
 def hash_io_stream(f):  # pragma: no cover
-    md5_hash = hashlib.md5()
+    md5_hash = hashlib.sha256()
     # Read and update hash in chunks of 4K
     for byte_block in iter(lambda: f.read(4096), b""):
         md5_hash.update(byte_block)
@@ -87,18 +95,18 @@ def hash_update_from_dir(directory, hash_value):
 
 
 def hash_dir(directory):
-    return hash_update_from_dir(directory, hashlib.md5()).hexdigest()
+    return hash_update_from_dir(directory, hashlib.sha256()).hexdigest()
 
 
 def hash_dict(dictionary):  # pragma: no cover
-    md5_hash = hashlib.md5()
+    md5_hash = hashlib.sha256()
     encoded_dictionary = json.dumps(dictionary, sort_keys=True).encode()
     md5_hash.update(encoded_dictionary)
     return md5_hash.hexdigest()
 
 
 def hash_function(function):  # pragma: no cover
-    md5_hash = hashlib.md5()
+    md5_hash = hashlib.sha256()
     try:
         source = inspect.getsource(function)
     except OSError:
@@ -165,12 +173,12 @@ def retry_func(func, args=None, kwargs=None, max_tries=3, delay=5, backoff=2, ex
             out = func(*args, **kwargs)
             logger.debug("Succeeded.")
             return out
-        except exceptions:
+        except exceptions as e:
             num_tries += 1
             if num_tries == max_tries:
                 logger.exception("The operation failed after the maximum number of retries.")
                 raise
-            logger.debug("Failed. Retrying in %d seconds...", sleep_time)
+            logger.debug("Failed with %s. Retrying in %d seconds...", e, sleep_time)
             time.sleep(sleep_time)
             sleep_time *= backoff
     return None
@@ -265,8 +273,6 @@ def huggingface_login(token: str):
 
 
 def aml_runner_hf_login():
-    import os
-
     hf_login = os.environ.get("HF_LOGIN")
     if hf_login:
         from azure.identity import DefaultAzureCredential
@@ -331,6 +337,54 @@ def copy_dir(src_dir, dst_dir, ignore=None, **kwargs):
             )
 
 
+def hardlink_copy_file(src, dst, *, follow_symlinks=True):
+    """Copy a file using hardlink if possible, otherwise use shutil.copy2.
+
+    Similar to shutil.copy2, if the destination is a directory, the file will be copied into the directory with the
+    same name.
+    If the destination file exists, it will be overwritten.
+    """
+    src = Path(src).resolve()  # NOTE: This call resolves any symlinks
+    dst = Path(dst).resolve()
+
+    if not src.exists():
+        raise ValueError("Input source doesn't exist.", src)
+    elif not src.is_file():
+        raise ValueError("Input source is expected to be a file.", src)
+
+    if dst.is_dir():
+        dst = Path(dst) / src.name
+
+    if dst.exists():
+        logger.debug("Destination %s already exists. Removing.", dst)
+        dst.unlink()
+
+    try:
+        os.link(src, dst, follow_symlinks=follow_symlinks)
+    except OSError as e:
+        # for instance, hardlinking across filesystems is not supported
+        logger.debug("Linking failed with %s. Copying.", e)
+        shutil.copy2(src, dst, follow_symlinks=follow_symlinks)
+
+
+def hardlink_copy_dir(src_dir, dst_dir, **kwargs):
+    """Copy a directory recursively using hardlinks. If hardlinking is not possible, use shutil.copy2.
+
+    All kwargs are the same as shutil.copytree except for copy_function which is not supported.
+    """
+    # TODO(olivedevteam): What if dst_dir is a sub-directory of src_dir?
+    # i.e. dst_dir.is_relative_to(src_dir) == True
+    # Unsure if even shutil.copytree handles this scenario gracefully!!
+
+    if kwargs.pop("copy_function", None) is not None:
+        logger.warning("copy_function is not supported for hardlink_copy_dir. Ignoring.")
+
+    if kwargs.pop("dirs_exist_ok", None) is not None:
+        logger.warning("dirs_exist_ok is not supported for hardlink_copy_dir. Ignoring.")
+
+    copy_dir(src_dir, dst_dir, copy_function=hardlink_copy_file, dirs_exist_ok=True, **kwargs)
+
+
 def set_tempdir(tempdir: str = None):
     """Set the root directory for tempfiles.
 
@@ -356,3 +410,18 @@ def onnx_dtype_to_np_dtype(dtype: str) -> str:
             return TENSOR_TYPE_TO_NP_TYPE[tensor_type]
 
     return str(tensor_dtype_to_np_dtype(dtype))
+def exclude_keys(original_dict: Dict, keys_to_exclude):
+    return {k: v for k, v in original_dict.items() if k not in keys_to_exclude}
+
+
+def find_first_matched_value(original_dict: Dict, keys: Union[str, Tuple, List[str]], raise_key_error=False):
+    if isinstance(keys, str):
+        keys = [keys]
+
+    for possible_name in keys:
+        if possible_name in original_dict:
+            return original_dict[possible_name]
+
+    if raise_key_error:
+        raise KeyError(f"Keys {keys} not found in {original_dict}")
+    return None

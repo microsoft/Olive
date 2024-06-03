@@ -12,7 +12,7 @@ from olive.strategy.search_algorithm import REGISTRY, SearchAlgorithm
 from olive.strategy.search_results import SearchResults
 
 if TYPE_CHECKING:
-    from olive.evaluator.metric import MetricResult
+    from olive.evaluator.metric_result import MetricResult
     from olive.strategy.search_parameter import SearchParameter
 
 logger = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ class SearchStrategyConfig(ConfigBase):
             raise ValueError("Invalid search_algorithm")
 
         config_class = REGISTRY[values["search_algorithm"]].get_config_class()
-        return validate_config(v, ConfigBase, config_class)
+        return validate_config(v, config_class)
 
     @validator("stop_when_goals_met", "max_iter", "max_time", pre=True)
     def _validate_stop_when_goals_met(cls, v, values, field):
@@ -141,6 +141,8 @@ class SearchStrategy:
             next_sg = self._next_search_group_joint(init_model_id)
         elif self._config.execution_order == "pass-by-pass":
             next_sg = self._next_search_group_pass_by_pass(init_model_id)
+        else:
+            raise ValueError(f"Invalid execution order {self._config.execution_order}")
         return next_sg
 
     def _next_search_group_pass_by_pass(self, init_model_id: Optional[str] = None) -> Optional[SearchAlgorithm]:
@@ -211,6 +213,7 @@ class SearchStrategy:
             searcher = REGISTRY[self._config.search_algorithm](
                 search_spaces_dict, objectives, higher_is_betters, self._config.search_algorithm_config
             )
+            searcher.initialize()
         else:
             raise ValueError(f"Unknown search algorithm: {self._config.search_algorithm}")
         return searcher

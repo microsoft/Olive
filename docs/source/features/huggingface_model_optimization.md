@@ -117,7 +117,7 @@ Example:
 ```
 
 #### Script example
-```
+```python
 # my_script.py
 def get_dec_io_config(model: OliveModelHandler):
     # return your io dict
@@ -162,56 +162,28 @@ Please note the model for `Llama-2-7b` in Azure ML model catalog is a mlflow mod
 ## Huggingface datasets
 Olive supports automatically downloading and applying [Huggingface datasets](https://huggingface.co/datasets) to Passes and Evaluators.
 
-Datasets can be added to `hf_config`, or `data_configs` section in the configuration file with `"type": "HuggingfaceContainer"`. More details about `data_configs` can be found [here](../tutorials/configure_data.rst).
+Datasets can be added to `data_configs` section in the configuration file with `"type": "HuggingfaceContainer"`. More details about `data_configs` can be found [here](../tutorials/configure_data.rst).
 
 You can reference the dataset by its name in the Pass config
 
-Example: `datasets` in `hf_config`:
-```json
-"hf_config": {
-    "model_name": "bert-base-uncased",
-    "task": "text-classification",
-    "dataset": {
-        "data_name":"glue",
-        "subset": "mrpc",
-        "split": "validation",
-        "input_cols": ["sentence1", "sentence2"],
-        "label_cols": ["label"],
-        "batch_size": 1
-    }
-}
-```
-
-Pass config:
-```json
-"perf_tuning": {
-    "type": "OrtPerfTuning",
-    "config": {
-        "data_config": "__input_model_data_config__"
-    }
-}
-```
-
 Example: datasets in `data_configs`:
 ```json
-"data_configs": {
-    "oasst1_train": {
-        "name": "oasst1",
-        "type": "HuggingfaceContainer",
-        "params_config": {
-            "data_name": "timdettmers/openassistant-guanaco",
-            "split": "train",
-            "component_kwargs": {
-                "pre_process_data": {
-                    "text_cols": ["text"],
-                    "corpus_strategy": "line-by-line",
-                    "source_max_len": 512,
-                    "pad_to_max_len": false
-                }
+"data_configs": [{
+    "name": "oasst1_train",
+    "type": "HuggingfaceContainer",
+    "params_config": {
+        "data_name": "timdettmers/openassistant-guanaco",
+        "split": "train",
+        "component_kwargs": {
+            "pre_process_data": {
+                "text_cols": ["text"],
+                "corpus_strategy": "line-by-line",
+                "source_max_len": 512,
+                "pad_to_max_len": false
             }
         }
     }
-}
+}]
 ```
 
 Pass config:
@@ -233,6 +205,7 @@ Example metric config
     "name": "accuracy",
     "type": "accuracy",
     "backend": "huggingface_metrics",
+    "data_config": "oasst1_train",
     "sub_types": [
         {"name": "accuracy", "priority": -1},
         {"name": "f1"}
@@ -252,7 +225,7 @@ Follow these steps to enable Huggingface login for AzureML system:
 1. Get your Huggingface token string from Settings -> [Access Tokens](https://huggingface.co/settings/tokens).
 1. Create or use an existing [Azure Key Vault](https://learn.microsoft.com/en-us/azure/key-vault/general/overview). Assume the key vault is named `my_keyvault_name`. Add a new secret named `hf-token`, and set the value as the token from the first step. It is important to note that Olive reserves `hf-token` secret name specifically for Huggingface login. Do not use this name in this keyvault for other purpose.
 1. Make sure you have `azureml_client` section in your configuration file, and add a new attribute `keyvault_name` to it. For example:
-    ```
+    ```json
     "azureml_client": {
         "subscription_id": "<subscription_id>",
         "resource_group": "<resource_group>",

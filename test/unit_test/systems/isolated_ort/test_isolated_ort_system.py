@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import json
 import platform
+import shutil
 import sys
 import venv
 from pathlib import Path
@@ -23,8 +24,34 @@ from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.systems.isolated_ort import IsolatedORTSystem
 from olive.systems.isolated_ort.inference_runner import main as inference_runner_main
 from olive.systems.isolated_ort.isolated_ort_system import IsolatedORTEvaluator
+from olive.systems.system_config import IsolatedORTTargetUserConfig, SystemConfig
 
 # pylint: disable=attribute-defined-outside-init, protected-access
+
+
+class TestIsolatedORTSystemConfig:
+    def test_isolated_system_config(self):
+        config = {"type": "IsolatedORT", "config": {"python_environment_path": Path(sys.executable).parent}}
+        system_config = SystemConfig.parse_obj(config)
+        assert isinstance(system_config.config, IsolatedORTTargetUserConfig)
+
+    @pytest.mark.parametrize(
+        "config",
+        [
+            {"type": "IsolatedORT", "config": {"python_environment_path": None}},
+            {
+                "type": "IsolatedORT",
+            },
+        ],
+    )
+    def test_missing_isolated_system_config(self, config):
+        with pytest.raises(ValueError, match="python_environment_path is required for IsolatedORTSystem"):
+            SystemConfig.parse_obj(config)
+
+    def test_invalid_isolated_system_config(self):
+        config = {"type": "IsolatedORT", "config": {"python_environment_path": "invalid_path"}}
+        with pytest.raises(ValueError, match=f"Python path {Path('invalid_path').resolve()} does not exist"):
+            SystemConfig.parse_obj(config)
 
 
 class TestIsolatedORTSystem:
@@ -85,11 +112,15 @@ class TestIsolatedORTEvaluator:
         else:
             python_environment_path = f"{venv_path}/bin"
         self.system = IsolatedORTSystem(python_environment_path)
+
+        python_path = shutil.which("python", path=python_environment_path)
         # install only onnxruntime
-        run_subprocess(["python", "-m", "pip", "install", "onnxruntime"], env=self.system.environ)
+        run_subprocess([python_path, "-m", "pip", "install", "onnxruntime"], env=self.system.environ)
 
         self.evaluator = IsolatedORTEvaluator(self.system.environ)
         self.onnx_evaluator = OnnxEvaluator()
+        yield
+        shutil.rmtree(venv_path, ignore_errors=True)
 
     def test__inference(self):
         model = get_onnx_model_config().create_model()
@@ -144,15 +175,15 @@ class TestIsolatedORTEvaluator:
         # setup
         mock_wrapper = MagicMock()
         mock_wrapper_class.return_value = mock_wrapper
+        dummy_latencies = [1, 2, 3, 4]
+        dummy_output = np.array([1, 2])
+        sleep_time = 0
+        num_runs = 4
+        num_warmup = 2
+        num_batches = 3
         if mode == "inference":
-            num_batches = 3
-            dummy_output = np.array([1, 2])
             mock_wrapper.run.return_value = dummy_output
         else:
-            num_runs = 4
-            num_warmup = 2
-            sleep_time = 0
-            dummy_latencies = [1, 2, 3, 4]
             mock_wrapper.time_run.return_value = dummy_latencies
 
         model = "model.onnx"
@@ -202,7 +233,9 @@ class TestIsolatedORTEvaluator:
         inference_runner_main(args)
 
         # assert
-        mock_get_session.assert_called_once_with(Path(model), config["inference_settings"], False)
+        mock_get_session.assert_called_once_with(
+            Path(model), config["inference_settings"], False, external_initializers=None
+        )
         mock_wrapper_class.assert_called_once_with(
             mock_get_session.return_value,
             io_bind=False,
@@ -210,6 +243,7 @@ class TestIsolatedORTEvaluator:
             shared_kv_buffer=False,
             use_fp16=False,
             input_feed={"input": np.array([0])},
+            constant_inputs=None,
         )
         if mode == "inference":
             assert mock_wrapper.run.call_count == num_batches

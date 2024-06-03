@@ -13,8 +13,10 @@ from packaging import version
 
 from olive.cache import get_local_path_from_root
 from olive.common.config_utils import validate_config
+from olive.common.utils import exclude_keys
 from olive.data.config import DataConfig
-from olive.evaluator.metric import Metric, joint_metric_key
+from olive.evaluator.metric import Metric
+from olive.evaluator.metric_result import joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
 from olive.exception import OlivePassError
 from olive.hardware.accelerator import AcceleratorSpec
@@ -29,6 +31,7 @@ from olive.strategy.search_parameter import Boolean, Categorical, Conditional
 logger = logging.getLogger(__name__)
 
 _inc_quantization_config = {
+    # TODO(myguo): consider remove the device since now we have accelerator_spec.device
     "device": PassConfigParam(
         type_=str,
         default_value="cpu",
@@ -279,6 +282,7 @@ class IncQuantization(Pass):
     """Quantize ONNX model with Intel® Neural Compressor."""
 
     _requires_user_script = True
+    run_on_target = True
 
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
@@ -500,7 +504,8 @@ class IncQuantization(Pass):
         # start with a copy of the config
         run_config = deepcopy(config)
         require_dataloader = run_config["approach"] == "static" or (
-            run_config["approach"] == "weight_only" and run_config["weight_only_config"]["algorithm"].upper() == "GPTQ"
+            run_config["approach"] == "weight_only"
+            and run_config["weight_only_config"]["algorithm"].upper() in {"GPTQ", "AWQ"}
         )
         if require_dataloader:
             assert (
@@ -532,9 +537,7 @@ class IncQuantization(Pass):
             "weight_only_config",
         ]
         to_delete += list(get_external_data_config().keys())
-        for key in to_delete:
-            if key in run_config:
-                del run_config[key]
+        run_config = exclude_keys(run_config, to_delete)
 
         run_config["op_type_dict"] = (
             run_config["op_type_dict"] or {".*": {"weight": weight_only_config}}
@@ -550,7 +553,9 @@ class IncQuantization(Pass):
 
         inc_calib_dataloader = None
         if require_dataloader:
-            if self._user_module_loader:
+            # Never directly use `if self._user_module_loader` to check dataloader is provided or not
+            # self._user_module_loader is always not None since it is initialized in __init__
+            if config["dataloader_func"]:
                 data_dir = get_local_path_from_root(data_root, config["data_dir"])
                 inc_calib_dataloader = self._user_module_loader.call_object(
                     config["dataloader_func"],
@@ -561,7 +566,11 @@ class IncQuantization(Pass):
                 )
             elif config["data_config"]:
                 data_config = validate_config(config["data_config"], DataConfig)
-                inc_calib_dataloader = data_config.to_data_container().create_calibration_dataloader(data_root)
+                # inc quantization's calibration dataloader requires:
+                # 1. input: (input, label)
+                # 2. the dataloader should have the attributes of "__iter__" and "batch_size"
+                #  which is data_config's create_dataloader but not create_calibration_dataloader
+                inc_calib_dataloader = data_config.to_data_container().create_dataloader(data_root)
 
         if run_config.get("diagnosis", False):
             assert inc_calib_dataloader is not None, "diagnosis mode requires dataloader"

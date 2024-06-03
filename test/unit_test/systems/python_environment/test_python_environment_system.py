@@ -3,8 +3,10 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
-import sys
+import platform
+import shutil
 import tempfile
+import venv
 from pathlib import Path
 from test.unit_test.utils import (
     get_glue_accuracy_metric,
@@ -17,29 +19,45 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from olive.evaluator.metric import MetricResult, joint_metric_key
+from olive.common.utils import run_subprocess
+from olive.evaluator.metric_result import MetricResult, joint_metric_key
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import ModelConfig
 from olive.systems.python_environment import PythonEnvironmentSystem
 from olive.systems.python_environment.evaluation_runner import main as evaluation_runner_main
 from olive.systems.python_environment.pass_runner import main as pass_runner_main
 from olive.systems.system_config import PythonEnvironmentTargetUserConfig, SystemConfig
-from olive.systems.utils import create_new_system, create_new_system_with_cache
+from olive.systems.utils import create_managed_system, create_managed_system_with_cache
 
 # pylint: disable=no-value-for-parameter, attribute-defined-outside-init, protected-access
 
 
 class TestPythonEnvironmentSystem:
     @pytest.fixture(autouse=True)
-    def setup(self):
+    def setup(self, tmp_path):
+        # create a virtual environment with no packages installed
+        venv_path = tmp_path / "venv"
+        venv.create(venv_path, with_pip=True)
+        # python path
+        if platform.system() == "Windows":
+            self.python_environment_path = Path(venv_path) / "Scripts"
+        else:
+            self.python_environment_path = Path(venv_path) / "bin"
         # use the current python environment as the test environment
-        executable_parent = Path(sys.executable).parent.resolve().as_posix()
-        self.system = PythonEnvironmentSystem(executable_parent)
+        self.system = PythonEnvironmentSystem(self.python_environment_path)
+        yield
+        shutil.rmtree(venv_path)
 
     def test_get_supported_execution_providers(self):
-        import onnxruntime as ort
+        python_path = shutil.which("python", path=self.python_environment_path)
+        # install only onnxruntime
+        run_subprocess([python_path, "-m", "pip", "install", "onnxruntime"], env=self.system.environ)
 
-        assert set(self.system.get_supported_execution_providers()) == set(ort.get_available_providers())
+        # for GPU ort, the get_available_providers will return ["CUDAExecutionProvider", "DmlExecutionProvider"]
+        assert set(self.system.get_supported_execution_providers()) == {
+            "AzureExecutionProvider",
+            "CPUExecutionProvider",
+        }
 
     @patch("olive.systems.python_environment.python_environment_system.run_subprocess")
     @patch("olive.systems.python_environment.python_environment_system.tempfile.TemporaryDirectory")
@@ -63,8 +81,9 @@ class TestPythonEnvironmentSystem:
 
         # assert
         assert res == dummy_output
+        python_path = shutil.which("python", path=self.python_environment_path)
         expected_command = [
-            "python",
+            python_path,
             str(script_path),
             "--dummy_config",
             str(tmp_path / "dummy_config.json"),
@@ -241,19 +260,19 @@ class TestPythonEnvironmentSystem:
         with output_path.open("r") as f:
             assert json.load(f) == get_onnx_model().to_json()
 
-    @patch("olive.systems.utils.misc.create_new_system")
-    def test_create_new_system_with_cache(self, mock_create_new_system):
+    @patch("olive.systems.utils.misc.create_managed_system")
+    def test_create_new_system_with_cache(self, mock_create_managed_system):
         system_config = SystemConfig(
             type="PythonEnvironment",
             config=PythonEnvironmentTargetUserConfig(
                 olive_managed_env=True,
             ),
         )
-        create_new_system_with_cache(system_config, DEFAULT_CPU_ACCELERATOR)
-        create_new_system_with_cache(system_config, DEFAULT_CPU_ACCELERATOR)
-        assert mock_create_new_system.call_count == 1
-        create_new_system_with_cache.cache_clear()
-        assert create_new_system_with_cache.cache_info().currsize == 0
+        create_managed_system_with_cache(system_config, DEFAULT_CPU_ACCELERATOR)
+        create_managed_system_with_cache(system_config, DEFAULT_CPU_ACCELERATOR)
+        assert mock_create_managed_system.call_count == 1
+        create_managed_system_with_cache.cache_clear()
+        assert create_managed_system_with_cache.cache_info().currsize == 0
 
     def test_create_managed_env(self):
         system_config = SystemConfig(
@@ -262,5 +281,56 @@ class TestPythonEnvironmentSystem:
                 olive_managed_env=True,
             ),
         )
-        system = create_new_system(system_config, DEFAULT_CPU_ACCELERATOR)
-        assert system.olive_managed_env
+        system = create_managed_system(system_config, DEFAULT_CPU_ACCELERATOR)
+        assert system.config.olive_managed_env
+
+        host_system = create_managed_system(system_config, None)
+        assert host_system.config.olive_managed_env
+
+    def test_python_system_config(self):
+        config = {
+            "type": "PythonEnvironment",
+            "config": {
+                "python_environment_path": self.python_environment_path,
+                "olive_managed_env": False,
+            },
+        }
+        system_config = SystemConfig.parse_obj(config)
+        system = system_config.create_system()
+        assert system
+
+
+class TestPythonEnvironmentSystemConfig:
+    def test_missing_python_environment_path(self):
+        invalid_config = {
+            "type": "PythonEnvironment",
+            "config": {
+                "olive_managed_env": False,
+            },
+        }
+        with pytest.raises(
+            ValueError, match="python_environment_path is required for PythonEnvironmentSystem native mode"
+        ):
+            SystemConfig.parse_obj(invalid_config)
+
+    def test_invalid_python_environment_path(self):
+        invalid_config = {
+            "type": "PythonEnvironment",
+            "config": {
+                "python_environment_path": "invalid_path",
+                "olive_managed_env": False,
+            },
+        }
+        with pytest.raises(ValueError, match="Python path invalid_path does not exist"):
+            SystemConfig.parse_obj(invalid_config)
+
+    def test_managed_system_config(self):
+        config = {
+            "type": "PythonEnvironment",
+            "config": {
+                "olive_managed_env": True,
+            },
+        }
+        system_config = SystemConfig.parse_obj(config)
+        assert system_config.config.olive_managed_env
+        assert system_config.config.python_environment_path is None

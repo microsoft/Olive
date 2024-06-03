@@ -168,7 +168,7 @@ class PyTorchTensorParallel(Pass):
             with multiprocessing.Pool(processes=max_parallel_jobs) as pool:
                 results = pool.map(PyTorchTensorParallel._generate_one, params)
 
-        if self.accelerator_spec.accelerator_type == Device.GPU and torch.cuda.is_available():
+        if self.host_device == Device.GPU and torch.cuda.is_available():
             torch.cuda.empty_cache()
 
         if world_size != sum(results):

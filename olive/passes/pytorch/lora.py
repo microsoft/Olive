@@ -24,7 +24,7 @@ from transformers import AutoTokenizer
 
 from olive.common.config_utils import ConfigBase, ConfigWithExtraArgs
 from olive.common.pydantic_v1 import Field, validator
-from olive.common.utils import find_submodules
+from olive.common.utils import find_submodules, resolve_torch_dtype
 from olive.data.config import DataConfig
 from olive.data.constants import IGNORE_INDEX
 from olive.hardware.accelerator import AcceleratorSpec
@@ -648,30 +648,51 @@ class LoRABase(Pass):
 
                 trainer_cls = ORTTrainer
 
-            # get trainer
-            trainer = trainer_cls(
-                model=model,
-                tokenizer=tokenizer,
-                args=config.training_args.create_training_args(config.use_ort_trainer),
-                train_dataset=train_dataset,
-                eval_dataset=eval_dataset,
-                data_collator=partial(self.collate_batch, tokenizer=tokenizer),
-            )
-            # TODO(jambayk): trainer callback for saving might be needed for DDP training
-            # worry about this later
+            # there is a bug in accelerate where it assumes 4bit models on multiple gpus cannot be trained but it is
+            # not the case. refer to https://github.com/huggingface/accelerate/pull/2714 for more details
+            # we will force the accelerator to use the first device using the ACCELERATE_TORCH_DEVICE env variable
+            # only catches the bug on aml compute with multiple gpus where the model has no weights on device 0 for
+            # some reason
+            # TODO(jambayk): add a version check when the fix is released
+            accelerate_torch_device = os.environ.get("ACCELERATE_TORCH_DEVICE", None)
+            try:
+                # using a try finally block in case the environment variable is used elsewhere
+                first_device = next(iter(set(model.hf_device_map.values())))
+                first_device_index = first_device.index if isinstance(first_device, torch.device) else first_device
+                os.environ["ACCELERATE_TORCH_DEVICE"] = f"cuda:{first_device_index}"
+                logger.debug("ACCELERATE_TORCH_DEVICE set to: %s", os.environ["ACCELERATE_TORCH_DEVICE"])
 
-            # train
-            logger.info("Running fine-tuning")
-            train_result = trainer.train(resume_from_checkpoint=checkpoint)
-            logger.debug("train_result: %s", train_result)
+                # get trainer'
+                trainer = trainer_cls(
+                    model=model,
+                    tokenizer=tokenizer,
+                    args=config.training_args.create_training_args(config.use_ort_trainer),
+                    train_dataset=train_dataset,
+                    eval_dataset=eval_dataset,
+                    data_collator=partial(self.collate_batch, tokenizer=tokenizer),
+                )
+                # TODO(jambayk): trainer callback for saving might be needed for DDP training
+                # worry about this later
+
+                # train
+                logger.info("Running fine-tuning")
+                train_result = trainer.train(resume_from_checkpoint=checkpoint)
+                logger.debug("train_result: %s", train_result)
+            finally:
+                if accelerate_torch_device is not None:
+                    os.environ["ACCELERATE_TORCH_DEVICE"] = accelerate_torch_device
+                else:
+                    os.environ.pop("ACCELERATE_TORCH_DEVICE", None)
 
         if torch.cuda.is_available():
-            torch.backends.cuda.matmul.allow_tf32 = allow_tf32
+            torch.backends.cuda.matmul.allow_tf32 = allow_tf32  # lgtm
 
         # save adapter weights
         adapter_path = Path(output_model_path) / "adapter"
         adapter_path.mkdir(parents=True, exist_ok=True)
-        model.save_pretrained(adapter_path)
+        # don't save embedding layers since only adapter weights are trained
+        # if we don't provide as False, it defaults to "auto" which checks if the vocab size changed
+        model.save_pretrained(adapter_path, save_embedding_layers=False)
 
         # remove loaded model
         output_model.model = None
@@ -693,7 +714,12 @@ class LoRABase(Pass):
     def smart_tokenizer_and_embedding_resize(
         special_tokens_dict: Dict, tokenizer: "PreTrainedTokenizer", model: "PreTrainedModel"
     ):
-        """Resize the tokenizer and the model embedding layer to take into account new special tokens."""
+        """Resize the tokenizer and the model embedding layer to take into account new special tokens.
+
+        NOTE: This is only used to ensure we have a pad token. The new embeddings don't get training signals
+        the pad tokens are masked out in the attention mask and loss calculation. Moreover, only the adapter weights
+        are set as trainable and saved in the final checkpoint.
+        """
         # resize tokenizer
         num_new_tokens = tokenizer.add_special_tokens(special_tokens_dict)
         # resize model embedding layer
@@ -714,15 +740,9 @@ class LoRABase(Pass):
     @staticmethod
     def get_torch_dtype(torch_dtype: str) -> torch.dtype:
         """Get the torch dtype from the string."""
-        supported_dtypes = {
-            "bfloat16": torch.bfloat16,
-            "float16": torch.float16,
-            "float32": torch.float32,
-        }
-        assert (
-            torch_dtype in supported_dtypes
-        ), f"torch_dtype must be one of {list(supported_dtypes.keys())} but got {torch_dtype}"
-        return supported_dtypes[torch_dtype]
+        supported_dtypes = ("bfloat16", "float16", "float32")
+        assert torch_dtype in supported_dtypes, f"torch_dtype must be one of {supported_dtypes} but got {torch_dtype}"
+        return resolve_torch_dtype(torch_dtype)
 
     @classmethod
     def input_model_check(cls, model: PyTorchModelHandler) -> PyTorchModelHandler:
@@ -1032,7 +1052,7 @@ class LoftQ(QLoRABase):
         pytorch_model.save_pretrained(loftq_init_adapter_path)
 
         # unload adapter and get the base model with new weights
-        pytorch_model: "PreTrainedModel" = pytorch_model.unload()
+        pytorch_model: PreTrainedModel = pytorch_model.unload()
 
         # save the new master weights
         new_master_weights_path = output_model_path / "model"
@@ -1043,7 +1063,7 @@ class LoftQ(QLoRABase):
         new_model_handler.set_resource("model_path", new_master_weights_path)
 
         # load the quantized model with new master weights
-        pytorch_model: "PreTrainedModel" = new_model_handler.load_model()
+        pytorch_model: PreTrainedModel = new_model_handler.load_model()
         pytorch_model.config.torch_dtype = pytorch_model.dtype
 
         # tokenizer

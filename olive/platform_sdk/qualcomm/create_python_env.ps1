@@ -8,6 +8,14 @@ param (
 
 $ErrorActionPreference = "Stop"
 
+# conda and python commands don't exit with non-zero status code on failure
+# helper to check if the last command was successful
+function ExitOnFailure {
+    if (!$?) {
+        exit $LASTEXITCODE
+    }
+}
+
 if ($SDK -eq "snpe") {
     $SDK_ROOT = $env:SNPE_ROOT
 }
@@ -38,6 +46,7 @@ else {
 
 # Create python environment
 & $CONDA create -y -p (Join-Path $FILES_DIR $PY_ENV_NAME) python=$PY_VERSION
+ExitOnFailure
 
 # Install snpe requirements
 # if PIP_EXTRA_ARGS is set, then use it else use ""
@@ -56,6 +65,7 @@ else {
     Write-Host "Unsupported python version: $PY_VERSION, only 3.6 and 3.8 are supported"
     exit 1
 }
+ExitOnFailure
 
 Remove-Item -Path "$SDK_ROOT\$PY_ENV_NAME" -Recurse -Force -ErrorAction SilentlyContinue
 Move-Item -Path (Join-Path $FILES_DIR $PY_ENV_NAME) -Destination (Join-Path $SDK_ROOT $PY_ENV_NAME) -Force

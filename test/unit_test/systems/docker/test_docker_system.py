@@ -11,14 +11,15 @@ from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
-from olive.evaluator.metric import AccuracySubType, joint_metric_key
+from olive.evaluator.metric import AccuracySubType
+from olive.evaluator.metric_result import joint_metric_key
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.perf_tuning import OrtPerfTuning
 from olive.systems.common import LocalDockerConfig
 from olive.systems.docker.docker_system import DockerSystem
 from olive.systems.system_config import DockerTargetUserConfig, SystemConfig
-from olive.systems.utils import create_new_system
+from olive.systems.utils import create_managed_system
 
 # pylint: disable=attribute-defined-outside-init,protected-access
 
@@ -154,7 +155,7 @@ class TestDockerSystem:
                 docker.errors.ContainerError,
                 match=r".*returned non-zero exit status 1: Docker container evaluation failed with: mock_error",
             ):
-                actual_res = docker_system.evaluate_model(model_config, data_root, [metric], DEFAULT_CPU_ACCELERATOR)
+                _ = docker_system.evaluate_model(model_config, data_root, [metric], DEFAULT_CPU_ACCELERATOR)
         else:
             actual_res = docker_system.evaluate_model(model_config, data_root, [metric], DEFAULT_CPU_ACCELERATOR)
 
@@ -309,10 +310,13 @@ class TestDockerSystem:
         system_config = SystemConfig(
             type="Docker",
             config=DockerTargetUserConfig(
-                accelerators=["cpu"],
+                accelerators=[{"device": "cpu"}],
                 olive_managed_env=True,
                 is_dev=True,
             ),
         )
-        target = create_new_system(system_config, DEFAULT_CPU_ACCELERATOR)
-        assert target.olive_managed_env
+        target = create_managed_system(system_config, DEFAULT_CPU_ACCELERATOR)
+        assert target.config.olive_managed_env
+
+        host_system = create_managed_system(system_config, None)
+        assert host_system.config.olive_managed_env

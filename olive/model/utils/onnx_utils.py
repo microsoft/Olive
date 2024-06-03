@@ -76,6 +76,18 @@ def get_custom_op_lib_path(model_dir: str, custom_op_lib: str) -> Optional[str]:
             custom_op_lib_path.exists()
         ), f"Custom op lib {custom_op_lib} does not exist in model path directory {model_dir}."
         return str(custom_op_lib_path)
+def get_additional_file_path(model_dir: str, file_name: str) -> Optional[str]:
+    """Get the full path to the additional file.
+
+    If file_name is specified, it is assumed to be a file in the model_dir and the full path
+    is returned.
+    """
+    if file_name:
+        model_dir = Path(model_dir)
+        assert model_dir.is_dir(), f"Model path {model_dir} is not a directory."
+        file_path = model_dir / file_name
+        assert file_path.exists(), f"{file_name} does not exist in model path directory {model_dir}."
+        return str(file_path)
     return None
 
 

@@ -10,7 +10,7 @@ The `OnnxConversion` pass converts PyTorch models to ONNX using
 
 Please refer to [OnnxConversion](onnx_conversion) for more details about the pass and its config parameters.
 
-Besides, if you want to convert a existing ONNX model with another target opset, you can use [OnnxOpVersionConversion](onnx_op_version_conversion) pass, similar configs with above case:
+Besides, if you want to convert an existing ONNX model with another target opset, you can use [OnnxOpVersionConversion](onnx_op_version_conversion) pass, similar configs with above case:
 
 ### Example Configuration
 ```json
@@ -28,15 +28,15 @@ Besides, if you want to convert a existing ONNX model with another target opset,
  }
 ```
 
-For generative models, the alternative conversion pass [GenAIModelExporter](genai_model_exporter) that integrates the
+For generative models, the alternative conversion pass [ModelBuilder](model_builder) that integrates the
 [ONNX Runtime Generative AI](https://github.com/microsoft/onnxruntime-genai) module can be used.
 
-Please refer to [GenAIModelExporter](genai_model_exporter) for more details about the pass and its config parameters.
+Please refer to [ModelBuilder](model_builder) for more details about the pass and its config parameters.
 
 ### Example Configuration
 ```json
 {
-    "type": "GenAIModelExporter",
+    "type": "ModelBuilder",
     "config": {
         "precision": "int4"
     }
@@ -124,7 +124,7 @@ You can refer to [here](https://github.com/microsoft/onnxruntime-extensions/blob
 * The `tool_command_args` will be used to describe the input parameters to create the `PrePostProcessor` instance. It is list of `PrePostProcessorInput`.
   The `name` is the tensor name. The `data_type` and `shape` will be used to create the tensor type. The `shape` can be a list of integers or a list of string.
 
-Users that write their own pre/post processing steps need to have the knowledge about whether the step includes the operators that is built-in support or supported in onnxextension.
+Users that write their own pre/post processing steps need to have the knowledge about whether the step includes the operators that is built-in support or supported in onnxruntime-extensions.
 For example, for some ops like `ConvertImageToBGR` which requires other extensions may be incompatible with ort-web, user need to exclude this kind of ops to generate proper models.
 
 Here are some examples to describe the pre/post processing which is exactly same with [superresolution](https://github.com/microsoft/onnxruntime-extensions/blob/main/onnxruntime_extensions/tools/add_pre_post_processing_to_model.py#L89)
@@ -217,7 +217,7 @@ Here are some examples to describe the pre/post processing which is exactly same
 }
 ```
 
-## Post Training Quantization (PTQ)
+## Quantize with onnxruntime
 [Quantization][1] is a technique to compress deep learning models by reducing the precision of the model weights from 32 bits to 8 bits. This
 technique is used to reduce the memory footprint and improve the inference performance of the model. Quantization can be applied to the
 weights of the model, the activations of the model, or both.
@@ -234,7 +234,6 @@ There are two ways to quantize a model in onnxruntime:
     Static quantization method runs the model using a set of inputs called calibration data. In this way, user must provide a calibration
     dataset to calculate the quantization parameters (scale and zero point) for activations before quantizing the model.
 
-### Quantize with onnxruntime
 Olive consolidates the dynamic and static quantization into a single pass called `OnnxQuantization`, and provide the user with the ability to
 tune both quantization methods and hyperparameter at the same time.
 If the user desires to only tune either of dynamic or static quantization, Olive also supports them through `OnnxDynamicQuantization` and
@@ -245,27 +244,6 @@ Please refer to [OnnxQuantization](onnx_quantization), [OnnxDynamicQuantization]
 
 **Note:** If target execution provider is QNN EP, the model might need to be preprocessed before quantization. Please refer to [QnnPreprocess](qnn_preprocess) for more details about the pass and its config parameters.
 This preprocessing step fuses operators unsupported by QNN EP and inserts necessary operators to make the model compatible with QNN EP.
-
-### Quantize with Intel® Neural Compressor
-In addition to the default onnxruntime quantization tool, Olive also integrates [Intel® Neural Compressor](https://github.com/intel/neural-compressor).
-
-Intel® Neural Compressor is a model compression tool across popular deep learning frameworks including TensorFlow, PyTorch, ONNX Runtime (ORT) and MXNet, which supports a variety of powerful model compression techniques, e.g., quantization, pruning, distillation, etc. As a user-experience-driven and hardware friendly tool, Intel® Neural Compressor focuses on providing users with an easy-to-use interface and strives to reach “quantize once, run everywhere” goal.
-
-Olive consolidates the Intel® Neural Compressor dynamic and static quantization into a single pass called `IncQuantization`, and provide the user with the ability to
-tune both quantization methods and hyperparameter at the same time.
-If the user desires to only tune either of dynamic or static quantization, Olive also supports them through `IncDynamicQuantization` and
-`IncStaticQuantization` respectively.
-
-Please refer to [IncQuantization](inc_quantization), [IncDynamicQuantization](inc_dynamic_quantization) and
-[IncStaticQuantization](inc_static_quantization) for more details about the passes and their config parameters.
-
-### Quantize with AMD Vitis AI Quantizer
-Olive also integrates [AMD Vitis AI Quantizer](https://github.com/microsoft/Olive/blob/main/olive/passes/onnx/vitis_ai/quantize.py) for quantization.
-
-The Vitis™ AI development environment accelerates AI inference on AMD® hardware platforms. The Vitis AI quantizer can reduce the computing complexity by converting the 32-bit floating-point weights and activations to fixed-point like INT8. The fixed-point network model requires less memory bandwidth, thus providing faster speed and higher power efficiency than the floating-point model.
-Olive consolidates the Vitis™ AI quantization into a single pass called VitisAIQuantization which supports power-of-2 scale quantization methods and supports Vitis AI Execution Provider.
-
-Please refer to [VitisAIQuantization](vitis_ai_quantization) for more details about the pass and its config parameters.
 
 ### Example Configuration
 a. Tune the parameters of the OlivePass with pre-defined searchable values
@@ -327,6 +305,61 @@ for an example implementation of `"user_script.py"` and `"glue_calibration_reade
 
 check out [this file](https://github.com/microsoft/Olive/tree/main/examples/bert#bert-optimization-with-intel-neural-compressor-ptq-on-cpu) for an example for Intel® Neural Compressor quantization.
 
+## Quantize with Intel® Neural Compressor
+In addition to the default onnxruntime quantization tool, Olive also integrates [Intel® Neural Compressor](https://github.com/intel/neural-compressor).
+
+Intel® Neural Compressor is a model compression tool across popular deep learning frameworks including TensorFlow, PyTorch, ONNX Runtime (ORT) and MXNet, which supports a variety of powerful model compression techniques, e.g., quantization, pruning, distillation, etc. As a user-experience-driven and hardware friendly tool, Intel® Neural Compressor focuses on providing users with an easy-to-use interface and strives to reach “quantize once, run everywhere” goal.
+
+Olive consolidates the Intel® Neural Compressor dynamic and static quantization into a single pass called `IncQuantization`, and provide the user with the ability to
+tune both quantization methods and hyperparameter at the same time.
+If the user desires to only tune either of dynamic or static quantization, Olive also supports them through `IncDynamicQuantization` and
+`IncStaticQuantization` respectively.
+
+### Example Configuration
+```json
+"inc_quantization": {
+    "type": "IncStaticQuantization",
+    "config": {
+        "user_script": "user_script.py",
+        "approach": "weight_only",
+        "weight_only_config": {
+            "bits": 4,
+            "algorithm": "GPTQ"
+        },
+        "dataloader_func": "calib_dataloader",
+        "calibration_sampling_size": [8],
+        "save_as_external_data": true,
+        "all_tensors_to_one_file": true
+    }
+}
+```
+
+Please refer to [IncQuantization](inc_quantization), [IncDynamicQuantization](inc_dynamic_quantization) and
+[IncStaticQuantization](inc_static_quantization) for more details about the passes and their config parameters.
+
+## Quantize with AMD Vitis AI Quantizer
+Olive also integrates [AMD Vitis AI Quantizer](https://github.com/microsoft/Olive/blob/main/olive/passes/onnx/vitis_ai/quantize.py) for quantization.
+
+The Vitis™ AI development environment accelerates AI inference on AMD® hardware platforms. The Vitis AI quantizer can reduce the computing complexity by converting the 32-bit floating-point weights and activations to fixed-point like INT8. The fixed-point network model requires less memory bandwidth, thus providing faster speed and higher power efficiency than the floating-point model.
+Olive consolidates the Vitis™ AI quantization into a single pass called VitisAIQuantization which supports power-of-2 scale quantization methods and supports Vitis AI Execution Provider.
+
+### Example Configuration
+```json
+"vitis_ai_quantization": {
+    "type": "VitisAIQuantization",
+    "config": {
+        "calibrate_method":"NonOverflow",
+        "quant_format":"QDQ",
+        "activation_type":"QUInt8",
+        "weight_type":"QInt8",
+        "user_script": "user_script.py",
+        "data_dir": "data",
+        "dataloader_func": "resnet_calibration_reader"
+    }
+}
+```
+Please refer to [VitisAIQuantization](vitis_ai_quantization) for more details about the pass and its config parameters.
+
 ## ORT Performance Tuning
 ONNX Runtime provides high performance across a range of hardware options through its Execution Providers interface for different execution
 environments.
@@ -369,7 +402,7 @@ for an example implementation of `"user_script.py"` and `"create_dataloader"`.
 
 ## Float16 Conversion
 
-Converting a model to use Float16 instead of Float32 can decrease the model size and improve performance on some GPUs. The `OnnxFloatToFloat16` pass wraps [onnxconverter_common.float16.convert_float_to_float16](https://github.com/microsoft/onnxconverter-common/blob/master/onnxconverter_common/float16.py#L111), which convert most nodes/operators to use Float16 instead of Float32.
+Converting a model to use Float16 instead of Float32 can decrease the model size and improve performance on some GPUs. The `OnnxFloatToFloat16` pass the [float16 converter from onnxruntime](https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/transformers/float16.py) to convert the model to float16, which convert most nodes/operators to use Float16 instead of Float32.
 
 Conversion to Float16 is often exposed at multiple stages of optimization, including model conversion and transformer optimization. This stand-alone pass is best suited for models that are not transformer architectures, where fusions may rely on a specific data types in node patterns.
 
@@ -394,6 +427,19 @@ b. More fine-grained control of the conversion conditions is also possible:
 ```
 
 See [Float16 Conversion](https://onnxruntime.ai/docs/performance/model-optimizations/float16.html#float16-conversion) for more detailed description of the available configuration parameters.
+
+## Inputs/Outputs Float16 to Float32 Conversion
+
+Certain environments such as Onnxruntime WebGPU prefers Float32 logits. The `OnnxIOFloat16ToFloat32` pass converts the inputs and outputs to use Float32 instead of Float16.
+
+### Example Configuration
+
+a. The most basic configuration, which is suitable for many models, leaves all configuration options set to their default values:
+```json
+{
+    "type": "OnnxIOFloat16ToFloat32"
+}
+```
 
 ## Mixed Precision Conversion
 Converting model to mixed precision.
@@ -462,3 +508,36 @@ b. Making the entire input shape fixed
 Note: The `input_dim` and `dim_value` should have the same length, and the `input_name` and `input_shape` should have the same length. Also the `input_dim & dim_value` and `input_name & input_shape` should be exclusive to each other, user cannot specify both of them at the same time.
 
 More details about the pass and its config parameters can be found [here](https://onnxruntime.ai/docs/tutorials/mobile/helpers/make-dynamic-shape-fixed.html).
+
+## Extract Adapters
+
+LoRA, QLoRA and related techniques allow us to fine-tune a pre-trained model by adding a small number of trainable matrices called adapters. The same base model can be used for multiple tasks by adding different adapters for each task. To support using multiple adapters with the same optimized onnx model, the `ExtractAdapters` pass extracts the adapters weights from the model and saves them to a separate file. The model graph is then modified in one of the following ways:
+- Adapters weights are set as external tensors pointing to a non-existent file. The onnx model is thus invalid by itself as it cannot be loaded. In order to create an inference session using this model, the adapter weights must be added to a sessions options object using `add_initializer` or `add_external_initializers`.
+- Adapter weights are converted into model inputs. The onnx model is valid. During inference, the adapter weights must be provided as part of the inputs. We call them constant inputs here since these weights don't change between runs when using the one set of adapters.
+
+### Example Configuration
+
+a. As external initializers
+```json
+{
+    "type": "ExtractAdapters",
+    "config": {
+        "make_inputs": false
+    }
+}
+```
+
+b. As constant inputs with packed weights
+```json
+{
+    "type": "ExtractAdapters",
+    "config": {
+        "make_inputs": true,
+        "pack_inputs": true
+    }
+}
+```
+
+Please refer to [ExtractAdapters](extract_adapters) for more details about the pass and its config parameters.
+
+Olive also provides a command line tool to export adapters saved after peft fine-tuning to a format compatible with a model that has been optimized with the `ExtractAdapters` pass. More details on the ``olive export-adapters`` command can be found at [Command Line Tools](command_line_tools).

@@ -1,0 +1,40 @@
+{
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "model_loader": "load_pytorch_origin_model",
+            "model_script": "user_script.py",
+            "io_config": {
+                "input_names": ["input_ids", "attention_mask", "token_type_ids"],
+                "input_shapes": [[1, 128], [1, 128], [1, 128]],
+                "input_types": ["int64", "int64", "int64"],
+                "output_names": ["output"]
+            }
+        }
+    },
+    "passes": {
+        "conversion": {
+            "type": "OnnxConversion",
+            "config": {
+                "target_opset": 17
+            }
+        },
+        "transformers_optimization": {
+            "type": "OrtTransformersOptimization",
+            "disable_search": true,
+            "config":{
+                "model_type": "bert",
+                "opt_level":0
+            }
+        },
+        "quantization": {
+            "type": "NVModelOptQuantization",
+            "config": {
+                "user_script": "nv_user_script.py",
+                "dataloader_func": "create_calibration_dataloader",
+                "precision": "int4",
+                "algorithm": "AWQ"
+            }
+        }
+    }
+}

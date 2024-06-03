@@ -6,7 +6,10 @@ import pytest
 
 from olive.common.utils import retry_func
 
-# pylint: disable=global-variable-undefined, used-before-assignment
+# pylint: disable=global-statement
+
+
+num_tries = 0
 
 
 def fail_with_key_error():
@@ -27,6 +30,7 @@ def test_success(exceptions):
     global num_tries
     num_tries = 0
     assert retry_func(fail_with_key_error, max_tries=2, delay=1, exceptions=exceptions)
+    assert num_tries == 1
 
 
 def test_failure():

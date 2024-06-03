@@ -59,7 +59,7 @@ class Dataloader:
             for (input_ids, _attention_mask), last_ind in self.dataloader:
                 yield input_ids, last_ind
         except StopIteration:
-            return
+            pass
 
     def __len__(self):
         return len(self.dataloader)
@@ -79,7 +79,7 @@ class OnnxDataloader(Dataloader):
                 data.append(attention_mask.detach().cpu().numpy().astype("int64"))
                 yield data, last_ind.detach().cpu().numpy()
         except StopIteration:
-            return
+            pass
 
 
 def create_pt_dataloader(data_dir, batch_size, *args, **kwargs):
@@ -92,6 +92,7 @@ def create_onnx_dataloader(data_dir, batch_size, *args, **kwargs):
 
 def create_dataloader(data_dir, batch_size, *args, **kwargs):
     model_framework = kwargs.pop("model_framework")
+    dataloader = None
     if model_framework == Framework.ONNX:
         dataloader = create_onnx_dataloader(data_dir, batch_size)
     elif model_framework == Framework.PYTORCH:

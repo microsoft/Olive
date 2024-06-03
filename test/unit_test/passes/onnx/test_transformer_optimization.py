@@ -13,8 +13,8 @@ from onnxruntime.transformers.fusion_options import FusionOptions
 
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR, DEFAULT_GPU_TRT_ACCELERATOR
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.passes.onnx import OrtTransformersOptimization
 from olive.passes.onnx.common import get_external_data_config
+from olive.passes.onnx.transformer_optimization import OrtTransformersOptimization
 
 # pylint: disable=redefined-outer-name, abstract-method, protected-access
 

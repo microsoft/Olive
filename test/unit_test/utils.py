@@ -18,7 +18,6 @@ from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, Metr
 from olive.evaluator.metric_config import MetricGoal
 from olive.model import ModelConfig, ONNXModelHandler, PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx import OnnxConversion, OnnxDynamicQuantization
 
 ONNX_MODEL_PATH = Path(__file__).absolute().parent / "dummy_model.onnx"
 
@@ -127,6 +126,19 @@ def create_onnx_model_with_dynamic_axis(onnx_model_path):
 
 def get_onnx_model_config():
     return ModelConfig.parse_obj({"type": "ONNXModel", "config": {"model_path": str(ONNX_MODEL_PATH)}})
+
+
+def get_composite_onnx_model_config():
+    onnx_model_config = get_onnx_model_config().dict()
+    return ModelConfig.parse_obj(
+        {
+            "type": "CompositeModel",
+            "config": {
+                "model_components": [onnx_model_config, onnx_model_config],
+                "model_component_names": "test_component_name",
+            },
+        }
+    )
 
 
 def get_onnx_model():
@@ -243,6 +255,8 @@ def get_throughput_metric(*lat_subtype, user_config=None):
 
 
 def get_onnxconversion_pass(ignore_pass_config=True, target_opset=13):
+    from olive.passes.onnx.conversion import OnnxConversion
+
     onnx_conversion_config = {"target_opset": target_opset}
     p = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
     if ignore_pass_config:
@@ -253,6 +267,8 @@ def get_onnxconversion_pass(ignore_pass_config=True, target_opset=13):
 
 
 def get_onnx_dynamic_quantization_pass(disable_search=False):
+    from olive.passes.onnx.quantization import OnnxDynamicQuantization
+
     return create_pass_from_dict(OnnxDynamicQuantization, disable_search=disable_search)
 
 
@@ -270,23 +286,23 @@ def get_data_config():
     def _post_process(output, test_value): ...
 
     return DataConfig(
+        name="test_data_config",
         components={
             "load_dataset": {
-                "name": "test_dataset",
                 "type": "test_dataset",  # renamed by Registry.register_dataset
                 "params": {"test_value": "test_value"},
             },
             "dataloader": {
-                "name": "test_dataloader",
                 "type": "_test_dataloader",  # This is the key to get dataloader
                 "params": {"test_value": "test_value"},
             },
-        }
+        },
     )
 
 
 def get_glue_huggingface_data_config():
     return DataConfig(
+        name="glue_huggingface_data_config",
         type="HuggingfaceContainer",
         params_config={
             "task": "text-classification",
@@ -303,6 +319,7 @@ def get_glue_huggingface_data_config():
 
 def get_dc_params_config():
     return DataConfig(
+        name="dc_params_config",
         params_config={
             "data_dir": "./params_config",
             "batch_size": 1,

@@ -5,12 +5,14 @@
 
 import argparse
 import json
+import logging
+import sys
 
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
 
-import olive.workflows.run as olive_run
 from olive.common.utils import set_tempdir
+from olive.workflows import run as olive_run
 
 SUPPORTED_WORKFLOWS = {
     "cpu": [
@@ -21,6 +23,8 @@ SUPPORTED_WORKFLOWS = {
     "gpu": [
         ["conversion_merged", "transformers_optimization_fp16"],
         ["conversion_merged", "transformers_optimization_fp16", "blockwise_quant_int4"],
+        ["gptq_quant_int4", "conversion_merged", "transformers_optimization_fp32"],
+        ["gptq_quant_int4", "conversion_merged", "transformers_optimization_fp16"],
     ],
 }
 DEVICE_TO_EP = {
@@ -43,6 +47,12 @@ def get_args(raw_args):
         action="store_true",
         required=False,
         help="Whether to use GQA(grouped query attention) instead of MHA(multi-head attention). Only supported on gpu.",
+    )
+    parser.add_argument(
+        "--use_gptq",
+        action="store_true",
+        required=False,
+        help="Whether to use GPTQ quantization instead of RTN quantization. Only supported on gpu.",
     )
     parser.add_argument(
         "--only_config",
@@ -83,7 +93,14 @@ def main(raw_args=None):
     config_name = f"llama2_{device}_{gqa}"
 
     # add pass flows
-    template_json["pass_flows"] = SUPPORTED_WORKFLOWS[device]
+    if not args.use_gptq:
+        template_json["pass_flows"] = [flow for flow in SUPPORTED_WORKFLOWS[device] if "gptq" not in flow[0]]
+    else:
+        template_json["pass_flows"] = [flow for flow in SUPPORTED_WORKFLOWS[device] if "gptq" in flow[0]]
+        auto_gptq_logger = logging.getLogger("auto_gptq")
+        auto_gptq_logger.addHandler(logging.StreamHandler(sys.stdout))
+        auto_gptq_logger.setLevel(logging.INFO)
+
     # remove unused passes and set gqa related configs
     used_passes = {pass_name for pass_flow in SUPPORTED_WORKFLOWS[device] for pass_name in pass_flow}
     for pass_name in list(template_json["passes"].keys()):
@@ -99,7 +116,10 @@ def main(raw_args=None):
     if not args.use_gqa:
         del template_json["evaluators"]["gqa_evaluator"]
 
-    template_json["engine"]["execution_providers"] = [DEVICE_TO_EP[device]]
+    template_json["systems"]["local_system"]["config"]["accelerators"][0]["device"] = device
+    template_json["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = [
+        DEVICE_TO_EP[device]
+    ]
     template_json["engine"]["output_dir"] = f"models/{config_name}/{model_name}"
 
     # dump config

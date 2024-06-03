@@ -69,7 +69,9 @@ class TorchTRTConversion(Pass):
     def validate_search_point(
         self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
     ) -> bool:
-        if accelerator_spec.accelerator_type != Device.GPU:
+        # since the run will leverage the host device to move the model to device,
+        # we need to check if the host device is GPU
+        if self.host_device != Device.GPU:
             logger.info("TorchTRTConversion only supports GPU.")
             return False
         return True

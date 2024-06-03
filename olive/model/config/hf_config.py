@@ -125,7 +125,12 @@ class HfFromPretrainedArgs(ConfigWithExtraArgs):
             return v
 
         try:
-            return cls.dict_to_quantization_config(values["quantization_method"], v).to_dict()
+            full_config = cls.dict_to_quantization_config(values["quantization_method"], v).to_dict()
+            # in newer versions to_dict has extra keys quant_method, _load_in_4bit and _load_in_8bit
+            # which are internal attributes and not part of init params
+            for key in ["quant_method", "_load_in_4bit", "_load_in_8bit"]:
+                full_config.pop(key, None)
+            return full_config
         except ImportError:
             # we don't want to fail since the pass target might have the correct transformers version
             logger.warning(
@@ -203,7 +208,10 @@ class HfFromPretrainedArgs(ConfigWithExtraArgs):
         config = config_cls.from_dict(config_dict, return_unused_kwargs=False)
         # we will do a manual check to see if there are unused kwargs
         # this works since config_cls is created as a dataclass
-        extras = set(config_dict.keys()) - set(config.__dict__.keys())
+        extras = set()
+        for k in config_dict:
+            if not hasattr(config, k):
+                extras.add(k)
         if extras:
             logger.warning("Unused kwargs in quantization_config: %s. Ignoring them", extras)
         return config
@@ -239,7 +247,6 @@ class HfConfig(ConfigBase):
     # TODO(xiaoyu): remove model_class and only use task
     model_class: str = None
     components: List[HfComponent] = None
-    dataset: Dict[str, Any] = None
     from_pretrained_args: HfFromPretrainedArgs = None
 
     @validator("model_class", always=True)

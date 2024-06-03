@@ -16,10 +16,12 @@ trigger:
     - .azure_pipelines/performance.yaml
     - .azure_pipelines/job_templates/olive-performance-template.yaml
     # commonly updated examples with no test
-    - examples/directml/llama_v2/*
+    - examples/directml/llm/*
     - examples/directml/stable_diffusion_xl/*
     - examples/llama2/*
+    - examples/mistral/*
     - examples/open_llama/*
+    - examples/phi2/*
 pr:
   branches:
     include:
@@ -38,10 +40,12 @@ pr:
     - .azure_pipelines/performance.yaml
     - .azure_pipelines/job_templates/olive-performance-template.yaml
     # commonly updated examples with no test
-    - examples/directml/llama_v2/*
+    - examples/directml/llm/*
     - examples/directml/stable_diffusion_xl/*
     - examples/llama2/*
+    - examples/mistral/*
     - examples/open_llama/*
+    - examples/phi2/*
 
 variables:
     ComponentDetection.Timeout: 2400
@@ -108,6 +112,9 @@ jobs:
       inception_snpe_toolkit:
         exampleFolder: inception
         exampleName: snpe_toolkit
+      mobilenet_qnn_ep:
+        exampleFolder: mobilenet
+        exampleName: mobilenet_qnn_ep
 
 # # Windows examples test
 - template: job_templates/olive-example-template.yaml
@@ -137,6 +144,9 @@ jobs:
       inception_snpe_toolkit:
         exampleFolder: inception
         exampleName: snpe_toolkit
+      mobilenet_qnn_ep:
+        exampleFolder: mobilenet
+        exampleName: mobilenet_qnn_ep
 
 # Linux GPU examples testing.
 - template: job_templates/olive-example-template.yaml

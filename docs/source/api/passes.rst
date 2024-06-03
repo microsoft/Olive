@@ -42,6 +42,12 @@ OnnxFloatToFloat16
 --------------------
 .. autoconfigclass:: olive.passes.OnnxFloatToFloat16
 
+.. _onnx_io_float16_to_float32:
+
+OnnxIOFloat16ToFloat32
+----------------------
+.. autoconfigclass:: olive.passes.OnnxIOFloat16ToFloat32
+
 .. _ort_mixed_precision:
 
 OrtMixedPrecision
@@ -113,6 +119,12 @@ AppendPrePostProcessingOps
 InsertBeamSearch
 --------------------
 .. autoconfigclass:: olive.passes.InsertBeamSearch
+
+.. _extract_adapters:
+
+ExtractAdapters
+----------------
+.. autoconfigclass:: olive.passes.ExtractAdapters
 
 .. _lora:
 
@@ -193,11 +205,35 @@ QNNContextBinaryGenerator
 -------------------------
 .. autoconfigclass:: olive.passes.QNNContextBinaryGenerator
 
+.. _merge_adapter_weights:
+
+MergeAdapterWeights
+-------------------
+.. autoconfigclass:: olive.passes.MergeAdapterWeights
+
 .. _sparsegpt:
 
 SparseGPT
 --------------------
 .. autoconfigclass:: olive.passes.SparseGPT
+
+.. _slicegpt:
+
+SliceGPT
+--------------------
+.. autoconfigclass:: olive.passes.SliceGPT
+
+.. _gptq_quantizer:
+
+GptqQuantizer
+--------------------
+.. autoconfigclass:: olive.passes.GptqQuantizer
+
+.. _awq_quantizer:
+
+AutoAWQQuantizer
+--------------------
+.. autoconfigclass:: olive.passes.AutoAWQQuantizer
 
 .. _torch_trt_conversion:
 
@@ -217,8 +253,8 @@ OptimumMerging
 --------------------
 .. autoconfigclass:: olive.passes.OptimumMerging
 
-.. _genai_model_exporter:
+.. model_builder:
 
-GenAIModelExporter
+ModelBuilder
 --------------------
-.. autoconfigclass:: olive.passes.GenAIModelExporter
+.. autoconfigclass:: olive.passes.ModelBuilder

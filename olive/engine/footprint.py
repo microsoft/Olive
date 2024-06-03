@@ -9,7 +9,7 @@ from copy import deepcopy
 from typing import DefaultDict, Dict, List, NamedTuple, Optional
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
-from olive.evaluator.metric import MetricResult
+from olive.evaluator.metric_result import MetricResult
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +101,7 @@ class Footprint:
             logger.info("Output all %d models", len(self.nodes))
             return self._create_pareto_frontier_from_nodes(self.nodes)
         else:
-            topk_nodes = self._get_top_ranked_nodes(output_model_num)
+            topk_nodes = self.get_top_ranked_nodes(output_model_num)
             logger.info("Output top ranked %d models based on metric priorities", len(topk_nodes))
             return self._create_pareto_frontier_from_nodes(topk_nodes)
 
@@ -301,7 +301,7 @@ class Footprint:
             self.nodes[k].is_pareto_frontier = cmp_flag
         self.is_marked_pareto_frontier = True
 
-    def _get_top_ranked_nodes(self, k: int) -> List[FootprintNode]:
+    def get_top_ranked_nodes(self, k: int) -> List[FootprintNode]:
         footprint_node_list = self.nodes.values()
         sorted_footprint_node_list = sorted(
             footprint_node_list,

@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import copy
 import json
 import logging
 import shutil
@@ -15,6 +14,7 @@ from azure.ai.ml import Input, Output, command
 from azure.ai.ml.constants import AssetTypes
 from azure.ai.ml.dsl import pipeline
 from azure.ai.ml.entities import BuildContext, Environment, Model, UserIdentityConfiguration
+from azure.ai.ml.exceptions import JobException
 from azure.core.exceptions import HttpResponseError, ServiceResponseError
 
 from olive.azureml.azureml_client import AzureMLClientConfig
@@ -22,7 +22,7 @@ from olive.cache import normalize_data_path
 from olive.common.config_utils import ParamCategory, validate_config
 from olive.common.utils import copy_dir, retry_func
 from olive.data.config import DataConfig
-from olive.evaluator.metric import Metric, MetricResult
+from olive.evaluator.metric_result import MetricResult
 from olive.model import ModelConfig
 from olive.resource_path import (
     AZUREML_RESOURCE_TYPES,
@@ -33,10 +33,12 @@ from olive.resource_path import (
     ResourceType,
     create_resource_path,
 )
-from olive.systems.common import AzureMLDockerConfig, AzureMLEnvironmentConfig, SystemType
+from olive.systems.common import AcceleratorConfig, AzureMLDockerConfig, AzureMLEnvironmentConfig, SystemType
 from olive.systems.olive_system import OliveSystem
+from olive.systems.system_config import AzureMLTargetUserConfig
 
 if TYPE_CHECKING:
+    from olive.evaluator.metric import Metric
     from olive.hardware.accelerator import AcceleratorSpec
     from olive.passes.olive_pass import Pass
 
@@ -89,12 +91,14 @@ class AzureMLSystem(OliveSystem):
         resources: Dict = None,
         instance_count: int = 1,
         is_dev: bool = False,
-        accelerators: List[str] = None,
-        olive_managed_env: bool = False,
+        accelerators: List[AcceleratorConfig] = None,
         hf_token: bool = None,
         **kwargs,
     ):
-        super().__init__(accelerators, olive_managed_env=olive_managed_env, hf_token=hf_token)
+        super().__init__(accelerators, hf_token=hf_token)
+
+        self.config = AzureMLTargetUserConfig(**locals(), **kwargs)
+
         self.instance_count = instance_count
         self.tags = tags or {}
         self.resources = resources
@@ -343,11 +347,13 @@ class AzureMLSystem(OliveSystem):
         parameters.extend([f"--{param} ${{{{outputs.{param}}}}}" for param in outputs])
 
         cmd_line = f"python {script_name} {' '.join(parameters)}"
-        env_vars = copy.deepcopy(self.env_vars) if self.env_vars else {}
+        env_vars = deepcopy(self.env_vars) if self.env_vars else {}
         env_vars["OLIVE_LOG_LEVEL"] = logging.getLevelName(logger.getEffectiveLevel())
 
+        # the name need to be lowercase
+        # https://github.com/Azure/azure-sdk-for-python/blob/8b5217499caedba762b47fa6a118e51209f6f604/sdk/ml/azure-ai-ml/azure/ai/ml/entities/_builders/base_node.py#L217
         return command(
-            name=name,
+            name=name.lower(),  # convert to lowercase to avoid AzureML name restrictions
             display_name=display_name,
             description=description,
             command=cmd_line,
@@ -386,17 +392,12 @@ class AzureMLSystem(OliveSystem):
 
         self.copy_code(code_files, code_root)
 
-        accelerator_info = {
-            "pass_accelerator_type": pass_config["accelerator"]["accelerator_type"],
-            "pass_execution_provider": pass_config["accelerator"]["execution_provider"],
-        }
         # prepare inputs
         model_resource_paths = model_config.get_resource_paths()
         inputs = {
             **self._create_model_inputs(model_resource_paths),
             **self._create_pass_inputs(pass_path_params),
             **data_params.data_inputs,
-            **accelerator_info,
         }
         # prepare outputs
         outputs = {"pipeline_output": Output(type=AssetTypes.URI_FOLDER)}
@@ -427,7 +428,6 @@ class AzureMLSystem(OliveSystem):
             **self._create_model_args(model_json, model_resource_paths, tmp_dir),
             **self._create_pass_args(pass_config, pass_path_params, data_root, tmp_dir),
             **data_params.data_args,
-            **accelerator_info,
         }
 
         @pipeline()
@@ -491,7 +491,7 @@ class AzureMLSystem(OliveSystem):
             {"experiment_name": experiment_name, "tags": tags},
             max_tries=self.azureml_client_config.max_operation_retries,
             delay=self.azureml_client_config.operation_retry_interval,
-            exceptions=HttpResponseError,
+            exceptions=(HttpResponseError, JobException),
         )
         logger.info("Pipeline submitted. Job name: %s. Job link: %s", job.name, job.studio_url)
         ml_client.jobs.stream(job.name)
@@ -599,7 +599,7 @@ class AzureMLSystem(OliveSystem):
         }
 
     def evaluate_model(
-        self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: "AcceleratorSpec"
+        self, model_config: ModelConfig, data_root: str, metrics: List["Metric"], accelerator: "AcceleratorSpec"
     ) -> MetricResult:
         if model_config.type.lower() == "SNPEModel".lower():
             raise NotImplementedError("SNPE model does not support azureml evaluation")
@@ -627,7 +627,7 @@ class AzureMLSystem(OliveSystem):
         data_root: str,
         tmp_dir: str,
         model_config: ModelConfig,
-        metrics: List[Metric],
+        metrics: List["Metric"],
         accelerator: "AcceleratorSpec",
     ):
         tmp_dir = Path(tmp_dir)
@@ -668,7 +668,7 @@ class AzureMLSystem(OliveSystem):
         self,
         data_root: str,
         tmp_dir: Path,
-        metric: Metric,
+        metric: "Metric",
         model_args: Dict[str, Input],
         model_resource_paths: Dict[str, ResourcePath],
         accelerator_config_path: str,

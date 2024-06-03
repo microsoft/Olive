@@ -11,7 +11,7 @@ from typing import Any, Callable, Dict, Union
 import onnx
 
 from olive.cache import get_local_path_from_root
-from olive.common.utils import hash_string
+from olive.common.utils import exclude_keys, hash_string
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
@@ -222,6 +222,7 @@ class VitisAIQuantization(Pass):
     """
 
     _requires_user_script = True
+    run_on_target = True
 
     def _initialize(self):
         super()._initialize()
@@ -288,7 +289,7 @@ class VitisAIQuantization(Pass):
         # we hash the entire path of the input model to ensure we are not accidentally using a preprocessed model
         # from a different model
         preprocessed_temp_model_path = (
-            Path(self.tmp_dir.name) / f"{hash_string(str(Path(model.model_path).resolve()))}" / "preprocessed.onnx"
+            Path(self.tmp_dir.name) / f"{hash_string(str(Path(model.model_path).resolve()))[:8]}" / "preprocessed.onnx"
         )
         preprocessed_temp_model_path.parent.mkdir(exist_ok=True, parents=True)
         if run_config["quant_preprocess"]:
@@ -325,9 +326,7 @@ class VitisAIQuantization(Pass):
         )
 
         # remove keys not needed for quantization
-        for key in to_delete:
-            if key in run_config:
-                del run_config[key]
+        run_config = exclude_keys(run_config, to_delete)
 
         # to be safe, run the quantizer with use_external_data_format set to `True` and
         # `model_output` to a temporary directory
@@ -340,6 +339,7 @@ class VitisAIQuantization(Pass):
 
         # get the dataloader
         # TODO(XiaoSheng): only use data config
+        dataloader = None
         if config["dataloader_func"]:
             data_dir = get_local_path_from_root(data_root, config["data_dir"])
             dataloader = self._user_module_loader.call_object(

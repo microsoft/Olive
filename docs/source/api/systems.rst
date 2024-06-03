@@ -16,6 +16,25 @@ SystemType
     :members:
     :undoc-members:
 
+.. _device:
+
+Device
+^^^^^^^
+
+.. autoclass:: olive.hardware.accelerator.Device
+    :members:
+    :undoc-members:
+
+.. _accelerator_config:
+
+AcceleratorConfig
+^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: olive.systems.common.AcceleratorConfig
+    :members:
+    :undoc-members:
+    :exclude-members: validate_device_and_execution_providers
+
 .. _local_system_config:
 
 LocalTargetUserConfig
@@ -82,7 +101,7 @@ PythonEnvironmentSystem
 
 IsolatedORTSystem
 ^^^^^^^^^^^^^^^^^^^^^^^^
-.. autoclass:: olive.systems.ort_evironment.IsolatedORTSystem
+.. autoclass:: olive.systems.isolated_ort.IsolatedORTSystem
 
 .. _olive_system_alias:
 

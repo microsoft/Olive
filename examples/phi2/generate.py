@@ -16,6 +16,10 @@ pt_to_np = {
 }
 
 
+# flake8: noqa: T201
+
+
+# TODO(jambayk): Use ORTGenerator from example utils
 class ORTGenerator:
     def __init__(self, decoder_path):
         self.onnx_decoder_path = decoder_path
@@ -31,7 +35,7 @@ class ORTGenerator:
         self.use_buffer_share = False
         self.packed_kv = False
         self.use_step = False
-        self.torch_dtype = None
+        self.kv_torch_dtype = None
         self.sess = None
         self.tokenizer = None
 
@@ -58,7 +62,7 @@ class ORTGenerator:
             else (batch_size, self.num_heads, past_seq_length, self.head_size)
         )
         for i in range(self.num_layers):
-            past = torch.zeros(past_shape, device=self.device, dtype=self.torch_dtype)
+            past = torch.zeros(past_shape, device=self.device, dtype=self.kv_torch_dtype)
             past_key_name = f"past_key_{i}"
             past_value_name = f"past_value_{i}"
             (
@@ -67,7 +71,7 @@ class ORTGenerator:
                 else inputs.update({f"past_{i}": past.contiguous()})
             )
 
-        logits = torch.zeros(batch_size, sequence_length, 51200, device=self.device, dtype=self.torch_dtype)
+        logits = torch.zeros(batch_size, sequence_length, 51200, device=self.device, dtype=self.kv_torch_dtype)
         outputs = {"logits": logits.contiguous()}
 
         if not self.use_buffer_share:
@@ -79,7 +83,7 @@ class ORTGenerator:
             for i in range(self.num_layers):
                 present_key_name = f"present_key_{i}"
                 present_value_name = f"present_value_{i}"
-                present = torch.zeros(present_shape, device=self.device, dtype=self.torch_dtype)
+                present = torch.zeros(present_shape, device=self.device, dtype=self.kv_torch_dtype)
                 (
                     outputs.update({present_key_name: present.contiguous(), present_value_name: present.contiguous()})
                     if not self.packed_kv
@@ -138,6 +142,7 @@ class ORTGenerator:
         delay_ort_session_init=False,
     ):
         sess_options = ort.SessionOptions()
+        self.kv_torch_dtype = torch.float16 if use_fp16 else torch.float32
         ep = "CUDAExecutionProvider" if device_id >= 0 else "CPUExecutionProvider"
         if not delay_ort_session_init:
             self.sess = ort.InferenceSession(self.onnx_decoder_path, sess_options=sess_options, providers=[ep])
@@ -227,7 +232,7 @@ class ORTGenerator:
                 for i in range(self.num_layers):
                     present_key_name = f"present_key_{i}"
                     present_value_name = f"present_value_{i}"
-                    present = torch.zeros(present_shape, device=self.device, dtype=self.torch_dtype)
+                    present = torch.zeros(present_shape, device=self.device, dtype=self.kv_torch_dtype)
                     (
                         outputs.update(
                             {present_key_name: present.contiguous(), present_value_name: present.clone().contiguous()}
@@ -264,6 +269,39 @@ class ORTGenerator:
         return self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
 
 
+def genai_run(prompts, model_path, max_length=200):
+    import time
+
+    import onnxruntime_genai as og
+
+    print("Loading model...")
+    app_started_timestamp = time.time()
+    model = og.Model(model_path)
+    model_loaded_timestamp = time.time()
+    print("Model loaded in {:.2f} seconds".format(model_loaded_timestamp - app_started_timestamp))
+    tokenizer = og.Tokenizer(model)
+
+    print("Creating generator ...")
+    params = og.GeneratorParams(model)
+    params.set_search_options(max_length=max_length)
+    params.input_ids = tokenizer.encode_batch(prompts)
+
+    print("Generating tokens ...")
+    start_time = time.time()
+    output_tokens = model.generate(params)
+    run_time = time.time() - start_time
+
+    print("Decoding generated tokens ...")
+    output_token_count = 0
+
+    for i, prompt in enumerate(prompts):
+        print(f"Prompt #{i+1:02d}: {prompt}")
+        print(tokenizer.decode(output_tokens[i]))
+        output_token_count += len(output_tokens[i])
+
+    print(f"Tokens: {output_token_count}, Time: {run_time:.2f}, Tokens per second: {output_token_count / run_time:.2f}")
+
+
 def run(
     prompt,
     onnx_model_path,
@@ -283,5 +321,5 @@ def run(
         texts = generator.optimum_generate(prompt, max_length=max_length)
 
     for i, text in enumerate(texts):
-        print(f"Prompt: {prompt[i]}")  # noqa: T201
+        print(f"Prompt: {prompt[i]}")
         yield text

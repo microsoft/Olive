@@ -26,7 +26,7 @@ class TestDataConfig:
         self.dc = DataContainer(config=self.dc_config)
 
     def test_constructor(self):
-        dc_config = DataConfig()
+        dc_config = DataConfig(name="test_dc_config")
         dc = DataContainer(config=dc_config)
         assert dc.config
         assert dc
@@ -37,7 +37,7 @@ class TestDataConfig:
         assert "label_from_params_config" in dc_config.components["load_dataset"].params["label_cols"]
 
     def test_huggingface_constructor(self):
-        dc_config = DataConfig(type="HuggingfaceContainer")
+        dc_config = DataConfig(name="test_dc_config", type="HuggingfaceContainer")
         dc = dc_config.to_data_container()
         assert dc.config.load_dataset.__name__.startswith("huggingface")
 
@@ -50,7 +50,7 @@ class TestDataConfig:
         dc.create_calibration_dataloader(data_root_path=None)
 
     def test_raw_data_constructor(self):
-        dc_config = DataConfig(type="RawDataContainer")
+        dc_config = DataConfig(name="test_dc_config", type="RawDataContainer")
         dc = dc_config.to_data_container()
         assert dc.config.load_dataset.__name__.startswith("raw_dataset")
 
@@ -61,6 +61,7 @@ class TestDataConfig:
         data = create_raw_data(tmpdir, input_names, input_shapes, input_types)
 
         dc_config = DataConfig(
+            name="test_raw_dc_config",
             type="RawDataContainer",
             params_config={
                 "data_dir": str(tmpdir),

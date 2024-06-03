@@ -1,35 +1,80 @@
 {
-    "input_model":{
+    "input_model": {
         "type": "PyTorchModel",
         "config": {
             "hf_config": {
                 "model_name": "Intel/bert-base-uncased-mrpc",
-                "task": "text-classification",
-                "dataset": {
-                    "data_name":"glue",
-                    "subset": "mrpc",
-                    "split": "validation",
-                    "input_cols": ["sentence1", "sentence2"],
-                    "label_cols": ["label"],
-                    "batch_size": 1
-                }
+                "task": "text-classification"
             },
-            "io_config" : {
-                "input_names": ["input_ids", "attention_mask", "token_type_ids"],
-                "input_shapes": [[1, 128], [1, 128], [1, 128]],
-                "input_types": ["int64", "int64", "int64"],
-                "output_names": ["output"],
+            "io_config": {
+                "input_names": [
+                    "input_ids",
+                    "attention_mask",
+                    "token_type_ids"
+                ],
+                "input_shapes": [
+                    [
+                        1,
+                        128
+                    ],
+                    [
+                        1,
+                        128
+                    ],
+                    [
+                        1,
+                        128
+                    ]
+                ],
+                "input_types": [
+                    "int64",
+                    "int64",
+                    "int64"
+                ],
+                "output_names": [
+                    "output"
+                ],
                 "dynamic_axes": {
-                    "input_ids": {"0": "batch_size", "1": "seq_length"},
-                    "attention_mask": {"0": "batch_size", "1": "seq_length"},
-                    "token_type_ids": {"0": "batch_size", "1": "seq_length"}
+                    "input_ids": {
+                        "0": "batch_size",
+                        "1": "seq_length"
+                    },
+                    "attention_mask": {
+                        "0": "batch_size",
+                        "1": "seq_length"
+                    },
+                    "token_type_ids": {
+                        "0": "batch_size",
+                        "1": "seq_length"
+                    }
                 }
             }
         }
     },
     "systems": {
-        "local_system": {"type": "LocalSystem"}
+        "local_system": {
+            "type": "LocalSystem"
+        }
     },
+    "data_configs": [
+        {
+            "name": "glue_mrpc",
+            "type": "HuggingfaceContainer",
+            "params_config": {
+                "data_name": "glue",
+                "subset": "mrpc",
+                "split": "validation",
+                "input_cols": [
+                    "sentence1",
+                    "sentence2"
+                ],
+                "label_cols": [
+                    "label"
+                ],
+                "batch_size": 1
+            }
+        }
+    ],
     "passes": {
         "conversion": {
             "type": "OnnxConversion",
@@ -40,20 +85,43 @@
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
             "disable_search": true,
-            "config": {"model_type": "bert"}
+            "config": {
+                "model_type": "bert"
+            }
         },
         "quantization": {
             "type": "OnnxQuantization",
             "config": {
-                "data_config": "__input_model_data_config__"
+                "data_config": "glue_mrpc"
             }
         },
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {
-                "input_names": ["input_ids", "attention_mask", "token_type_ids"],
-                "input_shapes": [[1, 128], [1, 128], [1, 128]],
-                "input_types": ["int64", "int64", "int64"]
+                "input_names": [
+                    "input_ids",
+                    "attention_mask",
+                    "token_type_ids"
+                ],
+                "input_shapes": [
+                    [
+                        1,
+                        128
+                    ],
+                    [
+                        1,
+                        128
+                    ],
+                    [
+                        1,
+                        128
+                    ]
+                ],
+                "input_types": [
+                    "int64",
+                    "int64",
+                    "int64"
+                ]
             }
         }
     }

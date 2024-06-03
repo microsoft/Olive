@@ -123,7 +123,7 @@ class PileDataloader:
                     yield ort_input, 0
 
         except StopIteration:
-            return
+            pass
 
 
 def calib_dataloader(data_dir, batch_size, *args, **kwargs):
@@ -134,6 +134,7 @@ def calib_dataloader(data_dir, batch_size, *args, **kwargs):
 def eval_accuracy(model: OliveModelHandler, data_dir, batch_size, device, execution_providers):
     from intel_extension_for_transformers.llm.evaluation.lm_eval import evaluate
 
+    results = {}
     if model.framework == Framework.PYTORCH:
         results = evaluate(
             model="hf-causal",

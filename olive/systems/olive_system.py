@@ -4,12 +4,14 @@
 # --------------------------------------------------------------------------
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-from olive.systems.common import SystemType
+from olive.common.config_utils import validate_config
+from olive.systems.common import AcceleratorConfig, SystemType
 
 if TYPE_CHECKING:
-    from olive.evaluator.metric import Metric, MetricResult
+    from olive.evaluator.metric import Metric
+    from olive.evaluator.metric_result import MetricResult
     from olive.hardware.accelerator import AcceleratorSpec
     from olive.model import ModelConfig
     from olive.passes.olive_pass import Pass
@@ -23,12 +25,19 @@ class OliveSystem(ABC):
 
     def __init__(
         self,
-        accelerators: List[str] = None,
-        olive_managed_env: bool = False,
+        accelerators: Union[List[AcceleratorConfig], List[Dict[str, Any]]] = None,
         hf_token: bool = None,
     ):
-        self.accelerators = accelerators
-        self.olive_managed_env = olive_managed_env
+        # TODO(anyone): Is it possible to expose the arguments to
+        # let user set the system environment in Olive config?
+        # For example, in some qualcomm cases, the user may need to set
+        # SDK root path outside of Olive.
+        if accelerators:
+            assert all(
+                isinstance(validate_config(accelerator, AcceleratorConfig), AcceleratorConfig)
+                for accelerator in accelerators
+            )
+
         self.hf_token = hf_token
 
     @abstractmethod

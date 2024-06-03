@@ -11,8 +11,8 @@ from torchvision.transforms import ToTensor
 from olive.engine import Engine
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
-from olive.hardware.accelerator import create_accelerators
-from olive.passes.onnx import OrtPerfTuning
+from olive.passes.onnx.perf_tuning import OrtPerfTuning
+from olive.systems.accelerator_creator import create_accelerators
 
 # pylint: disable=redefined-outer-name
 
@@ -71,7 +71,7 @@ def get_onnx_model():
     return str(models_dir / "model.onnx")
 
 
-def create_and_run_workflow(tmp_path, system_config, execution_providers, model_config, metric, only_target=False):
+def create_and_run_workflow(tmp_path, system_config, model_config, metric, only_target=False):
     # use the olive managed python environment as the test environment
     output_dir = tmp_path / "output"
     output_dir.mkdir()
@@ -82,15 +82,13 @@ def create_and_run_workflow(tmp_path, system_config, execution_providers, model_
     cache.mkdir()
     config = {
         "cache_dir": cache,
+        "target": system_config,
+        "host": system_config if not only_target else None,
+        "evaluator": evaluator_config,
     }
-    engine = Engine(
-        config=config,
-        target_config=system_config,
-        host_config=system_config if not only_target else None,
-        evaluator_config=evaluator_config,
-    )
+    engine = Engine(**config)
     engine.register(OrtPerfTuning)
-    accelerator_specs = create_accelerators(system_config, execution_providers)
+    accelerator_specs = create_accelerators(system_config)
     output = engine.run(model_config, accelerator_specs, output_dir=output_dir, evaluate_input_model=True)
 
     results = [next(iter(output[accelerator].nodes.values())) for accelerator in accelerator_specs]
