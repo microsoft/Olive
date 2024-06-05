@@ -61,6 +61,19 @@ class QNNContextBinaryGenerator(Pass):
         main_cmd = "qnn-context-binary-generator"
         runner = QNNSDKRunner(use_dev_tools=True)
 
+        extra_args = config["extra_args"] or ""
+        model_arg = f"--model {model.model_path}"
+
+        if model.model_file_format == ModelFileFormat.SNPE_DLC and "--dlc_path" not in extra_args:
+            extra_args += f"--dlc_path {model.model_path}"
+
+        # if dlc_path is set, use {qnn_root_path}/lib/{qnn_target_arch_name}/libQnnModelDlc.so
+        # as the model argument
+        if "--dlc_path" in extra_args:
+            qnn_root_path = runner.sdk_env.sdk_root_path
+            qnn_target_arch_name = runner.sdk_env.target_arch
+            model_arg = f"--model {qnn_root_path}/lib/{qnn_target_arch_name}/libQnnModelDlc.so"
+
         # input model path's name without suffix
         # TODO(trajep): find .so file in the same directory as the model
         output_model_path = Path(output_model_path).resolve()
@@ -73,11 +86,11 @@ class QNNContextBinaryGenerator(Pass):
 
         cmd_list = [
             main_cmd,
-            f"--model {model.model_path}",
+            model_arg,
             f"--backend {config['backend']}",
             f"--output_dir {output_model_path}",
             f"--binary_file {binary_file}" if binary_file else "",
-            config["extra_args"] or "",
+            extra_args,
         ]
 
         runner.run(" ".join(cmd_list))
