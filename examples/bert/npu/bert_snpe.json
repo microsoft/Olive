@@ -45,28 +45,30 @@
             "name": "snpe_dataset",
             "type": "HuggingfaceContainer",
             "user_script": "user_script.py",
-            "components": {
-                "post_process_data": {
-                    "type": "snpe_post_process"
+            "load_dataset_config": {
+                "params": {
+                    "data_name": "glue",
+                    "split": "validation",
+                    "subset": "mrpc"
                 }
             },
-            "params_config": {
-                "batch_size": 2,
-                "data_name": "glue",
-                "input_cols": [
-                    "sentence1",
-                    "sentence2"
-                ],
-                "label_cols": [
-                    "label"
-                ],
-                "split": "validation",
-                "subset": "mrpc",
-                "component_kwargs": {
-                    "pre_process_data": {
-                        "max_length": 128,
-                        "padding": "max_length"
-                    }
+            "pre_process_data_config": {
+                "type": "snpe_post_process",
+                "params": {
+                    "max_length": 128,
+                    "padding": "max_length",
+                    "input_cols": [
+                        "sentence1",
+                        "sentence2"
+                    ],
+                    "label_cols": [
+                        "label"
+                    ]
+                }
+            },
+            "dataloader_config": {
+                "params": {
+                    "batch_size": 2
                 }
             }
         }

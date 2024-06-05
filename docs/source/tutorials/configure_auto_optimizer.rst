@@ -105,7 +105,13 @@ Here is another quick comparison between Auto Optimizer and manual settings.
                         "type": "LocalSystem",
                         "config": {
                             "accelerators": [
-                                {"device": "gpu", "execution_providers": ["CUDAExecutionProvider", "TensorrtExecutionProvider"]}
+                                {
+                                    "device": "gpu",
+                                    "execution_providers": [
+                                        "CUDAExecutionProvider",
+                                        "TensorrtExecutionProvider"
+                                    ]
+                                }
                             ]
                         }
                     }
@@ -113,13 +119,23 @@ Here is another quick comparison between Auto Optimizer and manual settings.
                 "data_configs": [{
                     "name": "glue",
                     "type": "HuggingfaceContainer",
-                    "params_config": {
-                        "batch_size": 1,
-                        "data_name": "glue",
-                        "input_cols": [ "sentence1", "sentence2" ],
-                        "label_cols": [ "label" ],
-                        "split": "validation",
-                        "subset": "mrpc"
+                    "load_dataset_config": {
+                        "params": {
+                            "data_name": "glue",
+                            "split": "validation",
+                            "subset": "mrpc"
+                        }
+                    },
+                    "pre_process_data_config": {
+                        "params": {
+                            "input_cols": [ "sentence1", "sentence2" ],
+                            "label_cols": [ "label" ]
+                        }
+                    },
+                    "dataloader_config": {
+                        "params": {
+                            "batch_size": 1
+                        }
                     }
                 }],
                 "evaluators": {
@@ -185,7 +201,13 @@ Here is another quick comparison between Auto Optimizer and manual settings.
                         "type": "LocalSystem",
                         "config": {
                             "accelerators": [
-                                { "device": "gpu", "execution_providers": ["CUDAExecutionProvider", "TensorrtExecutionProvider"] }
+                                {
+                                    "device": "gpu",
+                                    "execution_providers": [
+                                        "CUDAExecutionProvider",
+                                        "TensorrtExecutionProvider"
+                                    ]
+                                }
                             ]
                         }
                     }
@@ -193,14 +215,24 @@ Here is another quick comparison between Auto Optimizer and manual settings.
                 "data_configs": [{
                     "name": "glue",
                     "type": "HuggingfaceContainer",
-                    "params_config": {
-                        "batch_size": 1,
-                        "max_samples": 100,
-                        "data_name": "glue",
-                        "input_cols": [ "sentence1", "sentence2" ],
-                        "label_cols": [ "label" ],
-                        "split": "validation",
-                        "subset": "mrpc"
+                    "load_dataset_config": {
+                        "params": {
+                            "data_name": "glue",
+                            "split": "validation",
+                            "subset": "mrpc"
+                        }
+                    },
+                    "pre_process_data_config": {
+                        "params": {
+                            "max_samples": 100,
+                            "input_cols": [ "sentence1", "sentence2" ],
+                            "label_cols": [ "label" ]
+                        }
+                    },
+                    "dataloader_config": {
+                        "params": {
+                            "batch_size": 1
+                        }
                     }
                 }],
                 "evaluators": {

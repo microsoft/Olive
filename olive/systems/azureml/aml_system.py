@@ -449,8 +449,8 @@ class AzureMLSystem(OliveSystem):
             data_args.update({f"{name}_{key}": Input(type=input_type, path=getattr(script_attr, key))})
 
         def update_data_path(data_config, key, data_inputs, data_args, asset_type):
-            if data_config.params_config.get(key):
-                data_path_resource_path = create_resource_path(data_config.params_config[key])
+            if data_config.load_dataset_params.get(key):
+                data_path_resource_path = create_resource_path(data_config.load_dataset_params[key])
                 data_path_resource_path = normalize_data_path(data_root, data_path_resource_path)
                 if data_path_resource_path:
                     data_path_resource_path = self._create_args_from_resource_path(data_path_resource_path)

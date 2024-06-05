@@ -13,12 +13,10 @@ def test_sparsegpt(tmp_path):
     model_name = "sshleifer/tiny-gpt2"
     task = "text-generation"
     input_model = PyTorchModelHandler(hf_config={"model_name": model_name, "task": task})
-    dataset = {
-        "data_name": "ptb_text_only",
-        "subset": "penn_treebank",
-        "split": "train",
-        "component_kwargs": {
-            "pre_process_data": {
+    component_configs = {
+        "load_dataset_config": {"params": {"data_name": "ptb_text_only", "subset": "penn_treebank", "split": "train"}},
+        "pre_process_data_config": {
+            "params": {
                 "text_cols": ["sentence"],
                 "corpus_strategy": "join-random",
                 "source_max_len": 1024,
@@ -27,7 +25,7 @@ def test_sparsegpt(tmp_path):
             }
         },
     }
-    data_config = huggingface_data_config_template(model_name=model_name, task=task, **dataset)
+    data_config = huggingface_data_config_template(model_name=model_name, task=task, **component_configs)
     config = {
         "sparsity": [2, 4],
         "data_config": data_config,

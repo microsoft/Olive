@@ -31,24 +31,30 @@
         {
             "name": "speech_commands_v0.02",
             "type": "HuggingfaceContainer",
-            "params_config": {
-                "data_name": "speech_commands",
-                "subset": "v0.02",
-                "split": "validation",
-                "input_cols": [
-                    "audio"
-                ],
-                "label_cols": [
-                    "label"
-                ],
-                "batch_size": 1,
-                "max_samples": 100,
-                "component_kwargs": {
-                    "pre_process_data": {
-                        "labels_to_filter": [
-                            "_silence_"
-                        ]
-                    }
+            "load_dataset_config": {
+                "params": {
+                    "data_name": "speech_commands",
+                    "subset": "v0.02",
+                    "split": "validation"
+                }
+            },
+            "pre_process_data_config": {
+                "params": {
+                    "labels_to_filter": [
+                        "_silence_"
+                    ],
+                    "input_cols": [
+                        "audio"
+                    ],
+                    "label_cols": [
+                        "label"
+                    ],
+                    "max_samples": 100
+                }
+            },
+            "dataloader_config": {
+                "params": {
+                    "batch_size": 1
                 }
             }
         }

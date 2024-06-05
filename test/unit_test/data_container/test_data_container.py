@@ -3,12 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from test.unit_test.utils import (
-    create_raw_data,
-    get_data_config,
-    get_dc_params_config,
-    get_glue_huggingface_data_config,
-)
+from test.unit_test.utils import create_raw_data, get_data_config, get_glue_huggingface_data_config
 
 import numpy as np
 import pytest
@@ -31,11 +26,6 @@ class TestDataConfig:
         assert dc.config
         assert dc
 
-    def test_params_override(self):
-        dc_config = get_dc_params_config()
-        assert dc_config.components["load_dataset"].params["batch_size"] == 10
-        assert "label_from_params_config" in dc_config.components["load_dataset"].params["label_cols"]
-
     def test_huggingface_constructor(self):
         dc_config = DataConfig(name="test_dc_config", type="HuggingfaceContainer")
         dc = dc_config.to_data_container()
@@ -44,7 +34,7 @@ class TestDataConfig:
     def test_huggingface_dc_runner(self):
         dc_config = get_glue_huggingface_data_config()
         # override the default components from task_type
-        assert dc_config.components["post_process_data"].type == "text_classification_post_process"
+        assert dc_config.post_process_data_config.type == "text_classification_post_process"
         dc = dc_config.to_data_container()
         dc.create_dataloader(data_root_path=None)
         dc.create_calibration_dataloader(data_root_path=None)
@@ -63,11 +53,13 @@ class TestDataConfig:
         dc_config = DataConfig(
             name="test_raw_dc_config",
             type="RawDataContainer",
-            params_config={
-                "data_dir": str(tmpdir),
-                "input_names": input_names,
-                "input_shapes": input_shapes,
-                "input_types": input_types,
+            load_dataset_config={
+                "params": {
+                    "data_dir": str(tmpdir),
+                    "input_names": input_names,
+                    "input_shapes": input_shapes,
+                    "input_types": input_types,
+                }
             },
         )
         dc = dc_config.to_data_container()

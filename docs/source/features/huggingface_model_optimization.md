@@ -171,16 +171,18 @@ Example: datasets in `data_configs`:
 "data_configs": [{
     "name": "oasst1_train",
     "type": "HuggingfaceContainer",
-    "params_config": {
-        "data_name": "timdettmers/openassistant-guanaco",
-        "split": "train",
-        "component_kwargs": {
-            "pre_process_data": {
-                "text_cols": ["text"],
-                "corpus_strategy": "line-by-line",
-                "source_max_len": 512,
-                "pad_to_max_len": false
-            }
+    "load_dataset_config": {
+        "params": {
+            "data_name": "timdettmers/openassistant-guanaco",
+            "split": "train"
+        }
+    },
+    "pre_process_data_config": {
+        "params": {
+            "text_cols": ["text"],
+            "corpus_strategy": "line-by-line",
+            "source_max_len": 512,
+            "pad_to_max_len": false
         }
     }
 }]
