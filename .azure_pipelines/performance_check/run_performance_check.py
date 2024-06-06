@@ -39,14 +39,22 @@ MODEL_NAME_TO_CONFIG_MAP = {
             "model_name": "Intel/bert-base-uncased-mrpc",
             "task": "text-classification",
         },
-        "data_config_params": {
-            "data_name": "glue",
-            "subset": "mrpc",
-            "split": "validation",
-            "input_cols": ["sentence1", "sentence2"],
-            "label_cols": ["label"],
-            "batch_size": 1,
-            "max_samples": 100,
+        "data_config_configs": {
+            "load_dataset_config": {
+                "params": {
+                    "data_name": "glue",
+                    "subset": "mrpc",
+                    "split": "validation",
+                }
+            },
+            "pre_process_data_config": {
+                "params": {
+                    "input_cols": ["sentence1", "sentence2"],
+                    "label_cols": ["label"],
+                    "max_samples": 100,
+                }
+            },
+            "dataloader_config": {"params": {"batch_size": 1}},
         },
     },
     "deberta": {
@@ -54,15 +62,27 @@ MODEL_NAME_TO_CONFIG_MAP = {
             "model_name": "microsoft/deberta-base-mnli",
             "task": "text-classification",
         },
-        "data_config_params": {
-            "data_name": "glue",
-            "subset": "mnli_matched",
-            "split": "validation",
-            "input_cols": ["premise", "hypothesis"],
-            "label_cols": ["label"],
-            "batch_size": 1,
-            "max_samples": 100,
-            "component_kwargs": {"pre_process_data": {"align_labels": True}},
+        "data_config_configs": {
+            "load_dataset_config": {
+                "params": {
+                    "data_name": "glue",
+                    "subset": "mnli_matched",
+                    "split": "validation",
+                }
+            },
+            "pre_process_data_config": {
+                "params": {
+                    "align_labels": True,
+                    "input_cols": ["premise", "hypothesis"],
+                    "label_cols": ["label"],
+                    "max_samples": 100,
+                }
+            },
+            "dataloader_config": {
+                "params": {
+                    "batch_size": 1,
+                }
+            },
         },
     },
     "distilbert": {
@@ -70,15 +90,27 @@ MODEL_NAME_TO_CONFIG_MAP = {
             "model_name": "distilbert-base-uncased-finetuned-sst-2-english",
             "task": "text-classification",
         },
-        "data_config_params": {
-            "data_name": "glue",
-            "subset": "sst2",
-            "split": "validation",
-            "input_cols": ["sentence"],
-            "label_cols": ["label"],
-            "batch_size": 1,
-            "max_samples": 100,
-            "component_kwargs": {"pre_process_data": {"align_labels": True}},
+        "data_config_configs": {
+            "load_dataset_config": {
+                "params": {
+                    "data_name": "glue",
+                    "subset": "sst2",
+                    "split": "validation",
+                }
+            },
+            "pre_process_data_config": {
+                "params": {
+                    "align_labels": True,
+                    "input_cols": ["sentence"],
+                    "label_cols": ["label"],
+                    "max_samples": 100,
+                }
+            },
+            "dataloader_config": {
+                "params": {
+                    "batch_size": 1,
+                }
+            },
         },
     },
     "roberta_large": {
@@ -86,15 +118,27 @@ MODEL_NAME_TO_CONFIG_MAP = {
             "model_name": "roberta-large-mnli",
             "task": "text-classification",
         },
-        "data_config_params": {
-            "data_name": "glue",
-            "subset": "mnli_matched",
-            "split": "validation",
-            "input_cols": ["premise", "hypothesis"],
-            "label_cols": ["label"],
-            "batch_size": 1,
-            "max_samples": 100,
-            "component_kwargs": {"pre_process_data": {"align_labels": True}},
+        "data_config_configs": {
+            "load_dataset_config": {
+                "params": {
+                    "data_name": "glue",
+                    "subset": "mnli_matched",
+                    "split": "validation",
+                }
+            },
+            "pre_process_data_config": {
+                "params": {
+                    "align_labels": True,
+                    "input_cols": ["premise", "hypothesis"],
+                    "label_cols": ["label"],
+                    "max_samples": 100,
+                }
+            },
+            "dataloader_config": {
+                "params": {
+                    "batch_size": 1,
+                }
+            },
         },
     },
 }
@@ -234,14 +278,14 @@ def run_perf_comparison(cur_dir, model_name, device, model_root_path, test_num):
                     huggingface_data_config_template(
                         hf_model_config["model_name"],
                         hf_model_config["task"],
-                        **MODEL_NAME_TO_CONFIG_MAP[model_name]["data_config_params"],
+                        **MODEL_NAME_TO_CONFIG_MAP[model_name]["data_config_configs"],
                     )
                 )
                 olive_config["evaluators"]["common_evaluator"]["metrics"][1]["data_config"] = (
                     huggingface_data_config_template(
                         hf_model_config["model_name"],
                         hf_model_config["task"],
-                        **MODEL_NAME_TO_CONFIG_MAP[model_name]["data_config_params"],
+                        **MODEL_NAME_TO_CONFIG_MAP[model_name]["data_config_configs"],
                     )
                 )
 

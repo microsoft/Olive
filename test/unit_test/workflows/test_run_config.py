@@ -219,10 +219,16 @@ class TestDataConfigValidation:
                 {
                     "name": "dummy_data_config2",
                     "type": HuggingfaceContainer.__name__,
-                    "params_config": {
-                        "model_name": "dummy_model2",
-                        "task": "dummy_task2",
-                        "data_name": "dummy_dataset2",
+                    "load_dataset_config": {
+                        "params": {
+                            "data_name": "dummy_dataset2",
+                        }
+                    },
+                    "pre_process_data_config": {
+                        "params": {
+                            "model_name": "dummy_model2",
+                            "task": "dummy_task2",
+                        }
                     },
                 }
             ],
@@ -245,18 +251,32 @@ class TestDataConfigValidation:
             {
                 "name": "dummy_data_config2",
                 "type": HuggingfaceContainer.__name__,
-                "params_config": {
-                    "model_name": model_name,
-                    "task": task,
-                    "data_name": "dummy_dataset2",
+                "load_dataset_config": {
+                    "params": {
+                        "data_name": "dummy_dataset2",
+                    }
+                },
+                "pre_process_data_config": {
+                    "params": {
+                        "model_name": model_name,
+                        "task": task,
+                    }
+                },
+                "post_process_data_config": {
+                    "params": {
+                        "model_name": model_name,
+                        "task": task,
+                    }
                 },
             }
         ]
 
         run_config = RunConfig.parse_obj(config_dict)
         assert run_config.data_configs[0].name == "dummy_data_config2"
-        assert run_config.data_configs[0].params_config["model_name"] == expected_model_name
-        assert run_config.data_configs[0].params_config["task"] == expected_task
+        assert run_config.data_configs[0].pre_process_params.get("model_name") == expected_model_name
+        assert run_config.data_configs[0].pre_process_params.get("task") == expected_task
+        assert run_config.data_configs[0].post_process_params.get("model_name") == expected_model_name
+        assert run_config.data_configs[0].post_process_params.get("task") == expected_task
 
     # works similarly for trust_remote_args
     @pytest.mark.parametrize(
@@ -285,17 +305,14 @@ class TestDataConfigValidation:
                 {
                     "name": "dummy_data_config2",
                     "type": HuggingfaceContainer.__name__,
-                    "params_config": {"trust_remote_code": data_config_trust_remote_code},
+                    "pre_process_data_config": {"params": {"trust_remote_code": data_config_trust_remote_code}},
                 }
             ]
 
         run_config = RunConfig.parse_obj(config_dict)
 
         assert run_config.data_configs[0].name == "dummy_data_config2"
-        if expected_trust_remote_code is None:
-            assert "trust_remote_code" not in run_config.data_configs[0].params_config
-        else:
-            assert run_config.data_configs[0].params_config["trust_remote_code"] == expected_trust_remote_code
+        assert run_config.data_configs[0].pre_process_params.get("trust_remote_code") == expected_trust_remote_code
 
     @pytest.mark.parametrize(
         "data_config_str",

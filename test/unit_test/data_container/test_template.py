@@ -9,6 +9,7 @@ from unittest.mock import patch
 import pytest
 
 import olive.data.template as data_config_template
+from olive.data.config import DataComponentConfig
 
 
 class TestDataConfigTemplate:
@@ -18,12 +19,24 @@ class TestDataConfigTemplate:
         dataloader = data_config_template.huggingface_data_config_template(
             model_name="Intel/bert-base-uncased-mrpc",
             task="text-classification",
-            data_name="glue",
-            subset="mrpc",
-            split="train",
-            input_cols=["sentence1", "sentence2"],
-            label_cols=["label"],
-            batch_size=32,
+            load_dataset_config=DataComponentConfig(
+                params={
+                    "data_name": "glue",
+                    "subset": "mrpc",
+                    "split": "train",
+                }
+            ),
+            pre_process_data_config=DataComponentConfig(
+                params={
+                    "input_cols": ["sentence1", "sentence2"],
+                    "label_cols": ["label"],
+                }
+            ),
+            dataloader_config=DataComponentConfig(
+                params={
+                    "batch_size": 32,
+                }
+            ),
         )
         dataloader = dataloader.to_data_container().create_dataloader(data_root_path=None)
         assert dataloader is not None, "Failed to create dataloader from huggingface template."

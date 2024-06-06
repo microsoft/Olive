@@ -27,43 +27,47 @@
         {
             "name": "c4_train",
             "type": "HuggingfaceContainer",
-            "params_config": {
-                "data_name": "allenai/c4",
-                "subset": "allenai--c4",
-                "split": "train",
-                "data_files": {
-                    "train": "en/c4-train.00000-of-01024.json.gz"
-                },
-                "component_kwargs": {
-                    "pre_process_data": {
-                        "text_cols": [
-                            "text"
-                        ],
-                        "corpus_strategy": "join-random",
-                        "add_special_tokens": false,
-                        "source_max_len": 2048,
-                        "max_samples": 128,
-                        "random_seed": 42
+            "load_dataset_config": {
+                "params": {
+                    "data_name": "allenai/c4",
+                    "subset": "allenai--c4",
+                    "split": "train",
+                    "data_files": {
+                        "train": "en/c4-train.00000-of-01024.json.gz"
                     }
+                }
+            },
+            "pre_process_data_config": {
+                "params": {
+                    "text_cols": [
+                        "text"
+                    ],
+                    "corpus_strategy": "join-random",
+                    "add_special_tokens": false,
+                    "source_max_len": 2048,
+                    "max_samples": 128,
+                    "random_seed": 42
                 }
             }
         },
         {
             "name": "wikitext2_test",
             "type": "HuggingfaceContainer",
-            "params_config": {
-                "data_name": "wikitext",
-                "subset": "wikitext-2-raw-v1",
-                "split": "test",
-                "component_kwargs": {
-                    "pre_process_data": {
-                        "text_cols": [
-                            "text"
-                        ],
-                        "corpus_strategy": "join",
-                        "add_special_tokens": false,
-                        "source_max_len": 2048
-                    }
+            "load_dataset_config": {
+                "params": {
+                    "data_name": "wikitext",
+                    "subset": "wikitext-2-raw-v1",
+                    "split": "test"
+                }
+            },
+            "pre_process_data_config": {
+                "params": {
+                    "text_cols": [
+                        "text"
+                    ],
+                    "corpus_strategy": "join",
+                    "add_special_tokens": false,
+                    "source_max_len": 2048
                 }
             }
         }

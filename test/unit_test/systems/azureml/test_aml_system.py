@@ -310,7 +310,7 @@ class TestAzureMLSystem:
             name="data_name",
             user_script=str(user_script_path),
             script_dir=str(script_dir_path),
-            params_config={"data_dir": data_dir_path, "data_files": data_files_path},
+            load_dataset_config={"params": {"data_dir": data_dir_path, "data_files": data_files_path}},
         )
         pass_config = {"data_config": data_config}
         the_pass = MagicMock()

@@ -10,27 +10,31 @@
             "name": "raw_data",
             "type": "RawDataContainer",
             "user_script": "user_script.py",
-            "components": {
-                "post_process_data": {
-                    "type": "inception_post_process"
+            "load_dataset_config": {
+                "params": {
+                    "data_dir": "data",
+                    "input_names": [
+                        "input"
+                    ],
+                    "input_shapes": [
+                        [
+                            1,
+                            299,
+                            299,
+                            3
+                        ]
+                    ],
+                    "input_order_file": "input_order.txt",
+                    "annotations_file": "labels.npy"
                 }
             },
-            "params_config": {
-                "data_dir": "data",
-                "input_names": [
-                    "input"
-                ],
-                "input_shapes": [
-                    [
-                        1,
-                        299,
-                        299,
-                        3
-                    ]
-                ],
-                "input_order_file": "input_order.txt",
-                "annotations_file": "labels.npy",
-                "batch_size": 7
+            "post_process_data_config": {
+                "type": "inception_post_process"
+            },
+            "dataloader_config": {
+                "params": {
+                    "batch_size": 7
+                }
             }
         }
     ],

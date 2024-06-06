@@ -18,15 +18,17 @@ class RawDataContainer(DataContainer):
         raw_data_config = DataConfig(
             name="raw",
             type="RawDataContainer",
-            params_config={
-                "data_dir": data_dir,
-                "input_names": input_names,
-                "input_shapes": input_shapes,
-                "input_types": input_types, # optional
-                "input_dirs": input_dirs, # optional
-                "input_suffix": input_suffix, # optional
-                "input_order_file": input_order_file, # optional
-                "annotations_file": annotations_file, # optional
+            "load_dataset_config": {
+                "params": {
+                    "data_dir": data_dir,
+                    "input_names": input_names,
+                    "input_shapes": input_shapes,
+                    "input_types": input_types, # optional
+                    "input_dirs": input_dirs, # optional
+                    "input_suffix": input_suffix, # optional
+                    "input_order_file": input_order_file, # optional
+                    "annotations_file": annotations_file, # optional
+                }
             }
         )
     """
