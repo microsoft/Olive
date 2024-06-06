@@ -280,18 +280,8 @@ def run(
     if package_config is None:
         package_config = OlivePackageConfig.get_default_config_path()
 
-    # we use parse_file and parse_obj to be safe. If implemented as expected, both should be equivalent.
-    if isinstance(package_config, (str, Path)):
-        logger.info("Loading Olive module configuration from: %s", package_config)
-        package_config = OlivePackageConfig.parse_file(package_config)
-    else:
-        package_config = OlivePackageConfig.parse_obj(package_config)
-
-    if isinstance(run_config, (str, Path)):
-        logger.info("Loading run configuration from: %s", run_config)
-        run_config = RunConfig.parse_file(run_config)
-    else:
-        run_config = RunConfig.parse_obj(run_config)
+    package_config = OlivePackageConfig.parse_file_or_obj(package_config)
+    run_config = RunConfig.parse_file_or_obj(run_config)
 
     # set log level for olive
     set_default_logger_severity(run_config.engine.log_severity_level)
