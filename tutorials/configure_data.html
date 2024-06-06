@@ -177,11 +177,13 @@ Convert the dummy data config to the data container.</p>
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dummy_data_config_template&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DummyDataContainer&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;params_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;input_shapes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="p">]],</span>
-<span class="w">        </span><span class="nt">&quot;input_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;input_ids&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;attention_mask&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;token_type_ids&quot;</span><span class="p">],</span>
-<span class="w">        </span><span class="nt">&quot;input_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;int64&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;int64&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;int64&quot;</span><span class="p">],</span>
-<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;load_dataset_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;input_shapes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="p">]],</span>
+<span class="w">            </span><span class="nt">&quot;input_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;input_ids&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;attention_mask&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;token_type_ids&quot;</span><span class="p">],</span>
+<span class="w">            </span><span class="nt">&quot;input_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;int64&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;int64&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;int64&quot;</span><span class="p">],</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -189,11 +191,11 @@ Convert the dummy data config to the data container.</p>
 <span class="n">data_config</span> <span class="o">=</span> <span class="n">DataConfig</span><span class="p">(</span>
     <span class="n">name</span><span class="o">=</span><span class="s2">&quot;dummy_data_config_template&quot;</span><span class="p">,</span>
     <span class="nb">type</span><span class="o">=</span><span class="s2">&quot;DummyDataContainer&quot;</span><span class="p">,</span>
-    <span class="n">params_config</span><span class="o">=</span><span class="p">{</span>
+    <span class="n">load_dataset_config</span><span class="o">=</span><span class="n">DataComponentConfig</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="p">{</span>
         <span class="s2">&quot;input_shapes&quot;</span><span class="p">:</span> <span class="p">[[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">128</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">128</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">128</span><span class="p">]],</span>
         <span class="s2">&quot;input_names&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input_ids&quot;</span><span class="p">,</span> <span class="s2">&quot;attention_mask&quot;</span><span class="p">,</span> <span class="s2">&quot;token_type_ids&quot;</span><span class="p">],</span>
         <span class="s2">&quot;input_types&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;int64&quot;</span><span class="p">,</span> <span class="s2">&quot;int64&quot;</span><span class="p">,</span> <span class="s2">&quot;int64&quot;</span><span class="p">],</span>
-    <span class="p">},</span>
+    <span class="p">})</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -202,35 +204,54 @@ Convert the dummy data config to the data container.</p>
 Convert the huggingface data config to the data container.</p>
 <div class="sphinx-tabs docutils container">
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-1-1-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-1-1-0" name="1-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-1-1-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-1-1-1" name="1-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-1-1-0" class="sphinx-tabs-panel" id="panel-1-1-0" name="1-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;huggingface_data_config_template&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;huggingface_data_config&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HuggingfaceContainer&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;params_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;model_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Intel/bert-base-uncased-mrpc&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;task&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;text-classification&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;data_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;glue&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;input_cols&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;sentence1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sentence2&quot;</span><span class="p">],</span>
-<span class="w">        </span><span class="nt">&quot;label_cols&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">],</span>
-<span class="w">        </span><span class="nt">&quot;split&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;validation&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;subset&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mrpc&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;load_dataset_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;data_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;glue&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;split&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;validation&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;subset&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mrpc&quot;</span>
+<span class="w">        </span><span class="p">}</span>
 <span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;pre_process_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;model_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Intel/bert-base-uncased-mrpc&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;task&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;text-classification&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;input_cols&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;sentence1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sentence2&quot;</span><span class="p">],</span>
+<span class="w">            </span><span class="nt">&quot;label_cols&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;post_process_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;task&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;text-classification&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;dataloader_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 </div><div aria-labelledby="tab-1-1-1" class="sphinx-tabs-panel" hidden="true" id="panel-1-1-1" name="1-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.data.config</span> <span class="kn">import</span> <span class="n">DataConfig</span>
 <span class="n">data_config</span> <span class="o">=</span> <span class="n">DataConfig</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;huggingface_data_config_template&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;huggingface_data_config&quot;</span><span class="p">,</span>
     <span class="nb">type</span><span class="o">=</span><span class="s2">&quot;HuggingfaceContainer&quot;</span><span class="p">,</span>
-    <span class="n">params_config</span><span class="o">=</span><span class="p">{</span>
+    <span class="n">load_dataset_config</span><span class="o">=</span><span class="n">DataComponentConfig</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="p">{</span>
         <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="s2">&quot;Intel/bert-base-uncased-mrpc&quot;</span><span class="p">,</span>
         <span class="s2">&quot;task&quot;</span><span class="p">:</span> <span class="s2">&quot;text-classification&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
         <span class="s2">&quot;data_name&quot;</span><span class="p">:</span> <span class="s2">&quot;glue&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;input_cols&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;sentence1&quot;</span><span class="p">,</span> <span class="s2">&quot;sentence2&quot;</span><span class="p">],</span>
-        <span class="s2">&quot;label_cols&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">],</span>
         <span class="s2">&quot;split&quot;</span><span class="p">:</span> <span class="s2">&quot;validation&quot;</span><span class="p">,</span>
         <span class="s2">&quot;subset&quot;</span><span class="p">:</span> <span class="s2">&quot;mrpc&quot;</span><span class="p">,</span>
-    <span class="p">},</span>
+    <span class="p">}),</span>
+    <span class="n">pre_process_data_config</span><span class="o">=</span><span class="n">DataComponentConfig</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;input_cols&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;sentence1&quot;</span><span class="p">,</span> <span class="s2">&quot;sentence2&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;label_cols&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">],</span>
+    <span class="p">})</span>
+    <span class="n">dataloader_config</span><span class="o">=</span><span class="n">DataComponentConfig</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="p">})</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -241,13 +262,15 @@ Convert the raw data config to the data container.</p>
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-2-2-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-2-2-0" name="2-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-2-2-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-2-2-1" name="2-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-2-2-0" class="sphinx-tabs-panel" id="panel-2-2-0" name="2-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;raw_data&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RawDataContainer&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;params_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;input_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">],</span>
-<span class="w">        </span><span class="nt">&quot;input_shapes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">224</span><span class="p">,</span><span class="w"> </span><span class="mi">224</span><span class="p">]],</span>
-<span class="w">        </span><span class="nt">&quot;input_dirs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;.&quot;</span><span class="p">],</span>
-<span class="w">        </span><span class="nt">&quot;input_suffix&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;.raw&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;input_order_file&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;input_order.txt&quot;</span>
+<span class="w">    </span><span class="nt">&quot;load_dataset_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;input_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">],</span>
+<span class="w">            </span><span class="nt">&quot;input_shapes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">224</span><span class="p">,</span><span class="w"> </span><span class="mi">224</span><span class="p">]],</span>
+<span class="w">            </span><span class="nt">&quot;input_dirs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;.&quot;</span><span class="p">],</span>
+<span class="w">            </span><span class="nt">&quot;input_suffix&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;.raw&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;input_order_file&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;input_order.txt&quot;</span>
+<span class="w">        </span><span class="p">}</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -256,14 +279,14 @@ Convert the raw data config to the data container.</p>
 <span class="n">data_config</span> <span class="o">=</span> <span class="n">DataConfig</span><span class="p">(</span>
     <span class="n">name</span><span class="o">=</span><span class="s2">&quot;raw_data&quot;</span><span class="p">,</span>
     <span class="nb">type</span><span class="o">=</span><span class="s2">&quot;RawDataContainer&quot;</span><span class="p">,</span>
-    <span class="n">params_config</span><span class="o">=</span><span class="p">{</span>
+    <span class="n">load_dataset_config</span><span class="o">=</span><span class="n">DataComponentConfig</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="p">{</span>
         <span class="s2">&quot;data_dir&quot;</span><span class="p">:</span> <span class="s2">&quot;data&quot;</span><span class="p">,</span>
         <span class="s2">&quot;input_names&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">],</span>
         <span class="s2">&quot;input_shapes&quot;</span><span class="p">:</span> <span class="p">[[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">224</span><span class="p">,</span> <span class="mi">224</span><span class="p">]],</span>
         <span class="s2">&quot;input_dirs&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;.&quot;</span><span class="p">],</span>
         <span class="s2">&quot;input_suffix&quot;</span><span class="p">:</span> <span class="s2">&quot;.raw&quot;</span><span class="p">,</span>
         <span class="s2">&quot;input_order_file&quot;</span><span class="p">:</span> <span class="s2">&quot;input_order.txt&quot;</span>
-    <span class="p">}</span>
+    <span class="p">})</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -334,42 +357,40 @@ Convert the raw data config to the data container.</p>
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-3-3-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-3-3-0" name="3-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-3-3-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-3-3-1" name="3-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-3-3-0" class="sphinx-tabs-panel" id="panel-3-3-0" name="3-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DataContainer&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;components&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;load_dataset&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;huggingface_dataset&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">                </span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;data_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;glue&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;subset&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mrpc&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;split&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;validation&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;data_files&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
-<span class="w">            </span><span class="p">}</span>
-<span class="w">        </span><span class="p">},</span>
-<span class="w">        </span><span class="nt">&quot;pre_process_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;huggingface_pre_process&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">                </span><span class="nt">&quot;model_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Intel/bert-base-uncased-mrpc&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;input_cols&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">                    </span><span class="s2">&quot;sentence1&quot;</span><span class="p">,</span>
-<span class="w">                    </span><span class="s2">&quot;sentence2&quot;</span>
-<span class="w">                </span><span class="p">],</span>
-<span class="w">                </span><span class="nt">&quot;label_cols&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">                    </span><span class="s2">&quot;label&quot;</span>
-<span class="w">                </span><span class="p">],</span>
-<span class="w">                </span><span class="nt">&quot;max_samples&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
-<span class="w">            </span><span class="p">}</span>
-<span class="w">        </span><span class="p">},</span>
-<span class="w">        </span><span class="nt">&quot;post_process_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;text_classification_post_process&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}</span>
-<span class="w">        </span><span class="p">},</span>
-<span class="w">        </span><span class="nt">&quot;dataloader&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;default_dataloader&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">                </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
-<span class="w">            </span><span class="p">}</span>
+<span class="w">    </span><span class="nt">&quot;load_dataset_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;huggingface_dataset&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;data_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;glue&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;subset&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mrpc&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;split&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;validation&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;data_files&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
 <span class="w">        </span><span class="p">}</span>
 <span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;pre_process_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;huggingface_pre_process&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;model_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Intel/bert-base-uncased-mrpc&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;input_cols&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                </span><span class="s2">&quot;sentence1&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="s2">&quot;sentence2&quot;</span>
+<span class="w">            </span><span class="p">],</span>
+<span class="w">            </span><span class="nt">&quot;label_cols&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                </span><span class="s2">&quot;label&quot;</span>
+<span class="w">            </span><span class="p">],</span>
+<span class="w">            </span><span class="nt">&quot;max_samples&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;post_process_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;text_classification_post_process&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;dataloader_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;default_dataloader&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -377,42 +398,40 @@ Convert the raw data config to the data container.</p>
 <span class="n">data_config</span> <span class="o">=</span> <span class="n">DataConfig</span><span class="p">(</span>
     <span class="n">name</span><span class="o">=</span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
     <span class="nb">type</span><span class="o">=</span><span class="s2">&quot;DataContainer&quot;</span><span class="p">,</span>
-    <span class="n">components</span><span class="o">=</span><span class="p">{</span>
-        <span class="s2">&quot;load_dataset&quot;</span><span class="p">:</span> <span class="p">{</span>
-            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;huggingface_dataset&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">{</span>
-                <span class="s2">&quot;data_dir&quot;</span><span class="p">:</span> <span class="n">null</span><span class="p">,</span>
-                <span class="s2">&quot;data_name&quot;</span><span class="p">:</span> <span class="s2">&quot;glue&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;subset&quot;</span><span class="p">:</span> <span class="s2">&quot;mrpc&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;split&quot;</span><span class="p">:</span> <span class="s2">&quot;validation&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;data_files&quot;</span><span class="p">:</span> <span class="n">null</span>
-            <span class="p">}</span>
-        <span class="p">},</span>
-        <span class="s2">&quot;pre_process_data&quot;</span><span class="p">:</span> <span class="p">{</span>
-            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;huggingface_pre_process&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">{</span>
-                <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="s2">&quot;Intel/bert-base-uncased-mrpc&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;input_cols&quot;</span><span class="p">:</span> <span class="p">[</span>
-                    <span class="s2">&quot;sentence1&quot;</span><span class="p">,</span>
-                    <span class="s2">&quot;sentence2&quot;</span>
-                <span class="p">],</span>
-                <span class="s2">&quot;label_cols&quot;</span><span class="p">:</span> <span class="p">[</span>
-                    <span class="s2">&quot;label&quot;</span>
-                <span class="p">],</span>
-                <span class="s2">&quot;max_samples&quot;</span><span class="p">:</span> <span class="n">null</span>
-            <span class="p">}</span>
-        <span class="p">},</span>
-        <span class="s2">&quot;post_process_data&quot;</span><span class="p">:</span> <span class="p">{</span>
-            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;text_classification_post_process&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">{}</span>
-        <span class="p">},</span>
-        <span class="s2">&quot;dataloader&quot;</span><span class="p">:</span> <span class="p">{</span>
-            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;default_dataloader&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">{</span>
-                <span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">1</span>
-            <span class="p">}</span>
+    <span class="n">load_dataset_config</span><span class="o">=</span><span class="n">DataComponentConfig</span><span class="p">(</span>
+        <span class="nb">type</span><span class="o">=</span><span class="s2">&quot;huggingface_dataset&quot;</span><span class="p">,</span>
+        <span class="n">params</span><span class="o">=</span><span class="p">{</span>
+            <span class="s2">&quot;data_dir&quot;</span><span class="p">:</span> <span class="n">null</span><span class="p">,</span>
+            <span class="s2">&quot;data_name&quot;</span><span class="p">:</span> <span class="s2">&quot;glue&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;subset&quot;</span><span class="p">:</span> <span class="s2">&quot;mrpc&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;split&quot;</span><span class="p">:</span> <span class="s2">&quot;validation&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;data_files&quot;</span><span class="p">:</span> <span class="n">null</span>
         <span class="p">}</span>
-    <span class="p">},</span>
+    <span class="p">),</span>
+    <span class="n">pre_process_data_config</span><span class="o">=</span><span class="n">DataComponentConfig</span><span class="p">(</span>
+        <span class="nb">type</span><span class="o">=</span><span class="s2">&quot;huggingface_pre_process&quot;</span><span class="p">,</span>
+        <span class="n">params</span><span class="o">=</span><span class="p">{</span>
+            <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="s2">&quot;Intel/bert-base-uncased-mrpc&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;input_cols&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="s2">&quot;sentence1&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;sentence2&quot;</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;label_cols&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="s2">&quot;label&quot;</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;max_samples&quot;</span><span class="p">:</span> <span class="n">null</span>
+        <span class="p">}</span>
+    <span class="p">),</span>
+    <span class="n">post_process_data_config</span><span class="o">=</span><span class="n">DataComponentConfig</span><span class="p">(</span>
+        <span class="nb">type</span><span class="o">=</span><span class="s2">&quot;text_classification_post_process&quot;</span><span class="p">,</span>
+        <span class="n">params</span><span class="o">=</span><span class="p">{}</span>
+    <span class="p">),</span>
+    <span class="n">dataloader_config</span><span class="o">=</span><span class="n">DataComponentConfig</span><span class="p">(</span>
+        <span class="nb">type</span><span class="o">=</span><span class="s2">&quot;default_dataloader&quot;</span><span class="p">,</span>
+        <span class="n">params</span><span class="o">=</span><span class="p">{</span>
+            <span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">1</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -427,16 +446,14 @@ Convert the raw data config to the data container.</p>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DataContainer&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;script_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_dir&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;components&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;load_dataset&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;customized_huggingface_dataset&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">                </span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;data_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;glue&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;subset&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mrpc&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="p">}</span>
-<span class="w">        </span><span class="p">},</span>
-<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;load_dataset_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;customized_huggingface_dataset&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;data_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;glue&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;subset&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mrpc&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -452,16 +469,14 @@ Convert the raw data config to the data container.</p>
     <span class="nb">type</span><span class="o">=</span><span class="s2">&quot;DataContainer&quot;</span><span class="p">,</span>
     <span class="n">user_script</span><span class="o">=</span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
     <span class="n">script_dir</span><span class="o">=</span><span class="s2">&quot;user_dir&quot;</span><span class="p">,</span>
-    <span class="n">components</span><span class="o">=</span><span class="p">{</span>
-        <span class="s2">&quot;load_dataset&quot;</span><span class="p">:</span> <span class="p">{</span>
-            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;customized_huggingface_dataset&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="p">{</span>
-                <span class="s2">&quot;data_dir&quot;</span><span class="p">:</span> <span class="n">null</span><span class="p">,</span>
-                <span class="s2">&quot;data_name&quot;</span><span class="p">:</span> <span class="s2">&quot;glue&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;subset&quot;</span><span class="p">:</span> <span class="s2">&quot;mrpc&quot;</span><span class="p">,</span>
-            <span class="p">}</span>
-        <span class="p">},</span>
-    <span class="p">},</span>
+    <span class="n">load_dataset_config</span><span class="o">=</span><span class="n">DataComponentConfig</span><span class="p">(</span>
+        <span class="nb">type</span><span class="o">=</span><span class="s2">&quot;customized_huggingface_dataset&quot;</span><span class="p">,</span>
+        <span class="n">params</span><span class="o">=</span><span class="p">{</span>
+            <span class="s2">&quot;data_dir&quot;</span><span class="p">:</span> <span class="n">null</span><span class="p">,</span>
+            <span class="s2">&quot;data_name&quot;</span><span class="p">:</span> <span class="s2">&quot;glue&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;subset&quot;</span><span class="p">:</span> <span class="s2">&quot;mrpc&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
 <span class="p">)</span>
 </pre></div>
 </div>
