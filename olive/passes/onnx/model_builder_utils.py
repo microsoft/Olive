@@ -181,7 +181,8 @@ class Model:
             print("GroupQueryAttention (GQA) is used in this model.")
 
             # DML doesn't support packed Q/K/V for GQA yet
-            self.attention_attrs["use_packed_matmul"] = self.ep != "dml"
+            # self.attention_attrs["use_packed_matmul"] = self.ep != "dml"
+            self.attention_attrs["use_packed_matmul"] = False
 
             # GQA + Rot.Emb. does not require `position ids` as input
             if self.ep != "dml":
