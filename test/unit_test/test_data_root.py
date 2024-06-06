@@ -10,7 +10,7 @@ import pytest
 import torch
 from torch.utils.data import DataLoader, Dataset
 
-from olive.data.config import DataConfig
+from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
 from olive.resource_path import create_resource_path
 from olive.workflows import run as olive_run
@@ -110,16 +110,12 @@ def get_data_config():
         "data_configs": [
             DataConfig(
                 name="test_data_config",
-                components={
-                    "load_dataset": {
-                        "type": "dummy_dataset_dataroot",
-                        "params": {"data_dir": "data"},
-                    },
-                    "post_process_data": {
-                        "type": "post_processing_func",
-                    },
-                },
-            ),
+                load_dataset_config=DataComponentConfig(
+                    type="dummy_dataset_dataroot",
+                    params={"data_dir": "data"},
+                ),
+                post_process_data_config=DataComponentConfig(type="post_processing_func"),
+            )
         ],
         "evaluators": {
             "common_evaluator": {
@@ -149,15 +145,11 @@ def get_data_config():
                     # This is just demo purpose to show how to use data_config in passes
                     "data_config": DataConfig(
                         name="test_data_config",
-                        components={
-                            "load_dataset": {
-                                "type": "dummy_dataset_dataroot",
-                                "params": {"data_dir": "perfdata"},
-                            },
-                            "post_process_data": {
-                                "type": "post_processing_func",
-                            },
-                        },
+                        load_dataset_config=DataComponentConfig(
+                            type="dummy_dataset_dataroot",
+                            params={"data_dir": "perfdata"},
+                        ),
+                        post_process_data_config=DataComponentConfig(type="post_processing_func"),
                     )
                 },
             },

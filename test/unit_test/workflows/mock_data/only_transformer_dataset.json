@@ -80,24 +80,30 @@
         {
             "name": "glue_mrpc",
             "type": "HuggingfaceContainer",
-            "params_config": {
-                "model_name": "Intel/bert-base-uncased-mrpc",
-                "task": "text-classification",
-                "data_name": "glue",
-                "subset": "mrpc",
-                "split": "validation",
-                "input_cols": [
-                    "sentence1",
-                    "sentence2"
-                ],
-                "label_cols": [
-                    "label"
-                ],
-                "batch_size": 1,
-                "component_kwargs": {
-                    "pre_process_data": {
-                        "align_labels": true
-                    }
+            "load_dataset_config": {
+                "params": {
+                    "data_name": "glue",
+                    "subset": "mrpc",
+                    "split": "validation"
+                }
+            },
+            "pre_process_data_config": {
+                "params": {
+                    "model_name": "Intel/bert-base-uncased-mrpc",
+                    "task": "text-classification",
+                    "align_labels": true,
+                    "input_cols": [
+                        "sentence1",
+                        "sentence2"
+                    ],
+                    "label_cols": [
+                        "label"
+                    ]
+                }
+            },
+            "dataloader_config": {
+                "params": {
+                    "batch_size": 1
                 }
             }
         }

@@ -18,10 +18,12 @@ class DummyDataContainer(DataContainer):
         dummy_data_config = DataConfig(
             name="dummy",
             type="DummyDataContainer",
-            params_config={
-                "input_names": metric.user_config.input_names,
-                "input_shapes": metric.user_config.input_shapes,
-                "input_types": metric.user_config.input_types,
+            "load_dataset_config"={
+                "params": {
+                    "input_names": metric.user_config.input_names,
+                    "input_shapes": metric.user_config.input_shapes,
+                    "input_types": metric.user_config.input_types,
+                }
             }
         )
     """

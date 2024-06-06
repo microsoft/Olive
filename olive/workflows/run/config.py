@@ -99,25 +99,30 @@ class RunConfig(ConfigBase):
         if "input_model" not in values:
             raise ValueError("Invalid input model")
 
-        hf_config = values["input_model"].dict()["config"].get("hf_config", {})
-
         if isinstance(v, DataConfig):
             v = v.dict()
 
         if v["type"] == HuggingfaceContainer.__name__:
+            hf_config = values["input_model"].dict()["config"].get("hf_config", {})
+
             # auto insert model_name and task from input model hf config if not present
             # both are required for huggingface container
-            for key in ["model_name", "task"]:
-                if not v["params_config"].get(key, None):
-                    v["params_config"][key] = hf_config.get(key, None)
+            for component_config_name in ["pre_process_data_config", "post_process_data_config"]:
+                v[component_config_name] = component_config = v.get(component_config_name) or {}
+                component_config["params"] = component_config_params = component_config.get("params") or {}
+                for key in ["model_name", "task"]:
+                    if not component_config_params.get(key, None):
+                        component_config_params[key] = hf_config.get(key, None)
+
             # auto insert trust_remote_code from input model hf config
             # won't override if value was set to False explicitly
-            for key in ["trust_remote_code"]:
-                if (
-                    hf_config.get("from_pretrained_args", {}).get(key, None)
-                    and v["params_config"].get(key, None) is None
-                ):
-                    v["params_config"][key] = hf_config["from_pretrained_args"][key]
+            if hf_config.get("from_pretrained_args", {}).get("trust_remote_code"):
+                v["pre_process_data_config"] = component_config = v.get("pre_process_data_config") or {}
+                component_config["params"] = component_config_params = component_config.get("params") or {}
+                if component_config_params.get("trust_remote_code") is None:
+                    component_config_params["trust_remote_code"] = hf_config["from_pretrained_args"][
+                        "trust_remote_code"
+                    ]
 
         return validate_config(v, DataConfig)
 

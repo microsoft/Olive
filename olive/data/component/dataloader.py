@@ -22,6 +22,7 @@ def default_dataloader(dataset, batch_size=1, **kwargs):
 def no_auto_batch_dataloader(dataset, **kwargs):
     # torch dataloader will automatically batch if batch_size is not None
     # this dataloader will not batch. Assumes that the dataset already returns a batch
+    kwargs.pop("batch_size", None)
     return DataLoader(dataset, batch_size=None, **kwargs)
 
 

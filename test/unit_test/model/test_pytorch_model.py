@@ -165,14 +165,6 @@ class TestPytorchDummyInput:
                 "token_type_ids": {"0": "batch_size", "1": "seq_length"},
             },
         }
-        self.dataset = {
-            "data_name": "glue",
-            "subset": "mrpc",
-            "split": "validation",
-            "input_cols": ["sentence1", "sentence2"],
-            "label_cols": ["label"],
-            "batch_size": 1,
-        }
 
     def test_dummy_input_with_kv_cache(self):
         io_config = self.io_config

@@ -287,16 +287,14 @@ def get_data_config():
 
     return DataConfig(
         name="test_data_config",
-        components={
-            "load_dataset": {
-                "type": "test_dataset",  # renamed by Registry.register_dataset
-                "params": {"test_value": "test_value"},
-            },
-            "dataloader": {
-                "type": "_test_dataloader",  # This is the key to get dataloader
-                "params": {"test_value": "test_value"},
-            },
-        },
+        load_dataset_config=DataComponentConfig(
+            type="test_dataset",  # renamed by Registry.register_dataset
+            params={"test_value": "test_value"},
+        ),
+        dataloader_config=DataComponentConfig(
+            type="_test_dataloader",  # This is the key to get dataloader
+            params={"test_value": "test_value"},
+        ),
     )
 
 
@@ -304,35 +302,28 @@ def get_glue_huggingface_data_config():
     return DataConfig(
         name="glue_huggingface_data_config",
         type="HuggingfaceContainer",
-        params_config={
-            "task": "text-classification",
-            "model_name": "Intel/bert-base-uncased-mrpc",
-            "data_name": "glue",
-            "subset": "mrpc",
-            "split": "validation",
-            "input_cols": ["sentence1", "sentence2"],
-            "label_cols": ["label"],
-            "batch_size": 1,
-        },
-    )
-
-
-def get_dc_params_config():
-    return DataConfig(
-        name="dc_params_config",
-        params_config={
-            "data_dir": "./params_config",
-            "batch_size": 1,
-            "label_cols": ["label_from_params_config"],
-        },
-        components={
-            "load_dataset": DataComponentConfig(
-                params={
-                    "data_dir": "./params",
-                    "batch_size": 10,
-                }
-            )
-        },
+        load_dataset_config=DataComponentConfig(
+            params={
+                "data_name": "glue",
+                "subset": "mrpc",
+                "split": "validation",
+                "batch_size": 1,
+            }
+        ),
+        pre_process_data_config=DataComponentConfig(
+            params={
+                "model_name": "Intel/bert-base-uncased-mrpc",
+                "task": "text-classification",
+                "input_cols": ["sentence1", "sentence2"],
+                "label_cols": ["label"],
+            }
+        ),
+        post_process_data_config=DataComponentConfig(
+            params={
+                "model_name": "Intel/bert-base-uncased-mrpc",
+                "task": "text-classification",
+            }
+        ),
     )
 
 
