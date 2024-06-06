@@ -4,6 +4,11 @@ Olive enables users to easily compose and customize their own model optimization
 used to compose a pipeline. Olive receives input model, target hardware, performance requirements, and list of optimizations techniques
 to apply from user in the form of a json dictionary. In this document, we document the options user can set in this dictionary.
 
+**Note**: The json schema for the config file can be found [here](https://microsoft.github.io/Olive/schema.json). It can be used in IDEs like VSCode to provide intellisense by adding the following line at the top of the config file:
+```json
+"$schema": "https://microsoft.github.io/Olive/schema.json"
+```
+
 The options are organized into following sections:
 
 - [Workflow id](#workflow-id) `workflow_id`

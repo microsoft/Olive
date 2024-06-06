@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Callable, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
 
 from olive.common.config_utils import ConfigBase, ParamCategory, validate_config
+from olive.common.pydantic_v1 import Field
 from olive.common.user_module_loader import UserModuleLoader
 from olive.data.config import DataConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
@@ -462,13 +463,31 @@ class Pass(ABC):
         raise NotImplementedError
 
 
+class AbstractPassConfig(ConfigBase):
+    """Base class for pass configuration."""
+
+    type: str = Field(description="The type of the pass.")
+    disable_search: bool = Field(default=False, description="Whether to disable search.")
+    config: Dict[str, Any] = Field(
+        None,
+        description=(
+            "The configuration of the pass. Values for required parameters must be provided. For optional parameters,"
+            " default values or searchable values (if available and search is not disabled) will be used if not"
+            " provided."
+        ),
+    )
+
+
 # TODO(jambayk): rename. We are using FullPassConfig since PassConfigBase already refers to inner config
-class FullPassConfig(ConfigBase):
-    type: str
-    disable_search: bool = False
+class FullPassConfig(AbstractPassConfig):
+    """Configuration for a pass serialization.
+
+    This class can be used to serialize a pass configuration to a JSON file and
+    reconstruct the pass from the JSON file.
+    """
+
     accelerator: Dict[str, str] = None
     host_device: Optional[str] = None
-    config: Dict[str, Any] = None
 
     def create_pass(self):
         if not isinstance(self.accelerator, dict):

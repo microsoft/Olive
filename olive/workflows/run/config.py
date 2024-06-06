@@ -10,14 +10,14 @@ from olive.auto_optimizer import AutoOptimizerConfig
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.constants import DEFAULT_WORKFLOW_ID
-from olive.common.pydantic_v1 import validator
+from olive.common.pydantic_v1 import Field, validator
 from olive.data.config import DataConfig
 from olive.data.container.huggingface_container import HuggingfaceContainer
 from olive.engine import Engine, EngineConfig
 from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
-from olive.passes import FullPassConfig
+from olive.passes import AbstractPassConfig
 from olive.passes.pass_config import PassParamDefault
 from olive.resource_path import AZUREML_RESOURCE_TYPES
 from olive.systems.system_config import SystemConfig
@@ -25,11 +25,53 @@ from olive.systems.system_config import SystemConfig
 logger = logging.getLogger(__name__)
 
 
-class RunPassConfig(FullPassConfig):
-    host: SystemConfig = None
-    evaluator: OliveEvaluatorConfig = None
-    clean_run_cache: bool = False
-    output_name: str = None
+class RunPassConfig(AbstractPassConfig):
+    """Pass configuration for Olive workflow.
+
+    This is the configuration for a single pass in Olive workflow. It includes configurations for pass type, config,
+    etc.
+
+    Example:
+    .. code-block:: json
+
+        {
+            "type": "OlivePass",
+            "config": {
+                "param1": "value1",
+                "param2": "value2"
+            }
+        }
+
+    """
+
+    host: Union[SystemConfig, str] = Field(
+        None,
+        description=(
+            "Host system for the pass. If it is a string, must refer to a system config under `systems` section. If not"
+            " provided, use the engine's host system."
+        ),
+    )
+    evaluator: Union[OliveEvaluatorConfig, str] = Field(
+        None,
+        description=(
+            "Evaluator for the pass. If it is a string, must refer to an evaluator config under `evaluators` section."
+            " If not provided, use the engine's evaluator."
+        ),
+    )
+    clean_run_cache: bool = Field(
+        False,
+        description=(
+            "Whether to clean the run cache before running the pass. If set to True, the cache related to all runs"
+            " related to this pass type will be cleaned."
+        ),
+    )
+    output_name: str = Field(
+        None,
+        description=(
+            "Prefix of the name of the output of this pass in the output directory. Only used when the workflow is run"
+            " in no-search mode. If not provided, only the output of the last pass will be saved."
+        ),
+    )
 
 
 class RunEngineConfig(EngineConfig):
@@ -48,17 +90,68 @@ class RunEngineConfig(EngineConfig):
 
 
 class RunConfig(ConfigBase):
-    workflow_id: str = DEFAULT_WORKFLOW_ID
-    azureml_client: AzureMLClientConfig = None
-    input_model: ModelConfig
-    systems: Dict[str, SystemConfig] = None
-    data_root: str = None
-    data_configs: List[DataConfig] = []  # noqa: RUF012
-    evaluators: Dict[str, OliveEvaluatorConfig] = None
-    engine: RunEngineConfig = None
-    pass_flows: List[List[str]] = None
-    passes: Dict[str, RunPassConfig] = None
-    auto_optimizer_config: AutoOptimizerConfig = None
+    """Run configuration for Olive workflow.
+
+    This is the top-level configuration. It includes configurations for input model, systems, data,
+    evaluators, engine, passes, and auto optimizer.
+    """
+
+    workflow_id: str = Field(
+        DEFAULT_WORKFLOW_ID, description="Workflow ID. If not provided, use the default ID 'default_workflow'."
+    )
+    azureml_client: AzureMLClientConfig = Field(
+        None,
+        description=(
+            "AzureML client configuration. This client configuration will be used for all AzureML related resources in"
+            " the workflow."
+        ),
+    )
+    input_model: ModelConfig = Field(description="Input model configuration.")
+    systems: Dict[str, SystemConfig] = Field(
+        None,
+        description="System configurations. Other fields such as engine and passes can refer to these systems by name.",
+    )
+    data_root: str = Field(
+        None,
+        description=(
+            "Root directory for data. If provided, all relative data paths in other configs will be resolved based on"
+            " this root."
+        ),
+    )
+    data_configs: List[DataConfig] = Field(
+        default_factory=list,
+        description=(
+            "Data configurations. Each data config must have a unique name. Other fields such as engine, passes and"
+            " evaluators can refer to these data configs by name. In auto-optimizer mode, only one data config is"
+            " allowed."
+        ),
+    )
+    evaluators: Dict[str, OliveEvaluatorConfig] = Field(
+        None,
+        description=(
+            "Evaluator configurations. Other fields such as engine and passes can refer to these evaluators by name."
+        ),
+    )
+    engine: RunEngineConfig = Field(
+        default_factory=RunEngineConfig,
+        description=(
+            "Engine configuration. If not provided, the workflow uses the default engine configuration which runs in"
+            " no-search or auto-optimizer mode based on whether passes field is provided."
+        ),
+    )
+    passes: Dict[str, RunPassConfig] = Field(None, description="Pass configurations.")
+    pass_flows: List[List[str]] = Field(
+        None,
+        description=(
+            "Pass flows. Each member must be a list of pass names from `passes` field. If provided,"
+            " each flow will be run sequentially. If not provided, all passes will be run as a single flow in the order"
+            " of `passes` field."
+        ),
+    )
+    auto_optimizer_config: AutoOptimizerConfig = Field(
+        default_factory=AutoOptimizerConfig,
+        description="Auto optimizer configuration. Only valid when passes field is empty or not provided.",
+    )
 
     @validator("input_model", pre=True)
     def insert_aml_client(cls, v, values):
@@ -72,12 +165,6 @@ class RunConfig(ConfigBase):
 
         if _have_aml_client(input_model_path, values):
             v["config"]["model_path"]["config"]["azureml_client"] = values["azureml_client"]
-        return v
-
-    @validator("engine", pre=True, always=True)
-    def default_engine_config(cls, v):
-        if v is None:
-            v = {}
         return v
 
     @validator("data_configs", pre=True)
@@ -196,12 +283,6 @@ class RunConfig(ConfigBase):
                 f" set {searchable_configs} to SEARCHABLE_VALUES at the same time."
                 " Please remove SEARCHABLE_VALUES or enable search(needs search strategy configs)."
             )
-        return v
-
-    @validator("auto_optimizer_config", always=True)
-    def validate_auto_optimizer_config(cls, v, values):
-        if not v:
-            v = AutoOptimizerConfig()
         return v
 
 
