@@ -473,7 +473,7 @@ class CommonPassConfig(ConfigBase):
         None,
         description=(
             "The configuration of the pass. Values for required parameters must be provided. For optional parameters,"
-            " default values or searchable values (if avalable and search is not disabled) will be used if not"
+            " default values or searchable values (if available and search is not disabled) will be used if not"
             " provided."
         ),
     )
