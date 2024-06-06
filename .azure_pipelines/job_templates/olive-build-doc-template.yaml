@@ -35,6 +35,7 @@ jobs:
         python -m pip install -r requirements.txt
         make html
         make linkcheck
+        make schema
       displayName: Make Docs
 
     - task:  PublishPipelineArtifact@1

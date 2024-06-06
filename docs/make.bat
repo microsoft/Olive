@@ -9,6 +9,7 @@ if "%SPHINXBUILD%" == "" (
 )
 set SOURCEDIR=source
 set BUILDDIR=build
+set SCHEMABUILD="python %SOURCEDIR%/dump_schema.py"
 
 %SPHINXBUILD% >NUL 2>NUL
 if errorlevel 9009 (
@@ -25,11 +26,17 @@ if errorlevel 9009 (
 
 if "%1" == "" goto help
 
+if "%1" == "schema" goto schema
+
 %SPHINXBUILD% -M %1 %SOURCEDIR% %BUILDDIR% %SPHINXOPTS% -W %O%
 goto end
 
 :help
 %SPHINXBUILD% -M help %SOURCEDIR% %BUILDDIR% %SPHINXOPTS% %O%
+goto end
+
+:schema
+%SCHEMABUILD% --output %SOURCEDIR%/html/schema.json
 
 :end
 popd
