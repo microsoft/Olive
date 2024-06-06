@@ -266,7 +266,11 @@
 <dl class="py class pydantic_settings">
 <dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig">
 <em class="property"><span class="pre">pydantic</span> <span class="pre">settings</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">olive.azureml.azureml_client.</span></span><span class="sig-name descname"><span class="pre">AzureMLClientConfig</span></span><a class="reference internal" href="../_modules/olive/azureml/azureml_client.html#AzureMLClientConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="py attribute pydantic_field">
+<dd><p>Configuration for AzureMLClient.</p>
+<p>This class is used to create an MLClient instance for AzureML operations.
+Some fields like <cite>read_timeout</cite>, <cite>max_operation_retries</cite>, <cite>operation_retry_interval</cite> are used to control the
+behavior of azureml operations like resource creation or download.</p>
+<dl class="py attribute pydantic_field">
 <dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.subscription_id">
 <em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">subscription_id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.subscription_id" title="Permalink to this definition">¶</a></dt>
 <dd><p>Azure subscription id. Required if aml_config_path is not provided.</p>

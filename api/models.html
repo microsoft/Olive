@@ -175,82 +175,57 @@
 <dt class="sig sig-object py" id="olive.model.ModelConfig">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">olive.model.</span></span><span class="sig-name descname"><span class="pre">ModelConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/olive/model/config/model_config.html#ModelConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.model.ModelConfig" title="Permalink to this definition">¶</a></dt>
 <dd><p>Input model config which will be used to create the model handler.</p>
-<p>For example, the config looks like for llama2:
-.. code-block:: json</p>
-<blockquote>
-<div><dl>
-<dt>{</dt><dd><dl>
-<dt>“input_model”: {</dt><dd><p>“type”: “CompositePyTorchModel”,
-“config”: {</p>
-<blockquote>
-<div><p>“model_path”: “llama_v2”,
-“model_components”: [</p>
-<blockquote>
-<div><dl>
-<dt>{</dt><dd><p>“name”: “decoder_model”,
-“type”: “PyTorchModel”,
-“config”: {</p>
-<blockquote>
-<div><p>“model_script”: “user_script.py”,
-“io_config”: {</p>
-<blockquote>
-<div><p>“input_names”: [“tokens”, “position_ids”, “attn_mask”, …],
-“output_names”: [“logits”, “attn_mask_out”, …],
-“dynamic_axes”: {</p>
-<blockquote>
-<div><p>“tokens”: { “0”: “batch_size”, “1”: “seq_len” },
-“position_ids”: { “0”: “batch_size”, “1”: “seq_len” },
-“attn_mask”: { “0”: “batch_size”, “1”: “max_seq_len” },
-…</p>
-</div></blockquote>
-<p>}</p>
-</div></blockquote>
-<p>},
-“model_loader”: “load_decoder_model”,
-“dummy_inputs_func”: “decoder_inputs”</p>
-</div></blockquote>
-<p>}</p>
-</dd>
-</dl>
-<p>},
-{</p>
-<blockquote>
-<div><p>“name”: “decoder_with_past_model”,
-“type”: “PyTorchModel”,
-“config”: {</p>
-<blockquote>
-<div><p>“model_script”: “user_script.py”,
-“io_config”: {</p>
-<blockquote>
-<div><p>“input_names”: [“tokens_increment”, “position_ids_increment”, “attn_mask”, …],
-“output_names”: [“logits”, “attn_mask_out”, …],
-“dynamic_axes”: {</p>
-<blockquote>
-<div><p>“tokens_increment”: { “0”: “batch_size”, “1”: “seq_len_increment” },
-“position_ids_increment”: { “0”: “batch_size”, “1”: “seq_len_increment” },
-“attn_mask”: { “0”: “batch_size”, “1”: “max_seq_len” },
-…</p>
-</div></blockquote>
-<p>}</p>
-</div></blockquote>
-<p>},
-“model_loader”: “load_decoder_with_past_model”,
-“dummy_inputs_func”: “decoder_with_past_inputs”</p>
-</div></blockquote>
-<p>}</p>
-</div></blockquote>
-<p>}</p>
-</div></blockquote>
-<p>]</p>
-</div></blockquote>
-<p>}</p>
-</dd>
-</dl>
-<p>}</p>
-</dd>
-</dl>
-<p>}</p>
-</div></blockquote>
+<p>For example, the config looks like for llama2:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;input_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;CompositePyTorchModel&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;llama_v2&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;model_components&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;decoder_model&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PyTorchModel&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nt">&quot;model_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
+<span class="w">                        </span><span class="nt">&quot;io_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                            </span><span class="nt">&quot;input_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;tokens&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;position_ids&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;attn_mask&quot;</span><span class="p">,</span><span class="w"> </span><span class="c1">//...],</span>
+<span class="w">                            </span><span class="nt">&quot;output_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;logits&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;attn_mask_out&quot;</span><span class="p">,</span><span class="w"> </span><span class="c1">//...],</span>
+<span class="w">                            </span><span class="nt">&quot;dynamic_axes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                                </span><span class="nt">&quot;tokens&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;0&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;batch_size&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;1&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;seq_len&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">                                </span><span class="nt">&quot;position_ids&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;0&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;batch_size&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;1&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;seq_len&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">                                </span><span class="nt">&quot;attn_mask&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;0&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;batch_size&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;1&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;max_seq_len&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">                                </span><span class="c1">//...</span>
+<span class="w">                            </span><span class="p">}</span>
+<span class="w">                        </span><span class="p">},</span>
+<span class="w">                        </span><span class="nt">&quot;model_loader&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;load_decoder_model&quot;</span><span class="p">,</span>
+<span class="w">                        </span><span class="nt">&quot;dummy_inputs_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;decoder_inputs&quot;</span>
+<span class="w">                    </span><span class="p">}</span>
+<span class="w">                </span><span class="p">},</span>
+<span class="w">                </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;decoder_with_past_model&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PyTorchModel&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nt">&quot;model_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
+<span class="w">                        </span><span class="nt">&quot;io_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                            </span><span class="nt">&quot;input_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;tokens_increment&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;position_ids_increment&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;attn_mask&quot;</span><span class="p">,</span><span class="w"> </span><span class="c1">//...],</span>
+<span class="w">                            </span><span class="nt">&quot;output_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;logits&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;attn_mask_out&quot;</span><span class="p">,</span><span class="w"> </span><span class="c1">//...],</span>
+<span class="w">                            </span><span class="nt">&quot;dynamic_axes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                                </span><span class="nt">&quot;tokens_increment&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;0&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;batch_size&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;1&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;seq_len_increment&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">                                </span><span class="nt">&quot;position_ids_increment&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;0&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;batch_size&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;1&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;seq_len_increment&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">                                </span><span class="nt">&quot;attn_mask&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;0&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;batch_size&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;1&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;max_seq_len&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">                                </span><span class="c1">//...</span>
+<span class="w">                            </span><span class="p">}</span>
+<span class="w">                        </span><span class="p">},</span>
+<span class="w">                        </span><span class="nt">&quot;model_loader&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;load_decoder_with_past_model&quot;</span><span class="p">,</span>
+<span class="w">                        </span><span class="nt">&quot;dummy_inputs_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;decoder_with_past_inputs&quot;</span>
+<span class="w">                    </span><span class="p">}</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">            </span><span class="p">]</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
 </dd></dl>
 
 </section>

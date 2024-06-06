@@ -132,7 +132,7 @@
 <span class="c1"># Licensed under the MIT License.</span>
 <span class="c1"># --------------------------------------------------------------------------</span>
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span>
-<span class="kn">from</span> <span class="nn">olive.common.pydantic_v1</span> <span class="kn">import</span> <span class="n">validator</span>
+<span class="kn">from</span> <span class="nn">olive.common.pydantic_v1</span> <span class="kn">import</span> <span class="n">Field</span><span class="p">,</span> <span class="n">validator</span>
 <span class="kn">from</span> <span class="nn">olive.model.config.registry</span> <span class="kn">import</span> <span class="n">get_model_handler</span><span class="p">,</span> <span class="n">is_valid_model_type</span>
 <span class="kn">from</span> <span class="nn">olive.resource_path</span> <span class="kn">import</span> <span class="n">create_resource_path</span>
 
@@ -141,82 +141,61 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Input model config which will be used to create the model handler.</span>
 
 <span class="sd">    For example, the config looks like for llama2:</span>
+
 <span class="sd">    .. code-block:: json</span>
 
 <span class="sd">        {</span>
 <span class="sd">            &quot;input_model&quot;: {</span>
 <span class="sd">                &quot;type&quot;: &quot;CompositePyTorchModel&quot;,</span>
 <span class="sd">                &quot;config&quot;: {</span>
-
 <span class="sd">                    &quot;model_path&quot;: &quot;llama_v2&quot;,</span>
 <span class="sd">                    &quot;model_components&quot;: [</span>
-
 <span class="sd">                        {</span>
 <span class="sd">                            &quot;name&quot;: &quot;decoder_model&quot;,</span>
 <span class="sd">                            &quot;type&quot;: &quot;PyTorchModel&quot;,</span>
 <span class="sd">                            &quot;config&quot;: {</span>
-
 <span class="sd">                                &quot;model_script&quot;: &quot;user_script.py&quot;,</span>
 <span class="sd">                                &quot;io_config&quot;: {</span>
-
-<span class="sd">                                    &quot;input_names&quot;: [&quot;tokens&quot;, &quot;position_ids&quot;, &quot;attn_mask&quot;, ...],</span>
-<span class="sd">                                    &quot;output_names&quot;: [&quot;logits&quot;, &quot;attn_mask_out&quot;, ...],</span>
+<span class="sd">                                    &quot;input_names&quot;: [&quot;tokens&quot;, &quot;position_ids&quot;, &quot;attn_mask&quot;, //...],</span>
+<span class="sd">                                    &quot;output_names&quot;: [&quot;logits&quot;, &quot;attn_mask_out&quot;, //...],</span>
 <span class="sd">                                    &quot;dynamic_axes&quot;: {</span>
-
 <span class="sd">                                        &quot;tokens&quot;: { &quot;0&quot;: &quot;batch_size&quot;, &quot;1&quot;: &quot;seq_len&quot; },</span>
 <span class="sd">                                        &quot;position_ids&quot;: { &quot;0&quot;: &quot;batch_size&quot;, &quot;1&quot;: &quot;seq_len&quot; },</span>
 <span class="sd">                                        &quot;attn_mask&quot;: { &quot;0&quot;: &quot;batch_size&quot;, &quot;1&quot;: &quot;max_seq_len&quot; },</span>
-<span class="sd">                                        ...</span>
-
+<span class="sd">                                        //...</span>
 <span class="sd">                                    }</span>
-
 <span class="sd">                                },</span>
 <span class="sd">                                &quot;model_loader&quot;: &quot;load_decoder_model&quot;,</span>
 <span class="sd">                                &quot;dummy_inputs_func&quot;: &quot;decoder_inputs&quot;</span>
-
 <span class="sd">                            }</span>
-
 <span class="sd">                        },</span>
 <span class="sd">                        {</span>
-
 <span class="sd">                            &quot;name&quot;: &quot;decoder_with_past_model&quot;,</span>
 <span class="sd">                            &quot;type&quot;: &quot;PyTorchModel&quot;,</span>
 <span class="sd">                            &quot;config&quot;: {</span>
-
 <span class="sd">                                &quot;model_script&quot;: &quot;user_script.py&quot;,</span>
 <span class="sd">                                &quot;io_config&quot;: {</span>
-
-<span class="sd">                                    &quot;input_names&quot;: [&quot;tokens_increment&quot;, &quot;position_ids_increment&quot;, &quot;attn_mask&quot;, ...],</span>
-<span class="sd">                                    &quot;output_names&quot;: [&quot;logits&quot;, &quot;attn_mask_out&quot;, ...],</span>
+<span class="sd">                                    &quot;input_names&quot;: [&quot;tokens_increment&quot;, &quot;position_ids_increment&quot;, &quot;attn_mask&quot;, //...],</span>
+<span class="sd">                                    &quot;output_names&quot;: [&quot;logits&quot;, &quot;attn_mask_out&quot;, //...],</span>
 <span class="sd">                                    &quot;dynamic_axes&quot;: {</span>
-
 <span class="sd">                                        &quot;tokens_increment&quot;: { &quot;0&quot;: &quot;batch_size&quot;, &quot;1&quot;: &quot;seq_len_increment&quot; },</span>
 <span class="sd">                                        &quot;position_ids_increment&quot;: { &quot;0&quot;: &quot;batch_size&quot;, &quot;1&quot;: &quot;seq_len_increment&quot; },</span>
 <span class="sd">                                        &quot;attn_mask&quot;: { &quot;0&quot;: &quot;batch_size&quot;, &quot;1&quot;: &quot;max_seq_len&quot; },</span>
-<span class="sd">                                        ...</span>
-
+<span class="sd">                                        //...</span>
 <span class="sd">                                    }</span>
-
 <span class="sd">                                },</span>
 <span class="sd">                                &quot;model_loader&quot;: &quot;load_decoder_with_past_model&quot;,</span>
 <span class="sd">                                &quot;dummy_inputs_func&quot;: &quot;decoder_with_past_inputs&quot;</span>
-
 <span class="sd">                            }</span>
-
 <span class="sd">                        }</span>
-
 <span class="sd">                    ]</span>
-
 <span class="sd">                }</span>
-
 <span class="sd">            }</span>
-
 <span class="sd">        }</span>
-
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="nb">type</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span>
+    <span class="nb">type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s2">&quot;The type of the model handler.&quot;</span><span class="p">)</span>
+    <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s2">&quot;The config for the model handler. Used to initialize the model handler.&quot;</span><span class="p">)</span>
 
     <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span>
     <span class="k">def</span> <span class="nf">validate_type</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
