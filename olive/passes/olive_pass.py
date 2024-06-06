@@ -463,8 +463,7 @@ class Pass(ABC):
         raise NotImplementedError
 
 
-# TODO(jambayk): rename. We are using FullPassConfig since PassConfigBase already refers to inner config
-class CommonPassConfig(ConfigBase):
+class AbstractPassConfig(ConfigBase):
     """Base class for pass configuration."""
 
     type: str = Field(description="The type of the pass.")
@@ -479,7 +478,8 @@ class CommonPassConfig(ConfigBase):
     )
 
 
-class FullPassConfig(CommonPassConfig):
+# TODO(jambayk): rename. We are using FullPassConfig since PassConfigBase already refers to inner config
+class FullPassConfig(AbstractPassConfig):
     """Configuration for a pass serialization.
 
     This class can be used to serialize a pass configuration to a JSON file and

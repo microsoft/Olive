@@ -17,7 +17,7 @@ from olive.engine import Engine, EngineConfig
 from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
-from olive.passes import CommonPassConfig
+from olive.passes import AbstractPassConfig
 from olive.passes.pass_config import PassParamDefault
 from olive.resource_path import AZUREML_RESOURCE_TYPES
 from olive.systems.system_config import SystemConfig
@@ -25,7 +25,7 @@ from olive.systems.system_config import SystemConfig
 logger = logging.getLogger(__name__)
 
 
-class RunPassConfig(CommonPassConfig):
+class RunPassConfig(AbstractPassConfig):
     """Pass configuration for Olive workflow.
 
     This is the configuration for a single pass in Olive workflow. It includes configurations for pass type, config,
