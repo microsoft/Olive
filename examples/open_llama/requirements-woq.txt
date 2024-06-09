@@ -1,6 +1,6 @@
 datasets
-lm-eval==0.4.2
 intel-extension-for-transformers
+lm-eval==0.4.2
 neural-compressor>=2.3
 onnxruntime
 sentencepiece
