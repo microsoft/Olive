@@ -132,26 +132,30 @@ def calib_dataloader(data_dir, batch_size, *args, **kwargs):
 
 
 def eval_accuracy(model: OliveModelHandler, data_dir, batch_size, device, execution_providers):
-    from intel_extension_for_transformers.llm.evaluation.lm_eval import evaluate
+    from intel_extension_for_transformers.transformers.llm.evaluation.lm_eval import LMEvalParser, evaluate
 
     results = {}
     if model.framework == Framework.PYTORCH:
-        results = evaluate(
-            model="hf-causal",
+        eval_args = LMEvalParser(
+            model="hf",
             model_args=(
                 f"pretrained={model.model_path or model.hf_config.model_name},tokenizer={model_id},dtype=float32"
             ),
             batch_size=batch_size,
-            tasks=["lambada_openai"],
+            tasks="lambada_openai",
+            device="cpu",
         )
+        results = evaluate(eval_args)
+
     elif model.framework == Framework.ONNX:
         output_config_file = Path(model.model_path).resolve().parent / "config.json"
         config.to_json_file(output_config_file, use_diff=False)
-        results = evaluate(
-            model="hf-causal",
-            model_args=f"pretrained={Path(model.model_path).resolve().parent},tokenizer={model_id}",
+        eval_args = LMEvalParser(
+            model="hf",
+            model_args=f"pretrained={Path(model.model_path).resolve().parent},tokenizer={model_id},model_format=onnx",
             batch_size=batch_size,
-            tasks=["lambada_openai"],
-            model_format="onnx",
+            tasks="lambada_openai",
+            device="cpu",
         )
-    return results["results"]["lambada_openai"]["acc"]
+        results = evaluate(eval_args)
+    return results["results"]["lambada_openai"]["acc,none"]
