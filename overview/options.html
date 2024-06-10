@@ -173,10 +173,16 @@
 <p>Olive enables users to easily compose and customize their own model optimization pipelines. Olive provides a set of passes that can be
 used to compose a pipeline. Olive receives input model, target hardware, performance requirements, and list of optimizations techniques
 to apply from user in the form of a json dictionary. In this document, we document the options user can set in this dictionary.</p>
-<p><strong>Note</strong>: The json schema for the config file can be found <a class="reference external" href="https://microsoft.github.io/Olive/schema.json">here</a>. It can be used in IDEs like VSCode to provide intellisense by adding the following line at the top of the config file:</p>
+<p><strong>Note</strong>:</p>
+<ul class="simple">
+<li><p>The json schema for the config file can be found <a class="reference external" href="https://microsoft.github.io/Olive/schema.json">here</a>. It can be used in IDEs like VSCode to provide intellisense by adding the following line at the top of the config file:</p></li>
+</ul>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;$schema&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://microsoft.github.io/Olive/schema.json&quot;</span>
 </pre></div>
 </div>
+<ul class="simple">
+<li><p>The config file can also be provided as a YAML file with the extension <code class="docutils literal notranslate"><span class="pre">.yaml</span></code> or <code class="docutils literal notranslate"><span class="pre">.yml</span></code>.</p></li>
+</ul>
 <p>The options are organized into following sections:</p>
 <ul class="simple">
 <li><p><a class="reference internal" href="#workflow-id"><span class="xref myst">Workflow id</span></a> <code class="docutils literal notranslate"><span class="pre">workflow_id</span></code></p></li>
