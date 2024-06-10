@@ -11,6 +11,8 @@ from pathlib import Path
 from types import FunctionType, MethodType
 from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
 
+import yaml
+
 from olive.common.pydantic_v1 import BaseModel, Field, create_model, root_validator, validator
 from olive.common.utils import hash_function, hash_object
 
@@ -105,6 +107,24 @@ class ConfigBase(BaseModel):
     @classmethod
     def from_json(cls, json_dict: dict) -> "ConfigBase":
         return cls.parse_raw(json.dumps(json_dict))
+
+    @classmethod
+    def parse_file_or_obj(cls, file_or_obj: Union[str, Path, dict]) -> "ConfigBase":
+        """Parse a file or a dictionary object into a ConfigBase object.
+
+        :param file_or_obj: File path or dictionary object.
+            File can be a YAML file with .yaml or .yml extension or a JSON file with .json extension.
+        :return: ConfigBase object.
+        """
+        if isinstance(file_or_obj, dict):
+            return cls.parse_obj(file_or_obj)
+
+        file_path = Path(file_or_obj)
+        if file_path.suffix in {".yaml", ".yml"}:
+            with open(file_path) as f:
+                return cls.parse_obj(yaml.safe_load(f))
+
+        return cls.parse_file(file_path)
 
 
 class ConfigListBase(ConfigBase):

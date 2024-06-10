@@ -97,6 +97,4 @@ linkcheck_ignore = [
     r"https://docs.qualcomm.com/*",
     # TODO(jambayk): remove this when the issue is fixed
     r"https://www.intel.com/*",
-    # TODO(jambayk): remove this once schema PR is merged
-    "https://microsoft.github.io/Olive/schema.json",
 ]
