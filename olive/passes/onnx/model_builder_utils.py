@@ -43,6 +43,7 @@ class Model:
 
         # lora-specific variables
         self.merge_lora_scaling = extra_options.get("merge_lora_scaling", "0") == "1"
+        self.use_packed_matmul = extra_options.get("use_packed_matmul", "0") == "1"
 
         self.inputs = []
         self.outputs = []
@@ -181,8 +182,9 @@ class Model:
             print("GroupQueryAttention (GQA) is used in this model.")
 
             # DML doesn't support packed Q/K/V for GQA yet
-            # self.attention_attrs["use_packed_matmul"] = self.ep != "dml"
-            self.attention_attrs["use_packed_matmul"] = False
+            self.attention_attrs["use_packed_matmul"] = (self.ep != "dml") and self.use_packed_matmul
+            if self.attention_attrs["use_packed_matmul"]:
+                print("Packed MatMul is used in this model for GQA.")
 
             # GQA + Rot.Emb. does not require `position ids` as input
             if self.ep != "dml":
@@ -2204,6 +2206,7 @@ def get_args():
                     is the prerequisite for the CUDA graph to be used correctly. It is not guaranteed that cuda graph be enabled as it depends on the model
                     and the graph structure.
                 merge_lora_scaling = 1: Multiply lora_B weight with scale factor instead of creating a separate Mul node.
+                use_packed_matmul = 1: Use PackedMatMul for MatMul operations.
             """),
     )
 

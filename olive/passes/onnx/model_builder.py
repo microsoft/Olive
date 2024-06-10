@@ -95,6 +95,18 @@ class ModelBuilder(Pass):
                     "for the CUDA graph to be used correctly."
                 ),
             ),
+            "merge_lora_scaling": PassConfigParam(
+                type_=bool,
+                default_value=None,
+                required=False,
+                description="Merge the lora scaling into lora_B weights.",
+            ),
+            "use_packed_matmul": PassConfigParam(
+                type_=bool,
+                default_value=None,
+                required=False,
+                description="Use packed matmul for CUDA/CPU execution provider.",
+            ),
         }
 
     def validate_search_point(
@@ -202,7 +214,7 @@ class ModelBuilder(Pass):
                 extra_args[arg] = True
 
         # args that are checked for presence and value (if present)
-        for arg in ["enable_cuda_graph"]:
+        for arg in ["enable_cuda_graph", "merge_lora_scaling", "use_packed_matmul"]:
             if config[arg] is not None:
                 extra_args[arg] = "1" if config[arg] else "0"
 
