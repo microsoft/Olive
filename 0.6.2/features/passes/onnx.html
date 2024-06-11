@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ONNX &mdash; Olive  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css" />
+      <link rel="stylesheet" type="text/css" href="../../_static/tabs.css?v=a5c4661c" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/width.css?v=b55249da" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=b3ba4146"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
+        <script src="../../_static/js/custom_version.js?v=3856a39b"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="OpenVINO" href="openvino.html" />
+    <link rel="prev" title="PyTorch" href="pytorch.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Olive
+          </a>
+              <div class="version">
+                0.6.2
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">OVERVIEW</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../overview/olive.html">Olive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../overview/quicktour.html">Quick Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../overview/options.html">Olive Options</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">GET STARTED</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../getstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../getstarted/quickstart_examples.html">Quickstart Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../cli.html">Command Line Tools</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../model_transformations_and_optimizations.html">Model Transformations and Optimizations</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="pytorch.html">PyTorch</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">ONNX</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#model-conversion">Model Conversion</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#example-configuration">Example Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id1">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#model-optimizer">Model Optimizer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id2">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#ort-transformers-optimization">ORT Transformers Optimization</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id3">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#append-pre-post-processing-ops">Append Pre/Post Processing Ops</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id4">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#insert-beam-search-op">Insert Beam Search Op</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id5">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#quantize-with-onnxruntime">Quantize with onnxruntime</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id6">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#quantize-with-intel-neural-compressor">Quantize with Intel® Neural Compressor</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id7">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#quantize-with-amd-vitis-ai-quantizer">Quantize with AMD Vitis AI Quantizer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id8">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#ort-performance-tuning">ORT Performance Tuning</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id9">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#float16-conversion">Float16 Conversion</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id10">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#inputs-outputs-float16-to-float32-conversion">Inputs/Outputs Float16 to Float32 Conversion</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id11">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#mixed-precision-conversion">Mixed Precision Conversion</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id12">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#convert-dynamic-shape-to-fixed-shape">Convert dynamic shape to fixed shape</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id13">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#extract-adapters">Extract Adapters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id14">Example Configuration</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="openvino.html">OpenVINO</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snpe.html">SNPE</a></li>
+<li class="toctree-l2"><a class="reference internal" href="qnn.html">QNN</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../packaging_output_models.html">Packaging Olive artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../custom_scripts.html">Custom Scripts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../azureml_integration.html">Azure ML integration</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../extending_olive/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_systems.html">How To Configure System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_auto_optimizer.html">How To Configure Auto Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_pass.html">How To Configure Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_data.html">How To Configure Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_model_path.html">How To Set Model Path</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/advanced_users.html">Advanced User Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/azure_arc.html">Self-hosted Kubernetes cluster</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/azureml_scripts.html">Azure ML scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/models.html">OliveModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/resource_path.html">ResourcePath</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/systems.html">OliveSystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/evaluator.html">OliveEvaluator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/metric.html">Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/search-algorithms.html">SearchAlgorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/engine.html">Engine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/passes.html">Passes</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Olive</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
+      <li class="breadcrumb-item active">ONNX</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/features/passes/onnx.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="onnx">
+<h1>ONNX<a class="headerlink" href="#onnx" title="Permalink to this heading">¶</a></h1>
+<p><a class="reference external" href="https://onnx.ai/">ONNX</a> is an open graph format to represent machine learning models. <a class="reference external" href="https://onnxruntime.ai/docs/">ONNX Runtime</a> is a cross-platform machine-learning model accelerator, with a flexible interface to integrate hardware-specific libraries.</p>
+<p>Olive provides multiple transformations and optimizations based on various ONNX to improve model performance.</p>
+<section id="model-conversion">
+<h2>Model Conversion<a class="headerlink" href="#model-conversion" title="Permalink to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">OnnxConversion</span></code> pass converts PyTorch models to ONNX using
+<a class="reference external" href="https://pytorch.org/docs/stable/onnx.html">torch.onnx</a>.</p>
+<p>Please refer to <a class="reference internal" href="../../api/passes.html#onnx-conversion"><span class="std std-ref">OnnxConversion</span></a> for more details about the pass and its config parameters.</p>
+<p>Besides, if you want to convert an existing ONNX model with another target opset, you can use <a class="reference internal" href="../../api/passes.html#onnx-op-version-conversion"><span class="std std-ref">OnnxOpVersionConversion</span></a> pass, similar configs with above case:</p>
+<section id="example-configuration">
+<h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxConversion&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;target_opset&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">13</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w"> </span><span class="p">},</span>
+<span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxOpVersionConversion&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;target_opset&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">14</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w"> </span><span class="p">}</span>
+</pre></div>
+</div>
+<p>For generative models, the alternative conversion pass <a class="reference internal" href="#model_builder"><span class="xref myst">ModelBuilder</span></a> that integrates the
+<a class="reference external" href="https://github.com/microsoft/onnxruntime-genai">ONNX Runtime Generative AI</a> module can be used.</p>
+<p>Please refer to <a class="reference internal" href="#model_builder"><span class="xref myst">ModelBuilder</span></a> for more details about the pass and its config parameters.</p>
+</section>
+<section id="id1">
+<h3>Example Configuration<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ModelBuilder&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;precision&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;int4&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="model-optimizer">
+<h2>Model Optimizer<a class="headerlink" href="#model-optimizer" title="Permalink to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">OnnxModelOptimizer</span></code> optimizes an ONNX model by fusing nodes. Fusing nodes involves merging multiple nodes in a model into a single node to
+reduce the computational cost and improve the performance of the model. The optimization process involves analyzing the structure of the ONNX model and identifying nodes that can be fused.</p>
+<p>Also, inserts a <code class="docutils literal notranslate"><span class="pre">Cast</span></code> operation for cases where <code class="docutils literal notranslate"><span class="pre">ArgMax</span></code> input isn’t supported on the device. For example, on GPU inferencing, TensorProto.INT64 isn’t supported so a <code class="docutils literal notranslate"><span class="pre">Cast</span></code> operator inserted to cast the inputs to TensorProto.INT32.</p>
+<p>Please refer to <a class="reference internal" href="../../api/passes.html#onnx-model-optimizer"><span class="std std-ref">OnnxModelOptimizer</span></a> for more details about the pass and its config parameters.</p>
+<section id="id2">
+<h3>Example Configuration<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxModelOptimizer&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="ort-transformers-optimization">
+<h2>ORT Transformers Optimization<a class="headerlink" href="#ort-transformers-optimization" title="Permalink to this heading">¶</a></h2>
+<p>While ONNX Runtime automatically applies most optimizations while loading transformer models, some of the latest optimizations that have not
+yet been integrated into ONNX Runtime.
+<code class="docutils literal notranslate"><span class="pre">OrtTransformersOptimization</span></code> provides an offline capability to optimize <a class="reference external" href="https://huggingface.co/docs/transformers/index">transformers</a> models
+in scenarios where ONNX Runtime does not apply the optimization at load time.
+These optimizations are provided by onnxruntime through
+<a class="reference external" href="https://github.com/microsoft/onnxruntime/tree/main/onnxruntime/python/tools/transformers">onnxruntime.transformers</a>. Please
+refer to the <a class="reference external" href="https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/transformers/README.md">corresponding documentation</a>
+for more details on the optimizations done by this tool.</p>
+<p>Please refer to <a class="reference internal" href="../../api/passes.html#ort-transformers-optimization"><span class="std std-ref">OrtTransformersOptimization</span></a> for more details about the pass and its config parameters.</p>
+<section id="id3">
+<h3>Example Configuration<a class="headerlink" href="#id3" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtTransformersOptimization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;model_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bert&quot;</span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="append-pre-post-processing-ops">
+<h2>Append Pre/Post Processing Ops<a class="headerlink" href="#append-pre-post-processing-ops" title="Permalink to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">AppendPrePostProcessingOps</span></code> inserts pre and post processing ops into the ONNX graph.</p>
+<section id="id4">
+<h3>Example Configuration<a class="headerlink" href="#id4" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AppendPrePostProcessingOps&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;tool_command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;superresolution&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;tool_command_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;output_format&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;png&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AppendPrePostProcessingOps&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;tool_command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;whisper&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;tool_command_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;use_audio_decoder&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">AppendPrePostProcessingOps</span></code> also supports pre/post processing ops by leveraging the <a class="reference external" href="https://github.com/microsoft/onnxruntime-extensions/tree/main/onnxruntime_extensions/tools/pre_post_processing/steps">onnxruntime-extension steps</a> and <code class="docutils literal notranslate"><span class="pre">PrePostProcessor</span></code>.
+You can refer to <a class="reference external" href="https://github.com/microsoft/onnxruntime-extensions/blob/main/onnxruntime_extensions/tools/Example%20usage%20of%20the%20PrePostProcessor.md">here</a> to see how to leverage <code class="docutils literal notranslate"><span class="pre">PrePostProcessor</span></code> to customize pre and post processing ops.</p>
+<ul class="simple">
+<li><p>Olive introduces two placeholders to represent the model input/output shape dimension value: <code class="docutils literal notranslate"><span class="pre">__model_input__</span></code> and <code class="docutils literal notranslate"><span class="pre">__model_output__</span></code>.</p></li>
+<li><p>To support the IoMapEntry, the step need choose use the full form. For example:</p></li>
+</ul>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="w">    </span><span class="nt">&quot;YCbCrToPixels&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;layout&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;BGR&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;io_map&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">            </span><span class="p">[</span><span class="s2">&quot;Y1_uint8&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
+<span class="w">            </span><span class="p">[</span><span class="s2">&quot;Cb1_uint8&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">],</span>
+<span class="w">            </span><span class="p">[</span><span class="s2">&quot;Cr1_uint8&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">],</span>
+<span class="w">        </span><span class="p">],</span>
+<span class="w">    </span><span class="p">}</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>The <code class="docutils literal notranslate"><span class="pre">tool_command_args</span></code> will be used to describe the input parameters to create the <code class="docutils literal notranslate"><span class="pre">PrePostProcessor</span></code> instance. It is list of <code class="docutils literal notranslate"><span class="pre">PrePostProcessorInput</span></code>.
+The <code class="docutils literal notranslate"><span class="pre">name</span></code> is the tensor name. The <code class="docutils literal notranslate"><span class="pre">data_type</span></code> and <code class="docutils literal notranslate"><span class="pre">shape</span></code> will be used to create the tensor type. The <code class="docutils literal notranslate"><span class="pre">shape</span></code> can be a list of integers or a list of string.</p></li>
+</ul>
+<p>Users that write their own pre/post processing steps need to have the knowledge about whether the step includes the operators that is built-in support or supported in onnxruntime-extensions.
+For example, for some ops like <code class="docutils literal notranslate"><span class="pre">ConvertImageToBGR</span></code> which requires other extensions may be incompatible with ort-web, user need to exclude this kind of ops to generate proper models.</p>
+<p>Here are some examples to describe the pre/post processing which is exactly same with <a class="reference external" href="https://github.com/microsoft/onnxruntime-extensions/blob/main/onnxruntime_extensions/tools/add_pre_post_processing_to_model.py#L89">superresolution</a></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;pre&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;ConvertImageToBGR&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}},</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;Resize&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;resize_to&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                    </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;__model_input__&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;input_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;dim_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-2</span><span class="p">},</span>
+<span class="w">                    </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;__model_input__&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;input_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;dim_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-1</span><span class="p">},</span>
+<span class="w">                </span><span class="p">]</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;CenterCrop&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;height&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;__model_input__&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;input_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;dim_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-2</span><span class="p">},</span>
+<span class="w">                </span><span class="nt">&quot;width&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;__model_input__&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;input_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;dim_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-1</span><span class="p">},</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;PixelsToYCbCr&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;layout&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;BGR&quot;</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;ImageBytesToFloat&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;Unsqueeze&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;axes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">]}},</span>
+<span class="w">    </span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;post&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;Squeeze&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;axes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">]}},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;FloatToImageBytes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Y1_uint8&quot;</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;Resize&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;resize_to&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                        </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;__model_output__&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;output_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;dim_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-2</span><span class="p">},</span>
+<span class="w">                        </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;__model_output__&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;output_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;dim_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-1</span><span class="p">},</span>
+<span class="w">                    </span><span class="p">],</span>
+<span class="w">                    </span><span class="nt">&quot;layout&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HW&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="p">},</span>
+<span class="w">                </span><span class="nt">&quot;io_map&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="s2">&quot;PixelsToYCbCr&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">]],</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;FloatToImageBytes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;multiplier&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Cb1_uint8&quot;</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;Resize&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;resize_to&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                        </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;__model_output__&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;output_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;dim_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-2</span><span class="p">},</span>
+<span class="w">                        </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;__model_output__&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;output_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;dim_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-1</span><span class="p">},</span>
+<span class="w">                    </span><span class="p">],</span>
+<span class="w">                    </span><span class="nt">&quot;layout&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HW&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="p">},</span>
+<span class="w">                </span><span class="nt">&quot;io_map&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="s2">&quot;PixelsToYCbCr&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">]],</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;FloatToImageBytes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;multiplier&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Cr1_uint8&quot;</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;YCbCrToPixels&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;layout&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;BGR&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="p">},</span>
+<span class="w">                </span><span class="nt">&quot;io_map&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                    </span><span class="p">[</span><span class="s2">&quot;Y1_uint8&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span>
+<span class="w">                    </span><span class="p">[</span><span class="s2">&quot;Cb1_uint8&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">],</span>
+<span class="w">                    </span><span class="p">[</span><span class="s2">&quot;Cr1_uint8&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">],</span>
+<span class="w">                </span><span class="p">],</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;ConvertBGRToImage&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;image_format&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;png&quot;</span><span class="p">}},</span>
+<span class="w">    </span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;tool_command_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;image&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;data_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uint8&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;num_bytes&quot;</span><span class="p">],</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;target_opset&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">16</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="insert-beam-search-op">
+<h2>Insert Beam Search Op<a class="headerlink" href="#insert-beam-search-op" title="Permalink to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">InsertBeamSearch</span></code> chains two model components (for example, encoder and decoder) together by inserting beam search op in between them.</p>
+<section id="id5">
+<h3>Example Configuration<a class="headerlink" href="#id5" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;InsertBeamSearch&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;no_repeat_ngram_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="quantize-with-onnxruntime">
+<h2>Quantize with onnxruntime<a class="headerlink" href="#quantize-with-onnxruntime" title="Permalink to this heading">¶</a></h2>
+<p><a class="reference external" href="https://onnxruntime.ai/docs/performance/quantization.html" title="ONNX Runtime Quantization">Quantization</a> is a technique to compress deep learning models by reducing the precision of the model weights from 32 bits to 8 bits. This
+technique is used to reduce the memory footprint and improve the inference performance of the model. Quantization can be applied to the
+weights of the model, the activations of the model, or both.</p>
+<p>There are two ways to quantize a model in onnxruntime:</p>
+<ol class="arabic">
+<li><p><a class="reference external" href="https://onnxruntime.ai/docs/performance/quantization.html#dynamic-quantization" title="Dynamic Quantization">Dynamic Quantization</a>:
+Dynamic quantization calculates the quantization parameters (scale and zero point) for activations dynamically, which means there is no
+any requirement for the calibration dataset.</p>
+<p>These calculations increase the cost of inference, while usually achieve higher accuracy comparing to static ones.</p>
+</li>
+<li><p><a class="reference external" href="https://onnxruntime.ai/docs/performance/quantization.html#static-quantization" title="Static Quantization">Static Quantization</a>:
+Static quantization method runs the model using a set of inputs called calibration data. In this way, user must provide a calibration
+dataset to calculate the quantization parameters (scale and zero point) for activations before quantizing the model.</p></li>
+</ol>
+<p>Olive consolidates the dynamic and static quantization into a single pass called <code class="docutils literal notranslate"><span class="pre">OnnxQuantization</span></code>, and provide the user with the ability to
+tune both quantization methods and hyperparameter at the same time.
+If the user desires to only tune either of dynamic or static quantization, Olive also supports them through <code class="docutils literal notranslate"><span class="pre">OnnxDynamicQuantization</span></code> and
+<code class="docutils literal notranslate"><span class="pre">OnnxStaticQuantization</span></code> respectively.</p>
+<p>Please refer to <a class="reference internal" href="../../api/passes.html#onnx-quantization"><span class="std std-ref">OnnxQuantization</span></a>, <a class="reference internal" href="../../api/passes.html#onnx-dynamic-quantization"><span class="std std-ref">OnnxDynamicQuantization</span></a> and
+<a class="reference internal" href="../../api/passes.html#onnx-static-quantization"><span class="std std-ref">OnnxStaticQuantization</span></a> for more details about the passes and their config parameters.</p>
+<p><strong>Note:</strong> If target execution provider is QNN EP, the model might need to be preprocessed before quantization. Please refer to <a class="reference internal" href="../../api/passes.html#qnn-preprocess"><span class="std std-ref">QnnPreprocess</span></a> for more details about the pass and its config parameters.
+This preprocessing step fuses operators unsupported by QNN EP and inserts necessary operators to make the model compatible with QNN EP.</p>
+<section id="id6">
+<h3>Example Configuration<a class="headerlink" href="#id6" title="Permalink to this heading">¶</a></h3>
+<p>a. Tune the parameters of the OlivePass with pre-defined searchable values</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxQuantization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;./user_script.py&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;glue_calibration_reader&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>b. Select parameters to tune</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxQuantization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// select per_channel to tune with &quot;SEARCHABLE_VALUES&quot;.</span>
+<span class="w">        </span><span class="c1">// other parameters will use the default value, not to be tuned.</span>
+<span class="w">        </span><span class="nt">&quot;per_channel&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SEARCHABLE_VALUES&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;./user_script.py&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;glue_calibration_reader&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;disable_search&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>c. Use default values of the OlivePass (no tuning in this way)</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxQuantization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// set per_channel to &quot;DEFAULT_VALUE&quot;</span>
+<span class="w">        </span><span class="nt">&quot;per_channel&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DEFAULT_VALUE&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;./user_script.py&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;glue_calibration_reader&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;disable_search&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>d. Specify parameters with user defined values</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;onnx_quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxQuantization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// set per_channel to True.</span>
+<span class="w">        </span><span class="nt">&quot;per_channel&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;./user_script.py&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;glue_calibration_reader&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;disable_search&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Check out <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/bert/user_script.py">this file</a>
+for an example implementation of <code class="docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;glue_calibration_reader&quot;</span></code>.</p>
+<p>check out <a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/bert#bert-optimization-with-intel-neural-compressor-ptq-on-cpu">this file</a> for an example for Intel® Neural Compressor quantization.</p>
+</section>
+</section>
+<section id="quantize-with-intel-neural-compressor">
+<h2>Quantize with Intel® Neural Compressor<a class="headerlink" href="#quantize-with-intel-neural-compressor" title="Permalink to this heading">¶</a></h2>
+<p>In addition to the default onnxruntime quantization tool, Olive also integrates <a class="reference external" href="https://github.com/intel/neural-compressor">Intel® Neural Compressor</a>.</p>
+<p>Intel® Neural Compressor is a model compression tool across popular deep learning frameworks including TensorFlow, PyTorch, ONNX Runtime (ORT) and MXNet, which supports a variety of powerful model compression techniques, e.g., quantization, pruning, distillation, etc. As a user-experience-driven and hardware friendly tool, Intel® Neural Compressor focuses on providing users with an easy-to-use interface and strives to reach “quantize once, run everywhere” goal.</p>
+<p>Olive consolidates the Intel® Neural Compressor dynamic and static quantization into a single pass called <code class="docutils literal notranslate"><span class="pre">IncQuantization</span></code>, and provide the user with the ability to
+tune both quantization methods and hyperparameter at the same time.
+If the user desires to only tune either of dynamic or static quantization, Olive also supports them through <code class="docutils literal notranslate"><span class="pre">IncDynamicQuantization</span></code> and
+<code class="docutils literal notranslate"><span class="pre">IncStaticQuantization</span></code> respectively.</p>
+<section id="id7">
+<h3>Example Configuration<a class="headerlink" href="#id7" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;inc_quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;IncStaticQuantization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;approach&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;weight_only&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;weight_only_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;bits&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;algorithm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GPTQ&quot;</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_dataloader&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;calibration_sampling_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">8</span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;save_as_external_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;all_tensors_to_one_file&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Please refer to <a class="reference internal" href="../../api/passes.html#inc-quantization"><span class="std std-ref">IncQuantization</span></a>, <a class="reference internal" href="../../api/passes.html#inc-dynamic-quantization"><span class="std std-ref">IncDynamicQuantization</span></a> and
+<a class="reference internal" href="../../api/passes.html#inc-static-quantization"><span class="std std-ref">IncStaticQuantization</span></a> for more details about the passes and their config parameters.</p>
+</section>
+</section>
+<section id="quantize-with-amd-vitis-ai-quantizer">
+<h2>Quantize with AMD Vitis AI Quantizer<a class="headerlink" href="#quantize-with-amd-vitis-ai-quantizer" title="Permalink to this heading">¶</a></h2>
+<p>Olive also integrates <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/passes/onnx/vitis_ai/quantize.py">AMD Vitis AI Quantizer</a> for quantization.</p>
+<p>The Vitis™ AI development environment accelerates AI inference on AMD® hardware platforms. The Vitis AI quantizer can reduce the computing complexity by converting the 32-bit floating-point weights and activations to fixed-point like INT8. The fixed-point network model requires less memory bandwidth, thus providing faster speed and higher power efficiency than the floating-point model.
+Olive consolidates the Vitis™ AI quantization into a single pass called VitisAIQuantization which supports power-of-2 scale quantization methods and supports Vitis AI Execution Provider.</p>
+<section id="id8">
+<h3>Example Configuration<a class="headerlink" href="#id8" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;vitis_ai_quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;VitisAIQuantization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;calibrate_method&quot;</span><span class="p">:</span><span class="s2">&quot;NonOverflow&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;quant_format&quot;</span><span class="p">:</span><span class="s2">&quot;QDQ&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;activation_type&quot;</span><span class="p">:</span><span class="s2">&quot;QUInt8&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;weight_type&quot;</span><span class="p">:</span><span class="s2">&quot;QInt8&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;resnet_calibration_reader&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Please refer to <a class="reference internal" href="../../api/passes.html#vitis-ai-quantization"><span class="std std-ref">VitisAIQuantization</span></a> for more details about the pass and its config parameters.</p>
+</section>
+</section>
+<section id="ort-performance-tuning">
+<h2>ORT Performance Tuning<a class="headerlink" href="#ort-performance-tuning" title="Permalink to this heading">¶</a></h2>
+<p>ONNX Runtime provides high performance across a range of hardware options through its Execution Providers interface for different execution
+environments.
+For each model running with each execution provider, there are settings that can be tuned (e.g. thread number, execution mode, etc) to
+improve performance.
+<code class="docutils literal notranslate"><span class="pre">OrtPerfTuning</span></code> covers basic knobs that can be leveraged to find the best performance for your model and hardware.</p>
+<section id="id9">
+<h3>Example Configuration<a class="headerlink" href="#id9" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtPerfTuning&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;providers_list&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">            </span><span class="p">[</span>
+<span class="w">                </span><span class="s2">&quot;CUDAExecutionProvider&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;device_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;arena_extend_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;kNextPowerOfTwo&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;gpu_mem_limit&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2147483648</span><span class="p">,</span><span class="w"> </span><span class="c1">// 2 * 1024 * 1024 * 1024,</span>
+<span class="w">                    </span><span class="nt">&quot;cudnn_conv_algo_search&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;EXHAUSTIVE&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;do_copy_in_default_stream&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">                </span><span class="p">},</span>
+<span class="w">            </span><span class="p">],</span>
+<span class="w">            </span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;enable_profiling&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Check out <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/bert/user_script.py">this file</a>
+for an example implementation of <code class="docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;create_dataloader&quot;</span></code>.</p>
+</section>
+</section>
+<section id="float16-conversion">
+<h2>Float16 Conversion<a class="headerlink" href="#float16-conversion" title="Permalink to this heading">¶</a></h2>
+<p>Converting a model to use Float16 instead of Float32 can decrease the model size and improve performance on some GPUs. The <code class="docutils literal notranslate"><span class="pre">OnnxFloatToFloat16</span></code> pass the <a class="reference external" href="https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/transformers/float16.py">float16 converter from onnxruntime</a> to convert the model to float16, which convert most nodes/operators to use Float16 instead of Float32.</p>
+<p>Conversion to Float16 is often exposed at multiple stages of optimization, including model conversion and transformer optimization. This stand-alone pass is best suited for models that are not transformer architectures, where fusions may rely on a specific data types in node patterns.</p>
+<section id="id10">
+<h3>Example Configuration<a class="headerlink" href="#id10" title="Permalink to this heading">¶</a></h3>
+<p>a. The most basic configuration, which is suitable for many models, leaves all configuration options set to their default values:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxFloatToFloat16&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>b. More fine-grained control of the conversion conditions is also possible:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxFloatToFloat16&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Don&#39;t convert input/output nodes to Float16</span>
+<span class="w">        </span><span class="nt">&quot;keep_io_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>See <a class="reference external" href="https://onnxruntime.ai/docs/performance/model-optimizations/float16.html#float16-conversion">Float16 Conversion</a> for more detailed description of the available configuration parameters.</p>
+</section>
+</section>
+<section id="inputs-outputs-float16-to-float32-conversion">
+<h2>Inputs/Outputs Float16 to Float32 Conversion<a class="headerlink" href="#inputs-outputs-float16-to-float32-conversion" title="Permalink to this heading">¶</a></h2>
+<p>Certain environments such as Onnxruntime WebGPU prefers Float32 logits. The <code class="docutils literal notranslate"><span class="pre">OnnxIOFloat16ToFloat32</span></code> pass converts the inputs and outputs to use Float32 instead of Float16.</p>
+<section id="id11">
+<h3>Example Configuration<a class="headerlink" href="#id11" title="Permalink to this heading">¶</a></h3>
+<p>a. The most basic configuration, which is suitable for many models, leaves all configuration options set to their default values:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxIOFloat16ToFloat32&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="mixed-precision-conversion">
+<h2>Mixed Precision Conversion<a class="headerlink" href="#mixed-precision-conversion" title="Permalink to this heading">¶</a></h2>
+<p>Converting model to mixed precision.</p>
+<p>If float16 conversion is giving poor results, you can convert most of the ops to float16 but leave some in float32. The <code class="docutils literal notranslate"><span class="pre">OrtMixedPrecision</span></code> pass finds a minimal set of ops to skip while retaining a certain level of accuracy.</p>
+<p>The default value for <code class="docutils literal notranslate"><span class="pre">op_block_list</span></code> is <code class="docutils literal notranslate"><span class="pre">[&quot;SimplifiedLayerNormalization&quot;,</span> <span class="pre">&quot;SkipSimplifiedLayerNormalization&quot;,</span> <span class="pre">&quot;Relu&quot;,</span> <span class="pre">&quot;Add&quot;]</span></code>.</p>
+<section id="id12">
+<h3>Example Configuration<a class="headerlink" href="#id12" title="Permalink to this heading">¶</a></h3>
+<p>a. The most basic configuration, which is suitable for many models, leaves all configuration options set to their default values:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtMixedPrecision&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>b. More fine-grained control of the conversion conditions is also possible:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtMixedPrecision&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;op_block_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">            </span><span class="s2">&quot;Add&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="s2">&quot;LayerNormalization&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="s2">&quot;SkipLayerNormalization&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="s2">&quot;FastGelu&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="s2">&quot;EmbedLayerNormalization&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">]</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="convert-dynamic-shape-to-fixed-shape">
+<h2>Convert dynamic shape to fixed shape<a class="headerlink" href="#convert-dynamic-shape-to-fixed-shape" title="Permalink to this heading">¶</a></h2>
+<p>In qnn, snpe and other mobile inference scenarios, the input shape of the model is often fixed. The <code class="docutils literal notranslate"><span class="pre">DynamicToFixedShape</span></code> pass converts the dynamic shape of the model to a fixed shape.</p>
+<p>For example, often models have a dynamic batch size so that training is more efficient. In mobile scenarios the batch generally has a size of 1. Making the batch size dimension ‘fixed’ by setting it to 1 may allow NNAPI and CoreML to run of the model.</p>
+<p>The helper can be used to update specific dimensions, or the entire input shape.</p>
+<section id="id13">
+<h3>Example Configuration<a class="headerlink" href="#id13" title="Permalink to this heading">¶</a></h3>
+<p>a. Making a symbolic dimension fixed</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DynamicToFixedShape&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;input_dim&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;batch_size&quot;</span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;dim_value&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>b. Making the entire input shape fixed</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DynamicToFixedShape&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;input_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;input_shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">224</span><span class="p">,</span><span class="w"> </span><span class="mi">224</span><span class="p">]]</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Note: The <code class="docutils literal notranslate"><span class="pre">input_dim</span></code> and <code class="docutils literal notranslate"><span class="pre">dim_value</span></code> should have the same length, and the <code class="docutils literal notranslate"><span class="pre">input_name</span></code> and <code class="docutils literal notranslate"><span class="pre">input_shape</span></code> should have the same length. Also the <code class="docutils literal notranslate"><span class="pre">input_dim</span> <span class="pre">&amp;</span> <span class="pre">dim_value</span></code> and <code class="docutils literal notranslate"><span class="pre">input_name</span> <span class="pre">&amp;</span> <span class="pre">input_shape</span></code> should be exclusive to each other, user cannot specify both of them at the same time.</p>
+<p>More details about the pass and its config parameters can be found <a class="reference external" href="https://onnxruntime.ai/docs/tutorials/mobile/helpers/make-dynamic-shape-fixed.html">here</a>.</p>
+</section>
+</section>
+<section id="extract-adapters">
+<h2>Extract Adapters<a class="headerlink" href="#extract-adapters" title="Permalink to this heading">¶</a></h2>
+<p>LoRA, QLoRA and related techniques allow us to fine-tune a pre-trained model by adding a small number of trainable matrices called adapters. The same base model can be used for multiple tasks by adding different adapters for each task. To support using multiple adapters with the same optimized onnx model, the <code class="docutils literal notranslate"><span class="pre">ExtractAdapters</span></code> pass extracts the adapters weights from the model and saves them to a separate file. The model graph is then modified in one of the following ways:</p>
+<ul class="simple">
+<li><p>Adapters weights are set as external tensors pointing to a non-existent file. The onnx model is thus invalid by itself as it cannot be loaded. In order to create an inference session using this model, the adapter weights must be added to a sessions options object using <code class="docutils literal notranslate"><span class="pre">add_initializer</span></code> or <code class="docutils literal notranslate"><span class="pre">add_external_initializers</span></code>.</p></li>
+<li><p>Adapter weights are converted into model inputs. The onnx model is valid. During inference, the adapter weights must be provided as part of the inputs. We call them constant inputs here since these weights don’t change between runs when using the one set of adapters.</p></li>
+</ul>
+<section id="id14">
+<h3>Example Configuration<a class="headerlink" href="#id14" title="Permalink to this heading">¶</a></h3>
+<p>a. As external initializers</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ExtractAdapters&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;make_inputs&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>b. As constant inputs with packed weights</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ExtractAdapters&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;make_inputs&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;pack_inputs&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Please refer to <a class="reference internal" href="../../api/passes.html#extract-adapters"><span class="std std-ref">ExtractAdapters</span></a> for more details about the pass and its config parameters.</p>
+<p>Olive also provides a command line tool to export adapters saved after peft fine-tuning to a format compatible with a model that has been optimized with the <code class="docutils literal notranslate"><span class="pre">ExtractAdapters</span></code> pass. More details on the <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">export-adapters</span></code> command can be found at <a class="reference internal" href="../cli.html#command-line-tools"><span class="std std-ref">Command Line Tools</span></a>.</p>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="pytorch.html" class="btn btn-neutral float-left" title="PyTorch" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="openvino.html" class="btn btn-neutral float-right" title="OpenVINO" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, olivedevteam@microsoft.com.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

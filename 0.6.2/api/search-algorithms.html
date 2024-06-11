@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SearchAlgorithms &mdash; Olive  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
+      <link rel="stylesheet" type="text/css" href="../_static/tabs.css?v=a5c4661c" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/width.css?v=b55249da" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+        <script src="../_static/js/custom_version.js?v=3856a39b"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Engine" href="engine.html" />
+    <link rel="prev" title="Metric" href="metric.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Olive
+          </a>
+              <div class="version">
+                0.6.2
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">OVERVIEW</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview/olive.html">Olive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/quicktour.html">Quick Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/options.html">Olive Options</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">GET STARTED</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getstarted/quickstart_examples.html">Quickstart Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../features/cli.html">Command Line Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/custom_scripts.html">Custom Scripts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/azureml_integration.html">Azure ML integration</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../extending_olive/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_systems.html">How To Configure System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_auto_optimizer.html">How To Configure Auto Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_pass.html">How To Configure Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_data.html">How To Configure Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_model_path.html">How To Set Model Path</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/advanced_users.html">Advanced User Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/azure_arc.html">Self-hosted Kubernetes cluster</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/azureml_scripts.html">Azure ML scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="models.html">OliveModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="resource_path.html">ResourcePath</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systems.html">OliveSystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="evaluator.html">OliveEvaluator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="metric.html">Metric</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">SearchAlgorithms</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#exhaustivesearchalgorithm">ExhaustiveSearchAlgorithm</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#randomsearchalgorithm">RandomSearchAlgorithm</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#tpesearchalgorithm">TPESearchAlgorithm</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="engine.html">Engine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="passes.html">Passes</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Olive</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">SearchAlgorithms</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/search-algorithms.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="searchalgorithms">
+<span id="search-algorithms"></span><h1>SearchAlgorithms<a class="headerlink" href="#searchalgorithms" title="Permalink to this heading">¶</a></h1>
+<p>The following search algorithms are available in Olive.</p>
+<p>Each algorithm is followed by a description of the algorithm and a list of the its configuration options.</p>
+<section id="exhaustivesearchalgorithm">
+<span id="exhaustive-search-algorithm"></span><h2>ExhaustiveSearchAlgorithm<a class="headerlink" href="#exhaustivesearchalgorithm" title="Permalink to this heading">¶</a></h2>
+<p><strong>Name:</strong> <code class="code docutils literal notranslate"><span class="pre">&quot;exhaustive&quot;</span></code></p>
+<p>Exhaustive Search Algorithm. Does a grid search over the search space.</p>
+</section>
+<section id="randomsearchalgorithm">
+<span id="random-search-algorithm"></span><h2>RandomSearchAlgorithm<a class="headerlink" href="#randomsearchalgorithm" title="Permalink to this heading">¶</a></h2>
+<p><strong>Name:</strong> <code class="code docutils literal notranslate"><span class="pre">&quot;random&quot;</span></code></p>
+<p>Random Searcher. Samples random points from the search space with or without replacement.</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-num_samples">
+<span class="sig-name descname"><span class="pre">num_samples</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-num_samples" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of samples to suggest.</p>
+<p><strong>type:</strong> int</p>
+<p><strong>default_value:</strong> 1</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-seed">
+<span class="sig-name descname"><span class="pre">seed</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-seed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Seed for the rng.</p>
+<p><strong>type:</strong> int</p>
+<p><strong>default_value:</strong> 1</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-with_replacement">
+<span class="sig-name descname"><span class="pre">with_replacement</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-with_replacement" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sample with replacement.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
+</dd></dl>
+
+</section>
+<section id="tpesearchalgorithm">
+<span id="tpe-search-algorithm"></span><h2>TPESearchAlgorithm<a class="headerlink" href="#tpesearchalgorithm" title="Permalink to this heading">¶</a></h2>
+<p><strong>Name:</strong> <code class="code docutils literal notranslate"><span class="pre">&quot;tpe&quot;</span></code></p>
+<p>Sample using TPE (Tree-structured Parzen Estimator) algorithm. Uses optuna TPESampler underneath.
+
+    Refer to <a class="reference external" href="https://optuna.readthedocs.io/en/stable/reference/samplers/generated/optuna.samplers.TPESampler.html">https://optuna.readthedocs.io/en/stable/reference/samplers/generated/optuna.samplers.TPESampler.html</a>
+    for more details about the sampler.</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-0">
+<span class="sig-name descname"><span class="pre">num_samples</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-0" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of samples to suggest.</p>
+<p><strong>type:</strong> int</p>
+<p><strong>default_value:</strong> 1</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-1">
+<span class="sig-name descname"><span class="pre">seed</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-1" title="Permalink to this definition">¶</a></dt>
+<dd><p>Seed for the rng.</p>
+<p><strong>type:</strong> int</p>
+<p><strong>default_value:</strong> 1</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-multivariate">
+<span class="sig-name descname"><span class="pre">multivariate</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-multivariate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Use multivariate TPE when suggesting parameters.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> True</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-group">
+<span class="sig-name descname"><span class="pre">group</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-group" title="Permalink to this definition">¶</a></dt>
+<dd><p>If this and multivariate are True, the multivariate TPE with the group decomposed search space is used when suggesting parameters. Refer to ‘group’ at <a class="reference external" href="https://optuna.readthedocs.io/en/stable/reference/samplers/generated/optuna.samplers.TPESampler.html">https://optuna.readthedocs.io/en/stable/reference/samplers/generated/optuna.samplers.TPESampler.html</a> for more information.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> True</p>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="metric.html" class="btn btn-neutral float-left" title="Metric" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="engine.html" class="btn btn-neutral float-right" title="Engine" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, olivedevteam@microsoft.com.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

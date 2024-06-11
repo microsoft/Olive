@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How To Configure System &mdash; Olive  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
+      <link rel="stylesheet" type="text/css" href="../_static/tabs.css?v=a5c4661c" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/width.css?v=b55249da" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+        <script src="../_static/tabs.js?v=3030b3cb"></script>
+        <script src="../_static/js/custom_version.js?v=3856a39b"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="How To Configure Metric" href="configure_metrics.html" />
+    <link rel="prev" title="How to add new optimization Pass" href="../extending_olive/how_to_add_optimization_pass.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Olive
+          </a>
+              <div class="version">
+                0.6.2
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">OVERVIEW</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview/olive.html">Olive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/quicktour.html">Quick Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/options.html">Olive Options</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">GET STARTED</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getstarted/quickstart_examples.html">Quickstart Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../features/cli.html">Command Line Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/custom_scripts.html">Custom Scripts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/azureml_integration.html">Azure ML integration</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../extending_olive/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">How To Configure System</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#accelerator-configuration">Accelerator Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#local-system">Local System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#python-environment-system">Python Environment System</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#native-python-environment-system">Native Python Environment System</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#managed-python-environment-system">Managed Python Environment System</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#docker-system">Docker System</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#native-docker-system">Native Docker System</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#managed-docker-system">Managed Docker System</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#azureml-system">AzureML System</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id2">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#native-azureml-system">Native AzureML System</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#azureml-readymade-systems">AzureML Readymade Systems</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#managed-azureml-system">Managed AzureML System</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#isolated-ort-system">Isolated ORT System</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configure_auto_optimizer.html">How To Configure Auto Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configure_pass.html">How To Configure Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configure_data.html">How To Configure Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configure_model_path.html">How To Set Model Path</a></li>
+<li class="toctree-l1"><a class="reference internal" href="advanced_users.html">Advanced User Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="azure_arc.html">Self-hosted Kubernetes cluster</a></li>
+<li class="toctree-l1"><a class="reference internal" href="azureml_scripts.html">Azure ML scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/models.html">OliveModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/resource_path.html">ResourcePath</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/systems.html">OliveSystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/evaluator.html">OliveEvaluator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/metric.html">Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/search-algorithms.html">SearchAlgorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/engine.html">Engine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/passes.html">Passes</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Olive</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">How To Configure System</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/tutorials/configure_systems.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="how-to-configure-system">
+<span id="id1"></span><h1>How To Configure System<a class="headerlink" href="#how-to-configure-system" title="Permalink to this heading">¶</a></h1>
+<p>A system is a environment concept (OS, hardware spec, device platform, supported EP) that a Pass is run in or a Model is evaluated on.</p>
+<p>There are two types of systems: <strong>host</strong> and <strong>target</strong>. A <strong>host</strong> is the environment where the Pass is run, and a <strong>target</strong> is the environment where the Model is evaluated.</p>
+<p>There are five systems: <strong>local system</strong>, <strong>Python environment system</strong>, <strong>Docker system</strong>, <strong>AzureML system</strong>, <strong>Isolated ORT system</strong>.</p>
+<p>In Olive, the system could be categorized into two kinds of system based on the <code class="code docutils literal notranslate"><span class="pre">olive_managed_env</span> <span class="pre">=</span> <span class="pre">True</span></code>.</p>
+<ul class="simple">
+<li><p>Native System: This is the normal system. All kinds of systems can be configured as native system. The <strong>Isolated ORT system</strong> can only be used as <strong>target</strong> system for model evaluation.</p></li>
+<li><p>Managed System: Olive will manage the environment by installing the required packages from the <code class="code docutils literal notranslate"><span class="pre">requirements_file</span></code> or Dockerfile in the environment. Only <strong>Python environment system</strong>, <strong>Docker system</strong>, <strong>AzureML system</strong> support managed system.
+The <code class="docutils literal notranslate"><span class="pre">device</span></code> and <code class="docutils literal notranslate"><span class="pre">execution_providers</span></code> for managed system is mandatory. Otherwise, Olive will raise an error.</p></li>
+</ul>
+<p>Most of time, the <strong>host</strong> and <strong>target</strong> are the same, but they can be different in some cases. For example, you can run a Pass on a local machine with a CPU and evaluate a Model on a remote machine with a GPU.</p>
+<section id="accelerator-configuration">
+<h2>Accelerator Configuration<a class="headerlink" href="#accelerator-configuration" title="Permalink to this heading">¶</a></h2>
+<p>For each <strong>host</strong> or <strong>target</strong>, it will represent list of accelerators that are supported by the system. Each accelerator is represented by a dictionary with the following attributes:</p>
+<div class="admonition-acceleratorconfig admonition">
+<p class="admonition-title">AcceleratorConfig</p>
+<ul class="simple">
+<li><p><code class="code docutils literal notranslate"><span class="pre">device</span></code>: The device type of the accelerator. It could be “cpu”, “gpu”, “npu”, etc. Please refer to <a class="reference internal" href="../api/systems.html#device"><span class="std std-ref">Device</span></a> for the full list of supported devices.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">execution_providers</span></code>: The execution provider list that are supported by the accelerator. For e.g. <code class="docutils literal notranslate"><span class="pre">[&quot;CUDAExecutionProvider&quot;,</span> <span class="pre">&quot;CPUExecutionProvider&quot;]</span></code>.</p></li>
+</ul>
+</div>
+<p>The <strong>host</strong> only use the <code class="docutils literal notranslate"><span class="pre">device</span></code> attribute to run the passes. Instead, the <strong>target</strong> uses both <code class="docutils literal notranslate"><span class="pre">device</span></code> and <code class="docutils literal notranslate"><span class="pre">execution_providers</span></code> attributes to run passes or evaluate models.</p>
+</section>
+<section id="local-system">
+<h2>Local System<a class="headerlink" href="#local-system" title="Permalink to this heading">¶</a></h2>
+<p>The local system represents the local machine where the Pass is run or the Model is evaluated and it only contains the accelerators attribute.</p>
+<div class="admonition-configuration admonition">
+<p class="admonition-title">Configuration</p>
+<ul class="simple">
+<li><p><code class="code docutils literal notranslate"><span class="pre">accelerators</span></code>: The list of accelerators that are supported by the system.</p></li>
+</ul>
+</div>
+<div class="sphinx-tabs docutils container">
+<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;systems&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;local_system&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;LocalSystem&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                    </span><span class="p">{</span>
+<span class="w">                        </span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+<span class="w">                        </span><span class="nt">&quot;execution_providers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">]</span>
+<span class="w">                    </span><span class="p">}</span>
+<span class="w">                </span><span class="p">]</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;engine&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;target&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;local_system&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div><div aria-labelledby="tab-0-0-1" class="sphinx-tabs-panel" hidden="true" id="panel-0-0-1" name="0-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.systems.local</span> <span class="kn">import</span> <span class="n">LocalSystem</span>
+<span class="kn">from</span> <span class="nn">olive.system.common</span> <span class="kn">import</span> <span class="n">Device</span>
+
+<span class="n">local_system</span> <span class="o">=</span> <span class="n">LocalSystem</span><span class="p">(</span>
+    <span class="n">accelerators</span><span class="o">=</span><span class="p">[{</span><span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">}]</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div></div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul class="simple">
+<li><p>Local system doesn’t support <code class="code docutils literal notranslate"><span class="pre">olive_managed_env</span></code>.</p></li>
+<li><p>The accelerators attribute for local system is optional. If not provided, Olive will get the available execution providers installed in the current local machine and infer its <code class="docutils literal notranslate"><span class="pre">device</span></code>.</p></li>
+<li><p>For each accelerator, either <code class="docutils literal notranslate"><span class="pre">device</span></code> or <code class="docutils literal notranslate"><span class="pre">execution_providers</span></code> is optional but not both if the accelerators are specified. If <code class="docutils literal notranslate"><span class="pre">device</span></code> or <code class="docutils literal notranslate"><span class="pre">execution_providers</span></code> is not provided, Olive will infer the <code class="docutils literal notranslate"><span class="pre">device</span></code> or <code class="docutils literal notranslate"><span class="pre">execution_providers</span></code> if possible.</p></li>
+</ul>
+<p>Most of time, the local system could be simplified as below:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;LocalSystem&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>In this case, Olive will infer the <code class="docutils literal notranslate"><span class="pre">device</span></code> and <code class="docutils literal notranslate"><span class="pre">execution_providers</span></code> based on the local machine. Please note the <code class="docutils literal notranslate"><span class="pre">device</span></code> attribute is required for <strong>host</strong> since it will not be inferred for host system.</p>
+</div>
+<p>Please refer to <a class="reference internal" href="../api/systems.html#local-system-config"><span class="std std-ref">LocalTargetUserConfig</span></a> for more details on the config options.</p>
+</section>
+<section id="python-environment-system">
+<h2>Python Environment System<a class="headerlink" href="#python-environment-system" title="Permalink to this heading">¶</a></h2>
+<p>The python environment system represents the python virtual environment. It can be configured as a native system or a managed system. The python environment system is configured with the following attributes:</p>
+<div class="admonition-configuration admonition">
+<p class="admonition-title">Configuration</p>
+<ul class="simple">
+<li><p><code class="code docutils literal notranslate"><span class="pre">accelerators</span></code>: The list of accelerators that are supported by the system.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">python_environment_path</span></code>: The path to the python virtual environment, which is required for native python system.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">environment_variables</span></code>: The environment variables that are required to run the python environment system. This is optional.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">prepend_to_path</span></code>: The path that will be prepended to the PATH environment variable. This is optional.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">olive_managed_env</span></code>: A boolean flag to indicate if the environment is managed by Olive. This is optional and defaults to False.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">requirements_file</span></code>: The path to the requirements file, which is only required and used when <code class="code docutils literal notranslate"><span class="pre">olive_managed_env</span> <span class="pre">=</span> <span class="pre">True</span></code>.</p></li>
+</ul>
+</div>
+<section id="native-python-environment-system">
+<h3>Native Python Environment System<a class="headerlink" href="#native-python-environment-system" title="Permalink to this heading">¶</a></h3>
+<p>Here are the examples of configuring the general Python Environment System.</p>
+<div class="sphinx-tabs docutils container">
+<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-1-1-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-1-1-0" name="1-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-1-1-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-1-1-1" name="1-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-1-1-0" class="sphinx-tabs-panel" id="panel-1-1-0" name="1-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;systems&quot;</span><span class="w">  </span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;python_system&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PythonEnvironment&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;python_environment_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/home/user/.virtualenvs/myenv/bin&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                    </span><span class="p">{</span>
+<span class="w">                        </span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+<span class="w">                        </span><span class="nt">&quot;execution_providers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                            </span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">,</span>
+<span class="w">                            </span><span class="s2">&quot;OpenVINOExecutionProvider&quot;</span>
+<span class="w">                        </span><span class="p">]</span>
+<span class="w">                    </span><span class="p">}</span>
+<span class="w">                </span><span class="p">]</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;engine&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;target&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;python_system&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div><div aria-labelledby="tab-1-1-1" class="sphinx-tabs-panel" hidden="true" id="panel-1-1-1" name="1-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.systems.python_environment</span> <span class="kn">import</span> <span class="n">PythonEnvironmentSystem</span>
+<span class="kn">from</span> <span class="nn">olive.system.common</span> <span class="kn">import</span> <span class="n">Device</span>
+
+<span class="n">python_environment_system</span> <span class="o">=</span> <span class="n">PythonEnvironmentSystem</span><span class="p">(</span>
+    <span class="n">python_environment_path</span> <span class="o">=</span> <span class="s2">&quot;/home/user/.virtualenvs/myenv/bin&quot;</span><span class="p">,</span>
+    <span class="n">accelerators</span> <span class="o">=</span> <span class="p">[{</span><span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">}]</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div></div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul class="simple">
+<li><p>The python environment must have <code class="code docutils literal notranslate"><span class="pre">olive-ai</span></code> installed if <code class="code docutils literal notranslate"><span class="pre">olive_managed_env</span> <span class="pre">=</span> <span class="pre">False</span></code>!</p></li>
+<li><p>The accelerators for python system is optional. If not provided, Olive will get the available execution providers installed in current python virtual environment and infer its <code class="docutils literal notranslate"><span class="pre">device</span></code>.</p></li>
+<li><p>For each accelerator, either <code class="docutils literal notranslate"><span class="pre">device</span></code> or <code class="docutils literal notranslate"><span class="pre">execution_providers</span></code> is optional but not both if the accelerators are specified. If <code class="docutils literal notranslate"><span class="pre">device</span></code> or <code class="docutils literal notranslate"><span class="pre">execution_providers</span></code> is not provided, Olive will infer the <code class="docutils literal notranslate"><span class="pre">device</span></code> or <code class="docutils literal notranslate"><span class="pre">execution_providers</span></code> if possible.</p></li>
+</ul>
+</div>
+</section>
+<section id="managed-python-environment-system">
+<h3>Managed Python Environment System<a class="headerlink" href="#managed-python-environment-system" title="Permalink to this heading">¶</a></h3>
+<p>When <code class="code docutils literal notranslate"><span class="pre">olive_managed_env</span> <span class="pre">=</span> <span class="pre">True</span></code>, Olive will manage the python environment by installing the required packages from the <code class="code docutils literal notranslate"><span class="pre">requirements_file</span></code>. As the result, the <code class="code docutils literal notranslate"><span class="pre">requirements_file</span></code> is required and must be provided.</p>
+<p>For managed python environment system, Olive only infer the onnxruntime from the following onnxruntime execution providers:</p>
+<ul class="simple">
+<li><p>CPUExecutionProvider: (<em>onnxruntime</em>)</p></li>
+<li><p>CUDAExecutionProvider: (<em>onnxruntime-gpu</em>)</p></li>
+<li><p>TensorrtExecutionProvider: (<em>onnxruntime-gpu</em>)</p></li>
+<li><p>OpenVINOExecutionProvider: (<em>onnxruntime-openvino</em>)</p></li>
+<li><p>DmlExecutionProvider: (<em>onnxruntime-directml</em>)</p></li>
+</ul>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PythonEnvironment&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">            </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;execution_providers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                    </span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="s2">&quot;OpenVINOExecutionProvider&quot;</span>
+<span class="w">                </span><span class="p">]</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;olive_managed_env&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Please refer to <a class="reference internal" href="../api/systems.html#python-environment-system-config"><span class="std std-ref">PythonEnvironmentTargetUserConfig</span></a> for more details on the config options.</p>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>Please refer to this <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/resnet/resnet_multiple_ep.json">example</a>
+for how to use managed python environment system to optimize the model against different execution providers.</p>
+</div>
+</section>
+</section>
+<section id="docker-system">
+<h2>Docker System<a class="headerlink" href="#docker-system" title="Permalink to this heading">¶</a></h2>
+<p>The docker system represents the docker container where the Pass is run or the Model is evaluated. It can be configured as a native system or a managed system. The docker system is configured with the following attributes:</p>
+<div class="admonition-configuration admonition">
+<p class="admonition-title">Configuration</p>
+<ul>
+<li><p><code class="code docutils literal notranslate"><span class="pre">accelerators</span></code>: The list of accelerators that are supported by the system.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">local_docker_config</span></code>: The configuration for the local docker system, which includes the following attributes:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="code docutils literal notranslate"><span class="pre">image_name</span></code>: The name of the docker image.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">build_context_path</span></code>: The path to the build context.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">dockerfile</span></code>: The path to the Dockerfile.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">requirements_file</span></code>: The path to the requirements file. If provided, Olive will install the required packages from the requirements file in the docker container.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">olive_managed_env</span></code>: A boolean flag to indicate if the environment is managed by Olive. This is optional and defaults to False.</p></li>
+</ul>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul class="simple">
+<li><p>the <code class="code docutils literal notranslate"><span class="pre">build_context_path</span></code>, <code class="code docutils literal notranslate"><span class="pre">dockerfile</span></code> and <code class="code docutils literal notranslate"><span class="pre">requirements_file</span></code> cannot be <code class="docutils literal notranslate"><span class="pre">None</span></code> at the same time.</p></li>
+<li><p>The docker container must have <code class="code docutils literal notranslate"><span class="pre">olive-ai</span></code> installed.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">device</span></code> and <code class="docutils literal notranslate"><span class="pre">execution_providers</span></code> for docker system is mandatory. Otherwise, Olive will raise an error.</p></li>
+</ul>
+</div>
+<section id="prerequisites">
+<h3>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this heading">¶</a></h3>
+<ol class="arabic">
+<li><p>Docker Engine installed on the host machine.</p></li>
+<li><p>docker extra dependencies installed.</p>
+<blockquote>
+<div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>olive-ai<span class="o">[</span>docker<span class="o">]</span>
+</pre></div>
+</div>
+<p>or</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>docker
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+</ol>
+</section>
+<section id="native-docker-system">
+<h3>Native Docker System<a class="headerlink" href="#native-docker-system" title="Permalink to this heading">¶</a></h3>
+<div class="sphinx-tabs docutils container">
+<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-2-2-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-2-2-0" name="2-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-2-2-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-2-2-1" name="2-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-2-2-0" class="sphinx-tabs-panel" id="panel-2-2-0" name="2-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Docker&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;local_docker_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;image_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;olive&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;build_context_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;docker&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;dockerfile&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Dockerfile&quot;</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">            </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;execution_providers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">]</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">]</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div><div aria-labelledby="tab-2-2-1" class="sphinx-tabs-panel" hidden="true" id="panel-2-2-1" name="2-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.systems.docker</span> <span class="kn">import</span> <span class="n">DockerSystem</span><span class="p">,</span> <span class="n">LocalDockerConfig</span>
+
+<span class="n">local_docker_config</span> <span class="o">=</span> <span class="n">LocalDockerConfig</span><span class="p">(</span>
+    <span class="n">image_name</span><span class="o">=</span><span class="s2">&quot;olive&quot;</span><span class="p">,</span>
+    <span class="n">build_context_path</span><span class="o">=</span><span class="s2">&quot;docker&quot;</span><span class="p">,</span>
+    <span class="n">dockerfile</span><span class="o">=</span><span class="s2">&quot;Dockerfile&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">docker_system</span> <span class="o">=</span> <span class="n">DockerSystem</span><span class="p">(</span><span class="n">local_docker_config</span><span class="o">=</span><span class="n">local_docker_config</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></div>
+</section>
+<section id="managed-docker-system">
+<h3>Managed Docker System<a class="headerlink" href="#managed-docker-system" title="Permalink to this heading">¶</a></h3>
+<p>When <code class="code docutils literal notranslate"><span class="pre">olive_managed_env</span> <span class="pre">=</span> <span class="pre">True</span></code>, Olive will manage the docker environment by installing the required packages from the <code class="code docutils literal notranslate"><span class="pre">requirements_file</span></code> in the docker container if provided.
+From the time being, Olive only supports the following base Dockerfiles based on input execution providers:</p>
+<ul class="simple">
+<li><p>CPUExecutionProvider: (<em>Dockerfile.cpu</em>)</p></li>
+<li><p>CUDAExecutionProvider: (<em>Dockerfile.gpu</em>)</p></li>
+<li><p>TensorrtExecutionProvider: (<em>Dockerfile.gpu</em>)</p></li>
+<li><p>OpenVINOExecutionProvider: (<em>Dockerfile.openvino</em>)</p></li>
+</ul>
+<p>A typical managed Docker system can be configured by the following example:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Docker&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">            </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;execution_providers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                    </span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="s2">&quot;OpenVINOExecutionProvider&quot;</span>
+<span class="w">                </span><span class="p">]</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;olive_managed_env&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;requirements_file&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mnist_requirements.txt&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="azureml-system">
+<h2>AzureML System<a class="headerlink" href="#azureml-system" title="Permalink to this heading">¶</a></h2>
+<p>The AzureML system represents the Azure Machine Learning workspace where the Pass is run or the Model is evaluated. It can be configured as a native system or a managed system. The AzureML system is configured with the following attributes:</p>
+<div class="admonition-configuration admonition">
+<p class="admonition-title">Configuration</p>
+<ul>
+<li><p><code class="code docutils literal notranslate"><span class="pre">accelerators</span></code>: The list of accelerators that are supported by the system, which is required.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">aml_compute</span></code>: The name of the AzureML compute, which is required.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">azureml_client_config</span></code>: The configuration for the AzureML client, which includes the following attributes:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="code docutils literal notranslate"><span class="pre">subscription_id</span></code>: The subscription id of the AzureML workspace.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">resource_group</span></code>: The resource group of the AzureML workspace.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">workspace_name</span></code>: The name of the AzureML workspace.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">aml_docker_config</span></code>: The configuration for the AzureML docker system, which includes the following attributes:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="code docutils literal notranslate"><span class="pre">base_image</span></code>: The base image for the AzureML environment.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">dockerfile</span></code>: The path to the Dockerfile of the AzureML environment.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">build_context_path</span></code>: The path to the build context of the AzureML environment.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">conda_file_path</span></code>: The path to the conda file.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">name</span></code>: The name of the AzureML environment.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">version</span></code>: The version of the AzureML environment.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">aml_environment_config</span></code>: The configuration for the AzureML environment, which includes the following attributes:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="code docutils literal notranslate"><span class="pre">name</span></code>: The name of the AzureML environment.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">version</span></code>: The version of the AzureML environment.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">label</span></code>: The label of the AzureML environment.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">requirements_file</span></code>: The path to the requirements file. If provided, Olive will install the required packages from the requirements file in the AzureML environment.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">tags</span></code>: The tags for the AzureML environment. This is optional.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">resources</span></code>: The resources dictionary for the AzureML environment. This is optional.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">instance_count</span></code>: The instance count for the AzureML environment. Default is 1.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">olive_managed_env</span></code>: A boolean flag to indicate if the environment is managed by Olive. This is optional and defaults to False.</p></li>
+</ul>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul class="simple">
+<li><p>Both <code class="code docutils literal notranslate"><span class="pre">aml_docker_config</span></code> and <code class="code docutils literal notranslate"><span class="pre">aml_environment_config</span></code> cannot be <code class="docutils literal notranslate"><span class="pre">None</span></code> at the same time.</p></li>
+<li><p>If <code class="code docutils literal notranslate"><span class="pre">aml_environment_config</span></code> is provided, Olive will use the existing AzureML environment with the specified name, version and label.</p></li>
+<li><p>Otherwise, Olive will create a new AzureML environment using the <code class="code docutils literal notranslate"><span class="pre">aml_docker_config</span></code> configuration.</p></li>
+<li><p>The <code class="code docutils literal notranslate"><span class="pre">azureml_client_config</span></code> will be propagated from engine <code class="code docutils literal notranslate"><span class="pre">azureml_client</span></code> if not provided.</p></li>
+<li><p>The <code class="code docutils literal notranslate"><span class="pre">requirements_file</span></code> is only used when <code class="code docutils literal notranslate"><span class="pre">olive_managed_env</span> <span class="pre">=</span> <span class="pre">True</span></code> to install the required packages in the AzureML environment.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">device</span></code> and <code class="docutils literal notranslate"><span class="pre">execution_providers</span></code> for AzureML system is mandatory. Otherwise, Olive will raise an error.</p></li>
+</ul>
+</div>
+<section id="id2">
+<h3>Prerequisites<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h3>
+<ol class="arabic">
+<li><p>azureml extra dependencies installed.</p>
+<blockquote>
+<div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>olive-ai<span class="o">[</span>azureml<span class="o">]</span>
+</pre></div>
+</div>
+<p>or</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>azure-ai-ml<span class="w"> </span>azure-identity
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+</ol>
+<p>2. AzureML Workspace with necessary compute created. Refer to
+<a class="reference external" href="https://learn.microsoft.com/en-us/azure/machine-learning/concept-workspace">this</a> for more details. Download
+the workspace config json.</p>
+</section>
+<section id="native-azureml-system">
+<h3>Native AzureML System<a class="headerlink" href="#native-azureml-system" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AzureML&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">            </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gpu&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;execution_providers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                    </span><span class="s2">&quot;CUDAExecutionProvider&quot;</span>
+<span class="w">                </span><span class="p">]</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;aml_compute&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gpu-cluster&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;aml_docker_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;base_image&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.6-cudnn8-ubuntu20.04&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;conda_file_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;conda.yaml&quot;</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;aml_environment_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;myenv&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<section id="azureml-readymade-systems">
+<h4>AzureML Readymade Systems<a class="headerlink" href="#azureml-readymade-systems" title="Permalink to this heading">¶</a></h4>
+<p>There are some readymade systems available for AzureML. These systems are pre-configured with the necessary.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AzureNDV2System&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">            </span><span class="p">{</span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gpu&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;execution_providers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;CUDAExecutionProvider&quot;</span><span class="p">]},</span>
+<span class="w">            </span><span class="p">{</span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;execution_providers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">]},</span>
+<span class="w">        </span><span class="p">],</span>
+<span class="w">        </span><span class="nt">&quot;aml_compute&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gpu-cluster&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;aml_docker_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;base_image&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;conda_file_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;conda.yaml&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The accelerators specified in the readymade systems will be filtered against the devices supported by the readymade system. If the specified device is not supported by the readymade system, Olive will filter out the accelerator.
+In above example, the readymade system supports only GPU. Therefore, the final accelerators will be <code class="docutils literal notranslate"><span class="pre">[{&quot;device&quot;:</span> <span class="pre">&quot;gpu&quot;,</span> <span class="pre">&quot;execution_providers&quot;:</span> <span class="pre">[&quot;CUDAExecutionProvider&quot;]}]</span></code> and the CPU will be filtered out.</p>
+</div>
+<p>Please refer to <a class="reference internal" href="../api/systems.html#olive-system-alias"><span class="std std-ref">System Alias</span></a> for the list of supported AzureML readymade systems.</p>
+</section>
+</section>
+<section id="managed-azureml-system">
+<h3>Managed AzureML System<a class="headerlink" href="#managed-azureml-system" title="Permalink to this heading">¶</a></h3>
+<p>When <code class="code docutils literal notranslate"><span class="pre">olive_managed_env</span> <span class="pre">=</span> <span class="pre">True</span></code>, Olive will manage the AzureML environment by installing the required packages from the <code class="code docutils literal notranslate"><span class="pre">requirements_file</span></code> in the AzureML environment if provided.</p>
+<p>From the time being, Olive only supports the following base Dockerfiles based on input execution providers:</p>
+<ul class="simple">
+<li><p>CPUExecutionProvider: (<em>Dockerfile.cpu</em>)</p></li>
+<li><p>CUDAExecutionProvider: (<em>Dockerfile.gpu</em>)</p></li>
+<li><p>TensorrtExecutionProvider: (<em>Dockerfile.gpu</em>)</p></li>
+<li><p>OpenVINOExecutionProvider: (<em>Dockerfile.openvino</em>)</p></li>
+</ul>
+<p>A typical managed AzureML system can be configured by the following example:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;systems&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;azureml_system&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AzureML&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                    </span><span class="p">{</span>
+<span class="w">                        </span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+<span class="w">                        </span><span class="nt">&quot;execution_providers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                            </span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">,</span>
+<span class="w">                            </span><span class="s2">&quot;OpenVINOExecutionProvider&quot;</span>
+<span class="w">                        </span><span class="p">]</span>
+<span class="w">                    </span><span class="p">}</span>
+<span class="w">                </span><span class="p">],</span>
+<span class="w">                </span><span class="nt">&quot;azureml_client_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;subscription_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;subscription_id&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;resource_group&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;resource_group&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;workspace_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;workspace_name&quot;</span>
+<span class="w">                </span><span class="p">},</span>
+<span class="w">                </span><span class="nt">&quot;aml_compute&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu-cluster&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;requirements_file&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mnist_requirements.txt&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;olive_managed_env&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;engine&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;target&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_system&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Please refer to this <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/bert/conda.yaml">example</a>
+for <code class="code docutils literal notranslate"><span class="pre">&quot;conda.yaml&quot;</span></code>.</p>
+<p>Please refer to <a class="reference internal" href="../api/systems.html#azureml-system-config"><span class="std std-ref">AzureMLTargetUserConfig</span></a> for more details on the config options.</p>
+</section>
+</section>
+<section id="isolated-ort-system">
+<h2>Isolated ORT System<a class="headerlink" href="#isolated-ort-system" title="Permalink to this heading">¶</a></h2>
+<p>The isolated ORT system represents the isolated ONNX Runtime environment in which the <code class="docutils literal notranslate"><span class="pre">olive-ai</span></code> is not installed. It can only be configured as a target system. The isolated ORT system is configured with the following attributes:</p>
+<div class="admonition-configuration admonition">
+<p class="admonition-title">Configuration</p>
+<ul class="simple">
+<li><p><code class="code docutils literal notranslate"><span class="pre">accelerators</span></code>: The list of accelerators that are supported by the system.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">python_environment_path</span></code>: The path to the python virtual environment.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">environment_variables</span></code>: The environment variables that are required to run the python environment. This is optional.</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">prepend_to_path</span></code>: The path that will be prepended to the PATH environment variable. This is optional.</p></li>
+</ul>
+</div>
+<div class="sphinx-tabs docutils container">
+<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-3-3-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-3-3-0" name="3-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-3-3-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-3-3-1" name="3-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-3-3-0" class="sphinx-tabs-panel" id="panel-3-3-0" name="3-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;IsolatedORT&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;python_environment_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/home/user/.virtualenvs/myenv/bin&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu&quot;</span><span class="p">}]</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div><div aria-labelledby="tab-3-3-1" class="sphinx-tabs-panel" hidden="true" id="panel-3-3-1" name="3-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.systems.isolated_ort</span> <span class="kn">import</span> <span class="n">IsolatedORTSystem</span>
+<span class="kn">from</span> <span class="nn">olive.system.common</span> <span class="kn">import</span> <span class="n">Device</span>
+
+<span class="n">python_environment_system</span> <span class="o">=</span> <span class="n">IsolatedORTSystem</span><span class="p">(</span>
+    <span class="n">python_environment_path</span> <span class="o">=</span> <span class="s2">&quot;/home/user/.virtualenvs/myenv/bin&quot;</span><span class="p">,</span>
+    <span class="n">accelerators</span> <span class="o">=</span> <span class="p">[{</span><span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">}]</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div></div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul class="simple">
+<li><p>Isolated ORT System does not support <code class="code docutils literal notranslate"><span class="pre">olive_managed_env</span></code> and can only be used to evaluate ONNX models.</p></li>
+<li><p>The accelerators for Isolated ORT system is optional. If not provided, Olive will get the available execution providers installed in current virtual environment and infer its device.</p></li>
+<li><p>For each accelerator, either <code class="docutils literal notranslate"><span class="pre">device</span></code> or <code class="docutils literal notranslate"><span class="pre">execution_providers</span></code> is optional but not both if the accelerators are specified. If <code class="docutils literal notranslate"><span class="pre">device</span></code> or <code class="docutils literal notranslate"><span class="pre">execution_providers</span></code> is not provided, Olive will infer the <code class="docutils literal notranslate"><span class="pre">device</span></code> or <code class="docutils literal notranslate"><span class="pre">execution_providers</span></code> if possible.</p></li>
+</ul>
+</div>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>The Isolated ORT environment must have the relevant ONNX runtime package installed!</p>
+</div>
+<p>Please refer to <a class="reference internal" href="../api/systems.html#isolated-ort-system-config"><span class="std std-ref">IsolatedORTTargetUserConfig</span></a> for more details on the config options.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../extending_olive/how_to_add_optimization_pass.html" class="btn btn-neutral float-left" title="How to add new optimization Pass" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="configure_metrics.html" class="btn btn-neutral float-right" title="How To Configure Metric" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, olivedevteam@microsoft.com.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

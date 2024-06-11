@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>olive.strategy.search_strategy &mdash; Olive  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/autodoc_pydantic.css" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/tabs.css?v=a5c4661c" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/width.css?v=b55249da" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js?v=b3ba4146"></script>
+        <script src="../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=4825356b"></script>
+        <script src="../../../_static/tabs.js?v=3030b3cb"></script>
+        <script src="../../../_static/js/custom_version.js?v=3856a39b"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Olive
+          </a>
+              <div class="version">
+                0.6.2
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">OVERVIEW</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../overview/olive.html">Olive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../overview/quicktour.html">Quick Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../overview/options.html">Olive Options</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">GET STARTED</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../getstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../getstarted/quickstart_examples.html">Quickstart Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/cli.html">Command Line Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/custom_scripts.html">Custom Scripts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features/azureml_integration.html">Azure ML integration</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../extending_olive/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_systems.html">How To Configure System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_auto_optimizer.html">How To Configure Auto Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_pass.html">How To Configure Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_data.html">How To Configure Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_model_path.html">How To Set Model Path</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/advanced_users.html">Advanced User Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/azure_arc.html">Self-hosted Kubernetes cluster</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/azureml_scripts.html">Azure ML scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/models.html">OliveModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/resource_path.html">ResourcePath</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/systems.html">OliveSystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/evaluator.html">OliveEvaluator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/metric.html">Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/search-algorithms.html">SearchAlgorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/engine.html">Engine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/passes.html">Passes</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Olive</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">olive.strategy.search_strategy</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for olive.strategy.search_strategy</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -------------------------------------------------------------------------</span>
+<span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
+<span class="c1"># Licensed under the MIT License.</span>
+<span class="c1"># --------------------------------------------------------------------------</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">validate_config</span>
+<span class="kn">from</span> <span class="nn">olive.common.pydantic_v1</span> <span class="kn">import</span> <span class="n">validator</span>
+<span class="kn">from</span> <span class="nn">olive.strategy.search_algorithm</span> <span class="kn">import</span> <span class="n">REGISTRY</span><span class="p">,</span> <span class="n">SearchAlgorithm</span>
+<span class="kn">from</span> <span class="nn">olive.strategy.search_results</span> <span class="kn">import</span> <span class="n">SearchResults</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">olive.evaluator.metric_result</span> <span class="kn">import</span> <span class="n">MetricResult</span>
+    <span class="kn">from</span> <span class="nn">olive.strategy.search_parameter</span> <span class="kn">import</span> <span class="n">SearchParameter</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="n">_VALID_EXECUTION_ORDERS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;joint&quot;</span><span class="p">,</span> <span class="s2">&quot;pass-by-pass&quot;</span><span class="p">)</span>
+
+<span class="c1"># pylint: disable=attribute-defined-outside-init</span>
+
+
+<div class="viewcode-block" id="SearchStrategyConfig"><a class="viewcode-back" href="../../../api/engine.html#olive.strategy.search_strategy.SearchStrategyConfig">[docs]</a><span class="k">class</span> <span class="nc">SearchStrategyConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
+    <span class="n">execution_order</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">search_algorithm</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">search_algorithm_config</span><span class="p">:</span> <span class="n">ConfigBase</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">output_model_num</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">stop_when_goals_met</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">max_iter</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">max_time</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;execution_order&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_validate_execution_order</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">v</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_VALID_EXECUTION_ORDERS</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown execution order: </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">v</span>
+
+    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;search_algorithm&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_validate_search_algorithm</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">v</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">REGISTRY</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown search algorithm: </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">v</span>
+
+    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;search_algorithm_config&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">always</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_validate_search_algorithm_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
+        <span class="k">if</span> <span class="s2">&quot;search_algorithm&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">values</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid search_algorithm&quot;</span><span class="p">)</span>
+
+        <span class="n">config_class</span> <span class="o">=</span> <span class="n">REGISTRY</span><span class="p">[</span><span class="n">values</span><span class="p">[</span><span class="s2">&quot;search_algorithm&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">get_config_class</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">config_class</span><span class="p">)</span>
+
+    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;stop_when_goals_met&quot;</span><span class="p">,</span> <span class="s2">&quot;max_iter&quot;</span><span class="p">,</span> <span class="s2">&quot;max_time&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_validate_stop_when_goals_met</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">field</span><span class="p">):</span>
+        <span class="k">if</span> <span class="s2">&quot;execution_order&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">values</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid execution_order&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">v</span> <span class="ow">and</span> <span class="n">values</span><span class="p">[</span><span class="s2">&quot;execution_order&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;joint&quot;</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> is only supported for joint execution order. Ignoring...&quot;</span><span class="p">,</span> <span class="n">field</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">field</span><span class="o">.</span><span class="n">default</span>
+        <span class="k">return</span> <span class="n">v</span></div>
+
+
+<div class="viewcode-block" id="SearchStrategy"><a class="viewcode-back" href="../../../api/engine.html#olive.strategy.search_strategy.SearchStrategy">[docs]</a><span class="k">class</span> <span class="nc">SearchStrategy</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">SearchStrategyConfig</span><span class="p">]):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">SearchStrategyConfig</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_initialized</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">exit_criteria_met</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">pass_flows_search_spaces</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="s2">&quot;SearchParameter&quot;</span><span class="p">]]]],</span>
+        <span class="n">init_model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">objective_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">],</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the search strategy.</span>
+
+<span class="sd">        pass_flows_search_spaces: list of list of tuples of format (search_space_name, {param_name: SearchParameter})</span>
+<span class="sd">        objective_dict: dictionary of format {objective_name: {&quot;higher_is_better&quot;: bool, &quot;goal&quot;: float}}</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_objective_dict</span> <span class="o">=</span> <span class="n">objective_dict</span>
+
+        <span class="c1"># search spaces</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_spaces_order</span> <span class="o">=</span> <span class="p">[[</span><span class="n">pass_ss</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">pass_ss</span> <span class="ow">in</span> <span class="n">pass_flow_ss</span><span class="p">]</span> <span class="k">for</span> <span class="n">pass_flow_ss</span> <span class="ow">in</span> <span class="n">pass_flows_search_spaces</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_spaces_dict</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">pass_flow_ss</span> <span class="ow">in</span> <span class="n">pass_flows_search_spaces</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">pass_ss</span> <span class="ow">in</span> <span class="n">pass_flow_ss</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_spaces_dict</span><span class="p">[</span><span class="n">pass_ss</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="n">pass_ss</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="c1"># search space dictionaries for pass are grouped based on execution_order</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_spaces_groups</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_group_search_spaces</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_spaces_order</span><span class="p">)</span>
+        <span class="c1"># sub spaces group in pass-by-pass execution order</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pass_by_pass_sg</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_done_spaces_groups</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># state</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_searchers</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">SearchAlgorithm</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_search_results</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">SearchResults</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_init_model_ids</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">init_model_id</span> <span class="o">=</span> <span class="n">init_model_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_best_search_points</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="c1"># initialize the first search space</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_next_search_group</span><span class="p">(</span><span class="n">init_model_id</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_initialized</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span> <span class="nf">_group_search_spaces</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">search_space_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Group search spaces based on execution order.&quot;&quot;&quot;</span>
+        <span class="c1"># joint: all passes grouped together</span>
+        <span class="c1"># pass-by-pass: each pass is a separate group</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">execution_order</span> <span class="o">==</span> <span class="s2">&quot;joint&quot;</span><span class="p">:</span>
+            <span class="n">search_spaces_groups</span> <span class="o">=</span> <span class="n">search_space_names</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">execution_order</span> <span class="o">==</span> <span class="s2">&quot;pass-by-pass&quot;</span><span class="p">:</span>
+            <span class="c1"># run pass-by-pass for each pass flow which is defined as a list of registered passes</span>
+            <span class="n">search_spaces_groups</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">pass_flow_ss</span> <span class="ow">in</span> <span class="n">search_space_names</span><span class="p">:</span>
+                <span class="n">pass_flow_groups</span> <span class="o">=</span> <span class="p">[[</span><span class="n">pass_ss</span><span class="p">]</span> <span class="k">for</span> <span class="n">pass_ss</span> <span class="ow">in</span> <span class="n">pass_flow_ss</span><span class="p">]</span>
+                <span class="n">search_spaces_groups</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pass_flow_groups</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown execution order: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">execution_order</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">search_spaces_groups</span>
+
+    <span class="k">def</span> <span class="nf">_next_search_group</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">init_model_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SearchAlgorithm</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the next search space group and initialize the search algorithm.&quot;&quot;&quot;</span>
+        <span class="c1"># if there is no more search space group, return None</span>
+        <span class="c1"># 1. joint: no more flows(self._space_groups)</span>
+        <span class="c1"># 2. pass-by-pass: no more flows(self._space_groups) and no more passes(self._pass_by_pass_sg)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_spaces_groups</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pass_by_pass_sg</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="c1"># for the fist search group, init_model_id must be provided</span>
+        <span class="k">if</span> <span class="n">init_model_id</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;init_model_id must be provided for the first search group&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">execution_order</span> <span class="o">==</span> <span class="s2">&quot;joint&quot;</span><span class="p">:</span>
+            <span class="n">next_sg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_next_search_group_joint</span><span class="p">(</span><span class="n">init_model_id</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">execution_order</span> <span class="o">==</span> <span class="s2">&quot;pass-by-pass&quot;</span><span class="p">:</span>
+            <span class="n">next_sg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_next_search_group_pass_by_pass</span><span class="p">(</span><span class="n">init_model_id</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid execution order </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">execution_order</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">next_sg</span>
+
+    <span class="k">def</span> <span class="nf">_next_search_group_pass_by_pass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">init_model_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SearchAlgorithm</span><span class="p">]:</span>
+        <span class="c1"># passes are exhausted or empty for current flow, try next pass flow</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pass_by_pass_sg</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_pass_by_pass_sg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_spaces_groups</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">init_model_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_model_id</span>
+
+        <span class="c1"># get the best model from last space group</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_done_spaces_groups</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="p">)</span>
+            <span class="c1"># legacy, will update once search results has info function</span>
+            <span class="n">sorted_model_ids</span><span class="p">,</span> <span class="n">sorted_search_points</span><span class="p">,</span> <span class="n">sorted_results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_results</span><span class="p">[</span>
+                <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="p">)</span>
+            <span class="p">]</span><span class="o">.</span><span class="n">sort_search_points</span><span class="p">(</span><span class="n">apply_goals</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">sorted_model_ids</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;No models in this search group </span><span class="si">%s</span><span class="s2"> met the goals. Sorting the models without applying goals...&quot;</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">sorted_model_ids</span><span class="p">,</span> <span class="n">sorted_search_points</span><span class="p">,</span> <span class="n">sorted_results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_results</span><span class="p">[</span>
+                    <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="p">)</span>
+                <span class="p">]</span><span class="o">.</span><span class="n">sort_search_points</span><span class="p">(</span><span class="n">apply_goals</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="c1"># TODO(trajep): this is a hack to get the best search point for the current search space group</span>
+            <span class="c1">#      it totally work for joint execution order, but not for pass-by-pass</span>
+            <span class="k">if</span> <span class="n">sorted_search_points</span> <span class="ow">and</span> <span class="n">sorted_results</span><span class="p">:</span>
+                <span class="n">best_search_point</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">sorted_search_points</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                    <span class="nb">list</span><span class="p">(</span><span class="n">sorted_results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span>
+                    <span class="n">sorted_model_ids</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_best_search_points</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="p">)]</span> <span class="o">=</span> <span class="n">best_search_point</span>
+                <span class="n">init_model_id</span> <span class="o">=</span> <span class="n">best_search_point</span><span class="p">[</span><span class="mi">2</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">init_model_id</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;The previous search group </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="si">}</span><span class="s2"> has no output models that were created and&quot;</span>
+                <span class="s2">&quot; evaluated successfully. Cannot continue.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># set up next search group</span>
+        <span class="c1"># if it is the first run in this flow, init_model_id should be input model id</span>
+        <span class="c1"># otherwise, it should be the best model id from last search group</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pass_by_pass_sg</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_searchers</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="p">)]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_searcher</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_search_results</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="p">)]</span> <span class="o">=</span> <span class="n">SearchResults</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_objective_dict</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_init_model_ids</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="p">)]</span> <span class="o">=</span> <span class="n">init_model_id</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span>
+
+    <span class="k">def</span> <span class="nf">_next_search_group_joint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">init_model_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SearchAlgorithm</span><span class="p">]:</span>
+        <span class="n">init_model_id</span> <span class="o">=</span> <span class="n">init_model_id</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_model_id</span>
+        <span class="c1"># get the first pass flow</span>
+        <span class="c1"># for &quot;joint&quot; model, init_model_id should be input_model_id</span>
+        <span class="n">sg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_spaces_groups</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_searchers</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">sg</span><span class="p">)]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_searcher</span><span class="p">(</span><span class="n">sg</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_search_results</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">sg</span><span class="p">)]</span> <span class="o">=</span> <span class="n">SearchResults</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_objective_dict</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_init_model_ids</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">sg</span><span class="p">)]</span> <span class="o">=</span> <span class="n">init_model_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span> <span class="o">=</span> <span class="n">sg</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span>
+
+    <span class="k">def</span> <span class="nf">_create_searcher</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">search_space_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">SearchAlgorithm</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a search algorithm.&quot;&quot;&quot;</span>
+        <span class="n">search_spaces_dict</span> <span class="o">=</span> <span class="p">{</span><span class="n">space_name</span><span class="p">:</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_spaces_dict</span><span class="p">[</span><span class="n">space_name</span><span class="p">])</span> <span class="k">for</span> <span class="n">space_name</span> <span class="ow">in</span> <span class="n">search_space_names</span><span class="p">}</span>
+        <span class="n">objectives</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_objective_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">higher_is_betters</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_objective_dict</span><span class="p">[</span><span class="n">objective</span><span class="p">][</span><span class="s2">&quot;higher_is_better&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">objective</span> <span class="ow">in</span> <span class="n">objectives</span><span class="p">]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">search_algorithm</span> <span class="ow">in</span> <span class="n">REGISTRY</span><span class="p">:</span>
+            <span class="n">searcher</span> <span class="o">=</span> <span class="n">REGISTRY</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="p">](</span>
+                <span class="n">search_spaces_dict</span><span class="p">,</span> <span class="n">objectives</span><span class="p">,</span> <span class="n">higher_is_betters</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">search_algorithm_config</span>
+            <span class="p">)</span>
+            <span class="n">searcher</span><span class="o">.</span><span class="n">initialize</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown search algorithm: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">search_algorithm</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">searcher</span>
+
+    <span class="k">def</span> <span class="nf">next_step</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the next step in the search.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_initialized</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Search strategy is not initialized&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">exit_criteria_met</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_next_search_group</span><span class="p">()</span>
+
+        <span class="c1"># if there is no active searcher, we are done</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="c1"># get the next search point from the active searcher</span>
+        <span class="n">search_point</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_searchers</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="p">)]</span><span class="o">.</span><span class="n">suggest</span><span class="p">()</span>
+        <span class="c1"># if there are no more search points, move to the next search space group</span>
+        <span class="k">if</span> <span class="n">search_point</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_next_search_group</span><span class="p">()</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">next_step</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;search_point&quot;</span><span class="p">:</span> <span class="n">search_point</span><span class="p">,</span>
+            <span class="s2">&quot;model_id&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_init_model_ids</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="p">)],</span>
+            <span class="s2">&quot;passes&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="n">space_name</span><span class="p">,</span> <span class="n">search_point</span><span class="p">[</span><span class="n">space_name</span><span class="p">])</span> <span class="k">for</span> <span class="n">space_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="p">],</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">record_feedback_signal</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">search_point</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
+        <span class="n">signal</span><span class="p">:</span> <span class="s2">&quot;MetricResult&quot;</span><span class="p">,</span>
+        <span class="n">model_ids</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">should_prune</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Record the feedback signal for the given search point.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_initialized</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Search strategy is not initialized&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_search_results</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="p">)]</span><span class="o">.</span><span class="n">record</span><span class="p">(</span><span class="n">search_point</span><span class="p">,</span> <span class="n">signal</span><span class="p">,</span> <span class="n">model_ids</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_searchers</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="p">)]</span><span class="o">.</span><span class="n">report</span><span class="p">(</span><span class="n">search_point</span><span class="p">,</span> <span class="n">signal</span><span class="p">,</span> <span class="n">should_prune</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">check_exit_criteria</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">iter_num</span><span class="p">,</span> <span class="n">time_diff</span><span class="p">,</span> <span class="n">metric_signal</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if the olive search_strategy should exit.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">exit_criteria_met</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">stop_when_goals_met</span><span class="p">:</span>
+            <span class="c1"># stop early stopping when stop_when_goals_met is False, but still apply goals check without stopping</span>
+            <span class="k">return</span>
+        <span class="c1"># early exit is not supported for pass-by-pass execution order currently</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">execution_order</span> <span class="o">==</span> <span class="s2">&quot;pass-by-pass&quot;</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">max_iter</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">iter_num</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">max_iter</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">exit_criteria_met</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">max_time</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">time_diff</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">max_time</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">exit_criteria_met</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="n">metric_signal</span> <span class="o">==</span> <span class="p">{}:</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">exit_criteria_met</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">stop_when_goals_met</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_results</span><span class="p">[</span>
+            <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="p">)</span>
+        <span class="p">]</span><span class="o">.</span><span class="n">check_goals</span><span class="p">(</span><span class="n">metric_signal</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_output_model_num</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">output_model_num</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, olivedevteam@microsoft.com.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
