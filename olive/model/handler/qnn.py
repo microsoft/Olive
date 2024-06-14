@@ -93,3 +93,11 @@ class QNNModelHandler(OliveModelHandler):
         inference_settings["backend"] = model_attributes.get("backend") or inference_settings.get("backend")
         session_options = QNNSessionOptions(**inference_settings)
         return QNNInferenceSession(self.model_path, self.io_config, session_options)
+
+    def run_session(
+        self,
+        session: Any = None,
+        inputs: Union[Dict[str, Any], List[Any], Tuple[Any, ...]] = None,
+        **kwargs: Dict[str, Any],
+    ) -> Any:
+        return session(inputs, **kwargs)

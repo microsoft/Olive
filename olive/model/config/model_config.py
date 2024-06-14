@@ -20,6 +20,7 @@ class ModelConfig(ConfigBase):
                 "type": "CompositePyTorchModel",
                 "config": {
                     "model_path": "llama_v2",
+                    "generative": False,
                     "model_components": [
                         {
                             "name": "decoder_model",

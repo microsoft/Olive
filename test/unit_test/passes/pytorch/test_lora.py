@@ -38,6 +38,7 @@ def get_pass_config(model_name, task, **kwargs):
                 "source_max_len": 512,
                 "max_samples": 10,
                 "pad_to_max_len": False,
+                "trust_remote_code": True,
             }
         },
     }
@@ -65,7 +66,7 @@ def run_finetuning(pass_class, tmp_path, **pass_config_kwargs):
     # setup
     model_name = "hf-internal-testing/tiny-random-OPTForCausalLM"
     task = "text-generation"
-    input_model = PyTorchModelHandler(hf_config={"model_name": model_name, "task": task, "trust_remote_code": True})
+    input_model = PyTorchModelHandler(hf_config={"model_name": model_name, "task": task})
     # convert to json to ensure the pass can handle serialized data config
     config = get_pass_config(model_name, task, **pass_config_kwargs)
     p = create_pass_from_dict(pass_class, config, disable_search=True)

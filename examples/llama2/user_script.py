@@ -139,6 +139,7 @@ class RandomDataLoader:
         model_framework: str = Framework.PYTORCH,
         use_fp16: bool = False,
         use_gqa: bool = False,
+        generative: bool = False,
     ):
         self.model_id = model_id
         self.batch_size = batch_size
@@ -151,6 +152,7 @@ class RandomDataLoader:
             raise ValueError("GQA is only supported for ONNX model with FP16")
         self.use_fp16 = use_fp16
         self.use_gqa = use_gqa
+        self.generative = generative
 
     def __getitem__(self, idx):
         input_ids, attention_mask, position_ids, past_kv = get_merged_sample_with_past_kv_inputs(
@@ -164,9 +166,16 @@ class RandomDataLoader:
         inputs = {
             "input_ids": input_ids,
             "attention_mask": attention_mask,
-            "position_ids": position_ids,
-            "past_key_values": past_kv,
         }
+
+        if not self.generative:
+            inputs.update(
+                {
+                    "position_ids": position_ids,
+                    "past_key_values": past_kv,
+                }
+            )
+
         if self.model_framework == Framework.ONNX:
             inputs.update(flatten_past_kv_inputs(past_kv))
             del inputs["past_key_values"]
@@ -191,6 +200,7 @@ def _dataloader_func(**kwargs):
     model_framework = kwargs.get("model_framework", Framework.PYTORCH)
     use_fp16 = kwargs.get("use_fp16", False)
     use_gqa = kwargs.get("use_gqa", False)
+    generative = kwargs.get("generative", False)
     return RandomDataLoader(
         model_id,
         batch_size,
@@ -200,6 +210,7 @@ def _dataloader_func(**kwargs):
         model_framework=model_framework,
         use_fp16=use_fp16,
         use_gqa=use_gqa,
+        generative=generative,
     )
 
 
@@ -211,6 +222,11 @@ def dataloader_func_for_merged(data_dir, batch_size, **kwargs):
 def dataloader_func_for_merged_gqa(data_dir, batch_size, **kwargs):
     """Return data loader for ONNX model + FP16 + GQA."""
     return _dataloader_func(batch_size=batch_size, use_fp16=True, use_gqa=True, **kwargs)
+
+
+def dataloader_func_for_generative(data_dir, batch_size, **kwargs):
+    """Return data loader for ONNX model + FP16 + GQA."""
+    return _dataloader_func(batch_size=batch_size, generative=True, **kwargs)
 
 
 # -----------------------------------------------------------------------------

@@ -473,6 +473,7 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
             model, metric, dataloader, device, execution_providers
         )
         io_config = model.io_config
+        run_kwargs = metric.get_run_kwargs()
 
         preds = []
         targets = []
@@ -482,7 +483,7 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
         is_single_tensor_output = len(output_names) == 1
         for input_data, labels in dataloader:
             input_feed = OnnxEvaluator.format_input(input_data, io_config)
-            result = session.run(input_feed)
+            result = model.run_session(session, input_feed, **run_kwargs)
             if is_single_tensor_output:
                 result = torch.Tensor(result[0])
             else:
@@ -590,7 +591,7 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
         for _, (input_data, labels) in enumerate(dataloader):
             input_dict = OnnxEvaluator.format_input(input_data, io_config)
             MPI.COMM_WORLD.barrier()  # Synchronize before starting each run
-            output = session.run(input_feed=input_dict, output_names=None)
+            output = session.run(None, input_dict)
             output = torch.Tensor(output[0]) if len(output_names) == 1 else torch.Tensor(output)
             post_output = post_func(output) if post_func else output
             preds.extend(post_output.tolist())
@@ -688,7 +689,7 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
             if io_bind:
                 session.run_with_iobinding(io_bind_op)
             else:
-                session.run(input_feed=input_feed, output_names=None)
+                session.run(None, input_feed)
             if i > warmup_num:
                 latencies.append(time.perf_counter() - start_time)
             time.sleep(sleep_num)
@@ -789,11 +790,12 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         targets = []
         logits = []
         device = PyTorchEvaluator._device_string_to_torch_device(device)
+        run_kwargs = metric.get_run_kwargs()
         if device:
             session.to(device)
         for input_data_i, labels in dataloader:
             input_data = tensor_data_to_device(input_data_i, device)
-            result = session(**input_data) if isinstance(input_data, dict) else session(input_data)
+            result = model.run_session(session, input_data, **run_kwargs)
             outputs = post_func(result) if post_func else result
             # keep the outputs and results as torch tensor on cpu
             # it is expensive to convert to list and then convert back to torch tensor
@@ -847,26 +849,19 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
 
         input_data, _ = next(iter(dataloader))
         device = PyTorchEvaluator._device_string_to_torch_device(device)
+        run_kwargs = metric.get_run_kwargs()
+
         is_cuda = device == Device.GPU
-        if device:
+        if is_cuda:
             session.to(device)
             input_data = tensor_data_to_device(input_data, device)
-        input_is_dict = isinstance(input_data, dict)
 
         # warm up
         for _ in range(warmup_num):
-            session(**input_data) if input_is_dict else session(input_data)
+            model.run_session(session, input_data, **run_kwargs)
 
         latencies = []
-        if not is_cuda:
-            for _ in range(repeat_test_num):
-                t = time.perf_counter()
-                # TODO(jambayk): do we care about the efficiency of if/else here?
-                # probably won't add much overhead compared to the inference time
-                # also we are doing the same for all models
-                session(**input_data) if input_is_dict else session(input_data)
-                latencies.append(time.perf_counter() - t)
-        else:
+        if is_cuda:
             # synchronize before starting the test
             torch.cuda.synchronize()
             # cuda events for measuring latency
@@ -874,19 +869,28 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
             ender = torch.cuda.Event(enable_timing=True)
             for _ in range(repeat_test_num):
                 starter.record()
-                session(**input_data) if input_is_dict else session(input_data)
+                model.run_session(session, input_data, **run_kwargs)
                 ender.record()
                 # synchronize after forward pass
                 torch.cuda.synchronize()
                 # add time in seconds, originally in milliseconds
                 latencies.append(starter.elapsed_time(ender) * 1e-3)
 
-        # move model to cpu
-        if device:
+            # move model back to cpu
             session.to("cpu")
-        # only move to cpu cannot release gpu memory, call cuda.empty_cache() to release gpu memory
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+            tensor_data_to_device(input_data, Device.CPU)
+
+            # only move to cpu cannot release gpu memory, call cuda.empty_cache() to release gpu memory
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        else:
+            for _ in range(repeat_test_num):
+                t = time.perf_counter()
+                # TODO(jambayk): do we care about the efficiency of if/else here?
+                # probably won't add much overhead compared to the inference time
+                # also we are doing the same for all models
+                model.run_session(session, input_data, **run_kwargs)
+                latencies.append(time.perf_counter() - t)
 
         return latencies
 
@@ -910,12 +914,14 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         inference_settings["return_numpy_results"] = True
 
         session = model.prepare_session(inference_settings=inference_settings, device=device)
+        run_kwargs = metric.get_run_kwargs()
 
         preds = []
         targets = []
         logits = []
         for data_dir, input_list, labels in dataloader:
-            result = session(input_list, data_dir)
+            run_kwargs["data_dir"] = data_dir
+            result = model.run_session(session, input_list, **run_kwargs)
             # as the SNPE inference will return a list of outputs which is beyond the model output shape
             # we need to squeeze the fist dimensions of output to get right accuracy metrics
             for idx, output in enumerate(result.get("results")):
@@ -963,7 +969,12 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
 
         data_dir, input_data, _ = next(iter(dataloader))
         total_runs = warmup_num + repeat_test_num
-        results = session(input_data, data_dir, runs=total_runs, sleep=sleep_num)
+        run_kwargs = metric.get_run_kwargs()
+        run_kwargs["data_dir"] = data_dir
+        run_kwargs["runs"] = total_runs
+        run_kwargs["sleep"] = sleep_num
+
+        results = model.run_session(session, input_data, **run_kwargs)
         return results["latencies"]["total_inference_time"][warmup_num:]
 
     def _prepare_dataloader(
@@ -988,12 +999,13 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
         session = model.prepare_session(
             inference_settings=metric.get_inference_settings(self.framework.lower()), device=device
         )
+        run_kwargs = metric.get_run_kwargs()
 
         preds = []
         targets = []
         logits = []
         for input_data, label in dataloader:
-            session.infer({0: input_data})
+            model.run_session(session, {0: input_data}, **run_kwargs)
             result = session.get_output_tensor(0).data
             outputs = post_func(result) if post_func else result
             preds.extend(outputs)
@@ -1027,11 +1039,12 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
         session = model.prepare_session(
             inference_settings=metric.get_inference_settings(self.framework.lower()), device=device
         )
+        run_kwargs = metric.get_run_kwargs()
 
         latencies = []
         for input_data, _ in dataloader:
             t = time.perf_counter()
-            session.infer(input_data)
+            model.run_session(session, input_data, **run_kwargs)
             latencies.append(time.perf_counter() - t)
         return latencies
 
@@ -1055,8 +1068,10 @@ class QNNEvaluator(OliveEvaluator, framework=Framework.QNN):
         preds = []
         targets = []
         logits = []
+        run_kwargs = metric.get_run_kwargs()
         for data_dir, input_list, labels in dataloader:
-            result = session(input_list, data_dir)
+            run_kwargs["data_dir"] = data_dir
+            result = model.run_session(session, input_list, **run_kwargs)
             for idx, output in enumerate(result.get("result")):
                 if post_func:
                     post_output = post_func(output)
@@ -1102,7 +1117,11 @@ class QNNEvaluator(OliveEvaluator, framework=Framework.QNN):
         data_dir, input_data, _ = next(iter(dataloader))
         # for qnn-net-run only keep 20 logs
         total_runs = min(warmup_num + repeat_test_num, 20)
-        results = session(input_data, data_dir, runs=total_runs, sleep=sleep_num)
+        run_kwargs = metric.get_run_kwargs()
+        run_kwargs["data_dir"] = data_dir
+        run_kwargs["runs"] = total_runs
+        run_kwargs["sleep"] = sleep_num
+        results = model.run_session(session, input_data, **run_kwargs)
         return results["latencies"]["net_run"][warmup_num:]
 
     def _prepare_dataloader(

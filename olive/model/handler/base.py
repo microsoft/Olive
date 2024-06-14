@@ -39,6 +39,7 @@ class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin, CompositeM
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         model_attributes: Optional[Dict[str, Any]] = None,
         io_config: Union[Dict[str, Any], "IoConfig", str, Callable] = None,
+        generative: bool = False,
     ):
         self.framework = framework
         self.model_file_format = model_file_format
@@ -49,6 +50,7 @@ class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin, CompositeM
             if isinstance(io_config, (IoConfig, dict))
             else io_config
         )
+        self.generative = generative
 
         # store resource paths
         self.resource_paths: Dict[str, str] = {}
@@ -80,6 +82,19 @@ class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin, CompositeM
         rank: Optional[int] = None,
     ):
         """Prepare inference session for Olive model, return in-memory inference session.
+
+        Derived class should implement its specific logic if needed.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def run_session(
+        self,
+        session: Any = None,
+        inputs: Union[Dict[str, Any], List[Any], Tuple[Any, ...]] = None,
+        **kwargs: Dict[str, Any],
+    ) -> Any:
+        """Run inference session for Olive model, returns in-memory inference results.
 
         Derived class should implement its specific logic if needed.
         """
