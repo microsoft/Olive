@@ -13,10 +13,10 @@ class KVCacheConfig(ConfigBase):
     num_attention_heads: int
     hidden_size: int
 
-    ort_past_key_name: str = "past_key_<id>"
-    ort_past_value_name: str = "past_value_<id>"
-    ort_present_key_name: str = "present_key_<id>"
-    ort_present_value_name: str = "present_value_<id>"
+    ort_past_key_name: str = "past_key_values.<id>.key"
+    ort_past_value_name: str = "past_key_values.<id>.value"
+    ort_present_key_name: str = "present.<id>.key"
+    ort_present_value_name: str = "present.<id>.value"
 
     # world_size is used for distributed model. If world_size > 1,
     # the number of heads should be divisible by world_size

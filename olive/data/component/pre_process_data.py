@@ -194,6 +194,8 @@ def text_generation_huggingface_pre_process(
     from transformers import AutoTokenizer
 
     all_kwargs = deepcopy(kwargs)
+    # task is not used in the pre-process function. Will pop it so that the config validation doesn't warn about unused kwargs
+    all_kwargs.pop("task", None)
     all_kwargs.update({"max_samples": max_samples, "source_max_len": source_max_len})
 
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=trust_remote_code)

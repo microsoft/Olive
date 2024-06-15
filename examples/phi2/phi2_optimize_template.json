@@ -44,7 +44,12 @@
                         "1": "sequence_length"
                     }
                 },
-                "kv_cache": true
+                "kv_cache": {
+                    "ort_past_key_name" : "past_key_<id>",
+                    "ort_past_value_name" : "past_value_<id>",
+                    "ort_present_key_name" : "present_key_<id>",
+                    "ort_present_value_name" : "present_value_<id>"
+                }
             },
             "hf_config": {
                 "model_name": "microsoft/phi-2",
