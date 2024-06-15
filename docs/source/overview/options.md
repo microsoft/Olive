@@ -119,13 +119,13 @@ find more details in [Olive Models](https://microsoft.github.io/Olive/api/models
           - If it is `False`, Olive will not use key value cache.
           - If it is `True`, Olive will infer the cache configuration from the input_names/input_shapes and input model based on default `kv_cache`.
           - If it is a dictionary, it should contains the key value cache configuration. Here is an default configuration example:
-            - `ort_past_key_name`: "past_key_<id>"
+            - `ort_past_key_name`: "past_key_values.<id>.key"
                 Template for the past key name. The `<id>` will be replaced by the id of the past key.
-            - `ort_past_value_name`: "past_value_<id>"
+            - `ort_past_value_name`: "past_key_values.<id>.value"
                 Template for the past value name. The `<id>` will be replaced by the id of the past value.
-            - `ort_present_key_name`: "present_key_<id>"
+            - `ort_present_key_name`: "present.<id>.key"
                 Template for the present key name. The `<id>` will be replaced by the id of the present key.
-            - `ort_present_value_name`: "present_value_<id>"
+            - `ort_present_value_name`: "present.<id>.value"
                 Template for the present value name. The `<id>` will be replaced by the id of the present value.
             - `world_size`: 1
                 It is only used for distributed models.
