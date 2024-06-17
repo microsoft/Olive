@@ -14,7 +14,14 @@ def test_sparsegpt(tmp_path):
     task = "text-generation"
     input_model = PyTorchModelHandler(hf_config={"model_name": model_name, "task": task})
     component_configs = {
-        "load_dataset_config": {"params": {"data_name": "ptb_text_only", "subset": "penn_treebank", "split": "train"}},
+        "load_dataset_config": {
+            "params": {
+                "data_name": "ptb_text_only",
+                "subset": "penn_treebank",
+                "split": "train",
+                "trust_remote_code": True,
+            }
+        },
         "pre_process_data_config": {
             "params": {
                 "text_cols": ["sentence"],
@@ -22,6 +29,7 @@ def test_sparsegpt(tmp_path):
                 "source_max_len": 1024,
                 "max_samples": 1,
                 "random_seed": 42,
+                "trust_remote_code": True,
             }
         },
     }

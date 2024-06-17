@@ -204,12 +204,13 @@ class RunConfig(ConfigBase):
             # auto insert trust_remote_code from input model hf config
             # won't override if value was set to False explicitly
             if hf_config.get("from_pretrained_args", {}).get("trust_remote_code"):
-                v["pre_process_data_config"] = component_config = v.get("pre_process_data_config") or {}
-                component_config["params"] = component_config_params = component_config.get("params") or {}
-                if component_config_params.get("trust_remote_code") is None:
-                    component_config_params["trust_remote_code"] = hf_config["from_pretrained_args"][
-                        "trust_remote_code"
-                    ]
+                for config_name in ["pre_process_data_config", "load_dataset_config"]:
+                    v[config_name] = component_config = v.get(config_name) or {}
+                    component_config["params"] = component_config_params = component_config.get("params") or {}
+                    if component_config_params.get("trust_remote_code") is None:
+                        component_config_params["trust_remote_code"] = hf_config["from_pretrained_args"][
+                            "trust_remote_code"
+                        ]
 
         return validate_config(v, DataConfig)
 

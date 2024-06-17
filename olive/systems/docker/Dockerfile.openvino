@@ -14,7 +14,7 @@ RUN apt-get -y update && ACCEPT_EULA=Y apt-get -y upgrade
 RUN apt-get install -y --no-install-recommends wget gnupg
 
 RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-RUN pip install --no-cache-dir pandas plotly psutil datasets transformers onnxruntime-openvino olive-ai
+RUN pip install --no-cache-dir pandas plotly psutil datasets transformers onnxruntime-openvino "numpy<2.0" olive-ai
 
 ENV INTEL_OPENVINO_DIR /opt/intel/openvino_${OPENVINO_VERSION}
 ENV LD_LIBRARY_PATH $INTEL_OPENVINO_DIR/runtime/lib/intel64:$INTEL_OPENVINO_DIR/runtime/3rdparty/tbb/lib:/usr/local/openblas/lib:$LD_LIBRARY_PATH
