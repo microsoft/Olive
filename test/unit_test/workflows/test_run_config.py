@@ -324,12 +324,14 @@ class TestDataConfigValidation:
                     "name": "dummy_data_config2",
                     "type": HuggingfaceContainer.__name__,
                     "pre_process_data_config": {"params": {"trust_remote_code": data_config_trust_remote_code}},
+                    "load_dataset_config": {"params": {"trust_remote_code": data_config_trust_remote_code}},
                 }
             ]
 
         run_config = RunConfig.parse_obj(config_dict)
 
         assert run_config.data_configs[0].name == "dummy_data_config2"
+        assert run_config.data_configs[0].load_dataset_params.get("trust_remote_code") == expected_trust_remote_code
         assert run_config.data_configs[0].pre_process_params.get("trust_remote_code") == expected_trust_remote_code
 
     @pytest.mark.parametrize(

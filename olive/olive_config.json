@@ -219,7 +219,8 @@
         ],
         "openvino": [
             "openvino==2023.2.0",
-            "nncf==2.7.0"
+            "nncf==2.7.0",
+            "numpy<2.0"
         ],
         "tf": [
             "tensorflow==1.15.0"
@@ -249,7 +250,8 @@
             "onnxruntime",
             "onnxruntime-directml",
             "onnxruntime-gpu",
-            "onnxruntime-openvino"
+            "onnxruntime-openvino",
+            "numpy<2.0"
         ],
         "nvmo": [
             "nvidia-modelopt~=0.11.0",

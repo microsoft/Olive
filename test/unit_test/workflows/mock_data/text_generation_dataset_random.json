@@ -4,7 +4,10 @@
         "config": {
             "hf_config": {
                 "model_name": "gpt2",
-                "task": "text-generation"
+                "task": "text-generation",
+                "from_pretrained_args": {
+                    "trust_remote_code": true
+                }
             }
         }
     },

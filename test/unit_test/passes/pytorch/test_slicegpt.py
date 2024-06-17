@@ -20,7 +20,14 @@ def test_slicegpt(tmp_path):
     task = "text-generation"
     input_model = PyTorchModelHandler(hf_config={"model_name": model_name, "task": task})
     dataset = {
-        "load_dataset_config": {"params": {"data_name": "wikitext", "subset": "wikitext-2-raw-v1", "split": "train"}},
+        "load_dataset_config": {
+            "params": {
+                "data_name": "wikitext",
+                "subset": "wikitext-2-raw-v1",
+                "split": "train",
+                "trust_remote_code": True,
+            }
+        },
         "pre_process_data_config": {
             "params": {
                 "text_cols": ["text"],
@@ -29,6 +36,7 @@ def test_slicegpt(tmp_path):
                 "source_max_len": 2048,
                 "max_samples": 128,
                 "joiner": "\n\n",
+                "trust_remote_code": True,
             }
         },
     }
