@@ -28,8 +28,14 @@ def test_kv_cache_dynamic_axes(num_hidden_layers, shared_kv, sequence_length_idx
 
     past_sequence_length_name = "past_sequence_length" if not shared_kv else "max_sequence_length"
     present_sequence_length_name = "past_sequence_length + sequence_length" if not shared_kv else "max_sequence_length"
-    assert dynamic_axes["past_key_values.0.key"] == {"0": "batch_size", str(sequence_length_idx): past_sequence_length_name}
-    assert dynamic_axes["past_key_values.0.value"] == {"0": "batch_size", str(sequence_length_idx): past_sequence_length_name}
+    assert dynamic_axes["past_key_values.0.key"] == {
+        "0": "batch_size",
+        str(sequence_length_idx): past_sequence_length_name,
+    }
+    assert dynamic_axes["past_key_values.0.value"] == {
+        "0": "batch_size",
+        str(sequence_length_idx): past_sequence_length_name,
+    }
     assert dynamic_axes["present.0.key"] == {"0": "batch_size", str(sequence_length_idx): present_sequence_length_name}
     assert dynamic_axes["present.0.value"] == {
         "0": "batch_size",
