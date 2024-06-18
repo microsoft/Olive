@@ -39,7 +39,7 @@ PASS_CONFIG = {
             "train_batch_size": 100,
             "modules_to_fuse": [["conv1", "bn1"], ["conv2", "bn2"], ["conv3", "bn3"]],
             "qconfig_func": "create_qat_config",
-        }
+        },
     },
 }
 
