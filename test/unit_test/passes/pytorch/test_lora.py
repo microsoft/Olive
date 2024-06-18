@@ -23,7 +23,14 @@ from olive.passes.pytorch.lora import LoftQ, LoRA, QLoRA
 
 def get_pass_config(model_name, task, **kwargs):
     dataset = {
-        "load_dataset_config": {"params": {"data_name": "ptb_text_only", "subset": "penn_treebank", "split": "train"}},
+        "load_dataset_config": {
+            "params": {
+                "data_name": "ptb_text_only",
+                "subset": "penn_treebank",
+                "split": "train",
+                "trust_remote_code": True,
+            }
+        },
         "pre_process_data_config": {
             "params": {
                 "text_cols": ["sentence"],
@@ -58,7 +65,7 @@ def run_finetuning(pass_class, tmp_path, **pass_config_kwargs):
     # setup
     model_name = "hf-internal-testing/tiny-random-OPTForCausalLM"
     task = "text-generation"
-    input_model = PyTorchModelHandler(hf_config={"model_name": model_name, "task": task})
+    input_model = PyTorchModelHandler(hf_config={"model_name": model_name, "task": task, "trust_remote_code": True})
     # convert to json to ensure the pass can handle serialized data config
     config = get_pass_config(model_name, task, **pass_config_kwargs)
     p = create_pass_from_dict(pass_class, config, disable_search=True)

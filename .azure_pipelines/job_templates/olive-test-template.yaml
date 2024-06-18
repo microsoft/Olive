@@ -19,6 +19,8 @@ jobs:
     testType: ${{ parameters.test_type }}
     python_version: ${{ parameters.python_version }}
     requirements_file: ${{ parameters.requirements_file }}
+    PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
+    HF_HOME: $(Pipeline.Workspace)/.cache/huggingface
 
   steps:
   - task: UsePythonVersion@0

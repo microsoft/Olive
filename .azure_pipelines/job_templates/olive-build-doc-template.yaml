@@ -11,6 +11,9 @@ jobs:
   - job: ${{parameters.job_name}}
     displayName: ${{parameters.display_name}}
     pool: ${{ parameters.pool}}
+    variables:
+      PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
+      HF_HOME: $(Pipeline.Workspace)/.cache/huggingface
 
     steps:
     - task: UsePythonVersion@0
