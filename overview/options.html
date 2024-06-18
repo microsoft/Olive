@@ -301,13 +301,13 @@ input and return the loaded model.</p></li>
 <li><p>If it is <code class="docutils literal notranslate"><span class="pre">True</span></code>, Olive will infer the cache configuration from the input_names/input_shapes and input model based on default <code class="docutils literal notranslate"><span class="pre">kv_cache</span></code>.</p></li>
 <li><p>If it is a dictionary, it should contains the key value cache configuration. Here is an default configuration example:</p>
 <ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">ort_past_key_name</span></code>: “past_key_<id>”
+<li><p><code class="docutils literal notranslate"><span class="pre">ort_past_key_name</span></code>: “past_key_values.<id>.key”
 Template for the past key name. The <code class="docutils literal notranslate"><span class="pre">&lt;id&gt;</span></code> will be replaced by the id of the past key.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">ort_past_value_name</span></code>: “past_value_<id>”
+<li><p><code class="docutils literal notranslate"><span class="pre">ort_past_value_name</span></code>: “past_key_values.<id>.value”
 Template for the past value name. The <code class="docutils literal notranslate"><span class="pre">&lt;id&gt;</span></code> will be replaced by the id of the past value.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">ort_present_key_name</span></code>: “present_key_<id>”
+<li><p><code class="docutils literal notranslate"><span class="pre">ort_present_key_name</span></code>: “present.<id>.key”
 Template for the present key name. The <code class="docutils literal notranslate"><span class="pre">&lt;id&gt;</span></code> will be replaced by the id of the present key.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">ort_present_value_name</span></code>: “present_value_<id>”
+<li><p><code class="docutils literal notranslate"><span class="pre">ort_present_value_name</span></code>: “present.<id>.value”
 Template for the present value name. The <code class="docutils literal notranslate"><span class="pre">&lt;id&gt;</span></code> will be replaced by the id of the present value.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">world_size</span></code>: 1
 It is only used for distributed models.</p></li>
