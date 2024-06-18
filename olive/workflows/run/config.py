@@ -333,7 +333,7 @@ def _resolve_config_str(v, values, alias, component_name):
 
 def _resolve_system(v, values, system_alias):
     v = _resolve_config_str(v, values, system_alias, component_name="systems")
-    if system_alias in v:
+    if v.get(system_alias):
         v[system_alias] = validate_config(v[system_alias], SystemConfig)
         if v[system_alias].type == "AzureML":
             if not values["azureml_client"]:
@@ -372,6 +372,7 @@ def _resolve_evaluator(v, values):
     if isinstance(evaluator, dict):
         for idx, metric in enumerate(evaluator.get("metrics", [])):
             evaluator["metrics"][idx] = _resolve_data_config(metric, values, "data_config")
+        return v
     elif not isinstance(evaluator, str):
         return v
 
