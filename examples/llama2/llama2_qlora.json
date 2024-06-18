@@ -26,9 +26,9 @@
                     ]
                 ],
                 "input_types": [
-                    "int32",
-                    "int32",
-                    "int32"
+                    "int64",
+                    "int64",
+                    "int64"
                 ],
                 "dynamic_axes": {
                     "input_ids": {
@@ -134,9 +134,9 @@
                     "per_device_train_batch_size": 16,
                     "per_device_eval_batch_size": 16,
                     "gradient_accumulation_steps": 1,
-                    "max_steps": 1500,
-                    "logging_steps": 100,
-                    "save_steps": 100,
+                    "max_steps": 150,
+                    "logging_steps": 50,
+                    "save_steps": 50,
                     "evaluation_strategy": "steps",
                     "adam_beta2": 0.999,
                     "max_grad_norm": 0.3,
@@ -151,7 +151,8 @@
                 "target_opset": 17,
                 "save_as_external_data": true,
                 "all_tensors_to_one_file": true,
-                "torch_dtype": "float32"
+                "torch_dtype": "float32",
+                "save_metadata_for_token_generation": true
             }
         },
         "transformers_optimization": {
@@ -172,6 +173,13 @@
                 "save_as_external_data": true,
                 "all_tensors_to_one_file": true,
                 "make_inputs": true
+            }
+        },
+        "metadata": {
+            "type": "ModelBuilder",
+            "config": {
+                "precision": "fp16",
+                "metadata_only": true
             }
         }
     },

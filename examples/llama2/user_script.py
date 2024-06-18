@@ -66,6 +66,7 @@ def get_merged_sample_with_past_kv_inputs(
     input_ids = torch.randint(low=0, high=config.vocab_size, size=(batch_size, seq_len), dtype=torch.int64)
     attention_mask = torch.ones(batch_size, past_seq_len + seq_len, dtype=torch.int64)
     position_ids = get_position_ids(attention_mask, past_seq_len=past_seq_len)
+    position_ids = position_ids.to(torch.int64)
     past_kv = get_past_kv_inputs(config, batch_size, past_seq_len, use_fp16=use_fp16, world_size=world_size)
 
     return (input_ids, attention_mask, position_ids, past_kv)
@@ -104,8 +105,8 @@ def flatten_past_kv_inputs(past_key_values: List[Tuple[torch.Tensor, torch.Tenso
     past_kv = {}
     # Convert list of past_kv to dict of past_key and past_value
     for i, (past_k, past_v) in enumerate(past_key_values):
-        past_kv[f"past_key_{i}"] = past_k
-        past_kv[f"past_value_{i}"] = past_v
+        past_kv[f"past_key_values.{i}.key"] = past_k
+        past_kv[f"past_key_values.{i}.value"] = past_v
     return past_kv
 
 

@@ -338,9 +338,10 @@ def get_local_ort_packages() -> List[str]:
     local_ort_packages = []
     for package in all_packages:
         package_name = package.metadata["Name"]
-        if package_name == "onnxruntime-extensions":
+        if package_name == "onnxruntime-extensions" or package_name.startswith("onnxruntime-genai"):
             # onnxruntime-packages is under onnxruntime_extensions namespace
-            # not an actual onnxruntime package
+            # onnxruntime-genai is under onnxruntime_genai namespace
+            # not onnxruntime packages
             continue
         if package_name.startswith(("onnxruntime", "ort-nightly")):
             local_ort_packages.append(package_name)
