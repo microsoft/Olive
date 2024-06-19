@@ -5,7 +5,7 @@
 import logging
 import os
 import sys
-from datetime import datetime
+from pathlib import Path
 
 
 def get_olive_logger():
@@ -81,10 +81,11 @@ def set_ort_logger_severity(level):
     ort_logger.addHandler(stream_handler)
 
 
-def enable_filelog(level):
+def enable_filelog(level, cache_dir: str, workflow_id: str):
     olive_logger = get_olive_logger()
 
-    file_handler = logging.FileHandler("olive-{:%Y-%m-%d-%H-%M}.log".format(datetime.now()))
+    log_file_path = Path(cache_dir) / f"{workflow_id}.log"
+    file_handler = logging.FileHandler(log_file_path)
     file_handler.setLevel(get_logger_level(level))
     formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] [%(filename)s:%(lineno)d:%(funcName)s] %(message)s")
     file_handler.setFormatter(formatter)

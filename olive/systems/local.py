@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorFactory
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ModelConfig
-from olive.systems.common import SystemType
+from olive.systems.common import AcceleratorConfig, SystemType
 from olive.systems.olive_system import OliveSystem
 
 if TYPE_CHECKING:
@@ -18,6 +18,9 @@ if TYPE_CHECKING:
 
 class LocalSystem(OliveSystem):
     system_type = SystemType.Local
+
+    def __init__(self, accelerators: List[AcceleratorConfig] = None, hf_token: bool = None):
+        super().__init__(accelerators, hf_token)
 
     def run_pass(
         self,

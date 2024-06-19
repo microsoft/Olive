@@ -95,6 +95,10 @@ DockerSystem
 ^^^^^^^^^^^^^
 .. autoclass:: olive.systems.docker.DockerSystem
 
+CloudSystem
+^^^^^^^^^^^^^
+.. autoclass:: olive.systems.cloud.CloudSystem
+
 PythonEnvironmentSystem
 ^^^^^^^^^^^^^^^^^^^^^^^^
 .. autoclass:: olive.systems.python_environment.PythonEnvironmentSystem

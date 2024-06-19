@@ -417,3 +417,13 @@ def find_first_matched_value(original_dict: Dict, keys: Union[str, Tuple, List[s
     if raise_key_error:
         raise KeyError(f"Keys {keys} not found in {original_dict}")
     return None
+
+
+def get_path_by_os(path: Union[Path, str], target_system: OS):
+    path = Path(path)
+    if target_system == OS.LINUX:
+        return path.as_posix()
+    elif target_system == OS.WINDOWS:
+        return path.as_posix().replace("/", r"\\")
+    else:
+        raise ValueError(f"Unsupported OS {target_system}")

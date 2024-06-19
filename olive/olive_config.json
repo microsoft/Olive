@@ -208,6 +208,9 @@
         "docker": [
             "docker"
         ],
+        "cloud": [
+            "paramiko"
+        ],
         "cpu": [
             "onnxruntime"
         ],

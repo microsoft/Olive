@@ -8,14 +8,19 @@ import subprocess
 import sys
 from copy import deepcopy
 from pathlib import Path
-from typing import Generator, List, Union
+from typing import TYPE_CHECKING, Generator, List, Union
 
 from olive.auto_optimizer import AutoOptimizer
-from olive.logging import enable_filelog, set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
+from olive.common.utils import get_path_by_os
+from olive.logging import set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
 from olive.package_config import OlivePackageConfig
 from olive.systems.accelerator_creator import create_accelerators
 from olive.systems.common import SystemType
+from olive.systems.system_config import LocalTargetUserConfig, SystemConfig
 from olive.workflows.run.config import RunConfig, RunPassConfig
+
+if TYPE_CHECKING:
+    from olive.systems.cloud.cloud_system import CloudSystem
 
 logger = logging.getLogger(__name__)
 
@@ -266,6 +271,8 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig, data_r
                 run_config.engine.output_dir,
                 run_config.engine.output_name,
                 run_config.engine.evaluate_input_model,
+                run_config.engine.log_to_file,
+                run_config.engine.log_severity_level,
             )
         )
     return run_rls
@@ -282,11 +289,11 @@ def run(
 
     package_config = OlivePackageConfig.parse_file_or_obj(package_config)
     run_config = RunConfig.parse_file_or_obj(run_config)
+    if run_config.engine.host.type == SystemType.Cloud:
+        return run_cloud_system(run_config)
 
     # set log level for olive
     set_default_logger_severity(run_config.engine.log_severity_level)
-    if run_config.engine.log_to_file:
-        enable_filelog(run_config.engine.log_severity_level)
 
     if setup:
         # set the log level to INFO for setup
@@ -295,6 +302,30 @@ def run(
         return None
     else:
         return run_engine(package_config, run_config, data_root)
+
+
+def run_cloud_system(run_config: RunConfig):
+    workflow_id = run_config.workflow_id
+    accelerators = run_config.engine.host.config.accelerators
+    hf_token = run_config.engine.host.config.hf_token
+
+    cloud_system: CloudSystem = run_config.engine.host.create_system()
+
+    local_system = SystemConfig(
+        type=SystemType.Local, config=LocalTargetUserConfig(accelerators=accelerators, hf_token=hf_token)
+    )
+    run_config.engine.host = local_system
+    run_config.engine.log_to_file = True
+    os = cloud_system.os
+
+    olive_path = cloud_system.olive_path
+    cache_dir = run_config.engine.cache_dir
+    output_dir = run_config.engine.output_dir
+    run_config.engine.cache_dir = get_path_by_os(Path(olive_path) / cache_dir, os)
+    run_config.engine.output_dir = get_path_by_os(Path(olive_path) / output_dir, os)
+
+    olive_config = run_config.to_json()
+    return cloud_system.submit_workflow(olive_config, workflow_id)
 
 
 def check_local_ort_installation(package_name: str):

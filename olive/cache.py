@@ -10,7 +10,9 @@ from pathlib import Path
 from typing import Dict, Optional, Union
 
 from olive.common.config_utils import serialize_to_json
+from olive.common.constants import DEFAULT_WORKFLOW_ID
 from olive.common.utils import hash_dict
+from olive.logging import enable_filelog
 from olive.resource_path import ResourcePath, create_resource_path
 
 logger = logging.getLogger(__name__)
@@ -40,12 +42,19 @@ def clean_evaluation_cache(cache_dir: Union[str, Path] = ".olive-cache"):
         shutil.rmtree(evaluation_cache_dir)
 
 
-def create_cache(cache_dir: Union[str, Path] = ".olive-cache"):
+def create_cache(
+    cache_dir: Union[str, Path] = ".olive-cache",
+    workflow_id: str = DEFAULT_WORKFLOW_ID,
+    log_to_file: bool = False,
+    log_severity_level: int = 1,
+):
     """Create the cache directory and all subdirectories."""
     # TODO(trajep): to add propagation of cache_dir to all functions
     cache_sub_dirs = get_cache_sub_dirs(cache_dir)
     for sub_dir in cache_sub_dirs:
         sub_dir.mkdir(parents=True, exist_ok=True)
+    if log_to_file:
+        enable_filelog(log_severity_level, cache_dir, workflow_id)
 
 
 def _delete_model(model_number: str, cache_dir: Union[str, Path] = ".olive-cache"):
