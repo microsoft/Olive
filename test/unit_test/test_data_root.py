@@ -39,7 +39,7 @@ def post_processing_func(output):
     return output.argmax(axis=1)
 
 
-def create_dataloader(datadir, batchsize, *args, **kwargs):
+def create_dataloader(data_dir, batch_size, *args, **kwargs):
     return DataLoader(DummyDataset(1))
 
 

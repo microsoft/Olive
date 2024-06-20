@@ -21,8 +21,8 @@ def calib_dataloader(data_dir, batch_size, *args, **kwargs):
     return PileDataloader(model_path, batch_size=batch_size)
 
 
-def create_dataloader(data_dir, batchsize, *args, **kwargs):
-    dataloader = PileDataloader(model_id, batch_size=batchsize, seq_len=32, past_seq_len=32, sub_folder="train")
+def create_dataloader(data_dir, batch_size, *args, **kwargs):
+    dataloader = PileDataloader(model_id, batch_size=batch_size, seq_len=32, past_seq_len=32, sub_folder="train")
     for data, label in dataloader:
         d = {name: to_numpy(inp_data) for name, inp_data in data.items()}
         yield d, label
