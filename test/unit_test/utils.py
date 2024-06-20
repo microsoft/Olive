@@ -162,11 +162,11 @@ def get_mock_openvino_model():
     return olive_model
 
 
-def create_dataloader(datadir, batchsize, *args, **kwargs):
+def create_dataloader(data_dir, batch_size, *args, **kwargs):
     return DataLoader(DummyDataset(1))
 
 
-def create_fixed_dataloader(datadir, batchsize, *args, **kwargs):
+def create_fixed_dataloader(data_dir, batch_size, *args, **kwargs):
     return DataLoader(FixedDummyDataset(1))
 
 

@@ -10,14 +10,14 @@ def load_pytorch_origin_model(torch_hub_model_path):
 
 
 class DataLoader:
-    def __init__(self, batchsize):
-        self.batchsize = batchsize
+    def __init__(self, batch_size):
+        self.batch_size = batch_size
 
     def __getitem__(self, idx):
-        input_data = torch.rand((self.batchsize, 3, 224, 224), dtype=torch.float16)
+        input_data = torch.rand((self.batch_size, 3, 224, 224), dtype=torch.float16)
         label = None
         return input_data, label
 
 
-def create_dataloader(data_dir, batchsize, *args, **kwargs):
-    return DataLoader(batchsize)
+def create_dataloader(data_dir, batch_size, *args, **kwargs):
+    return DataLoader(batch_size)

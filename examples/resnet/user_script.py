@@ -179,9 +179,9 @@ def create_qat_config():
 # -------------------------------------------------------------------------
 
 
-def create_train_dataloader(data_dir, batchsize, *args, **kwargs):
+def create_train_dataloader(data_dir, batch_size, *args, **kwargs):
     cifar10_dataset = CIFAR10DataSet(data_dir)
-    return DataLoader(PytorchResNetDataset(cifar10_dataset.train_dataset), batch_size=batchsize, drop_last=True)
+    return DataLoader(PytorchResNetDataset(cifar10_dataset.train_dataset), batch_size=batch_size, drop_last=True)
 
 
 # -------------------------------------------------------------------------

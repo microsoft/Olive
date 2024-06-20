@@ -146,10 +146,10 @@ def post_process(output):
 # -------------------------------------------------------------------------
 
 
-def create_dataloader(data_dir, batchsize, *args, **kwargs):
+def create_dataloader(data_dir, batch_size, *args, **kwargs):
     bert_dataset = BertDataset("Intel/bert-base-uncased-mrpc")
     return torch.utils.data.DataLoader(
-        BertDatasetWrapper(bert_dataset.get_eval_dataset()), batch_size=batchsize, drop_last=True
+        BertDatasetWrapper(bert_dataset.get_eval_dataset()), batch_size=batch_size, drop_last=True
     )
 
 
