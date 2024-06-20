@@ -211,7 +211,7 @@ If no data config template can meet the requirement, we can also define the `dat
             * - `post_process_data <https://github.com/microsoft/Olive/blob/main/olive/data/component/post_process_data.py>`_
               - post_process(default), text_classification_post_process, ner_post_process, text_generation_post_process
             * - `dataloader <https://github.com/microsoft/Olive/blob/main/olive/data/component/dataloader.py>`_
-              - default_dataloader(default), skip_dataloader, no_auto_batch_dataloader
+              - default_dataloader(default), no_auto_batch_dataloader
 
         each component can be customized by the following fields:
             - ``name``: the name of the component.
