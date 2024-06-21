@@ -460,7 +460,7 @@ Convert the raw data config to the data container.</p>
 </div><div aria-labelledby="tab-4-4-1" class="sphinx-tabs-panel" hidden="true" id="panel-4-4-1" name="4-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.data.registry</span> <span class="kn">import</span> <span class="n">Registry</span>
 
 <span class="nd">@Registry</span><span class="o">.</span><span class="n">register_dataset</span><span class="p">()</span>
-<span class="k">def</span> <span class="nf">customized_huggingface_dataset</span><span class="p">(</span><span class="n">_output</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">customized_huggingface_dataset</span><span class="p">(</span><span class="n">_output</span><span class="p">,</span> <span class="n">trust_remote_code</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
     <span class="o">...</span>
 
 <span class="kn">from</span> <span class="nn">olive.data.config</span> <span class="kn">import</span> <span class="n">DataConfig</span>
@@ -483,15 +483,18 @@ Convert the raw data config to the data container.</p>
 </div></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>User should provide the <code class="docutils literal notranslate"><span class="pre">user_script</span></code> and <code class="docutils literal notranslate"><span class="pre">script_dir</span></code> if they want to customize the component type. The <code class="docutils literal notranslate"><span class="pre">user_script</span></code> should be a python script which contains the customized component type. The <code class="docutils literal notranslate"><span class="pre">script_dir</span></code> should be the directory path which contains the <code class="docutils literal notranslate"><span class="pre">user_script</span></code>. Here is an example for <code class="docutils literal notranslate"><span class="pre">user_script</span></code>:</p>
+<p>User should provide the <code class="docutils literal notranslate"><span class="pre">user_script</span></code> and <code class="docutils literal notranslate"><span class="pre">script_dir</span></code> if they want to customize the component type. The <code class="docutils literal notranslate"><span class="pre">user_script</span></code> should be a python script which contains the customized component type. The <code class="docutils literal notranslate"><span class="pre">script_dir</span></code> should be the directory path which contains the <code class="docutils literal notranslate"><span class="pre">user_script</span></code>. Another thing you might need to notice is that when your customized dataset is from huggingface, you should at least allow the <code class="docutils literal notranslate"><span class="pre">trust_remote_code</span></code> in your function’s arguments list to indicate whether you trust the remote code or not. <code class="docutils literal notranslate"><span class="pre">kwargs</span></code> is the additional keyword arguments provided in the config, it can cover the case of <code class="docutils literal notranslate"><span class="pre">trust_remote_code</span></code> as well.
+Here is an example for <code class="docutils literal notranslate"><span class="pre">user_script</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.data.registry</span> <span class="kn">import</span> <span class="n">Registry</span>
 
 <span class="nd">@Registry</span><span class="o">.</span><span class="n">register_dataset</span><span class="p">()</span>
-<span class="k">def</span> <span class="nf">customized_huggingface_dataset</span><span class="p">(</span><span class="n">data_dir</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">customized_huggingface_dataset</span><span class="p">(</span><span class="n">data_dir</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="c1"># kwargs can cover the case of trust_remote_code or user can add trust_remote_code in the function&#39;s</span>
+    <span class="c1"># arguments list, like, customized_huggingface_dataset(data_dir, trust_remote_code=None, **kwargs):</span>
     <span class="o">...</span>
 
 <span class="nd">@Registry</span><span class="o">.</span><span class="n">register_pre_process</span><span class="p">()</span>
-<span class="k">def</span> <span class="nf">customized_huggingface_pre_process</span><span class="p">(</span><span class="n">dataset</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">customized_huggingface_pre_process</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
     <span class="o">...</span>
 
 <span class="nd">@Registry</span><span class="o">.</span><span class="n">register_post_process</span><span class="p">()</span>
