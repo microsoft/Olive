@@ -35,10 +35,6 @@
             },
             "pre_process_data_config": {
                 "params": {
-                    "text_cols": [
-                        "text"
-                    ],
-                    "corpus_strategy": "join",
                     "source_max_len": 512,
                     "max_samples": 1
                 }

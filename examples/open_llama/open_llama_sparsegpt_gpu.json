@@ -39,9 +39,6 @@
             },
             "pre_process_data_config": {
                 "params": {
-                    "text_cols": [
-                        "text"
-                    ],
                     "corpus_strategy": "join-random",
                     "add_special_tokens": false,
                     "source_max_len": 2048,
@@ -62,10 +59,6 @@
             },
             "pre_process_data_config": {
                 "params": {
-                    "text_cols": [
-                        "text"
-                    ],
-                    "corpus_strategy": "join",
                     "add_special_tokens": false,
                     "source_max_len": 2048
                 }
