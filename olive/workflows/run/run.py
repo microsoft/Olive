@@ -12,7 +12,12 @@ from typing import TYPE_CHECKING, Generator, List, Union
 
 from olive.auto_optimizer import AutoOptimizer
 from olive.common.utils import get_path_by_os
-from olive.logging import set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
+from olive.logging import (
+    WORKFLOW_COMPLETED_LOG,
+    set_default_logger_severity,
+    set_ort_logger_severity,
+    set_verbosity_info,
+)
 from olive.package_config import OlivePackageConfig
 from olive.systems.accelerator_creator import create_accelerators
 from olive.systems.common import SystemType
@@ -275,12 +280,14 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig, data_r
                 run_config.engine.log_severity_level,
             )
         )
+    logger.info(WORKFLOW_COMPLETED_LOG)
     return run_rls
 
 
 def run(
     run_config: Union[str, Path, dict],
     setup: bool = False,
+    retrieve: bool = False,
     data_root: str = None,
     package_config: Union[str, Path, dict] = None,
 ):
@@ -289,8 +296,17 @@ def run(
 
     package_config = OlivePackageConfig.parse_file_or_obj(package_config)
     run_config = RunConfig.parse_file_or_obj(run_config)
-    if run_config.engine.host.type == SystemType.Cloud:
-        return run_cloud_system(run_config)
+
+    if run_config.engine.host is not None and run_config.engine.host.type == SystemType.Cloud:
+        workflow_id = run_config.workflow_id
+        cloud_system: CloudSystem = run_config.engine.host.create_system()
+        if retrieve:
+            return retrieve_workflow_logs(run_config, cloud_system, workflow_id)
+        return run_cloud_system(run_config, cloud_system, workflow_id)
+
+    if retrieve:
+        logger.warning("Retrieve is only supported for cloud systems. Ignoring retrieve flag.")
+        # TODO(xiaoyu): add retrieve support for other systems
 
     # set log level for olive
     set_default_logger_severity(run_config.engine.log_severity_level)
@@ -304,12 +320,16 @@ def run(
         return run_engine(package_config, run_config, data_root)
 
 
-def run_cloud_system(run_config: RunConfig):
-    workflow_id = run_config.workflow_id
+def retrieve_workflow_logs(run_config: RunConfig, cloud_system: "CloudSystem", workflow_id: str):
+
+    cache_dir, remote_cache_dir, output_dir, remote_output_dir = _get_cloud_sys_dirs(run_config, cloud_system)
+
+    return cloud_system.retrieve_workflow_logs(workflow_id, remote_cache_dir, cache_dir, remote_output_dir, output_dir)
+
+
+def run_cloud_system(run_config: RunConfig, cloud_system: "CloudSystem", workflow_id: str):
     accelerators = run_config.engine.host.config.accelerators
     hf_token = run_config.engine.host.config.hf_token
-
-    cloud_system: CloudSystem = run_config.engine.host.create_system()
 
     local_system = SystemConfig(
         type=SystemType.Local, config=LocalTargetUserConfig(accelerators=accelerators, hf_token=hf_token)
@@ -318,14 +338,26 @@ def run_cloud_system(run_config: RunConfig):
     run_config.engine.log_to_file = True
     os = cloud_system.os
 
-    olive_path = cloud_system.olive_path
-    cache_dir = run_config.engine.cache_dir
-    output_dir = run_config.engine.output_dir
-    run_config.engine.cache_dir = get_path_by_os(Path(olive_path) / cache_dir, os)
-    run_config.engine.output_dir = get_path_by_os(Path(olive_path) / output_dir, os)
+    cache_dir, remote_cache_dir, output_dir, remote_output_dir = _get_cloud_sys_dirs(run_config, cloud_system)
+
+    run_config.engine.cache_dir = get_path_by_os(remote_cache_dir, os)
+    run_config.engine.output_dir = get_path_by_os(remote_output_dir, os)
 
     olive_config = run_config.to_json()
-    return cloud_system.submit_workflow(olive_config, workflow_id)
+    return cloud_system.submit_workflow(
+        olive_config, workflow_id, remote_cache_dir, cache_dir, remote_output_dir, output_dir
+    )
+
+
+def _get_cloud_sys_dirs(run_config: RunConfig, cloud_system: "CloudSystem"):
+    olive_path = Path(cloud_system.olive_path)
+    cache_dir = Path(run_config.engine.cache_dir)
+    output_dir = Path(run_config.engine.output_dir)
+
+    remote_cache_dir = olive_path / cache_dir
+    remote_output_dir = olive_path / output_dir
+
+    return cache_dir, remote_cache_dir, output_dir, remote_output_dir
 
 
 def check_local_ort_installation(package_name: str):
