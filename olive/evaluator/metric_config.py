@@ -29,6 +29,7 @@ _common_user_config = {
     "input_types": ConfigParam(type_=List),
     "shared_kv_buffer": ConfigParam(type_=bool, default_value=False),
     "io_bind": ConfigParam(type_=bool, default_value=False),
+    "run_kwargs": ConfigParam(type_=dict),
 }
 
 _common_user_config_validators = {

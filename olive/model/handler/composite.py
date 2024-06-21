@@ -76,7 +76,15 @@ class CompositeModelHandler(OliveModelHandler):
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ):
-        raise NotImplementedError
+        raise RuntimeError("CompositeModelHandler doesn't have a session of its own")
+
+    def run_session(
+        self,
+        session: Any = None,
+        inputs: Union[Dict[str, Any], List[Any], Tuple[Any, ...]] = None,
+        **kwargs: Dict[str, Any],
+    ) -> Any:
+        raise RuntimeError("CompositeModelHandler doesn't have a session of its own")
 
 
 @model_handler_registry("CompositePyTorchModel")

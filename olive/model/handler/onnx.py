@@ -39,6 +39,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
         "use_ort_extensions",
         "external_initializers_file_name",
         "constant_inputs_file_name",
+        "generative",
     )
 
     def __init__(
@@ -50,12 +51,14 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
         model_attributes: Optional[Dict[str, Any]] = None,
         external_initializers_file_name: Optional[str] = None,
         constant_inputs_file_name: Optional[str] = None,
+        generative: bool = False,
     ):
         super().__init__(
             framework=Framework.ONNX,
             model_file_format=ModelFileFormat.ONNX,
             model_path=model_path,
             model_attributes=model_attributes,
+            generative=generative,
         )
         self.inference_settings = inference_settings
         self.use_ort_extensions = use_ort_extensions
@@ -115,6 +118,15 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin, OnnxGraphMixin): 
             )
         except OrtSessionFallbackError as e:
             raise OliveEvaluationError(e) from e
+
+    def run_session(
+        self,
+        session: Any = None,
+        inputs: Union[Dict[str, Any], List[Any], Tuple[Any, ...]] = None,
+        **kwargs: Dict[str, Any],
+    ) -> Any:
+        output_names = kwargs.pop("output_names", None)
+        return session.run(output_names, inputs, **kwargs)
 
     def merge_inference_settings(
         self, inference_settings: Optional[Dict[str, Any]] = None, execution_providers: List[str] = None
@@ -188,12 +200,14 @@ class DistributedOnnxModelHandler(OliveModelHandler, OnnxEpValidateMixin):
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
         model_attributes: Optional[Dict[str, Any]] = None,
+        generative: bool = False,
     ):
         super().__init__(
             framework=Framework.ONNX,
             model_file_format=ModelFileFormat.ONNX,
             model_path=model_path,
             model_attributes=model_attributes,
+            generative=generative,
         )
         self.inference_settings = inference_settings
         self.use_ort_extensions = use_ort_extensions
@@ -222,6 +236,14 @@ class DistributedOnnxModelHandler(OliveModelHandler, OnnxEpValidateMixin):
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = 0,
     ):
+        raise RuntimeError("DistributedOnnxModel doesn't have a session of its own")
+
+    def run_session(
+        self,
+        session: Any = None,
+        inputs: Union[Dict[str, Any], List[Any], Tuple[Any, ...]] = None,
+        **kwargs: Dict[str, Any],
+    ) -> Any:
         raise RuntimeError("DistributedOnnxModel doesn't have a session of its own")
 
     def get_default_execution_providers_with_model(self, filepath: str, device: Device):
