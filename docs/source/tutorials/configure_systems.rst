@@ -483,6 +483,7 @@ The cloud system allows you to run the Olive workflow in a cloud virtual machine
 .. admonition:: Configuration
 
     * :code:`accelerators`: The list of accelerators that are supported by the cloud system.
+    * :code:`hf_token`: Whether to use the Hugging Face token. This is optional and defaults to False.
     * :code:`olive_path`: The path to run the Olive workflow in the cloud system.
     * :code:`conda_path`: The path to conda to activate the environment.
     * :code:`conda_name`: The name of the conda environment to activate.
@@ -490,7 +491,7 @@ The cloud system allows you to run the Olive workflow in a cloud virtual machine
     * :code:`username`: The username to login to the cloud virtual machine.
     * :code:`os`: The operating system of the cloud virtual machine. Can be "Linux" or "Windows".
     * :code:`key_filename`: The path to the private key file to login to the cloud virtual machine.
-    * :code:`password`: The password to login to the cloud virtual machine. This is optional.
+    * :code:`password`: The password to login to the cloud virtual machine. This is optional when `key_filename` is provided.
 
 Prerequisites
 ^^^^^^^^^^^^^

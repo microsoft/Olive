@@ -335,6 +335,9 @@ def run_cloud_system(run_config: RunConfig, cloud_system: "CloudSystem", workflo
         type=SystemType.Local, config=LocalTargetUserConfig(accelerators=accelerators, hf_token=hf_token)
     )
     run_config.engine.host = local_system
+    if run_config.engine.target is not None and run_config.engine.target.type == SystemType.Cloud:
+        run_config.engine.target = local_system
+
     run_config.engine.log_to_file = True
     os = cloud_system.os
 
