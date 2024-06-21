@@ -81,9 +81,11 @@ class CloudSystem(OliveSystem):
     def _run_workflow(self, workflow_id: str):
         olive_workflow_cmd = f"python3 -m olive run --config {workflow_id}_config.json"
 
+        hf_login_cmd = "huggingface-cli login" if self.hf_token else ""
         conda_init_cmd = f"source {self.conda_path}"
         av_cmd = f"conda activate {self.conda_name}"
-        cmd = f"{conda_init_cmd} && {av_cmd} && cd {self.olive_path} && {olive_workflow_cmd}"
+        cmd = f"{hf_login_cmd} && " if self.hf_token else ""
+        cmd += f"{conda_init_cmd} && {av_cmd} && cd {self.olive_path} && {olive_workflow_cmd}"
         logger.info("Workflow %s is running in the cloud system.", workflow_id)
         self._run_command(cmd)
 
