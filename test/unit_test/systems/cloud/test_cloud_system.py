@@ -71,10 +71,13 @@ class TestCloudSystem:
         # assert
         mock_sftp.put.assert_called_once()
 
+    @patch("olive.systems.cloud.CloudSystem._download_workflow_output")
     @patch("olive.systems.cloud.CloudSystem._upload_config_file")
     @patch("olive.systems.cloud.CloudSystem._run_command")
     @patch("paramiko.SSHClient")
-    def test_submit_workflow(self, mock_ssh_client, mock_run_command, mock_upload_config_file):
+    def test_submit_workflow(
+        self, mock_ssh_client, mock_run_command, mock_upload_config_file, mock_download_workflow_output
+    ):
         # setup
         cloud_sys = CloudSystem(
             self.OLIVE_PATH,
@@ -105,7 +108,9 @@ class TestCloudSystem:
         )
 
         # assert
+        mock_upload_config_file.assert_called_once_with(workflow_id, olive_config, cloud_sys.olive_path)
         mock_run_command.assert_called_once_with(expected_cmd)
+        mock_download_workflow_output.assert_called_once()
 
     @patch("olive.systems.cloud.CloudSystem._download_workflow_output")
     @patch("paramiko.SSHClient")
