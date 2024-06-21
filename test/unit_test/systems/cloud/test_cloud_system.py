@@ -138,7 +138,11 @@ class TestCloudSystem:
 
         # assert
         mock_download_workflow_output.assert_called_once_with(
-            mock_sftp, remote_cache_dir, local_cache_dir, remote_output_dir, local_output_dir
+            mock_sftp,
+            remote_cache_dir / workflow_id,
+            local_cache_dir / workflow_id,
+            remote_output_dir,
+            local_output_dir,
         )
 
     @patch("olive.systems.cloud.CloudSystem._download_workflow_output")
