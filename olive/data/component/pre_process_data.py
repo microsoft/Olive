@@ -17,7 +17,7 @@ from olive.data.registry import Registry
 
 
 @Registry.register_default_pre_process()
-def pre_process(dataset):
+def pre_process(dataset, **kwargs):
     """Pre-process data.
 
     Args:
