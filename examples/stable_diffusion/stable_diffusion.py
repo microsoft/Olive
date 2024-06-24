@@ -7,11 +7,11 @@ import json
 import shutil
 import sys
 import warnings
-import numpy as np
 from pathlib import Path
 from typing import Dict
 
 import config
+import numpy as np
 import torch
 from diffusers import DiffusionPipeline
 from packaging import version
