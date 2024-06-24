@@ -121,10 +121,7 @@
             },
             "pre_process_data_config": {
                 "params": {
-                    "dataset_type": "corpus",
-                    "corpus_strategy": "join",
-                    "text_template": "### Question: {prompt} \n### Answer: {response}",
-                    "source_max_len": 1024
+                    "text_template": "### Question: {prompt} \n### Answer: {response}"
                 }
             }
         }
