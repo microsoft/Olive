@@ -137,7 +137,7 @@ def eval_accuracy(model: OliveModelHandler, data_dir, batch_size, device, execut
             else:
                 input_data_copy = input_data.tolist()
                 input_dict = dict(zip(input_names, [input_data_copy]))
-            res = sess.run(input_feed=input_dict, output_names=None)
+            res = model.run_session(sess, input_dict)
             if len(output_names) == 1:
                 result = torch.Tensor(res[0])
             else:
@@ -148,10 +148,7 @@ def eval_accuracy(model: OliveModelHandler, data_dir, batch_size, device, execut
 
     elif model.framework == Framework.PYTORCH:
         for input_data, labels in dataloader:
-            if isinstance(input_data, dict):
-                result = sess(**input_data)
-            else:
-                result = sess(input_data)
+            result = model.run_session(sess, input_data)
             outputs = post_process(result)
             preds.extend(outputs.tolist())
             target.extend(labels.data.tolist())
