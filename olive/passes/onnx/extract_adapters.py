@@ -54,6 +54,11 @@ class ExtractAdapters(Pass):
                     " is True."
                 ),
             ),
+            "extract_scales_and_zero_points": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                description="Extract scales and zero points for quantized weights.",
+            ),
         }
         config.update(get_external_data_config())
         return config
@@ -98,6 +103,9 @@ class ExtractAdapters(Pass):
             # zero point is optional if symmetric
             quantized_suffices = [".quant.weight", ".quant.scale", ".quant.zero_point"]
             new_quantized_names = [new_weight_name.replace(".weight", suffix) for suffix in quantized_suffices]
+            if not config["extract_scales_and_zero_points"]:
+                quantized_suffices = quantized_suffices[:1]
+                new_quantized_names = new_quantized_names[:1]
 
             if op_type == "MatMul":
                 # float or QDQ quantized
