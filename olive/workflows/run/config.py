@@ -12,6 +12,7 @@ from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.constants import DEFAULT_WORKFLOW_ID
 from olive.common.pydantic_v1 import Field, validator
 from olive.data.config import DataConfig
+from olive.data.container.dummy_data_container import TransformerDummyDataContainer
 from olive.data.container.huggingface_container import HuggingfaceContainer
 from olive.engine import Engine, EngineConfig
 from olive.engine.packaging.packaging_config import PackagingConfig
@@ -189,12 +190,29 @@ class RunConfig(ConfigBase):
         if isinstance(v, DataConfig):
             v = v.dict()
 
+        if v["type"] == TransformerDummyDataContainer.__name__:
+            # if user already set kv_cache in io_config, use it directly and ignore the default value
+            io_config = values["input_model"].dict()["config"].get("io_config", {})
+            hf_config = values["input_model"].dict()["config"].get("hf_config", {})
+            kv_cache = io_config.get("kv_cache", False)
+
+            for component_config_name in ["load_dataset_config"]:
+                v[component_config_name] = component_config = v.get(component_config_name) or {}
+                component_config["params"] = component_config_params = component_config.get("params") or {}
+                for key in ["model_name"]:
+                    if not component_config_params.get(key, None):
+                        component_config_params[key] = hf_config.get(key, None)
+                if isinstance(kv_cache, dict):
+                    for key in ["ort_past_key_name", "ort_past_value_name", "batch_size"]:
+                        if not component_config_params.get(key, None) and kv_cache.get(key):
+                            component_config_params[key] = kv_cache.get(key, None)
+
         if v["type"] == HuggingfaceContainer.__name__:
             hf_config = values["input_model"].dict()["config"].get("hf_config", {})
 
             # auto insert model_name and task from input model hf config if not present
             # both are required for huggingface container
-            for component_config_name in ["pre_process_data_config", "post_process_data_config"]:
+            for component_config_name in ["load_dataset_config", "pre_process_data_config", "post_process_data_config"]:
                 v[component_config_name] = component_config = v.get(component_config_name) or {}
                 component_config["params"] = component_config_params = component_config.get("params") or {}
                 for key in ["model_name", "task"]:

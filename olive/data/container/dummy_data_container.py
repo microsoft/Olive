@@ -32,3 +32,34 @@ class DummyDataContainer(DataContainer):
         DataComponentType.LOAD_DATASET.value: "dummy_dataset",
         DataComponentType.DATALOADER.value: "skip_dataloader",
     }
+
+
+@Registry.register(DataContainerType.DATA_CONTAINER)
+class TransformerDummyDataContainer(DummyDataContainer):
+    """Dummy data container for transformer model.
+
+    The way to create a dummy data container for transformer model:
+        dummy_data_config = DataConfig(
+            name="dummy",
+            type="TransformerDummyDataContainer",
+            "load_dataset_config"={
+                "params": {
+                    "batch_size": 1,
+                    "seq_len": 128,
+                    "past_seq_len": 128,
+                    "max_seq_len": 1024,
+                    "model_framework": Framework.ONNX,
+                    "use_fp16": False,
+                    "shared_kv": False,
+                    "generative": False,
+                    "ort_past_key_name":"past_key_values.<id>.key",
+                    "ort_past_value_name":"past_key_values.<id>.value",
+                )
+            }
+        )
+    """
+
+    default_components_type: ClassVar[dict] = {
+        DataComponentType.LOAD_DATASET.value: "transformers_dummy_dataset",
+        DataComponentType.DATALOADER.value: "no_auto_batch_dataloader",
+    }

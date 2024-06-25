@@ -300,6 +300,8 @@ class OliveEvaluator(ABC):
 
         # get dataloader and/or post processing function from data_config if not specified in the metric config
         if (not dataloader or not post_func) and metric.data_config:
+            if metric.data_config.type == "TransformerDummyDataContainer":
+                metric.data_config.load_dataset_config.params["model_framework"] = framework
             dc = metric.data_config.to_data_container()
 
             # TODO(trajep): remove user_scripts dataloader: we should respect user scripts
@@ -848,13 +850,13 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         session = model.prepare_session(inference_settings=None, device=device)
 
         input_data, _ = next(iter(dataloader))
-        device = PyTorchEvaluator._device_string_to_torch_device(device)
+        torch_device = PyTorchEvaluator._device_string_to_torch_device(device)
         run_kwargs = metric.get_run_kwargs()
 
         is_cuda = device == Device.GPU
         if is_cuda:
-            session.to(device)
-            input_data = tensor_data_to_device(input_data, device)
+            session.to(torch_device)
+            input_data = tensor_data_to_device(input_data, torch_device)
 
         # warm up
         for _ in range(warmup_num):
