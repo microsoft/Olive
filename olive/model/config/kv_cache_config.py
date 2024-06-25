@@ -33,6 +33,9 @@ class KVCacheConfig(ConfigBase):
     sequence_length_idx: int = 2
     past_kv_dynamic_axis: Optional[Dict] = None
     present_kv_dynamic_axis: Optional[Dict] = None
+    # only_present is used to indicate that the model only needs the present key-values
+    # as model outputs
+    only_present: bool = False
 
     @validator("past_kv_dynamic_axis", always=True)
     def check_past_kv_dynamic_axis(cls, v, values):
@@ -91,6 +94,9 @@ class KVCacheConfig(ConfigBase):
         ]
 
     def get_input_names_shapes_types(self):
+        if self.only_present:
+            return [], [], []
+
         input_names = [*self.get_ort_past_key_names(), *self.get_ort_past_value_names()]
         input_shapes = [self._get_kv_shape()] * 2 * self.num_hidden_layers
         input_types = [self.dtype] * 2 * self.num_hidden_layers
@@ -102,13 +108,15 @@ class KVCacheConfig(ConfigBase):
 
     def get_dynamic_axes(self):
         dynamic_axis = {}
-        for past_name in self.get_ort_past_key_names():
-            dynamic_axis[past_name] = self.past_kv_dynamic_axis
-        for past_name in self.get_ort_past_value_names():
-            dynamic_axis[past_name] = self.past_kv_dynamic_axis
+        if not self.only_present and self.past_kv_dynamic_axis:
+            for past_name in self.get_ort_past_key_names():
+                dynamic_axis[past_name] = self.past_kv_dynamic_axis
+            for past_name in self.get_ort_past_value_names():
+                dynamic_axis[past_name] = self.past_kv_dynamic_axis
 
-        for present_name in self.get_ort_present_key_names():
-            dynamic_axis[present_name] = self.present_kv_dynamic_axis
-        for present_name in self.get_ort_present_value_names():
-            dynamic_axis[present_name] = self.present_kv_dynamic_axis
+        if self.present_kv_dynamic_axis:
+            for present_name in self.get_ort_present_key_names():
+                dynamic_axis[present_name] = self.present_kv_dynamic_axis
+            for present_name in self.get_ort_present_value_names():
+                dynamic_axis[present_name] = self.present_kv_dynamic_axis
         return dynamic_axis

@@ -90,23 +90,17 @@
         "OrtTransformersOptimization": {
             "module_path": "olive.passes.onnx.transformer_optimization.OrtTransformersOptimization"
         },
+        "GSConstantFolding": {
+            "module_path": "olive.passes.onnx.constant_folding.GSConstantFolding",
+            "module_dependencies": [
+                "onnx-graphsurgeon"
+            ]
+        },
         "QNNPreprocess": {
             "module_path": "olive.passes.onnx.qnn_preprocess.QNNPreprocess"
         },
         "VitisAIQuantization": {
             "module_path": "olive.passes.onnx.vitis_ai_quantization.VitisAIQuantization"
-        },
-        "VitisQDQQuantizer": {
-            "module_path": "olive.passes.onnx.vitis_ai.quantizer.VitisQDQQuantizer"
-        },
-        "VitisQOpQuantizer": {
-            "module_path": "olive.passes.onnx.vitis_ai.quantizer.VitisQOpQuantizer"
-        },
-        "quantize_static": {
-            "module_path": "olive.passes.onnx.vitis_ai.quantize.quantize_static"
-        },
-        "PowerOfTwoMethod": {
-            "module_path": "olive.passes.onnx.vitis_ai.quant_utils.PowerOfTwoMethod"
         },
         "OpenVINOConversion": {
             "module_path": "olive.passes.openvino.conversion.OpenVINOConversion",

@@ -18,7 +18,7 @@ class PytorchKvCacheMixin:
             return dummy_inputs
         dummy_inputs = self.past_key_values_input_filter_hook(dummy_inputs)
         io_config = IoConfig.parse_obj(self.io_config)
-        if isinstance(io_config.kv_cache, dict):
+        if isinstance(io_config.kv_cache, dict) and not io_config.kv_cache.get("only_present", False):
             kv_cache_config = KVCacheConfig.parse_obj(io_config.kv_cache)
             unused_keys = set()
             if kv_cache_config and not dummy_inputs.get(past_kv_names):
