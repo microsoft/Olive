@@ -24,10 +24,14 @@ class GSConstantFolding(Pass):
         self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
         import onnx_graphsurgeon as gs
+        from onnxruntime.transformers.onnx_model import OnnxModel
 
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
-        graph = gs.import_onnx(model.load_model())
+        onnx_model = OnnxModel(model.load_model())
+        onnx_model.remove_useless_cast_nodes()
+
+        graph = gs.import_onnx(onnx_model.model)
         graph.fold_constants().cleanup()
 
         # save the model to the output path and return the model

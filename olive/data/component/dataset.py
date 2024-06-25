@@ -120,12 +120,12 @@ class DummyDataset(BaseDataset):
         if not self.input_names:
             dummy_inputs = []
             for shape, dtype in zip(self.input_shapes, input_types):
-                dummy_inputs.append(torch.ones(shape, dtype=dtype))
+                dummy_inputs.append(torch.zeros(shape, dtype=dtype))
             dummy_inputs = tuple(dummy_inputs) if len(dummy_inputs) > 1 else dummy_inputs[0]
         else:
             dummy_inputs = {}
             for input_name, input_shape, input_type in zip(self.input_names, self.input_shapes, input_types):
-                dummy_inputs.update({input_name: torch.ones(input_shape, dtype=input_type)})
+                dummy_inputs.update({input_name: torch.zeros(input_shape, dtype=input_type)})
             dummy_inputs = dummy_inputs if len(dummy_inputs) > 1 else dummy_inputs[self.input_names[0]]
         label = 0
         return dummy_inputs, label
