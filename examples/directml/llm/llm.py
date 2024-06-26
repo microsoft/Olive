@@ -9,7 +9,6 @@ import argparse
 import json
 import os
 import shutil
-import sys
 import warnings
 from pathlib import Path
 from typing import Optional
@@ -137,7 +136,7 @@ def optimize(
     with Path.open(script_dir / "config_llm.json") as fin:
         olive_config = json.load(fin)
 
-        if quant_strategy == "awq":
+        if quant_strategy is not None:
             olive_config["passes"]["quantize"] = {
                 "type": "IncStaticQuantization",
                 "disable_search": True,
@@ -157,9 +156,6 @@ def optimize(
                     "user_script": "user_script.py",
                 },
             }
-        elif quant_strategy is not None:
-            print(f"Unknown quantization strategy {quant_strategy}")
-            sys.exit(1)
 
         olive_config["systems"]["local_system"]["config"]["accelerators"][0]["execution_providers"] = {
             "dml": ["DmlExecutionProvider"],
@@ -320,7 +316,7 @@ def main():
     )
     parser.add_argument(
         "--quant_strategy",
-        choices=["awq"],
+        choices=["awq", "rtn"],
         help="Which quantization strategy to use. Defaults to None (no quantization).",
         default=None,
         type=str,

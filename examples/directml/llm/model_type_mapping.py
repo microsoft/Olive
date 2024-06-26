@@ -30,6 +30,7 @@ _MODEL_TYPE_TO_REPO_ID = {
     "phi-3-mini-4k": "microsoft/Phi-3-mini-4k-instruct",
     "phi-3-mini-128k": "microsoft/Phi-3-mini-128k-instruct",
     "gemma-7b-it": "google/gemma-7b-it",
+    "llama-3-8b-it": "meta-llama/Meta-Llama-3-8B-Instruct",
 }
 
 
@@ -60,6 +61,7 @@ def get_supported_llm_models():
         "phi-3-mini-4k",
         "phi-3-mini-128k",
         "gemma-7b-it",
+        "llama-3-8b-it",
     ]
 
 
