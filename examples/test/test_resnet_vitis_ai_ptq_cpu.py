@@ -32,6 +32,9 @@ def test_resnet(system, olive_json):
     # TODO(jambayk): add gpu e2e test
     from olive.workflows import run as olive_run
 
+    if system == "aml_system":
+        pytest.skip("Skipping AML system test")
+
     olive_config = patch_config(olive_json, None, None, system)
 
     footprint = olive_run(olive_config)

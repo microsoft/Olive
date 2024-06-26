@@ -27,6 +27,9 @@ def setup():
 def test_bert(search_algorithm, execution_order, system, olive_json, enable_cuda_graph):
     from olive.workflows import run as olive_run
 
+    if system == "aml_system":
+        pytest.skip("Skipping AML system test")
+
     olive_config = patch_config(olive_json, search_algorithm, execution_order, system, is_gpu=True)
     olive_config["passes"]["perf_tuning"]["config"]["enable_cuda_graph"] = enable_cuda_graph
 

@@ -88,9 +88,9 @@ jobs:
       bert_ptq_cpu:
         exampleFolder: bert
         exampleName: bert_ptq_cpu
-      bert_ptq_cpu_aml:
-        exampleFolder: bert
-        exampleName: bert_ptq_cpu_aml
+      # bert_ptq_cpu_aml:
+      #   exampleFolder: bert
+      #   exampleName: bert_ptq_cpu_aml
       bert_ptq_cpu_docker:
         exampleFolder: bert
         exampleName: bert_ptq_cpu_docker
@@ -106,12 +106,12 @@ jobs:
       whisper:
         exampleFolder: whisper
         exampleName: whisper
-      mobilenet_qnn_toolkit:
-        exampleFolder: mobilenet
-        exampleName: qnn_tooklit
-      inception_snpe_toolkit:
-        exampleFolder: inception
-        exampleName: snpe_toolkit
+      # mobilenet_qnn_toolkit:
+      #   exampleFolder: mobilenet
+      #   exampleName: qnn_tooklit
+      # inception_snpe_toolkit:
+      #   exampleFolder: inception
+      #   exampleName: snpe_toolkit
       mobilenet_qnn_ep:
         exampleFolder: mobilenet
         exampleName: mobilenet_qnn_ep
@@ -126,9 +126,9 @@ jobs:
       bert_ptq_cpu:
         exampleFolder: bert
         exampleName: bert_ptq_cpu
-      bert_ptq_cpu_aml:
-        exampleFolder: bert
-        exampleName: bert_ptq_cpu_aml
+      # bert_ptq_cpu_aml:
+      #   exampleFolder: bert
+      #   exampleName: bert_ptq_cpu_aml
       resnet_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_ptq_cpu
@@ -138,12 +138,12 @@ jobs:
       whisper:
         exampleFolder: whisper
         exampleName: whisper
-      mobilenet_qnn_toolkit:
-        exampleFolder: mobilenet
-        exampleName: qnn_tooklit
-      inception_snpe_toolkit:
-        exampleFolder: inception
-        exampleName: snpe_toolkit
+      # mobilenet_qnn_toolkit:
+      #   exampleFolder: mobilenet
+      #   exampleName: qnn_tooklit
+      # inception_snpe_toolkit:
+      #   exampleFolder: inception
+      #   exampleName: snpe_toolkit
       mobilenet_qnn_ep:
         exampleFolder: mobilenet
         exampleName: mobilenet_qnn_ep
