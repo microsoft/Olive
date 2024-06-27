@@ -13,6 +13,7 @@ from olive.model import ModelConfig
 # pylint: disable=attribute-defined-outside-init
 
 
+@pytest.mark.skip(reason="Skip test on AzureML.")
 @pytest.mark.skipif(platform.system() == OS.WINDOWS, reason="Skip test on Windows.")
 class TestOliveAzureMLSystem:
     @pytest.fixture(autouse=True)
