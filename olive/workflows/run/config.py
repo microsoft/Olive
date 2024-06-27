@@ -212,7 +212,7 @@ class RunConfig(ConfigBase):
 
             # auto insert model_name and task from input model hf config if not present
             # both are required for huggingface container
-            for component_config_name in ["load_dataset_config", "pre_process_data_config", "post_process_data_config"]:
+            for component_config_name in ["pre_process_data_config", "post_process_data_config"]:
                 v[component_config_name] = component_config = v.get(component_config_name) or {}
                 component_config["params"] = component_config_params = component_config.get("params") or {}
                 for key in ["model_name", "task"]:

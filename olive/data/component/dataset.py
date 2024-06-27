@@ -233,6 +233,7 @@ class TransformersDummyDataset(DummyDataset):
         ort_past_value_name: str = "past_key_values.<id>.value",
         trust_remote_code: Optional[bool] = None,
     ):
+        # pylint: disable=super-init-not-called
         self.model_name = model_name
         self.batch_size = batch_size
         self.seq_len = seq_len
