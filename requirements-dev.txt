@@ -6,4 +6,5 @@ isort
 lintrunner
 lintrunner-adapters
 pylint<3.2.4 # https://github.com/pylint-dev/pylint/issues/9751
-ruff>=0.2.0
+# TODO(anyone): update code to be compliant with ruff 0.5.0+
+ruff>=0.2.0,<0.5.0
