@@ -66,10 +66,7 @@ class OliveEvaluator(ABC):
         if metric.user_config.io_bind:
             return True
 
-        if inference_settings and inference_settings.get("io_bind"):
-            return True
-
-        return False
+        return inference_settings and inference_settings.get("io_bind")
 
     @abstractmethod
     def _inference(

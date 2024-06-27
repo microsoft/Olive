@@ -76,11 +76,9 @@ def _if_match_pass_capability(p, passes_cap, accelerator, ep, precision):
     # get support precisions for this pass
     if (lower_ep := passes_cap[p].get("EP")) is not None:
         lower_ep = [e.lower() for e in lower_ep]
-    if (
+    return (
         # if accelerator & precision & ep are matched simultaneously, added it into candidates
         (passes_cap[p].get("accelerator") is None or accelerator in passes_cap[p].get("accelerator"))
         and (lower_ep is None or ep in lower_ep)
         and (passes_cap[p].get("precision") is None or precision in passes_cap[p].get("precision"))
-    ):
-        return True
-    return False
+    )
