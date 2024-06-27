@@ -17,11 +17,11 @@ jobs:
     test_type: 'unit_test'
     onnxruntime: ${{parameters.onnxruntime}}
 
-# - template: olive-test-template.yaml
-#   parameters:
-#     name: ${{parameters.name}}_Integration_Test_Olive
-#     pool: ${{parameters.pool}}
-#     device: ${{parameters.device}}
-#     windows: ${{parameters.windows}}
-#     test_type: 'integ_test'
-#     onnxruntime: ${{parameters.onnxruntime}}
+- template: olive-test-template.yaml
+  parameters:
+    name: ${{parameters.name}}_Integration_Test_Olive
+    pool: ${{parameters.pool}}
+    device: ${{parameters.device}}
+    windows: ${{parameters.windows}}
+    test_type: 'integ_test'
+    onnxruntime: ${{parameters.onnxruntime}}

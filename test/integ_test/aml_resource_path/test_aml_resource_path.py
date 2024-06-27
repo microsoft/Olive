@@ -12,6 +12,7 @@ from olive.resource_path import ResourceType, create_resource_path
 # pylint: disable=attribute-defined-outside-init
 
 
+@pytest.mark.skip(reason="Skip AzureML related tests")
 class TestAMLResourcePath:
     @pytest.fixture(autouse=True)
     def setup(self):
