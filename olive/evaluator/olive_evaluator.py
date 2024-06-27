@@ -300,7 +300,7 @@ class OliveEvaluator(ABC):
 
         # get dataloader and/or post processing function from data_config if not specified in the metric config
         if (not dataloader or not post_func) and metric.data_config:
-            if metric.data_config.type == "TransformerDummyDataContainer":
+            if metric.data_config.type == "TransformersDummyDataContainer":
                 metric.data_config.load_dataset_config.params["model_framework"] = framework
             dc = metric.data_config.to_data_container()
 

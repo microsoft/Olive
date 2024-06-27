@@ -35,13 +35,13 @@ class DummyDataContainer(DataContainer):
 
 
 @Registry.register(DataContainerType.DATA_CONTAINER)
-class TransformerDummyDataContainer(DummyDataContainer):
+class TransformersDummyDataContainer(DummyDataContainer):
     """Dummy data container for transformer model.
 
     The way to create a dummy data container for transformer model:
         dummy_data_config = DataConfig(
             name="dummy",
-            type="TransformerDummyDataContainer",
+            type="TransformersDummyDataContainer",
             "load_dataset_config"={
                 "params": {
                     "batch_size": 1,
