@@ -21,6 +21,7 @@ jobs:
     requirements_file: ${{ parameters.requirements_file }}
     PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
     HF_HOME: $(Pipeline.Workspace)/.cache/huggingface
+    PYTEST_BASETEMP: $(Pipeline.Workspace)/.pytest_cache
 
   steps:
   - task: UsePythonVersion@0
@@ -54,7 +55,7 @@ jobs:
           call 7z x openvino_toolkit.zip
           call w_openvino_toolkit_windows_2023.0.1.11005.fa1c41994f3_x86_64\\setupvars.bat
           call python -m pip install numpy psutil coverage protobuf==3.20.3
-          call coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml $(Build.SourcesDirectory)/test/$(testType)
+          call coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml $(Build.SourcesDirectory)/test/$(testType) --basetemp $(PYTEST_BASETEMP)
           call coverage xml
       displayName: Test Olive
       env:
@@ -67,7 +68,7 @@ jobs:
           python -m pip install pytest
           python -m pip install -r $(Build.SourcesDirectory)/test/$(requirements_file)
 
-          coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml $(Build.SourcesDirectory)/test/$(testType)
+          coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml $(Build.SourcesDirectory)/test/$(testType) --basetemp $(PYTEST_BASETEMP)
           coverage xml
       displayName: Test Olive
       env:

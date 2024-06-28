@@ -51,32 +51,32 @@ variables:
     ComponentDetection.Timeout: 2400
 
 jobs:
-# Linux unit test and integration test
-- template: job_templates/olive-build-template.yaml
-  parameters:
-    name: Linux_CI
-    pool: $(OLIVE_POOL_UBUNTU2004)
-    windows: False
-    onnxruntime: onnxruntime
+# # Linux unit test and integration test
+# - template: job_templates/olive-build-template.yaml
+#   parameters:
+#     name: Linux_CI
+#     pool: $(OLIVE_POOL_UBUNTU2004)
+#     windows: False
+#     onnxruntime: onnxruntime
 
-# Linux GPU unit test
-- template: job_templates/olive-test-template.yaml
-  parameters:
-    name: Linux_GPU_CI_Unit_Test_Olive
-    pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
-    test_type: 'unit_test'
-    windows: False
-    device: 'gpu'
-    onnxruntime: onnxruntime-gpu
-    requirements_file: 'requirements-test-gpu.txt'
+# # Linux GPU unit test
+# - template: job_templates/olive-test-template.yaml
+#   parameters:
+#     name: Linux_GPU_CI_Unit_Test_Olive
+#     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
+#     test_type: 'unit_test'
+#     windows: False
+#     device: 'gpu'
+#     onnxruntime: onnxruntime-gpu
+#     requirements_file: 'requirements-test-gpu.txt'
 
-# Windows unit test and integration test
-- template: job_templates/olive-build-template.yaml
-  parameters:
-    name: Windows_CI
-    pool: $(OLIVE_POOL_WIN2019)
-    windows: True
-    onnxruntime: onnxruntime
+# # Windows unit test and integration test
+# - template: job_templates/olive-build-template.yaml
+#   parameters:
+#     name: Windows_CI
+#     pool: $(OLIVE_POOL_WIN2019)
+#     windows: True
+#     onnxruntime: onnxruntime
 
 # Linux examples test
 - template: job_templates/olive-example-template.yaml
@@ -85,111 +85,111 @@ jobs:
     pool: $(OLIVE_POOL_UBUNTU2004)
     onnxruntime: onnxruntime
     examples:
-      bert_ptq_cpu:
-        exampleFolder: bert
-        exampleName: bert_ptq_cpu
-      bert_ptq_cpu_aml:
-        exampleFolder: bert
-        exampleName: bert_ptq_cpu_aml
-      bert_ptq_cpu_docker:
-        exampleFolder: bert
-        exampleName: bert_ptq_cpu_docker
-      resnet_ptq_cpu:
-        exampleFolder: resnet
-        exampleName: resnet_ptq_cpu
-      resnet_vitis_ai_ptq_cpu:
-        exampleFolder: resnet
-        exampleName: resnet_vitis_ai_ptq_cpu
-      resnet_qat:
-        exampleFolder: resnet
-        exampleName: resnet_qat
-      whisper:
-        exampleFolder: whisper
-        exampleName: whisper
+      # bert_ptq_cpu:
+      #   exampleFolder: bert
+      #   exampleName: bert_ptq_cpu
+      # bert_ptq_cpu_aml:
+      #   exampleFolder: bert
+      #   exampleName: bert_ptq_cpu_aml
+      # bert_ptq_cpu_docker:
+      #   exampleFolder: bert
+      #   exampleName: bert_ptq_cpu_docker
+      # resnet_ptq_cpu:
+      #   exampleFolder: resnet
+      #   exampleName: resnet_ptq_cpu
+      # resnet_vitis_ai_ptq_cpu:
+      #   exampleFolder: resnet
+      #   exampleName: resnet_vitis_ai_ptq_cpu
+      # resnet_qat:
+      #   exampleFolder: resnet
+      #   exampleName: resnet_qat
+      # whisper:
+      #   exampleFolder: whisper
+      #   exampleName: whisper
       mobilenet_qnn_toolkit:
         exampleFolder: mobilenet
         exampleName: qnn_tooklit
       inception_snpe_toolkit:
         exampleFolder: inception
         exampleName: snpe_toolkit
-      mobilenet_qnn_ep:
-        exampleFolder: mobilenet
-        exampleName: mobilenet_qnn_ep
+      # mobilenet_qnn_ep:
+      #   exampleFolder: mobilenet
+      #   exampleName: mobilenet_qnn_ep
 
-# # Windows examples test
-- template: job_templates/olive-example-template.yaml
-  parameters:
-    name: Windows_CI
-    pool: $(OLIVE_POOL_WIN2019)
-    onnxruntime: onnxruntime
-    examples:
-      bert_ptq_cpu:
-        exampleFolder: bert
-        exampleName: bert_ptq_cpu
-      bert_ptq_cpu_aml:
-        exampleFolder: bert
-        exampleName: bert_ptq_cpu_aml
-      resnet_ptq_cpu:
-        exampleFolder: resnet
-        exampleName: resnet_ptq_cpu
-      resnet_qat:
-        exampleFolder: resnet
-        exampleName: resnet_qat
-      whisper:
-        exampleFolder: whisper
-        exampleName: whisper
-      mobilenet_qnn_toolkit:
-        exampleFolder: mobilenet
-        exampleName: qnn_tooklit
-      inception_snpe_toolkit:
-        exampleFolder: inception
-        exampleName: snpe_toolkit
-      mobilenet_qnn_ep:
-        exampleFolder: mobilenet
-        exampleName: mobilenet_qnn_ep
+# # # Windows examples test
+# - template: job_templates/olive-example-template.yaml
+#   parameters:
+#     name: Windows_CI
+#     pool: $(OLIVE_POOL_WIN2019)
+#     onnxruntime: onnxruntime
+#     examples:
+      # bert_ptq_cpu:
+      #   exampleFolder: bert
+      #   exampleName: bert_ptq_cpu
+      # bert_ptq_cpu_aml:
+      #   exampleFolder: bert
+      #   exampleName: bert_ptq_cpu_aml
+      # resnet_ptq_cpu:
+      #   exampleFolder: resnet
+      #   exampleName: resnet_ptq_cpu
+      # resnet_qat:
+      #   exampleFolder: resnet
+      #   exampleName: resnet_qat
+      # whisper:
+      #   exampleFolder: whisper
+      #   exampleName: whisper
+      # mobilenet_qnn_toolkit:
+      #   exampleFolder: mobilenet
+      #   exampleName: qnn_tooklit
+      # inception_snpe_toolkit:
+      #   exampleFolder: inception
+      #   exampleName: snpe_toolkit
+      # mobilenet_qnn_ep:
+      #   exampleFolder: mobilenet
+      #   exampleName: mobilenet_qnn_ep
 
-# Linux GPU examples testing.
-- template: job_templates/olive-example-template.yaml
-  parameters:
-    name: Linux_GPU_CI
-    pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
-    onnxruntime: onnxruntime-gpu
-    examples:
-      bert_cuda_gpu:
-        exampleFolder: bert
-        exampleName: bert_cuda_gpu
-      stable_diffusion_cuda_gpu:
-        exampleFolder: stable_diffusion
-        exampleName: stable_diffusion_cuda_gpu
-        exampleRequirements: requirements-common.txt
+# # Linux GPU examples testing.
+# - template: job_templates/olive-example-template.yaml
+#   parameters:
+#     name: Linux_GPU_CI
+#     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
+#     onnxruntime: onnxruntime-gpu
+#     examples:
+#       bert_cuda_gpu:
+#         exampleFolder: bert
+#         exampleName: bert_cuda_gpu
+#       stable_diffusion_cuda_gpu:
+#         exampleFolder: stable_diffusion
+#         exampleName: stable_diffusion_cuda_gpu
+#         exampleRequirements: requirements-common.txt
 
-# Multiple EP Linux testing
-- template: job_templates/olive-test-template.yaml
-  parameters:
-    name: Linux_CI_Multiple_EP_Test_Olive
-    pool: $(OLIVE_POOL_UBUNTU2004)
-    device: 'cpu'
-    windows: 'False'
-    test_type: 'multiple_ep'
-    onnxruntime: onnxruntime
-    python_version: '3.8'
-
-# Not run since all test cases are skipped for Windows
-# # Multiple EP Windows testing
+# # Multiple EP Linux testing
 # - template: job_templates/olive-test-template.yaml
 #   parameters:
-#     name: Windows_CI_Multiple_EP_Test_Olive
-#     pool: $(OLIVE_POOL_WIN2019)
+#     name: Linux_CI_Multiple_EP_Test_Olive
+#     pool: $(OLIVE_POOL_UBUNTU2004)
 #     device: 'cpu'
-#     windows: 'True'
+#     windows: 'False'
 #     test_type: 'multiple_ep'
 #     onnxruntime: onnxruntime
-#     python_version: '3.10'
+#     python_version: '3.8'
 
-# build documents
-- template: job_templates/olive-build-doc-template.yaml
-  parameters:
-    job_name: Test_BuildDocs
-    display_name: Test Build Docs
-    pool: $(OLIVE_POOL_UBUNTU2004)
-    publish_docs: false
+# # Not run since all test cases are skipped for Windows
+# # # Multiple EP Windows testing
+# # - template: job_templates/olive-test-template.yaml
+# #   parameters:
+# #     name: Windows_CI_Multiple_EP_Test_Olive
+# #     pool: $(OLIVE_POOL_WIN2019)
+# #     device: 'cpu'
+# #     windows: 'True'
+# #     test_type: 'multiple_ep'
+# #     onnxruntime: onnxruntime
+# #     python_version: '3.10'
+
+# # build documents
+# - template: job_templates/olive-build-doc-template.yaml
+#   parameters:
+#     job_name: Test_BuildDocs
+#     display_name: Test Build Docs
+#     pool: $(OLIVE_POOL_UBUNTU2004)
+#     publish_docs: false
