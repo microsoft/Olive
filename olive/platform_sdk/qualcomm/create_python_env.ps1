@@ -39,6 +39,9 @@ if (!(Get-Command -Name "conda" -ErrorAction SilentlyContinue)) {
         $CONDA_INSTALLER = Join-Path $FILES_DIR "Miniconda3-latest-Windows-x86_64.exe"
         Invoke-WebRequest -Uri "https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe" -OutFile $CONDA_INSTALLER
     }
+    else {
+        $CONDA_INSTALLER = $env:CONDA_INSTALLER
+    }
     # Install conda
     Start-Process -FilePath $CONDA_INSTALLER -ArgumentList "/S /D=$FILES_DIR\miniconda" -Wait
     $CONDA = Join-Path $FILES_DIR "miniconda\Scripts\conda.exe"
