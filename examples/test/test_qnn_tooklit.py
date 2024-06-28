@@ -7,7 +7,7 @@ import platform
 from pathlib import Path
 
 import pytest
-from utils import check_output, download_azure_blob
+from utils import check_output, download_conda_installer, download_qc_toolkit
 
 from olive.common.constants import OS
 from olive.common.utils import retry_func, run_subprocess
@@ -19,43 +19,9 @@ set_verbosity_debug()
 class TestQnnToolkit:
     @pytest.fixture(autouse=True)
     def setup(self, tmp_path):
-        """Download the qnn sdk."""
-        if platform.system() == OS.WINDOWS:
-            blob, download_path = "qnn_sdk_windows.zip", "qnn_sdk_windows.zip"
-            conda_installer_blob, conda_installer_path = (
-                "conda-installers/Miniconda3-latest-Windows-x86_64.exe",
-                tmp_path / "conda_installer.exe",
-            )
-        elif platform.system() == OS.LINUX:
-            blob, download_path = "qnn_sdk_linux.zip", "qnn_sdk_linux.zip"
-            conda_installer_blob, conda_installer_path = (
-                "conda-installers/Miniconda3-latest-Linux-x86_64.sh",
-                tmp_path / "conda_installer.sh",
-            )
-        else:
-            raise NotImplementedError(f"Unsupported platform: {platform.system()}")
-
-        download_azure_blob(
-            container="olivetest",
-            blob=blob,
-            download_path=download_path,
-        )
-        target_path = tmp_path / "qnn_sdk"
-        target_path.mkdir(parents=True, exist_ok=True)
-        if platform.system() == OS.WINDOWS:
-            cmd = f"powershell Expand-Archive -Path {download_path} -DestinationPath {str(target_path)}"
-            run_subprocess(cmd=cmd, check=True)
-        elif platform.system() == OS.LINUX:
-            run_subprocess(cmd=f"unzip {download_path} -d {str(target_path)}", check=True)
-
-        os.environ["QNN_SDK_ROOT"] = str(target_path / "opt" / "qcom" / "aistack")
-
-        download_azure_blob(
-            container="olivetest",
-            blob=conda_installer_blob,
-            download_path=conda_installer_path,
-        )
-        os.environ["CONDA_INSTALLER"] = str(conda_installer_path)
+        """Download the qnn sdk and conda installer."""
+        os.environ["QNN_SDK_ROOT"] = f"{download_qc_toolkit(tmp_path, 'qnn')}/opt/qcom/aistack"
+        os.environ["CONDA_INSTALLER"] = download_conda_installer(tmp_path)
 
     def _setup_resource(self, use_olive_env):
         """Setups any state specific to the execution of the given module."""
