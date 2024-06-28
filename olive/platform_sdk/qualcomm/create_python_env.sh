@@ -46,9 +46,13 @@ mkdir "$FILES_DIR"
 
 # Install conda if not already installed
 if ! command -v conda; then
+    # check if CONDA_INSTALLER is set, if not download the latest miniconda installer
+    if [ -z ${CONDA_INSTALLER+x} ]; then
+        CONDA_INSTALLER="$FILES_DIR"/install_conda.sh
+        curl -fsSL -o "$CONDA_INSTALLER" https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+    fi
     # Install conda
-    curl -fsSL -o "$FILES_DIR"/install_conda.sh https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
-    sh "$FILES_DIR"/install_conda.sh -b -p "$FILES_DIR"/miniconda
+    sh "$CONDA_INSTALLER" -b -p "$FILES_DIR"/miniconda
     CONDA=$FILES_DIR/miniconda/bin/conda
 else
     CONDA=conda

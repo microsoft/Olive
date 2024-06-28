@@ -7,7 +7,7 @@ import platform
 from pathlib import Path
 
 import pytest
-from utils import check_output, download_azure_blob
+from utils import check_output, download_conda_installer, download_qc_toolkit
 
 from olive.common.constants import OS
 from olive.common.utils import retry_func, run_subprocess
@@ -19,26 +19,9 @@ set_verbosity_debug()
 class TestSnpeToolkit:
     @pytest.fixture(autouse=True)
     def setup(self, tmp_path):
-        """Download the snpe sdk."""
-        blob, download_path = "", ""
-        if platform.system() == OS.WINDOWS:
-            blob, download_path = "snpe_sdk_windows.zip", "snpe_sdk_windows.zip"
-        elif platform.system() == OS.LINUX:
-            blob, download_path = "snpe_sdk_linux.zip", "snpe_sdk_linux.zip"
-
-        download_azure_blob(
-            container="olivetest",
-            blob=blob,
-            download_path=download_path,
-        )
-        target_path = tmp_path / "snpe_sdk"
-        target_path.mkdir(parents=True, exist_ok=True)
-        if platform.system() == OS.WINDOWS:
-            cmd = f"powershell Expand-Archive -Path {download_path} -DestinationPath {str(target_path)}"
-            run_subprocess(cmd=cmd, check=True)
-        elif platform.system() == OS.LINUX:
-            run_subprocess(cmd=f"unzip {download_path} -d {str(target_path)}", check=True)
-        os.environ["SNPE_ROOT"] = str(target_path)
+        """Download the snpe sdk and conda installer."""
+        os.environ["SNPE_ROOT"] = download_qc_toolkit(tmp_path, "snpe")
+        os.environ["CONDA_INSTALLER"] = download_conda_installer(tmp_path)
 
     def _setup_resource(self, use_olive_env):
         """Setups any state specific to the execution of the given module."""
