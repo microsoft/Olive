@@ -5,6 +5,8 @@
 from pathlib import Path
 from test.integ_test.utils import get_olive_workspace_config
 
+import pytest
+
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.model import ModelConfig
 from olive.passes.olive_pass import create_pass_from_dict
@@ -13,6 +15,7 @@ from olive.resource_path import ResourcePath
 from olive.systems.azureml import AzureMLDockerConfig, AzureMLSystem
 
 
+@pytest.mark.skip(reason="Skip AzureML related tests")
 def test_aml_model_pass_run(tmp_path):
     # ------------------------------------------------------------------
     # Azure ML System
