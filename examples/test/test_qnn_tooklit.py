@@ -20,11 +20,20 @@ class TestQnnToolkit:
     @pytest.fixture(autouse=True)
     def setup(self, tmp_path):
         """Download the qnn sdk."""
-        blob, download_path = "", ""
         if platform.system() == OS.WINDOWS:
             blob, download_path = "qnn_sdk_windows.zip", "qnn_sdk_windows.zip"
+            conda_installer_blob, conda_installer_path = (
+                "conda-installers/Miniconda3-latest-Windows-x86_64.exe",
+                tmp_path / "conda_installer.exe",
+            )
         elif platform.system() == OS.LINUX:
             blob, download_path = "qnn_sdk_linux.zip", "qnn_sdk_linux.zip"
+            conda_installer_blob, conda_installer_path = (
+                "conda-installers/Miniconda3-latest-Linux-x86_64.sh",
+                tmp_path / "conda_installer.sh",
+            )
+        else:
+            raise NotImplementedError(f"Unsupported platform: {platform.system()}")
 
         download_azure_blob(
             container="olivetest",
@@ -40,6 +49,13 @@ class TestQnnToolkit:
             run_subprocess(cmd=f"unzip {download_path} -d {str(target_path)}", check=True)
 
         os.environ["QNN_SDK_ROOT"] = str(target_path / "opt" / "qcom" / "aistack")
+
+        download_azure_blob(
+            container="olivetest",
+            blob=conda_installer_blob,
+            download_path=conda_installer_path,
+        )
+        os.environ["CONDA_INSTALLER"] = str(conda_installer_path)
 
     def _setup_resource(self, use_olive_env):
         """Setups any state specific to the execution of the given module."""
