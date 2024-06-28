@@ -3,13 +3,12 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
-from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
 from olive.common.utils import hash_dict
-from olive.engine.cloud_cache_helper import CloudCacheHelper, CloudModelInvalidStatus
+from olive.engine.cloud_cache_helper import CloudCacheHelper
 from olive.model.config.model_config import ModelConfig
 
 
@@ -53,34 +52,6 @@ class TestCloudCacheHelper:
         # assert
         assert model_config.config["model_path"] == str(self.cloud_cache_helper.output_model_path / cloud_model_path)
 
-    def test_download_model_cache_map_not_exist(self):
-        # setup
-        mock_blob_client = MagicMock()
-        self.cloud_cache_helper.container_client.get_blob_client.return_value = mock_blob_client
-        mock_blob_client.exists.return_value = None
-
-        # execute
-        model_cache_map = self.cloud_cache_helper.download_model_cache_map()
-
-        # assert
-        assert model_cache_map == {}
-
-    def test_download_model_cache_map(self):
-        # setup
-        expected_model_cache_map = {"model": "map"}
-        mock_blob_client = MagicMock()
-        self.cloud_cache_helper.container_client.get_blob_client.return_value = mock_blob_client
-        mock_blob_client.exists.return_value = "exist"
-        mock_download_stream = MagicMock()
-        mock_blob_client.download_blob.return_value = mock_download_stream
-        mock_download_stream.readall.return_value = json.dumps(expected_model_cache_map, indent=2).encode("utf-8")
-
-        # execute
-        actual_model_cache_map = self.cloud_cache_helper.download_model_cache_map()
-
-        # assert
-        assert actual_model_cache_map == expected_model_cache_map
-
     def test_get_hash_key_with_input_hash(self):
         # setup
         model_config = ModelConfig(type="onnxmodel", config={"model_path": "model.onnx"})
@@ -102,26 +73,29 @@ class TestCloudCacheHelper:
         # assert
         assert expected_hash_key == actual_hash_key
 
-    def test_exist_in_model_cache_map(self):
+    @patch("huggingface_hub.repo_info")
+    def test_get_hash_key_without_input_hash(self, mock_repo_info):
         # setup
-        output_model_hash = "model"
-        expected_model_path = "model_path"
+        model_config = ModelConfig(
+            type="onnxmodel", config={"model_path": "model.onnx", "hf_config": {"model_name": "model_name"}}
+        )
+        pass_search_point = {"search_point": "point"}
+        input_model_hash = None
+        mock_repo_info.return_value.sha = "sha"
+        expected_hash_key = hash_dict(
+            {
+                "hf_hub_model_commit_id": "sha",
+                "model_config": model_config.to_json(),
+                "pass_search_point": pass_search_point,
+                "input_model_hash": input_model_hash,
+            }
+        )
 
         # execute
-        actual_model_path = self.cloud_cache_helper.exist_in_model_cache_map(output_model_hash)
+        actual_hash_key = self.cloud_cache_helper.get_hash_key(model_config, pass_search_point, input_model_hash)
 
         # assert
-        assert expected_model_path == actual_model_path
-
-    def test_exist_in_model_cache_map_not_found(self):
-        # setup
-        output_model_hash = "hash"
-
-        # execute
-        actual_model_path = self.cloud_cache_helper.exist_in_model_cache_map(output_model_hash)
-
-        # assert
-        assert actual_model_path is None
+        assert expected_hash_key == actual_hash_key
 
     def test_get_model_config_by_hash_key(self):
         # setup
@@ -140,16 +114,6 @@ class TestCloudCacheHelper:
         # assert
         assert expected_model_config == actual_model_config
 
-    def test_upload_model_to_cloud_cache_no_model(self):
-        # setup
-        output_model_config = ModelConfig(type="onnxmodel", config={})
-
-        # execute
-        actual_return = self.cloud_cache_helper.upload_model_to_cloud_cache("hash", output_model_config)
-
-        # assert
-        assert actual_return == str(CloudModelInvalidStatus.NO_MODEL_FILE)
-
     def test_upload_model_to_cloud_cache(self):
         # setup
         output_model_hash = "output_model_hash"
@@ -162,7 +126,8 @@ class TestCloudCacheHelper:
                 model_data.read()
 
             # execute
-            actual_return = self.cloud_cache_helper.upload_model_to_cloud_cache(output_model_hash, output_model_config)
+            self.cloud_cache_helper.upload_model_to_cloud_cache(output_model_hash, output_model_config)
 
-            assert self.cloud_cache_helper.container_client.upload_blob.call_count == 2
-            assert actual_return == Path("model.onnx").name
+            # assert
+            # 1. model_config.json 2. model 3. model_path.json
+            assert self.cloud_cache_helper.container_client.upload_blob.call_count == 3

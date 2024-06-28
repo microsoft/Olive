@@ -871,10 +871,10 @@ class Engine:
                 )
                 cloud_cache_config.enable_cloud_cache = False
             else:
-                cloud_cache_map_dir = self.cache_dir / "cloud_models"
-                cloud_cache_map_dir.mkdir(parents=True, exist_ok=True)
+                cloud_cache_dir = Path(self.cache_dir) / "cloud_models"
+                cloud_cache_dir.mkdir(parents=True, exist_ok=True)
                 self.cloud_cache_helper = CloudCacheHelper(
-                    cloud_cache_map_dir,
+                    cloud_cache_dir,
                     cloud_cache_config.account_url,
                     cloud_cache_config.contaier_name,
                     cloud_cache_config.hf_cache_path,
@@ -906,7 +906,7 @@ class Engine:
         ):
             # download model files
             logger.info("Cloud model cache is enabled. Download final model files ...")
-            cloud_model_path = self.cloud_cache_helper.exist_in_model_cache_map(output_model_hash)
+            cloud_model_path = self.cloud_cache_helper.exist_in_cloud_cache(output_model_hash)
             self.cloud_cache_helper.update_model_config(cloud_model_path, model_config, output_model_hash)
 
         if not should_prune:
