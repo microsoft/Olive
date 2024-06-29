@@ -18,7 +18,7 @@ jobs:
       runCodesignValidationInjection: false
       PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
       HF_HOME: $(Pipeline.Workspace)/.cache/huggingface
-      PYTEST_BASETEMP: $(Pipeline.Workspace)/.pytest_cache
+      PYTEST_BASETEMP: $(Pipeline.Workspace)/.cache/pytest
 
     steps:
     - task: UsePythonVersion@0
