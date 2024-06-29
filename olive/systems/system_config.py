@@ -10,7 +10,6 @@ from typing import Dict, List, Union
 import olive.systems.system_alias as system_alias
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
-from olive.common.constants import OS
 from olive.common.pydantic_v1 import root_validator, validator
 from olive.systems.common import (
     AcceleratorConfig,

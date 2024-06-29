@@ -6,7 +6,6 @@ import stat
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
-from olive.common.constants import OS
 from olive.logging import WORKFLOW_COMPLETED_LOG
 from olive.workflows.dispactcher.remote_dispactcher import RemoteDispactcher
 
@@ -14,7 +13,6 @@ from olive.workflows.dispactcher.remote_dispactcher import RemoteDispactcher
 
 
 class TestRemoteDispactcher:
-    
 
     @patch("paramiko.SSHClient")
     def test__run_command(self, mock_ssh_client):
@@ -60,7 +58,10 @@ class TestRemoteDispactcher:
         remote_dispactcher = RemoteDispactcher(str(Path(__file__).parent / "remote_dispactcher_config.json"))
         olive_config = {"key": "value"}
         workflow_id = "test_workflow"
-        expected_cmd_1 = f"if [ ! -d {remote_dispactcher.config.workflow_path} ]; then mkdir -p {remote_dispactcher.config.workflow_path}; fi"
+        expected_cmd_1 = (
+            f"if [ ! -d {remote_dispactcher.config.workflow_path} ]; "
+            f"then mkdir -p {remote_dispactcher.config.workflow_path}; fi"
+        )
         expected_cmd_2 = (
             f"source {remote_dispactcher.config.conda_path} && "
             f"conda activate {remote_dispactcher.config.conda_name} && "
@@ -76,7 +77,9 @@ class TestRemoteDispactcher:
         remote_dispactcher._submit_workflow(olive_config, workflow_id, cache_dir, output_dir)
 
         # assert
-        mock_upload_config_file.assert_called_once_with(workflow_id, olive_config, remote_dispactcher.config.workflow_path)
+        mock_upload_config_file.assert_called_once_with(
+            workflow_id, olive_config, remote_dispactcher.config.workflow_path
+        )
         mock_run_command.assert_has_calls([call(cmd) for cmd in expected_calls])
         mock_download_workflow_output.assert_called_once()
 
@@ -140,9 +143,7 @@ class TestRemoteDispactcher:
         remote_cache_dir = Path(remote_dispactcher.config.workflow_path) / cache_dir / workflow_id
 
         # execute
-        remote_dispactcher._download_workflow_output(
-            mock_sftp, cache_dir, output_dir, workflow_id
-        )
+        remote_dispactcher._download_workflow_output(mock_sftp, cache_dir, output_dir, workflow_id)
 
         # assert
         mock_download_directory.assert_any_call(mock_sftp, remote_output_dir, local_output_dir)
