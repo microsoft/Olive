@@ -5,7 +5,7 @@
 import logging
 import math
 import re
-from test.unit_test.utils import create_dataloader, get_onnx_model
+from test.unit_test.utils import create_dummy_dataloader, get_onnx_model
 from unittest.mock import MagicMock, PropertyMock, patch
 
 import psutil
@@ -21,10 +21,10 @@ from olive.passes.onnx.perf_tuning import PERFTUNING_BASELINE, OrtPerfTuning, Pe
 @pytest.mark.parametrize(
     "config",
     [
-        {"input_names": ["input"], "input_shapes": [[1, 1]]},
+        {"input_names": ["input"], "input_shapes": [(1, 1)]},
         {},
-        {"dataloader_func": create_dataloader},
-        {"dataloader_func": create_dataloader, "dataloader_func_kwargs": {"dummy_kwarg": 1}},
+        {"dataloader_func": create_dummy_dataloader},
+        {"dataloader_func": create_dummy_dataloader, "dataloader_func_kwargs": {"dummy_kwarg": 1}},
     ],
 )
 def test_ort_perf_tuning_pass(config, tmp_path):
@@ -42,7 +42,7 @@ def test_ort_perf_tuning_pass(config, tmp_path):
     "config",
     [
         {},
-        {"input_names": ["input"], "input_shapes": [[1, 1]]},
+        {"input_names": ["input"], "input_shapes": [(1, 1)]},
         {"providers_list": ["CPUExecutionProvider", "CUDAExecutionProvider"], "device": "gpu"},
     ],
 )

@@ -116,7 +116,7 @@ class TestIsolatedORTEvaluator:
 
         python_path = shutil.which("python", path=python_environment_path)
         # install only onnxruntime
-        run_subprocess([python_path, "-m", "pip", "install", "onnxruntime"], env=self.system.environ)
+        run_subprocess([python_path, "-m", "pip", "install", "onnxruntime", "numpy<2"], env=self.system.environ)
 
         self.evaluator = IsolatedORTEvaluator(self.system.environ)
         self.onnx_evaluator = OnnxEvaluator()
@@ -125,7 +125,7 @@ class TestIsolatedORTEvaluator:
 
     def test__inference(self):
         model = get_onnx_model_config().create_model()
-        metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, random_dataloader=False)
+        metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         metric = OliveEvaluator.generate_metric_user_config_with_model_io(metric, model)
         dataloader, _, post_func = OliveEvaluator.get_user_config(model.framework, None, metric)
 
