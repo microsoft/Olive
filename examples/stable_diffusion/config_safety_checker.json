@@ -22,18 +22,25 @@
             "config": { "accelerators": [ { "device": "gpu", "execution_providers": [ "DmlExecutionProvider" ] } ] }
         }
     },
+    "data_configs": [
+        {
+            "name": "latency_data_config",
+            "type": "HuggingfaceContainer",
+            "user_script": "user_script.py",
+            "load_dataset_config": { "type": "local_dataset" },
+            "pre_process_data_config": { "type": "skip_pre_process" },
+            "post_process_data_config": { "type": "skip_post_process" },
+            "dataloader_config": { "type": "safety_checker_data_loader", "params": { "batch_size": 1 } }
+        }
+    ],
     "evaluators": {
         "common_evaluator": {
             "metrics": [
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_types": [ { "name": "avg" } ],
-                    "user_config": {
-                        "user_script": "user_script.py",
-                        "dataloader_func": "safety_checker_data_loader",
-                        "batch_size": 1
-                    }
+                    "data_config": "latency_data_config",
+                    "sub_types": [ { "name": "avg" } ]
                 }
             ]
         }

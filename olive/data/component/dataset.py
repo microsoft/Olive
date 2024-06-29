@@ -101,6 +101,7 @@ class DummyDataset(BaseDataset):
         input_names: Optional[List] = None,
         input_types: Optional[List] = None,
         max_samples: Optional[int] = 32,
+        **kwargs,
     ):
         """Initialize the dataset with dummy data.
 

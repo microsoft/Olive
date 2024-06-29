@@ -14,13 +14,11 @@ from typing import Any, Dict, Union
 from olive.common.config_utils import validate_config
 from olive.common.ort_inference import check_and_normalize_provider_args
 from olive.data.config import DataConfig
-from olive.data.template import dummy_data_config_template
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
 from olive.evaluator.metric_result import joint_metric_key
 from olive.exception import EXCEPTIONS_TO_RAISE
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
 from olive.model import ONNXModelHandler
-from olive.model.config.io_config import is_io_config_static
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
 
@@ -289,30 +287,8 @@ class PerfTuningRunner:
         self.config = config
 
     def tune_onnx_model(self, model):
-        if not self.config.data_config:
-            if model.io_config:
-                if not is_io_config_static(model.io_config):
-                    # since Olive will not save the pytorch model's io_config to olive onnx model
-                    # we cannot generate dummy data for the onnx model if this model has dynamic input shapes
-                    # TODO(trajep): try to get static input shapes from onnx model.
-                    # If so, we can move the dataloader for latency measurement.
-                    logger.debug(
-                        "Model input shapes are not static. Cannot use inferred input shapes for creating dummy data. "
-                        "This will cause an error when creating dummy data for tuning."
-                    )
-            else:
-                raise RuntimeError(
-                    "Input model has no io_config to auto-configure data configuration for tuning. "
-                    "Either provide the input model's io_config or a data_config for pass."
-                )
-
-            self.config.data_config = dummy_data_config_template(
-                model.io_config["input_shapes"],
-                model.io_config.get("input_names"),
-                model.io_config.get("input_types"),
-            )
-
-        self.config.data_config = validate_config(self.config.data_config, DataConfig)
+        if self.config.data_config:
+            self.config.data_config = validate_config(self.config.data_config, DataConfig)
 
         latency_sub_types = [{"name": LatencySubType.AVG}]
         latency_metric_config = {

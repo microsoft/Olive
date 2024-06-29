@@ -4,11 +4,10 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Dict, Union
 
 from olive.common.config_utils import ConfigBase, ConfigParam, ParamCategory, create_config_class
 from olive.common.pydantic_v1 import validator
-from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, validate_resource_path
 
 logger = logging.getLogger(__name__)
 
@@ -20,30 +19,19 @@ _common_user_config = {
     "script_dir": ConfigParam(type_=Union[Path, str]),
     "user_script": ConfigParam(type_=Union[Path, str]),
     "inference_settings": ConfigParam(type_=dict),
-    "data_dir": ConfigParam(type_=OLIVE_RESOURCE_ANNOTATIONS, category=ParamCategory.DATA),
-    "dataloader_func": ConfigParam(type_=Union[Callable, str], category=ParamCategory.OBJECT),
-    "func_kwargs": ConfigParam(type_=Dict[str, Dict[str, Any]]),
-    "batch_size": ConfigParam(type_=int, default_value=1),
-    "input_names": ConfigParam(type_=List),
-    "input_shapes": ConfigParam(type_=List),
-    "input_types": ConfigParam(type_=List),
     "shared_kv_buffer": ConfigParam(type_=bool, default_value=False),
     "io_bind": ConfigParam(type_=bool, default_value=False),
     "run_kwargs": ConfigParam(type_=dict),
 }
 
-_common_user_config_validators = {
-    "validate_data_dir_resource_path": validator("data_dir", allow_reuse=True)(validate_resource_path)
-}
+_common_user_config_validators = {}
 
 _type_to_user_config = {
-    "accuracy": {
-        "post_processing_func": ConfigParam(type_=Union[Callable, str], category=ParamCategory.OBJECT),
-    },
     "custom": {
-        "post_processing_func": ConfigParam(type_=Union[Callable, str], category=ParamCategory.OBJECT),
         "evaluate_func": ConfigParam(type_=Union[Callable, str], required=False, category=ParamCategory.OBJECT),
+        "evaluate_func_kwargs": ConfigParam(type_=Dict[str, Any]),
         "metric_func": ConfigParam(type_=Union[Callable, str], required=False, category=ParamCategory.OBJECT),
+        "metric_func_kwargs": ConfigParam(type_=Dict[str, Any]),
     },
 }
 

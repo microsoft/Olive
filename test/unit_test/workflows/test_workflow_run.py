@@ -1,5 +1,4 @@
 from test.unit_test.utils import (
-    create_dummy_dataloader,
     get_pytorch_model,
     get_pytorch_model_config,
     get_pytorch_model_io_config,
@@ -30,10 +29,10 @@ EVALUATORS_CONFIG = {
                     "name": "avg",
                 },
             ],
-            "user_config": {"dataloader_func": create_dummy_dataloader},
         }
     ]
 }
+
 PASS_CONFIG = {
     "qat": {
         "type": "QuantizationAwareTraining",
@@ -81,7 +80,7 @@ def test_run_without_ep(mock_model_to_json, mock_model_from_json, mock_run, conf
 
     mock_run.return_value = get_pytorch_model()
     mock_model_from_json.return_value = get_pytorch_model_config()
-    mock_model_to_json.return_value = {"type": "PyTorchModel", "config": {}}
+    mock_model_to_json.return_value = {"type": "PyTorchModel", "config": {"io_config": {}}}
     ret = olive_run(config)
     assert len(ret) == 1
     assert next(iter(ret)) == AcceleratorSpec("cpu")

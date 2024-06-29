@@ -8,8 +8,20 @@ import transformers
 from olive.data.registry import Registry
 
 
+@Registry.register_post_process()
 @Registry.register_default_post_process()
+@Registry.register_post_process("skip_post_process")
 def post_process(output_data, **kwargs):
+    """Post-process data.
+
+    Args:
+        output_data (object): Model output to be post-processed.
+        **kwargs: Additional named arguments.
+
+    Returns:
+        object: Post-processed data.
+
+    """
     return output_data
 
 

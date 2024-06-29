@@ -8,6 +8,7 @@ import numpy as np
 from onnxruntime.quantization.calibrate import CalibrationDataReader
 from torch.utils.data import DataLoader, Dataset
 
+from olive.data.registry import Registry
 from olive.platform_sdk.qualcomm.utils.data_loader import FileListProcessedDataLoader
 
 
@@ -51,7 +52,8 @@ class MobileNetCalibrationDataReader(CalibrationDataReader):
         self.iter = None
 
 
-def qnn_data_loader(data_dir: str, batch_size: int, *args, **kwargs):
+@Registry.register_dataloader()
+def qnn_dataloader(dataset, data_dir: str, batch_size: int, **kwargs):
     input_list_file = "eval/input_order.txt"
     annotation_file = "eval/labels.npy"
     return FileListProcessedDataLoader(
@@ -59,18 +61,21 @@ def qnn_data_loader(data_dir: str, batch_size: int, *args, **kwargs):
     )
 
 
-def evaluation_dataloader(data_dir, batch_size, *args, **kwargs):
-    dataset = MobileNetDataset(data_dir)
-    return DataLoader(dataset, batch_size=batch_size)
+@Registry.register_dataset()
+def qnn_evaluation_dataset(data_dir, **kwargs):
+    return MobileNetDataset(data_dir)
 
 
-def post_process(output):
+@Registry.register_post_process()
+def qnn_post_process(output):
     return output.argmax(axis=1)
 
 
+@Registry.register_post_process()
 def qnn_sdk_post_process(output):
     return np.array([output.argmax(axis=-1)])
 
 
+@Registry.register_dataloader()
 def mobilenet_calibration_reader(data_dir, batch_size, *args, **kwargs):
     return MobileNetCalibrationDataReader(data_dir, batch_size=batch_size)
