@@ -42,12 +42,16 @@ def pytorch_model_loader(model_path):
     return DummyModel().eval()
 
 
+def get_pytorch_model_io_config(batch_size=1):
+    return {"input_names": ["input"], "output_names": ["output"], "input_shapes": [(batch_size, 1)]}
+
+
 def get_pytorch_model_config(batch_size=1):
     config = {
         "type": "PyTorchModel",
         "config": {
             "model_loader": pytorch_model_loader,
-            "io_config": {"input_names": ["input"], "output_names": ["output"], "input_shapes": [(batch_size, 1)]},
+            "io_config": get_pytorch_model_io_config(batch_size),
         },
     }
     return ModelConfig.parse_obj(config)
@@ -57,7 +61,7 @@ def get_pytorch_model(batch_size=1):
     return PyTorchModelHandler(
         model_loader=pytorch_model_loader,
         model_path=None,
-        io_config={"input_names": ["input"], "output_names": ["output"], "input_shapes": [(batch_size, 1)]},
+        io_config=get_pytorch_model_io_config(batch_size),
     )
 
 
@@ -87,21 +91,28 @@ def get_pytorch_model_dummy_input(model=None, batch_size=1):
 def create_onnx_model_file():
     pytorch_model = pytorch_model_loader(model_path=None)
     dummy_input = get_pytorch_model_dummy_input(pytorch_model)
+    io_config = get_pytorch_model_io_config()
     torch.onnx.export(
-        pytorch_model, dummy_input, ONNX_MODEL_PATH, opset_version=10, input_names=["input"], output_names=["output"]
+        pytorch_model,
+        dummy_input,
+        ONNX_MODEL_PATH,
+        opset_version=10,
+        input_names=io_config["input_names"],
+        output_names=io_config["output_names"],
     )
 
 
 def create_onnx_model_with_dynamic_axis(onnx_model_path, batch_size=1):
     pytorch_model = pytorch_model_loader(model_path=None)
     dummy_input = get_pytorch_model_dummy_input(pytorch_model, batch_size)
+    io_config = get_pytorch_model_io_config()
     torch.onnx.export(
         pytorch_model,
         dummy_input,
         onnx_model_path,
         opset_version=10,
-        input_names=["input"],
-        output_names=["output"],
+        input_names=io_config["input_names"],
+        output_names=io_config["output_names"],
         dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}},
     )
 

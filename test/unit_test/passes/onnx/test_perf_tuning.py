@@ -5,12 +5,14 @@
 import logging
 import math
 import re
-from test.unit_test.utils import create_dummy_dataloader, get_onnx_model
+from test.unit_test.utils import get_onnx_model
 from unittest.mock import MagicMock, PropertyMock, patch
 
 import psutil
 import pytest
 
+from olive.common.config_utils import validate_config
+from olive.data.config import DataComponentConfig, DataConfig
 from olive.evaluator.metric_result import flatten_metric_result
 from olive.evaluator.olive_evaluator import OliveEvaluator, OnnxEvaluator
 from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR, AcceleratorSpec, Device
@@ -18,13 +20,26 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.perf_tuning import PERFTUNING_BASELINE, OrtPerfTuning, PerfTuningRunner, generate_test_name
 
 
+def _get_tuning_data_config(input_shapes, input_names=None):
+    data_config = DataConfig(
+        name="test_data_config_for_tuning",
+        type="DummyDataContainer",
+        load_dataset_config=DataComponentConfig(
+            params={
+                "input_shapes": input_shapes,
+                "input_names": input_names,
+            }
+        ),
+    )
+    return validate_config(data_config, DataConfig)
+
+
 @pytest.mark.parametrize(
     "config",
     [
-        {"input_names": ["input"], "input_shapes": [(1, 1)]},
         {},
-        {"dataloader_func": create_dummy_dataloader},
-        {"dataloader_func": create_dummy_dataloader, "dataloader_func_kwargs": {"dummy_kwarg": 1}},
+        {"data_config": _get_tuning_data_config([(1, 1)])},
+        {"data_config": _get_tuning_data_config([(1, 1)], ["input"])},
     ],
 )
 def test_ort_perf_tuning_pass(config, tmp_path):
@@ -42,7 +57,7 @@ def test_ort_perf_tuning_pass(config, tmp_path):
     "config",
     [
         {},
-        {"input_names": ["input"], "input_shapes": [(1, 1)]},
+        {"data_config": _get_tuning_data_config([(1, 1)], ["input"])},
         {"providers_list": ["CPUExecutionProvider", "CUDAExecutionProvider"], "device": "gpu"},
     ],
 )

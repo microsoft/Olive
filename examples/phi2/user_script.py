@@ -23,14 +23,15 @@ config: "PhiConfig" = AutoConfig.from_pretrained(model_id, trust_remote_code=Tru
 
 
 @Registry.register_dataset()
-def load_tiny_code_dataset(
+def tiny_code_dataset(
     data_name: str, split: str, language: str, token: Union[bool, str] = True, trust_remote_code=True
 ):
     dataset = load_dataset(data_name, split=split, token=token, trust_remote_code=trust_remote_code)
     return dataset.filter(lambda x: x["programming_language"] == language)
 
 
-def create_dataloader(data_dir, batch_size, *args, **kwargs):
+@Registry.register_dataloader()
+def phi2_dataloader(dataset, batch_size, *args, **kwargs):
     sequence_length, past_sequence_length = 8, config.num_hidden_layers
     max_sequence_length = 512
     model_framework = kwargs.get("model_framework", Framework.PYTORCH)

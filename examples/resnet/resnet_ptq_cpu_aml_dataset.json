@@ -19,6 +19,34 @@
             }
         }
     },
+    "data_configs": [
+        {
+            "name": "cifar10_data_config",
+            "type": "HuggingfaceContainer",
+            "user_script": "user_script.py",
+            "load_dataset_config": {
+                "type": "cifar10_dataset",
+                "params": {
+                    "data_dir": {
+                        "type": "azureml_datastore",
+                        "config": {
+                            "datastore_name": "workspaceblobstore",
+                            "relative_path": "LocalUpload/cifar-10"
+                        }
+                    }
+                }
+            },
+            "pre_process_data_config": {
+                "type": "skip_pre_process"
+            },
+            "dataloader_config": {
+                "params": {
+                    "batch_size": 16,
+                    "drop_last": true
+                }
+            }
+        }
+    ],
     "evaluators": {
         "common_evaluator":{
             "metrics":[
@@ -98,16 +126,7 @@
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {
-                "user_script": "user_script.py",
-                "dataloader_func": "create_dataloader",
-                "batch_size": 16,
-                "data_dir": {
-                    "type": "azureml_datastore",
-                    "config": {
-                        "datastore_name": "workspaceblobstore",
-                        "relative_path": "LocalUpload/cifar-10"
-                    }
-                }
+                "data_config": "cifar10_data_config"
             }
         }
     },
