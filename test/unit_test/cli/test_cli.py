@@ -61,11 +61,10 @@ def test_legacy_call(deprecated_module):
     )
 
 
-@patch("olive.common.utils.set_tempdir")
 @patch("olive.workflows.run")
 @pytest.mark.parametrize("setup", [True, False])
 @pytest.mark.parametrize("tempdir", [None, "tempdir"])
-def test_workflow_run_command(mock_run, mock_set_tempdir, setup, tempdir):
+def test_workflow_run_command(mock_run, setup, tempdir):
     # setup
     command_args = ["run", "--run-config", "config.json"]
     if setup:
@@ -77,8 +76,9 @@ def test_workflow_run_command(mock_run, mock_set_tempdir, setup, tempdir):
     cli_main(command_args)
 
     # assert
-    mock_set_tempdir.assert_called_once_with(tempdir)
-    mock_run.assert_called_once_with(run_config="config.json", setup=setup, package_config=None, data_root=None)
+    mock_run.assert_called_once_with(
+        run_config="config.json", setup=setup, package_config=None, data_root=None, tempdir=tempdir
+    )
 
 
 @patch("olive.platform_sdk.qualcomm.configure.configure.configure")

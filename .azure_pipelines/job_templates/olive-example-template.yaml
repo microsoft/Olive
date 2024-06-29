@@ -18,6 +18,7 @@ jobs:
       runCodesignValidationInjection: false
       PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
       HF_HOME: $(Pipeline.Workspace)/.cache/huggingface
+      OLIVE_TEMPDIR: $(Pipeline.Workspace)/.olive_tempdir
       PYTEST_BASETEMP: $(Pipeline.Workspace)/.pytest_basetemp
 
     steps:

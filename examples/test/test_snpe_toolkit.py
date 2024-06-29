@@ -75,5 +75,5 @@ class TestSnpeToolkit:
 
         self._setup_resource(use_olive_env)
 
-        footprint = olive_run("inception_config.json")
+        footprint = olive_run("inception_config.json", tempdir=os.environ.get("OLIVE_TEMPDIR", None))
         check_output(footprint)
