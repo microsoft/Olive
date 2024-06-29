@@ -475,40 +475,6 @@ for :code:`"conda.yaml"`.
 Please refer to :ref:`azureml_system_config` for more details on the config options.
 
 
-Cloud System
---------------
-
-The cloud system allows you to run the Olive workflow in a cloud virtual machine on Azure. The cloud system is configured with the following attributes:
-
-.. admonition:: Configuration
-
-    * :code:`accelerators`: The list of accelerators that are supported by the cloud system.
-    * :code:`hf_token`: Whether to use the Hugging Face token. This is optional and defaults to False.
-    * :code:`olive_path`: The path to run the Olive workflow in the cloud system.
-    * :code:`conda_path`: The path to conda to activate the environment.
-    * :code:`conda_name`: The name of the conda environment to activate.
-    * :code:`hostname`: The hostname of the cloud virtual machine. Can be an IP address or a domain name.
-    * :code:`username`: The username to login to the cloud virtual machine.
-    * :code:`os`: The operating system of the cloud virtual machine. Can be "Linux" or "Windows".
-    * :code:`key_filename`: The path to the private key file to login to the cloud virtual machine.
-    * :code:`password`: The password to login to the cloud virtual machine. This is optional when `key_filename` is provided.
-
-Prerequisites
-^^^^^^^^^^^^^
-
-1. extra dependencies installed.
-
-    .. code-block:: bash
-
-        pip install olive-ai[cloud]
-
-    or
-
-    .. code-block:: bash
-
-        pip install paramiko
-
-
 Isolated ORT System
 -------------------
 The isolated ORT system represents the isolated ONNX Runtime environment in which the ``olive-ai`` is not installed. It can only be configured as a target system. The isolated ORT system is configured with the following attributes:

@@ -12,7 +12,6 @@ from olive.hardware.accelerator import Device
 
 
 class SystemType(str, Enum):
-    Cloud = "Cloud"
     Docker = "Docker"
     Local = "LocalSystem"
     AzureML = "AzureML"

@@ -21,6 +21,7 @@ from olive.passes import AbstractPassConfig
 from olive.passes.pass_config import PassParamDefault
 from olive.resource_path import AZUREML_RESOURCE_TYPES
 from olive.systems.system_config import SystemConfig
+from olive.workflows.dispactcher.dispatcher_config import RunDispatcherConfig
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +99,10 @@ class RunConfig(ConfigBase):
 
     workflow_id: str = Field(
         DEFAULT_WORKFLOW_ID, description="Workflow ID. If not provided, use the default ID 'default_workflow'."
+    )
+    dispatcher: RunDispatcherConfig = Field(
+        None,
+        description="Dispatcher configuration path. If provided, the dispatcher will be used to execute the workflow.",
     )
     azureml_client: AzureMLClientConfig = Field(
         None,

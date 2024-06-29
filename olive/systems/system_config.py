@@ -54,17 +54,6 @@ class AzureMLTargetUserConfig(TargetUserConfig):
     requirements_file: Union[Path, str] = None
 
 
-class CLoudTargetUserConfig(TargetUserConfig):
-    olive_path: Union[Path, str]
-    conda_path: Union[Path, str]
-    conda_name: str
-    hostname: str
-    username: str
-    os: OS = OS.LINUX
-    key_filename: str = None
-    password: str = None
-
-
 class CommonPythonEnvTargetUserConfig(TargetUserConfig):
     # path to the python environment, e.g. /home/user/anaconda3/envs/myenv, /home/user/.virtualenvs/
     python_environment_path: Union[Path, str] = None
@@ -126,7 +115,6 @@ class IsolatedORTTargetUserConfig(CommonPythonEnvTargetUserConfig):
 
 _type_to_config = {
     SystemType.Local: LocalTargetUserConfig,
-    SystemType.Cloud: CLoudTargetUserConfig,
     SystemType.AzureML: AzureMLTargetUserConfig,
     SystemType.Docker: DockerTargetUserConfig,
     SystemType.PythonEnvironment: PythonEnvironmentTargetUserConfig,
@@ -135,7 +123,6 @@ _type_to_config = {
 
 _type_to_system_path = {
     SystemType.Local: "olive.systems.local.LocalSystem",
-    SystemType.Cloud: "olive.systems.cloud.CloudSystem",
     SystemType.AzureML: "olive.systems.azureml.AzureMLSystem",
     SystemType.Docker: "olive.systems.docker.DockerSystem",
     SystemType.PythonEnvironment: "olive.systems.python_environment.PythonEnvironmentSystem",

@@ -8,10 +8,9 @@ import subprocess
 import sys
 from copy import deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Generator, List, Union
+from typing import Generator, List, Union
 
 from olive.auto_optimizer import AutoOptimizer
-from olive.common.utils import get_path_by_os
 from olive.logging import (
     WORKFLOW_COMPLETED_LOG,
     set_default_logger_severity,
@@ -21,11 +20,7 @@ from olive.logging import (
 from olive.package_config import OlivePackageConfig
 from olive.systems.accelerator_creator import create_accelerators
 from olive.systems.common import SystemType
-from olive.systems.system_config import LocalTargetUserConfig, SystemConfig
 from olive.workflows.run.config import RunConfig, RunPassConfig
-
-if TYPE_CHECKING:
-    from olive.systems.cloud.cloud_system import CloudSystem
 
 logger = logging.getLogger(__name__)
 
@@ -297,16 +292,17 @@ def run(
     package_config = OlivePackageConfig.parse_file_or_obj(package_config)
     run_config = RunConfig.parse_file_or_obj(run_config)
 
-    if run_config.engine.host is not None and run_config.engine.host.type == SystemType.Cloud:
+    if run_config.dispatcher is not None:
+        dispactcher = run_config.dispatcher.create_dispatcher()
         workflow_id = run_config.workflow_id
-        cloud_system: CloudSystem = run_config.engine.host.create_system()
         if retrieve:
-            return retrieve_workflow_logs(run_config, cloud_system, workflow_id)
-        return run_cloud_system(run_config, cloud_system, workflow_id)
+            return dispactcher.retrieve_workflow_logs(
+                workflow_id, run_config.engine.cache_dir, run_config.engine.output_dir
+            )
+        return dispactcher.submit_workflow(run_config)
 
     if retrieve:
-        logger.warning("Retrieve is only supported for cloud systems. Ignoring retrieve flag.")
-        # TODO(xiaoyu): add retrieve support for other systems
+        logger.warning("Retrieve is set to True but no dispatcher is provided. Ignoring retrieve.")
 
     # set log level for olive
     set_default_logger_severity(run_config.engine.log_severity_level)
@@ -318,49 +314,6 @@ def run(
         return None
     else:
         return run_engine(package_config, run_config, data_root)
-
-
-def retrieve_workflow_logs(run_config: RunConfig, cloud_system: "CloudSystem", workflow_id: str):
-
-    cache_dir, remote_cache_dir, output_dir, remote_output_dir = _get_cloud_sys_dirs(run_config, cloud_system)
-
-    return cloud_system.retrieve_workflow_logs(workflow_id, remote_cache_dir, cache_dir, remote_output_dir, output_dir)
-
-
-def run_cloud_system(run_config: RunConfig, cloud_system: "CloudSystem", workflow_id: str):
-    accelerators = run_config.engine.host.config.accelerators
-    hf_token = run_config.engine.host.config.hf_token
-
-    local_system = SystemConfig(
-        type=SystemType.Local, config=LocalTargetUserConfig(accelerators=accelerators, hf_token=hf_token)
-    )
-    run_config.engine.host = local_system
-    if run_config.engine.target is not None and run_config.engine.target.type == SystemType.Cloud:
-        run_config.engine.target = local_system
-
-    run_config.engine.log_to_file = True
-    os = cloud_system.os
-
-    cache_dir, remote_cache_dir, output_dir, remote_output_dir = _get_cloud_sys_dirs(run_config, cloud_system)
-
-    run_config.engine.cache_dir = get_path_by_os(remote_cache_dir, os)
-    run_config.engine.output_dir = get_path_by_os(remote_output_dir, os)
-
-    olive_config = run_config.to_json()
-    return cloud_system.submit_workflow(
-        olive_config, workflow_id, remote_cache_dir, cache_dir, remote_output_dir, output_dir
-    )
-
-
-def _get_cloud_sys_dirs(run_config: RunConfig, cloud_system: "CloudSystem"):
-    olive_path = Path(cloud_system.olive_path)
-    cache_dir = Path(run_config.engine.cache_dir)
-    output_dir = Path(run_config.engine.output_dir)
-
-    remote_cache_dir = olive_path / cache_dir
-    remote_output_dir = olive_path / output_dir
-
-    return cache_dir, remote_cache_dir, output_dir, remote_output_dir
 
 
 def check_local_ort_installation(package_name: str):

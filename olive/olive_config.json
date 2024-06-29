@@ -208,7 +208,7 @@
         "docker": [
             "docker"
         ],
-        "cloud": [
+        "dispactcher": [
             "paramiko"
         ],
         "cpu": [
