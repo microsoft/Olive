@@ -21,17 +21,6 @@ jobs:
       PYTEST_BASETEMP: $(Pipeline.Workspace)/.pytest_cache
 
     steps:
-    - script: |
-        df -H
-        # don't fail if not present
-        df -H /tmp || echo "No /tmp"
-        du -sh $(Pipeline.Workspace)
-        du -sh $(PIP_CACHE_DIR)
-        du -sh $(HF_HOME)
-        du -sh $(Build.SourcesDirectory)
-        du -sh /tmp || echo "No /tmp"
-      displayName: Check disk space
-
     - task: UsePythonVersion@0
       inputs:
         versionSpec: ${{ parameters.python_version }}
@@ -69,35 +58,12 @@ jobs:
         WORKSPACE_NAME: $(workspace-name)
         MANAGED_IDENTITY_CLIENT_ID: $(olive-1es-identity-client-id)
 
-    - script: |
-        df -H
-        # don't fail if not present
-        df -H /tmp || echo "No /tmp"
-        du -sh $(Pipeline.Workspace)
-        du -sh $(PIP_CACHE_DIR)
-        du -sh $(HF_HOME)
-        du -sh $(Build.SourcesDirectory)
-        du -sh /tmp || echo "No /tmp"
-      displayName: Check disk space
-
     - task: ComponentGovernanceComponentDetection@0
       inputs:
         scanType: 'Register'
         verbosity: 'Verbose'
         alertWarningLevel: 'High'
       displayName: Component Detection
-
-    - script: |
-        df -H
-        # don't fail if not present
-        df -H /tmp || echo "No /tmp"
-        du -sh $(Pipeline.Workspace)
-        du -sh $(PIP_CACHE_DIR)
-        du -sh $(HF_HOME)
-        du -sh $(Build.SourcesDirectory)
-        du -sh /tmp || echo "No /tmp"
-      displayName: Check disk space
-      condition: always()
 
     - task: PublishTestResults@2
       condition: succeededOrFailed()
