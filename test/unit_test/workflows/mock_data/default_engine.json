@@ -77,10 +77,37 @@
                         "label"
                     ]
                 }
-            },
-            "dataloader_config": {
+            }
+        },
+        {
+            "name": "perf_tuning_data_config",
+            "type": "DummyDataContainer",
+            "load_dataset_config": {
                 "params": {
-                    "batch_size": 1
+                    "input_names": [
+                        "input_ids",
+                        "attention_mask",
+                        "token_type_ids"
+                    ],
+                    "input_shapes": [
+                        [
+                            1,
+                            128
+                        ],
+                        [
+                            1,
+                            128
+                        ],
+                        [
+                            1,
+                            128
+                        ]
+                    ],
+                    "input_types": [
+                        "int64",
+                        "int64",
+                        "int64"
+                    ]
                 }
             }
         }
@@ -108,30 +135,7 @@
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {
-                "input_names": [
-                    "input_ids",
-                    "attention_mask",
-                    "token_type_ids"
-                ],
-                "input_shapes": [
-                    [
-                        1,
-                        128
-                    ],
-                    [
-                        1,
-                        128
-                    ],
-                    [
-                        1,
-                        128
-                    ]
-                ],
-                "input_types": [
-                    "int64",
-                    "int64",
-                    "int64"
-                ]
+                "data_config": "perf_tuning_data_config"
             }
         }
     }

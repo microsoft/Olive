@@ -372,8 +372,7 @@ improve performance.
 {
     "type": "OrtPerfTuning",
     "config": {
-        "user_script": "user_script.py",
-        "dataloader_func": "create_dataloader",
+        "data_config": "perf_tuning_data_config",
         "batch_size": 1,
         "providers_list" : [
             [

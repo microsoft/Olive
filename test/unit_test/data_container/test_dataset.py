@@ -18,10 +18,10 @@ def get_dict_dataset(length=256, max_samples=None):
     return BaseDataset(data, ["original_label"], max_samples)
 
 
-def get_dummy_dataset():
+def get_dummy_dataset(length=256):
     input_shapes = [[2], [3]]
     input_names = ["input_1", "input_2"]
-    return DummyDataset(input_shapes, input_names)
+    return DummyDataset(input_shapes, input_names, max_samples=length)
 
 
 def get_hf_dataset():
@@ -70,4 +70,4 @@ class TestDataset:
         # assert shape of the first sample
         assert hf_dataset["input_1"][0].shape == (2,)
         assert hf_dataset["input_2"][0].shape == (3,)
-        assert hf_dataset[label_name][0].shape == ()
+        assert hf_dataset[label_name][0].shape == ((1,) if isinstance(dataset, DummyDataset) else ())

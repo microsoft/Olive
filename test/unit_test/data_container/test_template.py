@@ -52,10 +52,10 @@ class TestDataConfigTemplate:
             input_types=["int64", "int64", "int64"],
         )
         dummy_inputs, _ = dataloader.to_data_container().get_first_batch()
-        if not input_names:
-            assert isinstance(dummy_inputs, tuple), "Failed to create dummy tuple input from dummy template."
-        else:
+        if input_names:
             assert isinstance(dummy_inputs, dict), "Failed to create dummy dict dataset from dummy template."
+        else:
+            assert isinstance(dummy_inputs, list), "Failed to create dummy list input from dummy template."
 
     def test_raw_data_template(self, tmpdir):
         input_names = ["float_input", "int_input"]

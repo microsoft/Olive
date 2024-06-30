@@ -30,7 +30,8 @@ def load_tiny_code_dataset(
     return dataset.filter(lambda x: x["programming_language"] == language)
 
 
-def create_dataloader(data_dir, batch_size, *args, **kwargs):
+@Registry.register_dataloader()
+def create_phi2_dataloader(dataset, batch_size, *args, **kwargs):
     sequence_length, past_sequence_length = 8, config.num_hidden_layers
     max_sequence_length = 512
     model_framework = kwargs.get("model_framework", Framework.PYTORCH)

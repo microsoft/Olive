@@ -9,19 +9,20 @@ import logging
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, Union
+from typing import Any, Dict, Union
 
+from olive.common.config_utils import validate_config
 from olive.common.ort_inference import check_and_normalize_provider_args
 from olive.data.config import DataConfig
+from olive.data.template import dummy_data_config_template
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
-from olive.evaluator.metric_config import get_user_config_properties_from_metric_type
 from olive.evaluator.metric_result import joint_metric_key
 from olive.exception import EXCEPTIONS_TO_RAISE
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
 from olive.model import ONNXModelHandler
+from olive.model.config.io_config import is_io_config_static
 from olive.passes import Pass
-from olive.passes.pass_config import ParamCategory, PassConfigParam
-from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
+from olive.passes.pass_config import PassConfigParam
 
 logger = logging.getLogger(__name__)
 
@@ -208,33 +209,9 @@ class OrtPerfTuning(Pass):
         execution_provider = accelerator_spec.execution_provider
 
         return {
-            "data_dir": PassConfigParam(
-                type_=OLIVE_RESOURCE_ANNOTATIONS,
-                category=ParamCategory.DATA,
-                description="Directory of sample inference data.",
-            ),
-            "dataloader_func": PassConfigParam(
-                type_=Union[Callable, str],
-                category=ParamCategory.OBJECT,
-                description="Dataloader function to load data from given data_dir with given batch size.",
-            ),
-            "dataloader_func_kwargs": PassConfigParam(
-                type_=Dict[str, Any],
-                description="Keyword arguments for dataloader_func.",
-            ),
-            "batch_size": PassConfigParam(type_=int, description="Batch size for inference."),
             "data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
                 description="Data config to load data for computing latency.",
-            ),
-            "input_names": PassConfigParam(
-                type_=list, default_value=None, description="Input names list for ONNX model."
-            ),
-            "input_shapes": PassConfigParam(
-                type_=list, default_value=None, description="Input shapes list for ONNX model."
-            ),
-            "input_types": PassConfigParam(
-                type_=list, default_value=None, description="Input types list for ONNX model."
             ),
             "device": PassConfigParam(
                 type_=str, default_value=device, description="Device selected for tuning process."
@@ -313,24 +290,37 @@ class PerfTuningRunner:
         self.data_root = data_root
 
     def tune_onnx_model(self, model):
-        latency_user_config = {}
-        # which should be the same as the config in the metric
-        config_dict = self.config.dict()
+        if not self.config.data_config:
+            if model.io_config:
+                if not is_io_config_static(model.io_config):
+                    # since Olive will not save the pytorch model's io_config to olive onnx model
+                    # we cannot generate dummy data for the onnx model if this model has dynamic input shapes
+                    # TODO(trajep): try to get static input shapes from onnx model.
+                    # If so, we can move the dataloader for latency measurement.
+                    logger.debug(
+                        "Model input shapes are not static. Cannot use inferred input shapes for creating dummy data. "
+                        "This will cause an error when creating dummy data for tuning."
+                    )
+            else:
+                raise RuntimeError(
+                    "Input model has no io_config to auto-configure data configuration for tuning. "
+                    "Either provide the input model's io_config or a data_config for pass."
+                )
 
-        # data_dir/dataloader_func will be passed to the metric as perf_tuning will leverage
-        # the latency metric to run tune
-        for eval_config in get_user_config_properties_from_metric_type(MetricType.LATENCY):
-            if eval_config in config_dict:
-                latency_user_config[eval_config] = config_dict.get(eval_config)
-        if config_dict.get("dataloader_func_kwargs"):
-            latency_user_config["func_kwargs"] = {"dataloader_func": config_dict.get("dataloader_func_kwargs")}
+            self.config.data_config = dummy_data_config_template(
+                model.io_config["input_shapes"],
+                model.io_config.get("input_names"),
+                model.io_config.get("input_types"),
+            )
+
+        self.config.data_config = validate_config(self.config.data_config, DataConfig)
+
         latency_sub_types = [{"name": LatencySubType.AVG}]
         latency_metric_config = {
             "name": "latency",
             "type": MetricType.LATENCY,
             "sub_types": latency_sub_types,
-            "user_config": latency_user_config,
-            "data_config": config_dict.get("data_config"),
+            "data_config": self.config.data_config,
         }
         latency_metric = Metric(**latency_metric_config)
 

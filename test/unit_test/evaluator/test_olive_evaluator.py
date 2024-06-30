@@ -289,9 +289,8 @@ class TestOliveEvaluator:
         # setup
         dataloader_func = MagicMock(spec=FunctionType)
         data_dir = None
-        batch_size = 1
         model_framework = "PyTorch"
-        user_config = {"dataloader_func": dataloader_func, "batch_size": batch_size, "data_dir": data_dir}
+        user_config = {"dataloader_func": dataloader_func, "data_dir": data_dir}
         if dataloader_func_kwargs:
             user_config["func_kwargs"] = {"dataloader_func": dataloader_func_kwargs}
         metric = get_latency_metric(LatencySubType.AVG, user_config=user_config)
@@ -301,7 +300,7 @@ class TestOliveEvaluator:
 
         # assert
         dataloader_func.assert_called_once_with(
-            data_dir, batch_size, model_framework=model_framework, **(dataloader_func_kwargs or {})
+            data_dir, batch_size=1, model_framework=model_framework, **(dataloader_func_kwargs or {})
         )
 
     # this is enough to test the kwargs for `evaluate_func`, `metric_func` and `post_process_func`

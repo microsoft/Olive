@@ -31,6 +31,22 @@ def pre_process(dataset, **kwargs):
     return dataset
 
 
+@Registry.register_pre_process()
+def skip_pre_process(dataset, *args, **kwargs):
+    """Pre-process data.
+
+    Args:
+        dataset (object): Data to be pre-processed, reserved for internal dataset assignment.
+        *args: Additional unnamed arguments.
+        **kwargs: Additional named arguments.
+
+    Returns:
+        object: Pre-processed data.
+
+    """
+    return dataset
+
+
 def _huggingface_pre_process_helper(dataset, model_name, input_cols, label_cols, map_func, **kwargs):
     """Pre-process data.
 
