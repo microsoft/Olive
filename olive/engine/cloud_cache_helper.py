@@ -78,8 +78,7 @@ class CloudCacheHelper:
             if model_config.has_hf_config():
                 hf_hub_model_commit_id = repo_info(model_config.get_hf_model_name()).sha
         else:
-            if model_config_copy.config.get("model_path") is not None:
-                model_config_copy.config["model_path"] = None
+            model_config_copy.config.pop("model_path", None)
         return hash_dict(
             {
                 "hf_hub_model_commit_id": hf_hub_model_commit_id,
