@@ -19,7 +19,7 @@ class Dispatcher(ABC):
     dispatcher_type: DispatcherType
 
     def __init__(self, config_path: str):
-        self.config = self.load_config(config_path)
+        pass
 
     @abstractmethod
     def load_config(self, config_path: str):

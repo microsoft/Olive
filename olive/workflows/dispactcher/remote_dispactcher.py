@@ -47,6 +47,7 @@ class RemoteDispactcher(Dispatcher):
 
     def __init__(self, config_path: str) -> None:
         super().__init__(config_path)
+        self.config = self.load_config(config_path)
         self.ssh_client = self._connect_to_vm()
 
     def load_config(self, config_path) -> RemoteDispatcherConfig:
