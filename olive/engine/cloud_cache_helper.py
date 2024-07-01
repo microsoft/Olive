@@ -31,7 +31,6 @@ class CloudCacheHelper:
         cache_dir: str,
         account_url: str,
         container_name: str,
-        hf_cache_path: str,
         input_model_config: ModelConfig = None,
     ):
         try:
@@ -49,7 +48,6 @@ class CloudCacheHelper:
         self.cache_dir = cache_dir
         self.output_model_path = Path(cache_dir) / "model"
         self.input_model_config = input_model_config
-        self.hf_cache_path = hf_cache_path
 
     def update_model_config(self, cloud_model_path, model_config, input_model_hash):
         logger.info("Updating model config with cloud model path: %s", cloud_model_path)

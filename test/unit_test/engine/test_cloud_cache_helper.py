@@ -3,9 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
+import shutil
 from unittest.mock import MagicMock, mock_open, patch
-
-import pytest
 
 from olive.common.utils import hash_dict
 from olive.engine.cloud_cache_helper import CloudCacheHelper
@@ -15,15 +14,13 @@ from olive.model.config.model_config import ModelConfig
 class TestCloudCacheHelper:
     # pylint: disable=W0201
 
-    @pytest.fixture(autouse=True)
     @patch("olive.common.utils.get_credentials")
     @patch("azure.storage.blob.ContainerClient")
     @patch("builtins.open", new_callable=mock_open, read_data=json.dumps({"model": "model_path"}).encode("utf-8"))
-    def setup(self, mock_file, mock_container_client, mock_get_credentials):
-        cache_dir = "cache_dir"
+    def setup_method(self, method, mock_file, mock_container_client, mock_get_credentials):
+        self.cache_dir = "cache_dir"
         account_url = "account_url"
         container_name = "container_name"
-        hf_cache_path = "hf_cache_path"
         mock_blob_client = MagicMock()
         mock_container_client.get_blob_client.return_value = mock_blob_client
         mock_blob_client.exists.return_value = "exist"
@@ -31,7 +28,11 @@ class TestCloudCacheHelper:
         mock_blob_client.download_blob.return_value = mock_download_stream
         mock_download_stream.readall.return_value = json.dumps({"model": "model_path"}, indent=2).encode("utf-8")
 
-        self.cloud_cache_helper = CloudCacheHelper(cache_dir, account_url, container_name, hf_cache_path)
+        self.cloud_cache_helper = CloudCacheHelper(self.cache_dir, account_url, container_name)
+
+    @classmethod
+    def teardown_class(cls):
+        shutil.rmtree("cache_dir")
 
     def test_update_model_config(self):
         # setup
@@ -55,7 +56,7 @@ class TestCloudCacheHelper:
     def test_get_hash_key_with_input_hash(self):
         # setup
         model_config = ModelConfig(type="onnxmodel", config={"model_path": "model.onnx"})
-        expected_model_config = ModelConfig(type="onnxmodel", config={"model_path": None})
+        expected_model_config = ModelConfig(type="onnxmodel", config={})
         pass_search_point = {"search_point": "point"}
         input_model_hash = "input_model_hash"
         expected_hash_key = hash_dict(
