@@ -2,14 +2,14 @@
 
 If your workflow takes a long time to run or you need to step away, Olive provides the flexibility to run your workflow on a remote virtual machine. This allows you to turn off your terminal session or shut down your local machine without interrupting the process. You can later retrieve artifacts and logs at your convenience.
 
-This documentation demonstrates how to configure the remote dispactcher, run the workflow, and retrieve the results of the remote workflow.
+This documentation demonstrates how to configure the remote dispatcher, run the workflow, and retrieve the results of the remote workflow.
 
 ## Install Extra Dependencies
 
 You can install the necessary dependencies by running:
 
 ```shell
-pip install olive-ai[dispactcher]
+pip install olive-ai[dispatcher]
 ```
 
 or

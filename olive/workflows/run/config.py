@@ -21,7 +21,7 @@ from olive.passes import AbstractPassConfig
 from olive.passes.pass_config import PassParamDefault
 from olive.resource_path import AZUREML_RESOURCE_TYPES
 from olive.systems.system_config import SystemConfig
-from olive.workflows.dispactcher.dispatcher_config import RunDispatcherConfig
+from olive.workflows.dispatcher.dispatcher_config import RunDispatcherConfig
 
 logger = logging.getLogger(__name__)
 

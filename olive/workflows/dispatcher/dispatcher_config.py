@@ -23,14 +23,14 @@ class Dispatcher(ABC):
         raise NotImplementedError
 
 
-_type_to_dispactcher_path = {
-    DispatcherType.Remote: "olive.workflows.dispactcher.remote_dispactcher.RemoteDispactcher",
+_type_to_dispatcher_path = {
+    DispatcherType.Remote: "olive.workflows.dispatcher.remote_dispatcher.RemoteDispatcher",
 }
 
 
-def import_dispactcher_from_type(dispactcher_type: DispatcherType):
-    dispactcher_path = _type_to_dispactcher_path[dispactcher_type]
-    module_path, class_name = dispactcher_path.rsplit(".", 1)
+def import_dispatcher_from_type(dispatcher_type: DispatcherType):
+    dispatcher_path = _type_to_dispatcher_path[dispatcher_type]
+    module_path, class_name = dispatcher_path.rsplit(".", 1)
     module = importlib.import_module(module_path)
     return getattr(module, class_name)
 
@@ -46,5 +46,5 @@ class RunDispatcherConfig(ConfigBase):
         return v
 
     def create_dispatcher(self):
-        dispactcher_class = import_dispactcher_from_type(self.type)
-        return dispactcher_class(self.config_path)
+        dispatcher_class = import_dispatcher_from_type(self.type)
+        return dispatcher_class(self.config_path)

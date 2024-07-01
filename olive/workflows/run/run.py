@@ -293,13 +293,13 @@ def run(
     run_config = RunConfig.parse_file_or_obj(run_config)
 
     if run_config.dispatcher is not None:
-        dispactcher = run_config.dispatcher.create_dispatcher()
+        dispatcher = run_config.dispatcher.create_dispatcher()
         workflow_id = run_config.workflow_id
         if retrieve:
-            return dispactcher.retrieve_workflow_logs(
+            return dispatcher.retrieve_workflow_logs(
                 workflow_id, run_config.engine.cache_dir, run_config.engine.output_dir
             )
-        return dispactcher.submit_workflow(run_config)
+        return dispatcher.submit_workflow(run_config)
 
     if retrieve:
         logger.warning("Retrieve is set to True but no dispatcher is provided. Ignoring retrieve.")

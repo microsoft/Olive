@@ -13,9 +13,9 @@ import paramiko
 
 from olive.common.config_utils import ConfigBase
 from olive.common.utils import get_path_by_os
-from olive.exception import OliveDispactcherError
+from olive.exception import OliveDispatcherError
 from olive.logging import WORKFLOW_COMPLETED_LOG
-from olive.workflows.dispactcher.dispatcher_config import Dispatcher, DispatcherType
+from olive.workflows.dispatcher.dispatcher_config import Dispatcher, DispatcherType
 from olive.workflows.run.config import RunConfig
 
 logger = logging.getLogger(__name__)
@@ -42,7 +42,7 @@ class RemoteDispatcherConfig(ConfigBase):
         return RemoteDispatcherConfig(**config_dict)
 
 
-class RemoteDispactcher(Dispatcher):
+class RemoteDispatcher(Dispatcher):
     dispatcher_type = DispatcherType.Remote
 
     def __init__(self, config_path: str) -> None:
@@ -64,7 +64,7 @@ class RemoteDispactcher(Dispatcher):
         return self._submit_workflow(olive_config, run_config.workflow_id, cache_dir, output_dir)
 
     def _submit_workflow(self, olive_config: Dict, workflow_id: str, cache_dir: Path, output_dir: Path):
-        logger.info("Submitting workflow %s to the remote dispactcher.", workflow_id)
+        logger.info("Submitting workflow %s to the remote dispatcher.", workflow_id)
         self._check_workflow_path(self.config.workflow_path)
         self._upload_config_file(workflow_id, olive_config, self.config.workflow_path)
         self._run_workflow(workflow_id)
@@ -91,7 +91,7 @@ class RemoteDispactcher(Dispatcher):
         conda_init_cmd = f"source {self.config.conda_path}"
         av_cmd = f"conda activate {self.config.conda_name}"
         cmd = f"{conda_init_cmd} && {av_cmd} && cd {self.config.workflow_path} && {olive_workflow_cmd}"
-        logger.info("Workflow %s is running on the remote dispactcher.", workflow_id)
+        logger.info("Workflow %s is running on the remote dispatcher.", workflow_id)
         self._run_command(cmd)
 
     def _upload_config_file(self, workflow_id: str, olive_config: Dict, target_path: Union[Path, str]):
@@ -180,4 +180,4 @@ class RemoteDispactcher(Dispatcher):
             logger.info("\nCommand executed successfully")
             return 0
         else:
-            raise OliveDispactcherError(f"Command failed with exit status {exit_status}" and error_output)
+            raise OliveDispatcherError(f"Command failed with exit status {exit_status}" and error_output)
