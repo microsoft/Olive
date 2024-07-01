@@ -14,6 +14,7 @@ to apply from user in the form of a json dictionary. In this document, we docume
 The options are organized into following sections:
 
 - [Workflow id](#workflow-id) `workflow_id`
+- [Dispatcher](#dispatcher) `Dispatcher`
 - [Azure ML client](#azure-ml-client) `azureml_client`
 - [Input Model Information](#input-model-information) `input_model`
 - [Data Information](#data-information) `data_root`
@@ -25,6 +26,15 @@ The options are organized into following sections:
 ## Workflow ID
 
 You can name the workflow run by specifying `workflow_id` section in your config file. Olive will save the cache under `<cache_dir>/<workflow_id>` folder, and automatically save the current running config in the cache folder.
+
+## Dispatcher
+
+Dispatcher is where the Olive workflow will be run. The default value is `None`. If `None` set for dispatcher, Olive will run workflow locally.
+
+It contains following items:
+
+- `type: [str]` Type of the dispatcher. The supported type is `Remote`
+- `config_path: [str]` The path to dispatcher configuration file.
 
 ## Azure ML Client
 

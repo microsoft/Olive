@@ -208,6 +208,9 @@
         "docker": [
             "docker"
         ],
+        "dispatcher": [
+            "paramiko"
+        ],
         "cpu": [
             "onnxruntime"
         ],

@@ -11,7 +11,12 @@ from pathlib import Path
 from typing import Generator, List, Union
 
 from olive.auto_optimizer import AutoOptimizer
-from olive.logging import enable_filelog, set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
+from olive.logging import (
+    WORKFLOW_COMPLETED_LOG,
+    set_default_logger_severity,
+    set_ort_logger_severity,
+    set_verbosity_info,
+)
 from olive.package_config import OlivePackageConfig
 from olive.systems.accelerator_creator import create_accelerators
 from olive.systems.common import SystemType
@@ -266,14 +271,18 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig, data_r
                 run_config.engine.output_dir,
                 run_config.engine.output_name,
                 run_config.engine.evaluate_input_model,
+                run_config.engine.log_to_file,
+                run_config.engine.log_severity_level,
             )
         )
+    logger.info(WORKFLOW_COMPLETED_LOG)
     return run_rls
 
 
 def run(
     run_config: Union[str, Path, dict],
     setup: bool = False,
+    retrieve: bool = False,
     data_root: str = None,
     package_config: Union[str, Path, dict] = None,
 ):
@@ -283,10 +292,20 @@ def run(
     package_config = OlivePackageConfig.parse_file_or_obj(package_config)
     run_config = RunConfig.parse_file_or_obj(run_config)
 
+    if run_config.dispatcher is not None:
+        dispatcher = run_config.dispatcher.create_dispatcher()
+        workflow_id = run_config.workflow_id
+        if retrieve:
+            return dispatcher.retrieve_workflow_logs(
+                workflow_id, run_config.engine.cache_dir, run_config.engine.output_dir
+            )
+        return dispatcher.submit_workflow(run_config)
+
+    if retrieve:
+        logger.warning("Retrieve is set to True but no dispatcher is provided. Ignoring retrieve.")
+
     # set log level for olive
     set_default_logger_severity(run_config.engine.log_severity_level)
-    if run_config.engine.log_to_file:
-        enable_filelog(run_config.engine.log_severity_level)
 
     if setup:
         # set the log level to INFO for setup

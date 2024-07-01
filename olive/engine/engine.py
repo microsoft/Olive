@@ -57,6 +57,7 @@ class Engine:
         *,
         azureml_client_config=None,
     ):
+        self.workflow_id = workflow_id
         self.no_search = False
         if not search_strategy:
             # if search strategy is None or False, disable search
@@ -97,7 +98,7 @@ class Engine:
 
         self._initialized = False
 
-    def initialize(self):
+    def initialize(self, log_to_file: bool = False, log_severity_level: int = 1):
         """Initialize engine state. This should be done before running the registered passes."""
         # pylint: disable=attribute-defined-outside-init
 
@@ -110,7 +111,7 @@ class Engine:
         self._model_cache_path, self._run_cache_path, self._evaluation_cache_path, _ = cache_utils.get_cache_sub_dirs(
             self.cache_dir
         )
-        cache_utils.create_cache(self.cache_dir)
+        cache_utils.create_cache(self.cache_dir, self.workflow_id, log_to_file, log_severity_level)
 
         # initialize counters
         # we do this before cleaning pass run caches to ensure we don't reuse model numbers even if the model was
@@ -224,6 +225,8 @@ class Engine:
         output_dir: str = None,
         output_name: str = None,
         evaluate_input_model: bool = True,
+        log_to_file: bool = False,
+        log_severity_level: int = 1,
     ):
         """Run all the registered Olive passes on the input model and produce one or more candidate models.
 
@@ -237,6 +240,8 @@ class Engine:
             output_name: output name for the output model, if output_name is provided, the output
                 model will be saved to engine's output_dir with the prefix of output_name.
             evaluate_input_model: if evaluate_input_model is True, run the evaluation on the input model.
+            log_to_file: if save logs to a file.
+            log_severity_level: severity level of the logger.
 
         Return:
             if search strategy is None, all passes are run in the order they were registered.
@@ -254,7 +259,7 @@ class Engine:
             raise ValueError("No accelerator specified")
 
         if not self._initialized:
-            self.initialize()
+            self.initialize(log_to_file, log_severity_level)
 
         output_dir: Path = Path(output_dir) if output_dir else Path.cwd()
         output_dir.mkdir(parents=True, exist_ok=True)
