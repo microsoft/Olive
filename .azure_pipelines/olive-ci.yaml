@@ -116,7 +116,7 @@ jobs:
         exampleFolder: mobilenet
         exampleName: mobilenet_qnn_ep
 
-# # Windows examples test
+# Windows examples test
 - template: job_templates/olive-example-template.yaml
   parameters:
     name: Windows_CI

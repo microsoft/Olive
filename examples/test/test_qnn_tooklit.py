@@ -76,5 +76,5 @@ class TestQnnToolkit:
 
         self._setup_resource(use_olive_env)
 
-        footprint = olive_run("raw_qnn_sdk_config.json")
+        footprint = olive_run("raw_qnn_sdk_config.json", tempdir=os.environ.get("OLIVE_TEMPDIR", None))
         check_output(footprint)
