@@ -18,6 +18,7 @@ import pytest
 
 from olive.common.utils import hash_dict
 from olive.engine import Engine
+from olive.engine.cloud_cache_helper import CloudCacheConfig
 from olive.evaluator.metric import AccuracySubType
 from olive.evaluator.metric_result import MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
@@ -93,7 +94,9 @@ class TestEngine:
         # execute
         engine.register(OnnxDynamicQuantization)
         with pytest.raises(ValueError) as exc_info:  # noqa: PT011
-            engine.run(model_config, [DEFAULT_CPU_ACCELERATOR])
+            engine.run(
+                model_config, [DEFAULT_CPU_ACCELERATOR], enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False)
+            )
 
         assert str(exc_info.value) == f"Search strategy is None but pass {name} has search space"
 
@@ -104,7 +107,12 @@ class TestEngine:
         assert engine.no_search, "Expect no_search to be True by default"
 
         engine.register(OnnxConversion, name="converter_13", config={"target_opset": 13}, clean_run_cache=True)
-        outputs = engine.run(model_config, [DEFAULT_CPU_ACCELERATOR], output_dir=tmpdir)
+        outputs = engine.run(
+            model_config,
+            [DEFAULT_CPU_ACCELERATOR],
+            output_dir=tmpdir,
+            enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
+        )
 
         assert outputs
         for fp_nodes in outputs.values():
@@ -175,7 +183,12 @@ class TestEngine:
 
         # execute
         output_dir = Path(tmpdir)
-        actual_res = engine.run(model_config, [DEFAULT_CPU_ACCELERATOR], output_dir=output_dir)
+        actual_res = engine.run(
+            model_config,
+            [DEFAULT_CPU_ACCELERATOR],
+            output_dir=output_dir,
+            enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
+        )
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
         actual_res = actual_res[accelerator_spec]
 
@@ -227,7 +240,12 @@ class TestEngine:
 
         # execute
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
-        _actual_res = engine.run(model_config, [accelerator_spec], output_dir=output_dir)
+        _actual_res = engine.run(
+            model_config,
+            [accelerator_spec],
+            output_dir=output_dir,
+            enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
+        )
 
         # assert
         actual_res = next(iter(_actual_res[accelerator_spec].nodes.values()))
@@ -278,7 +296,12 @@ class TestEngine:
         )
 
         # execute
-        _actual_res = engine.run(model_config, [DEFAULT_CPU_ACCELERATOR], output_dir=output_dir)
+        _actual_res = engine.run(
+            model_config,
+            [DEFAULT_CPU_ACCELERATOR],
+            output_dir=output_dir,
+            enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
+        )
         actual_res = next(iter(_actual_res[accelerator_spec].nodes.values()))
 
         assert expected_res["model"] == actual_res.model_config
@@ -318,7 +341,12 @@ class TestEngine:
 
             # execute
             output_dir = Path(tmpdir)
-            engine.run(model_config, [DEFAULT_CPU_ACCELERATOR], output_dir=output_dir)
+            engine.run(
+                model_config,
+                [DEFAULT_CPU_ACCELERATOR],
+                output_dir=output_dir,
+                enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
+            )
 
             # assert
             assert "Exception: test" in caplog.text
@@ -361,7 +389,11 @@ class TestEngine:
 
         # execute
         actual_res = engine.run(
-            model_config, [DEFAULT_CPU_ACCELERATOR], output_dir=output_dir, evaluate_input_model=True
+            model_config,
+            [DEFAULT_CPU_ACCELERATOR],
+            output_dir=output_dir,
+            evaluate_input_model=True,
+            enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
         )
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
         actual_res = next(iter(actual_res[accelerator_spec].nodes.values())).metrics.value
@@ -407,7 +439,11 @@ class TestEngine:
 
         # execute
         actual_res = engine.run(
-            model_config, [DEFAULT_CPU_ACCELERATOR], output_dir=output_dir, evaluate_input_model=True
+            model_config,
+            [DEFAULT_CPU_ACCELERATOR],
+            output_dir=output_dir,
+            evaluate_input_model=True,
+            enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
         )
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
         actual_res = actual_res[accelerator_spec]
@@ -511,7 +547,12 @@ class TestEngine:
 
         model_config = get_pytorch_model_config()
         output_dir = Path(tmpdir)
-        _ = engine.run(model_config, accelerator_specs, output_dir=output_dir)
+        _ = engine.run(
+            model_config,
+            accelerator_specs,
+            output_dir=output_dir,
+            enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
+        )
 
         mock_local_system.run_pass.assert_called_once()
 
@@ -568,7 +609,12 @@ class TestEngine:
             "olive.passes.onnx.conversion.OnnxConversion.is_accelerator_agnostic"
         ) as is_accelerator_agnostic_mock:
             is_accelerator_agnostic_mock.return_value = False
-            _ = engine.run(model_config, accelerator_specs, output_dir=output_dir)
+            _ = engine.run(
+                model_config,
+                accelerator_specs,
+                output_dir=output_dir,
+                enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
+            )
             assert mock_local_system.run_pass.call_count == 2
 
     def test_pass_value_error(self, caplog, tmpdir):
@@ -595,7 +641,12 @@ class TestEngine:
             # execute
             output_dir = Path(tmpdir)
             with pytest.raises(ValueError):  # noqa: PT011
-                engine.run(model_config, [DEFAULT_CPU_ACCELERATOR], output_dir=output_dir)
+                engine.run(
+                    model_config,
+                    [DEFAULT_CPU_ACCELERATOR],
+                    output_dir=output_dir,
+                    enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
+                )
 
     @pytest.mark.parametrize("is_search", [True, False])
     def test_pass_quantization_error(self, is_search, caplog, tmpdir):
@@ -626,7 +677,11 @@ class TestEngine:
             with patch("onnxruntime.quantization.quantize_static") as mock_quantize_static:
                 mock_quantize_static.side_effect = AttributeError("test")
                 actual_res = engine.run(
-                    onnx_model_config, [DEFAULT_CPU_ACCELERATOR], data_root=None, output_dir=output_dir
+                    onnx_model_config,
+                    [DEFAULT_CPU_ACCELERATOR],
+                    data_root=None,
+                    output_dir=output_dir,
+                    enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
                 )
                 assert not actual_res, "Expect empty dict when quantization fails"
         else:
@@ -645,5 +700,6 @@ class TestEngine:
                     data_root=None,
                     output_dir=output_dir,
                     evaluate_input_model=False,
+                    enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
                 )
                 assert not actual_res[DEFAULT_CPU_ACCELERATOR].nodes, "Expect empty dict when quantization fails"

@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional
 
 from olive.common.config_utils import ConfigBase
 from olive.common.pydantic_v1 import Field, validator
+from olive.common.utils import get_credentials
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +98,7 @@ class AzureMLClientConfig(ConfigBase):
             if self.workspace_name is None:
                 raise ValueError("workspace_name must be provided if aml_config_path is not provided")
             return MLClient(
-                credential=self._get_credentials(),
+                credential=get_credentials(self.default_auth_params),
                 subscription_id=self.subscription_id,
                 resource_group_name=self.resource_group,
                 workspace_name=self.workspace_name,
@@ -105,7 +106,7 @@ class AzureMLClientConfig(ConfigBase):
             )
         else:
             return MLClient.from_config(
-                credential=self._get_credentials(),
+                credential=get_credentials(self.default_auth_params),
                 path=self.aml_config_path,
                 read_timeout=self.read_timeout,
             )
@@ -116,31 +117,7 @@ class AzureMLClientConfig(ConfigBase):
 
         set_azure_logging_if_noset()
 
-        return MLClient(credential=self._get_credentials(), registry_name=registry_name)
-
-    def _get_credentials(self):
-        """Get credentials for MLClient.
-
-        Order of credential providers:
-        1. Azure CLI
-        2. DefaultAzureCredential
-        3. InteractiveBrowserCredential
-        """
-        from azure.identity import DefaultAzureCredential, InteractiveBrowserCredential
-
-        logger.debug("Getting credentials for MLClient")
-        try:
-            default_auth_params = self.default_auth_params or {}
-            credential = DefaultAzureCredential(**default_auth_params)
-            # Check if given credential can get token successfully.
-            credential.get_token("https://management.azure.com/.default")
-            logger.debug("Using DefaultAzureCredential")
-        except Exception:
-            logger.warning("Using InteractiveBrowserCredential since of default credential errors", exc_info=True)
-            # Fall back to InteractiveBrowserCredential in case DefaultAzureCredential not work
-            credential = InteractiveBrowserCredential()
-
-        return credential
+        return MLClient(credential=get_credentials(self.default_auth_params), registry_name=registry_name)
 
 
 def set_azure_logging_if_noset():
