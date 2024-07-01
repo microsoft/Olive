@@ -877,7 +877,6 @@ class Engine:
                     cloud_cache_dir,
                     cloud_cache_config.account_url,
                     cloud_cache_config.contaier_name,
-                    cloud_cache_config.hf_cache_path,
                     cloud_cache_config.input_model_config,
                 )
 
