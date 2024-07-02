@@ -74,6 +74,58 @@
                     "max_samples": 128
                 }
             }
+        },
+        {
+            "name": "gqa_prompt_transformer_dummy_data",
+            "type": "TransformersDummyDataContainer",
+            "load_dataset_config": {
+                "params": {
+                    "batch_size": 2,
+                    "use_fp16": true,
+                    "seq_len": 8,
+                    "past_seq_len": 0,
+                    "max_seq_len": 2048,
+                    "shared_kv": true
+                }
+            }
+        },
+        {
+            "name": "gqa_token_transformer_dummy_data",
+            "type": "TransformersDummyDataContainer",
+            "load_dataset_config": {
+                "params": {
+                    "batch_size": 2,
+                    "use_fp16": true,
+                    "seq_len": 1,
+                    "past_seq_len": 8,
+                    "max_seq_len": 2048,
+                    "shared_kv": true
+                }
+            }
+        },
+        {
+            "name": "prompt_transformer_dummy_data",
+            "type": "TransformersDummyDataContainer",
+            "load_dataset_config": {
+                "params": {
+                    "batch_size": 2,
+                    "seq_len": 8,
+                    "past_seq_len": 0,
+                    "max_seq_len": 2048
+                }
+            }
+        },
+        {
+            "name": "token_transformer_dummy_data",
+            "type": "TransformersDummyDataContainer",
+            "load_dataset_config": {
+                "params": {
+                    "batch_size": 2,
+                    "seq_len": 1,
+                    "past_seq_len": 8,
+                    "max_seq_len": 2048
+                }
+            }
         }
     ],
     "systems": {
@@ -103,18 +155,8 @@
                             "priority": 1
                         }
                     ],
+                    "data_config": "prompt_transformer_dummy_data",
                     "user_config": {
-                        "user_script": "user_script.py",
-                        "dataloader_func": "dataloader_func_for_merged",
-                        "func_kwargs": {
-                            "dataloader_func": {
-                                "model_id": "<model_name_placeholder>",
-                                "past_seq_length": 0,
-                                "seq_length": 8,
-                                "max_seq_length": 2048
-                            }
-                        },
-                        "batch_size": 2,
                         "io_bind": true
                     }
                 },
@@ -126,18 +168,8 @@
                             "name": "avg"
                         }
                     ],
+                    "data_config": "token_transformer_dummy_data",
                     "user_config": {
-                        "user_script": "user_script.py",
-                        "dataloader_func": "dataloader_func_for_merged",
-                        "func_kwargs": {
-                            "dataloader_func": {
-                                "model_id": "<model_name_placeholder>",
-                                "past_seq_length": 8,
-                                "seq_length": 1,
-                                "max_seq_length": 2048
-                            }
-                        },
-                        "batch_size": 2,
                         "io_bind": true
                     }
                 }
@@ -154,18 +186,8 @@
                             "priority": 1
                         }
                     ],
+                    "data_config": "gqa_prompt_transformer_dummy_data",
                     "user_config": {
-                        "user_script": "user_script.py",
-                        "dataloader_func": "dataloader_func_for_merged_gqa",
-                        "func_kwargs": {
-                            "dataloader_func": {
-                                "model_id": "<model_name_placeholder>",
-                                "past_seq_length": 0,
-                                "seq_length": 8,
-                                "max_seq_length": 2048
-                            }
-                        },
-                        "batch_size": 2,
                         "io_bind": true,
                         "shared_kv_buffer": true
                     }
@@ -178,18 +200,8 @@
                             "name": "avg"
                         }
                     ],
+                    "data_config": "gqa_token_transformer_dummy_data",
                     "user_config": {
-                        "user_script": "user_script.py",
-                        "dataloader_func": "dataloader_func_for_merged_gqa",
-                        "func_kwargs": {
-                            "dataloader_func": {
-                                "model_id": "<model_name_placeholder>",
-                                "past_seq_length": 8,
-                                "seq_length": 1,
-                                "max_seq_length": 2048
-                            }
-                        },
-                        "batch_size": 2,
                         "io_bind": true,
                         "shared_kv_buffer": true
                     }
@@ -201,7 +213,7 @@
         "conversion_merged": {
             "type": "OnnxConversion",
             "config": {
-                "target_opset": 13,
+                "target_opset": 15,
                 "save_as_external_data": true,
                 "all_tensors_to_one_file": true
             }

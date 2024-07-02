@@ -104,17 +104,18 @@
                         }
                     ],
                     "user_config": {
-                        "user_script": "user_script.py",
-                        "dataloader_func": "dataloader_func_for_merged",
-                        "func_kwargs": {
-                            "dataloader_func": {
-                                "model_id": "meta-llama/Llama-2-7b-hf",
-                                "past_seq_length": 0,
-                                "seq_length": 8,
-                                "max_seq_length": 2048
+                        "data_config": {
+                            "name": "prompt_transformer_dummy_data",
+                            "type": "TransformersDummyDataContainer",
+                            "load_dataset_config": {
+                                "params": {
+                                    "batch_size": 2,
+                                    "seq_len": 8,
+                                    "past_seq_len": 0,
+                                    "max_seq_len": 2048
+                                }
                             }
                         },
-                        "batch_size": 2,
                         "io_bind": true
                     }
                 }
