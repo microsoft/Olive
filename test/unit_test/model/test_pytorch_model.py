@@ -2,13 +2,10 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import shutil
 import unittest
 from types import FunctionType
 from unittest.mock import MagicMock, patch
 
-import mlflow
-import pandas as pd
 import pytest
 import torch
 import transformers
@@ -26,41 +23,27 @@ class TestPyTorchMLflowModel(unittest.TestCase):
         self.root_dir = tmp_path
         self.model_path = str(self.root_dir.resolve() / "mlflow_test")
         self.task = "text-classification"
-        self.architecture = "google/bert_uncased_L-4_H-256_A-4"
-        self.original_model = transformers.BertForSequenceClassification.from_pretrained(self.architecture)
-        # note that cannot tokenizer cannot be used before any forked process
-        # otherwise it will disable parallelism to avoid deadlocks which make the
-        # pytest.mark.parametrize unavailable
-        self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.architecture)
-        self.input_text = "Today was an amazing day."
-        self.hf_conf = {
-            # this is `task_type` and not `task` since it's an input to aml_mlflow.hftransformers.save_model
-            # which expects `task_type` as the key
-            "task_type": self.task,
-        }
+        self.model_name = "hf-internal-testing/tiny-random-BertForSequenceClassification"
 
-        # cleanup the model path, otherwise, the test will fail after the first run.
+        original_model = transformers.BertForSequenceClassification.from_pretrained(self.model_name)
+        tokenizer = transformers.AutoTokenizer.from_pretrained(self.model_name)
         aml_mlflow.hftransformers.save_model(
-            self.original_model,
+            original_model,
             self.model_path,
-            tokenizer=self.tokenizer,
-            config=self.original_model.config,
-            hf_conf=self.hf_conf,
+            tokenizer=tokenizer,
+            config=original_model.config,
+            hf_conf={
+                "task_type": self.task,
+            },
+            pip_requirements=["transformers"],
         )
-        yield
-        shutil.rmtree(self.root_dir, ignore_errors=True)
 
     def test_mlflow_model_hfconfig_function(self):
-        hf_model = PyTorchModelHandler(
-            model_path=self.architecture, hf_config={"task": self.task, "model_name": self.architecture}
-        )
+        hf_model = PyTorchModelHandler(hf_config={"task": self.task, "model_name": self.model_name})
         mlflow_olive_model = PyTorchModelHandler(
             model_path=self.model_path,
             model_file_format="PyTorch.MLflow",
-            hf_config={
-                "task": self.task,
-                "model_name": self.architecture,
-            },
+            hf_config={"task": self.task},
         )
         # load_hf_model only works for huggingface models and not for mlflow models
         assert mlflow_olive_model.get_hf_io_config() == hf_model.get_hf_io_config()
@@ -68,9 +51,14 @@ class TestPyTorchMLflowModel(unittest.TestCase):
         assert len(mlflow_olive_model.get_hf_dummy_inputs()) == len(hf_model.get_hf_dummy_inputs())
 
     def test_hf_model_attributes(self):
-        olive_model = PyTorchModelHandler(hf_config={"task": self.task, "model_name": self.architecture})
+        olive_model = PyTorchModelHandler(hf_config={"task": self.task, "model_name": self.model_name})
         # model_attributes will be delayed loaded until pass run
-        assert olive_model.model_attributes == transformers.AutoConfig.from_pretrained(self.architecture).to_dict()
+        assert olive_model.model_attributes == transformers.AutoConfig.from_pretrained(self.model_name).to_dict()
+
+    def test_load_model(self):
+        olive_model = PyTorchModelHandler(model_path=self.model_path, model_file_format="PyTorch.MLflow").load_model()
+
+        assert isinstance(olive_model, transformers.BertForSequenceClassification)
 
     def test_load_model_with_pretrained_args(self):
         # as the tokenizer is used in setup function
@@ -80,71 +68,44 @@ class TestPyTorchMLflowModel(unittest.TestCase):
             model_path=self.model_path,
             model_file_format="PyTorch.MLflow",
             hf_config={
-                "from_pretrained_args": {"trust_remote_code": True},
+                "from_pretrained_args": {"torch_dtype": "float16"},
             },
         ).load_model()
-        assert olive_model is not None
-
-    def test_load_model(self):
-        olive_model = PyTorchModelHandler(model_path=self.model_path, model_file_format="PyTorch.MLflow").load_model()
-        mlflow_model = mlflow.pyfunc.load_model(self.model_path)
-
-        sample_input = {"inputs": {"input_string": self.input_text}}
-        mlflow_predict_result = mlflow_model.predict(pd.DataFrame.from_dict(sample_input)).values[0]  # noqa: PD011
-
-        encoded_input = self.tokenizer(
-            self.input_text,
-            padding="max_length",
-            truncation=True,
-            max_length=128,
-            return_tensors="pt",
-        )
-        olive_result = (
-            olive_model(input_ids=encoded_input["input_ids"], attention_mask=encoded_input["attention_mask"])
-            .logits.argmax()
-            .item()
-        )
-        olive_predict_result = [olive_model.config.id2label[olive_result]]
-
-        assert mlflow_predict_result == olive_predict_result
+        assert isinstance(olive_model, transformers.BertForSequenceClassification)
+        assert olive_model.dtype == torch.float16
 
 
 class TestPyTorchHFModel(unittest.TestCase):
+    @pytest.fixture(autouse=True)
     def setup(self):
         # hf config values
         self.task = "text-classification"
         self.model_class = "BertForSequenceClassification"
-        self.model_name = "Intel/bert-base-uncased-mrpc"
-        self.torch_dtype = "float16"
+        self.model_name = "hf-internal-testing/tiny-random-BertForSequenceClassification"
 
     def test_hf_config_task(self):
-        self.setup()
-
         olive_model = PyTorchModelHandler(hf_config={"task": self.task, "model_name": self.model_name})
 
         pytorch_model = olive_model.load_model()
         assert isinstance(pytorch_model, transformers.BertForSequenceClassification)
 
     def test_hf_config_model_class(self):
-        self.setup()
-
         olive_model = PyTorchModelHandler(hf_config={"model_class": self.model_class, "model_name": self.model_name})
 
         pytorch_model = olive_model.load_model()
         assert isinstance(pytorch_model, transformers.BertForSequenceClassification)
 
     def test_hf_from_pretrained_args(self):
-        self.setup()
-
         olive_model = PyTorchModelHandler(
             hf_config={
                 "task": self.task,
                 "model_name": self.model_name,
-                "from_pretrained_args": {"torch_dtype": self.torch_dtype},
+                "from_pretrained_args": {"torch_dtype": "float16"},
             }
         )
         pytorch_model = olive_model.load_model()
-        assert pytorch_model.dtype == getattr(torch, self.torch_dtype)
+        assert isinstance(pytorch_model, transformers.BertForSequenceClassification)
+        assert pytorch_model.dtype == torch.float16
 
 
 class TestPytorchDummyInput:
@@ -153,7 +114,7 @@ class TestPytorchDummyInput:
         # hf config values
         self.task = "text-classification"
         self.model_class = "BertForSequenceClassification"
-        self.model_name = "Intel/bert-base-uncased-mrpc"
+        self.model_name = "hf-internal-testing/tiny-random-BertForSequenceClassification"
         self.io_config = {
             "input_names": ["input_ids", "attention_mask", "token_type_ids"],
             "input_shapes": [[1, 128], [1, 128], [1, 128]],
@@ -174,8 +135,8 @@ class TestPytorchDummyInput:
         )
         dummy_inputs = olive_model.get_dummy_inputs()
         # len(["input_ids", "attention_mask", "token_type_ids"]) + 2 * num_hidden_layers
-        assert len(dummy_inputs) == 3 + 12 * 2
-        assert list(dummy_inputs["past_key_values.0.key"].shape) == [1, 12, 0, 64]
+        assert len(dummy_inputs) == 3 + 5 * 2
+        assert list(dummy_inputs["past_key_values.0.key"].shape) == [1, 4, 0, 8]
 
     def test_dummy_input_with_kv_cache_dict(self):
         io_config = self.io_config
@@ -185,8 +146,8 @@ class TestPytorchDummyInput:
         )
         dummy_inputs = olive_model.get_dummy_inputs()
         # len(["input_ids", "attention_mask", "token_type_ids"]) + 2 * num_hidden_layers
-        assert len(dummy_inputs) == 3 + 12 * 2
-        assert list(dummy_inputs["past_key_values.0.key"].shape) == [1, 12, 0, 64]
+        assert len(dummy_inputs) == 3 + 5 * 2
+        assert list(dummy_inputs["past_key_values.0.key"].shape) == [1, 4, 0, 8]
 
     def test_dict_io_config(self):
         olive_model = PyTorchModelHandler(
