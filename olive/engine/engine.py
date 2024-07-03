@@ -1001,9 +1001,10 @@ class Engine:
         run_start_time = datetime.now().timestamp()
 
         if enable_cloud_cache:
-            pass_run_locally, output_model_config = check_model_cache(
+            output_model_config = check_model_cache(
                 self.cloud_cache_helper, input_model_config, pass_search_point, input_model_hash
             )
+            pass_run_locally = output_model_config is None
 
         # run pass
         if pass_run_locally:

@@ -152,7 +152,6 @@ class CloudCacheHelper:
 
 
 def check_model_cache(cloud_cache_helper: CloudCacheHelper, input_model_config, pass_search_point, input_model_hash):
-    pass_run_locally = True
     output_model_config = None
     logger.info("Cloud model cache is enabled. Check cloud model cache ...")
 
@@ -160,8 +159,7 @@ def check_model_cache(cloud_cache_helper: CloudCacheHelper, input_model_config, 
     if cloud_cache_helper.exist_in_cloud_cache(output_model_hash):
         logger.info("Model is found in cloud cache.")
         output_model_config = cloud_cache_helper.get_model_config_by_hash_key(output_model_hash)
-        pass_run_locally = False
-    return pass_run_locally, output_model_config
+    return output_model_config
 
 
 def update_input_model_config(cloud_cache_helper: CloudCacheHelper, input_model_config, input_model_hash):
