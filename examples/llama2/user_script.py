@@ -18,5 +18,6 @@ from olive.data.registry import Registry
 def load_tiny_code_dataset(
     data_name: str, split: str, language: str, token: Union[bool, str] = True, trust_remote_code=None
 ):
+    # TODO(anyone): build-in tiny code example dataset
     dataset = load_dataset(data_name, split=split, token=token, trust_remote_code=trust_remote_code)
     return dataset.filter(lambda x: x["programming_language"] == language)

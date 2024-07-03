@@ -76,56 +76,32 @@
             }
         },
         {
-            "name": "gqa_prompt_transformer_dummy_data",
-            "type": "TransformersDummyDataContainer",
+            "name": "gqa_transformer_prompt_dummy_data",
+            "type": "TransformersPromptDummyDataContainer",
             "load_dataset_config": {
                 "params": {
-                    "batch_size": 2,
                     "use_fp16": true,
-                    "seq_len": 8,
-                    "past_seq_len": 0,
-                    "max_seq_len": 2048,
                     "shared_kv": true
                 }
             }
         },
         {
-            "name": "gqa_token_transformer_dummy_data",
-            "type": "TransformersDummyDataContainer",
+            "name": "gqa_transformer_token_dummy_data",
+            "type": "TransformersTokenDummyDataContainer",
             "load_dataset_config": {
                 "params": {
-                    "batch_size": 2,
                     "use_fp16": true,
-                    "seq_len": 1,
-                    "past_seq_len": 8,
-                    "max_seq_len": 2048,
                     "shared_kv": true
                 }
             }
         },
         {
-            "name": "prompt_transformer_dummy_data",
-            "type": "TransformersDummyDataContainer",
-            "load_dataset_config": {
-                "params": {
-                    "batch_size": 2,
-                    "seq_len": 8,
-                    "past_seq_len": 0,
-                    "max_seq_len": 2048
-                }
-            }
+            "name": "transformer_token_dummy_data",
+            "type": "TransformersTokenDummyDataContainer"
         },
         {
-            "name": "token_transformer_dummy_data",
-            "type": "TransformersDummyDataContainer",
-            "load_dataset_config": {
-                "params": {
-                    "batch_size": 2,
-                    "seq_len": 1,
-                    "past_seq_len": 8,
-                    "max_seq_len": 2048
-                }
-            }
+            "name": "transformer_prompt_dummy_data",
+            "type": "TransformersPromptDummyDataContainer"
         }
     ],
     "systems": {
@@ -155,7 +131,7 @@
                             "priority": 1
                         }
                     ],
-                    "data_config": "prompt_transformer_dummy_data",
+                    "data_config": "transformer_prompt_dummy_data",
                     "user_config": {
                         "io_bind": true
                     }
@@ -168,7 +144,7 @@
                             "name": "avg"
                         }
                     ],
-                    "data_config": "token_transformer_dummy_data",
+                    "data_config": "transformer_token_dummy_data",
                     "user_config": {
                         "io_bind": true
                     }
@@ -186,7 +162,7 @@
                             "priority": 1
                         }
                     ],
-                    "data_config": "gqa_prompt_transformer_dummy_data",
+                    "data_config": "gqa_transformer_prompt_dummy_data",
                     "user_config": {
                         "io_bind": true,
                         "shared_kv_buffer": true
@@ -200,7 +176,7 @@
                             "name": "avg"
                         }
                     ],
-                    "data_config": "gqa_token_transformer_dummy_data",
+                    "data_config": "gqa_transformer_token_dummy_data",
                     "user_config": {
                         "io_bind": true,
                         "shared_kv_buffer": true

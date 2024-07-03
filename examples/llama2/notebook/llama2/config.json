@@ -108,6 +108,10 @@
     },
     "data_configs": [
         {
+            "name": "transformer_token_dummy_data",
+            "type": "TransformersTokenDummyDataContainer"
+        },
+        {
             "name": "tiny_codes_train",
             "type": "HuggingfaceContainer",
             "user_script": "user_script.py",
@@ -142,19 +146,9 @@
                         }
                     ],
                     "user_config": {
-                        "user_script": "user_script.py",
-                        "dataloader_func": "dataloader_func_for_merged",
-                        "func_kwargs": {
-                            "dataloader_func": {
-                                "model_id": "meta-llama/Llama-2-7b-hf",
-                                "past_seq_length": 0,
-                                "seq_length": 8,
-                                "max_seq_length": 2048
-                            }
-                        },
-                        "batch_size": 2,
                         "io_bind": true
-                    }
+                    },
+                    "data_config": "transformer_token_dummy_data"
                 }
             ]
         }

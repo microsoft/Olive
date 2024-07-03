@@ -273,7 +273,7 @@ class TransformersDummyDataset(DummyDataset):
 
         if self.model_framework == Framework.ONNX:
             inputs.update(self.flatten_past_kv_inputs(past_kv))
-            del inputs["past_key_values"]
+            inputs.pop("past_key_values", None)
 
             if self.shared_kv:
                 inputs = self.enable_past_present_share_buffer(inputs, self.past_seq_len, self.max_seq_len)

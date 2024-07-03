@@ -126,6 +126,7 @@ def raw_data_config_template(
 
 
 def transformers_dummy_data_config_template(
+    model_name,
     batch_size=1,
     seq_len=128,
     past_seq_len=128,
@@ -146,6 +147,83 @@ def transformers_dummy_data_config_template(
         type="TransformersDummyDataContainer",
         load_dataset_config=DataComponentConfig(
             params={
+                "model_name": model_name,
+                "batch_size": batch_size,
+                "seq_len": seq_len,
+                "past_seq_len": past_seq_len,
+                "max_seq_len": max_seq_len,
+                "model_framework": model_framework,
+                "use_fp16": use_fp16,
+                "shared_kv": shared_kv,
+                "generative": generative,
+                "ort_past_key_name": ort_past_key_name,
+                "ort_past_value_name": ort_past_value_name,
+            }
+        ),
+    )
+
+
+def transformers_prompt_dummy_data_config_template(
+    model_name,
+    batch_size=2,
+    seq_len=8,
+    past_seq_len=0,
+    max_seq_len=1024,
+    model_framework="onnx",
+    use_fp16=False,
+    shared_kv=False,
+    generative=False,
+    ort_past_key_name="past_key_values.<id>.key",
+    ort_past_value_name="past_key_values.<id>.value",
+) -> DataConfig:
+    """Convert the transformer dummy data config to the data container.
+
+    Refer to olive.data.component.dataset.TransformersDummyDataset for more details.
+    """
+    return DataConfig(
+        name="transformer_prompt_dummy_data_config_template",
+        type="TransformersPromptDummyDataContainer",
+        load_dataset_config=DataComponentConfig(
+            params={
+                "model_name": model_name,
+                "batch_size": batch_size,
+                "seq_len": seq_len,
+                "past_seq_len": past_seq_len,
+                "max_seq_len": max_seq_len,
+                "model_framework": model_framework,
+                "use_fp16": use_fp16,
+                "shared_kv": shared_kv,
+                "generative": generative,
+                "ort_past_key_name": ort_past_key_name,
+                "ort_past_value_name": ort_past_value_name,
+            }
+        ),
+    )
+
+
+def transformers_token_dummy_data_config_template(
+    model_name,
+    batch_size=2,
+    seq_len=1,
+    past_seq_len=8,
+    max_seq_len=1024,
+    model_framework="onnx",
+    use_fp16=False,
+    shared_kv=False,
+    generative=False,
+    ort_past_key_name="past_key_values.<id>.key",
+    ort_past_value_name="past_key_values.<id>.value",
+) -> DataConfig:
+    """Convert the transformer dummy data config to the data container.
+
+    Refer to olive.data.component.dataset.TransformersDummyDataset for more details.
+    """
+    return DataConfig(
+        name="transformer_token_dummy_data_config_template",
+        type="TransformersTokenDummyDataContainer",
+        load_dataset_config=DataComponentConfig(
+            params={
+                "model_name": model_name,
                 "batch_size": batch_size,
                 "seq_len": seq_len,
                 "past_seq_len": past_seq_len,

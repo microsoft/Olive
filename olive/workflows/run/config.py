@@ -12,7 +12,7 @@ from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.constants import DEFAULT_WORKFLOW_ID
 from olive.common.pydantic_v1 import Field, validator
 from olive.data.config import DataConfig
-from olive.data.container.dummy_data_container import TransformersDummyDataContainer
+from olive.data.container.dummy_data_container import TRANSFORMER_DUMMY_DATA_CONTAINER
 from olive.data.container.huggingface_container import HuggingfaceContainer
 from olive.engine import Engine, EngineConfig
 from olive.engine.packaging.packaging_config import PackagingConfig
@@ -190,7 +190,7 @@ class RunConfig(ConfigBase):
         if isinstance(v, DataConfig):
             v = v.dict()
 
-        if v["type"] == TransformersDummyDataContainer.__name__:
+        if v["type"] in TRANSFORMER_DUMMY_DATA_CONTAINER:
             # if user already set kv_cache in io_config, use it directly and ignore the default value
             io_config = values["input_model"].dict()["config"].get("io_config", {})
             hf_config = values["input_model"].dict()["config"].get("hf_config", {})

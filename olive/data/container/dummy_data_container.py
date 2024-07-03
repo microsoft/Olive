@@ -9,6 +9,12 @@ from olive.data.constants import DataComponentType, DataContainerType
 from olive.data.container.data_container import DataContainer
 from olive.data.registry import Registry
 
+TRANSFORMER_DUMMY_DATA_CONTAINER = (
+    "TransformersDummyDataContainer",
+    "TransformersPromptDummyDataContainer",
+    "TransformersTokenDummyDataContainer",
+)
+
 
 @Registry.register(DataContainerType.DATA_CONTAINER)
 class DummyDataContainer(DataContainer):
@@ -61,5 +67,67 @@ class TransformersDummyDataContainer(DummyDataContainer):
 
     default_components_type: ClassVar[dict] = {
         DataComponentType.LOAD_DATASET.value: "transformers_dummy_dataset",
+        DataComponentType.DATALOADER.value: "no_auto_batch_dataloader",
+    }
+
+
+@Registry.register(DataContainerType.DATA_CONTAINER)
+class TransformersPromptDummyDataContainer(DummyDataContainer):
+    """Dummy data container for transformer model.
+
+    The way to create a dummy data container for transformer model:
+        dummy_data_config = DataConfig(
+            name="dummy",
+            type="TransformersPromptDummyDataContainer",
+            "load_dataset_config"={
+                "params": {
+                    "batch_size": 2,
+                    "seq_len": 8,
+                    "past_seq_len": 0,
+                    "max_seq_len": 2048,
+                    "model_framework": Framework.ONNX,
+                    "use_fp16": False,
+                    "shared_kv": False,
+                    "generative": False,
+                    "ort_past_key_name":"past_key_values.<id>.key",
+                    "ort_past_value_name":"past_key_values.<id>.value",
+                )
+            }
+        )
+    """
+
+    default_components_type: ClassVar[dict] = {
+        DataComponentType.LOAD_DATASET.value: "transformers_prompt_dummy_dataset",
+        DataComponentType.DATALOADER.value: "no_auto_batch_dataloader",
+    }
+
+
+@Registry.register(DataContainerType.DATA_CONTAINER)
+class TransformersTokenDummyDataContainer(DummyDataContainer):
+    """Dummy data container for transformer model.
+
+    The way to create a dummy data container for transformer model:
+        dummy_data_config = DataConfig(
+            name="dummy",
+            type="TransformersTokenDummyDataContainer",
+            "load_dataset_config"={
+                "params": {
+                    "batch_size": 2,
+                    "seq_len": 1,
+                    "past_seq_len": 8,
+                    "max_seq_len": 2048,
+                    "model_framework": Framework.ONNX,
+                    "use_fp16": False,
+                    "shared_kv": False,
+                    "generative": False,
+                    "ort_past_key_name":"past_key_values.<id>.key",
+                    "ort_past_value_name":"past_key_values.<id>.value",
+                )
+            }
+        )
+    """
+
+    default_components_type: ClassVar[dict] = {
+        DataComponentType.LOAD_DATASET.value: "transformers_token_dummy_dataset",
         DataComponentType.DATALOADER.value: "no_auto_batch_dataloader",
     }

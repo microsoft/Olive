@@ -58,19 +58,17 @@
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {
-                "user_script": "user_script.py",
-                "dataloader_func": "dataloader_func_for_merged",
-                "dataloader_func_kwargs": {
-                    "model_id": "<model_name_placeholder>",
-                    "past_seq_length": 0,
-                    "seq_length": 8,
-                    "max_seq_length": 2048
-                },
-                "batch_size": 2,
+                "data_config": "transformer_token_dummy_data",
                 "io_bind": true
             }
         }
     },
+    "data_configs": [
+        {
+            "name": "transformer_token_dummy_data",
+            "type": "TransformersTokenDummyDataContainer"
+        }
+    ],
     "engine": {
         "packaging_config": [
             {

@@ -234,7 +234,9 @@ Convert the transformer dummy data config to the data container.
                 })
             )
 
-
+    Also, based on ``TransformersDummyDataContainer``, Olive provides templates for transformer inference based on prompt(first prediction, no kv_cache now) and token(with kv_cache) inputs.
+    - ``TransformersPromptDummyDataContainer`` where ``seq_len`` >= 1(default 8) and ``past_seq_len`` = 0.
+    - ``TransformersTokenDummyDataContainer`` where ``seq_len`` == 1 and ``past_seq_len`` >= 1(default 8).
 
 
 Generic Data Config

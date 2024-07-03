@@ -64,13 +64,45 @@ def raw_dataset(
 
 
 @Registry.register_dataset()
-def transformers_dummy_dataset(
+def transformers_prompt_dummy_dataset(
     data_dir,
     model_name,
-    batch_size: int = 1,
-    seq_len: int = 128,
-    past_seq_len: int = 128,
-    max_seq_len: int = 1024,
+    batch_size: int = 2,
+    seq_len: int = 8,
+    past_seq_len: int = 0,
+    max_seq_len: int = 2048,
+    model_framework: str = Framework.ONNX,
+    use_fp16: bool = False,
+    shared_kv: bool = False,
+    generative: bool = False,
+    ort_past_key_name: str = "past_key_values.<id>.key",
+    ort_past_value_name: str = "past_key_values.<id>.value",
+    trust_remote_code=None,
+):
+    return TransformersDummyDataset(
+        model_name=model_name,
+        batch_size=batch_size,
+        seq_len=seq_len,
+        past_seq_len=past_seq_len,
+        max_seq_len=max_seq_len,
+        model_framework=model_framework,
+        use_fp16=use_fp16,
+        shared_kv=shared_kv,
+        generative=generative,
+        ort_past_key_name=ort_past_key_name,
+        ort_past_value_name=ort_past_value_name,
+        trust_remote_code=trust_remote_code,
+    )
+
+
+@Registry.register_dataset()
+def transformers_token_dummy_dataset(
+    data_dir,
+    model_name,
+    batch_size: int = 2,
+    seq_len: int = 1,
+    past_seq_len: int = 8,
+    max_seq_len: int = 2048,
     model_framework: str = Framework.ONNX,
     use_fp16: bool = False,
     shared_kv: bool = False,
