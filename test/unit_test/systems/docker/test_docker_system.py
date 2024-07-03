@@ -233,9 +233,7 @@ class TestDockerSystem:
             return v
 
         def is_dir_mock(self):
-            if self == Path("data_root") / "data_dir":
-                return True
-            return False
+            return self == Path("data_root") / "data_dir"
 
         with patch("olive.resource_path._validate_file_path", side_effect=validate_file_or_folder), patch(
             "olive.resource_path._validate_folder_path", side_effect=validate_file_or_folder

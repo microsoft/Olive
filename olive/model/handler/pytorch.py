@@ -50,6 +50,7 @@ class PyTorchModelHandler(
         "model_loader",
         "dummy_inputs_func",
         "hf_config",
+        "mlflow_transformer_model_cache_dir",
         "generative",
     )
 
@@ -253,12 +254,12 @@ class PyTorchModelHandler(
         config["config"]["io_config"] = self._io_config
         # only keep model_attributes that are not in hf_config
         if self.model_attributes and self.hf_config:
-            model_attributes = {}
             hf_config_dict = self.get_hf_model_config().to_dict()
-            for key, value in self.model_attributes.items():
-                if key not in hf_config_dict or hf_config_dict[key] != value:
-                    model_attributes[key] = value
-            config["config"]["model_attributes"] = model_attributes or None
+            config["config"]["model_attributes"] = {
+                key: value
+                for key, value in self.model_attributes.items()
+                if key not in hf_config_dict or hf_config_dict[key] != value
+            } or None
         return serialize_to_json(config, check_object)
 
     def get_user_io_config(self, io_config: Union[Dict[str, Any], IoConfig, str, Callable]) -> Dict[str, Any]:

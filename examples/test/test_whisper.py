@@ -45,7 +45,7 @@ def test_whisper(device_precision):
         olive_config = json.load(f)
 
     # test workflow
-    result = olive_run(olive_config)
+    result = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
     check_output(result)
 
     # test transcription

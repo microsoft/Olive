@@ -30,5 +30,5 @@ def test_bert(search_algorithm, execution_order, system, olive_json, enable_cuda
     olive_config = patch_config(olive_json, search_algorithm, execution_order, system, is_gpu=True)
     olive_config["passes"]["perf_tuning"]["config"]["enable_cuda_graph"] = enable_cuda_graph
 
-    footprint = olive_run(olive_config)
+    footprint = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
     check_output(footprint)
