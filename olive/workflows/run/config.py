@@ -80,13 +80,13 @@ class RunEngineConfig(EngineConfig):
     output_dir: Union[Path, str] = None
     output_name: str = None
     packaging_config: Union[PackagingConfig, List[PackagingConfig]] = None
-    enable_cloud_cache: Union[bool, CloudCacheConfig] = False
+    cloud_cache_config: Union[bool, CloudCacheConfig] = False
     log_severity_level: int = 1
     ort_log_severity_level: int = 3
     ort_py_log_severity_level: int = 3
     log_to_file: bool = False
 
-    @validator("enable_cloud_cache", pre=True, always=True)
+    @validator("cloud_cache_config", pre=True, always=True)
     def validate_cloud_cache(cls, v):
         if isinstance(v, bool):
             cloud_cache_config = CloudCacheConfig()

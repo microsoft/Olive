@@ -95,7 +95,7 @@ def create_and_run_workflow(tmp_path, system_config, model_config, metric, only_
         accelerator_specs,
         output_dir=output_dir,
         evaluate_input_model=True,
-        enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
+        cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
     )
 
     results = [next(iter(output[accelerator].nodes.values())) for accelerator in accelerator_specs]

@@ -235,7 +235,7 @@ class Engine:
         output_dir: str = None,
         output_name: str = None,
         evaluate_input_model: bool = True,
-        enable_cloud_cache: "CloudCacheConfig" = None,
+        cloud_cache_config: "CloudCacheConfig" = None,
     ):
         """Run all the registered Olive passes on the input model and produce one or more candidate models.
 
@@ -249,7 +249,7 @@ class Engine:
             output_name: output name for the output model, if output_name is provided, the output
                 model will be saved to engine's output_dir with the prefix of output_name.
             evaluate_input_model: if evaluate_input_model is True, run the evaluation on the input model.
-            enable_cloud_cache: Cloud model cache configuration.
+            cloud_cache_config: Cloud model cache configuration.
 
         Return:
             if search strategy is None, all passes are run in the order they were registered.
@@ -284,7 +284,7 @@ class Engine:
                     output_name,
                     evaluate_input_model,
                     accelerator_spec,
-                    enable_cloud_cache,
+                    cloud_cache_config,
                 )
 
                 if run_result is None:

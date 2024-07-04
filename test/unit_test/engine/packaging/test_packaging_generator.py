@@ -75,7 +75,7 @@ def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, m
         data_root=None,
         packaging_config=packaging_config,
         output_dir=output_dir,
-        enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
+        cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
     )
 
     # assert
@@ -133,7 +133,7 @@ def test_generate_zipfile_artifacts_no_search(tmp_path):
         packaging_config=packaging_config,
         output_dir=output_dir,
         evaluate_input_model=False,
-        enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
+        cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
     )
 
     # assert
@@ -176,7 +176,7 @@ def test_generate_zipfile_artifacts_mlflow(tmp_path):
         packaging_config=packaging_config,
         output_dir=output_dir,
         evaluate_input_model=False,
-        enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
+        cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
     )
 
     # assert

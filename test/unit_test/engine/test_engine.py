@@ -95,7 +95,7 @@ class TestEngine:
         engine.register(OnnxDynamicQuantization)
         with pytest.raises(ValueError) as exc_info:  # noqa: PT011
             engine.run(
-                model_config, [DEFAULT_CPU_ACCELERATOR], enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False)
+                model_config, [DEFAULT_CPU_ACCELERATOR], cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False)
             )
 
         assert str(exc_info.value) == f"Search strategy is None but pass {name} has search space"
@@ -111,7 +111,7 @@ class TestEngine:
             model_config,
             [DEFAULT_CPU_ACCELERATOR],
             output_dir=tmpdir,
-            enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
+            cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
         )
 
         assert outputs
@@ -187,7 +187,7 @@ class TestEngine:
             model_config,
             [DEFAULT_CPU_ACCELERATOR],
             output_dir=output_dir,
-            enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
+            cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
         )
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
         actual_res = actual_res[accelerator_spec]
@@ -244,7 +244,7 @@ class TestEngine:
             model_config,
             [accelerator_spec],
             output_dir=output_dir,
-            enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
+            cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
         )
 
         # assert
@@ -300,7 +300,7 @@ class TestEngine:
             model_config,
             [DEFAULT_CPU_ACCELERATOR],
             output_dir=output_dir,
-            enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
+            cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
         )
         actual_res = next(iter(_actual_res[accelerator_spec].nodes.values()))
 
@@ -345,7 +345,7 @@ class TestEngine:
                 model_config,
                 [DEFAULT_CPU_ACCELERATOR],
                 output_dir=output_dir,
-                enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
+                cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
             )
 
             # assert
@@ -393,7 +393,7 @@ class TestEngine:
             [DEFAULT_CPU_ACCELERATOR],
             output_dir=output_dir,
             evaluate_input_model=True,
-            enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
+            cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
         )
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
         actual_res = next(iter(actual_res[accelerator_spec].nodes.values())).metrics.value
@@ -443,7 +443,7 @@ class TestEngine:
             [DEFAULT_CPU_ACCELERATOR],
             output_dir=output_dir,
             evaluate_input_model=True,
-            enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
+            cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
         )
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
         actual_res = actual_res[accelerator_spec]
@@ -551,7 +551,7 @@ class TestEngine:
             model_config,
             accelerator_specs,
             output_dir=output_dir,
-            enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
+            cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
         )
 
         mock_local_system.run_pass.assert_called_once()
@@ -613,7 +613,7 @@ class TestEngine:
                 model_config,
                 accelerator_specs,
                 output_dir=output_dir,
-                enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
+                cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
             )
             assert mock_local_system.run_pass.call_count == 2
 
@@ -645,7 +645,7 @@ class TestEngine:
                     model_config,
                     [DEFAULT_CPU_ACCELERATOR],
                     output_dir=output_dir,
-                    enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
+                    cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
                 )
 
     @pytest.mark.parametrize("is_search", [True, False])
@@ -681,7 +681,7 @@ class TestEngine:
                     [DEFAULT_CPU_ACCELERATOR],
                     data_root=None,
                     output_dir=output_dir,
-                    enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
+                    cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
                 )
                 assert not actual_res, "Expect empty dict when quantization fails"
         else:
@@ -700,6 +700,6 @@ class TestEngine:
                     data_root=None,
                     output_dir=output_dir,
                     evaluate_input_model=False,
-                    enable_cloud_cache=CloudCacheConfig(enable_cloud_cache=False),
+                    cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
                 )
                 assert not actual_res[DEFAULT_CPU_ACCELERATOR].nodes, "Expect empty dict when quantization fails"
