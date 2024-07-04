@@ -50,6 +50,7 @@ class PyTorchModelHandler(
         "model_loader",
         "dummy_inputs_func",
         "hf_config",
+        "mlflow_transformer_model_cache_dir",
         "generative",
     )
 

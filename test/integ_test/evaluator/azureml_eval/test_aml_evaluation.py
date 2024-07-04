@@ -22,7 +22,6 @@ from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import ModelConfig
 
 
-@pytest.mark.skip(reason="Skip AzureML related tests")
 class TestAMLEvaluation:
     @pytest.fixture(scope="class", autouse=True)
     def setup(self):

@@ -34,9 +34,15 @@ New-Item -Path $FILES_DIR -ItemType Directory | Out-Null
 
 # Install conda if not already installed
 if (!(Get-Command -Name "conda" -ErrorAction SilentlyContinue)) {
+    # check if CONDA_INSTALLER is set, if not download the latest miniconda installer
+    if (-not $env:CONDA_INSTALLER) {
+        $CONDA_INSTALLER = Join-Path $FILES_DIR "Miniconda3-latest-Windows-x86_64.exe"
+        Invoke-WebRequest -Uri "https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe" -OutFile $CONDA_INSTALLER
+    }
+    else {
+        $CONDA_INSTALLER = $env:CONDA_INSTALLER
+    }
     # Install conda
-    $CONDA_INSTALLER = Join-Path $FILES_DIR "Miniconda3-latest-Windows-x86_64.exe"
-    Invoke-WebRequest -Uri "https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe" -OutFile $CONDA_INSTALLER
     Start-Process -FilePath $CONDA_INSTALLER -ArgumentList "/S /D=$FILES_DIR\miniconda" -Wait
     $CONDA = Join-Path $FILES_DIR "miniconda\Scripts\conda.exe"
 }

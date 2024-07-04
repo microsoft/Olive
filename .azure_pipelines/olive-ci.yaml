@@ -88,9 +88,9 @@ jobs:
       bert_ptq_cpu:
         exampleFolder: bert
         exampleName: bert_ptq_cpu
-      # bert_ptq_cpu_aml:
-      #   exampleFolder: bert
-      #   exampleName: bert_ptq_cpu_aml
+      bert_ptq_cpu_aml:
+        exampleFolder: bert
+        exampleName: bert_ptq_cpu_aml
       bert_ptq_cpu_docker:
         exampleFolder: bert
         exampleName: bert_ptq_cpu_docker
@@ -116,7 +116,7 @@ jobs:
         exampleFolder: mobilenet
         exampleName: mobilenet_qnn_ep
 
-# # Windows examples test
+# Windows examples test
 - template: job_templates/olive-example-template.yaml
   parameters:
     name: Windows_CI
@@ -126,9 +126,9 @@ jobs:
       bert_ptq_cpu:
         exampleFolder: bert
         exampleName: bert_ptq_cpu
-      # bert_ptq_cpu_aml:
-      #   exampleFolder: bert
-      #   exampleName: bert_ptq_cpu_aml
+      bert_ptq_cpu_aml:
+        exampleFolder: bert
+        exampleName: bert_ptq_cpu_aml
       resnet_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_ptq_cpu

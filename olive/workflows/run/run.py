@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Generator, List, Union
 
 from olive.auto_optimizer import AutoOptimizer
+from olive.common.utils import set_tempdir
 from olive.logging import enable_filelog, set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
 from olive.package_config import OlivePackageConfig
 from olive.systems.accelerator_creator import create_accelerators
@@ -277,7 +278,11 @@ def run(
     setup: bool = False,
     data_root: str = None,
     package_config: Union[str, Path, dict] = None,
+    tempdir: Union[str, Path] = None,
 ):
+    # set tempdir
+    set_tempdir(tempdir)
+
     if package_config is None:
         package_config = OlivePackageConfig.get_default_config_path()
 

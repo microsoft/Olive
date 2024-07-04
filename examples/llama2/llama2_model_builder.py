@@ -6,7 +6,6 @@
 import argparse
 import json
 
-from olive.common.utils import set_tempdir
 from olive.workflows import run as olive_run
 
 
@@ -30,9 +29,6 @@ def main(raw_args=None):
     args = get_args(raw_args)
     model_name = args.model_name
 
-    # set tempdir
-    set_tempdir(args.tempdir)
-
     input_template = "llama2_model_builder_template.json"
     with open(input_template) as f:
         template_json_str = f.read()
@@ -53,7 +49,7 @@ def main(raw_args=None):
     with open(output_template, "w") as f:
         json.dump(template_json, f, indent=4)
 
-    olive_run(template_json)  # pylint: disable=not-callable
+    olive_run(template_json, tempdir=args.tempdir)  # pylint: disable=not-callable
 
 
 if __name__ == "__main__":
