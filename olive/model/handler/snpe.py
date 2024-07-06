@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from olive.common.config_utils import serialize_to_json
 from olive.constants import Framework, ModelFileFormat
@@ -62,6 +62,14 @@ class SNPEModelHandler(OliveModelHandler):
             device = SNPEDevice.DSP
         session_options.device = device
         return SNPEInferenceSession(self.model_path, self.io_config, session_options)
+
+    def run_session(
+        self,
+        session: Any = None,
+        inputs: Union[Dict[str, Any], List[Any], Tuple[Any, ...]] = None,
+        **kwargs: Dict[str, Any],
+    ) -> Any:
+        return session(inputs, **kwargs)
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)

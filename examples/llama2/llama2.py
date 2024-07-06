@@ -11,7 +11,6 @@ import sys
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
 
-from olive.common.utils import set_tempdir
 from olive.workflows import run as olive_run
 
 SUPPORTED_WORKFLOWS = {
@@ -74,9 +73,6 @@ def main(raw_args=None):
     if args.use_gqa and not args.gpu:
         raise ValueError("GQA is only supported on gpu.")
 
-    # set tempdir
-    set_tempdir(args.tempdir)
-
     json_file_template = "llama2_template.json"
     with open(json_file_template) as f:
         template_json = json.load(f)
@@ -127,7 +123,7 @@ def main(raw_args=None):
         json.dump(template_json, f, indent=4)
 
     if not args.only_config:
-        olive_run(template_json)  # pylint: disable=not-callable
+        olive_run(template_json, tempdir=args.tempdir)  # pylint: disable=not-callable
 
 
 if __name__ == "__main__":

@@ -165,12 +165,11 @@ class QatTrainer:
         return state and hasattr(obj, attribs)
 
     def _check_feasible_fuse(self, model, group):
-        if not all(self._recursive_hasattr(model, m) for m in group):
-            return False
-        return True
+        return all(self._recursive_hasattr(model, m) for m in group)
 
 
 class DefaultPTLModule(LightningModule):
+    # pylint: disable=W0221
     def __init__(self, model, training_dataloader):
         super().__init__()
         self.save_hyperparameters()

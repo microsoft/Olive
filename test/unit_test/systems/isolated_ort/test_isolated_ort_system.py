@@ -248,7 +248,9 @@ class TestIsolatedORTEvaluator:
         )
         if mode == "inference":
             assert mock_wrapper.run.call_count == num_batches
-            assert mock_wrapper.run.mock_calls == [mock.call({"input": np.array([i])}) for i in range(num_batches)]
+            assert mock_wrapper.run.mock_calls == [
+                mock.call(None, {"input": np.array([i])}) for i in range(num_batches)
+            ]
             for i in range(num_batches):
                 batch_output_path = output_dir / f"output_{i}.npy"
                 assert batch_output_path.exists()

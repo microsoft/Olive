@@ -85,8 +85,8 @@ def update_data_config(p: "Pass", extra_args):
             param_config["user_script"] = user_script
             param_config["script_dir"] = script_dir
             if param_config.get("load_dataset_config"):
-                param_config["load_dataset_config"]["data_dir"] = data_dir
-                param_config["load_dataset_config"]["data_files"] = data_files
+                param_config["load_dataset_config"]["params"]["data_dir"] = data_dir
+                param_config["load_dataset_config"]["params"]["data_files"] = data_files
 
             p.config[param] = validate_config(param_config, DataConfig)
 

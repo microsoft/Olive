@@ -136,7 +136,7 @@ def get_onnx_model(tmp_path):
     return p.run(pytorch_model, None, output_folder)
 
 
-def create_dataloader(data_dir, batchsize, *args, **kwargs):
+def create_dataloader(data_dir, batch_size, *args, **kwargs):
     # import neural_compressor here to avoid hanging on Windows
     from neural_compressor.data import DefaultDataLoader
 
@@ -144,7 +144,7 @@ def create_dataloader(data_dir, batchsize, *args, **kwargs):
         [transforms.ToTensor(), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261))]
     )
     dataset = CifarDataset(CIFAR10(root=data_dir, train=False, transform=transform, download=True))
-    return DefaultDataLoader(dataset=dataset, batch_size=batchsize)
+    return DefaultDataLoader(dataset=dataset, batch_size=batch_size)
 
 
 class CifarDataset:

@@ -348,7 +348,7 @@ The above case shows to rewrite all the components in data config. But sometime,
             from olive.data.registry import Registry
 
             @Registry.register_dataset()
-            def customized_huggingface_dataset(_output):
+            def customized_huggingface_dataset(_output, trust_remote_code=None, **kwargs):
                 ...
 
             from olive.data.config import DataConfig
@@ -368,18 +368,21 @@ The above case shows to rewrite all the components in data config. But sometime,
             )
 
 .. note::
-    User should provide the ``user_script`` and ``script_dir`` if they want to customize the component type. The ``user_script`` should be a python script which contains the customized component type. The ``script_dir`` should be the directory path which contains the ``user_script``. Here is an example for ``user_script``:
+    User should provide the ``user_script`` and ``script_dir`` if they want to customize the component type. The ``user_script`` should be a python script which contains the customized component type. The ``script_dir`` should be the directory path which contains the ``user_script``. Another thing you might need to notice is that when your customized dataset is from huggingface, you should at least allow the ``trust_remote_code`` in your function's arguments list to indicate whether you trust the remote code or not. ``kwargs`` is the additional keyword arguments provided in the config, it can cover the case of ``trust_remote_code`` as well.
+    Here is an example for ``user_script``:
 
     .. code-block:: python
 
         from olive.data.registry import Registry
 
         @Registry.register_dataset()
-        def customized_huggingface_dataset(data_dir):
+        def customized_huggingface_dataset(data_dir, **kwargs):
+            # kwargs can cover the case of trust_remote_code or user can add trust_remote_code in the function's
+            # arguments list, like, customized_huggingface_dataset(data_dir, trust_remote_code=None, **kwargs):
             ...
 
         @Registry.register_pre_process()
-        def customized_huggingface_pre_process(dataset):
+        def customized_huggingface_pre_process(dataset, **kwargs):
             ...
 
         @Registry.register_post_process()

@@ -17,6 +17,7 @@ from olive.logging import (
     set_ort_logger_severity,
     set_verbosity_info,
 )
+from olive.common.utils import set_tempdir
 from olive.package_config import OlivePackageConfig
 from olive.systems.accelerator_creator import create_accelerators
 from olive.systems.common import SystemType
@@ -285,7 +286,11 @@ def run(
     retrieve: bool = False,
     data_root: str = None,
     package_config: Union[str, Path, dict] = None,
+    tempdir: Union[str, Path] = None,
 ):
+    # set tempdir
+    set_tempdir(tempdir)
+
     if package_config is None:
         package_config = OlivePackageConfig.get_default_config_path()
 

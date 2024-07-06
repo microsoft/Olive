@@ -2,11 +2,11 @@
     "input_model": {
         "type": "PyTorchModel",
         "config": {
+            "generative": true,
             "io_config": {
                 "input_names": [
                     "input_ids",
-                    "attention_mask",
-                    "position_ids"
+                    "attention_mask"
                 ],
                 "output_names": [
                     "logits"
@@ -18,33 +18,14 @@
                     ],
                     [
                         2,
-                        40
-                    ],
-                    [
-                        2,
                         8
                     ]
                 ],
                 "input_types": [
                     "int32",
-                    "int32",
                     "int32"
                 ],
-                "dynamic_axes": {
-                    "input_ids": {
-                        "0": "batch_size",
-                        "1": "sequence_length"
-                    },
-                    "attention_mask": {
-                        "0": "batch_size",
-                        "1": "total_sequence_length"
-                    },
-                    "position_ids": {
-                        "0": "batch_size",
-                        "1": "sequence_length"
-                    }
-                },
-                "kv_cache": true
+                "kv_cache": false
             },
             "hf_config": {
                 "model_name": "meta-llama/Llama-2-7b-hf",
@@ -69,9 +50,14 @@
             },
             "pre_process_data_config": {
                 "params": {
+                    "text_cols": [
+                        "text"
+                    ],
+                    "corpus_strategy": "join",
                     "add_special_tokens": false,
                     "source_max_len": 2048,
-                    "max_samples": 128
+                    "max_samples": 128,
+                    "joiner": "\n\n"
                 }
             }
         }
@@ -82,9 +68,9 @@
             "config": {
                 "accelerators": [
                     {
-                        "device": "GPU",
+                        "device": "cpu",
                         "execution_providers": [
-                            "CUDAExecutionProvider"
+                            "CPUExecutionProvider"
                         ]
                     }
                 ]
@@ -105,17 +91,20 @@
                     ],
                     "user_config": {
                         "user_script": "user_script.py",
-                        "dataloader_func": "dataloader_func_for_merged",
+                        "dataloader_func": "dataloader_func_for_generative",
                         "func_kwargs": {
                             "dataloader_func": {
                                 "model_id": "meta-llama/Llama-2-7b-hf",
                                 "past_seq_length": 0,
                                 "seq_length": 8,
-                                "max_seq_length": 2048
+                                "max_seq_length": 128
                             }
                         },
                         "batch_size": 2,
-                        "io_bind": true
+                        "io_bind": true,
+                        "run_kwargs": {
+                            "max_new_tokens": 64
+                        }
                     }
                 },
                 {
@@ -128,83 +117,34 @@
                     ],
                     "user_config": {
                         "user_script": "user_script.py",
-                        "dataloader_func": "dataloader_func_for_merged",
+                        "dataloader_func": "dataloader_func_for_generative",
                         "func_kwargs": {
                             "dataloader_func": {
                                 "model_id": "meta-llama/Llama-2-7b-hf",
-                                "past_seq_length": 8,
-                                "seq_length": 1,
-                                "max_seq_length": 2048
+                                "past_seq_length": 0,
+                                "seq_length": 8,
+                                "max_seq_length": 128
                             }
                         },
                         "batch_size": 2,
-                        "io_bind": true
+                        "io_bind": true,
+                        "run_kwargs": {
+                            "max_new_tokens": 64
+                        }
                     }
                 }
             ]
         }
     },
-    "passes": {
-        "conversion_merged": {
-            "type": "OnnxConversion",
-            "config": {
-                "target_opset": 17,
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true
-            }
-        },
-        "transformers_optimization_fp32": {
-            "type": "OrtTransformersOptimization",
-            "config": {
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true,
-                "model_type": "gpt2",
-                "opt_level": 0,
-                "only_onnxruntime": false,
-                "keep_io_types": false,
-                "float16": false,
-                "use_gqa": false
-            }
-        },
-        "transformers_optimization_fp16": {
-            "type": "OrtTransformersOptimization",
-            "config": {
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true,
-                "model_type": "gpt2",
-                "opt_level": 0,
-                "only_onnxruntime": false,
-                "keep_io_types": false,
-                "float16": true,
-                "use_gqa": true
-            }
-        },
-        "blockwise_quant_int4": {
-            "type": "OnnxMatMul4Quantizer",
-            "config": {
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true,
-                "block_size": 32,
-                "is_symmetric": true
-            }
-        }
+    "passes": {},
+    "auto_optimizer_config": {
+        "disable_auto_optimizer": true
     },
     "engine": {
         "evaluator": "merged_evaluator",
         "host": "local_system",
         "target": "local_system",
         "cache_dir": "cache",
-        "output_dir": "models/llama2_gpu/meta-llama/Llama-2-7b-hf"
-    },
-    "pass_flows": [
-        [
-            "conversion_merged",
-            "transformers_optimization_fp32",
-            "blockwise_quant_int4"
-        ],
-        [
-            "conversion_merged",
-            "transformers_optimization_fp16"
-        ]
-    ]
+        "output_dir": "models/llama2_generate"
+    }
 }

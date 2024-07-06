@@ -5,7 +5,11 @@
 import json
 import logging
 import os
+import platform
 import sys
+
+from olive.common.constants import OS
+from olive.common.utils import run_subprocess
 
 # pylint: disable=broad-exception-raised
 
@@ -153,6 +157,51 @@ def download_azure_blob(container, blob, download_path, storage_account="olivewh
     with open(download_path, "wb") as my_blob:
         blob_data = blob.download_blob()
         blob_data.readinto(my_blob)
+
+
+def download_conda_installer(parent_dir):
+    if platform.system() == OS.WINDOWS:
+        conda_installer_blob, conda_installer_path = (
+            "conda-installers/Miniconda3-latest-Windows-x86_64.exe",
+            parent_dir / "conda_installer.exe",
+        )
+    elif platform.system() == OS.LINUX:
+        conda_installer_blob, conda_installer_path = (
+            "conda-installers/Miniconda3-latest-Linux-x86_64.sh",
+            parent_dir / "conda_installer.sh",
+        )
+    else:
+        raise NotImplementedError(f"Unsupported platform: {platform.system()}")
+
+    download_azure_blob(
+        container="olivetest",
+        blob=conda_installer_blob,
+        download_path=conda_installer_path,
+    )
+
+    return str(conda_installer_path)
+
+
+def download_qc_toolkit(parent_dir, toolkit):
+    blob, download_path = (
+        f"{toolkit}_sdk_{platform.system().lower()}.zip",
+        f"{toolkit}_sdk_{platform.system().lower()}.zip",
+    )
+
+    download_azure_blob(
+        container="olivetest",
+        blob=blob,
+        download_path=download_path,
+    )
+    target_path = parent_dir / f"{toolkit}_sdk"
+    target_path.mkdir(parents=True, exist_ok=True)
+    if platform.system() == OS.WINDOWS:
+        cmd = f"powershell Expand-Archive -Path {download_path} -DestinationPath {str(target_path)}"
+        run_subprocess(cmd=cmd, check=True)
+    elif platform.system() == OS.LINUX:
+        run_subprocess(cmd=f"unzip {download_path} -d {str(target_path)}", check=True)
+
+    return str(target_path)
 
 
 def set_azure_identity_logging():

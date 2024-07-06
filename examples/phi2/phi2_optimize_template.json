@@ -223,9 +223,7 @@
             },
             "pre_process_data_config": {
                 "params": {
-                    "corpus_strategy": "join",
-                    "text_template": "### Question: {prompt} \n### Answer: {response}",
-                    "source_max_len": 1024
+                    "text_template": "### Question: {prompt} \n### Answer: {response}"
                 }
             }
         },
@@ -241,15 +239,9 @@
             },
             "pre_process_data_config": {
                 "params": {
-                    "text_cols": [
-                        "text"
-                    ],
-                    "corpus_strategy": "join",
                     "add_special_tokens": false,
                     "source_max_len": 2048,
-                    "max_samples": 128,
-                    "joiner": "\n\n",
-                    "batch_size": 1
+                    "max_samples": 128
                 }
             }
         },
@@ -265,9 +257,6 @@
             },
             "pre_process_data_config": {
                 "params": {
-                    "text_cols": [
-                        "text"
-                    ],
                     "source_max_len": 2048
                 }
             }

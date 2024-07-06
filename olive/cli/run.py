@@ -35,11 +35,8 @@ class WorkflowRunCommand(BaseOliveCLICommand):
         sub_parser.set_defaults(func=WorkflowRunCommand)
 
     def run(self):
-        from olive.common.utils import set_tempdir
         from olive.workflows import run as olive_run
 
-        set_tempdir(self.args.tempdir)
-
         var_args = vars(self.args)
-        del var_args["func"], var_args["tempdir"]
+        del var_args["func"]
         olive_run(**var_args)

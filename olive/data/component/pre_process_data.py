@@ -17,7 +17,7 @@ from olive.data.registry import Registry
 
 
 @Registry.register_default_pre_process()
-def pre_process(dataset):
+def pre_process(dataset, **kwargs):
     """Pre-process data.
 
     Args:
@@ -167,7 +167,7 @@ def ner_huggingface_preprocess(
 def text_generation_huggingface_pre_process(
     dataset,
     model_name: str,
-    source_max_len: int,
+    source_max_len: int = 1024,
     dataset_type: TextGenDatasetType = TextGenDatasetType.CORPUS,
     max_samples: Optional[int] = None,
     trust_remote_code: Optional[bool] = None,

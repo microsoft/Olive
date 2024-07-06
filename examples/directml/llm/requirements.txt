@@ -1,7 +1,6 @@
 huggingface-hub
 markdown
 mdtex2html
-neural-compressor
 optimum
 protobuf==3.20.3 # protobuf 4.x aborts with OOM when optimizing large models
 Pygments
