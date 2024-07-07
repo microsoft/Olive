@@ -548,7 +548,7 @@ class AzureMLSystem(OliveSystem):
         )
         ml_client.jobs.stream(job.name)
         logger.info("Pipeline submitted. Job name: %s. Job link: %s", job.name, job.studio_url)
-        logger.info("Workflow now is running. Please check the AzureML Studio for the job status.")
+        logger.info("Workflow now is running. Please check the AzureML Workspace for the job status.")
 
     def _run_job(
         self,
