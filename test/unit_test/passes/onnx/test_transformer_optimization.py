@@ -122,7 +122,7 @@ def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, mock_inferece_sessio
                     # the use_gpu will be ignored by optimize_model, please refef to the following links for more info.
                     # https://github.com/microsoft/onnxruntime/blob/v1.15.1/onnxruntime/python/tools/transformers/optimizer.py#L280
                     if version.parse(ort.__version__) >= version.parse("1.16.0"):
-                        # for TensorRT EP, the graph optmization will be skipped but the fusion will be applied.
+                        # for TensorRT EP, the graph optimization will be skipped but the fusion will be applied.
                         assert "There is no gpu for onnxruntime to do optimization." in caplog.text
                         if mock_inferece_session:
                             assert inference_session_mock_call_count == 0

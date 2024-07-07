@@ -196,12 +196,12 @@ class DockerSystem(OliveSystem):
                         continue
 
                     logger.debug("Resource %s path: %s", resource_name, resource_str)
-                    original_resouce_path = mount_model_to_local.get(resource_str)
-                    if original_resouce_path:
+                    original_resource_path = mount_model_to_local.get(resource_str)
+                    if original_resource_path:
                         # If the output model path is something like /olive-ws/model.onnx
                         # we need replace with the original model path
-                        output_model.config[resource_name] = original_resouce_path
-                        logger.info("Original resource path for %s is: %s", resource_str, original_resouce_path)
+                        output_model.config[resource_name] = original_resource_path
+                        logger.info("Original resource path for %s is: %s", resource_str, original_resource_path)
                         continue
 
                     # output_local_path should be something like: /tmp/tmpd1sjw9xa/runner_output
