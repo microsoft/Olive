@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
-from olive.common.constants import OS
+from olive.common.constants import HF_LOGIN, KEYVAULT_NAME, OS
 
 logger = logging.getLogger(__name__)
 
@@ -275,12 +275,12 @@ def huggingface_login(token: str):
 
 
 def aml_runner_hf_login():
-    hf_login = os.environ.get("HF_LOGIN")
+    hf_login = os.environ.get(HF_LOGIN)
     if hf_login:
         from azure.identity import DefaultAzureCredential
         from azure.keyvault.secrets import SecretClient
 
-        keyvault_name = os.environ.get("KEYVAULT_NAME")
+        keyvault_name = os.environ.get(KEYVAULT_NAME)
         logger.debug("Getting token from keyvault %s", keyvault_name)
 
         credential = DefaultAzureCredential()

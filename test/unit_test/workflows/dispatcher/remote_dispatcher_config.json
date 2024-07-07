@@ -1,9 +1,0 @@
-{
-    "workflow_path": "/home/ucm/olive",
-    "conda_path": "/home/ucm/conda",
-    "hostname": "hostname",
-    "conda_name": "olive",
-    "os": "Linux",
-    "username": "ucm",
-    "key_filename": "/home/ucm/.ssh/key.pem"
-}

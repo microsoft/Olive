@@ -20,6 +20,7 @@ from azure.core.exceptions import HttpResponseError, ServiceResponseError
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.cache import normalize_data_path
 from olive.common.config_utils import ParamCategory, validate_config
+from olive.common.constants import HF_LOGIN, KEYVAULT_NAME, WORKFLOW_ARTIFACTS, WORKFLOW_CONFIG
 from olive.common.utils import copy_dir, retry_func
 from olive.data.config import DataConfig
 from olive.evaluator.metric_result import MetricResult
@@ -125,14 +126,70 @@ class AzureMLSystem(OliveSystem):
         self.env_vars = self._get_hf_token_env(self.azureml_client_config.keyvault_name) if self.hf_token else None
         self.temp_dirs = []
 
+    def submit_workflow(self, workflow_id: str):
+        logger.info("Submitting workflow %s to the AzureML system.", workflow_id)
+        ml_client = self.azureml_client_config.create_client()
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            workflow_pipeline = self._create_pipeline_for_workflow(workflow_id, tempdir)
+            self._run_workflow_job(
+                ml_client,
+                workflow_pipeline,
+                "olive-workflow",
+                tags={"Workflow": workflow_id},
+            )
+
+    def _create_pipeline_for_workflow(self, workflow_id: str, tmp_dir):
+        logger.info("Creating pipeline for workflow %s", workflow_id)
+        script_name = "aml_workflow_runner.py"
+
+        tmp_dir = Path(tmp_dir)
+        olive_config_path = self._create_olive_config_file(self.olive_config, tmp_dir)
+        config_root = tmp_dir / "config"
+        cur_dir = Path(__file__).resolve().parent
+        code_files = [cur_dir / script_name, olive_config_path]
+        self.copy_files(code_files, config_root)
+
+        inputs = {WORKFLOW_CONFIG: Input(type=AssetTypes.URI_FILE)}
+        outputs = {
+            WORKFLOW_ARTIFACTS: Output(
+                type=AssetTypes.URI_FOLDER,
+                name=f"{workflow_id}",
+                path=f"azureml://datastores/{self.config.datastores}/paths/{workflow_id}",
+            )
+        }
+        cmd = self._create_step(
+            name="workflow",
+            display_name="Olive Workflow",
+            description="Run olive workflow",
+            aml_environment=self.environment,
+            code=str(config_root),
+            compute=self.compute,
+            resources=self.resources,
+            instance_count=self.instance_count,
+            inputs=inputs,
+            outputs=outputs,
+            script_name=script_name,
+        )
+        args = {WORKFLOW_CONFIG: Input(type=AssetTypes.URI_FILE, path=olive_config_path)}
+
+        @pipeline()
+        def workflow_runner_pipeline():
+            outputs = {}
+            component = cmd(**args)
+            outputs[WORKFLOW_ARTIFACTS] = component.outputs.workflow_artifacts
+            return outputs
+
+        return workflow_runner_pipeline()
+
     def _get_hf_token_env(self, keyvault_name: str):
         if keyvault_name is None:
             raise ValueError(
                 "hf_token is set to True but keyvault name is not provided. "
                 "Please provide a keyvault name to use HF_TOKEN."
             )
-        env_vars = {"HF_LOGIN": True}
-        env_vars.update({"KEYVAULT_NAME": keyvault_name})
+        env_vars = {HF_LOGIN: True}
+        env_vars.update({KEYVAULT_NAME: keyvault_name})
         return env_vars
 
     def _get_enironment_from_config(self, aml_environment_config: AzureMLEnvironmentConfig):
@@ -390,7 +447,7 @@ class AzureMLSystem(OliveSystem):
         if olive_config_path:
             code_files.append(olive_config_path)
 
-        self.copy_code(code_files, code_root)
+        self.copy_files(code_files, code_root)
 
         # prepare inputs
         model_resource_paths = model_config.get_resource_paths()
@@ -471,6 +528,27 @@ class AzureMLSystem(OliveSystem):
 
         logger.debug("Data inputs for pass: %s, data args for pass: %s", data_inputs, data_args)
         return DataParams(data_inputs, data_args)
+
+    def _run_workflow_job(
+        self,
+        ml_client,
+        pipeline_job,
+        experiment_name: str,
+        tags: Dict = None,
+    ):
+        logger.debug("Submitting pipeline")
+        tags = {**self.tags, **(tags or {})}
+        job = retry_func(
+            ml_client.jobs.create_or_update,
+            [pipeline_job],
+            {"experiment_name": experiment_name, "tags": tags},
+            max_tries=self.azureml_client_config.max_operation_retries,
+            delay=self.azureml_client_config.operation_retry_interval,
+            exceptions=(HttpResponseError, JobException),
+        )
+        ml_client.jobs.stream(job.name)
+        logger.info("Pipeline submitted. Job name: %s. Job link: %s", job.name, job.studio_url)
+        logger.info("Workflow now is running. Please check the AzureML Studio for the job status.")
 
     def _run_job(
         self,
@@ -687,7 +765,7 @@ class AzureMLSystem(OliveSystem):
         if olive_config_path:
             code_files.append(olive_config_path)
 
-        self.copy_code(code_files, code_root)
+        self.copy_files(code_files, code_root)
 
         # prepare inputs
         inputs = {
@@ -729,7 +807,7 @@ class AzureMLSystem(OliveSystem):
         # metric component
         return cmd(**args)
 
-    def copy_code(self, code_files: List, target_path: Path):
+    def copy_files(self, code_files: List, target_path: Path):
         target_path.mkdir(parents=True, exist_ok=True)
         for code_file in code_files:
             shutil.copy2(str(code_file), str(target_path))

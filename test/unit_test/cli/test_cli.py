@@ -83,6 +83,7 @@ def test_workflow_run_command(mock_run, retrieve, tempdir, setup):
         run_config="config.json", setup=setup, retrieve=retrieve, package_config=None, data_root=None
     )
 
+
 @patch("olive.platform_sdk.qualcomm.configure.configure.configure")
 def test_configure_qualcomm_sdk_command(mock_configure):
     # setup

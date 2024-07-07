@@ -21,7 +21,6 @@ from olive.passes import AbstractPassConfig
 from olive.passes.pass_config import PassParamDefault
 from olive.resource_path import AZUREML_RESOURCE_TYPES
 from olive.systems.system_config import SystemConfig
-from olive.workflows.dispatcher.dispatcher_config import RunDispatcherConfig
 
 logger = logging.getLogger(__name__)
 
@@ -100,10 +99,6 @@ class RunConfig(ConfigBase):
     workflow_id: str = Field(
         DEFAULT_WORKFLOW_ID, description="Workflow ID. If not provided, use the default ID 'default_workflow'."
     )
-    dispatcher: RunDispatcherConfig = Field(
-        None,
-        description="Dispatcher configuration path. If provided, the dispatcher will be used to execute the workflow.",
-    )
     azureml_client: AzureMLClientConfig = Field(
         None,
         description=(
@@ -157,6 +152,17 @@ class RunConfig(ConfigBase):
         default_factory=AutoOptimizerConfig,
         description="Auto optimizer configuration. Only valid when passes field is empty or not provided.",
     )
+    workflow_host: SystemConfig = Field(
+        None, description="Workflow host. None by default. If provided, the workflow will be run on the specified host."
+    )
+
+    @validator("workflow_host", pre=True)
+    def validate_workflow_host(cls, v, values):
+        if v is None:
+            return v
+        config = _resolve_config(values, v)
+        _resolve_azureml_client_config(values, config)
+        return config
 
     @validator("input_model", pre=True)
     def insert_aml_client(cls, v, values):
@@ -325,26 +331,37 @@ def _resolve_config_str(v, values, alias, component_name):
     if not isinstance(sub_component, str):
         return v
 
+    component_config = _resolve_config(values, sub_component, component_name)
+
+    v[alias] = component_config
+    return v
+
+
+def _resolve_config(values, sub_component, component_name="systems"):
     # resolve component name to component configs
     if component_name not in values:
         raise ValueError(f"Invalid {component_name}")
+
     components = values[component_name] or {}
     # resolve sub component name to component config
     if sub_component not in components:
-        raise ValueError(f"{alias} {sub_component} not found in {components}")
-    v[alias] = components[sub_component]
-    return v
+        raise ValueError(f"{sub_component} not found in {components}")
+    return components[sub_component]
 
 
 def _resolve_system(v, values, system_alias):
     v = _resolve_config_str(v, values, system_alias, component_name="systems")
     if v.get(system_alias):
-        v[system_alias] = validate_config(v[system_alias], SystemConfig)
-        if v[system_alias].type == "AzureML":
-            if not values["azureml_client"]:
-                raise ValueError("AzureML client config is required for AzureML system")
-            v[system_alias].config.azureml_client_config = values["azureml_client"]
+        _resolve_azureml_client_config(values, v[system_alias])
     return v
+
+
+def _resolve_azureml_client_config(values, system_config):
+    system_config = validate_config(system_config, SystemConfig)
+    if system_config.type == "AzureML":
+        if not values["azureml_client"]:
+            raise ValueError("AzureML client config is required for AzureML system")
+        system_config.config.azureml_client_config = values["azureml_client"]
 
 
 def _resolve_data_config(v, values, data_config_alias):

@@ -14,8 +14,4 @@ class OliveEvaluationError(OliveError):
     """Base class for Olive evaluation exceptions."""
 
 
-class OliveDispatcherError(OliveError):
-    """Base class for Olive dispatcher exceptions."""
-
-
 EXCEPTIONS_TO_RAISE = (AssertionError, AttributeError, ImportError, TypeError, ValueError)
