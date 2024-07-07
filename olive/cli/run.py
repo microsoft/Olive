@@ -24,9 +24,6 @@ class WorkflowRunCommand(BaseOliveCLICommand):
         sub_parser.add_argument("--run-config", "--config", type=str, help="Path to json config file", required=True)
         sub_parser.add_argument("--setup", help="Whether run environment setup", action="store_true")
         sub_parser.add_argument(
-            "--retrieve", help="Whether to retrieve workflow logs and artifacts by workflow_id", action="store_true"
-        )
-        sub_parser.add_argument(
             "--data-root", "--data_root", help="The data root path for optimization", required=False
         )
         sub_parser.add_argument(
