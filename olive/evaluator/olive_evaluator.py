@@ -272,7 +272,7 @@ class OliveEvaluator(ABC):
             dataloader = user_module.call_object(
                 dataloader_func,
                 data_dir,
-                metric.user_config.batch_size,
+                batch_size=metric.user_config.batch_size,
                 model_framework=framework,
                 **cls._get_func_kwargs(metric, "dataloader_func"),
             )

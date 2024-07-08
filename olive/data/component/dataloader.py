@@ -8,11 +8,6 @@ from torch.utils.data import DataLoader
 from olive.data.registry import Registry
 
 
-@Registry.register_dataloader()
-def skip_dataloader(dataset):
-    return dataset
-
-
 @Registry.register_default_dataloader()
 def default_dataloader(dataset, batch_size=1, **kwargs):
     return DataLoader(dataset, batch_size=batch_size, **kwargs)

@@ -95,41 +95,48 @@ class BaseDataset(TorchDataset):
 
 
 class DummyDataset(BaseDataset):
-    def __init__(self, input_shapes, input_names: Optional[List] = None, input_types: Optional[List] = None):
-        """Initialize the dummy dataset.
+    def __init__(
+        self,
+        input_shapes,
+        input_names: Optional[List] = None,
+        input_types: Optional[List] = None,
+        max_samples: Optional[int] = 32,
+    ):
+        """Initialize the dataset with dummy data.
 
-        if input_names is None, the dummy dataset will return a tuple of tensors
-        else the dummy dataset will return a dict of tensors
+        if input_names is not provided, the dataset will return a tuple of tensors
+        else the dataset will return a dict of tensors
         """
         # pylint: disable=super-init-not-called
-        self.input_shapes = input_shapes
-        self.input_names = input_names
-        self.input_types = input_types or ["float32"] * len(input_shapes)
+        if not input_types:
+            input_types = ["float32"] * len(input_shapes)
+        input_types = [resolve_torch_dtype(dtype_str) for dtype_str in input_types]
+
+        if input_names:
+            dummy_data = {}
+            for input_name, input_shape, input_type in zip(input_names, input_shapes, input_types):
+                dummy_data.update({input_name: torch.ones(input_shape, dtype=input_type)})
+            dummy_data = dummy_data if len(dummy_data) > 1 else dummy_data[input_names[0]]
+        else:
+            dummy_data = []
+            for shape, dtype in zip(input_shapes, input_types):
+                dummy_data.append(torch.ones(shape, dtype=dtype))
+            dummy_data = tuple(dummy_data) if len(dummy_data) > 1 else dummy_data[0]
+
+        self.max_samples = max_samples
+        self.dummy_data = dummy_data, torch.tensor([0])
 
     def __len__(self):
-        return 256
+        return self.max_samples
 
     def __getitem__(self, index):
         # From https://docs.python.org/3/reference/datamodel.html#object.__getitem__,
         # __getitem__ should raise IndexError when index is out of range
         # Otherwise, the enumerate function will enter infinite loop
-        if index < 0 or index >= len(self):
+        if index < 0 or index >= self.max_samples:
             raise IndexError("Index out of range")
 
-        input_types = [resolve_torch_dtype(dtype_str) for dtype_str in self.input_types]
-
-        if not self.input_names:
-            dummy_inputs = []
-            for shape, dtype in zip(self.input_shapes, input_types):
-                dummy_inputs.append(torch.ones(shape, dtype=dtype))
-            dummy_inputs = tuple(dummy_inputs) if len(dummy_inputs) > 1 else dummy_inputs[0]
-        else:
-            dummy_inputs = {}
-            for input_name, input_shape, input_type in zip(self.input_names, self.input_shapes, input_types):
-                dummy_inputs.update({input_name: torch.ones(input_shape, dtype=input_type)})
-            dummy_inputs = dummy_inputs if len(dummy_inputs) > 1 else dummy_inputs[self.input_names[0]]
-        label = 0
-        return dummy_inputs, label
+        return self.dummy_data
 
 
 class RawDataset(BaseDataset):

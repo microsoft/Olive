@@ -24,19 +24,19 @@ class DummyDataContainer(DataContainer):
         dummy_data_config = DataConfig(
             name="dummy",
             type="DummyDataContainer",
-            "load_dataset_config"={
-                "params": {
+            load_dataset_config=DataComponentConfig(
+                params={
                     "input_names": metric.user_config.input_names,
                     "input_shapes": metric.user_config.input_shapes,
                     "input_types": metric.user_config.input_types,
                 }
-            }
+            ),
         )
     """
 
     default_components_type: ClassVar[dict] = {
         DataComponentType.LOAD_DATASET.value: "dummy_dataset",
-        DataComponentType.DATALOADER.value: "skip_dataloader",
+        DataComponentType.DATALOADER.value: "no_auto_batch_dataloader",
     }
 
 

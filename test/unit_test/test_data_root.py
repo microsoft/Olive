@@ -3,13 +3,12 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from test.unit_test.utils import get_pytorch_model_dummy_input, pytorch_model_loader
+from test.unit_test.utils import create_dummy_dataloader, get_pytorch_model_dummy_input, pytorch_model_loader
 from unittest.mock import MagicMock, patch
 
 import pytest
-import torch
-from torch.utils.data import DataLoader, Dataset
 
+from olive.data.component.load_dataset import dummy_dataset
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
 from olive.resource_path import create_resource_path
@@ -18,29 +17,9 @@ from olive.workflows import run as olive_run
 # pylint: disable=redefined-outer-name
 
 
-class DummyDataset(Dataset):
-    def __init__(self, size):
-        self.size = size
-
-    def __getitem__(self, idx):
-        return torch.randn(1), torch.rand(10).argmax()
-
-    def __len__(self):
-        return self.size
-
-
-@Registry.register_dataset()
-def dummy_dataset_dataroot(data_dir):
-    return DummyDataset(1)
-
-
 @Registry.register_post_process()
 def post_processing_func(output):
     return output.argmax(axis=1)
-
-
-def create_dataloader(data_dir, batch_size, *args, **kwargs):
-    return DataLoader(DummyDataset(1))
 
 
 def get_dataloader_config():
@@ -53,6 +32,16 @@ def get_dataloader_config():
                 "io_config": {"input_names": ["input"], "output_names": ["output"], "input_shapes": [(1, 1)]},
             },
         },
+        "data_configs": [
+            {
+                "name": "test_data_config",
+                "type": "DummyDataContainer",
+                "load_dataset_config": {
+                    "type": "dummy_dataset",
+                    "params": {"data_dir": "data", "input_shapes": [(1, 1)], "max_samples": 1},
+                },
+            }
+        ],
         "evaluators": {
             "common_evaluator": {
                 "metrics": [
@@ -66,10 +55,8 @@ def get_dataloader_config():
                                 "metric_config": {"num_classes": 10, "task": "multiclass"},
                             }
                         ],
+                        "data_config": "test_data_config",
                         "user_config": {
-                            "data_dir": "data",
-                            "dataloader_func": create_dataloader,
-                            "batch_size": 16,
                             "post_processing_func": post_processing_func,
                         },
                     }
@@ -81,7 +68,7 @@ def get_dataloader_config():
             "perf_tuning": {
                 "type": "OrtPerfTuning",
                 "config": {
-                    "dataloader_func": create_dataloader,
+                    "dataloader_func": create_dummy_dataloader,
                     "batch_size": 16,
                     "data_dir": "data",
                 },
@@ -108,14 +95,15 @@ def get_data_config():
             },
         },
         "data_configs": [
-            DataConfig(
-                name="test_data_config",
-                load_dataset_config=DataComponentConfig(
-                    type="dummy_dataset_dataroot",
-                    params={"data_dir": "data"},
-                ),
-                post_process_data_config=DataComponentConfig(type="post_processing_func"),
-            )
+            {
+                "name": "test_data_config",
+                "type": "DummyDataContainer",
+                "load_dataset_config": {
+                    "type": "dummy_dataset",
+                    "params": {"data_dir": "data", "input_shapes": [(1, 1)], "max_samples": 1},
+                },
+                "post_process_data_config": {"type": "post_processing_func"},
+            }
         ],
         "evaluators": {
             "common_evaluator": {
@@ -144,10 +132,11 @@ def get_data_config():
                     # "data_config": "test_data_config"
                     # This is just demo purpose to show how to use data_config in passes
                     "data_config": DataConfig(
-                        name="test_data_config",
+                        name="test_data_config_inlined",
+                        type="DummyDataContainer",
                         load_dataset_config=DataComponentConfig(
-                            type="dummy_dataset_dataroot",
-                            params={"data_dir": "perfdata"},
+                            type="dummy_dataset",
+                            params={"data_dir": "perfdata", "input_shapes": [(1, 1)], "max_samples": 1},
                         ),
                         post_process_data_config=DataComponentConfig(type="post_processing_func"),
                     )
@@ -227,11 +216,18 @@ def test_data_root_for_dataset(mock_get_local_path, data_config):
     config_obj = data_config
     data_root = config_obj.get("data_root")
 
-    mock = MagicMock(side_effect=dummy_dataset_dataroot)
-    Registry.register_dataset("dummy_dataset_dataroot")(mock)
+    mock = MagicMock(side_effect=dummy_dataset)
+    Registry.register_dataset("dummy_dataset")(mock)
     best = olive_run(config_obj)
-    mock.assert_called_with(data_dir=concat_data_dir(data_root, "data"))
-
-    data_dir_expected = concat_data_dir(data_root, "perfdata")
-    mock.assert_any_call(data_dir=data_dir_expected)
+    mock.assert_called_with(data_dir=concat_data_dir(data_root, "data"), input_shapes=[(1, 1)], max_samples=1)
+    if data_root is None:
+        mock.assert_any_call(
+            data_dir=concat_data_dir(data_root, "perfdata"),
+            input_shapes=[(1, 1)],
+            input_names=None,
+            input_types=None,
+            max_samples=1,
+        )
+    else:
+        mock.assert_any_call(data_dir=concat_data_dir(data_root, "perfdata"), input_shapes=[(1, 1)], max_samples=1)
     assert best is not None

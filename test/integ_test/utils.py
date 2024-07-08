@@ -24,12 +24,16 @@ def get_olive_workspace_config():
     if client_id is None:
         raise Exception("Please set the environment variable MANAGED_IDENTITY_CLIENT_ID")
 
+    exclude_managed_identity_credential = (
+        {"exclude_managed_identity_credential": True} if "EXCLUDE_MANAGED_IDENTITY_CREDENTIAL" in os.environ else {}
+    )
+
     return {
         "subscription_id": subscription_id,
         "resource_group": resource_group,
         "workspace_name": workspace_name,
         # pipeline agents have multiple managed identities, so we need to specify the client_id
-        "default_auth_params": {"managed_identity_client_id": client_id},
+        "default_auth_params": {"managed_identity_client_id": client_id, **exclude_managed_identity_credential},
     }
 
 

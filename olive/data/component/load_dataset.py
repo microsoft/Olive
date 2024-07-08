@@ -36,8 +36,8 @@ def huggingface_dataset(data_dir, data_name=None, subset=None, split="validation
 
 
 @Registry.register_dataset()
-def dummy_dataset(data_dir, input_shapes, input_names=None, input_types=None):
-    return DummyDataset(input_shapes, input_names, input_types)
+def dummy_dataset(data_dir, input_shapes, input_names=None, input_types=None, max_samples=32):
+    return DummyDataset(input_shapes, input_names, input_types, max_samples)
 
 
 @Registry.register_dataset()

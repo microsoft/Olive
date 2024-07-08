@@ -71,7 +71,7 @@ class QatTrainer:
                     ptl_data_module = self.config.ptl_data_module()
             else:
                 train_dataloader_func = self.config.train_dataloader_func(
-                    self.config.train_data_dir, self.config.train_batch_size
+                    self.config.train_data_dir, batch_size=self.config.train_batch_size
                 )
                 ptl_module = DefaultPTLModule(model=quan_model, training_dataloader=train_dataloader_func)
 
