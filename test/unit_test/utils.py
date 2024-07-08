@@ -321,7 +321,7 @@ def get_transformer_dummy_input_data_config():
         type="TransformersTokenDummyDataContainer",
         load_dataset_config=DataComponentConfig(
             params={
-                "model_name": "meta-llama/Llama-2-7b-hf",
+                "model_name": "Intel/bert-base-uncased-mrpc",
             }
         ),
         dataloader_config=DataComponentConfig(
