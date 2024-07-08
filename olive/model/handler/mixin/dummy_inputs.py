@@ -3,9 +3,9 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+from abc import abstractmethod
 
 import olive.data.template as data_config_template
-from olive.common.user_module_loader import UserModuleLoader
 
 logger = logging.getLogger(__name__)
 
@@ -33,34 +33,21 @@ class DummyInputsMixin:
             )
         return dataloader
 
+    @abstractmethod
+    def get_new_dummy_inputs(self):
+        """Return a dummy input for the model."""
+        raise NotImplementedError
+
     def get_dummy_inputs(self, filter_hook=None, filter_hook_kwargs=None):
         """Return a dummy input for the model."""
         if self.dummy_inputs is not None:
             return self.dummy_inputs
 
-        # Priority: dummy_inputs_func > io_config.input_shapes > hf_config.dataset > onnx_config
-        dummy_inputs = None
-
-        if self.dummy_inputs_func is not None:
-            logger.debug("Using dummy_inputs_func to get dummy inputs")
-            user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
-            dummy_inputs = user_module_loader.call_object(self.dummy_inputs_func, self)
-            # respect user's dummy_inputs_func, no hook
-        else:
-            dataloader = self._get_dummy_dataloader_from_io_config()
-            if dataloader:
-                dummy_inputs, _ = dataloader.get_first_batch()
-            elif self.hf_config and not self.hf_config.components and self.hf_config.task:
-                logger.debug("Trying hf onnx_config to get dummy inputs")
-                dummy_inputs = self.get_hf_dummy_inputs()
-                if dummy_inputs is not None:
-                    logger.debug("Got dummy inputs from hf onnx_config")
-            if filter_hook:
-                dummy_inputs = filter_hook(dummy_inputs, **(filter_hook_kwargs or {}))
+        dummy_inputs = self.get_dummy_inputs()
 
         if dummy_inputs is None:
-            raise ValueError(
-                "Unable to get dummy inputs. Please provide dummy_inputs_func, io_config.input_shapes,"
-                " hf_config.dataset, or hf_config."
-            )
+            raise ValueError("Unable to get dummy inputs for the model.")
+
+        if filter_hook:
+            dummy_inputs = filter_hook(dummy_inputs, **(filter_hook_kwargs or {}))
         return dummy_inputs

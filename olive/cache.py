@@ -16,75 +16,84 @@ from olive.resource_path import ResourcePath, create_resource_path
 logger = logging.getLogger(__name__)
 
 
-def get_cache_sub_dirs(cache_dir: Union[str, Path] = ".olive-cache"):
-    """Return the subdirectories of the cache directory.
-
-    There are three subdirectories: models, runs, and evaluations.
-    """
-    cache_dir = Path(cache_dir)
-    return cache_dir / "models", cache_dir / "runs", cache_dir / "evaluations", cache_dir / "non_local_resources"
+def set_cache_dir(cache_dir: str):
+    os.environ["OLIVE_CACHE_DIR"] = cache_dir
 
 
-def clean_cache(cache_dir: Union[str, Path] = ".olive-cache"):
+def get_cache_dir() -> Path:
+    return Path(os.environ.get("OLIVE_CACHE_DIR", ".olive-cache")).resolve()
+
+
+def get_cache_sub_dirs():
+    """Return the subdirectories of the cache directory."""
+    cache_dir = get_cache_dir()
+    return {
+        "models": cache_dir / "models",
+        "runs": cache_dir / "runs",
+        "evaluations": cache_dir / "evaluations",
+        "non_local_resources": cache_dir / "non_local_resources",
+        "mlflow": cache_dir / "mlflow",
+    }
+
+
+def clean_cache():
     """Clean the cache directory by deleting all subdirectories."""
-    cache_sub_dirs = get_cache_sub_dirs(cache_dir)
-    for sub_dir in cache_sub_dirs:
+    for sub_dir in get_cache_sub_dirs().values():
         if sub_dir.exists():
             shutil.rmtree(sub_dir)
 
 
-def clean_evaluation_cache(cache_dir: Union[str, Path] = ".olive-cache"):
+def clean_evaluation_cache():
     """Clean the evaluation cache directory."""
-    evaluation_cache_dir = get_cache_sub_dirs(cache_dir)[2]
+    evaluation_cache_dir = get_cache_sub_dirs()["evaluations"]
     if evaluation_cache_dir.exists():
         shutil.rmtree(evaluation_cache_dir)
 
 
-def create_cache(cache_dir: Union[str, Path] = ".olive-cache"):
+def create_cache():
     """Create the cache directory and all subdirectories."""
-    # TODO(trajep): to add propagation of cache_dir to all functions
-    cache_sub_dirs = get_cache_sub_dirs(cache_dir)
-    for sub_dir in cache_sub_dirs:
+    for sub_dir in get_cache_sub_dirs().values():
         sub_dir.mkdir(parents=True, exist_ok=True)
 
 
-def _delete_model(model_number: str, cache_dir: Union[str, Path] = ".olive-cache"):
+def _delete_model(model_number: str):
     """Delete the model and all associated runs and evaluations."""
-    model_cache_dir, run_cache_dir, evaluation_cache_dir, _ = get_cache_sub_dirs(cache_dir)
+    cache_sub_dirs = get_cache_sub_dirs()
+
     # delete all model files that start with model_number
-    model_files = list(model_cache_dir.glob(f"{model_number}_*"))
+    model_files = list(cache_sub_dirs["models"].glob(f"{model_number}_*"))
     for model_file in model_files:
         if model_file.is_dir():
             shutil.rmtree(model_file, ignore_errors=True)
         elif model_file.is_file():
             model_file.unlink()
 
-    evaluation_jsons = list(evaluation_cache_dir.glob(f"{model_number}_*.json"))
+    evaluation_jsons = list(cache_sub_dirs["evaluations"].glob(f"{model_number}_*.json"))
     for evaluation_json in evaluation_jsons:
         evaluation_json.unlink()
 
-    run_jsons = list(run_cache_dir.glob(f"*-{model_number}-*.json"))
+    run_jsons = list(cache_sub_dirs["runs"].glob(f"*-{model_number}-*.json"))
     for run_json in run_jsons:
-        _delete_run(run_json.stem, cache_dir)
+        _delete_run(run_json.stem)
 
 
-def _delete_run(run_id: str, cache_dir: Union[str, Path] = ".olive-cache"):
+def _delete_run(run_id: str):
     """Delete the run and all associated models and evaluations."""
-    run_cache_dir = get_cache_sub_dirs(cache_dir)[1]
+    run_cache_dir = get_cache_sub_dirs()["runs"]
     run_json = run_cache_dir / f"{run_id}.json"
     try:
         with run_json.open("r") as f:
             run_data = json.load(f)
         # output model and children
         output_model_number = run_data["output_model_id"].split("_")[0]
-        _delete_model(output_model_number, cache_dir)
+        _delete_model(output_model_number)
     except Exception:
         logger.exception("delete model failed.")
     finally:
         run_json.unlink()
 
 
-def clean_pass_run_cache(pass_type: str, cache_dir: Union[str, Path] = ".olive-cache"):
+def clean_pass_run_cache(pass_type: str):
     """Clean the cache of runs for a given pass type.
 
     This function deletes all runs for a given pass type as well as all child models and evaluations.
@@ -93,20 +102,20 @@ def clean_pass_run_cache(pass_type: str, cache_dir: Union[str, Path] = ".olive-c
 
     assert pass_type.lower() in PASS_REGISTRY, f"Invalid pass type {pass_type}"
 
-    run_cache_dir = get_cache_sub_dirs(cache_dir)[1]
+    run_cache_dir = get_cache_sub_dirs()["runs"]
 
     # cached runs for pass
     run_jsons = list(run_cache_dir.glob(f"{pass_type}-*.json"))
     for run_json in run_jsons:
-        _delete_run(run_json.stem, cache_dir)
+        _delete_run(run_json.stem)
 
 
-def download_resource(resource_path: ResourcePath, cache_dir: Union[str, Path] = ".olive-cache"):
+def download_resource(resource_path: ResourcePath):
     """Return the path to a non-local resource.
 
     Non-local resources are stored in the non_local_resources subdirectory of the cache.
     """
-    non_local_resource_dir = get_cache_sub_dirs(cache_dir)[3]
+    non_local_resource_dir = get_cache_sub_dirs()["non_local_resources"]
 
     # choose left 8 characters of hash as resource path hash to reduce the risk of length too long
     resource_path_hash = hash_dict(resource_path.to_json())[:8]
@@ -139,7 +148,7 @@ def download_resource(resource_path: ResourcePath, cache_dir: Union[str, Path] =
     return local_resource_path
 
 
-def get_local_path(resource_path: Optional[ResourcePath], cache_dir: Union[str, Path] = ".olive-cache"):
+def get_local_path(resource_path: Optional[ResourcePath]):
     """Return the local path of the any resource path.
 
     If the resource path is a local resource, the path is returned.
@@ -151,7 +160,7 @@ def get_local_path(resource_path: Optional[ResourcePath], cache_dir: Union[str, 
     if resource_path.is_local_resource_or_string_name():
         return resource_path.get_path()
     elif resource_path.is_azureml_resource():
-        return download_resource(resource_path, cache_dir).get_path()
+        return download_resource(resource_path).get_path()
     else:
         return None
 
@@ -183,12 +192,10 @@ def normalize_data_path(data_root: Union[str, Path], data_dir: Union[str, Path, 
     return create_resource_path(data_full_path)
 
 
-def get_local_path_from_root(
-    data_root: Union[str, Path], data_dir: Union[str, Path, ResourcePath], cache_dir: Union[str, Path] = ".olive-cache"
-):
+def get_local_path_from_root(data_root: Union[str, Path], data_dir: Union[str, Path, ResourcePath]):
     data_path = normalize_data_path(data_root, data_dir)
     if data_path:
-        return get_local_path(data_path, cache_dir)
+        return get_local_path(data_path)
     else:
         return None
 
@@ -198,7 +205,6 @@ def save_model(
     output_dir: Union[str, Path] = None,
     output_name: Union[str, Path] = None,
     overwrite: bool = False,
-    cache_dir: Union[str, Path] = ".olive-cache",
 ) -> Optional[Dict]:
     """Save a model from the cache to a given path."""
     # This function should probably be outside of the cache module
@@ -210,7 +216,7 @@ def save_model(
     output_dir.mkdir(parents=True, exist_ok=True)
     output_name = output_name if output_name else "model"
 
-    model_cache_dir = get_cache_sub_dirs(cache_dir)[0]
+    model_cache_dir = get_cache_sub_dirs()["models"]
     model_jsons = list(model_cache_dir.glob(f"{model_number}_*.json"))
     assert len(model_jsons) == 1, f"No model found for {model_number}"
 
@@ -230,7 +236,7 @@ def save_model(
             continue
         # get cached resource path if not local or string name
         if not resource_path.is_local_resource():
-            local_resource_path = download_resource(resource_path, cache_dir)
+            local_resource_path = download_resource(resource_path)
         else:
             local_resource_path = resource_path
         # if there are multiple resource paths, we will save them to a subdirectory of output_dir/output_name

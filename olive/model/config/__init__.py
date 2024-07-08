@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from olive.model.config.hf_config import HfComponent, HfConfig
+from olive.model.config.hf_config2 import HfLoadKwargs
 from olive.model.config.io_config import (
     IoConfig,
     complete_kv_cache_with_model_attributes,
@@ -14,6 +15,7 @@ from olive.model.config.model_config import ModelConfig
 __all__ = [
     "HfComponent",
     "HfConfig",
+    "HfLoadKwargs",
     "IoConfig",
     "KVCacheConfig",
     "ModelConfig",

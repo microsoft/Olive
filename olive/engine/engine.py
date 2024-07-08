@@ -112,16 +112,15 @@ class Engine:
         """Initialize engine state. This should be done before running the registered passes."""
         # pylint: disable=attribute-defined-outside-init
 
+        cache_utils.set_cache_dir(self.cache_dir)
         if self.clean_cache:
-            cache_utils.clean_cache(self.cache_dir)
+            cache_utils.clean_cache()
         if self.clean_evaluation_cache:
-            cache_utils.clean_evaluation_cache(self.cache_dir)
+            cache_utils.clean_evaluation_cache()
 
         logger.info("Using cache directory: %s", self.cache_dir)
-        self._model_cache_path, self._run_cache_path, self._evaluation_cache_path, _ = cache_utils.get_cache_sub_dirs(
-            self.cache_dir
-        )
-        cache_utils.create_cache(self.cache_dir)
+        self.cache_sub_dirs = cache_utils.get_cache_sub_dirs()
+        cache_utils.create_cache()
 
         # initialize counters
         # we do this before cleaning pass run caches to ensure we don't reuse model numbers even if the model was
@@ -131,7 +130,7 @@ class Engine:
         # model contents are stored in <model_number>_<pass_type>-<source_model>-<pass_config_hash> folder
         # sometimes the folder is created with contents but the json is not created when the pass fails to run
         # so we check for both when determining the new model number
-        model_files = list(self._model_cache_path.glob("*_*"))
+        model_files = list(self.cache_sub_dirs["models"].glob("*_*"))
         if len(model_files) > 0:
             self._new_model_number = max(int(model_file.stem.split("_")[0]) for model_file in model_files) + 1
 
@@ -140,7 +139,7 @@ class Engine:
         for pass_config in self.pass_config.values():
             clean_run_cache = pass_config["clean_run_cache"]
             if clean_run_cache:
-                cache_utils.clean_pass_run_cache(pass_config["type"].__name__, self.cache_dir)
+                cache_utils.clean_pass_run_cache(pass_config["type"].__name__)
 
         self.set_pass_flows(self.pass_flows)
         self._initialized = True
@@ -487,7 +486,6 @@ class Engine:
                     output_dir=output_dir_with_pf,
                     output_name=f"{pass_output_name}_model",
                     overwrite=True,
-                    cache_dir=self.cache_dir,
                 )
                 # it is not supported to save compositepytorchmodel/compositemodel again
                 # so the output_model_json could be None
@@ -722,13 +720,13 @@ class Engine:
         while True:
             new_model_number = self._new_model_number
             self._new_model_number += 1
-            if not list(self._model_cache_path.glob(f"{new_model_number}_*")):
+            if not list(self.cache_sub_dirs["models"].glob(f"{new_model_number}_*")):
                 break
         return new_model_number
 
     def get_model_json_path(self, model_id: str) -> Path:
         """Get the path to the model json file."""
-        return self._model_cache_path / f"{model_id}.json"
+        return self.cache_sub_dirs["models"] / f"{model_id}.json"
 
     def _cache_model(self, model: Union[ModelConfig, str], model_id: str, check_object: bool = True):
         """Cache the model in the cache directory."""
@@ -767,7 +765,7 @@ class Engine:
         for resource_name, resource_path in resource_paths.items():
             if not resource_path or resource_path.is_local_resource_or_string_name():
                 continue
-            downloaded_resource_path = cache_utils.download_resource(resource_path, self.cache_dir)
+            downloaded_resource_path = cache_utils.download_resource(resource_path)
             if downloaded_resource_path:
                 # set local resource path
                 model_config.config[resource_name] = downloaded_resource_path
@@ -793,10 +791,11 @@ class Engine:
         """Get the path to the run json."""
         pass_config_hash = hash_dict(pass_config)[:8]
         if not accelerator_spec:
-            run_json_path = self._run_cache_path / f"{pass_name}-{input_model_number}-{pass_config_hash}.json"
+            run_json_path = self.cache_sub_dirs["runs"] / f"{pass_name}-{input_model_number}-{pass_config_hash}.json"
         else:
             run_json_path = (
-                self._run_cache_path / f"{pass_name}-{input_model_number}-{pass_config_hash}-{accelerator_spec}.json"
+                self.cache_sub_dirs["runs"]
+                / f"{pass_name}-{input_model_number}-{pass_config_hash}-{accelerator_spec}.json"
             )
         return run_json_path
 
@@ -977,7 +976,7 @@ class Engine:
                     start_time=run_cache.get("run_start_time", 0),
                     end_time=run_cache.get("run_end_time", 0),
                 )
-                logger.info("Loaded model from cache: %s from %s", output_model_id, self._run_cache_path)
+                logger.info("Loaded model from cache: %s from %s", output_model_id, self.cache_sub_dirs["runs"])
                 return output_model_config, output_model_id, None
 
         # new model id
@@ -994,7 +993,7 @@ class Engine:
             output_model_id_parts.append(f"{accelerator_spec}")
 
         output_model_id = "-".join(map(str, output_model_id_parts))
-        output_model_path = self._model_cache_path / f"{output_model_id}" / "output_model"
+        output_model_path = self.cache_sub_dirs["models"] / f"{output_model_id}" / "output_model"
         output_model_path.parent.mkdir(parents=True, exist_ok=True)
         output_model_path = str(output_model_path)
 
@@ -1074,7 +1073,7 @@ class Engine:
 
     def get_evaluation_json_path(self, model_id: str):
         """Get the path to the evaluation json."""
-        return self._evaluation_cache_path / f"{model_id}.json"
+        return self.cache_sub_dirs["evaluations"] / f"{model_id}.json"
 
     def save_olive_config(self, olive_config: dict):
         """Save the olive config to the output directory."""
