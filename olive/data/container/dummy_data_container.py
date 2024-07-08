@@ -50,7 +50,6 @@ class TransformersDummyDataContainer(DummyDataContainer):
             type="TransformersDummyDataContainer",
             "load_dataset_config"={
                 "params": {
-                    "batch_size": 1,
                     "seq_len": 128,
                     "past_seq_len": 128,
                     "max_seq_len": 1024,
@@ -60,6 +59,8 @@ class TransformersDummyDataContainer(DummyDataContainer):
                     "generative": False,
                     "ort_past_key_name":"past_key_values.<id>.key",
                     "ort_past_value_name":"past_key_values.<id>.value",
+                    "trust_remote_code": None,
+                    "max_samples": 32,
                 )
             }
         )
@@ -67,7 +68,6 @@ class TransformersDummyDataContainer(DummyDataContainer):
 
     default_components_type: ClassVar[dict] = {
         DataComponentType.LOAD_DATASET.value: "transformers_dummy_dataset",
-        DataComponentType.DATALOADER.value: "no_auto_batch_dataloader",
     }
 
 
@@ -81,7 +81,6 @@ class TransformersPromptDummyDataContainer(DummyDataContainer):
             type="TransformersPromptDummyDataContainer",
             "load_dataset_config"={
                 "params": {
-                    "batch_size": 2,
                     "seq_len": 8,
                     "past_seq_len": 0,
                     "max_seq_len": 2048,
@@ -91,6 +90,8 @@ class TransformersPromptDummyDataContainer(DummyDataContainer):
                     "generative": False,
                     "ort_past_key_name":"past_key_values.<id>.key",
                     "ort_past_value_name":"past_key_values.<id>.value",
+                    "trust_remote_code": None,
+                    "max_samples": 32,
                 )
             }
         )
@@ -98,7 +99,6 @@ class TransformersPromptDummyDataContainer(DummyDataContainer):
 
     default_components_type: ClassVar[dict] = {
         DataComponentType.LOAD_DATASET.value: "transformers_prompt_dummy_dataset",
-        DataComponentType.DATALOADER.value: "no_auto_batch_dataloader",
     }
 
 
@@ -112,7 +112,6 @@ class TransformersTokenDummyDataContainer(DummyDataContainer):
             type="TransformersTokenDummyDataContainer",
             "load_dataset_config"={
                 "params": {
-                    "batch_size": 2,
                     "seq_len": 1,
                     "past_seq_len": 8,
                     "max_seq_len": 2048,
@@ -122,6 +121,8 @@ class TransformersTokenDummyDataContainer(DummyDataContainer):
                     "generative": False,
                     "ort_past_key_name":"past_key_values.<id>.key",
                     "ort_past_value_name":"past_key_values.<id>.value",
+                    "trust_remote_code": None,
+                    "max_samples": 32,
                 )
             }
         )
@@ -129,5 +130,4 @@ class TransformersTokenDummyDataContainer(DummyDataContainer):
 
     default_components_type: ClassVar[dict] = {
         DataComponentType.LOAD_DATASET.value: "transformers_token_dummy_dataset",
-        DataComponentType.DATALOADER.value: "no_auto_batch_dataloader",
     }

@@ -224,11 +224,10 @@ class RawDataset(BaseDataset):
         return data, label
 
 
-class TransformersDummyDataset(DummyDataset):
+class TransformersDummyDataset(BaseDataset):
     def __init__(
         self,
         model_name: str,
-        batch_size: int,
         seq_len: int,
         past_seq_len: int,
         max_seq_len: int,
@@ -239,10 +238,10 @@ class TransformersDummyDataset(DummyDataset):
         ort_past_key_name: str = "past_key_values.<id>.key",
         ort_past_value_name: str = "past_key_values.<id>.value",
         trust_remote_code: Optional[bool] = None,
+        max_samples: Optional[int] = 32,
     ):
         # pylint: disable=super-init-not-called
         self.model_name = model_name
-        self.batch_size = batch_size
         self.seq_len = seq_len
         self.past_seq_len = past_seq_len
         self.max_seq_len = max_seq_len
@@ -255,11 +254,14 @@ class TransformersDummyDataset(DummyDataset):
         self.ort_past_key_name = ort_past_key_name
         self.ort_past_value_name = ort_past_value_name
         self.trust_remote_code = trust_remote_code
+        self.max_samples = max_samples
+
+    def __len__(self):
+        return self.max_samples
 
     def __getitem__(self, idx):
         input_ids, attention_mask, position_ids, past_kv = self.get_merged_sample_with_past_kv_inputs(
             model_name=self.model_name,
-            batch_size=self.batch_size,
             seq_len=self.seq_len,
             past_seq_len=self.past_seq_len,
             use_fp16=self.use_fp16,
@@ -285,7 +287,7 @@ class TransformersDummyDataset(DummyDataset):
             if self.shared_kv:
                 inputs = self.enable_past_present_share_buffer(inputs, self.past_seq_len, self.max_seq_len)
 
-        return (inputs, None)
+        return (inputs, 1)
 
     def enable_past_present_share_buffer(self, ort_inputs: dict, past_seq_len: int, max_seq_len: int):
         """Enable past-present share buffer for GQA. For ONNX model + FP16 + GQA only."""
@@ -293,16 +295,15 @@ class TransformersDummyDataset(DummyDataset):
             # Allocate new buffers with max_seq_len for GQA
             if "past_key_values" in k:
                 # Copy v (BxSxPxH) into new_v (BxSxMxH)
-                batch_size, num_heads, _, head_size = v.shape
-                new_v = torch.zeros((batch_size, num_heads, max_seq_len, head_size), dtype=v.dtype)
-                new_v[:batch_size, :num_heads, :past_seq_len, :head_size] = v
+                num_heads, _, head_size = v.shape
+                new_v = torch.zeros((num_heads, max_seq_len, head_size), dtype=v.dtype)
+                new_v[:num_heads, :past_seq_len, :head_size] = v
                 ort_inputs[k] = new_v
         return ort_inputs
 
     def get_merged_sample_with_past_kv_inputs(
         self,
         model_name: str,
-        batch_size: int,
         seq_len: int,
         past_seq_len: int,
         use_fp16: bool = False,
@@ -315,11 +316,11 @@ class TransformersDummyDataset(DummyDataset):
         For token generation, past_seq_len >= 1 and seq_len = 1.
 
         Shape of outputs:
-            input_ids: (batch_size, seq_len)
-            attention_mask: (batch_size, past_seq_len + seq_len)
-            position_ids: (batch_size, seq_len)
-            past_key: (batch_size, num_heads, past_seq_len, head_size)
-            past_value: (batch_size, num_heads, past_seq_len, head_size)
+            input_ids: (seq_len)
+            attention_mask: (past_seq_len + seq_len)
+            position_ids: (seq_len)
+            past_key: (num_heads, past_seq_len, head_size)
+            past_value: (num_heads, past_seq_len, head_size)
         """
         # Note: No need for separate function for legacy prompt and token generation
         # prompt generation (get_sample_inputs):
@@ -336,32 +337,28 @@ class TransformersDummyDataset(DummyDataset):
         model_attributes = AutoConfig.from_pretrained(model_name, trust_remote_code=trust_remote_code).__dict__
         world_size = model_attributes.get("world_size", 1)
         vocab_size = model_attributes.get("vocab_size", 50256)
-        input_ids = torch.randint(low=0, high=vocab_size, size=(batch_size, seq_len), dtype=torch.int64)
-        attention_mask = torch.ones(batch_size, past_seq_len + seq_len, dtype=torch.int64)
+        input_ids = torch.randint(low=0, high=vocab_size, size=(seq_len,), dtype=torch.int64)
+        attention_mask = torch.ones(past_seq_len + seq_len, dtype=torch.int64)
         position_ids = self.get_position_ids(attention_mask, past_seq_len=past_seq_len)
         position_ids = position_ids.to(torch.int64)
-        past_kv = self.get_past_kv_inputs(
-            model_attributes, batch_size, past_seq_len, use_fp16=use_fp16, world_size=world_size
-        )
+        past_kv = self.get_past_kv_inputs(model_attributes, past_seq_len, use_fp16=use_fp16, world_size=world_size)
 
         return (input_ids, attention_mask, position_ids, past_kv)
 
     def get_position_ids(self, attention_mask: torch.Tensor, past_seq_len: int):
         """Get position_ids from attention_mask."""
         # this is generic but in practice we only expect to see two scenarios for (past_seq_len, seq_len)
-        # prompt generation: (0, seq_len) -> position_ids = (batch_size, seq_len)
-        # token generation: (past_seq_len, 1) -> position_ids = (batch_size, 1)
+        # prompt generation: (0, seq_len) -> position_ids = (seq_len)
+        # token generation: (past_seq_len, 1) -> position_ids = (1)
         # Note: The merged model only works in these two scenarios
         position_ids = attention_mask.long().cumsum(-1) - 1
         position_ids.masked_fill_(attention_mask == 0, 1)
-        return position_ids[:, past_seq_len:]
+        return position_ids[past_seq_len:]
 
-    def get_past_kv_inputs(
-        self, model_attributes, batch_size: int, past_seq_len: int, use_fp16: bool, world_size: int = 1
-    ):
+    def get_past_kv_inputs(self, model_attributes, past_seq_len: int, use_fp16: bool, world_size: int = 1):
         """Get past_key_values for all layers.
 
-        Shape of past_key_values is (batch_size, num_heads, past_seq_len, head_size).
+        Shape of past_key_values is (num_heads, past_seq_len, head_size).
         """
         from olive.model.utils.hf_mappings import HIDDEN_SIZE_NAMES, NUM_HEADS_NAMES, NUM_HIDDEN_LAYER_NAMES
 
@@ -371,8 +368,8 @@ class TransformersDummyDataset(DummyDataset):
         torch_dtype = torch.float16 if use_fp16 else torch.float32
         return [
             (
-                torch.rand(batch_size, num_attention_heads, past_seq_len, head_size, dtype=torch_dtype),
-                torch.rand(batch_size, num_attention_heads, past_seq_len, head_size, dtype=torch_dtype),
+                torch.rand(num_attention_heads, past_seq_len, head_size, dtype=torch_dtype),
+                torch.rand(num_attention_heads, past_seq_len, head_size, dtype=torch_dtype),
             )
             for _ in range(num_hidden_layers)
         ]

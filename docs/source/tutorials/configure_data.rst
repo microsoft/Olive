@@ -208,6 +208,8 @@ Convert the transformer dummy data config to the data container.
                         "generative": false,
                         "ort_past_key_name":"past_key_values.<id>.key",
                         "ort_past_value_name":"past_key_values.<id>.value",
+                        "trust_remote_code": true,
+                        "max_samples": 32
                     }
                 }
             }
@@ -231,6 +233,8 @@ Convert the transformer dummy data config to the data container.
                     "generative": False,
                     "ort_past_key_name":"past_key_values.<id>.key",
                     "ort_past_value_name":"past_key_values.<id>.value",
+                    "trust_remote_code": True,
+                    "max_samples": 32
                 })
             )
 

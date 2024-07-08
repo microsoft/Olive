@@ -3,7 +3,12 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from test.unit_test.utils import create_raw_data, get_data_config, get_glue_huggingface_data_config
+from test.unit_test.utils import (
+    create_raw_data,
+    get_data_config,
+    get_glue_huggingface_data_config,
+    get_transformer_dummy_input_data_config,
+)
 
 import numpy as np
 import pytest
@@ -38,6 +43,16 @@ class TestDataConfig:
         dc = dc_config.to_data_container()
         dc.create_dataloader(data_root_path=None)
         dc.create_calibration_dataloader(data_root_path=None)
+
+    def test_transformer_dummy_dc_runner(self):
+        dc_config = get_transformer_dummy_input_data_config()
+        dc = dc_config.to_data_container()
+        dataloader = dc.create_dataloader(data_root_path=None)
+        for data in dataloader:
+            assert "input_ids" in data[0]
+            # batch_size
+            assert data[0]["past_key_values.0.key"].shape[0] == 2
+            break
 
     def test_raw_data_constructor(self):
         dc_config = DataConfig(name="test_dc_config", type="RawDataContainer")
