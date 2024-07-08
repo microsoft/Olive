@@ -120,13 +120,14 @@ class CloudCacheHelper:
         model_config_copy = deepcopy(output_model_config)
         model_config_copy.config["model_path"] = None
 
-        # upload model config file
-        model_config_bytes = json.dumps(model_config_copy.to_json()).encode()
-        with io.BytesIO(model_config_bytes) as data:
-            self.container_client.upload_blob(f"{output_model_hash}/model_config.json", data=data, overwrite=False)
-
         # upload model file
         model_blob = str(Path(output_model_hash) / "model")
+
+        if not model_path.is_dir():
+            with open(model_path, "rb") as data:
+                self.container_client.upload_blob(f"{model_blob}/{model_path.name}", data=data, overwrite=False)
+        else:
+            self._upload_dir_to_blob(model_path, f"{model_blob}")
 
         with tempfile.TemporaryDirectory() as temp_dir:
             model_path_file = Path(temp_dir) / "model_path.json"
@@ -135,11 +136,10 @@ class CloudCacheHelper:
             with open(model_path_file, "rb") as data:
                 self.container_client.upload_blob(f"{model_blob}/model_path.json", data=data, overwrite=False)
 
-        if not model_path.is_dir():
-            with open(model_path, "rb") as data:
-                self.container_client.upload_blob(f"{model_blob}/{model_path.name}", data=data, overwrite=False)
-        else:
-            self._upload_dir_to_blob(model_path, f"{model_blob}")
+        # upload model config file
+        model_config_bytes = json.dumps(model_config_copy.to_json()).encode()
+        with io.BytesIO(model_config_bytes) as data:
+            self.container_client.upload_blob(f"{output_model_hash}/model_config.json", data=data, overwrite=False)
 
     def _upload_dir_to_blob(self, dir_path, blob_folder_name):
         for item in dir_path.iterdir():
