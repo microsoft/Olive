@@ -77,7 +77,7 @@ def test_workflow_run_command(mock_run, tempdir, setup):
 
     # assert
     mock_run.assert_called_once_with(
-        run_config="config.json", setup=setup, package_config=None, data_root=None
+        run_config="config.json", setup=setup, package_config=None, data_root=None, tempdir=tempdir
     )
 
 
