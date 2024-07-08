@@ -1,4 +1,9 @@
-from test.unit_test.utils import create_dataloader, get_pytorch_model, get_pytorch_model_config, pytorch_model_loader
+from test.unit_test.utils import (
+    create_dummy_dataloader,
+    get_pytorch_model,
+    get_pytorch_model_config,
+    pytorch_model_loader,
+)
 from unittest.mock import patch
 
 import pytest
@@ -24,7 +29,7 @@ EVALUATORS_CONFIG = {
                     "name": "avg",
                 },
             ],
-            "user_config": {"dataloader_func": create_dataloader},
+            "user_config": {"dataloader_func": create_dummy_dataloader},
         }
     ]
 }

@@ -9,9 +9,11 @@ from unittest.mock import MagicMock
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 
+from olive.common.config_utils import validate_config
 from olive.constants import Framework
+from olive.data.component.dataset import DummyDataset
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
@@ -23,59 +25,39 @@ ONNX_MODEL_PATH = Path(__file__).absolute().parent / "dummy_model.onnx"
 
 
 class DummyModel(nn.Module):
-    def __init__(self):
+    def __init__(self, batch_size=1):
         super().__init__()
-        self.fc1 = nn.Linear(1, 10)
+        self.fc1 = nn.Linear(batch_size, 10)
 
     def forward(self, x):
-        return torch.relu(self.fc1(x))
+        return torch.sigmoid(self.fc1(x))
 
 
-class DummyDataset(Dataset):
-    def __init__(self, size):
-        self.size = size
-
-    def __getitem__(self, idx):
-        return torch.randn(1), torch.rand(10)
-
-    def __len__(self):
-        return self.size
-
-
-class FixedDummyDataset(Dataset):
-    def __init__(self, size):
-        self.size = size
-        self.rng = np.random.default_rng(0)
-        self.data = torch.tensor(self.rng.random((size, 1)))
-        self.labels = torch.tensor(self.rng.random(1))
-
-    def __getitem__(self, idx):
-        return self.data[idx], self.labels[idx]
-
-    def __len__(self):
-        return self.size
+# TODO(shaahji): Remove this once perf_tuning pass supports DataConfig
+def create_dummy_dataloader(data_dir, batch_size=1, max_samples=32, **kwargs):
+    return DataLoader(DummyDataset([(batch_size or 1, 1)], max_samples=max_samples), batch_size=None)
 
 
 def pytorch_model_loader(model_path):
     return DummyModel().eval()
 
 
-def get_pytorch_model_config():
+def get_pytorch_model_config(batch_size=1):
     config = {
         "type": "PyTorchModel",
         "config": {
             "model_loader": pytorch_model_loader,
-            "io_config": {"input_names": ["input"], "output_names": ["output"], "input_shapes": [(1, 1)]},
+            "io_config": {"input_names": ["input"], "output_names": ["output"], "input_shapes": [(batch_size, 1)]},
         },
     }
     return ModelConfig.parse_obj(config)
 
 
-def get_pytorch_model():
+def get_pytorch_model(batch_size=1):
     return PyTorchModelHandler(
         model_loader=pytorch_model_loader,
         model_path=None,
-        io_config={"input_names": ["input"], "output_names": ["output"], "input_shapes": [(1, 1)]},
+        io_config={"input_names": ["input"], "output_names": ["output"], "input_shapes": [(batch_size, 1)]},
     )
 
 
@@ -98,8 +80,8 @@ def get_hf_model_with_past():
     )
 
 
-def get_pytorch_model_dummy_input(model=None):
-    return torch.randn(1, 1)
+def get_pytorch_model_dummy_input(model=None, batch_size=1):
+    return torch.randn(batch_size, 1)
 
 
 def create_onnx_model_file():
@@ -110,9 +92,9 @@ def create_onnx_model_file():
     )
 
 
-def create_onnx_model_with_dynamic_axis(onnx_model_path):
+def create_onnx_model_with_dynamic_axis(onnx_model_path, batch_size=1):
     pytorch_model = pytorch_model_loader(model_path=None)
-    dummy_input = get_pytorch_model_dummy_input(pytorch_model)
+    dummy_input = get_pytorch_model_dummy_input(pytorch_model, batch_size)
     torch.onnx.export(
         pytorch_model,
         dummy_input,
@@ -162,23 +144,28 @@ def get_mock_openvino_model():
     return olive_model
 
 
-def create_dataloader(data_dir, batch_size, *args, **kwargs):
-    return DataLoader(DummyDataset(1))
-
-
-def create_fixed_dataloader(data_dir, batch_size, *args, **kwargs):
-    return DataLoader(FixedDummyDataset(1))
+def _get_dummy_data_config(name, input_shapes, max_samples=1):
+    data_config = DataConfig(
+        name=name,
+        type="DummyDataContainer",
+        load_dataset_config=DataComponentConfig(
+            params={
+                "input_shapes": input_shapes,
+                "max_samples": max_samples,
+            }
+        ),
+        post_process_data_config=DataComponentConfig(type="text_classification_post_process"),
+    )
+    return validate_config(data_config, DataConfig)
 
 
 def get_accuracy_metric(
     *acc_subtype,
-    random_dataloader=True,
     user_config=None,
     backend="torch_metrics",
     goal_type="threshold",
     goal_value=0.99,
 ):
-    accuracy_metric_config = {"dataloader_func": create_dataloader if random_dataloader else create_fixed_dataloader}
     accuracy_score_metric_config = {"task": "multiclass", "num_classes": 10}
     sub_types = [
         {
@@ -193,8 +180,9 @@ def get_accuracy_metric(
         name="accuracy",
         type=MetricType.ACCURACY,
         sub_types=sub_types,
-        user_config=user_config or accuracy_metric_config,
+        user_config=user_config,
         backend=backend,
+        data_config=_get_dummy_data_config("accuracy_metric_data_config", [[1, 1]]),
     )
 
 
@@ -233,24 +221,24 @@ def get_custom_metric_no_eval():
 
 
 def get_latency_metric(*lat_subtype, user_config=None):
-    latency_metric_config = {"dataloader_func": create_dataloader}
     sub_types = [{"name": sub} for sub in lat_subtype]
     return Metric(
         name="latency",
         type=MetricType.LATENCY,
         sub_types=sub_types,
-        user_config=user_config or latency_metric_config,
+        user_config=user_config,
+        data_config=_get_dummy_data_config("latency_metric_data_config", [[1, 1]]),
     )
 
 
 def get_throughput_metric(*lat_subtype, user_config=None):
-    metric_config = {"dataloader_func": create_dataloader}
     sub_types = [{"name": sub} for sub in lat_subtype]
     return Metric(
         name="throughput",
         type=MetricType.THROUGHPUT,
         sub_types=sub_types,
-        user_config=user_config or metric_config,
+        user_config=user_config,
+        data_config=_get_dummy_data_config("throughput_metric_data_config", [[1, 1]]),
     )
 
 
