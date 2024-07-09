@@ -417,3 +417,28 @@ def find_first_matched_value(original_dict: Dict, keys: Union[str, Tuple, List[s
     if raise_key_error:
         raise KeyError(f"Keys {keys} not found in {original_dict}")
     return None
+
+
+def get_credentials(default_auth_params: Dict = None):
+    """Get credentials for MLClient.
+
+    Order of credential providers:
+    1. Azure CLI
+    2. DefaultAzureCredential
+    3. InteractiveBrowserCredential
+    """
+    from azure.identity import DefaultAzureCredential, InteractiveBrowserCredential
+
+    logger.debug("Getting credentials for MLClient")
+    try:
+        default_auth_params = default_auth_params or {}
+        credential = DefaultAzureCredential(**default_auth_params)
+        # Check if given credential can get token successfully.
+        credential.get_token("https://management.azure.com/.default")
+        logger.debug("Using DefaultAzureCredential")
+    except Exception:
+        logger.warning("Using InteractiveBrowserCredential since of default credential errors", exc_info=True)
+        # Fall back to InteractiveBrowserCredential in case DefaultAzureCredential not work
+        credential = InteractiveBrowserCredential()
+
+    return credential

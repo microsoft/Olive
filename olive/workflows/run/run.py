@@ -267,6 +267,7 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig, data_r
                 run_config.engine.output_dir,
                 run_config.engine.output_name,
                 run_config.engine.evaluate_input_model,
+                run_config.engine.cloud_cache_config,
             )
         )
     return run_rls
