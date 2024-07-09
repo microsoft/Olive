@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import inspect
 import logging
 from typing import ClassVar, Dict, Union
 
@@ -37,11 +38,26 @@ class Registry:
         def decorator(component):
             component_name = name if name is not None else component.__name__
             if component_name in cls._REGISTRY[sub_type.value]:
-                # don't want to warn here since user script is loaded everytime data config is initialized
-                # there is nothing user can do to fix this warning
-                logger.debug(
-                    "Component %s already registered in %s, will override the old one.", component_name, sub_type.value
-                )
+                component_1 = cls._REGISTRY[sub_type.value][component_name]
+                component_2 = component
+
+                component_file_1 = inspect.getfile(component_1)
+                component_file_2 = inspect.getfile(component_2)
+
+                _, component_line_no_1 = inspect.getsourcelines(component_1)
+                _, component_line_no_2 = inspect.getsourcelines(component_2)
+
+                if (component_file_1 != component_file_2) or (component_line_no_1 != component_line_no_2):
+                    logger.critical(
+                        "%s: Duplicate component registration.\n"
+                        "\tPrevious Registration: %s:%d\n"
+                        "\tCurrent Registration: %s:%d.",
+                        component_name,
+                        component_file_1,
+                        component_line_no_1,
+                        component_file_2,
+                        component_line_no_2,
+                    )
             cls._REGISTRY[sub_type.value][component_name] = component
             return component
 
