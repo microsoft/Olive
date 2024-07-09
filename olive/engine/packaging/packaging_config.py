@@ -16,6 +16,7 @@ class PackagingType(str, Enum):
     AzureMLModels = "AzureMLModels"
     AzureMLData = "AzureMLData"
     AzureMLDeployment = "AzureMLDeployment"
+    Dockerfile = "Dockerfile"
 
 
 class CommonPackagingConfig(ConfigBase):
@@ -34,6 +35,11 @@ class AzureMLDataPackagingConfig(CommonPackagingConfig):
 class AzureMLModelsPackagingConfig(CommonPackagingConfig):
     version: Union[int, str] = "1"
     description: Optional[str] = None
+
+
+class DockerfilePackagingConfig(CommonPackagingConfig):
+    base_image: str = "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.6-cudnn8-ubuntu20.04"
+    requirements_file: Optional[str] = None
 
 
 class InferencingServerType(str, Enum):
@@ -89,6 +95,7 @@ _type_to_config = {
     PackagingType.AzureMLModels: AzureMLModelsPackagingConfig,
     PackagingType.AzureMLData: AzureMLDataPackagingConfig,
     PackagingType.AzureMLDeployment: AzureMLDeploymentPackagingConfig,
+    PackagingType.Dockerfile: DockerfilePackagingConfig,
 }
 
 

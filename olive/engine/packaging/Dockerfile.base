@@ -1,0 +1,21 @@
+FROM <BASE_IMAGE>
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get -y update && ACCEPT_EULA=Y apt-get -y upgrade
+RUN apt-get install -y --no-install-recommends wget gnupg
+
+RUN pip install --no-cache-dir pandas plotly psutil datasets transformers
+
+WORKDIR /olive
+
+ADD <DIR> /olive
+
+RUN pip install -r requirements.txt
+
+WORKDIR /olive/ONNXRuntimePackages/python
+
+RUN pip install *.whl
+
+WORKDIR /olive
+

@@ -20,6 +20,7 @@ from olive.common.constants import OS
 from olive.common.utils import copy_dir, retry_func, run_subprocess
 from olive.engine.packaging.packaging_config import (
     AzureMLDeploymentPackagingConfig,
+    DockerfilePackagingConfig,
     InferencingServerType,
     PackagingConfig,
     PackagingType,
@@ -52,12 +53,65 @@ def generate_output_artifacts(
     for packaging_config in packaging_config_list:
         if packaging_config.type == PackagingType.AzureMLDeployment:
             _package_azureml_deployment(packaging_config, footprints, pf_footprints, azureml_client_config)
+        elif packaging_config.type == PackagingType.Dockerfile:
+            _package_dockerfile(packaging_config, footprints, pf_footprints, output_dir)
         else:
             _package_candidate_models(packaging_config, output_dir, footprints, pf_footprints, azureml_client_config)
 
 
+def _package_dockerfile(
+    packaging_config: PackagingConfig,
+    footprints: Dict["AcceleratorSpec", "Footprint"],
+    pf_footprints: Dict["AcceleratorSpec", "Footprint"],
+    output_dir: Path,
+):
+    config: DockerfilePackagingConfig = packaging_config.config
+    logger.info("Packaging output models to Dockerfile")
+    base_image = config.base_image
+    best_node = _get_best_candidate_node(pf_footprints, footprints)
+
+    docker_context_path = "docker_content"
+    content_path = output_dir / docker_context_path
+    if content_path.exists():
+        shutil.rmtree(content_path)
+    content_path.mkdir(parents=True)
+
+    if packaging_config.include_sample_code:
+        _package_sample_code(Path(__file__).parent, content_path, False)
+
+    if config.requirements_file:
+        shutil.copy(config.requirements_file, content_path / "requirements.txt")
+
+    model_config = best_node.model_config
+    _save_model(
+        model_config["config"].get("model_path", None),
+        model_config["type"],
+        model_config,
+        content_path,
+        model_config["config"].get("inference_settings", None),
+        False,
+    )
+    is_generative = _is_generative_model(best_node.model_config["config"])
+    if packaging_config.include_runtime_packages:
+        if is_generative:
+            _package_onnxruntime_genai_runtime_dependencies(content_path, False)
+        else:
+            _package_onnxruntime_runtime_dependencies(content_path, next(iter(pf_footprints.values())), "310", False)
+
+    dockerfile_base_path = Path(__file__).parent / "Dockerfile.base"
+    with open(dockerfile_base_path) as file:
+        filedata = file.read()
+
+    filedata = filedata.replace("<BASE_IMAGE>", base_image)
+    filedata = filedata.replace("<DIR>", docker_context_path)
+
+    dockerfile_path = output_dir / "Dockerfile"
+    with open(dockerfile_path, "w") as file:
+        file.writelines(filedata)
+
+
 def _package_azureml_deployment(
-    packaging_config: AzureMLDeploymentPackagingConfig,
+    packaging_config: PackagingConfig,
     footprints: Dict["AcceleratorSpec", "Footprint"],
     pf_footprints: Dict["AcceleratorSpec", "Footprint"],
     azureml_client_config: "AzureMLClientConfig" = None,
@@ -312,7 +366,9 @@ def _package_candidate_models(
                 if is_generative:
                     _package_onnxruntime_genai_runtime_dependencies(tempdir)
                 else:
-                    _package_onnxruntime_runtime_dependencies(tempdir, next(iter(pf_footprints.values())))
+                    _package_onnxruntime_runtime_dependencies(
+                        tempdir, next(iter(pf_footprints.values())), _get_python_version()
+                    )
 
         for accelerator_spec, pf_footprint in pf_footprints.items():
             footprint = footprints[accelerator_spec]
@@ -578,7 +634,15 @@ def _generate_onnx_mlflow_model(model_dir: Path, inference_config: Dict):
     return mlflow_model_path
 
 
-def _package_onnxruntime_genai_runtime_dependencies(tempdir: Path):
+def create_python_download_command(base_url=None):
+    command = f"{sys.executable} -m pip download"
+    if base_url:
+        command += f" -i {base_url}"
+    command += " $package_name==$version --no-deps -d $python_download_path --python-version=$python_version"
+    return Template(command)
+
+
+def _package_onnxruntime_genai_runtime_dependencies(save_path: Path, downlaod_c_packages: bool = True):
     # pylint: disable=not-an-iterable
     installed_packages = [
         pkg
@@ -589,10 +653,8 @@ def _package_onnxruntime_genai_runtime_dependencies(tempdir: Path):
         logger.warning("ONNXRuntime-GenAI package is not installed. Skip packaging runtime packages.")
         return
 
-    DOWNLOAD_COMMAND_TEMPLATE = Template(
-        f"{sys.executable} -m pip download $package_name==$version --no-deps -d $python_download_path"
-    )
-    python_download_path = tempdir / "ONNXRuntimePackages" / "python"
+    DOWNLOAD_COMMAND_TEMPLATE = create_python_download_command()
+    python_download_path = save_path / "ONNXRuntimePackages" / "python"
     python_download_path.mkdir(parents=True, exist_ok=True)
     python_download_path = str(python_download_path)
 
@@ -610,15 +672,18 @@ def _package_onnxruntime_genai_runtime_dependencies(tempdir: Path):
             )
 
     # Download CPP && CS onnxruntime-genai packages
-    ort_version = installed_packages[0].version
-    lang_list = ("cpp", "cs")
-    for language in lang_list:
-        ort_download_path = tempdir / "ONNXRuntimePackages" / language
-        ort_download_path.mkdir(parents=True, exist_ok=True)
-        _download_native_onnx_packages(installed_packages, ort_version, ort_download_path)
+    if downlaod_c_packages:
+        ort_version = installed_packages[0].version
+        lang_list = ("cpp", "cs")
+        for language in lang_list:
+            ort_download_path = save_path / "ONNXRuntimePackages" / language
+            ort_download_path.mkdir(parents=True, exist_ok=True)
+            _download_native_onnx_packages(installed_packages, ort_version, ort_download_path)
 
 
-def _package_onnxruntime_runtime_dependencies(tempdir: Path, pf_footprint: "Footprint"):
+def _package_onnxruntime_runtime_dependencies(
+    save_path: Path, pf_footprint: "Footprint", python_version: str, downlaod_c_packages: bool = True
+):
     # pylint: disable=not-an-iterable
     installed_packages = pkg_resources.working_set
     onnxruntime_pkg = [i for i in installed_packages if i.key.startswith("onnxruntime")]
@@ -643,59 +708,59 @@ def _package_onnxruntime_runtime_dependencies(tempdir: Path, pf_footprint: "Foot
         inference_settings = pf_footprint.get_model_inference_config(model_id)
         if inference_settings:
             ep_list = inference_settings["execution_provider"]
-            package_name_list.update([get_package_name_from_ep(ep[0]) for ep in ep_list])
+            for ep in ep_list:
+                pkg_tuple = get_package_name_from_ep(ep[0])
+                pkg_name = pkg_tuple[1] if is_nightly else pkg_tuple[0]
+                package_name_list.update([pkg_name])
         else:
-            package_name_list.update(["onnxruntime", "ort-nightly"])
+            pkg_name = "ort-nightly" if is_nightly else "onnxruntime"
+            package_name_list.update([pkg_name])
 
     try:
         # Download Python onnxruntime package
-        NIGHTLY_PYTHON_COMMAND = Template(
-            f"{sys.executable} -m pip download -i "
-            "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ "
-            "$package_name==$ort_version --no-deps -d $python_download_path"
-        )
-        STABLE_PYTHON_COMMAND = Template(
-            f"{sys.executable} -m pip download $package_name==$ort_version --no-deps -d $python_download_path"
-        )
-        python_download_path = tempdir / "ONNXRuntimePackages" / "python"
+        NIGHTLY_PYTHON_URL = "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/"
+        NIGHTLY_PYTHON_COMMAND = create_python_download_command(NIGHTLY_PYTHON_URL)
+        STABLE_PYTHON_COMMAND = create_python_download_command()
+        python_download_path = save_path / "ONNXRuntimePackages" / "python"
         python_download_path.mkdir(parents=True, exist_ok=True)
         python_download_path = str(python_download_path)
-        _download_ort_extensions_package(use_ort_extensions, python_download_path)
-
+        _download_ort_extensions_package(use_ort_extensions, python_download_path, python_version)
         if is_nightly:
             download_command_list = [
                 NIGHTLY_PYTHON_COMMAND.substitute(
-                    package_name=package_name[1], ort_version=ort_version, python_download_path=python_download_path
+                    package_name=package_name, version=ort_version, python_download_path=python_download_path
                 )
                 for package_name in package_name_list
-                if package_name[1] is not None
             ]
         else:
             download_command_list = [
                 STABLE_PYTHON_COMMAND.substitute(
-                    package_name=package_name[0], ort_version=ort_version, python_download_path=python_download_path
+                    package_name=package_name,
+                    version=ort_version,
+                    python_download_path=python_download_path,
+                    python_version=python_version,
                 )
                 for package_name in package_name_list
             ]
-
         for download_command in download_command_list:
             run_subprocess(download_command)
 
         # Download CPP && CS onnxruntime package
-        lang_list = ("cpp", "cs")
-        for language in lang_list:
-            ort_download_path = tempdir / "ONNXRuntimePackages" / language
-            ort_download_path.mkdir(parents=True, exist_ok=True)
-            if is_nightly:
-                _skip_download_c_package(ort_download_path)
-            else:
-                _download_native_onnx_packages(package_name_list, ort_version, ort_download_path)
+        if downlaod_c_packages:
+            lang_list = ("cpp", "cs")
+            for language in lang_list:
+                ort_download_path = save_path / "ONNXRuntimePackages" / language
+                ort_download_path.mkdir(parents=True, exist_ok=True)
+                if is_nightly:
+                    _skip_download_c_package(ort_download_path)
+                else:
+                    _download_native_onnx_packages(package_name_list, ort_version, ort_download_path)
 
     except Exception:
         logger.exception("Failed to download onnxruntime package. Please manually download onnxruntime package.")
 
 
-def _download_ort_extensions_package(use_ort_extensions: bool, download_path: str):
+def _download_ort_extensions_package(use_ort_extensions: bool, download_path: str, python_version: str):
     if use_ort_extensions:
         try:
             import onnxruntime_extensions
@@ -709,10 +774,12 @@ def _download_ort_extensions_package(use_ort_extensions: bool, download_path: st
         if version.startswith("0.8.0."):
             system = platform.system()
             if system == OS.WINDOWS:
-                download_command = (
-                    f"{sys.executable} -m pip download -i "
-                    "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ "
-                    f"onnxruntime-extensions=={version} --no-deps -d {download_path}"
+                NIGHTLY_URL = "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/"
+                download_command = create_python_download_command(NIGHTLY_URL).substitute(
+                    package_name="onnxruntime-extensions",
+                    version=version,
+                    python_download_path=download_path,
+                    python_version=python_version,
                 )
                 run_subprocess(download_command)
             elif system == OS.LINUX:
@@ -721,8 +788,11 @@ def _download_ort_extensions_package(use_ort_extensions: bool, download_path: st
                     "Skip packaging ONNXRuntime-Extensions package. Please manually install ONNXRuntime-Extensions."
                 )
         else:
-            download_command = (
-                f"{sys.executable} -m pip download onnxruntime-extensions=={version} --no-deps -d {download_path}"
+            download_command = create_python_download_command().substitute(
+                package_name="onnxruntime-extensions",
+                version=version,
+                python_download_path=download_path,
+                python_version=python_version,
             )
             run_subprocess(download_command)
 
@@ -765,3 +835,10 @@ def _skip_download_c_package(package_path: Path):
     readme_path = package_path / "README.md"
     with readme_path.open("w") as f:
         f.write(warning_msg)
+
+
+def _get_python_version():
+    major_version = sys.version_info.major
+    minor_version = sys.version_info.minor
+
+    return f"{major_version}{minor_version}"
