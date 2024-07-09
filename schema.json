@@ -573,6 +573,35 @@
         }
       }
     },
+    "CloudCacheConfig": {
+      "title": "CloudCacheConfig",
+      "type": "object",
+      "properties": {
+        "enable_cloud_cache": {
+          "title": "Enable Cloud Cache",
+          "default": true,
+          "type": "boolean"
+        },
+        "account_url": {
+          "title": "Account Url",
+          "default": "https://olivepublicmodels.blob.core.windows.net",
+          "type": "string"
+        },
+        "contaier_name": {
+          "title": "Contaier Name",
+          "default": "olivecachemodels",
+          "type": "string"
+        },
+        "upload_to_cloud": {
+          "title": "Upload To Cloud",
+          "default": true,
+          "type": "boolean"
+        },
+        "input_model_config": {
+          "$ref": "#/definitions/ModelConfig"
+        }
+      }
+    },
     "RunEngineConfig": {
       "title": "RunEngineConfig",
       "type": "object",
@@ -657,6 +686,18 @@
               "items": {
                 "$ref": "#/definitions/PackagingConfig"
               }
+            }
+          ]
+        },
+        "cloud_cache_config": {
+          "title": "Cloud Cache Config",
+          "default": false,
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/definitions/CloudCacheConfig"
             }
           ]
         },
