@@ -198,18 +198,7 @@ Convert the transformer dummy data config to the data container.
                 "type": "TransformersDummyDataContainer",
                 "load_dataset_config": {
                     "params": {
-                        "batch_size": 1,
-                        "seq_len": 128,
-                        "past_seq_len": 128,
-                        "max_seq_len": 1024,
-                        "model_framework": "onnx",
-                        "use_fp16": false,
-                        "shared_kv": false,
-                        "generative": false,
-                        "ort_past_key_name":"past_key_values.<id>.key",
-                        "ort_past_value_name":"past_key_values.<id>.value",
-                        "trust_remote_code": true,
-                        "max_samples": 32
+                        "model_name": "meta-llama/Llama-2-7b-hf"
                     }
                 }
             }
@@ -223,18 +212,9 @@ Convert the transformer dummy data config to the data container.
                 name="transformers_dummy_data_config",
                 type="TransformersDummyDataContainer",
                 load_dataset_config=DataComponentConfig(params={
-                    "batch_size": 1,
-                    "seq_len": 128,
-                    "past_seq_len": 128,
-                    "max_seq_len": 1024,
-                    "model_framework": Framework.ONNX,
-                    "use_fp16": False,
-                    "shared_kv": False,
-                    "generative": False,
-                    "ort_past_key_name":"past_key_values.<id>.key",
-                    "ort_past_value_name":"past_key_values.<id>.value",
-                    "trust_remote_code": True,
-                    "max_samples": 32
+                    # model_name can be filled with the model name in input model's hf_config
+                    # if you start olive with olive run --config <config_path>
+                    "model_name": "meta-llama/Llama-2-7b-hf"
                 })
             )
 

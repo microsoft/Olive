@@ -78,6 +78,8 @@ def transformers_dummy_dataset(
     ort_past_value_name: str = "past_key_values.<id>.value",
     trust_remote_code=None,
     max_samples=32,
+    use_step=False,
+    ignore_input_fields=None,
 ):
     return TransformersDummyDataset(
         model_name=model_name,
@@ -92,6 +94,8 @@ def transformers_dummy_dataset(
         ort_past_value_name=ort_past_value_name,
         trust_remote_code=trust_remote_code,
         max_samples=max_samples,
+        use_step=use_step,
+        ignore_input_fields=ignore_input_fields,
     )
 
 
@@ -110,6 +114,8 @@ def transformers_prompt_dummy_dataset(
     ort_past_value_name: str = "past_key_values.<id>.value",
     trust_remote_code=None,
     max_samples=32,
+    use_step=False,
+    ignore_input_fields=None,
 ):
     return TransformersDummyDataset(
         model_name=model_name,
@@ -124,6 +130,8 @@ def transformers_prompt_dummy_dataset(
         ort_past_value_name=ort_past_value_name,
         trust_remote_code=trust_remote_code,
         max_samples=max_samples,
+        use_step=use_step,
+        ignore_input_fields=ignore_input_fields,
     )
 
 
@@ -142,6 +150,8 @@ def transformers_token_dummy_dataset(
     ort_past_value_name: str = "past_key_values.<id>.value",
     trust_remote_code=None,
     max_samples=32,
+    use_step=False,
+    ignore_input_fields=None,
 ):
     return TransformersDummyDataset(
         model_name=model_name,
@@ -156,4 +166,6 @@ def transformers_token_dummy_dataset(
         ort_past_value_name=ort_past_value_name,
         trust_remote_code=trust_remote_code,
         max_samples=max_samples,
+        use_step=use_step,
+        ignore_input_fields=ignore_input_fields,
     )

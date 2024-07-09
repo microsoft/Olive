@@ -3,14 +3,24 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, default_collate
 
 from olive.data.registry import Registry
 
 
 @Registry.register_default_dataloader()
 def default_dataloader(dataset, batch_size=1, **kwargs):
-    return DataLoader(dataset, batch_size=batch_size, **kwargs)
+    def ignore_batch_collate_fn(batch):
+        # ignore to batch the data fields for given inputs
+        to_ignore_fields = kwargs.get("ignore_fields") or ["step"]
+        kwargs.pop("ignore_fields", None)
+        input_data, label = default_collate(batch)
+        for k, v in input_data.items():
+            if k in to_ignore_fields:
+                input_data[k] = v[0].item()
+        return input_data, label
+
+    return DataLoader(dataset, batch_size=batch_size, collate_fn=ignore_batch_collate_fn, **kwargs)
 
 
 @Registry.register_dataloader()

@@ -52,6 +52,8 @@ class TestDataConfig:
             assert "input_ids" in data[0]
             # batch_size
             assert data[0]["past_key_values.0.key"].shape[0] == 2
+            # do not batch `step` field
+            assert isinstance(data[0]["step"], int)
             break
 
     def test_raw_data_constructor(self):

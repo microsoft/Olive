@@ -239,6 +239,8 @@ class TransformersDummyDataset(BaseDataset):
         ort_past_value_name: str = "past_key_values.<id>.value",
         trust_remote_code: Optional[bool] = None,
         max_samples: Optional[int] = 32,
+        use_step: bool = False,
+        ignore_input_fields: Optional[List[str]] = None,
     ):
         # pylint: disable=super-init-not-called
         self.model_name = model_name
@@ -255,6 +257,8 @@ class TransformersDummyDataset(BaseDataset):
         self.ort_past_value_name = ort_past_value_name
         self.trust_remote_code = trust_remote_code
         self.max_samples = max_samples
+        self.use_step = use_step
+        self.ignore_input_fields = ignore_input_fields
 
     def __len__(self):
         return self.max_samples
@@ -272,6 +276,9 @@ class TransformersDummyDataset(BaseDataset):
             "attention_mask": attention_mask,
         }
 
+        if self.use_step and self.model_framework == Framework.ONNX:
+            inputs["step"] = torch.tensor(0, dtype=torch.int64)
+
         if not self.generative:
             inputs.update(
                 {
@@ -287,6 +294,9 @@ class TransformersDummyDataset(BaseDataset):
             if self.shared_kv:
                 inputs = self.enable_past_present_share_buffer(inputs, self.past_seq_len, self.max_seq_len)
 
+        # filter the ignore_input_fields
+        if self.ignore_input_fields:
+            inputs = {k: v for k, v in inputs.items() if k not in self.ignore_input_fields}
         return (inputs, 1)
 
     def enable_past_present_share_buffer(self, ort_inputs: dict, past_seq_len: int, max_seq_len: int):
@@ -360,10 +370,21 @@ class TransformersDummyDataset(BaseDataset):
 
         Shape of past_key_values is (num_heads, past_seq_len, head_size).
         """
-        from olive.model.utils.hf_mappings import HIDDEN_SIZE_NAMES, NUM_HEADS_NAMES, NUM_HIDDEN_LAYER_NAMES
+        from olive.model.utils.hf_mappings import (
+            HIDDEN_SIZE_NAMES,
+            NUM_HEADS_NAMES,
+            NUM_HIDDEN_LAYER_NAMES,
+            NUM_KEY_VALUE_HEADS_NAMES,
+        )
 
-        num_attention_heads = find_first_matched_value(model_attributes, NUM_HEADS_NAMES)
+        # for MoE models, num_key_value_heads != num_attention_heads
+        # TODO(anyone): find a better way to handle MoE models
+        num_key_value_heads = find_first_matched_value(model_attributes, NUM_KEY_VALUE_HEADS_NAMES) // world_size
+        num_attention_heads = find_first_matched_value(model_attributes, NUM_HEADS_NAMES) // world_size
         head_size = find_first_matched_value(model_attributes, HIDDEN_SIZE_NAMES) // num_attention_heads
+        if num_key_value_heads is not None:
+            num_attention_heads = num_key_value_heads
+
         num_hidden_layers = find_first_matched_value(model_attributes, NUM_HIDDEN_LAYER_NAMES)
         torch_dtype = torch.float16 if use_fp16 else torch.float32
         return [

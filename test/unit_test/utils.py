@@ -322,6 +322,7 @@ def get_transformer_dummy_input_data_config():
         load_dataset_config=DataComponentConfig(
             params={
                 "model_name": "Intel/bert-base-uncased-mrpc",
+                "use_step": True,
             }
         ),
         dataloader_config=DataComponentConfig(
