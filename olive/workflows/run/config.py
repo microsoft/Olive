@@ -200,11 +200,12 @@ class RunConfig(ConfigBase):
         if isinstance(v, DataConfig):
             v = v.dict()
 
-        if v["type"] == HuggingfaceContainer.__name__ and values["input_model"]["type"].lower() == "hfmodel":
+        input_model_config = values["input_model"].dict()
+        if v["type"] == HuggingfaceContainer.__name__ and input_model_config["type"].lower() == "hfmodel":
             model_info = {
-                "model_name": values["input_model"]["config"]["model_path"],
-                "task": values["input_model"]["config"].get("task", DEFAULT_HF_TASK),
-                "load_kwargs": values["input_model"]["config"].get("load_kwargs", {}),
+                "model_name": input_model_config["config"]["model_path"],
+                "task": input_model_config["config"].get("task", DEFAULT_HF_TASK),
+                "load_kwargs": input_model_config["config"].get("load_kwargs", {}),
             }
 
             # auto insert model_name and task from input model hf config if not present
