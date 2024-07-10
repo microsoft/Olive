@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class MLFlowMixin2:
     def maybe_init_mlflow(self):
         """Initialize MLFlow model if the model is saved in MLFlow format."""
-        parent_dir = Path(self.get_resource_path("model_path")).resolve()
+        parent_dir = Path(self.get_resource("model_path")).resolve()
 
         yaml_path = parent_dir / "MLmodel"
         if not yaml_path.exists():
@@ -58,6 +58,9 @@ class MLFlowMixin2:
         # have to gather all contents into a single directory
         mlflow_cache_dir = Path(get_cache_sub_dirs()["mlflow"])
         mflow_model_path = mlflow_cache_dir / hash_string(str(parent_dir))
-        for src_dir in [model_dir, config_dir, tokenizer_dir]:
-            hardlink_copy_dir(src_dir, mflow_model_path)
+        if (mflow_model_path / "config.json").exists():
+            logger.debug("MLFlow model already exists in cache. Reusing it.")
+        else:
+            for src_dir in [model_dir, config_dir, tokenizer_dir]:
+                hardlink_copy_dir(src_dir, mflow_model_path)
         self.mlflow_model_path = str(mflow_model_path)

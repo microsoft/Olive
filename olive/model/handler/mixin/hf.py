@@ -75,6 +75,6 @@ class HfMixin:
         """Get dummy inputs for the model."""
         return get_hf_model_dummy_input(
             self.model_path,
-            self.hf_config.task,
+            self.task,
             **self.get_load_kwargs(),
         )

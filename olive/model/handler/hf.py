@@ -52,6 +52,7 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowMixin2, HfMixin):  # pylint:
         self.model_attributes = {**self.get_hf_model_config().to_dict(), **(self.model_attributes or {})}
 
         self.model = None
+        self.dummy_inputs = None
 
     @property
     def model_path(self):
@@ -102,11 +103,14 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowMixin2, HfMixin):  # pylint:
         # Priority: io_config > hf_config (using onnx_config)
         dummy_inputs = None
 
-        dataloader = self._get_dummy_dataloader_from_io_config()
+        dataloader = self._get_dummy_dataloader_from_io_config(force_kv_cache=self.task.endswith("-with-past"))
         if dataloader:
             dummy_inputs, _ = next(iter(dataloader))
         else:
+            logger.debug("Trying hf onnx_config to get dummy inputs")
             dummy_inputs = self.get_hf_dummy_inputs()
+            if dummy_inputs:
+                logger.debug("Got dummy inputs from hf onnx_config")
 
         return dummy_inputs
 

@@ -16,11 +16,13 @@ class DummyInputsMixin:
     the dummy data is used to evaluate the latency if user doesn't provide the data for evaluation.
     """
 
-    def _get_dummy_dataloader_from_io_config(self):
+    def _get_dummy_dataloader_from_io_config(self, force_kv_cache: bool = False):
         dataloader = None
+        if not self._io_config:
+            return dataloader
         # resolved self.io_config
         # won't use self.io_config since we don't want hf_config to be used
-        resolved_io_config = self.get_user_io_config(self.io_config) or {}
+        resolved_io_config = self.get_resolved_io_config(self._io_config, force_kv_cache=force_kv_cache) or {}
         if resolved_io_config.get("input_shapes"):
             logger.debug("Using io_config.input_shapes to build dummy dataloader")
             dataloader = (
@@ -43,7 +45,7 @@ class DummyInputsMixin:
         if self.dummy_inputs is not None:
             return self.dummy_inputs
 
-        dummy_inputs = self.get_dummy_inputs()
+        dummy_inputs = self.get_new_dummy_inputs()
 
         if dummy_inputs is None:
             raise ValueError("Unable to get dummy inputs for the model.")
