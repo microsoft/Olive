@@ -19,7 +19,7 @@ def default_dataloader(dataset, batch_size=1, **kwargs):
             for k, v in input_data.items():
                 if k in to_ignore_fields:
                     input_data[k] = v[0].item()
-        return input_data, label
+        return [input_data, label]
 
     return DataLoader(dataset, batch_size=batch_size, collate_fn=ignore_batch_collate_fn, **kwargs)
 
