@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from olive.model.utils.hf_utils import (
     get_hf_model_config,
@@ -16,6 +16,9 @@ from olive.model.utils.hf_utils import (
     save_hf_model_tokenizer,
 )
 
+if TYPE_CHECKING:
+    from transformers import GenerationConfig, PretrainedConfig, PreTrainedTokenizer, PreTrainedTokenizerFast
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,13 +29,13 @@ class HfMixin:
         """Return all args from load_kwargs in a dict with types expected by `from_pretrained`."""
         return self.load_kwargs.get_load_kwargs() if self.load_kwargs else {}
 
-    def get_hf_model_config(self):
+    def get_hf_model_config(self) -> "PretrainedConfig":
         return get_hf_model_config(self.model_path, **self.get_load_kwargs())
 
-    def get_hf_model_generation_config(self):
+    def get_hf_model_generation_config(self) -> "GenerationConfig":
         return get_hf_model_generation_config(self.model_path, **self.get_load_kwargs())
 
-    def get_hf_model_tokenizer(self):
+    def get_hf_model_tokenizer(self) -> Union["PreTrainedTokenizer", "PreTrainedTokenizerFast"]:
         # don't provide loading args for tokenizer directly since it tries to serialize all kwargs
         # TODO(anyone): only provide relevant kwargs, no use case for now to provide kwargs
         return get_hf_model_tokenizer(self.model_path)
@@ -67,14 +70,18 @@ class HfMixin:
 
         return saved_filepaths
 
-    def get_hf_io_config(self):
+    def get_hf_io_config(self) -> Optional[Dict[str, Any]]:
         """Get Io config for the model."""
         return get_hf_model_io_config(self.model_path, self.task, **self.get_load_kwargs())
 
-    def get_hf_dummy_inputs(self):
+    def get_hf_dummy_inputs(self) -> Optional[Dict[str, Any]]:
         """Get dummy inputs for the model."""
         return get_hf_model_dummy_input(
             self.model_path,
             self.task,
             **self.get_load_kwargs(),
         )
+
+    def get_hf_model_type(self) -> str:
+        """Get model type for the model."""
+        return self.get_hf_model_config().model_type

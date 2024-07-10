@@ -20,7 +20,7 @@ from olive.model.config import (
 )
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
-from olive.model.handler.mixin import DummyInputsMixin, HfConfigMixin, MLFlowMixin, PytorchKvCacheMixin
+from olive.model.handler.mixin import DummyInputsMixin, MLFlowMixin, PytorchKvCacheMixin
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, ResourceType, create_resource_path
 
 logger = logging.getLogger(__name__)
@@ -217,7 +217,7 @@ class PyTorchModelHandler2(
 
 
 @model_handler_registry("DistributedPyTorchModel2")
-class DistributedPyTorchModelHandler2(OliveModelHandler, HfConfigMixin):
+class DistributedPyTorchModelHandler2(OliveModelHandler):
     resource_keys: Tuple[str, ...] = ("model_path", "script_dir", "model_script")
     json_config_keys: Tuple[str, ...] = (
         "model_name_pattern",

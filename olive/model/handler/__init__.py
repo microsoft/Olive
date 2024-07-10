@@ -8,7 +8,7 @@ from olive.model.handler.hf import HfModelHandler
 from olive.model.handler.onnx import DistributedOnnxModelHandler, ONNXModelHandler
 from olive.model.handler.openvino import OpenVINOModelHandler
 from olive.model.handler.pytorch import DistributedPyTorchModelHandler, PyTorchModelHandler
-from olive.model.handler.pytorch2 import PyTorchModelHandler2
+from olive.model.handler.pytorch2 import DistributedPyTorchModelHandler2, PyTorchModelHandler2
 from olive.model.handler.qnn import QNNModelHandler
 from olive.model.handler.snpe import SNPEModelHandler
 from olive.model.handler.tensorflow import TensorFlowModelHandler
@@ -18,6 +18,7 @@ __all__ = [
     "CompositeModelHandler",
     "CompositePyTorchModelHandler",
     "DistributedOnnxModelHandler",
+    "DistributedPyTorchModelHandler2",
     "HfModelHandler",
     "ONNXModelHandler",
     "OpenVINOModelHandler",

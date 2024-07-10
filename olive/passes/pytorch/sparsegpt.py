@@ -14,9 +14,10 @@ import torch
 from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import PyTorchModelHandler
+from olive.model import HfModelHandler
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
+from olive.passes.pytorch.common import inherit_hf_from_hf
 from olive.passes.pytorch.sparsegpt_utils import (
     SparseGPTModule,
     catch_layer_inputs,
@@ -34,8 +35,8 @@ class SparseGPT(Pass):
 
     See https://arxiv.org/abs/2301.00774 for more details on the algorithm.
 
-    This pass only supports PyTorchModelHandler with hf_config. The transformers model type
-    must be one of [bloom, gpt2, gpt_neox, llama, opt].
+    This pass only supports HfModelHandler.
+    The transformers model type must be one of [bloom, gpt2, gpt_neox, llama, opt].
     """
 
     @classmethod
@@ -92,9 +93,9 @@ class SparseGPT(Pass):
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> PyTorchModelHandler:
-        model_type = model.model_attributes["model_type"]
+        self, model: HfModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> HfModelHandler:
+        model_type = model.get_hf_model_type()
         if model_type not in supported_models:
             raise ValueError(f"Unsupported model type: {model_type}. Supported types: {supported_models}")
 
@@ -200,8 +201,7 @@ class SparseGPT(Pass):
         # save model
         pytorch_model.config.use_cache = use_cache
         pytorch_model.save_pretrained(output_model_path)
+        model.save_metadata(output_model_path)
 
-        # return PyTorchModelHandler with updated model path
-        model_config = model.to_json()["config"]
-        model_config["model_path"] = output_model_path
-        return PyTorchModelHandler(**model_config)
+        # return HfModelHandler with updated model path
+        return inherit_hf_from_hf(model, output_model_path)
