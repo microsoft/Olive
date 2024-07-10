@@ -1,11 +1,8 @@
 {
-    "input_model":{
-        "type": "PyTorchModel",
+    "input_model": {
+        "type": "HfModel",
         "config": {
-            "hf_config": {
-                "model_name": "microsoft/phi-2",
-                "task": "text-generation"
-            }
+            "model_path": "microsoft/phi-2"
         }
     },
     "systems": {

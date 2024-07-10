@@ -1,14 +1,8 @@
 {
     "input_model": {
-        "type": "PyTorchModel",
+        "type": "HfModel",
         "config": {
-            "hf_config": {
-                "model_name": "microsoft/phi-1_5",
-                "task": "text-generation",
-                "from_pretrained_args": {
-                    "trust_remote_code": true
-                }
-            }
+            "model_path": "microsoft/phi-1_5"
         }
     },
     "systems": {

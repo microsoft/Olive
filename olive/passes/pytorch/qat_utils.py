@@ -12,7 +12,7 @@ from pytorch_lightning import LightningModule, seed_everything
 from torch.ao.quantization.fake_quantize import FakeQuantize, MovingAverageMinMaxObserver
 
 from olive.constants import ModelFileFormat
-from olive.model import PyTorchModelHandler
+from olive.model import PyTorchModelHandler2
 from olive.passes.pytorch.cluster import barrier, create_cluster, is_master_proc
 from olive.passes.pytorch.pytorch_lightning_utils import create_ddp_strategy, create_trainer
 
@@ -36,7 +36,7 @@ class QatTrainer:
         self.config = config
         self.output_model_path = output_model_path
 
-    def execute_local(self) -> PyTorchModelHandler:
+    def execute_local(self) -> PyTorchModelHandler2:
         seed_everything(self.config.seed)
         cluster_environment = create_cluster()
         run_on_gpus = cluster_environment is not None or torch.cuda.is_available()
@@ -125,7 +125,7 @@ class QatTrainer:
             to_keep += ["model_script", "script_dir"]
         config_to_keep = {k: original_config[k] for k in to_keep}
         # TODO(jambayk): Add PyTorch model type flag
-        return PyTorchModelHandler(
+        return PyTorchModelHandler2(
             model_path=self.output_model_path, model_file_format=ModelFileFormat.PYTORCH_TORCH_SCRIPT, **config_to_keep
         )
 

@@ -2,11 +2,7 @@
     "input_model":{
         "type": "PyTorchModel",
         "config": {
-            "hf_config": {
-                "model_name": "EleutherAI/gpt-j-6B",
-                "task": "text-generation",
-                "feature": "causal-lm-with-past"
-            }
+            "model_path": "EleutherAI/gpt-j-6B"
         }
     },
     "evaluators": {

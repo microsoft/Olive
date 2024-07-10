@@ -5,7 +5,7 @@
         "workspace_name": "<place_holder>"
     },
     "input_model": {
-        "type": "PyTorchModel",
+        "type": "HfModel",
         "config": {
             "model_path": {
                 "type": "azureml_model",
@@ -14,10 +14,7 @@
                     "version": "3"
                 }
             },
-            "hf_config": {
-                "model_name": "Intel/bert-base-uncased-mrpc",
-                "task": "text-classification"
-            }
+            "task": "text-classification"
         }
     },
     "data_configs": [
@@ -40,11 +37,6 @@
                     "label_cols": [
                         "label"
                     ]
-                }
-            },
-            "dataloader_config": {
-                "params": {
-                    "batch_size": 1
                 }
             }
         }

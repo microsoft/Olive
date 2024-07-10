@@ -2,6 +2,7 @@
     "input_model": {
         "type": "PyTorchModel",
         "config": {
+            "model_path": "microsoft/phi-2",
             "io_config": {
                 "input_names": [
                     "input_ids",
@@ -49,13 +50,6 @@
                     "ort_past_value_name" : "past_value_<id>",
                     "ort_present_key_name" : "present_key_<id>",
                     "ort_present_value_name" : "present_value_<id>"
-                }
-            },
-            "hf_config": {
-                "model_name": "microsoft/phi-2",
-                "task": "text-generation",
-                "from_pretrained_args": {
-                    "trust_remote_code": true
                 }
             }
         }

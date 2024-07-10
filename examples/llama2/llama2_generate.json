@@ -1,8 +1,12 @@
 {
     "input_model": {
-        "type": "PyTorchModel",
+        "type": "HfModel",
         "config": {
-            "generative": true,
+            "model_path": "meta-llama/Llama-2-7b-hf",
+            "task": "text-generation",
+            "load_kwargs": {
+                "_attn_implementation": "eager"
+            },
             "io_config": {
                 "input_names": [
                     "input_ids",
@@ -24,17 +28,9 @@
                 "input_types": [
                     "int32",
                     "int32"
-                ],
-                "kv_cache": false
+                ]
             },
-            "hf_config": {
-                "model_name": "meta-llama/Llama-2-7b-hf",
-                "model_class": "LlamaForCausalLM",
-                "from_pretrained_args": {
-                    "_attn_implementation": "eager"
-                },
-                "task": "text-generation"
-            }
+            "generative": true
         }
     },
     "data_configs": [

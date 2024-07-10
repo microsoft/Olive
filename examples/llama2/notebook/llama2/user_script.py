@@ -11,22 +11,13 @@ from transformers import LlamaConfig
 
 from olive.constants import Framework
 from olive.data.registry import Registry
-from olive.model import PyTorchModelHandler
 
 # -----------------------------------------------------------------------------
 # Dummy Inputs
 # -----------------------------------------------------------------------------
 
 
-def get_merged_decoder_with_past_dummy_inputs(model: PyTorchModelHandler):
-    """Get dummy inputs for merged decoder model with past_key_values."""
-    # Dummy values for export
-    batch_size, seq_length, past_seq_length = 2, 8, 0
-    return get_merged_sample_with_past_kv_inputs(model, batch_size, seq_length, past_seq_length)
-
-
 def get_merged_sample_with_past_kv_inputs(
-    model: PyTorchModelHandler,
     batch_size: int,
     seq_len: int,
     past_seq_len: int,
@@ -52,13 +43,7 @@ def get_merged_sample_with_past_kv_inputs(
     #   and remove past_kv from the output
     # token generation (get_sample_with_past_kv_inputs):
     #   past_seq_len >= 1, seq_len = 1, use_gqa = False, use_fp16 = False
-    # By using a single function with no default values, we can avoid confusion and are deliberate about the sizes
-    # can instead write dummy input functions like 'get_merged_decoder_with_past_dummy_inputs' if needed
-
-    if model_id:
-        config = LlamaConfig.from_pretrained(model_id)
-    else:
-        config = LlamaConfig.from_pretrained(model.hf_config.model_name)
+    config = LlamaConfig.from_pretrained(model_id)
 
     input_ids = torch.randint(low=0, high=config.vocab_size, size=(batch_size, seq_len), dtype=torch.int64)
     attention_mask = torch.ones(batch_size, past_seq_len + seq_len, dtype=torch.int64)
@@ -149,7 +134,6 @@ class RandomDataLoader:
 
     def __getitem__(self, idx):
         input_ids, attention_mask, position_ids, past_kv = get_merged_sample_with_past_kv_inputs(
-            model=None,
             batch_size=self.batch_size,
             seq_len=self.seq_len,
             past_seq_len=self.past_seq_len,

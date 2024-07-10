@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, Iterable, List, Union
 
 from olive.cache import get_local_path_from_root
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import PyTorchModelHandler
+from olive.model import PyTorchModelHandler2
 from olive.passes import Pass
 from olive.passes.olive_pass import ParamCategory, PassConfigParam
 
@@ -98,8 +98,8 @@ class QuantizationAwareTraining(Pass):
         }
 
     def _run_for_config(
-        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> PyTorchModelHandler:
+        self, model: PyTorchModelHandler2, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> PyTorchModelHandler2:
         from olive.passes.pytorch.qat_utils import QatTrainer
 
         qat_trainer_config = self._config_class(**config)

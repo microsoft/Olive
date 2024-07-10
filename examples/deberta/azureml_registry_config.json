@@ -1,6 +1,6 @@
 {
     "input_model": {
-        "type": "PyTorchModel",
+        "type": "HfModel",
         "config": {
             "model_path": {
                 "type": "azureml_registry_model",
@@ -10,11 +10,7 @@
                     "version": "9"
                 }
             },
-            "model_file_format": "PyTorch.MLflow",
-            "hf_config": {
-                "model_name": "microsoft/deberta-base-mnli",
-                "task": "text-classification"
-            }
+            "task": "text-classification"
         }
     },
     "data_configs": [
@@ -39,11 +35,6 @@
                         "label"
                     ],
                     "max_samples": 100
-                }
-            },
-            "dataloader_config": {
-                "params": {
-                    "batch_size": 1
                 }
             }
         }

@@ -1,12 +1,9 @@
 {
     "input_model": {
-        "type": "PyTorchModel",
+        "type": "HfModel",
         "config": {
-            "hf_config": {
-                "model_class": "ASTForAudioClassification",
-                "model_name": "MIT/ast-finetuned-speech-commands-v2",
-                "task": "audio-classification"
-            },
+            "model_path": "MIT/ast-finetuned-speech-commands-v2",
+            "task": "audio-classification",
             "io_config": {
                 "input_names": [
                     "input_values"
@@ -50,11 +47,6 @@
                         "label"
                     ],
                     "max_samples": 100
-                }
-            },
-            "dataloader_config": {
-                "params": {
-                    "batch_size": 1
                 }
             }
         }

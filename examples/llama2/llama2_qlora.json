@@ -2,6 +2,10 @@
     "input_model": {
         "type": "PyTorchModel",
         "config": {
+            "model_path": "meta-llama/Llama-2-7b-hf",
+            "load_kwargs": {
+                "_attn_implementation": "eager"
+            },
             "io_config": {
                 "input_names": [
                     "input_ids",
@@ -43,14 +47,6 @@
                         "0": "batch_size",
                         "1": "sequence_length"
                     }
-                },
-                "kv_cache": true
-            },
-            "hf_config": {
-                "model_name": "meta-llama/Llama-2-7b-hf",
-                "task": "text-generation",
-                "from_pretrained_args": {
-                    "_attn_implementation": "eager"
                 }
             }
         }

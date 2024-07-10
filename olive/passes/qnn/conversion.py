@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Union
 from olive.common.constants import OS
 from olive.constants import ModelFileFormat
 from olive.hardware import AcceleratorSpec
-from olive.model import ONNXModelHandler, PyTorchModelHandler, QNNModelHandler, TensorFlowModelHandler
+from olive.model import ONNXModelHandler, PyTorchModelHandler2, QNNModelHandler, TensorFlowModelHandler
 from olive.model.utils import normalize_path_suffix
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import PassConfigParam
@@ -66,14 +66,14 @@ class QNNConversion(Pass):
 
     def _run_for_config(
         self,
-        model: Union[TensorFlowModelHandler, PyTorchModelHandler, ONNXModelHandler],
+        model: Union[TensorFlowModelHandler, PyTorchModelHandler2, ONNXModelHandler],
         data_root: str,
         config: Dict[str, Any],
         output_model_path: str,
     ) -> QNNModelHandler:
         if isinstance(model, TensorFlowModelHandler):
             converter_platform = "tensorflow"
-        elif isinstance(model, PyTorchModelHandler):
+        elif isinstance(model, PyTorchModelHandler2):
             converter_platform = "pytorch"
         elif isinstance(model, ONNXModelHandler):
             converter_platform = "onnx"

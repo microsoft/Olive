@@ -1,11 +1,8 @@
 {
     "input_model": {
-        "type": "PyTorchModel",
+        "type": "HfModel",
         "config": {
-            "hf_config": {
-                "model_name": "mistralai/Mistral-7B-v0.1",
-                "model_class": "MistralForCausalLM"
-            }
+            "model_path" : "mistralai/Mistral-7B-v0.1"
         }
     },
     "systems": {

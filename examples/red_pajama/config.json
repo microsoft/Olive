@@ -1,11 +1,8 @@
 {
     "input_model": {
-        "type": "PyTorchModel",
+        "type": "HfModel",
         "config": {
-            "hf_config": {
-                "model_name": "togethercomputer/RedPajama-INCITE-Base-3B-v1",
-                "model_class": "GPTNeoXForCausalLM"
-            }
+            "model_path": "togethercomputer/RedPajama-INCITE-Base-3B-v1"
         }
     },
     "systems": {
