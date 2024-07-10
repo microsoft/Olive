@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 
@@ -12,12 +12,7 @@ from olive.common.config_utils import serialize_to_json
 from olive.common.user_module_loader import UserModuleLoader
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
-from olive.model.config import (
-    HfComponent,
-    IoConfig,
-    complete_kv_cache_with_model_attributes,
-    extend_io_config_with_kv_cache,
-)
+from olive.model.config import IoConfig, complete_kv_cache_with_model_attributes, extend_io_config_with_kv_cache
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
 from olive.model.handler.mixin import DummyInputsMixin, MLFlowMixin, PytorchKvCacheMixin
@@ -214,105 +209,3 @@ class PyTorchModelHandler2(
                 dummy_inputs, _ = dataloader.get_first_batch()
 
         return dummy_inputs
-
-
-@model_handler_registry("DistributedPyTorchModel2")
-class DistributedPyTorchModelHandler2(OliveModelHandler):
-    resource_keys: Tuple[str, ...] = ("model_path", "script_dir", "model_script")
-    json_config_keys: Tuple[str, ...] = (
-        "model_name_pattern",
-        "num_ranks",
-        "model_loader",
-        "io_config",
-        "dummy_inputs_func",
-    )
-
-    DEFAULT_RANKED_MODEL_NAME_FORMAT: ClassVar[str] = "model_{:02d}"
-
-    def __init__(
-        self,
-        model_path: OLIVE_RESOURCE_ANNOTATIONS,
-        model_name_pattern: str,
-        num_ranks: int,
-        model_file_format: ModelFileFormat = ModelFileFormat.PYTORCH_ENTIRE_MODEL,
-        model_loader: Union[str, Callable] = None,
-        model_script: Union[str, Path] = None,
-        script_dir: Union[str, Path] = None,
-        io_config: Union[Dict[str, Any], IoConfig, str, Callable] = None,
-        dummy_inputs_func: Union[str, Callable] = None,
-        model_attributes: Optional[Dict[str, Any]] = None,
-        generative: bool = False,
-    ):
-        super().__init__(
-            framework=Framework.PYTORCH,
-            model_file_format=model_file_format,
-            model_path=model_path,
-            model_attributes=model_attributes,
-            io_config=io_config,
-            generative=generative,
-        )
-
-        self.add_resources(locals())
-
-        self.model_name_pattern = model_name_pattern
-        self.num_ranks = num_ranks
-        self.model_loader = model_loader
-        self.dummy_inputs_func = dummy_inputs_func
-
-    @property
-    def script_dir(self) -> str:
-        return self.get_resource("script_dir")
-
-    @property
-    def model_script(self) -> str:
-        return self.get_resource("model_script")
-
-    def ranked_model_name(self, rank: int) -> str:
-        return self.model_name_pattern.format(rank)
-
-    def ranked_model_path(self, rank: int) -> Union[Path, str]:
-        return Path(self.model_path) / self.ranked_model_name(rank)
-
-    def load_model(self, rank: int = None) -> PyTorchModelHandler2:
-        return PyTorchModelHandler2(
-            model_path=self.ranked_model_path(rank),
-            model_file_format=ModelFileFormat.PYTORCH_ENTIRE_MODEL,
-            model_loader=self.model_loader,
-            model_script=self.model_script,
-            script_dir=self.script_dir,
-            io_config=self._io_config,
-            dummy_inputs_func=self.dummy_inputs_func,
-            model_attributes=self.model_attributes,
-        )
-
-    def get_component_model(self, component: HfComponent, rank: int = 0) -> PyTorchModelHandler2:
-        return PyTorchModelHandler2(
-            model_path=self.ranked_model_path(rank),
-            model_file_format=ModelFileFormat.PYTORCH_ENTIRE_MODEL,
-            model_script=self.model_script,
-            script_dir=self.script_dir,
-            io_config=component.io_config,
-            dummy_inputs_func=component.dummy_inputs_func,
-            model_attributes=self.model_attributes,
-        )
-
-    def prepare_session(
-        self,
-        inference_settings: Optional[Dict[str, Any]] = None,
-        device: Device = Device.GPU,  # pylint: disable=signature-differs
-        execution_providers: Union[str, List[str]] = None,
-        rank: Optional[int] = 0,
-    ) -> torch.nn.Module:
-        return self.load_model(rank).load_model(rank).eval()
-
-    def run_session(
-        self,
-        session: Any = None,
-        inputs: Union[Dict[str, Any], List[Any], Tuple[Any, ...]] = None,
-        **kwargs: Dict[str, Any],
-    ) -> Any:
-        if isinstance(inputs, dict):
-            results = session.generate(**inputs, **kwargs) if self.generative else session(**inputs, **kwargs)
-        else:
-            results = session.generate(inputs, **kwargs) if self.generative else session(inputs, **kwargs)
-        return results

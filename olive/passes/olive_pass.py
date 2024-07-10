@@ -377,7 +377,6 @@ class Pass(ABC):
             if default_config[key].category == ParamCategory.OBJECT and isinstance(value, str):
                 assert user_module_loader.user_script, f"'user_script' must be specified if a {key} is a string."
         # TODO(jambayk): once convention for user_script and script dir is finalized, let config class handle
-        # currently, Olive cannot have other types of pytorch models (entire model, custom loader, etc) + hf_config
         # the resolution during serialization
         if config["user_script"] is not None:
             config["user_script"] = str(Path(config["user_script"]).resolve())

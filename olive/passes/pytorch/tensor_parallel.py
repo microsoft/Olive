@@ -17,7 +17,7 @@ import torch
 from olive.common.config_utils import ParamCategory
 from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.model import DistributedPyTorchModelHandler2, HfModelHandler
+from olive.model import DistributedHfModelHandler, HfModelHandler
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 
@@ -119,7 +119,6 @@ class PyTorchTensorParallel(Pass):
 
         try:
             # 2. Load the model
-            olive_model = HfModelHandler(**model_config)
             pytorch_model = olive_model.load_model()
             pytorch_model.eval()
             pytorch_model.requires_grad_(False)
@@ -145,7 +144,7 @@ class PyTorchTensorParallel(Pass):
 
     def _run_for_config(
         self, model: HfModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> DistributedPyTorchModelHandler2:
+    ) -> DistributedHfModelHandler:
         world_size = int(config["world_size"])
         output_model_path = Path(output_model_path)
         output_model_path.mkdir(parents=True, exist_ok=True)
@@ -156,7 +155,7 @@ class PyTorchTensorParallel(Pass):
                 model_config,
                 rank,
                 world_size,
-                output_model_path / DistributedPyTorchModelHandler2.DEFAULT_RANKED_MODEL_NAME_FORMAT.format(rank),
+                output_model_path / DistributedHfModelHandler.DEFAULT_RANKED_MODEL_NAME_FORMAT.format(rank),
             )
             for rank in range(world_size)
         ]
@@ -174,11 +173,14 @@ class PyTorchTensorParallel(Pass):
         if world_size != sum(results):
             raise RuntimeError("Failed to create ranked tensor parallel models")
 
-        # Finally, create DistributedPyTorchModel from ranked models for each rank
-        return DistributedPyTorchModelHandler2(
+        # Finally, create DistributedHfModelHandler from ranked models for each rank
+        return DistributedHfModelHandler(
             model_path=output_model_path,
-            model_name_pattern=DistributedPyTorchModelHandler2.DEFAULT_RANKED_MODEL_NAME_FORMAT,
+            model_name_pattern=DistributedHfModelHandler.DEFAULT_RANKED_MODEL_NAME_FORMAT,
             num_ranks=world_size,
+            task=model.task,
+            load_kwargs=model.load_kwargs,
             io_config=deepcopy(model.io_config),
             model_attributes={**model.model_attributes, "world_size": world_size},
+            generative=model.generative,
         )

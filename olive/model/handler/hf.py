@@ -3,14 +3,17 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import Any, Dict, Optional, Tuple, Union
+from pathlib import Path
+from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 
 import torch
 
 from olive.common.config_utils import serialize_to_json, validate_config
 from olive.constants import Framework
+from olive.hardware.accelerator import Device
 from olive.model.config import HfLoadKwargs, IoConfig
 from olive.model.config.registry import model_handler_registry
+from olive.model.handler.base import OliveModelHandler
 from olive.model.handler.mixin import HfMixin, MLFlowMixin2
 from olive.model.handler.pytorch2 import PyTorchModelHandlerBase
 from olive.model.utils.hf_utils import load_hf_model_from_task
@@ -124,3 +127,82 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowMixin2, HfMixin):  # pylint:
             if key not in hf_config_dict or hf_config_dict[key] != value
         } or None
         return serialize_to_json(config, check_object)
+
+
+@model_handler_registry("DistributedHfModel")
+class DistributedHfModelHandler(OliveModelHandler):
+    resource_keys: Tuple[str, ...] = "model_path"
+    json_config_keys: Tuple[str, ...] = (
+        "model_name_pattern",
+        "num_ranks",
+        "task",
+        "load_kwargs",
+        "io_config",
+        "generative",
+    )
+
+    DEFAULT_RANKED_MODEL_NAME_FORMAT: ClassVar[str] = "model_{:02d}"
+
+    def __init__(
+        self,
+        model_path: OLIVE_RESOURCE_ANNOTATIONS,
+        model_name_pattern: str,
+        num_ranks: int,
+        task: str,
+        load_kwargs: Union[Dict[str, Any], HfLoadKwargs] = None,
+        io_config: Union[Dict[str, Any], IoConfig] = None,
+        model_attributes: Optional[Dict[str, Any]] = None,
+        generative: bool = False,
+    ):
+        super().__init__(
+            framework=Framework.PYTORCH,
+            model_file_format=None,
+            model_path=model_path,
+            model_attributes=model_attributes,
+            io_config=io_config,
+            generative=generative,
+        )
+
+        self.add_resources(locals())
+
+        self.model_name_pattern = model_name_pattern
+        self.num_ranks = num_ranks
+        self.task = task
+        self.load_kwargs = load_kwargs
+
+    def ranked_model_name(self, rank: int) -> str:
+        return self.model_name_pattern.format(rank)
+
+    def ranked_model_path(self, rank: int) -> Union[Path, str]:
+        return Path(self.model_path) / self.ranked_model_name(rank)
+
+    def load_model(self, rank: int = None) -> HfModelHandler:
+        return HfModelHandler(
+            model_path=self.ranked_model_path(rank),
+            task=self.task,
+            load_kwargs=self.load_kwargs,
+            io_config=self.io_config,
+            model_attributes=self.model_attributes,
+            generative=self.generative,
+        )
+
+    def prepare_session(
+        self,
+        inference_settings: Optional[Dict[str, Any]] = None,
+        device: Device = Device.GPU,  # pylint: disable=signature-differs
+        execution_providers: Union[str, List[str]] = None,
+        rank: Optional[int] = 0,
+    ) -> torch.nn.Module:
+        return self.load_model(rank).load_model(rank).eval()
+
+    def run_session(
+        self,
+        session: Any = None,
+        inputs: Union[Dict[str, Any], List[Any], Tuple[Any, ...]] = None,
+        **kwargs: Dict[str, Any],
+    ) -> Any:
+        if isinstance(inputs, dict):
+            results = session.generate(**inputs, **kwargs) if self.generative else session(**inputs, **kwargs)
+        else:
+            results = session.generate(inputs, **kwargs) if self.generative else session(inputs, **kwargs)
+        return results
