@@ -14,6 +14,7 @@ import onnx
 import pytest
 
 from olive.engine import Engine
+from olive.engine.cloud_cache_helper import CloudCacheConfig
 from olive.engine.footprint import Footprint, FootprintNode
 from olive.engine.packaging.packaging_config import (
     AzureMLDataPackagingConfig,
@@ -74,6 +75,7 @@ def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, m
         data_root=None,
         packaging_config=packaging_config,
         output_dir=output_dir,
+        cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
     )
 
     # assert
@@ -131,6 +133,7 @@ def test_generate_zipfile_artifacts_no_search(tmp_path):
         packaging_config=packaging_config,
         output_dir=output_dir,
         evaluate_input_model=False,
+        cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
     )
 
     # assert
@@ -173,6 +176,7 @@ def test_generate_zipfile_artifacts_mlflow(tmp_path):
         packaging_config=packaging_config,
         output_dir=output_dir,
         evaluate_input_model=False,
+        cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
     )
 
     # assert

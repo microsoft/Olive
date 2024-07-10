@@ -15,6 +15,7 @@ from olive.data.config import DataConfig
 from olive.data.container.dummy_data_container import TRANSFORMER_DUMMY_DATA_CONTAINER
 from olive.data.container.huggingface_container import HuggingfaceContainer
 from olive.engine import Engine, EngineConfig
+from olive.engine.cloud_cache_helper import CloudCacheConfig
 from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
@@ -80,10 +81,19 @@ class RunEngineConfig(EngineConfig):
     output_dir: Union[Path, str] = None
     output_name: str = None
     packaging_config: Union[PackagingConfig, List[PackagingConfig]] = None
+    cloud_cache_config: Union[bool, CloudCacheConfig] = False
     log_severity_level: int = 1
     ort_log_severity_level: int = 3
     ort_py_log_severity_level: int = 3
     log_to_file: bool = False
+
+    @validator("cloud_cache_config", pre=True, always=True)
+    def validate_cloud_cache(cls, v):
+        if isinstance(v, bool):
+            cloud_cache_config = CloudCacheConfig()
+            cloud_cache_config.enable_cloud_cache = v
+            v = cloud_cache_config
+        return v
 
     def create_engine(self, azureml_client_config, workflow_id):
         config = self.dict(include=EngineConfig.__fields__.keys())
