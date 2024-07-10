@@ -137,6 +137,7 @@ If not specified, Olive will not package artifacts.
     For `PackagingType.Zipfile` type, Olive will generate a ZIP file with `name` prefix: `<name>.zip`.
     For `PackagingType.AzureMLModels` and `PackagingType.AzureMLData`, Olive will use this `name` for Azure ML resource.
     The default value is `OutputModels`.
+    For `PackagingType.AzureMLDeployment` and `PackagingType.Dockerfile` type, Olive will ignore this attribute.
   * `config [dict]`:
     The packaging config.
     * `Zipfile`

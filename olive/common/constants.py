@@ -4,9 +4,17 @@
 # --------------------------------------------------------------------------
 from enum import Enum
 
-DEFAULT_WORKFLOW_ID = "default_workflow"
-
 
 class OS(str, Enum):
     WINDOWS = "Windows"
     LINUX = "Linux"
+
+
+############# Engine #############
+
+DEFAULT_WORKFLOW_ID = "default_workflow"
+
+
+############# Packaging #############
+
+BASE_IMAGE = "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.6-cudnn8-ubuntu20.04"

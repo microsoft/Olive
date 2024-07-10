@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Optional, Union
 
 from olive.common.config_utils import ConfigBase, validate_config
+from olive.common.constants import BASE_IMAGE
 from olive.common.pydantic_v1 import validator
 
 
@@ -38,7 +39,7 @@ class AzureMLModelsPackagingConfig(CommonPackagingConfig):
 
 
 class DockerfilePackagingConfig(CommonPackagingConfig):
-    base_image: str = "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.6-cudnn8-ubuntu20.04"
+    base_image: str = BASE_IMAGE
     requirements_file: Optional[str] = None
 
 
