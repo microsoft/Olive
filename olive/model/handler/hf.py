@@ -16,7 +16,7 @@ from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
 from olive.model.handler.mixin import HfMixin, MLFlowMixin2
 from olive.model.handler.pytorch2 import PyTorchModelHandlerBase
-from olive.model.utils.hf_utils import load_hf_model_from_task
+from olive.model.utils.hf_utils import DEFAULT_HF_TASK, load_hf_model_from_task
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowMixin2, HfMixin):  # pylint:
     def __init__(
         self,
         model_path: OLIVE_RESOURCE_ANNOTATIONS,
-        task: str,
+        task: str = DEFAULT_HF_TASK,
         load_kwargs: Union[Dict[str, Any], HfLoadKwargs] = None,
         io_config: Union[Dict[str, Any], IoConfig, str] = None,
         adapter_path: OLIVE_RESOURCE_ANNOTATIONS = None,
@@ -86,24 +86,23 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowMixin2, HfMixin):  # pylint:
     def io_config(self) -> Dict[str, Any]:
         """Return io config of the model.
 
-        Priority: io_config > hf_config (using onnx_config)
+        Priority: io_config > hf onnx_config
         """
         io_config = None
         if self._io_config:
             # io_config is provided
             io_config = self.get_resolved_io_config(self._io_config, force_kv_cache=self.task.endswith("-with-past"))
         else:
-            # hf_config is provided
             logger.debug("Trying hf onnx_config to get io_config")
             io_config = self.get_hf_io_config()
             if io_config:
-                logger.debug("Got io_config from hf_config")
+                logger.debug("Got io_config from hf onnx_config")
 
         return io_config
 
     def get_new_dummy_inputs(self):
         """Return a dummy input for the model."""
-        # Priority: io_config > hf_config (using onnx_config)
+        # Priority: io_config > hf onnx_config
         dummy_inputs = None
 
         dataloader = self._get_dummy_dataloader_from_io_config(force_kv_cache=self.task.endswith("-with-past"))
@@ -120,11 +119,11 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowMixin2, HfMixin):  # pylint:
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
         # only keep model_attributes that are not in hf model config
-        hf_config_dict = self.get_hf_model_config().to_dict()
+        hf_model_config_dict = self.get_hf_model_config().to_dict()
         config["config"]["model_attributes"] = {
             key: value
             for key, value in self.model_attributes.items()
-            if key not in hf_config_dict or hf_config_dict[key] != value
+            if key not in hf_model_config_dict or hf_model_config_dict[key] != value
         } or None
         return serialize_to_json(config, check_object)
 

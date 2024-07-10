@@ -21,7 +21,7 @@ class DummyInputsMixin:
         if not self._io_config:
             return dataloader
         # resolved self.io_config
-        # won't use self.io_config since we don't want hf_config to be used
+        # won't use self.io_config since we don't want hf onnx_config to be used
         resolved_io_config = self.get_resolved_io_config(self._io_config, force_kv_cache=force_kv_cache) or {}
         if resolved_io_config.get("input_shapes"):
             logger.debug("Using io_config.input_shapes to build dummy dataloader")

@@ -18,6 +18,7 @@ from olive.engine.cloud_cache_helper import CloudCacheConfig
 from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
+from olive.model.utils import DEFAULT_HF_TASK
 from olive.passes import AbstractPassConfig
 from olive.passes.pass_config import PassParamDefault
 from olive.resource_path import AZUREML_RESOURCE_TYPES
@@ -199,8 +200,12 @@ class RunConfig(ConfigBase):
         if isinstance(v, DataConfig):
             v = v.dict()
 
-        if v["type"] == HuggingfaceContainer.__name__:
-            hf_config = values["input_model"].dict()["config"].get("hf_config", {})
+        if v["type"] == HuggingfaceContainer.__name__ and values["input_model"]["type"].lower() == "hfmodel":
+            model_info = {
+                "model_name": values["input_model"]["config"]["model_path"],
+                "task": values["input_model"]["config"].get("task", DEFAULT_HF_TASK),
+                "load_kwargs": values["input_model"]["config"].get("load_kwargs", {}),
+            }
 
             # auto insert model_name and task from input model hf config if not present
             # both are required for huggingface container
@@ -209,18 +214,16 @@ class RunConfig(ConfigBase):
                 component_config["params"] = component_config_params = component_config.get("params") or {}
                 for key in ["model_name", "task"]:
                     if not component_config_params.get(key, None):
-                        component_config_params[key] = hf_config.get(key, None)
+                        component_config_params[key] = model_info[key]
 
             # auto insert trust_remote_code from input model hf config
             # won't override if value was set to False explicitly
-            if hf_config.get("from_pretrained_args", {}).get("trust_remote_code"):
+            if model_info.get("load_kwargs", {}).get("trust_remote_code"):
                 for config_name in ["pre_process_data_config", "load_dataset_config"]:
                     v[config_name] = component_config = v.get(config_name) or {}
                     component_config["params"] = component_config_params = component_config.get("params") or {}
                     if component_config_params.get("trust_remote_code") is None:
-                        component_config_params["trust_remote_code"] = hf_config["from_pretrained_args"][
-                            "trust_remote_code"
-                        ]
+                        component_config_params["trust_remote_code"] = model_info["load_kwargs"]["trust_remote_code"]
 
         return validate_config(v, DataConfig)
 

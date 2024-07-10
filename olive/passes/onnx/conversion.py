@@ -22,7 +22,6 @@ from olive.model import (
     DistributedOnnxModelHandler,
     HfModelHandler,
     ONNXModelHandler,
-    PyTorchModelHandler,
     PyTorchModelHandler2,
 )
 from olive.model.config import IoConfig
@@ -372,14 +371,14 @@ class OnnxConversion(Pass):
 
     def _convert_model_on_device(
         self,
-        model: PyTorchModelHandler,
+        model: Union[HfModelHandler, PyTorchModelHandler2],
         data_root: str,
         config: Dict[str, Any],
         output_model_path: str,
         device: str,
         torch_dtype: Optional[torch.dtype] = None,
     ) -> ONNXModelHandler:
-        """Convert a PyTorchModelHandler to an ONNXModelHandler."""
+        """Convert an HfModelHandler or PyTorchModelHandler to an ONNXModelHandler."""
         # load the model
         pytorch_model, model_attributes = self._load_pytorch_model(model, device, torch_dtype)
         if config["merge_adapter_weights"] and is_peft_model(pytorch_model):

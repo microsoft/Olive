@@ -19,6 +19,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_HF_TASK = "text-generation-with-past"
+
 
 def load_hf_model_from_task(task: str, name: str, **kwargs) -> "PreTrainedModel":
     """Load huggingface model from task and name."""

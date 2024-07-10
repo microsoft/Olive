@@ -15,7 +15,7 @@ from olive.hardware.accelerator import Device
 from olive.model.config import IoConfig, complete_kv_cache_with_model_attributes, extend_io_config_with_kv_cache
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
-from olive.model.handler.mixin import DummyInputsMixin, MLFlowMixin, PytorchKvCacheMixin
+from olive.model.handler.mixin import DummyInputsMixin, PytorchKvCacheMixin
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, ResourceType, create_resource_path
 
 logger = logging.getLogger(__name__)
@@ -80,14 +80,11 @@ class PyTorchModelHandlerBase(OliveModelHandler, DummyInputsMixin):
 
 
 @model_handler_registry("PyTorchModel2")
-class PyTorchModelHandler2(
-    PyTorchModelHandlerBase, PytorchKvCacheMixin, MLFlowMixin
-):  # pylint: disable=too-many-ancestors
+class PyTorchModelHandler2(PyTorchModelHandlerBase, PytorchKvCacheMixin):  # pylint: disable=too-many-ancestors
     """PyTorch model handler.
 
     Besides the model loading for PyTorch model, the model handler also provides the following functionalities:
-      * Get the model io configuration either from user provider io_config or from hf_config. The priority is user
-        provided io_config is higher than hf_config.
+      * Get the model io configuration from user provider io_config.
       * Get the dummy inputs for PyTorch model used to evaluate the latency.
     """
 
@@ -184,10 +181,7 @@ class PyTorchModelHandler2(
 
     @property
     def io_config(self) -> Dict[str, Any]:
-        """Return io config of the model.
-
-        Priority: io_config > hf_config (using onnx_config)
-        """
+        """Return io config of the model."""
         if not self._io_config:
             return None
 
