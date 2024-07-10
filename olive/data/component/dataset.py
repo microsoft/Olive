@@ -379,10 +379,17 @@ class TransformersDummyDataset(BaseDataset):
 
         # for MoE models, num_key_value_heads != num_attention_heads
         # TODO(anyone): find a better way to handle MoE models
-        num_key_value_heads = find_first_matched_value(model_attributes, NUM_KEY_VALUE_HEADS_NAMES) // world_size
-        num_attention_heads = find_first_matched_value(model_attributes, NUM_HEADS_NAMES) // world_size
-        head_size = find_first_matched_value(model_attributes, HIDDEN_SIZE_NAMES) // num_attention_heads
+        num_key_value_heads = find_first_matched_value(model_attributes, NUM_KEY_VALUE_HEADS_NAMES)
+        num_attention_heads = find_first_matched_value(model_attributes, NUM_HEADS_NAMES)
+        head_size = find_first_matched_value(model_attributes, HIDDEN_SIZE_NAMES)
+        if num_attention_heads is None or head_size is None:
+            raise ValueError("Cannot find num_attention_heads or head_size in model attributes")
+        num_attention_heads = num_attention_heads // world_size
+
+        head_size = head_size // num_attention_heads
         if num_key_value_heads is not None:
+            num_key_value_heads = num_key_value_heads // world_size
+            # adjust num_attention_heads to num_key_value_heads for MoE models to get the right shape
             num_attention_heads = num_key_value_heads
 
         num_hidden_layers = find_first_matched_value(model_attributes, NUM_HIDDEN_LAYER_NAMES)
