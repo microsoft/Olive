@@ -10,10 +10,11 @@ import torch
 from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.model import PyTorchModelHandler
+from olive.model import HfModelHandler, PyTorchModelHandler2
 from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
+from olive.passes.pytorch.common import inherit_pytorch_from_hf, inherit_pytorch_from_pytorch
 
 logger = logging.getLogger(__name__)
 
@@ -39,15 +40,19 @@ class GptqQuantizer(Pass):
             "layers_block_name": PassConfigParam(
                 type_=str,
                 default_value="model.layers",
-                description="Block name to quantize. Default value is model.layers. "
-                "For models can't be auto filled, you can refer this link to fill these parameters.\n"
-                "https://github.com/AutoGPTQ/AutoGPTQ/blob/896d8204bc89a7cfbda42bf3314e13cf4ce20b02/auto_gptq/modeling/llama.py#L19-L26",
+                description=(
+                    "Block name to quantize. Default value is model.layers. "
+                    "For models can't be auto filled, you can refer this link to fill these parameters.\n"
+                    "https://github.com/AutoGPTQ/AutoGPTQ/blob/896d8204bc89a7cfbda42bf3314e13cf4ce20b02/auto_gptq/modeling/llama.py#L19-L26"
+                ),
             ),
             "outside_layer_modules": PassConfigParam(
                 type_=List[str],
                 default_value=None,
-                description="Names of other nn modules that in the same level as the transformer layer block. "
-                "Default value is None.",
+                description=(
+                    "Names of other nn modules that in the same level as the transformer layer block. "
+                    "Default value is None."
+                ),
             ),
             "inside_layer_modules": PassConfigParam(
                 type_=List[List[str]],
@@ -120,8 +125,12 @@ class GptqQuantizer(Pass):
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> PyTorchModelHandler:
+        self,
+        model: Union[HfModelHandler, PyTorchModelHandler2],
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+    ) -> PyTorchModelHandler2:
         from auto_gptq import BaseQuantizeConfig
         from auto_gptq.modeling import BaseGPTQForCausalLM
         from auto_gptq.modeling.auto import GPTQ_CAUSAL_LM_MODEL_MAP
@@ -207,14 +216,7 @@ class GptqQuantizer(Pass):
         output_model_path = normalize_path_suffix(output_model_path, "model.pt")
         torch.save(quantized_model, output_model_path)
 
-        model_config = model.to_json()["config"]
-        model_config["model_path"] = output_model_path
-        model_config.pop("model_loader", None)
-        if model.hf_config is not None:
-            hf_config = model.get_hf_model_config()
-            del model_config["hf_config"]
-            model_config["model_attributes"] = hf_config.to_dict()
+        if isinstance(model, HfModelHandler):
+            return inherit_pytorch_from_hf(model, output_model_path)
 
-        return PyTorchModelHandler(
-            **model_config,
-        )
+        return inherit_pytorch_from_pytorch(model, output_model_path)
