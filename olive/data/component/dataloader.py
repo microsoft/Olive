@@ -15,9 +15,10 @@ def default_dataloader(dataset, batch_size=1, **kwargs):
         to_ignore_fields = kwargs.get("ignore_fields") or ["step"]
         kwargs.pop("ignore_fields", None)
         input_data, label = default_collate(batch)
-        for k, v in input_data.items():
-            if k in to_ignore_fields:
-                input_data[k] = v[0].item()
+        if isinstance(input_data, dict):
+            for k, v in input_data.items():
+                if k in to_ignore_fields:
+                    input_data[k] = v[0].item()
         return input_data, label
 
     return DataLoader(dataset, batch_size=batch_size, collate_fn=ignore_batch_collate_fn, **kwargs)
