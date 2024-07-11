@@ -195,12 +195,7 @@ Convert the transformer dummy data config to the data container.
 
             {
                 "name": "transformers_dummy_data_config",
-                "type": "TransformersDummyDataContainer",
-                "load_dataset_config": {
-                    "params": {
-                        "model_name": "meta-llama/Llama-2-7b-hf"
-                    }
-                }
+                "type": "TransformersDummyDataContainer"
             }
 
     .. tab:: Python Class
