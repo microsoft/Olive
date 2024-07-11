@@ -56,10 +56,7 @@
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {
-                "user_script": "user_script.py",
-                "dataloader_func": "create_dataloader",
                 "device": "gpu",
-                "batch_size": 1,
                 "execution_mode_list": [ "ORT_SEQUENTIAL" ],
                 "providers_list": [ "DmlExecutionProvider" ]
             }

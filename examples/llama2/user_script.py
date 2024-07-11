@@ -235,7 +235,7 @@ def dataloader_func_for_generative(data_dir, batch_size, **kwargs):
 
 
 @Registry.register_dataset()
-def load_tiny_code_dataset(
+def tiny_code_dataset(
     data_name: str, split: str, language: str, token: Union[bool, str] = True, trust_remote_code=None
 ):
     dataset = load_dataset(data_name, split=split, token=token, trust_remote_code=trust_remote_code)

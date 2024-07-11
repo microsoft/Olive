@@ -14,6 +14,28 @@
             }
         }
     },
+    "data_configs": [
+        {
+            "name": "cifar10_data_config",
+            "type": "HuggingfaceContainer",
+            "user_script": "user_script.py",
+            "load_dataset_config": {
+                "type": "cifar10_dataset",
+                "params": {
+                    "data_dir": "data"
+                }
+            },
+            "pre_process_data_config": {
+                "type": "skip_pre_process"
+            },
+            "dataloader_config": {
+                "params": {
+                    "batch_size": 1,
+                    "drop_last": true
+                }
+            }
+        }
+    ],
     "evaluators": {
         "common_evaluator": {
             "metrics":[
@@ -66,10 +88,7 @@
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {
-                "user_script": "user_script.py",
-                "dataloader_func": "create_dataloader",
-                "batch_size": 1,
-                "data_dir": "data"
+                "data_config": "cifar10_data_config"
             }
         }
     },

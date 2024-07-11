@@ -24,6 +24,7 @@ from transformers import (
 )
 
 from olive.constants import Framework
+from olive.data.registry import Registry
 from olive.model import OliveModelHandler
 
 datasets_logging.disable_progress_bar()
@@ -146,11 +147,20 @@ def post_process(output):
 # -------------------------------------------------------------------------
 
 
-def create_dataloader(data_dir, batch_size, *args, **kwargs):
-    bert_dataset = BertDataset("Intel/bert-base-uncased-mrpc")
+@Registry.register_dataset()
+def create_bert_dataset(data_dir, *args, **kwargs):
+    return BertDataset("Intel/bert-base-uncased-mrpc")
+
+
+@Registry.register_dataloader()
+def create_bert_dataloader(dataset, batch_size, *args, **kwargs):
     return torch.utils.data.DataLoader(
-        BertDatasetWrapper(bert_dataset.get_eval_dataset()), batch_size=batch_size, drop_last=True
+        BertDatasetWrapper(dataset.get_eval_dataset()), batch_size=batch_size, drop_last=True
     )
+
+
+def create_dataloader(data_dir, batch_size, *args, **kwargs):
+    return create_bert_dataloader(create_bert_dataset(data_dir), batch_size, *args, **kwargs)
 
 
 # -------------------------------------------------------------------------
