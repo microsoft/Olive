@@ -14,7 +14,7 @@ from olive.hardware.accelerator import Device
 from olive.model.config import HfLoadKwargs, IoConfig
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
-from olive.model.handler.mixin import HfMixin, MLFlowMixin2
+from olive.model.handler.mixin import HfMixin, MLFlowMixin
 from olive.model.handler.pytorch import PyTorchModelHandlerBase
 from olive.model.utils.hf_utils import DEFAULT_HF_TASK, load_hf_model_from_task
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 @model_handler_registry("HFModel")
-class HfModelHandler(PyTorchModelHandlerBase, MLFlowMixin2, HfMixin):  # pylint: disable=too-many-ancestors
+class HfModelHandler(PyTorchModelHandlerBase, MLFlowMixin, HfMixin):  # pylint: disable=too-many-ancestors
     resource_keys: Tuple[str, ...] = ("model_path", "adapter_path")
     json_config_keys: Tuple[str, ...] = ("task", "load_kwargs", "generative")
 

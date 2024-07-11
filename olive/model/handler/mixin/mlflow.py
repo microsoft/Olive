@@ -14,7 +14,7 @@ from olive.common.utils import hardlink_copy_dir, hash_string
 logger = logging.getLogger(__name__)
 
 
-class MLFlowMixin2:
+class MLFlowMixin:
     def maybe_init_mlflow(self):
         """Initialize MLFlow model if the model is saved in MLFlow format."""
         parent_dir = Path(self.get_resource("model_path")).resolve()
