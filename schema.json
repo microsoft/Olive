@@ -565,11 +565,6 @@
           "title": "Include Runtime Packages",
           "default": true,
           "type": "boolean"
-        },
-        "include_sample_code": {
-          "title": "Include Sample Code",
-          "default": true,
-          "type": "boolean"
         }
       }
     },

@@ -75,7 +75,6 @@
 <li class="toctree-l2"><a class="reference internal" href="#what-is-olive-packaging">What is Olive Packaging</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#zipfile">Zipfile</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#candidatemodels">CandidateModels</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#samplecode">SampleCode</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#models-rank-json-file">Models rank JSON file</a></li>
 </ul>
 </li>
@@ -156,20 +155,13 @@
 <p>Olive will output multiple candidate models based on metrics priorities. It also can package output artifacts when the user requires. Olive packaging can be used in different scenarios. There are 4 packaging types: <code class="docutils literal notranslate"><span class="pre">Zipfile</span></code>, <code class="docutils literal notranslate"><span class="pre">AzureMLModels</span></code>, <code class="docutils literal notranslate"><span class="pre">AzureMLData</span></code> and <code class="docutils literal notranslate"><span class="pre">AzureMLDeployment</span></code>.</p>
 <section id="zipfile">
 <h3>Zipfile<a class="headerlink" href="#zipfile" title="Permalink to this heading">¶</a></h3>
-<p>Zipfile packaging will generate a ZIP file which includes 3 folders: <code class="docutils literal notranslate"><span class="pre">CandidateModels</span></code>, <code class="docutils literal notranslate"><span class="pre">SampleCode</span></code> and <code class="docutils literal notranslate"><span class="pre">ONNXRuntimePackages</span></code>, and a <code class="docutils literal notranslate"><span class="pre">models_rank.json</span></code> file in the <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> folder (from Engine Configuration):</p>
+<p>Zipfile packaging will generate a ZIP file which includes 3 folders: <code class="docutils literal notranslate"><span class="pre">CandidateModels</span></code>, and <code class="docutils literal notranslate"><span class="pre">ONNXRuntimePackages</span></code>, and a <code class="docutils literal notranslate"><span class="pre">models_rank.json</span></code> file in the <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> folder (from Engine Configuration):</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">CandidateModels</span></code>: top ranked output model set</p>
 <ul>
 <li><p>Model file</p></li>
 <li><p>Olive Pass run history configurations for candidate model</p></li>
 <li><p>Inference settings (<code class="docutils literal notranslate"><span class="pre">onnx</span></code> model only)</p></li>
-</ul>
-</li>
-<li><p><code class="docutils literal notranslate"><span class="pre">SampleCode</span></code>: code sample for ONNX model</p>
-<ul>
-<li><p>C++</p></li>
-<li><p>C#</p></li>
-<li><p>Python</p></li>
 </ul>
 </li>
 <li><p><code class="docutils literal notranslate"><span class="pre">ONNXRuntimePackages</span></code>: ONNXRuntime package files with the same version that were used by Olive Engine in this workflow run.</p></li>
@@ -179,10 +171,6 @@
 <h4>CandidateModels<a class="headerlink" href="#candidatemodels" title="Permalink to this heading">¶</a></h4>
 <p><code class="docutils literal notranslate"><span class="pre">CandidateModels</span></code> includes k folders where k is the number of ranked output models, with name <code class="docutils literal notranslate"><span class="pre">BestCandidateModel_1</span></code>, <code class="docutils literal notranslate"><span class="pre">BestCandidateModel_2</span></code>, … and <code class="docutils literal notranslate"><span class="pre">BestCandidateModel_k</span></code>. The order is ranked by metrics priorities, starting from 1. e.g., if you have 3 metrics <code class="docutils literal notranslate"><span class="pre">metric_1</span></code>, <code class="docutils literal notranslate"><span class="pre">metric_2</span></code> and <code class="docutils literal notranslate"><span class="pre">metric_3</span></code> with priority <code class="docutils literal notranslate"><span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">2</span></code> and <code class="docutils literal notranslate"><span class="pre">3</span></code>. The output models will be sorted firstly by <code class="docutils literal notranslate"><span class="pre">metric_1</span></code>. If the value of <code class="docutils literal notranslate"><span class="pre">metric_1</span></code> of 2 output models are same, they will be sorted by <code class="docutils literal notranslate"><span class="pre">metric_2</span></code>, and followed by next lower priority metric.</p>
 <p>Each <code class="docutils literal notranslate"><span class="pre">BestCandidateModel</span></code> folder will include model file/folder. The folder also includes a json file which includes the Olive Pass run history configurations since input model, a json file with performance metrics and a json file for inference settings for the candidate model if the candidate model is an ONNX model.</p>
-</section>
-<section id="samplecode">
-<h4>SampleCode<a class="headerlink" href="#samplecode" title="Permalink to this heading">¶</a></h4>
-<p>Olive will only provide sample codes for ONNX model. Sample code supports 3 different programming languages: <code class="docutils literal notranslate"><span class="pre">C++</span></code>, <code class="docutils literal notranslate"><span class="pre">C#</span></code> and <code class="docutils literal notranslate"><span class="pre">Python</span></code>. And a code snippet introducing how to use Olive output artifacts to inference candidate model with recommended inference configurations.</p>
 </section>
 <section id="models-rank-json-file">
 <h4>Models rank JSON file<a class="headerlink" href="#models-rank-json-file" title="Permalink to this heading">¶</a></h4>
@@ -366,8 +354,6 @@ Extra configurations for deployment. <code class="docutils literal notranslate">
 </li>
 </ul>
 </li>
-<li><p><code class="docutils literal notranslate"><span class="pre">include_sample_code</span> <span class="pre">[bool]</span></code>:
-Whether or not to include sample code in zip file. Defaults to True</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">include_runtime_packages</span> <span class="pre">[bool]</span></code>:
 Whether or not to include runtime packages (like onnxruntime) in zip file. Defaults to True</p></li>
 </ul>
