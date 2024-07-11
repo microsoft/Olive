@@ -109,7 +109,7 @@ def main(raw_args=None):
     package_config = OlivePackageConfig.load_default_config()
     package_config.import_pass_module(pass_config["type"])
 
-    if version.parse(ort_version) < version.parse("1.16.0"):
+    if version.parse(ort_version) < version.parse("1.16.0") and input_model_config["type"].lower() == "onnxmodel":
         # In onnxruntime, the following PRs will make the optimize_model save external data in the temporary folder
         # * https://github.com/microsoft/onnxruntime/pull/16531
         # * https://github.com/microsoft/onnxruntime/pull/16716
