@@ -642,7 +642,7 @@ def create_python_download_command(base_url=None):
     return Template(command)
 
 
-def _package_onnxruntime_genai_runtime_dependencies(save_path: Path, downlaod_c_packages: bool = True):
+def _package_onnxruntime_genai_runtime_dependencies(save_path: Path, download_c_packages: bool = True):
     # pylint: disable=not-an-iterable
     installed_packages = [
         pkg
@@ -672,7 +672,7 @@ def _package_onnxruntime_genai_runtime_dependencies(save_path: Path, downlaod_c_
             )
 
     # Download CPP && CS onnxruntime-genai packages
-    if downlaod_c_packages:
+    if download_c_packages:
         ort_version = installed_packages[0].version
         lang_list = ("cpp", "cs")
         for language in lang_list:
@@ -682,7 +682,7 @@ def _package_onnxruntime_genai_runtime_dependencies(save_path: Path, downlaod_c_
 
 
 def _package_onnxruntime_runtime_dependencies(
-    save_path: Path, pf_footprint: "Footprint", python_version: str, downlaod_c_packages: bool = True
+    save_path: Path, pf_footprint: "Footprint", python_version: str, download_c_packages: bool = True
 ):
     # pylint: disable=not-an-iterable
     installed_packages = pkg_resources.working_set
@@ -746,7 +746,7 @@ def _package_onnxruntime_runtime_dependencies(
             run_subprocess(download_command)
 
         # Download CPP && CS onnxruntime package
-        if downlaod_c_packages:
+        if download_c_packages:
             lang_list = ("cpp", "cs")
             for language in lang_list:
                 ort_download_path = save_path / "ONNXRuntimePackages" / language
