@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, List, Union
 
 from olive.constants import Framework
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import HfModelHandler, ONNXModelHandler, OpenVINOModelHandler, PyTorchModelHandler2
+from olive.model import HfModelHandler, ONNXModelHandler, OpenVINOModelHandler, PyTorchModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
 
@@ -65,7 +65,7 @@ class OpenVINOConversion(Pass):
 
     def _run_for_config(
         self,
-        model: Union[HfModelHandler, PyTorchModelHandler2, ONNXModelHandler],
+        model: Union[HfModelHandler, PyTorchModelHandler, ONNXModelHandler],
         data_root: str,
         config: Dict[str, Any],
         output_model_path: str,

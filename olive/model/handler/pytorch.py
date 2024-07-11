@@ -81,8 +81,8 @@ class PyTorchModelHandlerBase(
         return serialize_to_json(config, check_object)
 
 
-@model_handler_registry("PyTorchModel2")
-class PyTorchModelHandler2(PyTorchModelHandlerBase):  # pylint: disable=too-many-ancestors
+@model_handler_registry("PyTorchModel")
+class PyTorchModelHandler(PyTorchModelHandlerBase):  # pylint: disable=too-many-ancestors
     """PyTorch model handler.
 
     Besides the model loading for PyTorch model, the model handler also provides the following functionalities:

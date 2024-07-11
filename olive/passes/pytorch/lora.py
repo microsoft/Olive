@@ -28,7 +28,7 @@ from olive.data.config import DataConfig
 from olive.data.constants import IGNORE_INDEX
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler
-from olive.model.config.hf_config2 import HfLoadKwargs
+from olive.model.config.hf_config import HfLoadKwargs
 from olive.model.utils.hf_utils import get_peft_task_type_from_task
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam

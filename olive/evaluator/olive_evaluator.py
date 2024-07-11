@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     from olive.model import (
         OliveModelHandler,
         OpenVINOModelHandler,
-        PyTorchModelHandler2,
+        PyTorchModelHandler,
         QNNModelHandler,
         SNPEModelHandler,
     )
@@ -775,7 +775,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
     @torch.no_grad()
     def _inference(
         self,
-        model: "PyTorchModelHandler2",
+        model: "PyTorchModelHandler",
         metric: Metric,
         dataloader: "DataLoader",
         post_func=None,
@@ -817,7 +817,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
 
     def _evaluate_accuracy(
         self,
-        model: "PyTorchModelHandler2",
+        model: "PyTorchModelHandler",
         data_root: str,
         metric: Metric,
         dataloader: "DataLoader",
@@ -831,7 +831,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
     @torch.no_grad()
     def _evaluate_raw_latency(
         self,
-        model: "PyTorchModelHandler2",
+        model: "PyTorchModelHandler",
         data_root: str,
         metric: Metric,
         dataloader: "DataLoader",

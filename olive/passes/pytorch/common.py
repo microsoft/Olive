@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Union
 
 from olive.constants import ModelFileFormat
-from olive.model import DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler2
+from olive.model import DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler
 
 
 def inherit_hf_from_hf(
@@ -40,7 +40,7 @@ def inherit_pytorch_from_hf(
     model_path: Union[str, Path],
     model_file_format: ModelFileFormat = ModelFileFormat.PYTORCH_ENTIRE_MODEL,
     **extra_attributes,
-) -> PyTorchModelHandler2:
+) -> PyTorchModelHandler:
     # keep original io_config if present otherwise use the hf onnx_config
     io_config = model.to_json()["config"].get("io_config")
     if io_config and not io_config.get("kv_cache") and model.task.endswith("-with-past"):
@@ -48,7 +48,7 @@ def inherit_pytorch_from_hf(
     elif model.io_config:
         io_config = deepcopy(model.io_config)
 
-    return PyTorchModelHandler2(
+    return PyTorchModelHandler(
         model_path=model_path,
         model_file_format=model_file_format,
         io_config=io_config,
@@ -57,8 +57,8 @@ def inherit_pytorch_from_hf(
     )
 
 
-def inherit_pytorch_from_pytorch(model: PyTorchModelHandler2, model_path: Union[str, Path]) -> PyTorchModelHandler2:
+def inherit_pytorch_from_pytorch(model: PyTorchModelHandler, model_path: Union[str, Path]) -> PyTorchModelHandler:
     model_config = model.to_json()["config"]
     model_config["model_path"] = model_path
     model_config.pop("model_loader", None)
-    return PyTorchModelHandler2(**model_config)
+    return PyTorchModelHandler(**model_config)

@@ -10,7 +10,7 @@ import torch
 from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.model import HfModelHandler, PyTorchModelHandler2
+from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
@@ -126,11 +126,11 @@ class GptqQuantizer(Pass):
     @torch.no_grad()
     def _run_for_config(
         self,
-        model: Union[HfModelHandler, PyTorchModelHandler2],
+        model: Union[HfModelHandler, PyTorchModelHandler],
         data_root: str,
         config: Dict[str, Any],
         output_model_path: str,
-    ) -> PyTorchModelHandler2:
+    ) -> PyTorchModelHandler:
         from auto_gptq import BaseQuantizeConfig
         from auto_gptq.modeling import BaseGPTQForCausalLM
         from auto_gptq.modeling.auto import GPTQ_CAUSAL_LM_MODEL_MAP

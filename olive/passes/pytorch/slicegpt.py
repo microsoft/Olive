@@ -14,7 +14,7 @@ from olive.common.config_utils import validate_config
 from olive.constants import ModelFileFormat
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import HfModelHandler, PyTorchModelHandler2
+from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
@@ -77,7 +77,7 @@ class SliceGPT(Pass):
     @torch.no_grad()
     def _run_for_config(
         self, model: HfModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> PyTorchModelHandler2:
+    ) -> PyTorchModelHandler:
         # if sys.version_info < (3, 10):
         #     raise ValueError("SliceGPT requires python3.10 or higher")
 

@@ -10,7 +10,7 @@ import torch
 
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.model import HfModelHandler, PyTorchModelHandler2
+from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
@@ -118,7 +118,7 @@ class AutoAWQQuantizer(Pass):
     @torch.no_grad()
     def _run_for_config(
         self, model: HfModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> PyTorchModelHandler2:
+    ) -> PyTorchModelHandler:
         from awq import AutoAWQForCausalLM
         from awq.models import base as awq_model_base
         from awq.quantize.quantizer import AwqQuantizer as PyAutoAWQQuantizer

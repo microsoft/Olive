@@ -22,10 +22,10 @@ from olive.model import (
     DistributedOnnxModelHandler,
     HfModelHandler,
     ONNXModelHandler,
-    PyTorchModelHandler2,
+    PyTorchModelHandler,
 )
 from olive.model.config import IoConfig
-from olive.model.config.hf_config2 import HfLoadKwargs
+from olive.model.config.hf_config import HfLoadKwargs
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
@@ -121,7 +121,7 @@ class OnnxConversion(Pass):
 
     def _run_for_config(
         self,
-        model: Union[DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler2],
+        model: Union[DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler],
         data_root: str,
         config: Dict[str, Any],
         output_model_path: str,
@@ -143,7 +143,7 @@ class OnnxConversion(Pass):
 
     def _run_for_config_internal(
         self,
-        model: Union[DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler2],
+        model: Union[DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler],
         data_root: str,
         config: Dict[str, Any],
         output_model_path: str,
@@ -282,7 +282,7 @@ class OnnxConversion(Pass):
 
     @staticmethod
     def _load_pytorch_model(
-        model: Union[HfModelHandler, PyTorchModelHandler2], device: str, torch_dtype: Optional[torch.dtype] = None
+        model: Union[HfModelHandler, PyTorchModelHandler], device: str, torch_dtype: Optional[torch.dtype] = None
     ) -> Tuple[torch.nn.Module, Optional[Dict]]:
         """Load the model and return the model and the model attributes.
 
@@ -301,7 +301,7 @@ class OnnxConversion(Pass):
         """
         pytorch_model = None
         model_attributes = deepcopy(model.model_attributes or {})
-        if isinstance(model, PyTorchModelHandler2) or not model.load_kwargs:
+        if isinstance(model, PyTorchModelHandler) or not model.load_kwargs:
             # if the model is a PyTorchModelHandler or HfModelHandler with no load kwargs,
             # we can load the model directly
             pytorch_model = model.load_model()
@@ -371,7 +371,7 @@ class OnnxConversion(Pass):
 
     def _convert_model_on_device(
         self,
-        model: Union[HfModelHandler, PyTorchModelHandler2],
+        model: Union[HfModelHandler, PyTorchModelHandler],
         data_root: str,
         config: Dict[str, Any],
         output_model_path: str,

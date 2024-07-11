@@ -12,7 +12,7 @@ from olive.common.config_utils import validate_config
 from olive.common.utils import get_attr, tensor_data_to_device
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.model import HfModelHandler, PyTorchModelHandler2
+from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.model.utils.hf_utils import get_model_max_length
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
@@ -80,7 +80,7 @@ class TorchTRTConversion(Pass):
     @torch.no_grad()
     def _run_for_config(
         self, model: HfModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
-    ) -> PyTorchModelHandler2:
+    ) -> PyTorchModelHandler:
         from olive.passes.pytorch.trt_utils import compile_trt_model
 
         model_type = model.get_hf_model_type()
