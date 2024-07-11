@@ -47,7 +47,7 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowMixin2, HfMixin):  # pylint:
         )
         self.add_resources(locals())
         self.task = task
-        self.load_kwargs = validate_config(load_kwargs, HfLoadKwargs) if load_kwargs else None
+        self.load_kwargs = validate_config(load_kwargs, HfLoadKwargs, warn_unused_keys=False) if load_kwargs else None
 
         self.mlflow_model_path = None
         self.maybe_init_mlflow()
@@ -70,7 +70,7 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowMixin2, HfMixin):  # pylint:
         if self.model is not None:
             return self.model
 
-        model = load_hf_model_from_task(self.task, self.model_path)
+        model = load_hf_model_from_task(self.task, self.model_path, **self.get_load_kwargs())
 
         # we only have peft adapters for now
         if self.adapter_path:
@@ -103,16 +103,15 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowMixin2, HfMixin):  # pylint:
     def get_new_dummy_inputs(self):
         """Return a dummy input for the model."""
         # Priority: io_config > hf onnx_config
-        dummy_inputs = None
+        dummy_inputs = self._get_dummy_inputs_from_io_config(force_kv_cache=self.task.endswith("-with-past"))
 
-        dataloader = self._get_dummy_dataloader_from_io_config(force_kv_cache=self.task.endswith("-with-past"))
-        if dataloader:
-            dummy_inputs, _ = next(iter(dataloader))
-        else:
-            logger.debug("Trying hf onnx_config to get dummy inputs")
-            dummy_inputs = self.get_hf_dummy_inputs()
-            if dummy_inputs:
-                logger.debug("Got dummy inputs from hf onnx_config")
+        if dummy_inputs:
+            return dummy_inputs
+
+        logger.debug("Trying hf onnx_config to get dummy inputs")
+        dummy_inputs = self.get_hf_dummy_inputs()
+        if dummy_inputs:
+            logger.debug("Got dummy inputs from hf onnx_config")
 
         return dummy_inputs
 
@@ -130,7 +129,6 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowMixin2, HfMixin):  # pylint:
 
 @model_handler_registry("DistributedHfModel")
 class DistributedHfModelHandler(OliveModelHandler):
-    resource_keys: Tuple[str, ...] = "model_path"
     json_config_keys: Tuple[str, ...] = (
         "model_name_pattern",
         "num_ranks",

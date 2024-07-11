@@ -8,7 +8,6 @@
 import logging
 import multiprocessing
 from abc import abstractmethod
-from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, Dict
 
@@ -20,6 +19,7 @@ from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import DistributedHfModelHandler, HfModelHandler
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
+from olive.passes.pytorch.common import inherit_distributed_hf_from_hf
 
 logger = logging.getLogger(__name__)
 
@@ -131,9 +131,10 @@ class PyTorchTensorParallel(Pass):
             impl.load_rank_weights(pytorch_model)
 
             # 5. Save it out for each rank
+            # save metadata first since pytorch model also saves config.json
+            olive_model.save_metadata(output_filepath)
             pytorch_model.config.world_size = world_size
             pytorch_model.save_pretrained(output_filepath)
-            olive_model.save_metadata(output_filepath)
         finally:
             # 6. Restore layers that were replaced
             impl.restore_layers()
@@ -174,13 +175,6 @@ class PyTorchTensorParallel(Pass):
             raise RuntimeError("Failed to create ranked tensor parallel models")
 
         # Finally, create DistributedHfModelHandler from ranked models for each rank
-        return DistributedHfModelHandler(
-            model_path=output_model_path,
-            model_name_pattern=DistributedHfModelHandler.DEFAULT_RANKED_MODEL_NAME_FORMAT,
-            num_ranks=world_size,
-            task=model.task,
-            load_kwargs=model.load_kwargs,
-            io_config=deepcopy(model.io_config),
-            model_attributes={**model.model_attributes, "world_size": world_size},
-            generative=model.generative,
+        return inherit_distributed_hf_from_hf(
+            model, output_model_path, DistributedHfModelHandler.DEFAULT_RANKED_MODEL_NAME_FORMAT, num_ranks=world_size
         )

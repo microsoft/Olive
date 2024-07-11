@@ -1,10 +1,10 @@
 {
     "input_model": {
-        "type": "PyTorchModel",
+        "type": "HfModel",
         "config": {
             "model_path": "meta-llama/Llama-2-7b-hf",
             "load_kwargs": {
-                "_attn_implementation": "eager"
+                "attn_implementation": "eager"
             },
             "io_config": {
                 "input_names": [
@@ -30,9 +30,9 @@
                     ]
                 ],
                 "input_types": [
-                    "int32",
-                    "int32",
-                    "int32"
+                    "int64",
+                    "int64",
+                    "int64"
                 ],
                 "dynamic_axes": {
                     "input_ids": {

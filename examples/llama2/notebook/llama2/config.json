@@ -40,9 +40,9 @@
                     ]
                 ],
                 "input_types": [
-                    "int32",
-                    "int32",
-                    "int32"
+                    "int64",
+                    "int64",
+                    "int64"
                 ],
                 "dynamic_axes": {
                     "input_ids": {

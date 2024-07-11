@@ -48,6 +48,7 @@ def get_merged_sample_with_past_kv_inputs(
     input_ids = torch.randint(low=0, high=config.vocab_size, size=(batch_size, seq_len), dtype=torch.int64)
     attention_mask = torch.ones(batch_size, past_seq_len + seq_len, dtype=torch.int64)
     position_ids = get_position_ids(attention_mask, past_seq_len=past_seq_len)
+    position_ids = position_ids.to(torch.int64)
     past_kv = get_past_kv_inputs(config, batch_size, past_seq_len, use_fp16=use_fp16)
 
     return (input_ids, attention_mask, position_ids, past_kv)

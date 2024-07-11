@@ -329,7 +329,7 @@ class OnnxConversion(Pass):
                 model_attributes["torch_dtype"] = "float32"
 
             if load_kwargs.quantization_method == "bitsandbytes" and load_kwargs.quantization_config["load_in_4bit"]:
-                logger.warning(
+                logger.info(
                     "Bitsandbytes 4bit quantization is not supported for conversion. The quantization config is removed"
                     " from the load kwargs. Use OnnxBnb4Quantization pass after conversion to quantize the"
                     " model."

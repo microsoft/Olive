@@ -21,7 +21,9 @@ from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, ResourceType, create
 logger = logging.getLogger(__name__)
 
 
-class PyTorchModelHandlerBase(OliveModelHandler, DummyInputsMixin):
+class PyTorchModelHandlerBase(
+    OliveModelHandler, DummyInputsMixin, PytorchKvCacheMixin
+):  # pylint: disable=too-many-ancestors
     """Base class for PyTorch model handler."""
 
     def prepare_session(
@@ -80,7 +82,7 @@ class PyTorchModelHandlerBase(OliveModelHandler, DummyInputsMixin):
 
 
 @model_handler_registry("PyTorchModel2")
-class PyTorchModelHandler2(PyTorchModelHandlerBase, PytorchKvCacheMixin):  # pylint: disable=too-many-ancestors
+class PyTorchModelHandler2(PyTorchModelHandlerBase):  # pylint: disable=too-many-ancestors
     """PyTorch model handler.
 
     Besides the model loading for PyTorch model, the model handler also provides the following functionalities:
@@ -198,8 +200,5 @@ class PyTorchModelHandler2(PyTorchModelHandlerBase, PytorchKvCacheMixin):  # pyl
             dummy_inputs = user_module_loader.call_object(self.dummy_inputs_func, self)
             # respect user's dummy_inputs_func, no hook
         else:
-            dataloader = self._get_dummy_dataloader_from_io_config()
-            if dataloader:
-                dummy_inputs, _ = dataloader.get_first_batch()
-
+            dummy_inputs = self._get_dummy_inputs_from_io_config()
         return dummy_inputs

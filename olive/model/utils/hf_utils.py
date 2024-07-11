@@ -26,7 +26,7 @@ def load_hf_model_from_task(task: str, name: str, **kwargs) -> "PreTrainedModel"
     """Load huggingface model from task and name."""
     from transformers.pipelines import check_task
 
-    task_results = check_task(task)
+    task_results = check_task(task.replace("-with-past", ""))
     assert isinstance(task_results, tuple)
     if len(task_results) == 2:
         targeted_task = task_results[0]
@@ -137,8 +137,7 @@ def patched_supported_features_mapping(*supported_features: str, onnx_config_cls
     mapping = {}
     for feature in supported_features:
         if "-with-past" in feature:
-            task = feature.replace("-with-past", "")
-            mapping[feature] = partial(config_cls.with_past, task=task)
+            mapping[feature] = partial(config_cls.with_past, task=feature.replace("-with-past", ""))
         else:
             mapping[feature] = partial(config_cls.from_model_config, task=feature)
 

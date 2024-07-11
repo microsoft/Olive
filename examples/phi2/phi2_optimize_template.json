@@ -1,6 +1,6 @@
 {
     "input_model": {
-        "type": "PyTorchModel",
+        "type": "HfModel",
         "config": {
             "model_path": "microsoft/phi-2",
             "io_config": {

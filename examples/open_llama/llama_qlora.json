@@ -1,11 +1,8 @@
 {
     "input_model": {
-        "type": "PyTorchModel",
+        "type": "HfModel",
         "config": {
-            "hf_config": {
-                "model_name": "huggyllama/llama-7b",
-                "task": "text-generation"
-            }
+            "model_path": "huggyllama/llama-7b"
         }
     },
     "systems": {

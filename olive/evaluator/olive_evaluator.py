@@ -845,20 +845,20 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         session = model.prepare_session(inference_settings=None, device=device)
 
         input_data, _ = next(iter(dataloader))
-        device = PyTorchEvaluator._device_string_to_torch_device(device)
-        run_kwargs = metric.get_run_kwargs()
+        torch_device = PyTorchEvaluator._device_string_to_torch_device(device)
 
-        is_cuda = device == Device.GPU
-        if is_cuda:
-            session.to(device)
-            input_data = tensor_data_to_device(input_data, device)
+        # put model and input data on device
+        session.to(torch_device)
+        input_data = tensor_data_to_device(input_data, torch_device)
+
+        run_kwargs = metric.get_run_kwargs()
 
         # warm up
         for _ in range(warmup_num):
             model.run_session(session, input_data, **run_kwargs)
 
         latencies = []
-        if is_cuda:
+        if device == Device.GPU:
             # synchronize before starting the test
             torch.cuda.synchronize()
             # cuda events for measuring latency
@@ -874,7 +874,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
                 latencies.append(starter.elapsed_time(ender) * 1e-3)
 
             # move model back to cpu
-            session.to("cpu")
+            session.to(Device.CPU)
             tensor_data_to_device(input_data, Device.CPU)
 
             # only move to cpu cannot release gpu memory, call cuda.empty_cache() to release gpu memory

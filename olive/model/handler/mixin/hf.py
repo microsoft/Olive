@@ -48,7 +48,9 @@ class HfMixin:
         :return: list of file paths
         """
         output_dir = Path(output_dir)
-        if not output_dir.is_dir():
+        if not output_dir.exists():
+            output_dir.mkdir(parents=True)
+        elif not output_dir.is_dir():
             raise ValueError("Expecting a directory as input.")
 
         saved_filepaths = []

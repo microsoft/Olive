@@ -16,24 +16,24 @@ class DummyInputsMixin:
     the dummy data is used to evaluate the latency if user doesn't provide the data for evaluation.
     """
 
-    def _get_dummy_dataloader_from_io_config(self, force_kv_cache: bool = False):
-        dataloader = None
+    def _get_dummy_inputs_from_io_config(self, force_kv_cache: bool = False):
         if not self._io_config:
-            return dataloader
-        # resolved self.io_config
-        # won't use self.io_config since we don't want hf onnx_config to be used
+            return None
+
         resolved_io_config = self.get_resolved_io_config(self._io_config, force_kv_cache=force_kv_cache) or {}
-        if resolved_io_config.get("input_shapes"):
-            logger.debug("Using io_config.input_shapes to build dummy dataloader")
-            dataloader = (
-                # input_types is optional
-                data_config_template.dummy_data_config_template(
-                    input_shapes=resolved_io_config["input_shapes"],
-                    input_types=resolved_io_config.get("input_types"),
-                    input_names=resolved_io_config.get("input_names"),
-                ).to_data_container()
+        if not resolved_io_config.get("input_shapes"):
+            return None
+
+        logger.debug("Using io_config.input_shapes to build dummy inputs")
+        return (
+            data_config_template.dummy_data_config_template(
+                input_shapes=resolved_io_config["input_shapes"],
+                input_types=resolved_io_config.get("input_types"),
+                input_names=resolved_io_config.get("input_names"),
             )
-        return dataloader
+            .to_data_container()
+            .get_first_batch()
+        )[0]
 
     @abstractmethod
     def get_new_dummy_inputs(self):
