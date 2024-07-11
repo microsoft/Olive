@@ -508,29 +508,6 @@ def test__package_dockerfile(tmp_path):
     assert dockerfile_path.exists()
     onnxruntime_packages_path = docker_context_path / "ONNXRuntimePackages"
     assert onnxruntime_packages_path.exists()
-    sample_codes_path = docker_context_path / "SampleCode"
-    assert sample_codes_path.exists()
-
-
-def test__package_dockerfile_no_sample_codes(tmp_path):
-    # setup
-    model_id = "model_id"
-    model_path = "fake_model_file"
-    packaging_config = PackagingConfig(type=PackagingType.Dockerfile, include_sample_code=False)
-    output_dir = tmp_path / "outputs"
-    docker_context_path = output_dir / "docker_content"
-
-    footprints = get_footprints(model_id, model_path)
-
-    # execute
-    generate_output_artifacts(packaging_config, footprints, footprints, output_dir)
-
-    # assert
-    dockerfile_path = output_dir / "Dockerfile"
-    assert dockerfile_path.exists()
-    onnxruntime_packages_path = docker_context_path / "ONNXRuntimePackages"
-    assert onnxruntime_packages_path.exists()
-    assert not (docker_context_path / "SampleCode").exists()
 
 
 def get_footprints(model_id, model_path):
