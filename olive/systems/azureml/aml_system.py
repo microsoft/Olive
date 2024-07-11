@@ -20,18 +20,18 @@ from azure.core.exceptions import HttpResponseError, ServiceResponseError
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.cache import normalize_data_path
 from olive.common.config_utils import ParamCategory, validate_config
-from olive.common.utils import copy_dir, retry_func
+from olive.common.utils import copy_dir, replace_dict_value, retry_func
 from olive.data.config import DataConfig
 from olive.evaluator.metric_result import MetricResult
 from olive.model import ModelConfig
 from olive.resource_path import (
     AZUREML_RESOURCE_TYPES,
     LOCAL_RESOURCE_TYPES,
-    OLIVE_RESOURCE_ANNOTATIONS,
     AzureMLModel,
     ResourcePath,
     ResourceType,
     create_resource_path,
+    find_all_resources,
 )
 from olive.systems.common import AcceleratorConfig, AzureMLDockerConfig, AzureMLEnvironmentConfig, SystemType
 from olive.systems.olive_system import OliveSystem
@@ -199,19 +199,33 @@ class AzureMLSystem(OliveSystem):
 
             return self._load_model(model_config, output_model_path, pipeline_output_path)
 
-    def _create_model_inputs(self, model_resource_paths: Dict[str, ResourcePath]):
-        inputs = {"model_config": Input(type=AssetTypes.URI_FILE)}
-        # loop through all the model resource paths
-        # create an input for each one using the resource type, with the name model_<resource_name>
-        for path_name, resource_path in model_resource_paths.items():
-            inputs[f"model_{path_name}"] = Input(type=get_asset_type_from_resource_path(resource_path), optional=True)
-        return inputs
+    def create_args_and_inputs(self, name: str, config_json: dict, tmp_dir: Path):
+        inputs = {f"{name}_config": Input(type=AssetTypes.URI_FILE)}
+        args = {}
 
-    def _create_args_from_resource_path(self, rp: OLIVE_RESOURCE_ANNOTATIONS):
-        resource_path = create_resource_path(rp)
-        if not resource_path:
-            # no argument for this resource, placeholder for optional input
-            return None
+        resource_map = {}
+        # create inputs and args for each resource in the config
+        for resource_key, resource_path in find_all_resources(config_json):
+            resource_name = f"{name}_{'_'.join(map(str, resource_key))}"
+            inputs[resource_name], args[resource_name] = self._create_arg_and_input_from_resource_path(resource_path)
+            resource_map[resource_name] = resource_key
+            replace_dict_value(config_json, resource_key, None)
+
+        if resource_map:
+            resource_map_path = tmp_dir / f"{name}_resource_map.json"
+            with resource_map_path.open("w") as f:
+                json.dump(resource_map, f)
+            inputs[f"{name}_resource_map"] = Input(type=AssetTypes.URI_FILE)
+            args[f"{name}_resource_map"] = Input(type=AssetTypes.URI_FILE, path=resource_map_path)
+
+        config_path = tmp_dir / f"{name}_config.json"
+        with config_path.open("w") as f:
+            json.dump(config_json, f, indent=4)
+        args[f"{name}_config"] = Input(type=AssetTypes.URI_FILE, path=config_path)
+
+        return inputs, args
+
+    def _create_arg_and_input_from_resource_path(self, resource_path: ResourcePath):
         asset_type = get_asset_type_from_resource_path(resource_path)
 
         if resource_path.type in AZUREML_RESOURCE_TYPES:
@@ -256,31 +270,8 @@ class AzureMLSystem(OliveSystem):
                     }
                 )
             )
-        # we keep the model path as a string in the config file
-        if resource_path.type != ResourceType.StringName:
-            return Input(type=asset_type, path=resource_path.get_path())
 
-        return None
-
-    def _create_model_args(self, model_json: dict, model_resource_paths: Dict[str, ResourcePath], tmp_dir: Path):
-        args = {}
-        # keep track of resource names in model_json that are uploaded/mounted
-        model_json["resource_names"] = []
-
-        for resource_name, resource_path in model_resource_paths.items():
-            arg = self._create_args_from_resource_path(resource_path)
-            if arg:
-                model_json["config"][resource_name] = None
-                model_json["resource_names"].append(resource_name)
-            args[f"model_{resource_name}"] = arg
-
-        # save the model json to a file
-        model_config_path = tmp_dir / "model_config.json"
-        with model_config_path.open("w") as f:
-            json.dump(model_json, f, sort_keys=True, indent=4)
-        args["model_config"] = Input(type=AssetTypes.URI_FILE, path=model_config_path)
-
-        return args
+        return Input(type=asset_type), Input(type=asset_type, path=resource_path.get_path())
 
     def _create_olive_config_file(self, olive_config: dict, tmp_dir: Path):
         if olive_config is None:
@@ -290,36 +281,6 @@ class AzureMLSystem(OliveSystem):
         with olive_config_path.open("w") as f:
             json.dump(olive_config, f, indent=4)
         return olive_config_path
-
-    def _create_pass_inputs(self, pass_path_params: List[Tuple[str, bool, ParamCategory]]):
-        inputs = {"pass_config": Input(type=AssetTypes.URI_FILE)}
-        for param, required, _ in pass_path_params:
-            # aml supports uploading file/folder even though this is typed as URI_FOLDER
-            inputs[f"pass_{param}"] = Input(type=AssetTypes.URI_FOLDER, optional=not required)
-
-        return inputs
-
-    def _create_pass_args(
-        self, pass_config: dict, pass_path_params: List[Tuple[str, bool, ParamCategory]], data_root: str, tmp_dir: Path
-    ):
-        pass_args = {}
-        for param, _, category in pass_path_params:
-            param_val = pass_config["config"].get(param, None)
-            if category == ParamCategory.DATA:
-                if param_val:
-                    # convert the dict to a resource path
-                    param_val = create_resource_path(param_val)
-                param_val = normalize_data_path(data_root, param_val)
-            if not param_val:
-                continue
-            pass_args[f"pass_{param}"] = self._create_args_from_resource_path(param_val)
-            pass_config["config"][param] = None
-
-        pass_config_path = tmp_dir / "pass_config.json"
-        with pass_config_path.open("w") as f:
-            json.dump(pass_config, f, sort_keys=True, indent=4)
-
-        return {"pass_config": Input(type=AssetTypes.URI_FILE, path=pass_config_path), **pass_args}
 
     def _create_step(
         self,
