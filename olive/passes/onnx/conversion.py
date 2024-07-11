@@ -387,15 +387,7 @@ class OnnxConversion(Pass):
         pytorch_model.eval()
 
         # get dummy inputs
-
-        dummy_inputs = model.get_dummy_inputs(
-            filter_hook=(
-                model.merge_kv_cache_hook if config["use_dynamo_exporter"] else model.merge_kv_cache_to_tuple_hook
-            ),
-            filter_hook_kwargs={
-                "past_kv_names": config["past_key_value_name"],
-            },
-        )
+        dummy_inputs = self._get_dummy_inputs(model, config)
         io_config = model.io_config
 
         converted_onnx_model = OnnxConversion._export_pytorch_model(
@@ -407,6 +399,20 @@ class OnnxConversion(Pass):
         output_model = model_proto_to_olive_model(converted_onnx_model, output_model_path, config)
         output_model.model_attributes = model_attributes
         return output_model
+
+    @staticmethod
+    def _get_dummy_inputs(
+        model: Union[HfModelHandler, PyTorchModelHandler], config: Dict[str, Any]
+    ) -> Union[Dict, Tuple]:
+        """Get dummy inputs for the model."""
+        return model.get_dummy_inputs(
+            filter_hook=(
+                model.merge_kv_cache_hook if config["use_dynamo_exporter"] else model.merge_kv_cache_to_tuple_hook
+            ),
+            filter_hook_kwargs={
+                "past_kv_names": config["past_key_value_name"],
+            },
+        )
 
     @staticmethod
     def _export_ranked_model(params):
@@ -444,7 +450,7 @@ class OnnxConversion(Pass):
             input_model = DistributedHfModelHandler(**model_config)
 
             olive_pytorch_model = input_model.load_model(local_rank)
-            dummy_inputs = olive_pytorch_model.get_dummy_inputs()
+            dummy_inputs = OnnxConversion._get_dummy_inputs(olive_pytorch_model, pass_config)
             io_config = None if pass_config["use_dynamo_exporter"] else olive_pytorch_model.io_config
             pytorch_model = olive_pytorch_model.prepare_session(rank=local_rank)
 
