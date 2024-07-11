@@ -191,7 +191,6 @@ classmethod-decorators = ["classmethod", "olive.common.pydantic_v1.validator", "
 [tool.ruff.lint.per-file-ignores]
 ".azure_pipelines/**" = ["INP001"]
 "examples/**" = ["INP001"]
-"olive/engine/packaging/sample_code/ONNXModel/python/**" = ["INP001"]
 "docs/**" = ["INP001"]
 "test/**" = ["INP001"]
 "scripts/**" = ["INP001"]
