@@ -100,11 +100,17 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowMixin, HfMixin):  # pylint: 
 
         return io_config
 
-    def get_new_dummy_inputs(self):
+    def get_dummy_inputs(self, filter_hook=None, filter_hook_kwargs=None):
         """Return a dummy input for the model."""
-        # Priority: io_config > hf onnx_config
-        dummy_inputs = self._get_dummy_inputs_from_io_config(force_kv_cache=self.task.endswith("-with-past"))
+        if self.dummy_inputs is not None:
+            return self.dummy_inputs
 
+        # Priority: io_config > hf onnx_config
+        dummy_inputs = self._get_dummy_inputs_from_io_config(
+            force_kv_cache=self.task.endswith("-with-past"),
+            filter_hook=filter_hook,
+            filter_hook_kwargs=filter_hook_kwargs,
+        )
         if dummy_inputs:
             return dummy_inputs
 
@@ -112,6 +118,9 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowMixin, HfMixin):  # pylint: 
         dummy_inputs = self.get_hf_dummy_inputs()
         if dummy_inputs:
             logger.debug("Got dummy inputs from hf onnx_config")
+
+        if dummy_inputs is None:
+            raise ValueError("Unable to get dummy inputs for the model.")
 
         return dummy_inputs
 

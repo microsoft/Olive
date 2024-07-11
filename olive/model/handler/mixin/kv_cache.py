@@ -51,6 +51,7 @@ class PytorchKvCacheMixin:
         """
         return (self.merge_kv_cache_hook(dummy_inputs, past_kv_names),)
 
+    # TODO(jambayk): consider removing this since we don't use hf dataset for dummy inputs anymore
     def past_key_values_input_filter_hook(self, dummy_inputs, past_kv_names: str = "past_key_values"):
         if not isinstance(dummy_inputs, dict):
             return dummy_inputs

@@ -189,16 +189,22 @@ class PyTorchModelHandler(PyTorchModelHandlerBase):  # pylint: disable=too-many-
 
         return self.get_resolved_io_config(self._io_config)
 
-    def get_new_dummy_inputs(self):
+    def get_dummy_inputs(self, filter_hook=None, filter_hook_kwargs=None):
         """Return a dummy input for the model."""
-        # Priority: user provided dummy_inputs_func > io_config
-        dummy_inputs = None
+        if self.dummy_inputs is not None:
+            return self.dummy_inputs
 
+        # Priority: user provided dummy_inputs_func > io_config
         if self.dummy_inputs_func is not None:
             logger.debug("Using dummy_inputs_func to get dummy inputs")
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
-            dummy_inputs = user_module_loader.call_object(self.dummy_inputs_func, self)
             # respect user's dummy_inputs_func, no hook
-        else:
-            dummy_inputs = self._get_dummy_inputs_from_io_config()
+            return user_module_loader.call_object(self.dummy_inputs_func, self)
+
+        dummy_inputs = self._get_dummy_inputs_from_io_config(
+            filter_hook=filter_hook, filter_hook_kwargs=filter_hook_kwargs
+        )
+
+        if dummy_inputs is None:
+            raise ValueError("Unable to get dummy inputs for the model.")
         return dummy_inputs
