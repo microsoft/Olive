@@ -543,7 +543,6 @@ def get_footprints(model_id, model_path):
 
 # TODO(xiaoyu): check onnxruntime packages exist
 def verify_output_artifacts(output_dir):
-    assert (output_dir / "SampleCode").exists()
     assert (output_dir / "CandidateModels").exists()
     assert (output_dir / "models_rank.json").exists()
     assert (output_dir / "ONNXRuntimePackages").exists()

@@ -107,7 +107,6 @@ class PackagingConfig(ConfigBase):
     name: str = "OutputModels"
     config: CommonPackagingConfig = None
     include_runtime_packages: bool = True
-    include_sample_code: bool = True
 
     @validator("config", pre=True, always=True)
     def _validate_config(cls, v, values):

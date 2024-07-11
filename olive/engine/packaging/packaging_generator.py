@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Set, Union
 import pkg_resources
 
 from olive.common.constants import OS
-from olive.common.utils import copy_dir, retry_func, run_subprocess
+from olive.common.utils import retry_func, run_subprocess
 from olive.engine.packaging.packaging_config import (
     AzureMLDeploymentPackagingConfig,
     DockerfilePackagingConfig,
@@ -359,9 +359,6 @@ def _package_candidate_models(
             best_node: FootprintNode = _get_best_candidate_node(pf_footprints, footprints)
             is_generative = _is_generative_model(best_node.model_config["config"])
 
-            if packaging_config.include_sample_code:
-                _package_sample_code(Path(__file__).parent, tempdir, is_generative)
-
             if packaging_config.include_runtime_packages:
                 if is_generative:
                     _package_onnxruntime_genai_runtime_dependencies(tempdir)
@@ -502,11 +499,6 @@ def _get_model_info(node: "FootprintNode", model_rank: int, relative_path: str, 
 def _copy_models_rank(tempdir: Path, model_info_list: List[Dict]):
     with (tempdir / "models_rank.json").open("w") as f:
         f.write(json.dumps(model_info_list))
-
-
-def _package_sample_code(cur_path: Path, tempdir: Path, is_generative: bool):
-    subdir_name = "GenAIOnnxModel" if is_generative else "ONNXModel"
-    copy_dir(cur_path / "sample_code" / subdir_name, tempdir / "SampleCode")
 
 
 def _package_zipfile_model(output_dir: Path, output_name: str, model_dir: Path):
