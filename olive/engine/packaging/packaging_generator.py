@@ -76,9 +76,6 @@ def _package_dockerfile(
         shutil.rmtree(content_path)
     content_path.mkdir(parents=True)
 
-    if packaging_config.include_sample_code:
-        _package_sample_code(Path(__file__).parent, content_path, False)
-
     if config.requirements_file:
         shutil.copy(config.requirements_file, content_path / "requirements.txt")
 
