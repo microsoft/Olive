@@ -159,10 +159,11 @@ def validate_resource_path(v, values, field):
     return v
 
 
-def find_all_resources(config) -> Dict[str, ResourcePath]:
+def find_all_resources(config, ignore_keys: Optional[List[str]] = None) -> Dict[str, ResourcePath]:
     """Find all resources in a config.
 
     :param config: The config to search for resources.
+    :param ignore_keys: A list of keys to ignore when searching for resources.
     :return: A dictionary of all resources found in the config.
         keys are tuples representing the path to the resource in the config and the values are
         the resource paths.
@@ -179,7 +180,9 @@ def find_all_resources(config) -> Dict[str, ResourcePath]:
     resources = {}
     if isinstance(config, (dict, list)):
         for k, v in config.items() if isinstance(config, dict) else enumerate(config):
-            resources.update({(k, *k2): v2 for k2, v2 in find_all_resources(v).items()})
+            if ignore_keys and k in ignore_keys:
+                continue
+            resources.update({(k, *k2): v2 for k2, v2 in find_all_resources(v, ignore_keys=ignore_keys).items()})
 
     return resources
 

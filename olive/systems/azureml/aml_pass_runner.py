@@ -49,8 +49,10 @@ def main(raw_args=None):
     # keep track of the resource names that are the same as the input model
     model_json["same_resources_as_input"] = []
     # resources
-    input_model_resources = find_all_resources(input_model_config)
-    output_model_resources = find_all_resources(model_json)
+    # hf model attributes has a special key "_model_name_or_path" that should be ignored since it points to
+    # where the config was loaded from
+    input_model_resources = find_all_resources(input_model_config, ignore_keys=["_model_name_or_path"])
+    output_model_resources = find_all_resources(model_json, ignore_keys=["_model_name_or_path"])
     for resource_key, resource_path in output_model_resources.items():
         input_model_resource_path = input_model_resources.get(resource_key)
         if resource_path.get_path() == (input_model_resource_path.get_path() if input_model_resource_path else None):

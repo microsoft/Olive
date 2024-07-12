@@ -189,14 +189,14 @@ class AzureMLSystem(OliveSystem):
 
             return self._load_model(model_config.to_json(check_object=True), output_model_path, pipeline_output_path)
 
-    def create_args_and_inputs(self, name: str, config_json: dict, tmp_dir: Path):
+    def create_inputs_and_args(self, name: str, config_json: dict, tmp_dir: Path, ignore_keys=None):
         inputs = {f"{name}_config": Input(type=AssetTypes.URI_FILE)}
         args = {}
 
         resource_map = {}
         # create inputs and args for each resource in the config
-        for resource_key, resource_path in find_all_resources(config_json).items():
-            resource_name = f"{name}__{'_'.join(map(str, resource_key))}"
+        for resource_key, resource_path in find_all_resources(config_json, ignore_keys=None).items():
+            resource_name = f"{name}__{'__'.join(map(str, resource_key))}"
             inputs[resource_name], args[resource_name] = self._create_arg_and_input_from_resource_path(resource_path)
             resource_map[resource_name] = resource_key
             set_dict_value(config_json, resource_key, None)
@@ -343,7 +343,9 @@ class AzureMLSystem(OliveSystem):
         # prepare inputs
         inputs, args = {}, {}
         for name, config_json in [("model", model_config), ("pass", pass_config)]:
-            name_inputs, name_args = self.create_args_and_inputs(name, config_json, tmp_dir)
+            name_inputs, name_args = self.create_inputs_and_args(
+                name, config_json, tmp_dir, ignore_keys=["_model_name_or_path"] if name == "model" else None
+            )
             inputs.update(name_inputs)
             args.update(name_args)
 
@@ -444,7 +446,7 @@ class AzureMLSystem(OliveSystem):
             # this is fine since the engine calls the system with a unique output_model_path which is a folder
             output_dir = Path(output_model_path).with_suffix("")
             # key is like ("config", "model_path")
-            output_name = "-".join(map(str, resource_key)).replace("config-", "").replace("_path", "")
+            output_name = "--".join(map(str, resource_key)).replace("config--", "").replace("_path", "")
             # if the model is downloaded from job, we need to copy it to the output folder
             # get the downloaded model path
             downloaded_path = pipeline_output_path / resource_json["config"]["path"]
@@ -498,7 +500,9 @@ class AzureMLSystem(OliveSystem):
         tmp_dir = Path(tmp_dir)
 
         # model args
-        model_inputs, model_args = self.create_args_and_inputs("model", model_config, tmp_dir)
+        model_inputs, model_args = self.create_inputs_and_args(
+            "model", model_config, tmp_dir, ignore_keys=["_model_name_or_path"]
+        )
 
         accelerator_config_path: Path = tmp_dir / "accelerator_config.json"
         with accelerator_config_path.open("w") as f:
@@ -549,7 +553,7 @@ class AzureMLSystem(OliveSystem):
         self.copy_code(code_files, code_root)
 
         # prepare inputs
-        metric_inputs, metric_args = self.create_args_and_inputs("metric", metric_json, tmp_dir)
+        metric_inputs, metric_args = self.create_inputs_and_args("metric", metric_json, tmp_dir)
         inputs = {**model_inputs, **metric_inputs, "accelerator_config": Input(type=AssetTypes.URI_FILE)}
         args = {
             **model_args,
