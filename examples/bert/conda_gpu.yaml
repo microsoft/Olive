@@ -10,6 +10,7 @@ dependencies:
       - psutil
       - scipy
       - scikit-learn
-      - tabulate
-      - transformers
+      - torch
+      - --extra-index-url https://download.pytorch.org/whl/cu118
+      - transformers>=4.41.1
       - git+https://github.com/microsoft/Olive#egg=olive-ai[gpu]

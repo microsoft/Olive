@@ -104,7 +104,7 @@ def set_aml_system(olive_config, is_gpu=False):
                 "accelerators": [{"device": "GPU", "execution_providers": ["CUDAExecutionProvider"]}],
                 "aml_compute": "gpu-cluster",
                 "aml_docker_config": {
-                    "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.6-cudnn8-ubuntu20.04",
+                    "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04",
                     "conda_file_path": "conda_gpu.yaml",
                 },
                 "is_dev": True,
