@@ -8,7 +8,7 @@ import shutil
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from azure.ai.ml import Input, Output, command
 from azure.ai.ml.constants import AssetTypes
@@ -18,10 +18,8 @@ from azure.ai.ml.exceptions import JobException
 from azure.core.exceptions import HttpResponseError, ServiceResponseError
 
 from olive.azureml.azureml_client import AzureMLClientConfig
-from olive.cache import normalize_data_path
-from olive.common.config_utils import ParamCategory, validate_config
+from olive.common.config_utils import validate_config
 from olive.common.utils import copy_dir, replace_dict_value, retry_func
-from olive.data.config import DataConfig
 from olive.evaluator.metric_result import MetricResult
 from olive.model import ModelConfig
 from olive.resource_path import (
@@ -56,16 +54,8 @@ RESOURCE_TYPE_TO_ASSET_TYPE = {
 }
 
 
-class DataParams(NamedTuple):
-    data_inputs: dict
-    data_args: dict
-
-
 def get_asset_type_from_resource_path(resource_path: ResourcePath):
     resource_path = create_resource_path(resource_path)  # just in case
-    if not resource_path:
-        # this is a placeholder for optional input
-        return AssetTypes.URI_FILE
 
     if RESOURCE_TYPE_TO_ASSET_TYPE.get(resource_path.type):
         return RESOURCE_TYPE_TO_ASSET_TYPE[resource_path.type]
@@ -77,6 +67,7 @@ def get_asset_type_from_resource_path(resource_path: ResourcePath):
     return AssetTypes.URI_FILE
 
 
+# TODO(jambayk): remove data_root. Not used at all and makes the logic unnecessarily complex
 class AzureMLSystem(OliveSystem):
     system_type = SystemType.AzureML
     olive_config = None
@@ -114,7 +105,7 @@ class AzureMLSystem(OliveSystem):
 
             aml_environment_config = validate_config(aml_environment_config, AzureMLEnvironmentConfig)
             try:
-                self.environment = self._get_enironment_from_config(aml_environment_config)
+                self.environment = self._get_environment_from_config(aml_environment_config)
             except ResourceNotFoundError:
                 if not aml_docker_config:
                     raise
@@ -125,7 +116,7 @@ class AzureMLSystem(OliveSystem):
         self.env_vars = self._get_hf_token_env(self.azureml_client_config.keyvault_name) if self.hf_token else None
         self.temp_dirs = []
 
-    def _get_hf_token_env(self, keyvault_name: str):
+    def _get_hf_token_env(self, keyvault_name: Optional[str]):
         if keyvault_name is None:
             raise ValueError(
                 "hf_token is set to True but keyvault name is not provided. "
@@ -135,7 +126,7 @@ class AzureMLSystem(OliveSystem):
         env_vars.update({"KEYVAULT_NAME": keyvault_name})
         return env_vars
 
-    def _get_enironment_from_config(self, aml_environment_config: AzureMLEnvironmentConfig):
+    def _get_environment_from_config(self, aml_environment_config: AzureMLEnvironmentConfig):
         ml_client = self.azureml_client_config.create_client()
         return retry_func(
             ml_client.environments.get,
@@ -177,14 +168,11 @@ class AzureMLSystem(OliveSystem):
         ml_client = self.azureml_client_config.create_client()
         point = point or {}
         config = the_pass.config_at_search_point(point)
-        data_params = self._create_data_script_inputs_and_args(data_root, the_pass)
         pass_config = the_pass.to_json(check_object=True)
         pass_config["config"].update(the_pass.serialize_config(config, check_object=True))
 
         with tempfile.TemporaryDirectory() as tempdir:
-            pipeline_job = self._create_pipeline_for_pass(
-                data_root, tempdir, model_config, pass_config, the_pass.path_params, data_params
-            )
+            pipeline_job = self._create_pipeline_for_pass(tempdir, model_config.to_json(check_object=True), pass_config)
 
             # submit job
             named_outputs_dir = self._run_job(
@@ -273,7 +261,7 @@ class AzureMLSystem(OliveSystem):
 
         return Input(type=asset_type), Input(type=asset_type, path=resource_path.get_path())
 
-    def _create_olive_config_file(self, olive_config: dict, tmp_dir: Path):
+    def _create_olive_config_file(self, olive_config: Optional[dict], tmp_dir: Path):
         if olive_config is None:
             return None
 
@@ -331,12 +319,9 @@ class AzureMLSystem(OliveSystem):
 
     def _create_pipeline_for_pass(
         self,
-        data_root: str,
         tmp_dir,
-        model_config: ModelConfig,
+        model_config: dict,
         pass_config: dict,
-        pass_path_params: List[Tuple[str, bool, ParamCategory]],
-        data_params: DataParams,
     ):
         tmp_dir = Path(tmp_dir)
 
@@ -354,12 +339,12 @@ class AzureMLSystem(OliveSystem):
         self.copy_code(code_files, code_root)
 
         # prepare inputs
-        model_resource_paths = model_config.get_resource_paths()
-        inputs = {
-            **self._create_model_inputs(model_resource_paths),
-            **self._create_pass_inputs(pass_path_params),
-            **data_params.data_inputs,
-        }
+        inputs, args = {}, {}
+        for name, config_json in [("model", model_config), ("pass", pass_config)]:
+            name_inputs, name_args = self.create_args_and_inputs(name, config_json, tmp_dir)
+            inputs.update(name_inputs)
+            args.update(name_args)
+
         # prepare outputs
         outputs = {"pipeline_output": Output(type=AssetTypes.URI_FOLDER)}
 
@@ -381,16 +366,6 @@ class AzureMLSystem(OliveSystem):
             script_name=script_name,
         )
 
-        # model json
-        model_json = model_config.to_json(check_object=True)
-
-        # input argument values
-        args = {
-            **self._create_model_args(model_json, model_resource_paths, tmp_dir),
-            **self._create_pass_args(pass_config, pass_path_params, data_root, tmp_dir),
-            **data_params.data_args,
-        }
-
         @pipeline()
         def pass_runner_pipeline():
             outputs = {}
@@ -399,39 +374,6 @@ class AzureMLSystem(OliveSystem):
             return outputs
 
         return pass_runner_pipeline()
-
-    def _create_data_script_inputs_and_args(self, data_root, the_pass: "Pass") -> DataParams:
-        data_inputs = {}
-        data_args = {}
-        data_name_set = set()
-
-        def update_dicts(name, key, script_attr, input_type):
-            data_inputs.update({f"{name}_{key}": Input(type=input_type, optional=True)})
-            data_args.update({f"{name}_{key}": Input(type=input_type, path=getattr(script_attr, key))})
-
-        def update_data_path(data_config, key, data_inputs, data_args, asset_type):
-            if data_config.load_dataset_params.get(key):
-                data_path_resource_path = create_resource_path(data_config.load_dataset_params[key])
-                data_path_resource_path = normalize_data_path(data_root, data_path_resource_path)
-                if data_path_resource_path:
-                    data_path_resource_path = self._create_args_from_resource_path(data_path_resource_path)
-                    data_inputs.update({f"{data_config.name}_{key}": Input(type=asset_type, optional=True)})
-                    data_args.update({f"{data_config.name}_{key}": data_path_resource_path})
-
-        for param, param_config in the_pass.config.items():
-            if param.endswith("data_config") and param_config is not None:
-                data_config = validate_config(param_config, DataConfig)
-                if data_config.name not in data_name_set:
-                    data_name_set.add(data_config.name)
-                    if data_config.user_script:
-                        update_dicts(data_config.name, "user_script", data_config, AssetTypes.URI_FILE)
-                    if data_config.script_dir:
-                        update_dicts(data_config.name, "script_dir", data_config, AssetTypes.URI_FOLDER)
-                    update_data_path(data_config, "data_dir", data_inputs, data_args, AssetTypes.URI_FOLDER)
-                    update_data_path(data_config, "data_files", data_inputs, data_args, AssetTypes.URI_FILE)
-
-        logger.debug("Data inputs for pass: %s, data args for pass: %s", data_inputs, data_args)
-        return DataParams(data_inputs, data_args)
 
     def _run_job(
         self,
@@ -519,46 +461,6 @@ class AzureMLSystem(OliveSystem):
 
         return ModelConfig(**model_json)
 
-    def _create_metric_inputs(self):
-        return {
-            "metric_config": Input(type=AssetTypes.URI_FILE),
-            "metric_user_script": Input(type=AssetTypes.URI_FILE, optional=True),
-            "metric_script_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
-            "metric_data_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
-        }
-
-    def _create_metric_args(self, data_root: str, metric_config: dict, tmp_dir: Path) -> Tuple[List[str], dict]:
-        metric_user_script = metric_config["user_config"]["user_script"]
-        if metric_user_script:
-            metric_user_script = Input(type=AssetTypes.URI_FILE, path=metric_user_script)
-            metric_config["user_config"]["user_script"] = None
-
-        metric_script_dir = metric_config["user_config"]["script_dir"]
-        if metric_script_dir:
-            metric_script_dir = Input(type=AssetTypes.URI_FOLDER, path=metric_script_dir)
-            metric_config["user_config"]["script_dir"] = None
-
-        metric_data_dir = metric_config["user_config"]["data_dir"]
-        # convert the dict to a resource path object
-        metric_data_dir = create_resource_path(metric_data_dir)
-        metric_data_dir = normalize_data_path(data_root, metric_data_dir)
-        if metric_data_dir:
-            metric_data_dir = self._create_args_from_resource_path(metric_data_dir)
-            if metric_data_dir:
-                metric_config["user_config"]["data_dir"] = None
-
-        metric_config_path = tmp_dir / "metric_config.json"
-        with metric_config_path.open("w") as f:
-            json.dump(metric_config, f, sort_keys=True, indent=4)
-        metric_config = Input(type=AssetTypes.URI_FILE, path=metric_config_path)
-
-        return {
-            "metric_config": metric_config,
-            "metric_user_script": metric_user_script,
-            "metric_script_dir": metric_script_dir,
-            "metric_data_dir": metric_data_dir,
-        }
-
     def evaluate_model(
         self, model_config: ModelConfig, data_root: str, metrics: List["Metric"], accelerator: "AcceleratorSpec"
     ) -> MetricResult:
@@ -569,7 +471,9 @@ class AzureMLSystem(OliveSystem):
 
         with tempfile.TemporaryDirectory() as tempdir:
             ml_client = self.azureml_client_config.create_client()
-            pipeline_job = self._create_pipeline_for_evaluation(data_root, tempdir, model_config, metrics, accelerator)
+            pipeline_job = self._create_pipeline_for_evaluation(
+                tempdir, model_config.to_json(check_object=True), metrics, accelerator
+            )
 
             # submit job
             named_outputs_dir = self._run_job(ml_client, pipeline_job, "olive-evaluation", tempdir)
@@ -585,20 +489,15 @@ class AzureMLSystem(OliveSystem):
 
     def _create_pipeline_for_evaluation(
         self,
-        data_root: str,
         tmp_dir: str,
-        model_config: ModelConfig,
+        model_config: dict,
         metrics: List["Metric"],
         accelerator: "AcceleratorSpec",
     ):
         tmp_dir = Path(tmp_dir)
 
-        # model json
-        model_json = model_config.to_json(check_object=True)
-
-        resource_paths = model_config.get_resource_paths()
         # model args
-        model_args = self._create_model_args(model_json, resource_paths, tmp_dir)
+        model_inputs, model_args = self.create_args_and_inputs("model", model_config, tmp_dir)
 
         accelerator_config_path: Path = tmp_dir / "accelerator.json"
         with accelerator_config_path.open("w") as f:
@@ -610,11 +509,10 @@ class AzureMLSystem(OliveSystem):
             for metric in metrics:
                 metric_tmp_dir = tmp_dir / metric.name
                 metric_component = self._create_metric_component(
-                    data_root,
                     metric_tmp_dir,
                     metric,
+                    model_inputs,
                     model_args,
-                    resource_paths,
                     accelerator_config_path,
                 )
                 outputs[metric.name] = metric_component.outputs.pipeline_output
@@ -627,11 +525,10 @@ class AzureMLSystem(OliveSystem):
 
     def _create_metric_component(
         self,
-        data_root: str,
         tmp_dir: Path,
         metric: "Metric",
+        model_inputs: Dict[str, Input],
         model_args: Dict[str, Input],
-        model_resource_paths: Dict[str, ResourcePath],
         accelerator_config_path: str,
     ):
         metric_json = metric.to_json(check_object=True)
@@ -651,11 +548,14 @@ class AzureMLSystem(OliveSystem):
         self.copy_code(code_files, code_root)
 
         # prepare inputs
-        inputs = {
-            **self._create_model_inputs(model_resource_paths),
-            **self._create_metric_inputs(),
-            "accelerator_config": Input(type=AssetTypes.URI_FILE),
+        metric_inputs, metric_args = self.create_args_and_inputs("metric", metric_json, tmp_dir)
+        inputs = {**model_inputs, **metric_inputs, "accelerator_config": Input(type=AssetTypes.URI_FILE)}
+        args = {
+            **model_args,
+            **metric_args,
+            "accelerator_config": Input(type=AssetTypes.URI_FILE, path=accelerator_config_path),
         }
+
         # prepare outputs
         outputs = {"pipeline_output": Output(type=AssetTypes.URI_FOLDER)}
 
@@ -679,13 +579,6 @@ class AzureMLSystem(OliveSystem):
             outputs=outputs,
             script_name=script_name,
         )
-
-        # input argument values
-        args = {
-            **model_args,
-            **self._create_metric_args(data_root, metric_json, tmp_dir),
-            "accelerator_config": Input(type=AssetTypes.URI_FILE, path=accelerator_config_path),
-        }
 
         # metric component
         return cmd(**args)
