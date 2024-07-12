@@ -204,13 +204,13 @@ class AzureMLSystem(OliveSystem):
         if resource_map:
             resource_map_path = tmp_dir / f"{name}_resource_map.json"
             with resource_map_path.open("w") as f:
-                json.dump(resource_map, f)
+                json.dump(resource_map, f, sort_keys=True, indent=4)
             inputs[f"{name}_resource_map"] = Input(type=AssetTypes.URI_FILE)
             args[f"{name}_resource_map"] = Input(type=AssetTypes.URI_FILE, path=resource_map_path)
 
         config_path = tmp_dir / f"{name}_config.json"
         with config_path.open("w") as f:
-            json.dump(config_json, f, indent=4)
+            json.dump(config_json, f, sort_keys=True, indent=4)
         args[f"{name}_config"] = Input(type=AssetTypes.URI_FILE, path=config_path)
 
         return inputs, args
@@ -269,7 +269,7 @@ class AzureMLSystem(OliveSystem):
 
         olive_config_path = tmp_dir / "olive_config.json"
         with olive_config_path.open("w") as f:
-            json.dump(olive_config, f, indent=4)
+            json.dump(olive_config, f, sort_keys=True, indent=4)
         return olive_config_path
 
     def _create_step(
@@ -344,7 +344,7 @@ class AzureMLSystem(OliveSystem):
         inputs, args = {}, {}
         for name, config_json in [("model", model_config), ("pass", pass_config)]:
             name_inputs, name_args = self.create_inputs_and_args(
-                name, config_json, tmp_dir, ignore_keys=["_model_name_or_path"] if name == "model" else None
+                name, config_json, tmp_dir, ignore_keys=["model_attributes"] if name == "model" else None
             )
             inputs.update(name_inputs)
             args.update(name_args)
@@ -501,7 +501,7 @@ class AzureMLSystem(OliveSystem):
 
         # model args
         model_inputs, model_args = self.create_inputs_and_args(
-            "model", model_config, tmp_dir, ignore_keys=["_model_name_or_path"]
+            "model", model_config, tmp_dir, ignore_keys=["model_attributes"]
         )
 
         accelerator_config_path: Path = tmp_dir / "accelerator_config.json"
