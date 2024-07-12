@@ -60,6 +60,12 @@ QNNPreprocess
 --------------
 .. autoconfigclass:: olive.passes.QNNPreprocess
 
+.. _qnn_mixed_precision_overrides:
+
+QNNMixedPrecisionOverrides
+--------------------------
+.. autoconfigclass:: olive.passes.QNNMixedPrecisionOverrides
+
 .. _onnx_dynamic_quantization:
 
 OnnxDynamicQuantization

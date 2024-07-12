@@ -91,7 +91,7 @@
             "module_path": "olive.passes.onnx.transformer_optimization.OrtTransformersOptimization"
         },
         "QNNPreprocess": {
-            "module_path": "olive.passes.onnx.qnn_preprocess.QNNPreprocess"
+            "module_path": "olive.passes.onnx.qnn.qnn_preprocess.QNNPreprocess"
         },
         "VitisAIQuantization": {
             "module_path": "olive.passes.onnx.vitis_ai_quantization.VitisAIQuantization"
