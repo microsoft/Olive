@@ -15,7 +15,7 @@ from olive.data.registry import Registry
 
 
 @Registry.register_dataset()
-def load_tiny_code_dataset(
+def tiny_code_dataset(
     data_name: str, split: str, language: str, token: Union[bool, str] = True, trust_remote_code=None
 ):
     # TODO(anyone): build-in tiny code example dataset

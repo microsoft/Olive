@@ -12,6 +12,19 @@
             }
         }
     },
+    "data_configs": [
+        {
+            "name": "perf_tuning_data_config",
+            "type": "HuggingfaceContainer",
+            "user_script": "user_script.py",
+            "load_dataset_config": {
+                "type": "create_bert_dataset"
+            },
+            "dataloader_config": {
+                "type": "create_bert_dataloader"
+            }
+        }
+    ],
     "evaluators": {
         "common_evaluator": {
             "metrics":[
@@ -66,9 +79,7 @@
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {
-                "user_script": "user_script.py",
-                "dataloader_func": "create_dataloader",
-                "batch_size": 1
+                "data_config": "perf_tuning_data_config"
             }
         }
     },

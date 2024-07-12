@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from test.unit_test.utils import create_dummy_dataloader, get_pytorch_model_dummy_input, pytorch_model_loader
+from test.unit_test.utils import get_pytorch_model_dummy_input, get_pytorch_model_io_config, pytorch_model_loader
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -29,7 +29,7 @@ def get_dataloader_config():
             "config": {
                 "model_loader": pytorch_model_loader,
                 "dummy_inputs_func": get_pytorch_model_dummy_input,
-                "io_config": {"input_names": ["input"], "output_names": ["output"], "input_shapes": [(1, 1)]},
+                "io_config": get_pytorch_model_io_config(),
             },
         },
         "data_configs": [
@@ -68,9 +68,7 @@ def get_dataloader_config():
             "perf_tuning": {
                 "type": "OrtPerfTuning",
                 "config": {
-                    "dataloader_func": create_dummy_dataloader,
-                    "batch_size": 16,
-                    "data_dir": "data",
+                    "data_config": "test_data_config",
                 },
             },
         },
@@ -91,7 +89,7 @@ def get_data_config():
             "config": {
                 "model_loader": pytorch_model_loader,
                 "dummy_inputs_func": get_pytorch_model_dummy_input,
-                "io_config": {"input_names": ["input"], "output_names": ["output"], "input_shapes": [(1, 1)]},
+                "io_config": get_pytorch_model_io_config(),
             },
         },
         "data_configs": [

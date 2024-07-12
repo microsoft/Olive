@@ -732,7 +732,7 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
 
     def _evaluate_accuracy(
         self,
-        model: ONNXModelHandler,
+        model: "OliveModelHandler",
         data_root: str,
         metric: Metric,
         dataloader: "DataLoader",

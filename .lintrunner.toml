@@ -41,9 +41,6 @@ include_patterns = [
   '**/*.py',
   '**/*.pyi'
 ]
-exclude_patterns = [
-  'olive/engine/packaging/sample_code/**'
-]
 command = [
   'python',
   '-m',
@@ -69,9 +66,6 @@ code = 'BLACK-ISORT'
 include_patterns = [
   '**/*.py'
 ]
-exclude_patterns = [
-  'olive/engine/packaging/sample_code/**'
-]
 command = [
   'python',
   '-m',
@@ -96,9 +90,6 @@ is_formatter = true
 code = 'PYLINT'
 include_patterns = [
   '**/*.py'
-]
-exclude_patterns = [
-  'olive/engine/packaging/sample_code/**'
 ]
 command = [
   'python',
@@ -127,8 +118,7 @@ include_patterns = [
   '**/*.pyi'
 ]
 exclude_patterns = [
-  'examples/pytorch/*.py',
-  'olive/engine/packaging/sample_code/**'
+  'examples/pytorch/*.py'
 ]
 command = [
   'python',
@@ -155,9 +145,6 @@ init_command = [
 [[linter]]
 code = 'NOQA'
 include_patterns = ['**/*.py', '**/*.pyi']
-exclude_patterns = [
-  'olive/engine/packaging/sample_code/**'
-]
 command = [
   'python',
   '-m',
@@ -178,9 +165,6 @@ command = [
 [[linter]]
 code = 'SPACES'
 include_patterns = ['**']
-exclude_patterns = [
-  'olive/engine/packaging/sample_code/**'
-]
 command = [
   'python',
   '-m',
@@ -204,8 +188,7 @@ include_patterns = ['**']
 exclude_patterns = [
   '.lintrunner.toml',
   '**/Makefile',
-  '**/*.bat',
-  'olive/engine/packaging/sample_code/**'
+  '**/*.bat'
 ]
 command = [
   'python',

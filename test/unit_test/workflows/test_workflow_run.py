@@ -2,6 +2,7 @@ from test.unit_test.utils import (
     create_dummy_dataloader,
     get_pytorch_model,
     get_pytorch_model_config,
+    get_pytorch_model_io_config,
     pytorch_model_loader,
 )
 from unittest.mock import patch
@@ -15,7 +16,7 @@ INPUT_MODEL_CONFIG = {
     "type": "PyTorchModel",
     "config": {
         "model_loader": pytorch_model_loader,
-        "io_config": {"input_names": ["input"], "output_names": ["output"], "input_shapes": [(1, 1)]},
+        "io_config": get_pytorch_model_io_config(),
     },
 }
 
