@@ -12,6 +12,7 @@ from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.constants import DEFAULT_WORKFLOW_ID
 from olive.common.pydantic_v1 import Field, validator
 from olive.data.config import DataConfig
+from olive.data.container.dummy_data_container import TRANSFORMER_DUMMY_DATA_CONTAINER
 from olive.data.container.huggingface_container import HuggingfaceContainer
 from olive.engine import Engine, EngineConfig
 from olive.engine.cloud_cache_helper import CloudCacheConfig
@@ -198,6 +199,23 @@ class RunConfig(ConfigBase):
 
         if isinstance(v, DataConfig):
             v = v.dict()
+
+        if v["type"] in TRANSFORMER_DUMMY_DATA_CONTAINER:
+            # if user already set kv_cache in io_config, use it directly and ignore the default value
+            io_config = values["input_model"].dict()["config"].get("io_config", {})
+            hf_config = values["input_model"].dict()["config"].get("hf_config", {})
+            kv_cache = io_config.get("kv_cache", False)
+
+            for component_config_name in ["load_dataset_config"]:
+                v[component_config_name] = component_config = v.get(component_config_name) or {}
+                component_config["params"] = component_config_params = component_config.get("params") or {}
+                for key in ["model_name"]:
+                    if not component_config_params.get(key, None):
+                        component_config_params[key] = hf_config.get(key, None)
+                if isinstance(kv_cache, dict):
+                    for key in ["ort_past_key_name", "ort_past_value_name", "batch_size"]:
+                        if not component_config_params.get(key, None) and kv_cache.get(key):
+                            component_config_params[key] = kv_cache.get(key, None)
 
         if v["type"] == HuggingfaceContainer.__name__:
             hf_config = values["input_model"].dict()["config"].get("hf_config", {})

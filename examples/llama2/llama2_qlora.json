@@ -103,18 +103,11 @@
                             "priority": 1
                         }
                     ],
+                    "data_config": {
+                        "name": "transformer_prompt_dummy_data",
+                        "type": "TransformersPromptDummyDataContainer"
+                    },
                     "user_config": {
-                        "user_script": "user_script.py",
-                        "dataloader_func": "dataloader_func_for_merged",
-                        "func_kwargs": {
-                            "dataloader_func": {
-                                "model_id": "meta-llama/Llama-2-7b-hf",
-                                "past_seq_length": 0,
-                                "seq_length": 8,
-                                "max_seq_length": 2048
-                            }
-                        },
-                        "batch_size": 2,
                         "io_bind": true
                     }
                 }

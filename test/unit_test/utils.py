@@ -326,6 +326,24 @@ def get_glue_huggingface_data_config():
     )
 
 
+def get_transformer_dummy_input_data_config():
+    return DataConfig(
+        name="transformer_token_dummy_data",
+        type="TransformersTokenDummyDataContainer",
+        load_dataset_config=DataComponentConfig(
+            params={
+                "model_name": "Intel/bert-base-uncased-mrpc",
+                "use_step": True,
+            }
+        ),
+        dataloader_config=DataComponentConfig(
+            params={
+                "batch_size": 2,
+            }
+        ),
+    )
+
+
 def create_raw_data(raw_data_dir, input_names, input_shapes, input_types=None, num_samples=1):
     data_dir = Path(raw_data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)

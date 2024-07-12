@@ -23,6 +23,12 @@
             }
         }
     },
+    "data_configs": [
+        {
+            "name": "transformer_token_dummy_data",
+            "type": "TransformersTokenDummyDataContainer"
+        }
+    ],
     "evaluators": {
         "common_evaluator": {
             "metrics": [
@@ -35,10 +41,8 @@
                             "priority": 1
                         }
                     ],
+                    "data_config": "transformer_token_dummy_data",
                     "user_config": {
-                        "user_script": "user_script.py",
-                        "dataloader_func": "create_dataloader",
-                        "batch_size": 1,
                         "inference_settings" : {
                             "onnx": {
                                 "session_options": {
