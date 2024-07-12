@@ -11,6 +11,6 @@ dependencies:
       - scipy
       - scikit-learn
       - torch
-      - --index-url https://download.pytorch.org/whl/cpu
+      - --extra-index-url https://download.pytorch.org/whl/cpu
       - transformers>=4.41.1
       - git+https://github.com/microsoft/Olive#egg=olive-ai[cpu]
