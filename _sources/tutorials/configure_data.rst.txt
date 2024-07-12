@@ -46,7 +46,7 @@ The data config template is defined in `olive.data.template <https://github.com/
 
 Currently, we support the following data container which can be generated from ``olive.data.template``:
 
-1. `DummyDataContainer <https://github.com/microsoft/Olive/blob/main/olive/data/template.py#L9>`_ :
+1. DummyDataContainer:
 Convert the dummy data config to the data container.
 
 .. tabs::
@@ -81,7 +81,7 @@ Convert the dummy data config to the data container.
                 })
             )
 
-2. `HuggingfaceContainer <https://github.com/microsoft/Olive/blob/main/olive/data/template.py#L9>`_ :
+2. HuggingfaceContainer:
 Convert the huggingface data config to the data container.
 
 .. tabs::
@@ -144,7 +144,7 @@ Convert the huggingface data config to the data container.
             )
 
 
-3. `RawDataContainer <https://github.com/microsoft/Olive/blob/main/olive/data/template.py#L72>`_ :
+3. RawDataContainer:
 Convert the raw data config to the data container.
 
 .. tabs::
@@ -185,6 +185,37 @@ Convert the raw data config to the data container.
                 })
             )
 
+4. TransformersDummyDataContainer:
+Convert the transformer dummy data config to the data container.
+
+.. tabs::
+    .. tab:: Config JSON
+
+        .. code-block:: json
+
+            {
+                "name": "transformers_dummy_data_config",
+                "type": "TransformersDummyDataContainer"
+            }
+
+    .. tab:: Python Class
+
+        .. code-block:: python
+
+            from olive.data.config import DataConfig
+            data_config = DataConfig(
+                name="transformers_dummy_data_config",
+                type="TransformersDummyDataContainer",
+                load_dataset_config=DataComponentConfig(params={
+                    # model_name can be filled with the model name in input model's hf_config
+                    # if you start olive with olive run --config <config_path>
+                    "model_name": "meta-llama/Llama-2-7b-hf"
+                })
+            )
+
+    Also, based on ``TransformersDummyDataContainer``, Olive provides templates for transformer inference based on prompt(first prediction, no kv_cache now) and token(with kv_cache) inputs.
+    - ``TransformersPromptDummyDataContainer`` where ``seq_len`` >= 1(default 8) and ``past_seq_len`` = 0.
+    - ``TransformersTokenDummyDataContainer`` where ``seq_len`` == 1 and ``past_seq_len`` >= 1(default 8).
 
 
 Generic Data Config

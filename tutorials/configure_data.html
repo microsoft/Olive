@@ -171,7 +171,7 @@
 <h2>Supported Data Config Template<a class="headerlink" href="#supported-data-config-template" title="Permalink to this heading">¶</a></h2>
 <p>The data config template is defined in <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/data/template.py">olive.data.template</a> module which is used to create data_config easily.</p>
 <p>Currently, we support the following data container which can be generated from <code class="docutils literal notranslate"><span class="pre">olive.data.template</span></code>:</p>
-<p>1. <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/data/template.py#L9">DummyDataContainer</a> :
+<p>1. DummyDataContainer:
 Convert the dummy data config to the data container.</p>
 <div class="sphinx-tabs docutils container">
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -200,7 +200,7 @@ Convert the dummy data config to the data container.</p>
 </pre></div>
 </div>
 </div></div>
-<p>2. <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/data/template.py#L9">HuggingfaceContainer</a> :
+<p>2. HuggingfaceContainer:
 Convert the huggingface data config to the data container.</p>
 <div class="sphinx-tabs docutils container">
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-1-1-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-1-1-0" name="1-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-1-1-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-1-1-1" name="1-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-1-1-0" class="sphinx-tabs-panel" id="panel-1-1-0" name="1-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -256,7 +256,7 @@ Convert the huggingface data config to the data container.</p>
 </pre></div>
 </div>
 </div></div>
-<p>3. <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/data/template.py#L72">RawDataContainer</a> :
+<p>3. RawDataContainer:
 Convert the raw data config to the data container.</p>
 <div class="sphinx-tabs docutils container">
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-2-2-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-2-2-0" name="2-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-2-2-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-2-2-1" name="2-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-2-2-0" class="sphinx-tabs-panel" id="panel-2-2-0" name="2-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -291,6 +291,31 @@ Convert the raw data config to the data container.</p>
 </pre></div>
 </div>
 </div></div>
+<p>4. TransformersDummyDataContainer:
+Convert the transformer dummy data config to the data container.</p>
+<div class="sphinx-tabs docutils container">
+<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-3-3-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-3-3-0" name="3-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-3-3-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-3-3-1" name="3-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-3-3-0" class="sphinx-tabs-panel" id="panel-3-3-0" name="3-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;transformers_dummy_data_config&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;TransformersDummyDataContainer&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div><div aria-labelledby="tab-3-3-1" class="sphinx-tabs-panel" hidden="true" id="panel-3-3-1" name="3-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.data.config</span> <span class="kn">import</span> <span class="n">DataConfig</span>
+<span class="n">data_config</span> <span class="o">=</span> <span class="n">DataConfig</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;transformers_dummy_data_config&quot;</span><span class="p">,</span>
+    <span class="nb">type</span><span class="o">=</span><span class="s2">&quot;TransformersDummyDataContainer&quot;</span><span class="p">,</span>
+    <span class="n">load_dataset_config</span><span class="o">=</span><span class="n">DataComponentConfig</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="p">{</span>
+        <span class="c1"># model_name can be filled with the model name in input model&#39;s hf_config</span>
+        <span class="c1"># if you start olive with olive run --config &lt;config_path&gt;</span>
+        <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="s2">&quot;meta-llama/Llama-2-7b-hf&quot;</span>
+    <span class="p">})</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div><p>Also, based on <code class="docutils literal notranslate"><span class="pre">TransformersDummyDataContainer</span></code>, Olive provides templates for transformer inference based on prompt(first prediction, no kv_cache now) and token(with kv_cache) inputs.
+- <code class="docutils literal notranslate"><span class="pre">TransformersPromptDummyDataContainer</span></code> where <code class="docutils literal notranslate"><span class="pre">seq_len</span></code> &gt;= 1(default 8) and <code class="docutils literal notranslate"><span class="pre">past_seq_len</span></code> = 0.
+- <code class="docutils literal notranslate"><span class="pre">TransformersTokenDummyDataContainer</span></code> where <code class="docutils literal notranslate"><span class="pre">seq_len</span></code> == 1 and <code class="docutils literal notranslate"><span class="pre">past_seq_len</span></code> &gt;= 1(default 8).</p>
+</div>
 </section>
 <section id="generic-data-config">
 <h2>Generic Data Config<a class="headerlink" href="#generic-data-config" title="Permalink to this heading">¶</a></h2>
@@ -308,8 +333,8 @@ Convert the raw data config to the data container.</p>
 </dl>
 </li>
 <li><dl>
-<dt><code class="docutils literal notranslate"><span class="pre">components</span></code>: the dictionary of four <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/data/constants.py#L12">components</a> which contain:</dt><dd><table class="docutils align-default" id="id5">
-<caption><span class="caption-text">Title</span><a class="headerlink" href="#id5" title="Permalink to this table">¶</a></caption>
+<dt><code class="docutils literal notranslate"><span class="pre">components</span></code>: the dictionary of four <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/data/constants.py#L12">components</a> which contain:</dt><dd><table class="docutils align-default" id="id2">
+<caption><span class="caption-text">Title</span><a class="headerlink" href="#id2" title="Permalink to this table">¶</a></caption>
 <colgroup>
 <col style="width: 20.0%" />
 <col style="width: 80.0%" />
@@ -354,7 +379,7 @@ Convert the raw data config to the data container.</p>
 <h3>Configs with built-in component:<a class="headerlink" href="#configs-with-built-in-component" title="Permalink to this heading">¶</a></h3>
 <p>Then the complete config would be like:</p>
 <div class="sphinx-tabs docutils container">
-<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-3-3-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-3-3-0" name="3-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-3-3-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-3-3-1" name="3-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-3-3-0" class="sphinx-tabs-panel" id="panel-3-3-0" name="3-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-4-4-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-4-4-0" name="4-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-4-4-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-4-4-1" name="4-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-4-4-0" class="sphinx-tabs-panel" id="panel-4-4-0" name="4-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DataContainer&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;load_dataset_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
@@ -394,7 +419,7 @@ Convert the raw data config to the data container.</p>
 <span class="p">}</span>
 </pre></div>
 </div>
-</div><div aria-labelledby="tab-3-3-1" class="sphinx-tabs-panel" hidden="true" id="panel-3-3-1" name="3-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.data.config</span> <span class="kn">import</span> <span class="n">DataConfig</span>
+</div><div aria-labelledby="tab-4-4-1" class="sphinx-tabs-panel" hidden="true" id="panel-4-4-1" name="4-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.data.config</span> <span class="kn">import</span> <span class="n">DataConfig</span>
 <span class="n">data_config</span> <span class="o">=</span> <span class="n">DataConfig</span><span class="p">(</span>
     <span class="n">name</span><span class="o">=</span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
     <span class="nb">type</span><span class="o">=</span><span class="s2">&quot;DataContainer&quot;</span><span class="p">,</span>
@@ -441,7 +466,7 @@ Convert the raw data config to the data container.</p>
 <h3>Configs with customized component:<a class="headerlink" href="#configs-with-customized-component" title="Permalink to this heading">¶</a></h3>
 <p>The above case shows to rewrite all the components in data config. But sometime, there is no need to rewrite all the components. For example, if we only want to customize the <code class="docutils literal notranslate"><span class="pre">load_dataset</span></code> component for <code class="docutils literal notranslate"><span class="pre">DataContainer</span></code>, we can just rewrite the <code class="docutils literal notranslate"><span class="pre">load_dataset</span></code> component in the data config and ignore the other default components.</p>
 <div class="sphinx-tabs docutils container">
-<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-4-4-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-4-4-0" name="4-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-4-4-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-4-4-1" name="4-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-4-4-0" class="sphinx-tabs-panel" id="panel-4-4-0" name="4-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-5-5-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-5-5-0" name="5-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-5-5-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-5-5-1" name="5-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-5-5-0" class="sphinx-tabs-panel" id="panel-5-5-0" name="5-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DataContainer&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
@@ -457,7 +482,7 @@ Convert the raw data config to the data container.</p>
 <span class="p">}</span>
 </pre></div>
 </div>
-</div><div aria-labelledby="tab-4-4-1" class="sphinx-tabs-panel" hidden="true" id="panel-4-4-1" name="4-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.data.registry</span> <span class="kn">import</span> <span class="n">Registry</span>
+</div><div aria-labelledby="tab-5-5-1" class="sphinx-tabs-panel" hidden="true" id="panel-5-5-1" name="5-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.data.registry</span> <span class="kn">import</span> <span class="n">Registry</span>
 
 <span class="nd">@Registry</span><span class="o">.</span><span class="n">register_dataset</span><span class="p">()</span>
 <span class="k">def</span> <span class="nf">customized_huggingface_dataset</span><span class="p">(</span><span class="n">_output</span><span class="p">,</span> <span class="n">trust_remote_code</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
