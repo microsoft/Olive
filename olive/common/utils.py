@@ -151,6 +151,26 @@ def flatten_dict(dictionary, stop_condition=None):  # pragma: no cover
     return result
 
 
+def get_dict_value(dictionary: dict, key: Union[str, Tuple, List[str]]):
+    """Get value from a nested dictionary."""
+    if isinstance(key, str):
+        key = [key]
+
+    for k in key:
+        dictionary = dictionary[k]
+    return dictionary
+
+
+def set_dict_value(dictionary: dict, key: Union[str, Tuple, List[str]], new_value):
+    """Replace value in a nested dictionary."""
+    if isinstance(key, str):
+        key = [key]
+
+    for k in key[:-1]:
+        dictionary = dictionary[k]
+    dictionary[key[-1]] = new_value
+
+
 def retry_func(func, args=None, kwargs=None, max_tries=3, delay=5, backoff=2, exceptions=None):
     """Retry a function call using an exponential backoff.
 

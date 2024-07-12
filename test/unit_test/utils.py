@@ -74,6 +74,10 @@ def get_hf_model():
     )
 
 
+def get_hf_model_config():
+    return ModelConfig.parse_obj(get_hf_model().to_json())
+
+
 def get_hf_model_with_past():
     return PyTorchModelHandler(
         hf_config={
