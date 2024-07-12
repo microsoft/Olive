@@ -4,14 +4,14 @@
 # --------------------------------------------------------------------------
 import argparse
 import json
+from typing import Tuple
+
+from olive.common.utils import set_dict_value
 
 
 def parse_common_args(raw_args):
     """Parse common args."""
     parser = argparse.ArgumentParser("Olive common args")
-
-    # model args
-    parser.add_argument("--model_config", type=str, help="Path to model config json", required=True)
 
     # pipeline output arg
     parser.add_argument("--pipeline_output", type=str, help="pipeline output path", required=True)
@@ -19,16 +19,41 @@ def parse_common_args(raw_args):
     return parser.parse_known_args(raw_args)
 
 
-def parse_model_resources(model_resource_names, raw_args):
-    """Parse model resources. These are the resources that were uploaded with the job."""
-    parser = argparse.ArgumentParser("Model resources")
+def parse_config(raw_args, name: str) -> Tuple[dict, str]:
+    """Parse config and related resource args."""
+    parser = argparse.ArgumentParser(f"{name} config")
 
-    # parse model resources
-    for resource_name in model_resource_names:
-        # will keep as required since only uploaded resources should be in this list
-        parser.add_argument(f"--model_{resource_name}", type=str, required=True)
+    # parse config arg
+    config_name = f"{name}_config"
+    resource_map_name = f"{name}_resource_map"
+    parser.add_argument(f"--{config_name}", type=str, help=f"{name} config", required=True)
+    parser.add_argument(f"--{resource_map_name}", type=str, help=f"{name} resource path")
 
-    return parser.parse_known_args(raw_args)
+    args, extra_args = parser.parse_known_args(raw_args)
+    args = vars(args)
+
+    # load config json
+    with open(args[config_name]) as f:
+        config = json.load(f)
+
+    if args[resource_map_name] is None:
+        return config, extra_args
+
+    # load resource map json
+    with open(args[resource_map_name]) as f:
+        resource_map = json.load(f)
+
+    # parse resources and replace in config
+    parser = argparse.ArgumentParser(f"{name} resources")
+    for resource_name in resource_map:
+        parser.add_argument(f"--{resource_name}", type=str, help=f"{resource_name} path", required=True)
+
+    args, extra_args = parser.parse_known_args(extra_args)
+    args = vars(args)
+    for resource_name, resource_key in resource_map.items():
+        set_dict_value(config, resource_key, args[resource_name])
+
+    return config, extra_args
 
 
 def get_common_args(raw_args):
@@ -39,16 +64,6 @@ def get_common_args(raw_args):
     """
     common_args, extra_args = parse_common_args(raw_args)
 
-    # load model json
-    with open(common_args.model_config) as f:
-        model_json = json.load(f)
-    # model json has a list of model resource names
-    model_resource_names = model_json.pop("resource_names")
-    model_resource_args, extra_args = parse_model_resources(model_resource_names, extra_args)
-
-    for key, value in vars(model_resource_args).items():
-        # remove the model_ prefix, the 1 is to only replace the first occurrence
-        normalized_key = key.replace("model_", "", 1)
-        model_json["config"][normalized_key] = value
+    model_json, extra_args = parse_config(extra_args, "model")
 
     return model_json, common_args.pipeline_output, extra_args

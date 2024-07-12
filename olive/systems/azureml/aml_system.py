@@ -19,7 +19,7 @@ from azure.core.exceptions import HttpResponseError, ServiceResponseError
 
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import validate_config
-from olive.common.utils import copy_dir, replace_dict_value, retry_func
+from olive.common.utils import copy_dir, get_dict_value, retry_func, set_dict_value
 from olive.evaluator.metric_result import MetricResult
 from olive.model import ModelConfig
 from olive.resource_path import (
@@ -166,6 +166,8 @@ class AzureMLSystem(OliveSystem):
     ) -> ModelConfig:
         """Run the pass on the model at a specific point in the search space."""
         ml_client = self.azureml_client_config.create_client()
+
+        # serialize pass
         point = point or {}
         config = the_pass.config_at_search_point(point)
         pass_config = the_pass.to_json(check_object=True)
@@ -185,7 +187,7 @@ class AzureMLSystem(OliveSystem):
             )
             pipeline_output_path = named_outputs_dir / "pipeline_output"
 
-            return self._load_model(model_config, output_model_path, pipeline_output_path)
+            return self._load_model(model_config.to_json(check_object=True), output_model_path, pipeline_output_path)
 
     def create_args_and_inputs(self, name: str, config_json: dict, tmp_dir: Path):
         inputs = {f"{name}_config": Input(type=AssetTypes.URI_FILE)}
@@ -193,11 +195,11 @@ class AzureMLSystem(OliveSystem):
 
         resource_map = {}
         # create inputs and args for each resource in the config
-        for resource_key, resource_path in find_all_resources(config_json):
-            resource_name = f"{name}_{'_'.join(map(str, resource_key))}"
+        for resource_key, resource_path in find_all_resources(config_json).items():
+            resource_name = f"{name}__{'_'.join(map(str, resource_key))}"
             inputs[resource_name], args[resource_name] = self._create_arg_and_input_from_resource_path(resource_path)
             resource_map[resource_name] = resource_key
-            replace_dict_value(config_json, resource_key, None)
+            set_dict_value(config_json, resource_key, None)
 
         if resource_map:
             resource_map_path = tmp_dir / f"{name}_resource_map.json"
@@ -420,22 +422,20 @@ class AzureMLSystem(OliveSystem):
 
         return output_dir / "named-outputs"
 
-    def _load_model(self, input_model_config: ModelConfig, output_model_path, pipeline_output_path):
+    def _load_model(self, input_model_config: dict, output_model_path, pipeline_output_path):
         model_json_path = pipeline_output_path / "output_model_config.json"
         with model_json_path.open("r") as f:
             model_json = json.load(f)
 
         # set the resources that are the same as the input model
         same_resources_as_input = model_json.pop("same_resources_as_input")
-        input_resource_paths = input_model_config.get_resource_paths()
-        for resource_name in same_resources_as_input:
-            # get the resource path from the input model
-            # do direct indexing to catch errors, should never happen
-            model_json["config"][resource_name] = input_resource_paths[resource_name]
+        for resource_key in same_resources_as_input:
+            set_dict_value(model_json, resource_key, get_dict_value(input_model_config, resource_key))
+
         # resolve resource names that are relative paths and save them to the output folder
-        relative_resource_names = model_json.pop("resource_names")
-        for resource_name in relative_resource_names:
-            resource_json = model_json["config"][resource_name]
+        relative_resource_names = model_json.pop("resources")
+        for resource_key in relative_resource_names:
+            resource_json = get_dict_value(model_json, resource_key)
             # can only be local file or folder
             resource_type = resource_json["type"]
             assert resource_type in LOCAL_RESOURCE_TYPES, f"Expected local file or folder, got {resource_type}"
@@ -443,7 +443,8 @@ class AzureMLSystem(OliveSystem):
             # and create subfolders for each resource
             # this is fine since the engine calls the system with a unique output_model_path which is a folder
             output_dir = Path(output_model_path).with_suffix("")
-            output_name = resource_name.replace("_path", "")
+            # key is like ("config", "model_path")
+            output_name = "-".join(map(str, resource_key)).replace("config-", "").replace("_path", "")
             # if the model is downloaded from job, we need to copy it to the output folder
             # get the downloaded model path
             downloaded_path = pipeline_output_path / resource_json["config"]["path"]
@@ -457,7 +458,7 @@ class AzureMLSystem(OliveSystem):
             output_resource_path = deepcopy(resource_json)
             output_resource_path["config"]["path"] = str(output_path)
             output_resource_path = create_resource_path(output_resource_path)
-            model_json["config"][resource_name] = output_resource_path
+            set_dict_value(model_json, resource_key, output_resource_path)
 
         return ModelConfig(**model_json)
 
@@ -499,7 +500,7 @@ class AzureMLSystem(OliveSystem):
         # model args
         model_inputs, model_args = self.create_args_and_inputs("model", model_config, tmp_dir)
 
-        accelerator_config_path: Path = tmp_dir / "accelerator.json"
+        accelerator_config_path: Path = tmp_dir / "accelerator_config.json"
         with accelerator_config_path.open("w") as f:
             json.dump(accelerator.to_json(), f, sort_keys=True)
 
