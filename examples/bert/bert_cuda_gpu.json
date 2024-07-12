@@ -118,7 +118,6 @@
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {
-                "enable_cuda_graph": true,
                 "data_config": "glue_mrpc"
             }
         }
