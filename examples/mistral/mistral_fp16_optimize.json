@@ -1,50 +1,24 @@
 {
     "input_model": {
         "type": "PyTorchModel",
-        "config": {
-            "hf_config": {
-                "model_name": "mistralai/Mistral-7B-v0.1",
-                "model_class": "MistralForCausalLM"
-            }
-        }
+        "config": { "hf_config": { "model_name": "mistralai/Mistral-7B-v0.1", "model_class": "MistralForCausalLM" } }
     },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": {
-                "accelerators": [
-                    {
-                        "device": "gpu",
-                        "execution_providers": [
-                            "CUDAExecutionProvider"
-                        ]
-                    }
-                ]
-            }
+            "config": { "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ] }
         }
     },
-    "data_configs": [
-        {
-            "name": "transformer_token_dummy_data",
-            "type": "TransformersTokenDummyDataContainer"
-        }
-    ],
+    "data_configs": [ { "name": "transformer_token_dummy_data", "type": "TransformersTokenDummyDataContainer" } ],
     "evaluators": {
         "common_evaluator": {
             "metrics": [
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_types": [
-                        {
-                            "name": "avg",
-                            "priority": 1
-                        }
-                    ],
+                    "sub_types": [ { "name": "avg", "priority": 1 } ],
                     "data_config": "transformer_token_dummy_data",
-                    "user_config": {
-                        "io_bind": true
-                    }
+                    "user_config": { "io_bind": true }
                 }
             ]
         }
@@ -52,13 +26,7 @@
     "passes": {
         "convert": {
             "type": "OptimumConversion",
-            "config": {
-                "target_opset": 14,
-                "extra_args": {
-                    "legacy": false,
-                    "no_post_process": false
-                }
-            }
+            "config": { "target_opset": 14, "extra_args": { "legacy": false, "no_post_process": false } }
         },
         "optimize": {
             "type": "OrtTransformersOptimization",
@@ -67,9 +35,7 @@
                 "use_gpu": true,
                 "keep_io_types": false,
                 "opt_level": 0,
-                "optimization_options": {
-                    "use_multi_head_attention": false
-                },
+                "optimization_options": { "use_multi_head_attention": false },
                 "float16": true,
                 "use_gqa": true,
                 "save_as_external_data": true,
@@ -78,19 +44,10 @@
         },
         "perf_tuning": {
             "type": "OrtPerfTuning",
-            "config": {
-                "data_config": "transformer_token_dummy_data",
-                "enable_profiling": false
-            }
+            "config": { "data_config": "transformer_token_dummy_data", "enable_profiling": false }
         }
     },
-    "pass_flows": [
-        [
-            "convert",
-            "optimize",
-            "perf_tuning"
-        ]
-    ],
+    "pass_flows": [ [ "convert", "optimize", "perf_tuning" ] ],
     "engine": {
         "evaluate_input_model": false,
         "evaluator": "common_evaluator",

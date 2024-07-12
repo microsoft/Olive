@@ -2,18 +2,9 @@
     {
         "Normalize": {
             "normalization_values": [
-                [
-                    0.485,
-                    0.229
-                ],
-                [
-                    0.456,
-                    0.224
-                ],
-                [
-                    0.406,
-                    0.225
-                ]
+                [ 0.485, 0.229 ],
+                [ 0.456, 0.224 ],
+                [ 0.406, 0.225 ]
             ],
             "layout": "CHW"
         }
@@ -25,13 +16,7 @@
             "name": "BGR_to_RGB"
         }
     },
-    {
-        "Unsqueeze": {
-            "axes": [
-                0
-            ]
-        }
-    },
+    { "Unsqueeze": { "axes": [ 0 ] } },
     {
         "CenterCrop": {
             "height": {
@@ -50,9 +35,7 @@
         "SentencePieceTokenizer": {
             "tokenizer_param": {
                 "type": "TokenizerParam",
-                "params": {
-                    "vocab_or_file": "test_data/sentencepiece/test_model.model"
-                }
+                "params": { "vocab_or_file": "test_data/sentencepiece/test_model.model" }
             }
         }
     },
@@ -72,25 +55,13 @@
                     }
                 ]
             },
-            "io_map": [
-                [
-                    "ConvertImageToBGR",
-                    0,
-                    0
-                ]
-            ]
+            "io_map": [ [ "ConvertImageToBGR", 0, 0 ] ]
         }
     },
     {
         "Dummy1": {
             "params": {
-                "explicit_tuple": {
-                    "type": "tuple",
-                    "value": [
-                        47,
-                        23
-                    ]
-                },
+                "explicit_tuple": { "type": "tuple", "value": [ 47, 23 ] },
                 "explicit_placholder": {
                     "type": "tuple",
                     "value": [
@@ -111,40 +82,17 @@
                         32
                     ]
                 },
-                "implicit_tuple": [
-                    1,
-                    2,
-                    3
-                ],
-                "explicit_list": {
-                    "type": "list",
-                    "value": [
-                        1,
-                        2,
-                        3
-                    ]
-                }
+                "implicit_tuple": [ 1, 2, 3 ],
+                "explicit_list": { "type": "list", "value": [ 1, 2, 3 ] }
             },
-            "io_map": [
-                [
-                    "ConvertImageToBGR",
-                    0,
-                    0
-                ]
-            ]
+            "io_map": [ [ "ConvertImageToBGR", 0, 0 ] ]
         }
     },
     {
         "Dummy2": {
             "dummy2_param": {
                 "type": "test.unit_test.passes.onnx.pipeline.test_step_utils.CustomizedParam",
-                "params": {
-                    "params": {
-                        "a": 1,
-                        "b": 2,
-                        "c": 3
-                    }
-                }
+                "params": { "params": { "a": 1, "b": 2, "c": 3 } }
             }
         }
     }

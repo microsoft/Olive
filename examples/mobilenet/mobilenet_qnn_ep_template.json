@@ -1,35 +1,16 @@
 {
-    "input_model": {
-        "type": "OnnxModel",
-        "config": {
-            "model_path": "models/mobilenetv2-12.onnx"
-        }
-    },
+    "input_model": { "type": "OnnxModel", "config": { "model_path": "models/mobilenetv2-12.onnx" } },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": {
-                "accelerators": [
-                    {
-                        "execution_providers": [
-                            "QNNExecutionProvider"
-                        ]
-                    }
-                ]
-            }
+            "config": { "accelerators": [ { "execution_providers": [ "QNNExecutionProvider" ] } ] }
         },
         "qnn_ep_env": {
             "type": "IsolatedORT",
             "config": {
                 "python_environment_path": "<qnn_env_path>",
-                "accelerators": [
-                    {
-                        "execution_providers": [
-                            "QNNExecutionProvider"
-                        ]
-                    }
-                ],
-                "preprend_to_path": ["<qnn_lib_path>"]
+                "accelerators": [ { "execution_providers": [ "QNNExecutionProvider" ] } ],
+                "preprend_to_path": [ "<qnn_lib_path>" ]
             }
         }
     },
@@ -43,10 +24,7 @@
                         {
                             "name": "accuracy_score",
                             "priority": 1,
-                            "metric_config": {
-                                "task": "multiclass",
-                                "num_classes": 1000
-                            }
+                            "metric_config": { "task": "multiclass", "num_classes": 1000 }
                         }
                     ],
                     "user_config": {
@@ -60,12 +38,7 @@
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_types": [
-                        {
-                            "name": "avg",
-                            "priority": 2
-                        }
-                    ],
+                    "sub_types": [ { "name": "avg", "priority": 2 } ],
                     "user_config": {
                         "user_script": "user_script.py",
                         "data_dir": "data/eval",
@@ -77,9 +50,7 @@
         }
     },
     "passes": {
-        "qnn_preprocess": {
-            "type": "QNNPreprocess"
-        },
+        "qnn_preprocess": { "type": "QNNPreprocess" },
         "quantization": {
             "type": "OnnxStaticQuantization",
             "config": {

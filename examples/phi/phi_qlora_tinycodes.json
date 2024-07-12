@@ -5,24 +5,11 @@
             "hf_config": {
                 "model_name": "microsoft/phi-1_5",
                 "task": "text-generation",
-                "from_pretrained_args": {
-                    "trust_remote_code": true
-                }
+                "from_pretrained_args": { "trust_remote_code": true }
             }
         }
     },
-    "systems": {
-        "local_system": {
-            "type": "LocalSystem",
-            "config": {
-                "accelerators": [
-                    {
-                        "device": "gpu"
-                    }
-                ]
-            }
-        }
-    },
+    "systems": { "local_system": { "type": "LocalSystem", "config": { "accelerators": [ { "device": "gpu" } ] } } },
     "data_configs": [
         {
             "name": "tiny_codes_train",
@@ -38,9 +25,7 @@
                 }
             },
             "pre_process_data_config": {
-                "params": {
-                    "text_template": "### Question: {prompt} \n### Answer: {response}"
-                }
+                "params": { "text_template": "### Question: {prompt} \n### Answer: {response}" }
             }
         }
     ],

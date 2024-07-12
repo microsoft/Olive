@@ -1,27 +1,31 @@
 {
-    "input_model":{
+    "input_model": {
         "type": "PyTorchModel",
         "config": {
             "model_loader": "load_pytorch_origin_model",
             "model_script": "user_script.py",
             "io_config": {
-                "input_names": ["input_ids", "attention_mask", "token_type_ids"],
-                "input_shapes": [[1, 128], [1, 128], [1, 128]],
-                "input_types": ["int64", "int64", "int64"],
-                "output_names": ["output"]
+                "input_names": [ "input_ids", "attention_mask", "token_type_ids" ],
+                "input_shapes": [ [ 1, 128 ], [ 1, 128 ], [ 1, 128 ] ],
+                "input_types": [ "int64", "int64", "int64" ],
+                "output_names": [ "output" ]
             }
         }
     },
     "evaluators": {
         "common_evaluator": {
-            "metrics":[
+            "metrics": [
                 {
                     "name": "accuracy",
                     "type": "accuracy",
                     "sub_types": [
-                        {"name": "accuracy_score", "priority": 1, "goal": {"type": "percent-max-degradation", "value": 2}}
+                        {
+                            "name": "accuracy_score",
+                            "priority": 1,
+                            "goal": { "type": "percent-max-degradation", "value": 2 }
+                        }
                     ],
-                    "user_config":{
+                    "user_config": {
                         "post_processing_func": "post_process",
                         "user_script": "user_script.py",
                         "dataloader_func": "create_dataloader",
@@ -32,9 +36,9 @@
                     "name": "latency",
                     "type": "latency",
                     "sub_types": [
-                        {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}}
+                        { "name": "avg", "priority": 2, "goal": { "type": "percent-min-improvement", "value": 20 } }
                     ],
-                    "user_config":{
+                    "user_config": {
                         "user_script": "user_script.py",
                         "dataloader_func": "create_dataloader",
                         "batch_size": 1
@@ -44,18 +48,11 @@
         }
     },
     "passes": {
-        "conversion": {
-            "type": "OnnxConversion",
-            "config": {
-                "target_opset": 14
-            }
-        },
+        "conversion": { "type": "OnnxConversion", "config": { "target_opset": 14 } },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
             "disable_search": true,
-            "config":{
-                "model_type": "bert"
-            }
+            "config": { "model_type": "bert" }
         },
         "quantization": {
             "type": "IncQuantization",
@@ -67,9 +64,13 @@
                     "name": "accuracy",
                     "type": "accuracy",
                     "sub_types": [
-                        {"name": "accuracy_score", "priority": 1, "goal": {"type": "percent-max-degradation", "value": 2}}
+                        {
+                            "name": "accuracy_score",
+                            "priority": 1,
+                            "goal": { "type": "percent-max-degradation", "value": 2 }
+                        }
                     ],
-                    "user_config":{
+                    "user_config": {
                         "post_processing_func": "post_process",
                         "user_script": "user_script.py",
                         "dataloader_func": "create_dataloader",
@@ -80,10 +81,7 @@
         }
     },
     "engine": {
-        "search_strategy": {
-            "execution_order": "joint",
-            "search_algorithm": "exhaustive"
-        },
+        "search_strategy": { "execution_order": "joint", "search_algorithm": "exhaustive" },
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
         "output_dir": "models/bert_inc_ptq_cpu"
