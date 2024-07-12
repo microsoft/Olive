@@ -17,9 +17,9 @@ def default_dataloader(dataset, batch_size=1, **kwargs):
 
 @Registry.register_dataloader()
 def dataloader_with_ignored_batch_fields(
-    dataset, batch_size: int = 1, ignore_fields: Union[str, List] = "step", **kwargs
+    dataset, batch_size: int = 1, fields_no_batch: Union[str, List] = "step", **kwargs
 ):
-    ignore_fields = [ignore_fields] if isinstance(ignore_fields, str) else ignore_fields
+    ignore_fields = [fields_no_batch] if isinstance(fields_no_batch, str) else fields_no_batch
 
     def ignore_batch_collate_fn(batch):
         nonlocal ignore_fields

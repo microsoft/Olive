@@ -128,7 +128,7 @@ class TransformersTokenDummyDataContainer(DummyDataContainer):
             "dataloader_config"={
                 "params": {
                     "batch_size": 1,
-                    "ignore_fields": "step",
+                    "fields_no_batch": "step",
                 }
             }
         )
