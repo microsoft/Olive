@@ -124,10 +124,17 @@ class TransformersTokenDummyDataContainer(DummyDataContainer):
                     "trust_remote_code": None,
                     "max_samples": 32,
                 )
+            },
+            "dataloader_config"={
+                "params": {
+                    "batch_size": 1,
+                    "ignore_fields": "step",
+                }
             }
         )
     """
 
     default_components_type: ClassVar[dict] = {
         DataComponentType.LOAD_DATASET.value: "transformers_token_dummy_dataset",
+        DataComponentType.DATALOADER.value: "dataloader_with_ignored_batch_fields",
     }

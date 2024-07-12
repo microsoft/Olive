@@ -3,6 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+from typing import List, Union
+
 from torch.utils.data import DataLoader, default_collate
 
 from olive.data.registry import Registry
@@ -10,14 +12,22 @@ from olive.data.registry import Registry
 
 @Registry.register_default_dataloader()
 def default_dataloader(dataset, batch_size=1, **kwargs):
+    return DataLoader(dataset, batch_size=batch_size, **kwargs)
+
+
+@Registry.register_dataloader()
+def dataloader_with_ignored_batch_fields(
+    dataset, batch_size: int = 1, ignore_fields: Union[str, List] = "step", **kwargs
+):
+    ignore_fields = [ignore_fields] if isinstance(ignore_fields, str) else ignore_fields
+
     def ignore_batch_collate_fn(batch):
+        nonlocal ignore_fields
         # ignore to batch the data fields for given inputs
-        to_ignore_fields = kwargs.get("ignore_fields") or ["step"]
-        kwargs.pop("ignore_fields", None)
         input_data, label = default_collate(batch)
         if isinstance(input_data, dict):
             for k, v in input_data.items():
-                if k in to_ignore_fields:
+                if k in ignore_fields:
                     input_data[k] = v[0].item()
         return [input_data, label]
 
