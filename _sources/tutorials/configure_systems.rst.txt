@@ -384,7 +384,7 @@ Native AzureML System
             ],
             "aml_compute": "gpu-cluster",
             "aml_docker_config": {
-                "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.6-cudnn8-ubuntu20.04",
+                "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04",
                 "conda_file_path": "conda.yaml"
             },
             "aml_environment_config": {
