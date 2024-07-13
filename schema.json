@@ -525,7 +525,8 @@
         "Zipfile",
         "AzureMLModels",
         "AzureMLData",
-        "AzureMLDeployment"
+        "AzureMLDeployment",
+        "Dockerfile"
       ],
       "type": "string"
     },

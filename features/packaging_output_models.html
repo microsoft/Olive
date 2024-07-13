@@ -81,6 +81,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#azuremlmodels">AzureMLModels</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#azuremldata">AzureMLData</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#azuremldeployment">AzureMLDeployment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#dockerfile">Dockerfile</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#how-to-package-olive-artifacts">How to package Olive artifacts</a></li>
@@ -152,10 +153,10 @@
 <h1>Packaging Olive artifacts<a class="headerlink" href="#packaging-olive-artifacts" title="Permalink to this heading">¶</a></h1>
 <section id="what-is-olive-packaging">
 <h2>What is Olive Packaging<a class="headerlink" href="#what-is-olive-packaging" title="Permalink to this heading">¶</a></h2>
-<p>Olive will output multiple candidate models based on metrics priorities. It also can package output artifacts when the user requires. Olive packaging can be used in different scenarios. There are 4 packaging types: <code class="docutils literal notranslate"><span class="pre">Zipfile</span></code>, <code class="docutils literal notranslate"><span class="pre">AzureMLModels</span></code>, <code class="docutils literal notranslate"><span class="pre">AzureMLData</span></code> and <code class="docutils literal notranslate"><span class="pre">AzureMLDeployment</span></code>.</p>
+<p>Olive will output multiple candidate models based on metrics priorities. It also can package output artifacts when the user requires. Olive packaging can be used in different scenarios. There are 4 packaging types: <code class="docutils literal notranslate"><span class="pre">Zipfile</span></code>, <code class="docutils literal notranslate"><span class="pre">AzureMLModels</span></code>, <code class="docutils literal notranslate"><span class="pre">AzureMLData</span></code>, <code class="docutils literal notranslate"><span class="pre">AzureMLDeployment</span></code> and <code class="docutils literal notranslate"><span class="pre">Dockerfile</span></code>.</p>
 <section id="zipfile">
 <h3>Zipfile<a class="headerlink" href="#zipfile" title="Permalink to this heading">¶</a></h3>
-<p>Zipfile packaging will generate a ZIP file which includes 3 folders: <code class="docutils literal notranslate"><span class="pre">CandidateModels</span></code>, and <code class="docutils literal notranslate"><span class="pre">ONNXRuntimePackages</span></code>, and a <code class="docutils literal notranslate"><span class="pre">models_rank.json</span></code> file in the <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> folder (from Engine Configuration):</p>
+<p>Zipfile packaging will generate a ZIP file which includes 3 folders: <code class="docutils literal notranslate"><span class="pre">CandidateModels</span></code>, <code class="docutils literal notranslate"><span class="pre">SampleCode</span></code> and <code class="docutils literal notranslate"><span class="pre">ONNXRuntimePackages</span></code>, and a <code class="docutils literal notranslate"><span class="pre">models_rank.json</span></code> file in the <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> folder (from Engine Configuration):</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">CandidateModels</span></code>: top ranked output model set</p>
 <ul>
@@ -257,6 +258,10 @@
 <h3>AzureMLDeployment<a class="headerlink" href="#azuremldeployment" title="Permalink to this heading">¶</a></h3>
 <p>AzureMLDeployment packaging will <a class="reference external" href="https://learn.microsoft.com/en-us/azure/machine-learning/how-to-package-models?view=azureml-api-2&amp;amp;tabs=sdk">package</a> ranked No. 1 model across all output models to Azure ML workspace, and create an endpoint for it if the endpoint doesn’t exist, then deploy the output model to this endpoint.</p>
 </section>
+<section id="dockerfile">
+<h3>Dockerfile<a class="headerlink" href="#dockerfile" title="Permalink to this heading">¶</a></h3>
+<p>Dockerfile packaging will generate a Dockerfile. You can simple run <code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">build</span></code> for this Dockerfile to build a docker image which includes <code class="docutils literal notranslate"><span class="pre">onnxruntime</span></code> Python package and first ranked output model.</p>
+</section>
 </section>
 <section id="how-to-package-olive-artifacts">
 <h2>How to package Olive artifacts<a class="headerlink" href="#how-to-package-olive-artifacts" title="Permalink to this heading">¶</a></h2>
@@ -270,7 +275,8 @@ Olive packaging type. Olive will package different artifacts based on <code clas
 <li><p><code class="docutils literal notranslate"><span class="pre">name</span> <span class="pre">[str]</span></code>:
 For <code class="docutils literal notranslate"><span class="pre">PackagingType.Zipfile</span></code> type, Olive will generate a ZIP file with <code class="docutils literal notranslate"><span class="pre">name</span></code> prefix: <code class="docutils literal notranslate"><span class="pre">&lt;name&gt;.zip</span></code>.
 For <code class="docutils literal notranslate"><span class="pre">PackagingType.AzureMLModels</span></code> and <code class="docutils literal notranslate"><span class="pre">PackagingType.AzureMLData</span></code>, Olive will use this <code class="docutils literal notranslate"><span class="pre">name</span></code> for Azure ML resource.
-The default value is <code class="docutils literal notranslate"><span class="pre">OutputModels</span></code>.</p></li>
+The default value is <code class="docutils literal notranslate"><span class="pre">OutputModels</span></code>.
+For <code class="docutils literal notranslate"><span class="pre">PackagingType.AzureMLDeployment</span></code> and <code class="docutils literal notranslate"><span class="pre">PackagingType.Dockerfile</span></code> type, Olive will ignore this attribute.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">config</span> <span class="pre">[dict]</span></code>:
 The packaging config.</p>
 <ul>
@@ -350,6 +356,12 @@ Size of the mini-batch passed to each batch invocation. <code class="docutils li
 Extra configurations for deployment. <code class="docutils literal notranslate"><span class="pre">None</span></code> by default.</p></li>
 </ul>
 </li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Dockerfile</span></code></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">requirements_file</span> <span class="pre">[str]</span></code>:
+<code class="docutils literal notranslate"><span class="pre">requirements.txt</span></code> file path. The packages will be installed to docker image.</p></li>
 </ul>
 </li>
 </ul>
