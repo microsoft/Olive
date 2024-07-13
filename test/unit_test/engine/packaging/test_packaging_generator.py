@@ -490,6 +490,26 @@ def test_azureml_deployment(mock_retry_func, inferencing_server_type):
     )
 
 
+def test__package_dockerfile(tmp_path):
+    # setup
+    model_id = "model_id"
+    model_path = "fake_model_file"
+    footprints = get_footprints(model_id, model_path)
+    output_dir = tmp_path / "outputs"
+    docker_context_path = output_dir / "docker_content"
+
+    packaging_config = PackagingConfig(type=PackagingType.Dockerfile)
+
+    # execute
+    generate_output_artifacts(packaging_config, footprints, footprints, output_dir)
+
+    # assert
+    dockerfile_path = output_dir / "Dockerfile"
+    assert dockerfile_path.exists()
+    onnxruntime_packages_path = docker_context_path / "ONNXRuntimePackages"
+    assert onnxruntime_packages_path.exists()
+
+
 def get_footprints(model_id, model_path):
     acc_spec = AcceleratorSpec(accelerator_type="cpu", execution_provider="CPUExecutionProvider")
     model_config = {"config": {"model_path": model_path}, "type": "ONNXModel"}
