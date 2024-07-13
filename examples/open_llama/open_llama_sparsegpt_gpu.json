@@ -1,26 +1,12 @@
 {
     "input_model": {
         "type": "PyTorchModel",
-        "config": {
-            "hf_config": {
-                "model_name": "openlm-research/open_llama_3b",
-                "task": "text-generation"
-            }
-        }
+        "config": { "hf_config": { "model_name": "openlm-research/open_llama_3b", "task": "text-generation" } }
     },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": {
-                "accelerators": [
-                    {
-                        "device": "gpu",
-                        "execution_providers": [
-                            "CPUExecutionProvider"
-                        ]
-                    }
-                ]
-            }
+            "config": { "accelerators": [ { "device": "gpu", "execution_providers": [ "CPUExecutionProvider" ] } ] }
         }
     },
     "data_configs": [
@@ -32,9 +18,7 @@
                     "data_name": "allenai/c4",
                     "subset": "allenai--c4",
                     "split": "train",
-                    "data_files": {
-                        "train": "en/c4-train.00000-of-01024.json.gz"
-                    }
+                    "data_files": { "train": "en/c4-train.00000-of-01024.json.gz" }
                 }
             },
             "pre_process_data_config": {
@@ -57,12 +41,7 @@
                     "split": "test"
                 }
             },
-            "pre_process_data_config": {
-                "params": {
-                    "add_special_tokens": false,
-                    "source_max_len": 2048
-                }
-            }
+            "pre_process_data_config": { "params": { "add_special_tokens": false, "source_max_len": 2048 } }
         }
     ],
     "evaluators": {
@@ -71,11 +50,7 @@
                 {
                     "name": "perplexity",
                     "type": "accuracy",
-                    "sub_types": [
-                        {
-                            "name": "perplexity"
-                        }
-                    ],
+                    "sub_types": [ { "name": "perplexity" } ],
                     "data_config": "wikitext2_test"
                 }
             ]
@@ -85,18 +60,13 @@
         "sparsegpt": {
             "type": "SparseGPT",
             "config": {
-                "sparsity": [
-                    2,
-                    4
-                ],
+                "sparsity": [ 2, 4 ],
                 "data_config": "c4_train"
             }
         },
         "trt_conversion": {
             "type": "TorchTRTConversion",
-            "config": {
-                "data_config": "c4_train"
-            }
+            "config": { "data_config": "c4_train" }
         }
     },
     "engine": {

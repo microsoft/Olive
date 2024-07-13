@@ -19,16 +19,7 @@
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": {
-                "accelerators": [
-                    {
-                        "device": "gpu",
-                        "execution_providers": [
-                            "DmlExecutionProvider"
-                        ]
-                    }
-                ]
-            }
+            "config": { "accelerators": [ { "device": "gpu", "execution_providers": [ "DmlExecutionProvider" ] } ] }
         }
     },
     "evaluators": {
@@ -37,7 +28,7 @@
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_types": [{"name": "avg"}],
+                    "sub_types": [ { "name": "avg" } ],
                     "user_config": {
                         "user_script": "user_script.py",
                         "dataloader_func": "safety_checker_data_loader",
@@ -48,12 +39,7 @@
         }
     },
     "passes": {
-        "convert": {
-            "type": "OnnxConversion",
-            "config": {
-                "target_opset": 14
-            }
-        },
+        "convert": { "type": "OnnxConversion", "config": { "target_opset": 14 } },
         "ov_convert": {
             "type": "OpenVINOConversion",
             "config": {
@@ -91,10 +77,8 @@
                     "enable_bias_add": false,
                     "group_norm_channels_last": false
                 },
-                "force_fp32_ops": ["RandomNormalLike"],
-                "force_fp16_inputs": {
-                    "GroupNorm": [0, 1, 2]
-                }
+                "force_fp32_ops": [ "RandomNormalLike" ],
+                "force_fp16_inputs": { "GroupNorm": [ 0, 1, 2 ] }
             }
         },
         "optimize_cuda": {
@@ -108,9 +92,7 @@
             }
         }
     },
-    "pass_flows": [
-        ["convert", "optimize"]
-    ],
+    "pass_flows": [ [ "convert", "optimize" ] ],
     "engine": {
         "log_severity_level": 0,
         "evaluator": "common_evaluator",

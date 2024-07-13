@@ -1,82 +1,49 @@
 {
-    "input_model":{
-        "type": "OnnxModel",
-        "config": {
-            "model_path": "models/mobilenetv2-12.onnx"
-        }
-    },
-    "systems": {
-        "local_system": {
-            "type": "LocalSystem",
-            "config": {
-                "accelerators": [
-                    {
-                        "device": "cpu"
-                    }
-                ]
-            }
-        }
-    },
+    "input_model": { "type": "OnnxModel", "config": { "model_path": "models/mobilenetv2-12.onnx" } },
+    "systems": { "local_system": { "type": "LocalSystem", "config": { "accelerators": [ { "device": "cpu" } ] } } },
     "evaluators": {
-        "common_evaluator":{
-            "metrics":[
+        "common_evaluator": {
+            "metrics": [
                 {
                     "name": "accuracy",
                     "type": "accuracy",
-                    "sub_types": [{"name": "accuracy_score", "priority": 1, "metric_config": {"task": "multiclass", "num_classes": 1000}}],
-                    "user_config":{
+                    "sub_types": [
+                        {
+                            "name": "accuracy_score",
+                            "priority": 1,
+                            "metric_config": { "task": "multiclass", "num_classes": 1000 }
+                        }
+                    ],
+                    "user_config": {
                         "user_script": "user_script.py",
                         "data_dir": "data",
                         "batch_size": 1,
                         "dataloader_func": "qnn_data_loader",
                         "post_processing_func": "qnn_sdk_post_process",
-                        "inference_settings": {
-                            "qnn":{
-                                "backend": "libQnnCpu"
-                            }
-                        }
+                        "inference_settings": { "qnn": { "backend": "libQnnCpu" } }
                     }
                 },
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_types": [{"name": "avg", "priority": 2}],
-                    "user_config":{
+                    "sub_types": [ { "name": "avg", "priority": 2 } ],
+                    "user_config": {
                         "user_script": "user_script.py",
                         "data_dir": "data",
                         "batch_size": 1,
                         "dataloader_func": "qnn_data_loader",
-                        "inference_settings": {
-                            "qnn":{
-                                "backend": "libQnnCpu"
-                            }
-                        }
+                        "inference_settings": { "qnn": { "backend": "libQnnCpu" } }
                     }
                 }
             ]
         }
     },
     "passes": {
-        "converter": {
-            "type": "QNNConversion"
-        },
-        "quantization": {
-            "type": "QNNConversion",
-            "config": {
-                "extra_args": "--input_list <input_list.txt>"
-            }
-        },
-        "build_model_lib": {
-            "type": "QNNModelLibGenerator",
-            "config": {
-                "lib_targets": "x86_64-linux-clang"
-            }
-        }
+        "converter": { "type": "QNNConversion" },
+        "quantization": { "type": "QNNConversion", "config": { "extra_args": "--input_list <input_list.txt>" } },
+        "build_model_lib": { "type": "QNNModelLibGenerator", "config": { "lib_targets": "x86_64-linux-clang" } }
     },
-    "pass_flows":[
-        ["converter", "build_model_lib"],
-        ["quantization", "build_model_lib"]
-    ],
+    "pass_flows": [ [ "converter", "build_model_lib" ], [ "quantization", "build_model_lib" ] ],
     "engine": {
         "log_severity_level": 0,
         "host": "local_system",

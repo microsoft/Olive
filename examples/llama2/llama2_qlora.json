@@ -3,71 +3,28 @@
         "type": "PyTorchModel",
         "config": {
             "io_config": {
-                "input_names": [
-                    "input_ids",
-                    "attention_mask",
-                    "position_ids"
-                ],
-                "output_names": [
-                    "logits"
-                ],
-                "input_shapes": [
-                    [
-                        2,
-                        8
-                    ],
-                    [
-                        2,
-                        40
-                    ],
-                    [
-                        2,
-                        8
-                    ]
-                ],
-                "input_types": [
-                    "int64",
-                    "int64",
-                    "int64"
-                ],
+                "input_names": [ "input_ids", "attention_mask", "position_ids" ],
+                "output_names": [ "logits" ],
+                "input_shapes": [ [ 2, 8 ], [ 2, 40 ], [ 2, 8 ] ],
+                "input_types": [ "int64", "int64", "int64" ],
                 "dynamic_axes": {
-                    "input_ids": {
-                        "0": "batch_size",
-                        "1": "sequence_length"
-                    },
-                    "attention_mask": {
-                        "0": "batch_size",
-                        "1": "total_sequence_length"
-                    },
-                    "position_ids": {
-                        "0": "batch_size",
-                        "1": "sequence_length"
-                    }
+                    "input_ids": { "0": "batch_size", "1": "sequence_length" },
+                    "attention_mask": { "0": "batch_size", "1": "total_sequence_length" },
+                    "position_ids": { "0": "batch_size", "1": "sequence_length" }
                 },
                 "kv_cache": true
             },
             "hf_config": {
                 "model_name": "meta-llama/Llama-2-7b-hf",
                 "task": "text-generation",
-                "from_pretrained_args": {
-                    "_attn_implementation": "eager"
-                }
+                "from_pretrained_args": { "_attn_implementation": "eager" }
             }
         }
     },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": {
-                "accelerators": [
-                    {
-                        "device": "gpu",
-                        "execution_providers": [
-                            "CUDAExecutionProvider"
-                        ]
-                    }
-                ]
-            }
+            "config": { "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ] }
         }
     },
     "data_configs": [
@@ -85,9 +42,7 @@
                 }
             },
             "pre_process_data_config": {
-                "params": {
-                    "text_template": "### Question: {prompt} \n### Answer: {response}"
-                }
+                "params": { "text_template": "### Question: {prompt} \n### Answer: {response}" }
             }
         }
     ],
@@ -97,19 +52,12 @@
                 {
                     "name": "onnx_merged_latency",
                     "type": "latency",
-                    "sub_types": [
-                        {
-                            "name": "avg",
-                            "priority": 1
-                        }
-                    ],
+                    "sub_types": [ { "name": "avg", "priority": 1 } ],
                     "data_config": {
                         "name": "transformer_prompt_dummy_data",
                         "type": "TransformersPromptDummyDataContainer"
                     },
-                    "user_config": {
-                        "io_bind": true
-                    }
+                    "user_config": { "io_bind": true }
                 }
             ]
         }
@@ -166,13 +114,7 @@
                 "make_inputs": true
             }
         },
-        "metadata": {
-            "type": "ModelBuilder",
-            "config": {
-                "precision": "fp16",
-                "metadata_only": true
-            }
-        }
+        "metadata": { "type": "ModelBuilder", "config": { "precision": "fp16", "metadata_only": true } }
     },
     "engine": {
         "evaluator": "merged_evaluator",

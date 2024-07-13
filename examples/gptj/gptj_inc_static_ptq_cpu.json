@@ -1,5 +1,5 @@
 {
-    "input_model":{
+    "input_model": {
         "type": "PyTorchModel",
         "config": {
             "hf_config": {
@@ -11,14 +11,12 @@
     },
     "evaluators": {
         "common_evaluator": {
-            "metrics":[
+            "metrics": [
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_types": [
-                        {"name": "avg", "priority": 1}
-                    ],
-                    "user_config":{
+                    "sub_types": [ { "name": "avg", "priority": 1 } ],
+                    "user_config": {
                         "user_script": "user_script.py",
                         "dataloader_func": "create_dataloader",
                         "batch_size": 1
@@ -40,8 +38,8 @@
             "type": "IncStaticQuantization",
             "config": {
                 "quant_format": "QDQ",
-                "calibration_sampling_size": [8],
-                "recipes": {"optypes_to_exclude_output_quant": ["MatMul"]},
+                "calibration_sampling_size": [ 8 ],
+                "recipes": { "optypes_to_exclude_output_quant": [ "MatMul" ] },
                 "user_script": "user_script.py",
                 "dataloader_func": "create_onnx_dataloader",
                 "save_as_external_data": true,

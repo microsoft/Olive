@@ -13,9 +13,7 @@
             }
         },
         "pre_process_data_config": {
-            "params": {
-                "text_template": "### Question: {prompt} \n### Answer: {response}"
-            }
+            "params": { "text_template": "### Question: {prompt} \n### Answer: {response}" }
         }
     }
 ]

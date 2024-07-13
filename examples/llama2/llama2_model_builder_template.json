@@ -12,16 +12,7 @@
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": {
-                "accelerators": [
-                    {
-                        "device": "gpu",
-                        "execution_providers": [
-                            "CUDAExecutionProvider"
-                        ]
-                    }
-                ]
-            }
+            "config": { "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ] }
         }
     },
     "passes": {
@@ -36,46 +27,23 @@
         },
         "builder": {
             "type": "ModelBuilder",
-            "config": {
-                "precision": "int4",
-                "search": {
-                    "max_length": 2048,
-                    "min_length": 0
-                }
-            }
+            "config": { "precision": "int4", "search": { "max_length": 2048, "min_length": 0 } }
         },
         "metadata": {
             "type": "ModelBuilder",
             "config": {
                 "precision": "int4",
                 "metadata_only": true,
-                "search": {
-                    "max_length": 2048,
-                    "min_length": 0
-                }
-            }
+                "search": { "max_length": 2048, "min_length": 0 } }
         },
         "perf_tuning": {
             "type": "OrtPerfTuning",
-            "config": {
-                "data_config": "transformer_token_dummy_data",
-                "io_bind": true
-            }
+            "config": { "data_config": "transformer_token_dummy_data", "io_bind": true }
         }
     },
-    "data_configs": [
-        {
-            "name": "transformer_token_dummy_data",
-            "type": "TransformersTokenDummyDataContainer"
-        }
-    ],
+    "data_configs": [ { "name": "transformer_token_dummy_data", "type": "TransformersTokenDummyDataContainer" } ],
     "engine": {
-        "packaging_config": [
-            {
-                "type": "Zipfile",
-                "name": "OutputModel"
-            }
-        ],
+        "packaging_config": [ { "type": "Zipfile", "name": "OutputModel" } ],
         "log_severity_level": 0,
         "host": "local_system",
         "target": "local_system",

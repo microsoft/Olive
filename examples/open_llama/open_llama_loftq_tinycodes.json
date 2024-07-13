@@ -1,25 +1,9 @@
 {
     "input_model": {
         "type": "PyTorchModel",
-        "config": {
-            "hf_config": {
-                "model_name": "openlm-research/open_llama_7b_v2",
-                "task": "text-generation"
-            }
-        }
+        "config": { "hf_config": { "model_name": "openlm-research/open_llama_7b_v2", "task": "text-generation" } }
     },
-    "systems": {
-        "local_system": {
-            "type": "LocalSystem",
-            "config": {
-                "accelerators": [
-                    {
-                        "device": "gpu"
-                    }
-                ]
-            }
-        }
-    },
+    "systems": { "local_system": { "type": "LocalSystem", "config": { "accelerators": [ { "device": "gpu" } ] } } },
     "data_configs": [
         {
             "name": "tiny_codes_train",
@@ -35,9 +19,7 @@
                 }
             },
             "pre_process_data_config": {
-                "params": {
-                    "text_template": "### Question: {prompt} \n### Answer: {response}"
-                }
+                "params": { "text_template": "### Question: {prompt} \n### Answer: {response}" }
             }
         }
     ],

@@ -8,25 +8,14 @@
             }
         }
     },
-    "systems": {
-        "local_system": {
-            "type": "LocalSystem",
-            "config": {
-                "accelerators": [
-                    {
-                        "device": "gpu"
-                    }
-                ]
-            }
-        }
-    },
+    "systems": { "local_system": { "type": "LocalSystem", "config": { "accelerators": [ { "device": "gpu" } ] } } },
     "evaluators": {
         "common_evaluator": {
             "metrics": [
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_types": [{ "name": "avg" }],
+                    "sub_types": [ { "name": "avg" } ],
                     "user_config": {
                         "user_script": "user_script.py",
                         "dataloader_func": "create_data_loader",
@@ -41,11 +30,8 @@
             "type": "OptimumConversion",
             "config": {
                 "target_opset": 16,
-                "components": ["decoder_model", "decoder_with_past_model"],
-                "extra_args": {
-                    "legacy": true,
-                    "no_post_process": true
-                }
+                "components": [ "decoder_model", "decoder_with_past_model" ],
+                "extra_args": { "legacy": true, "no_post_process": true }
             }
         },
         "optimize": {
@@ -57,19 +43,14 @@
                 "keep_io_types": true,
                 "num_heads": 32,
                 "hidden_size": 2560,
-                "optimization_options": {
-                    "use_multi_head_attention": false
-                },
+                "optimization_options": { "use_multi_head_attention": false },
                 "save_as_external_data": true,
                 "all_tensors_to_one_file": true
             }
         },
         "merge": {
             "type": "OptimumMerging",
-            "config": {
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true
-            }
+            "config": { "save_as_external_data": true, "all_tensors_to_one_file": true }
         }
     },
     "engine": {
