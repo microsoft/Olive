@@ -1,12 +1,7 @@
 {
-    "input_model":{
+    "input_model": {
         "type": "PyTorchModel",
-        "config": {
-            "hf_config": {
-                "model_name": "microsoft/phi-2",
-                "task": "text-generation"
-            }
-        }
+        "config": { "hf_config": { "model_name": "microsoft/phi-2", "task": "text-generation" } }
     },
     "systems": {
         "local_system": {
@@ -15,23 +10,13 @@
                 "accelerators": [
                     {
                         "device": "GPU",
-                        "execution_providers": [
-                            "CPUExecutionProvider",
-                            "CUDAExecutionProvider"
-                        ]
+                        "execution_providers": [ "CPUExecutionProvider", "CUDAExecutionProvider" ]
                     }
                 ]
             }
         }
     },
-    "passes": {
-        "builder": {
-            "type": "ModelBuilder",
-            "config": {
-                "precision": "int4"
-            }
-        }
-    },
+    "passes": { "builder": { "type": "ModelBuilder", "config": { "precision": "int4" } } },
     "engine": {
         "host": "local_system",
         "target": "local_system",

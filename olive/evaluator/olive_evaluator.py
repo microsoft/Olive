@@ -22,6 +22,7 @@ from olive.common.pydantic_v1 import validator
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import tensor_data_to_device
 from olive.constants import Framework
+from olive.data.container.dummy_data_container import TRANSFORMER_DUMMY_DATA_CONTAINER
 from olive.evaluator.metric import LatencySubType, Metric, MetricType, ThroughputSubType, get_latency_config_from_metric
 from olive.evaluator.metric_backend import MetricBackend
 from olive.evaluator.metric_result import MetricResult, SubMetricResult, flatten_metric_result, joint_metric_key
@@ -271,7 +272,7 @@ class OliveEvaluator(ABC):
             dataloader = user_module.call_object(
                 dataloader_func,
                 data_dir,
-                metric.user_config.batch_size,
+                batch_size=metric.user_config.batch_size,
                 model_framework=framework,
                 **cls._get_func_kwargs(metric, "dataloader_func"),
             )
@@ -297,6 +298,8 @@ class OliveEvaluator(ABC):
 
         # get dataloader and/or post processing function from data_config if not specified in the metric config
         if (not dataloader or not post_func) and metric.data_config:
+            if metric.data_config.type in TRANSFORMER_DUMMY_DATA_CONTAINER:
+                metric.data_config.load_dataset_config.params["model_framework"] = framework
             dc = metric.data_config.to_data_container()
 
             # TODO(trajep): remove user_scripts dataloader: we should respect user scripts
@@ -729,7 +732,7 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
 
     def _evaluate_accuracy(
         self,
-        model: ONNXModelHandler,
+        model: "OliveModelHandler",
         data_root: str,
         metric: Metric,
         dataloader: "DataLoader",
@@ -845,13 +848,13 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         session = model.prepare_session(inference_settings=None, device=device)
 
         input_data, _ = next(iter(dataloader))
-        device = PyTorchEvaluator._device_string_to_torch_device(device)
+        torch_device = PyTorchEvaluator._device_string_to_torch_device(device)
         run_kwargs = metric.get_run_kwargs()
 
         is_cuda = device == Device.GPU
         if is_cuda:
-            session.to(device)
-            input_data = tensor_data_to_device(input_data, device)
+            session.to(torch_device)
+            input_data = tensor_data_to_device(input_data, torch_device)
 
         # warm up
         for _ in range(warmup_num):

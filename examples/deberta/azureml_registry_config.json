@@ -11,10 +11,7 @@
                 }
             },
             "model_file_format": "PyTorch.MLflow",
-            "hf_config": {
-                "model_name": "microsoft/deberta-base-mnli",
-                "task": "text-classification"
-            }
+            "hf_config": { "model_name": "microsoft/deberta-base-mnli", "task": "text-classification" }
         }
     },
     "data_configs": [
@@ -31,21 +28,12 @@
             "pre_process_data_config": {
                 "params": {
                     "align_labels": true,
-                    "input_cols": [
-                        "premise",
-                        "hypothesis"
-                    ],
-                    "label_cols": [
-                        "label"
-                    ],
+                    "input_cols": [ "premise", "hypothesis" ],
+                    "label_cols": [ "label" ],
                     "max_samples": 100
                 }
             },
-            "dataloader_config": {
-                "params": {
-                    "batch_size": 1
-                }
-            }
+            "dataloader_config": { "params": { "batch_size": 1 } }
         }
     ],
     "evaluators": {
@@ -55,23 +43,13 @@
                     "name": "latency",
                     "type": "latency",
                     "data_config": "glue_mnli_matched",
-                    "sub_types": [
-                        {
-                            "name": "avg",
-                            "priority": 1
-                        }
-                    ]
+                    "sub_types": [ { "name": "avg", "priority": 1 } ]
                 }
             ]
         }
     },
     "passes": {
-        "conversion": {
-            "type": "OnnxConversion",
-            "config": {
-                "target_opset": 13
-            }
-        },
+        "conversion": { "type": "OnnxConversion", "config": { "target_opset": 13 } },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
             "disable_search": true,
@@ -82,27 +60,14 @@
                 "float16": false
             }
         },
-        "quantization": {
-            "type": "OnnxQuantization",
-            "config": {
-                "data_config": "glue_mnli_matched"
-            }
-        },
-        "perf_tuning": {
-            "type": "OrtPerfTuning",
-            "config": {
-                "data_config": "glue_mnli_matched"
-            }
-        }
+        "quantization": { "type": "OnnxQuantization", "config": { "data_config": "glue_mnli_matched" } },
+        "perf_tuning": { "type": "OrtPerfTuning", "config": { "data_config": "glue_mnli_matched" } }
     },
     "engine": {
         "search_strategy": {
             "execution_order": "joint",
             "search_algorithm": "tpe",
-            "search_algorithm_config": {
-                "num_samples": 3,
-                "seed": 0
-            }
+            "search_algorithm_config": { "num_samples": 3, "seed": 0 }
         },
         "clean_cache": true,
         "evaluator": "common_evaluator",

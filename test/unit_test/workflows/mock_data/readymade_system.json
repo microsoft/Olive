@@ -4,17 +4,17 @@
         "resource_group": "my_resource_group",
         "workspace_name": "my_workspace"
     },
-    "input_model":{
+    "input_model": {
         "type": "PyTorchModel",
         "config": {
             "model_path": "models/resnet_trained_for_cifar10.pt",
             "io_config": {
-                "input_names": ["input"],
-                "input_shapes": [[1, 3, 32, 32]],
-                "output_names": ["output"],
+                "input_names": [ "input" ],
+                "input_shapes": [ [ 1, 3, 32, 32 ] ],
+                "output_names": [ "output" ],
                 "dynamic_axes": {
-                    "input": {"0": "batch_size"},
-                    "output": {"0": "batch_size"}
+                    "input": { "0": "batch_size" },
+                    "output": { "0": "batch_size" }
                 }
             }
         }
@@ -23,12 +23,7 @@
         "azureml_system": {
             "type": "AzureNDV2System",
             "config": {
-                "accelerators": [
-                    {
-                        "device": "gpu",
-                        "execution_providers": ["CUDAExecutionProvider"]
-                    }
-                ],
+                "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ],
                 "aml_compute": "gpu-cluster",
                 "aml_docker_config": {
                     "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
@@ -39,8 +34,8 @@
         }
     },
     "evaluators": {
-        "common_evaluator":{
-            "metrics":[
+        "common_evaluator": {
+            "metrics": [
                 {
                     "name": "accuracy",
                     "type": "custom",
@@ -49,11 +44,11 @@
                             "name": "top1",
                             "priority": 1,
                             "higher_is_better": true,
-                            "goal": {"type": "max-degradation", "value": 0.01}
-                    },
-                        {"name": "top5", "goal": {"type": "max-degradation", "value": 0.01}}
+                            "goal": { "type": "max-degradation", "value": 0.01 }
+                        },
+                        { "name": "top5", "goal": { "type": "max-degradation", "value": 0.01 } }
                     ],
-                    "user_config":{
+                    "user_config": {
                         "user_script": "user_script.py",
                         "data_dir": "data",
                         "evaluate_func": "eval_accuracy",
@@ -68,12 +63,12 @@
                             "name": "avg",
                             "priority": 2,
                             "higher_is_better": true,
-                            "goal": {"type": "percent-min-improvement", "value": 20}
+                            "goal": { "type": "percent-min-improvement", "value": 20 }
                         },
-                        {"name": "max"},
-                        {"name": "min"}
+                        { "name": "max" },
+                        { "name": "min" }
                     ],
-                    "user_config":{
+                    "user_config": {
                         "user_script": "user_script.py",
                         "data_dir": "data",
                         "dataloader_func": "create_dataloader",
@@ -84,12 +79,7 @@
         }
     },
     "passes": {
-        "onnx_conversion": {
-            "type": "OnnxConversion",
-            "config": {
-                "target_opset": 13
-            }
-        },
+        "onnx_conversion": { "type": "OnnxConversion", "config": { "target_opset": 13 } },
         "onnx_quantization": {
             "type": "OnnxQuantization",
             "config": {
@@ -113,10 +103,7 @@
     },
     "engine": {
         "log_severity_level": 0,
-        "search_strategy": {
-            "execution_order": "joint",
-            "search_algorithm": "exhaustive"
-        },
+        "search_strategy": { "execution_order": "joint", "search_algorithm": "exhaustive" },
         "evaluator": "common_evaluator",
         "host": "azureml_system",
         "target": "azureml_system",

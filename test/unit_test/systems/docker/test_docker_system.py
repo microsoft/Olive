@@ -226,7 +226,7 @@ class TestDockerSystem:
         docker_system = DockerSystem(docker_config, is_dev=True)
         data_root = "data_root"
 
-        p = create_pass_from_dict(OrtPerfTuning, {"data_dir": "data_dir"}, disable_search=True)
+        p = create_pass_from_dict(OrtPerfTuning, {}, disable_search=True)
         output_folder = str(tmp_path / "onnx")
 
         def validate_file_or_folder(v, values, **kwargs):
@@ -245,12 +245,10 @@ class TestDockerSystem:
 
         runner_local_path = Path(__file__).resolve().parents[4] / "olive" / "systems" / "docker" / "runner.py"
         model_path = onnx_model.config["model_path"]
-        data_dir = str(p.config["data_dir"])
         volumes_list = [
             f"{runner_local_path}:{container_root_path / 'runner.py'}",  # runner script
             f"{tmp_path / 'olive'}:{container_root_path / 'olive'}",  # olive dev
             f"{Path(model_path).resolve()}:{container_root_path / Path(model_path).name}",  # model
-            f"{Path(data_root) / data_dir}:{container_root_path / data_dir}",
             f"{tmp_path / 'config.json'}:{container_root_path / 'config.json'}",  # config
             f"{tmp_path / runner_output_path}:{container_root_path / runner_output_path}",  # output
         ]
@@ -277,7 +275,7 @@ class TestDockerSystem:
         from olive.systems.docker import utils as docker_utils
         from olive.systems.docker.runner import runner_entry as docker_runner_entry
 
-        p = create_pass_from_dict(OrtPerfTuning, {"data_dir": "data_dir"}, disable_search=True)
+        p = create_pass_from_dict(OrtPerfTuning, {}, disable_search=True)
         pass_config = p.to_json(check_object=True)
         config = p.config_at_search_point({})
         pass_config["config"].update(p.serialize_config(config, check_object=True))
@@ -289,7 +287,7 @@ class TestDockerSystem:
             onnx_model,
             pass_config,
             {"model_path": onnx_model.config["model_path"]},
-            {"data_dir": str(container_root_path / "data_dir")},
+            {},
         )
         docker_utils.create_config_file(tmp_path, data, container_root_path)
         with patch.object(OrtPerfTuning, "run", return_value=onnx_model):

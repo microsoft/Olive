@@ -210,6 +210,7 @@ class ConfigWithExtraArgs(ConfigBase):
         return values
 
 
+# TODO(jambayk): remove ParamCategory once validate object is removed or updated
 class ParamCategory(str, Enum):
     NONE = "none"
     OBJECT = "object"

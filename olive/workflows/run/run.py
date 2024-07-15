@@ -272,6 +272,7 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig, data_r
                 run_config.engine.evaluate_input_model,
                 run_config.engine.log_to_file,
                 run_config.engine.log_severity_level,
+                run_config.engine.cloud_cache_config,
             )
         )
     logger.info(WORKFLOW_COMPLETED_LOG)
