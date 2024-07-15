@@ -39,7 +39,7 @@ def main(raw_args=None):
     target: OliveSystem = LocalSystem()
 
     # metric result
-    metric_result = target.evaluate_model(model_config, None, [metric], accelerator_spec)
+    metric_result = target.evaluate_model(model_config, [metric], accelerator_spec)
 
     # save metric result json
     with (Path(pipeline_output) / "metric_result.json").open("w") as f:

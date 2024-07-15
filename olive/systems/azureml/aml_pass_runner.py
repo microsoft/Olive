@@ -37,7 +37,7 @@ def main(raw_args=None):
     output_model_path = str(Path(pipeline_output) / "output_model")
 
     # run pass
-    output_model = p.run(input_model, None, output_model_path)
+    output_model = p.run(input_model, output_model_path)
 
     # save model json
     model_json = output_model.to_json()

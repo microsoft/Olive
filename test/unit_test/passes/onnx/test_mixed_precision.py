@@ -16,4 +16,4 @@ def test_ort_mixed_precision_pass(tmp_path):
     output_folder = str(tmp_path / "onnx")
 
     # execute
-    p.run(input_model, None, output_folder)
+    p.run(input_model, output_folder)

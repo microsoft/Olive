@@ -112,7 +112,7 @@ class TestAzureMLSystem:
 
         # execute
         metric = metric_func()
-        res = self.system.evaluate_model(model_config, None, [metric], DEFAULT_CPU_ACCELERATOR)
+        res = self.system.evaluate_model(model_config, [metric], DEFAULT_CPU_ACCELERATOR)
 
         # assert
         mock_create_pipeline.assert_called_once_with(
@@ -171,7 +171,7 @@ class TestAzureMLSystem:
         with patch("olive.systems.azureml.aml_system.tempfile.TemporaryDirectory") as mock_tempdir:
             mock_tempdir.return_value.__enter__.return_value = output_folder
             # execute
-            actual_res = self.system.run_pass(p, model_config, None, output_model_path)
+            actual_res = self.system.run_pass(p, model_config, output_model_path)
 
         # assert
         mock_create_pipeline.assert_called_once_with(

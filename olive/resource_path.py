@@ -113,7 +113,7 @@ OLIVE_RESOURCE_ANNOTATIONS = Optional[Union[str, Path, dict, ResourcePathConfig,
 
 def create_resource_path(
     resource_path: OLIVE_RESOURCE_ANNOTATIONS,
-) -> Optional[Union[ResourcePath, List[ResourcePath]]]:
+) -> Optional[ResourcePath]:
     """Create a resource path from a string or a dict.
 
     If a string or Path is provided, it is inferred to be a file, folder, or string name.
@@ -154,6 +154,9 @@ def create_resource_path(
 def validate_resource_path(v, values, field):
     try:
         v = create_resource_path(v)
+        if v and v.is_local_resource_or_string_name():
+            # might expect a string or Path when using this resource locally
+            v = v.get_path()
     except ValueError as e:
         raise ValueError(f"Invalid resource path '{v}': {e}") from None
     return v

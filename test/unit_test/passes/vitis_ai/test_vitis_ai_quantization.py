@@ -56,7 +56,7 @@ def test_vitis_ai_quantization_pass(calibrate_method, tmp_path):
     # create VitisAIQuantization pass
     p = create_pass_from_dict(VitisAIQuantization, config, disable_search=True)
     # execute
-    quantized_model = p.run(input_model, None, output_folder)
+    quantized_model = p.run(input_model, output_folder)
     # assert
     assert quantized_model.model_path.endswith(".onnx")
     assert Path(quantized_model.model_path).exists()

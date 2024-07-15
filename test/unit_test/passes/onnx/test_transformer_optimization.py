@@ -52,7 +52,7 @@ def test_ort_transformer_optimization_pass(tmp_path):
     output_folder = str(tmp_path / "onnx")
 
     # execute
-    p.run(input_model, None, output_folder)
+    p.run(input_model, output_folder)
 
 
 @pytest.mark.parametrize("use_gpu", [True, False])
@@ -88,8 +88,8 @@ def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, mock_inferece_sessio
         assert is_pruned
         assert (
             "TensorRT has its own float16 implementation, please avoid to use float16 in transformers "
-            "optimization. Suggest to set 'trt_fp16_enable' as True in OrtPerfTuning."
-        ) in caplog.text
+            "optimization. Suggest to set 'trt_fp16_enable' as True in OrtPerfTuning." in caplog.text
+        )
 
     if not is_pruned:
         inference_session_mock_call_count = 0
@@ -111,9 +111,9 @@ def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, mock_inferece_sessio
             output_folder = str(tmp_path / "onnx")
             if mock_inferece_session:
                 with patch.object(ort.InferenceSession, "__init__", new=inference_session_init):
-                    p.run(input_model, None, output_folder)
+                    p.run(input_model, output_folder)
             else:
-                p.run(input_model, None, output_folder)
+                p.run(input_model, output_folder)
             optimize_by_fusion_mock.assert_called()
 
         if accelerator_spec.execution_provider == "TensorrtExecutionProvider":
@@ -145,7 +145,7 @@ def test_transformer_optimization_invalid_model_type(tmp_path):
 
     with pytest.raises(ValueError):  # noqa: PT011
         # execute
-        p.run(input_model, None, output_folder)
+        p.run(input_model, output_folder)
 
 
 @patch("onnxruntime.transformers.optimizer.optimize_model")
@@ -162,5 +162,5 @@ def test_optimization_with_provider(mock_proto_to_model, mock_optimize_model, tm
     output_folder = str(tmp_path / "onnx")
 
     # execute
-    p.run(input_model, None, output_folder)
+    p.run(input_model, output_folder)
     assert mock_optimize_model.call_args.kwargs["provider"] == "dml"

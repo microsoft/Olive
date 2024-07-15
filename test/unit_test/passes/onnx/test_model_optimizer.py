@@ -36,7 +36,7 @@ def test_onnx_model_optimizer_pass(tmp_path):
     output_folder = str(tmp_path / "onnx")
 
     # execute
-    p.run(input_model, None, output_folder)
+    p.run(input_model, output_folder)
 
 
 def _make_model_for_patch_unsupported_argmax_operator(
@@ -72,7 +72,7 @@ def test_onnx_model_optimizer_pass_patch_unsupported_argmax_operator_modified(tm
         OnnxModelOptimizer, external_data_config, disable_search=True, accelerator_spec=DEFAULT_GPU_CUDA_ACCELERATOR
     )
 
-    actual_model = p.run(m, None, str(tmp_path / "onnx"))
+    actual_model = p.run(m, str(tmp_path / "onnx"))
     assert Path(actual_model.model_path).exists()
 
     actual_model = actual_model.load_model()
@@ -102,7 +102,7 @@ def test_onnx_model_optimizer_pass_patch_unsupported_argmax_operator_unmodified(
         OnnxModelOptimizer, external_data_config, disable_search=True, accelerator_spec=DEFAULT_GPU_CUDA_ACCELERATOR
     )
 
-    actual_model = p.run(m, None, str(tmp_path / "onnx"))
+    actual_model = p.run(m, str(tmp_path / "onnx"))
     assert Path(actual_model.model_path).exists()
 
     actual_model = actual_model.load_model()
@@ -169,7 +169,7 @@ def test_onnx_model_optimizer_pass_fuse_reshape_operations(tmp_path, external_da
         OnnxModelOptimizer, external_data_config, disable_search=True, accelerator_spec=DEFAULT_CPU_ACCELERATOR
     )
 
-    actual_model = p.run(m, None, str(tmp_path / "onnx"))
+    actual_model = p.run(m, str(tmp_path / "onnx"))
     assert Path(actual_model.model_path).exists()
 
     actual_model = actual_model.load_model()

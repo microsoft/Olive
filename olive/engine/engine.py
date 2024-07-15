@@ -147,16 +147,16 @@ class Engine:
         # during hash calculation.
         if self.target_config.type != SystemType.AzureML:
             if self.evaluator_config:
-                self.evaluator_config = cache_utils.prepare_non_local_resources(self.evaluator_config)
+                self.evaluator_config = cache_utils.prepare_resources_for_local(self.evaluator_config)
             for pass_config in self.pass_config.values():
                 if pass_config["evaluator"]:
-                    pass_config["evaluator"] = cache_utils.prepare_non_local_resources(pass_config["evaluator"])
+                    pass_config["evaluator"] = cache_utils.prepare_resources_for_local(pass_config["evaluator"])
 
         for pass_config in self.pass_config.values():
             host_type = pass_config["host"].system_type if pass_config["host"] else self.host_config.type
             if host_type == SystemType.AzureML:
                 continue
-            pass_config["config"] = cache_utils.prepare_non_local_resources(pass_config["config"])
+            pass_config["config"] = cache_utils.prepare_resources_for_local(pass_config["config"])
 
         self.set_pass_flows(self.pass_flows)
         self._initialized = True
@@ -1000,7 +1000,7 @@ class Engine:
 
             host = self.host_for_pass(pass_id)
             if host.system_type != SystemType.AzureML:
-                input_model_config = cache_utils.prepare_non_local_resources(input_model_config)
+                input_model_config = cache_utils.prepare_resources_for_local(input_model_config)
 
             try:
                 if p.run_on_target:
@@ -1131,7 +1131,7 @@ class Engine:
         # evaluate model
         metrics = evaluator_config.metrics if evaluator_config else []
         if self.target.system_type != SystemType.AzureML:
-            model_config = cache_utils.prepare_non_local_resources(model_config)
+            model_config = cache_utils.prepare_resources_for_local(model_config)
         signal = self.target.evaluate_model(model_config, metrics, accelerator_spec)
 
         # cache evaluation

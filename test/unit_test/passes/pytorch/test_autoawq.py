@@ -38,5 +38,5 @@ def test_awq(pack_model_for_onnx_conversion, tmp_path: Path):
     gptq_out_folder = str(tmp_path / "gptq")
 
     # execute
-    out = p.run(input_model, None, gptq_out_folder)
+    out = p.run(input_model, gptq_out_folder)
     assert out is not None

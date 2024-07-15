@@ -117,7 +117,7 @@ class TestPythonEnvironmentSystem:
         mock__run_command.return_value = mock_return_value
 
         # execute
-        res = self.system.evaluate_model(model_config, None, metrics, DEFAULT_CPU_ACCELERATOR)
+        res = self.system.evaluate_model(model_config, metrics, DEFAULT_CPU_ACCELERATOR)
 
         # assert
         assert res[metrics_key[0]].value == 0.9
@@ -165,7 +165,7 @@ class TestPythonEnvironmentSystem:
         dummy_output_model_path = "dummy_output_model_path"
 
         # execute
-        res = self.system.run_pass(the_pass, model_config, None, dummy_output_model_path)
+        res = self.system.run_pass(the_pass, model_config, dummy_output_model_path)
 
         # assert
         assert res == mock_output_model_config

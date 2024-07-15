@@ -73,7 +73,7 @@ def run_finetuning(pass_class, tmp_path, **pass_config_kwargs):
     output_folder = str(tmp_path / "output_model")
 
     # execute
-    return p.run(input_model, None, output_folder)
+    return p.run(input_model, output_folder)
 
 
 @pytest.mark.skipif(

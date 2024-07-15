@@ -27,7 +27,7 @@ def test_quantization_aware_training_pass_default(tmp_path):
     output_folder = str(tmp_path / "onnx")
 
     # execute
-    p.run(input_model, None, output_folder)
+    p.run(input_model, output_folder)
 
 
 def test_optional_ep(tmp_path):

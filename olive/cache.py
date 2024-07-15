@@ -16,9 +16,15 @@ from olive.resource_path import ResourcePath, create_resource_path, find_all_res
 logger = logging.getLogger(__name__)
 
 
-def set_cache_dir(cache_dir: str):
+def set_cache_dir(cache_dir: Union[str, Path]):
     """Set the cache directory."""
-    os.environ["OLIVE_CACHE_DIR"] = cache_dir
+    os.environ["OLIVE_CACHE_DIR"] = str(cache_dir)
+
+
+def unset_cache_dir():
+    """Unset the cache directory."""
+    if "OLIVE_CACHE_DIR" in os.environ:
+        del os.environ["OLIVE_CACHE_DIR"]
 
 
 def get_cache_dir() -> Path:
@@ -154,10 +160,28 @@ def download_resource(resource_path: ResourcePath):
     return local_resource_path
 
 
-def prepare_non_local_resources(config: Union[Dict, ConfigBase]) -> Union[Dict, ConfigBase]:
-    """Prepare non-local resources in the config.
+def get_local_path(resource_path: Optional[ResourcePath]) -> Optional[str]:
+    """Return the local path of the any resource path as a string.
 
-    Download all non-local resources in the config to the cache.
+    If the resource path is a local resource, the path is returned.
+    If the resource path is an AzureML resource, the resource is downloaded to the cache and the path is returned.
+    """
+    if resource_path is None:
+        return None
+
+    if resource_path.is_local_resource_or_string_name():
+        return resource_path.get_path()
+    elif resource_path.is_azureml_resource():
+        return download_resource(resource_path).get_path()
+    else:
+        return None
+
+
+def prepare_resources_for_local(config: Union[Dict, ConfigBase]) -> Union[Dict, ConfigBase]:
+    """Prepare all resources in the config for local execution.
+
+    Download all non-local resources in the config to the cache. All resource paths in the config are replaced with
+    strings that represent the local paths of the resources in the cache.
     """
     # keep track of the original config class
     config_class = None
@@ -168,8 +192,7 @@ def prepare_non_local_resources(config: Union[Dict, ConfigBase]) -> Union[Dict, 
     config = convert_configs_to_dicts(config)
     all_resources = find_all_resources(config)
     for resource_key, resource_path in all_resources.items():
-        if not resource_path.is_local_resource_or_string_name():
-            set_nested_dict_value(config, resource_key, download_resource(resource_path).get_path())
+        set_nested_dict_value(config, resource_key, get_local_path(resource_path))
 
     # validate the config if it was a ConfigBase
     if config_class:
