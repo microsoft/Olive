@@ -679,7 +679,6 @@ class TestEngine:
                 actual_res = engine.run(
                     onnx_model_config,
                     [DEFAULT_CPU_ACCELERATOR],
-                    data_root=None,
                     output_dir=output_dir,
                     cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
                 )
@@ -697,7 +696,6 @@ class TestEngine:
                 actual_res = engine.run(
                     onnx_model_config,
                     [DEFAULT_CPU_ACCELERATOR],
-                    data_root=None,
                     output_dir=output_dir,
                     evaluate_input_model=False,
                     cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),

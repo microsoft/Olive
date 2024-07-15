@@ -7,7 +7,6 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Union
 
-from olive.cache import get_local_path_from_root
 from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
@@ -117,7 +116,7 @@ class OpenVINOQuantizationBase(Pass):
                 type_=PresetEnum,
                 required=False,
                 default_value=PresetEnum.PERFORMANCE,
-                description=("Defines quantization scheme for the model. Supported values: 'PERFORMANCE', 'MIXED'."),
+                description="Defines quantization scheme for the model. Supported values: 'PERFORMANCE', 'MIXED'.",
             ),
             "ignored_scope": PassConfigParam(
                 type_=Union[str, List[str]],
@@ -133,7 +132,7 @@ class OpenVINOQuantizationBase(Pass):
                 type_=IgnoreScopeTypeEnum,
                 required=False,
                 default_value=None,
-                description=("Defines the type of the ignored scope. Supported values: 'names', 'types', 'patterns'."),
+                description="Defines the type of the ignored scope. Supported values: 'names', 'types', 'patterns'.",
             ),
             "target_device": PassConfigParam(
                 type_=Device,
@@ -169,7 +168,7 @@ class OpenVINOQuantizationBase(Pass):
 
         return nncf.Dataset(common_dataloader, transform_fn)
 
-    def _get_nncf_dataset(self, config, data_root):
+    def _get_nncf_dataset(self, config):
         try:
             import nncf
         except ImportError:
@@ -177,13 +176,15 @@ class OpenVINOQuantizationBase(Pass):
 
         data_loader = None
         if config["dataloader_func"]:
-            data_dir = get_local_path_from_root(data_root, config["data_dir"])
             data_loader = self._user_module_loader.call_object(
-                config["dataloader_func"], data_dir, config["batch_size"], **(config["dataloader_func_kwargs"] or {})
+                config["dataloader_func"],
+                config["data_dir"],
+                config["batch_size"],
+                **(config["dataloader_func_kwargs"] or {})
             )
         elif config["data_config"]:
             data_config = validate_config(config["data_config"], DataConfig)
-            data_loader = data_config.to_data_container().create_dataloader(data_root)
+            data_loader = data_config.to_data_container().create_dataloader()
 
         def transform_fn(data_item):
             data, _ = data_item
@@ -222,7 +223,7 @@ class OpenVINOQuantizationBase(Pass):
 class OpenVINOQuantization(OpenVINOQuantizationBase):
 
     def _run_for_config(
-        self, model: OpenVINOModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: OpenVINOModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> OpenVINOModelHandler:
         try:
             import nncf
@@ -232,7 +233,7 @@ class OpenVINOQuantization(OpenVINOQuantizationBase):
 
         assert config["dataloader_func"] or config["data_config"], "dataloader_func or data_config is required."
 
-        calibration_dataset = self._get_nncf_dataset(config, data_root)
+        calibration_dataset = self._get_nncf_dataset(config)
         model = model.load_model()
         extra_params = self._get_extra_params(config)
 
@@ -282,7 +283,7 @@ class OpenVINOQuantizationWithAccuracy(OpenVINOQuantizationBase):
         return config
 
     def _run_for_config(
-        self, model: OliveModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: OliveModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> OliveModelHandler:
         try:
             import nncf
@@ -292,8 +293,8 @@ class OpenVINOQuantizationWithAccuracy(OpenVINOQuantizationBase):
 
         assert config["dataloader_func"] or config["data_config"], "dataloader_func or data_config is required."
 
-        calibration_dataset = self._get_nncf_dataset(config, data_root)
-        validation_dataset = self._get_nncf_dataset(config, data_root)
+        calibration_dataset = self._get_nncf_dataset(config)
+        validation_dataset = self._get_nncf_dataset(config)
 
         model = model.load_model()
         extra_params = self._get_extra_params(config)

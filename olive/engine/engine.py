@@ -229,7 +229,6 @@ class Engine:
         self,
         input_model_config: ModelConfig,
         accelerator_specs: List["AcceleratorSpec"],
-        data_root: str = None,
         packaging_config: Optional[Union["PackagingConfig", List["PackagingConfig"]]] = None,
         output_dir: str = None,
         output_name: str = None,
@@ -241,7 +240,6 @@ class Engine:
         Args:
             input_model_config: input Olive model configuration
             accelerator_specs: list of accelerator specs
-            data_root: data root for the input data
             packaging_config: packaging configuration, if packaging_config is provided, the output
                 model will be packaged into a zip file.
             output_dir: output directory for the output model
@@ -278,7 +276,6 @@ class Engine:
             with self._create_system(accelerator_spec):
                 run_result = self.run_accelerator(
                     input_model_config,
-                    data_root,
                     output_dir,
                     output_name,
                     evaluate_input_model,
@@ -314,7 +311,6 @@ class Engine:
     def run_accelerator(
         self,
         input_model_config: ModelConfig,
-        data_root: str,
         output_dir: Path,
         output_name: str,
         evaluate_input_model: bool,
@@ -338,7 +334,7 @@ class Engine:
                 )
             elif evaluate_input_model:
                 results = self._evaluate_model(
-                    input_model_config, input_model_id, data_root, self.evaluator_config, accelerator_spec
+                    input_model_config, input_model_id, self.evaluator_config, accelerator_spec
                 )
                 logger.info("Input model evaluation results: %s", results)
                 result_name = f"{prefix_output_name}_input_model_metrics"
@@ -355,7 +351,6 @@ class Engine:
                 output_footprint = self.run_no_search(
                     input_model_config,
                     input_model_id,
-                    data_root,
                     accelerator_spec,
                     output_dir,
                     output_name,
@@ -366,7 +361,6 @@ class Engine:
                 output_footprint = self.run_search(
                     input_model_config,
                     input_model_id,
-                    data_root,
                     accelerator_spec,
                     output_dir,
                     output_name,
@@ -428,7 +422,6 @@ class Engine:
         self,
         input_model_config: ModelConfig,
         input_model_id: str,
-        data_root: str,
         accelerator_spec: "AcceleratorSpec",
         output_dir: str = None,
         output_name: str = None,
@@ -451,7 +444,6 @@ class Engine:
                 passes_to_run,
                 input_model_config,
                 input_model_id,
-                data_root,
                 accelerator_spec,
                 cloud_cache_config,
             )
@@ -510,7 +502,6 @@ class Engine:
         self,
         input_model_config: ModelConfig,
         input_model_id: str,
-        data_root: str,
         accelerator_spec: "AcceleratorSpec",
         output_dir: str = None,
         output_name: str = None,
@@ -526,7 +517,7 @@ class Engine:
             raise ValueError("No evaluator provided for the last pass")
         else:
             objective_dict = self.resolve_objectives(
-                input_model_config, input_model_id, data_root, evaluator_config.metrics, accelerator_spec
+                input_model_config, input_model_id, evaluator_config.metrics, accelerator_spec
             )
             self.footprints[accelerator_spec].record_objective_dict(objective_dict)
 
@@ -561,7 +552,6 @@ class Engine:
                 next_step["passes"],
                 model_config,
                 model_id,
-                data_root,
                 accelerator_spec,
                 cloud_cache_config,
             )
@@ -609,7 +599,6 @@ class Engine:
         self,
         input_model_config: ModelConfig,
         input_model_id: str,
-        data_root: str,
         metrics: List[Metric],
         accelerator_spec: "AcceleratorSpec",
     ) -> Dict[str, Dict[str, Any]]:
@@ -617,7 +606,7 @@ class Engine:
 
         {objective_name: {"higher_is_better": bool, "goal": float}}
         """
-        goals = self.resolve_goals(input_model_config, input_model_id, data_root, metrics, accelerator_spec)
+        goals = self.resolve_goals(input_model_config, input_model_id, metrics, accelerator_spec)
         objective_dict = {}
         for metric in metrics:
             for sub_type in metric.sub_types:
@@ -635,7 +624,6 @@ class Engine:
         self,
         input_model_config: ModelConfig,
         input_model_id: str,
-        data_root: str,
         metrics: List[Metric],
         accelerator_spec: "AcceleratorSpec",
     ) -> Dict[str, float]:
@@ -663,7 +651,7 @@ class Engine:
                     assert self.evaluator_config is not None, "Default evaluator must be provided to resolve goals"
                     logger.debug("Computing baseline for metrics ...")
                     baseline = self._evaluate_model(
-                        input_model_config, input_model_id, data_root, self.evaluator_config, accelerator_spec
+                        input_model_config, input_model_id, self.evaluator_config, accelerator_spec
                     )
                     _evaluated = True
                     break
@@ -846,7 +834,6 @@ class Engine:
         passes: List[Tuple[str, Dict[str, Any]]],
         model_config: ModelConfig,
         model_id: str,
-        data_root: str,
         accelerator_spec: "AcceleratorSpec",
         cloud_cache_config: "CloudCacheConfig",
     ):
@@ -885,7 +872,6 @@ class Engine:
                 pass_search_point,
                 model_config,
                 model_id,
-                data_root,
                 accelerator_spec,
                 cloud_cache_config.enable_cloud_cache,
                 cloud_cache_config.upload_to_cloud,
@@ -915,7 +901,7 @@ class Engine:
                 signal = None
             else:
                 logger.info("Run model evaluation for the final model...")
-                signal = self._evaluate_model(model_config, model_id, data_root, evaluator_config, accelerator_spec)
+                signal = self._evaluate_model(model_config, model_id, evaluator_config, accelerator_spec)
             logger.debug("Signal: %s", signal)
         else:
             signal = None
@@ -929,7 +915,6 @@ class Engine:
         pass_search_point: Dict[str, Any],
         input_model_config: ModelConfig,
         input_model_id: str,
-        data_root: str,
         accelerator_spec: "AcceleratorSpec",
         enable_cloud_cache: bool,
         upload_to_cloud: bool,
@@ -1023,9 +1008,7 @@ class Engine:
                     else:
                         host = self.target
 
-                output_model_config = host.run_pass(
-                    p, input_model_config, data_root, output_model_path, pass_search_point
-                )
+                output_model_config = host.run_pass(p, input_model_config, output_model_path, pass_search_point)
             except OlivePassError:
                 logger.exception("Pass run_pass failed")
                 output_model_config = FAILED_CONFIG
@@ -1116,7 +1099,6 @@ class Engine:
         self,
         model_config: ModelConfig,
         model_id: str,
-        data_root: str,
         evaluator_config: "OliveEvaluatorConfig",
         accelerator_spec: "AcceleratorSpec",
     ):
@@ -1147,7 +1129,7 @@ class Engine:
         metrics = evaluator_config.metrics if evaluator_config else []
         if self.target.system_type != SystemType.AzureML:
             model_config = self._prepare_non_local_model(model_config)
-        signal = self.target.evaluate_model(model_config, data_root, metrics, accelerator_spec)
+        signal = self.target.evaluate_model(model_config, metrics, accelerator_spec)
 
         # cache evaluation
         self._cache_evaluation(model_id_with_accelerator, signal)

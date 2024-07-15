@@ -171,41 +171,6 @@ def get_local_path(resource_path: Optional[ResourcePath]):
         return None
 
 
-def normalize_data_path(data_root: Union[str, Path], data_dir: Union[str, Path, ResourcePath]):
-    """Normalize data path, if data_dir is absolute path, return data_dir, else return data_root/data_dir."""
-    if isinstance(data_dir, ResourcePath):
-        data_dir_str = data_dir.get_path()
-    else:
-        data_dir_str = data_dir
-
-    data_full_path = None
-    if not data_dir_str:
-        data_full_path = data_root
-    elif Path(data_dir_str).is_absolute():
-        data_full_path = data_dir_str
-    else:
-        if data_root:
-            if isinstance(data_dir, ResourcePath) and data_dir.is_azureml_resource():
-                raise ValueError("could not append AzureML data to data_root")
-
-            # we cannot use Path to join the path. If the data_root is something like: azureml://, then Path will
-            # change the data_root to azureml:/, which is not a valid path
-            data_full_path = os.path.join(data_root, data_dir_str).replace("\\", "/")
-        else:
-            # will keep this as is so that we don't lose information inside ResourcePath
-            data_full_path = data_dir
-
-    return create_resource_path(data_full_path)
-
-
-def get_local_path_from_root(data_root: Union[str, Path], data_dir: Union[str, Path, ResourcePath]):
-    data_path = normalize_data_path(data_root, data_dir)
-    if data_path:
-        return get_local_path(data_path)
-    else:
-        return None
-
-
 def save_model(
     model_number: str,
     output_dir: Union[str, Path] = None,

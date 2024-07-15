@@ -428,9 +428,6 @@ The above case shows to rewrite all the components in data config. But sometime,
         1. inception_post_process:
             - user_script https://github.com/microsoft/Olive/blob/main/examples/inception/user_script.py#L8-L10
             - json_config https://github.com/microsoft/Olive/blob/main/examples/inception/inception_config.json#L14-L16
-        2. dummy_dataset_dataroot:
-            - user_script https://github.com/microsoft/Olive/blob/main/test/unit_test/test_data_root.py#L31
-            - json_config https://github.com/microsoft/Olive/blob/main/test/unit_test/test_data_root.py#L107
 
 .. note::
     The components will be called with the following arguments along with any additional keyword arguments provided in the config:

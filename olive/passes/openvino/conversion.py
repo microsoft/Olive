@@ -59,14 +59,13 @@ class OpenVINOConversion(Pass):
                 type_=str,
                 default_value="ov_model",
                 required=False,
-                description=("Name of the output OpenVINO model."),
+                description="Name of the output OpenVINO model.",
             ),
         }
 
     def _run_for_config(
         self,
         model: Union[PyTorchModelHandler, ONNXModelHandler],
-        data_root: str,
         config: Dict[str, Any],
         output_model_path: str,
     ) -> OpenVINOModelHandler:

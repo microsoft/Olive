@@ -72,7 +72,6 @@ def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, m
     engine.run(
         input_model_config=input_model_config,
         accelerator_specs=[DEFAULT_CPU_ACCELERATOR],
-        data_root=None,
         packaging_config=packaging_config,
         output_dir=output_dir,
         cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
@@ -339,7 +338,7 @@ def test_generate_azureml_data(mock_create_resource_path, mock_retry_func):
 
 @patch("olive.engine.packaging.packaging_generator.retry_func")
 @pytest.mark.parametrize(
-    ("inferencing_server_type"),
+    "inferencing_server_type",
     [(InferencingServerType.AzureMLOnline), (InferencingServerType.AzureMLBatch)],
 )
 def test_azureml_deployment(mock_retry_func, inferencing_server_type):

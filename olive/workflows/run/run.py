@@ -8,7 +8,7 @@ import subprocess
 import sys
 from copy import deepcopy
 from pathlib import Path
-from typing import Generator, List, Union
+from typing import Generator, List, Optional, Union
 
 from olive.auto_optimizer import AutoOptimizer
 from olive.common.utils import set_tempdir
@@ -130,7 +130,7 @@ def is_execution_provider_required(run_config: RunConfig, package_config: OliveP
     return any(get_pass_module_path(p.type, package_config).startswith("olive.passes.onnx") for p in passes)
 
 
-def run_engine(package_config: OlivePackageConfig, run_config: RunConfig, data_root: str = None):
+def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
     import onnxruntime as ort
 
     from olive.passes import Pass
@@ -254,15 +254,11 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig, data_r
                 )
             engine.set_pass_flows(pass_flows)
 
-        if data_root is None:
-            data_root = run_config.data_root
-
         # run
         run_rls.update(
             engine.run(
                 input_model,
                 accelerator_spec,
-                data_root,
                 run_config.engine.packaging_config,
                 run_config.engine.output_dir,
                 run_config.engine.output_name,
@@ -276,8 +272,7 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig, data_r
 def run(
     run_config: Union[str, Path, dict],
     setup: bool = False,
-    data_root: str = None,
-    package_config: Union[str, Path, dict] = None,
+    package_config: Optional[Union[str, Path, dict]] = None,
     tempdir: Union[str, Path] = None,
 ):
     # set tempdir
@@ -300,7 +295,7 @@ def run(
         dependency_setup(package_config, run_config)
         return None
     else:
-        return run_engine(package_config, run_config, data_root)
+        return run_engine(package_config, run_config)
 
 
 def check_local_ort_installation(package_name: str):

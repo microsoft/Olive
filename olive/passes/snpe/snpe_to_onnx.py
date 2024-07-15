@@ -51,7 +51,7 @@ class SNPEtoONNXConversion(Pass):
         }
 
     def _run_for_config(
-        self, model: SNPEModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: SNPEModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
         config = self._config_class(**config)
 

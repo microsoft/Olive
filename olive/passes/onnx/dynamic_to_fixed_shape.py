@@ -27,19 +27,19 @@ class DynamicToFixedShape(Pass):
                 type_=List[str],
                 default_value=None,
                 required=False,
-                description=("Symbolic parameter name. Provide dim_value if specified."),
+                description="Symbolic parameter name. Provide dim_value if specified.",
             ),
             "dim_value": PassConfigParam(
                 type_=List[int],
                 default_value=None,
                 required=False,
-                description=("Value to replace dim_param with in the model. Must be > 0."),
+                description="Value to replace dim_param with in the model. Must be > 0.",
             ),
             "input_name": PassConfigParam(
                 type_=List[str],
                 default_value=None,
                 required=False,
-                description=("Model input name to replace shape of. Provide input_shape if specified."),
+                description="Model input name to replace shape of. Provide input_shape if specified.",
             ),
             "input_shape": PassConfigParam(
                 type_=List[List[int]],
@@ -63,7 +63,6 @@ class DynamicToFixedShape(Pass):
     def _run_for_config(
         self,
         model: ONNXModelHandler,
-        data_root: str,
         config: Dict[str, Any],
         output_model_path: str,
     ) -> ONNXModelHandler:

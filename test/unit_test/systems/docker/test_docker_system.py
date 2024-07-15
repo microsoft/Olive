@@ -148,16 +148,15 @@ class TestDockerSystem:
             image_name="image_name", build_context_path="build_context_path", dockerfile="dockerfile"
         )
         docker_system = DockerSystem(docker_config, is_dev=True)
-        data_root = None
 
         if exit_code != 0:
             with pytest.raises(
                 docker.errors.ContainerError,
                 match=r".*returned non-zero exit status 1: Docker container evaluation failed with: mock_error",
             ):
-                _ = docker_system.evaluate_model(model_config, data_root, [metric], DEFAULT_CPU_ACCELERATOR)
+                _ = docker_system.evaluate_model(model_config, [metric], DEFAULT_CPU_ACCELERATOR)
         else:
-            actual_res = docker_system.evaluate_model(model_config, data_root, [metric], DEFAULT_CPU_ACCELERATOR)
+            actual_res = docker_system.evaluate_model(model_config, [metric], DEFAULT_CPU_ACCELERATOR)
 
             container_root_path = Path("/olive-ws/")
             eval_local_path = Path(__file__).resolve().parents[4] / "olive" / "systems" / "docker" / "eval.py"
@@ -224,7 +223,6 @@ class TestDockerSystem:
             image_name="image_name", build_context_path="build_context_path", dockerfile="dockerfile"
         )
         docker_system = DockerSystem(docker_config, is_dev=True)
-        data_root = "data_root"
 
         p = create_pass_from_dict(OrtPerfTuning, {}, disable_search=True)
         output_folder = str(tmp_path / "onnx")
@@ -233,14 +231,14 @@ class TestDockerSystem:
             return v
 
         def is_dir_mock(self):
-            return self == Path("data_root") / "data_dir"
+            return self == Path("data_dir")
 
         with patch("olive.resource_path._validate_file_path", side_effect=validate_file_or_folder), patch(
             "olive.resource_path._validate_folder_path", side_effect=validate_file_or_folder
         ), patch("olive.resource_path._validate_path", side_effect=validate_file_or_folder), patch.object(
             Path, "is_dir", side_effect=is_dir_mock, autospec=True
         ):
-            output_model = docker_system.run_pass(p, onnx_model, data_root, output_folder)
+            output_model = docker_system.run_pass(p, onnx_model, output_folder)
             assert output_model is not None
 
         runner_local_path = Path(__file__).resolve().parents[4] / "olive" / "systems" / "docker" / "runner.py"

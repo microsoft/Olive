@@ -94,7 +94,7 @@ def test_perf_tuning_with_provider_options(get_available_providers_mock, evaluat
         "CPUExecutionProvider",
     ]
 
-    def mock_evaluate_method(model, data_root, metrics, device, execution_providers):
+    def mock_evaluate_method(model, metrics, device, execution_providers):
         metrics_res = {}
         latency = 0.5
 
@@ -174,7 +174,7 @@ def test_perf_tuning_with_force_evaluate(get_available_providers_mock, evaluate_
         "CPUExecutionProvider",
     ]
 
-    def mock_evaluate_method(model, data_root, metrics, device, execution_providers):
+    def mock_evaluate_method(model, metrics, device, execution_providers):
         metrics_res = {}
         latency = 0.5
         assert execution_providers is None
@@ -273,8 +273,8 @@ def test_generate_test_name():
     }
 
     name = generate_test_name(test_params, True)
-    assert name == (
-        "cpu-{'execution_mode': 1, "
+    assert (
+        name == "cpu-{'execution_mode': 1, "
         "'extra_session_config': None, 'inter_op_num_threads': 1, 'intra_op_num_threads': 8}"
         "-{'io_bind': True}"
     )
@@ -293,8 +293,8 @@ def test_generate_test_name():
         },
     }
     name = generate_test_name(test_params, False)
-    assert name == (
-        "('tensorrt', {'trt_fp16_enable': True})-"
+    assert (
+        name == "('tensorrt', {'trt_fp16_enable': True})-"
         "{'execution_mode': 1, "
         "'extra_session_config': {'session.intra_op_thread_affinities': '0;1;2;3;4;5;6;7'}, "
         "'inter_op_num_threads': 1, 'intra_op_num_threads': 8, 'graph_optimization_level': 99}"

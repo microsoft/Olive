@@ -23,17 +23,16 @@ class LocalSystem(OliveSystem):
         self,
         the_pass: "Pass",
         model_config: ModelConfig,
-        data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
     ) -> ModelConfig:
         """Run the pass on the model at a specific point in the search space."""
         model = model_config.create_model()
-        output_model = the_pass.run(model, data_root, output_model_path, point)
+        output_model = the_pass.run(model, output_model_path, point)
         return ModelConfig.from_json(output_model.to_json())
 
     def evaluate_model(
-        self, model_config: ModelConfig, data_root: str, metrics: List["Metric"], accelerator: AcceleratorSpec
+        self, model_config: ModelConfig, metrics: List["Metric"], accelerator: AcceleratorSpec
     ) -> "MetricResult":
         """Evaluate the model."""
         if model_config.type.lower() in ("compositemodel", "compositepytorchmodel"):
@@ -44,7 +43,7 @@ class LocalSystem(OliveSystem):
 
         model = model_config.create_model()
         evaluator: OliveEvaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
-        return evaluator.evaluate(model, data_root, metrics, device=device, execution_providers=execution_providers)
+        return evaluator.evaluate(model, metrics, device=device, execution_providers=execution_providers)
 
     def get_supported_execution_providers(self) -> List[str]:
         """Get the available execution providers."""

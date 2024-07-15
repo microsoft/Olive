@@ -40,7 +40,7 @@ class TestRunConfig:
     def test_dataset_config_file(self, config_file):
         run_config = RunConfig.parse_file(config_file)
         for dc in run_config.data_configs:
-            dc.to_data_container().create_dataloader(data_root_path=None)
+            dc.to_data_container().create_dataloader()
 
     @pytest.mark.parametrize("system", ["local_system", "azureml_system"])
     def test_user_script_config(self, system):

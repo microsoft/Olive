@@ -24,7 +24,6 @@ def get_args(raw_args):
     parser.add_argument("--model_config", type=str, required=True, help="Path to input model json file")
     parser.add_argument("--metrics_config", type=str, required=True, help="Path to metrics json file")
     parser.add_argument("--accelerator_config", type=str, required=True, help="Path to accelerator json file")
-    parser.add_argument("--data_root", type=str, required=False, help="Path to data root")
     parser.add_argument("--tempdir", type=str, required=False, help="Root directory for tempfile directories and files")
     parser.add_argument("--output_path", type=str, required=True, help="Path to metrics result json file")
 
@@ -50,7 +49,7 @@ def main(raw_args=None):
     target: OliveSystem = LocalSystem()
 
     # metric result
-    metric_result = target.evaluate_model(model_config, args.data_root, metrics, accelerator_spec)
+    metric_result = target.evaluate_model(model_config, metrics, accelerator_spec)
 
     # save metric result json
     with Path(args.output_path).open("w") as f:

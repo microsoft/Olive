@@ -221,7 +221,7 @@ class OrtTransformersOptimization(Pass):
         run_config["optimization_options"] = fusion_options
 
     def _run_for_config(
-        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
         from onnxruntime.transformers import optimizer as transformers_optimizer
 

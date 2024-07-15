@@ -67,7 +67,6 @@ def get_asset_type_from_resource_path(resource_path: ResourcePath):
     return AssetTypes.URI_FILE
 
 
-# TODO(jambayk): remove data_root. Not used at all and makes the logic unnecessarily complex
 class AzureMLSystem(OliveSystem):
     system_type = SystemType.AzureML
     olive_config = None
@@ -160,7 +159,6 @@ class AzureMLSystem(OliveSystem):
         self,
         the_pass: "Pass",
         model_config: ModelConfig,
-        data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
     ) -> ModelConfig:
@@ -465,7 +463,7 @@ class AzureMLSystem(OliveSystem):
         return ModelConfig(**model_json)
 
     def evaluate_model(
-        self, model_config: ModelConfig, data_root: str, metrics: List["Metric"], accelerator: "AcceleratorSpec"
+        self, model_config: ModelConfig, metrics: List["Metric"], accelerator: "AcceleratorSpec"
     ) -> MetricResult:
         if model_config.type.lower() == "SNPEModel".lower():
             raise NotImplementedError("SNPE model does not support azureml evaluation")

@@ -12,7 +12,6 @@ from typing import Any, Callable, Dict, Union
 import onnx
 from packaging import version
 
-from olive.cache import get_local_path_from_root
 from olive.common.config_utils import validate_config
 from olive.common.pydantic_v1 import validator
 from olive.common.utils import exclude_keys, hash_string
@@ -273,21 +272,20 @@ _static_optional_config = {
 }
 
 
-def get_calibration_dataloader(data_root, user_module_loader, config):
+def get_calibration_dataloader(user_module_loader, config):
     dataloader = None
 
     if config["dataloader_func"]:
         # TODO(trajep): replace legacy dataloader_func with data config
-        data_dir = get_local_path_from_root(data_root, config["data_dir"])
         dataloader = user_module_loader.call_object(
             config["dataloader_func"],
-            data_dir,
+            config["data_dir"],
             config["batch_size"],
             **(config["dataloader_func_kwargs"] or {}),
         )
     elif config["data_config"]:
         data_config = validate_config(config["data_config"], DataConfig)
-        dataloader = data_config.to_data_container().create_calibration_dataloader(data_root)
+        dataloader = data_config.to_data_container().create_calibration_dataloader()
     return dataloader
 
 
@@ -382,7 +380,7 @@ class OnnxQuantization(Pass):
         return True
 
     def _run_for_config(
-        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
         from onnxruntime import __version__ as OrtVersion
         from onnxruntime.quantization import QuantFormat, QuantType, quantize_dynamic, quantize_static
@@ -486,7 +484,7 @@ class OnnxQuantization(Pass):
 
         if is_static:
             # get the dataloader
-            dataloader = get_calibration_dataloader(data_root, self._user_module_loader, config)
+            dataloader = get_calibration_dataloader(self._user_module_loader, config)
             if config["prepare_qnn_config"]:
                 import inspect
 
@@ -662,27 +660,32 @@ class OnnxMatMul4Quantizer(Pass):
                 # TODO(trajep): to make it searchable
                 type_=int,
                 default_value=None,
-                description="Available from onnxruntime>=1.17.0 "
-                "The minimum accuracy level of input A, can be: 0(unset), 1(fp32), 2(fp16), 3(bf16), "
-                "or 4(int8) (default unset when 0 or None). It is used to control how input A is quantized or downcast "
-                "internally while doing computation, for example: 0 means input A will not be quantized "
-                "or downcast while doing computation. 4 means input A can be quantized with the same "
-                "block_size to int8 internally from type T1. "
-                "Refer to the MatMulNBits contrib op's 'accuracy_level' attribute for details "
-                "(https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#commicrosoftmatmulnbits).",
+                description=(
+                    "Available from onnxruntime>=1.17.0 "
+                    "The minimum accuracy level of input A, can be: 0(unset), 1(fp32), 2(fp16), 3(bf16), "
+                    "or 4(int8) (default unset when 0 or None). It is used to control how input A is quantized or"
+                    " downcast "
+                    "internally while doing computation, for example: 0 means input A will not be quantized "
+                    "or downcast while doing computation. 4 means input A can be quantized with the same "
+                    "block_size to int8 internally from type T1. "
+                    "Refer to the MatMulNBits contrib op's 'accuracy_level' attribute for details "
+                    "(https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#commicrosoftmatmulnbits)."
+                ),
             ),
             "algorithm": PassConfigParam(
                 type_=str,
                 default_value=None,
-                description="If 'None', the Matmul node with fp32 const weight will be quantize to int4."
-                "1. 'RTN' and 'GPTQ' are available from onnxruntime>=1.17.0 "
-                "- For 4b quantize a model with RTN or GPTQ algorithm. Please refer to "
-                "https://github.com/intel/neural-compressor/blob/master/docs/source/quantization_weight_only.md "
-                "for more details on weight only quantization using Intel® Neural Compressor. "
-                "2. 'DEFAULT', 'HQQ' are available from onnxruntime>=1.18.0 "
-                "- `DEFAULT` takes the same effect as `None`"
-                "- For HQQ, please refer to onnxruntime for more details: "
-                "https://github.com/microsoft/onnxruntime/blob/7e613ee821405b1192d0b71b9434a4f94643f1e4/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L102C1-L126C25",
+                description=(
+                    "If 'None', the Matmul node with fp32 const weight will be quantize to int4."
+                    "1. 'RTN' and 'GPTQ' are available from onnxruntime>=1.17.0 "
+                    "- For 4b quantize a model with RTN or GPTQ algorithm. Please refer to "
+                    "https://github.com/intel/neural-compressor/blob/master/docs/source/quantization_weight_only.md "
+                    "for more details on weight only quantization using Intel® Neural Compressor. "
+                    "2. 'DEFAULT', 'HQQ' are available from onnxruntime>=1.18.0 "
+                    "- `DEFAULT` takes the same effect as `None`"
+                    "- For HQQ, please refer to onnxruntime for more details: "
+                    "https://github.com/microsoft/onnxruntime/blob/7e613ee821405b1192d0b71b9434a4f94643f1e4/onnxruntime/python/tools/quantization/matmul_4bits_quantizer.py#L102C1-L126C25"
+                ),
             ),
             "weight_only_quant_configs": PassConfigParam(
                 type_=dict,
@@ -739,7 +742,7 @@ class OnnxMatMul4Quantizer(Pass):
         }
 
     def _run_for_config(
-        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
         from onnxruntime import __version__ as OrtVersion
 
@@ -766,7 +769,7 @@ class OnnxMatMul4Quantizer(Pass):
                     # ort 1.17.0+ uses blocksize instead of block_size :(
                     algo_config["blocksize"] = algo_config["block_size"]
                     algo_config.pop("block_size")
-                dataloader = get_calibration_dataloader(data_root, self._user_module_loader, config)
+                dataloader = get_calibration_dataloader(self._user_module_loader, config)
                 weight_only_quant_config_class = partial(GPTQWeightOnlyQuantConfig, calibration_data_reader=dataloader)
 
             if version.parse(OrtVersion) >= version.parse("1.18.0"):

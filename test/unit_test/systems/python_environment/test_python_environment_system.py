@@ -129,7 +129,6 @@ class TestPythonEnvironmentSystem:
                 "metrics_config": [metric.to_json() for metric in metrics],
                 "accelerator_config": DEFAULT_CPU_ACCELERATOR.to_json(),
             },
-            data_root=None,
             tempdir=tempfile.tempdir,
         )
 
@@ -174,7 +173,6 @@ class TestPythonEnvironmentSystem:
         mock__run_command.assert_called_once_with(
             self.system.pass_runner_path,
             {"model_config": dummy_model_config, "pass_config": expected_pass_config},
-            data_root=None,
             tempdir=tempfile.tempdir,
             output_model_path=dummy_output_model_path,
         )

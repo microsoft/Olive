@@ -116,7 +116,7 @@ class AutoAWQQuantizer(Pass):
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: PyTorchModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModelHandler:
         from awq import AutoAWQForCausalLM
         from awq.models import base as awq_model_base

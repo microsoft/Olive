@@ -123,7 +123,6 @@ class ModelBuilder(Pass):
     def _run_for_config(
         self,
         model: Union[PyTorchModelHandler, ONNXModelHandler],
-        data_root: str,
         config: Dict[str, Any],
         output_model_path: str,
     ) -> ONNXModelHandler:
