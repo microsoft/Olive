@@ -7,7 +7,7 @@ from onnxruntime import __version__ as OrtVersion
 from packaging import version
 
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.qnn_preprocess import QNNPreprocess
+from olive.passes.onnx.qnn.qnn_preprocess import QNNPreprocess
 
 
 @pytest.mark.skipif(

@@ -7,7 +7,7 @@ import tempfile
 from copy import deepcopy
 from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Dict, Union
+from typing import Any, Callable, Dict, List, Union
 
 import onnx
 from packaging import version
@@ -48,6 +48,13 @@ _onnx_quantization_config = {
         default_value=None,
         description="""
             List of operator types to quantize. If None, all quantizable.
+        """,
+    ),
+    "append_first_op_types_to_quantize_list": PassConfigParam(
+        type_=bool,
+        default_value=False,
+        description="""
+            If True, append operator types which firstly appear in the model to op_types_to_quantize.
         """,
     ),
     "nodes_to_quantize": PassConfigParam(
@@ -434,6 +441,12 @@ class OnnxQuantization(Pass):
                 logger.info("Already processed model for quantization, skipping preprocessing")
                 model = ONNXModelHandler(LocalFile({"path": preprocessed_temp_model_path}))
 
+        # if enable _append_first_op_types_to_quantize_list
+        if run_config["append_first_op_types_to_quantize_list"]:
+            run_config["op_types_to_quantize"] = _append_first_op_types_to_quantize_list(
+                model, run_config["op_types_to_quantize"], run_config["nodes_to_exclude"]
+            )
+
         # keys not needed for quantization
         to_delete = [
             "quant_mode",
@@ -442,6 +455,7 @@ class OnnxQuantization(Pass):
             "quant_preprocess",
             "data_config",
             "prepare_qnn_config",
+            "append_first_op_types_to_quantize_list",
         ]
         to_delete += list(get_external_data_config().keys())
 
@@ -500,6 +514,8 @@ class OnnxQuantization(Pass):
                         "weight_symmetric": config["WeightSymmetric"],
                     }
                     qnn_extra_options = config["qnn_extra_options"] or {}
+                    if init_overrides := _get_qnn_init_overrides(model, config):
+                        qnn_extra_options["init_overrides"] = init_overrides
                 qnn_config = get_qnn_qdq_config(
                     model_input=model.model_path,
                     calibration_data_reader=dataloader,
@@ -857,3 +873,44 @@ def _validate_weight_only_quant_config(v, values, field):
         )
         v = {key: v[key] for key in default_config_keys if key in v}
     return v
+
+
+def _append_first_op_types_to_quantize_list(
+    model_handler: ONNXModelHandler, op_types_to_quantize: List[str] = None, exclude_node: List[str] = None
+) -> List[str]:
+    from collections import defaultdict
+
+    op_types_to_quantize = op_types_to_quantize or []
+    exclude_node = exclude_node or []
+    onnx_model = model_handler.load_model()
+    ops = defaultdict(int)
+    for node in onnx_model.graph.node:
+        ops[node.op_type] += 1
+        if ops[node.op_type] == 1 and node.op_type not in exclude_node:
+            op_types_to_quantize.append(node.op_type)
+    return op_types_to_quantize
+
+
+def _get_qnn_init_overrides(model_handler: ONNXModelHandler, config: Dict[str, Any]):
+    # get qnn overrides from the input model
+    model_attributes = model_handler.model_attributes or {}
+    mp_init_overrides = model_attributes.get("mixed_precision_overrides") or {}
+    init_overrides = {}
+    config["qnn_extra_options"] = config["qnn_extra_options"] or {}
+    if mp_init_overrides and "init_overrides" not in config["qnn_extra_options"]:
+        from onnxruntime.quantization import QuantType
+
+        # use QuantType to get the quantization type
+        init_overrides = {
+            tensor: [{"quant_type": QuantType.from_string(quant["quant_type"])} for quant in quant_types]
+            for tensor, quant_types in mp_init_overrides.items()
+        }
+        # add `convert_outputs` to the TensorQuantOverridesHelper
+        convert_outputs = config.get("convert_outputs") or {}
+        for output_name, output_convert_type in convert_outputs.items():
+            init_overrides[output_name] = init_overrides.get(output_name, [{}])
+            init_overrides[output_name][0]["quant_type"] = init_overrides[output_name][0].get(
+                "quant_type"
+            ) or QuantType.from_string(config.get("activation_type", "QUInt8"))
+            init_overrides[output_name][0]["convert"] = {"quant_type": QuantType.from_string(output_convert_type)}
+    return init_overrides
