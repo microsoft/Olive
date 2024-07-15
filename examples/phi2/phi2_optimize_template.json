@@ -1,7 +1,8 @@
 {
     "input_model": {
-        "type": "PyTorchModel",
+        "type": "HfModel",
         "config": {
+            "model_path": "microsoft/phi-2",
             "io_config": {
                 "input_names": [ "input_ids", "attention_mask", "position_ids" ],
                 "output_names": [ "logits" ],
@@ -18,11 +19,6 @@
                     "ort_present_key_name": "present_key_<id>",
                     "ort_present_value_name": "present_value_<id>"
                 }
-            },
-            "hf_config": {
-                "model_name": "microsoft/phi-2",
-                "task": "text-generation",
-                "from_pretrained_args": { "trust_remote_code": true }
             }
         }
     },

@@ -1,12 +1,9 @@
 {
     "input_model": {
-        "type": "PyTorchModel",
+        "type": "HfModel",
         "config": {
-            "hf_config": {
-                "model_class": "ASTForAudioClassification",
-                "model_name": "MIT/ast-finetuned-speech-commands-v2",
-                "task": "audio-classification"
-            },
+            "model_path": "MIT/ast-finetuned-speech-commands-v2",
+            "task": "audio-classification",
             "io_config": {
                 "input_names": [ "input_values" ],
                 "output_names": [ "logits" ],

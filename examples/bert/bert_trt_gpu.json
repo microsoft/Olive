@@ -1,7 +1,7 @@
 {
     "input_model": {
-        "type": "PyTorchModel",
-        "config": { "hf_config": { "model_name": "Intel/bert-base-uncased-mrpc", "task": "text-classification" } }
+        "type": "HfModel",
+        "config": { "model_path": "Intel/bert-base-uncased-mrpc", "task": "text-classification" }
     },
     "systems": {
         "local_system": {

@@ -1,8 +1,9 @@
 {
     "input_model": {
-        "type": "PyTorchModel",
+        "type": "HfModel",
         "config": {
-            "hf_config": { "model_name": "Intel/bert-base-uncased-mrpc", "task": "text-classification" },
+            "model_path": "Intel/bert-base-uncased-mrpc", 
+            "task": "text-classification",
             "io_config": {
                 "input_names": [ "input_ids", "attention_mask", "token_type_ids" ],
                 "input_shapes": [ [ 1, 128 ], [ 1, 128 ], [ 1, 128 ] ],

@@ -5,16 +5,10 @@
 import torch
 from datasets import load_dataset  # type: ignore[import]
 from datasets.utils import logging as datasets_logging  # type: ignore[import]
-from transformers import AutoTokenizer, BertModel  # type: ignore[import]
+from transformers import AutoTokenizer
 
 datasets_logging.disable_progress_bar()
 datasets_logging.set_verbosity_error()
-
-
-def load_pytorch_origin_model():
-    model = BertModel.from_pretrained("bert-base-uncased")
-    model.eval()
-    return model
 
 
 def create_calibration_dataloader(batch_size, calib_size, *args, **kwargs):

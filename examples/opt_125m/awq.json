@@ -1,8 +1,10 @@
 {
     "input_model": {
-        "type": "PyTorchModel",
+        "type": "HfModel",
         "config": {
             "io_config": {
+                "model_path": "facebook/opt_125m",
+                "task": "text-generation",
                 "input_names": [ "input_ids", "attention_mask" ],
                 "output_names": [ "logits" ],
                 "input_shapes": [ [ 2, 8 ], [ 2, 40 ] ],
@@ -18,11 +20,6 @@
                     "ort_present_value_name": "present_value_<id>",
                     "dtype": "float16"
                 }
-            },
-            "hf_config": {
-                "model_name": "facebook/opt-125m",
-                "task": "text-generation",
-                "from_pretrained_args": { "trust_remote_code": true }
             }
         }
     },

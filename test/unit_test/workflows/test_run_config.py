@@ -225,12 +225,10 @@ class TestDataConfigValidation:
     def setup(self):
         self.template = {
             "input_model": {
-                "type": "PyTorchModel",
+                "type": "HfModel",
                 "config": {
-                    "hf_config": {
-                        "model_name": "dummy_model",
-                        "task": "dummy_task",
-                    }
+                    "model_path": "dummy_model",
+                    "task": "dummy_task",
                 },
             },
             "data_configs": [
@@ -298,7 +296,7 @@ class TestDataConfigValidation:
 
     # works similarly for trust_remote_args
     @pytest.mark.parametrize(
-        ("has_loading_args", "trust_remote_code", "data_config_trust_remote_code", "expected_trust_remote_code"),
+        ("has_load_kwargs", "trust_remote_code", "data_config_trust_remote_code", "expected_trust_remote_code"),
         [
             (False, None, None, None),
             (False, None, True, True),
@@ -311,13 +309,11 @@ class TestDataConfigValidation:
         ],
     )
     def test_auto_insert_trust_remote_code(
-        self, has_loading_args, trust_remote_code, data_config_trust_remote_code, expected_trust_remote_code
+        self, has_load_kwargs, trust_remote_code, data_config_trust_remote_code, expected_trust_remote_code
     ):
         config_dict = self.template.copy()
-        if has_loading_args:
-            config_dict["input_model"]["config"]["hf_config"]["from_pretrained_args"] = {
-                "trust_remote_code": trust_remote_code
-            }
+        if has_load_kwargs:
+            config_dict["input_model"]["config"]["load_kwargs"] = {"trust_remote_code": trust_remote_code}
         if data_config_trust_remote_code is not None:
             config_dict["data_configs"] = [
                 {

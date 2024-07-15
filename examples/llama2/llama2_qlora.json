@@ -1,7 +1,11 @@
 {
     "input_model": {
-        "type": "PyTorchModel",
+        "type": "HfModel",
         "config": {
+            "model_path": "meta-llama/Llama-2-7b-hf",
+            "load_kwargs": {
+                "attn_implementation": "eager"
+            },
             "io_config": {
                 "input_names": [ "input_ids", "attention_mask", "position_ids" ],
                 "output_names": [ "logits" ],
@@ -11,13 +15,7 @@
                     "input_ids": { "0": "batch_size", "1": "sequence_length" },
                     "attention_mask": { "0": "batch_size", "1": "total_sequence_length" },
                     "position_ids": { "0": "batch_size", "1": "sequence_length" }
-                },
-                "kv_cache": true
-            },
-            "hf_config": {
-                "model_name": "meta-llama/Llama-2-7b-hf",
-                "task": "text-generation",
-                "from_pretrained_args": { "_attn_implementation": "eager" }
+                }
             }
         }
     },
@@ -68,14 +66,14 @@
             "config": {
                 "lora_dropout": 0.1,
                 "train_data_config": "tiny_codes_train",
-                "eval_dataset_size": 1024,
+                "eval_dataset_size": 100,
                 "training_args": {
                     "per_device_train_batch_size": 16,
                     "per_device_eval_batch_size": 16,
                     "gradient_accumulation_steps": 1,
-                    "max_steps": 150,
-                    "logging_steps": 50,
-                    "save_steps": 50,
+                    "max_steps": 5,
+                    "logging_steps": 5,
+                    "save_steps": 5,
                     "evaluation_strategy": "steps",
                     "adam_beta2": 0.999,
                     "max_grad_norm": 0.3,

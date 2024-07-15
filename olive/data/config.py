@@ -193,6 +193,8 @@ class DataConfig(ConfigBase):
             if config and config.params:
                 task_type = config.params.get("task")
                 if task_type:
-                    task_specific_override = dc_cls.task_type_components_map.get(task_type, {}).get(component_name)
+                    task_specific_override = dc_cls.task_type_components_map.get(
+                        task_type.replace("-with-past", ""), {}
+                    ).get(component_name)
                     if task_specific_override:
                         default_components_type[component_name] = task_specific_override

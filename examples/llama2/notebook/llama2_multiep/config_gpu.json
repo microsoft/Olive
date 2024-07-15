@@ -1,7 +1,11 @@
 {
     "input_model": {
-        "type": "PyTorchModel",
+        "type": "HfModel",
         "config": {
+            "model_path": "meta-llama/Llama-2-7b-hf",
+            "load_kwargs": {
+                "attn_implementation": "eager"
+            },
             "io_config": {
                 "input_names": [ "input_ids", "attention_mask", "position_ids" ],
                 "output_names": [ "logits" ],
@@ -11,14 +15,7 @@
                     "input_ids": { "0": "batch_size", "1": "sequence_length" },
                     "attention_mask": { "0": "batch_size", "1": "total_sequence_length" },
                     "position_ids": { "0": "batch_size", "1": "sequence_length" }
-                },
-                "kv_cache": true
-            },
-            "hf_config": {
-                "model_name": "meta-llama/Llama-2-7b-hf",
-                "model_class": "LlamaForCausalLM",
-                "from_pretrained_args": { "_attn_implementation": "eager" },
-                "task": "text-generation"
+                }
             }
         }
     },

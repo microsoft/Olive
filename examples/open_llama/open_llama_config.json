@@ -1,7 +1,8 @@
 {
     "input_model": {
-        "type": "PyTorchModel",
+        "type": "HfModel",
         "config": {
+            "model_path": "openlm-research/open_llama_3b",
             "io_config": {
                 "input_names": [ "input_ids", "attention_mask", "position_ids" ],
                 "output_names": [ "logits" ],
@@ -11,10 +12,8 @@
                     "input_ids": { "0": "batch_size", "1": "sequence_length" },
                     "attention_mask": { "0": "batch_size", "1": "total_sequence_length" },
                     "position_ids": { "0": "batch_size", "1": "sequence_length" }
-                },
-                "kv_cache": true
-            },
-            "hf_config": { "model_name": "openlm-research/open_llama_3b", "task": "text-generation" }
+                }
+            }
         }
     },
     "data_configs": [ { "name": "transformer_token_dummy_data", "type": "TransformersTokenDummyDataContainer" } ],

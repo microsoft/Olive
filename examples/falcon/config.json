@@ -1,7 +1,7 @@
 {
     "input_model": {
-        "type": "PyTorchModel",
-        "config": { "hf_config": { "model_name": "tiiuae/falcon-7b", "task": "text-generation" } }
+        "type": "HfModel",
+        "config": { "model_path": "tiiuae/falcon-7b", "task": "text-generation" }
     },
     "systems": {
         "local_system": {

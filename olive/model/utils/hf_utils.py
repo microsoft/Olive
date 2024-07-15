@@ -19,12 +19,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_HF_TASK = "text-generation-with-past"
+
 
 def load_hf_model_from_task(task: str, name: str, **kwargs) -> "PreTrainedModel":
     """Load huggingface model from task and name."""
     from transformers.pipelines import check_task
 
-    task_results = check_task(task)
+    task_results = check_task(task.replace("-with-past", ""))
     assert isinstance(task_results, tuple)
     if len(task_results) == 2:
         targeted_task = task_results[0]
@@ -88,9 +90,12 @@ def save_hf_model_config(config: Union["PretrainedConfig", "GenerationConfig"], 
     config.save_pretrained(output_dir, **kwargs)
 
 
-def get_hf_model_generation_config(model_name: str, **kwargs) -> GenerationConfig:
-    """Get HF model's generation config for the given model name."""
-    return GenerationConfig.from_pretrained(model_name, **kwargs)
+def get_hf_model_generation_config(model_name: str, **kwargs) -> Optional["GenerationConfig"]:
+    """Get HF model's generation config for the given model name. If not found, return None."""
+    try:
+        return GenerationConfig.from_pretrained(model_name, **kwargs)
+    except OSError:
+        return None
 
 
 def get_hf_model_tokenizer(model_name: str, **kwargs) -> Union["PreTrainedTokenizer", "PreTrainedTokenizerFast"]:
@@ -132,14 +137,15 @@ def patched_supported_features_mapping(*supported_features: str, onnx_config_cls
     mapping = {}
     for feature in supported_features:
         if "-with-past" in feature:
-            task = feature.replace("-with-past", "")
-            mapping[feature] = partial(config_cls.with_past, task=task)
+            mapping[feature] = partial(config_cls.with_past, task=feature.replace("-with-past", ""))
         else:
             mapping[feature] = partial(config_cls.from_model_config, task=feature)
 
     return mapping
 
 
+# TODO(jambayk): switch to optimum backend and make this an optional feature
+# remove "feature" entirely from the codebase
 def get_onnx_config(model_name: str, task: str, feature: Optional[str] = None, **kwargs) -> "OnnxConfig":
     # pylint: disable=protected-access
     from transformers.onnx import FeaturesManager
@@ -158,7 +164,7 @@ def get_onnx_config(model_name: str, task: str, feature: Optional[str] = None, *
 
     # if feature is not provided, try to get it from task
     # else use "default"
-    feature = feature or TASK_TO_FEATURE.get(task, "default")
+    feature = feature or get_feature_from_task(task) or "default"
 
     # don't want to load the model here since all we need is the config
     # model loading is expensive computationally and memory-wise for large models
@@ -211,10 +217,24 @@ def get_hf_model_dummy_input(model_name: str, task: str, feature: Optional[str] 
     return model_config.generate_dummy_inputs(tokenizer, framework="pt")
 
 
+# TODO(jambayk): Remove this once we transition away from using "feature"
+def get_feature_from_task(task: str, fail_on_not_found=False) -> str:
+    """Get feature from task."""
+    feature = TASK_TO_FEATURE.get(task.replace("-with-past", ""), None)
+    not_found_msg = f"There is no feature for task {task}"
+    if feature is None and fail_on_not_found:
+        raise ValueError(not_found_msg)
+    elif feature is None:
+        logger.warning(not_found_msg)
+    elif task.endswith("-with-past"):
+        feature += "-with-past"
+    return feature
+
+
 def get_peft_task_type_from_task(task: str, fail_on_not_found=False) -> str:
     """Get peft task type from feature."""
-    feature = TASK_TO_FEATURE.get(task, None)
-    peft_task_type = FEATURE_TO_PEFT_TASK_TYPE.get(feature, None) if feature else None
+    feature = get_feature_from_task(task)
+    peft_task_type = FEATURE_TO_PEFT_TASK_TYPE.get(feature.replace("-with-past", ""), None) if feature else None
     not_found_msg = f"There is no peft task type for task {task}"
     if peft_task_type is None and fail_on_not_found:
         raise ValueError(not_found_msg)

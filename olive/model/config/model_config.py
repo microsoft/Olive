@@ -84,14 +84,6 @@ class ModelConfig(ConfigBase):
         resources = self.get_resource_strings()
         return {k: create_resource_path(v) for k, v in resources.items()}
 
-    def get_hf_model_name(self):
-        if self.has_hf_config():
-            return self.config["hf_config"].get("model_name")
-        return None
-
-    def has_hf_config(self):
-        return self.config.get("hf_config") is not None
-
     def create_model(self):
         cls = get_model_handler(self.type)
         return cls(**self.config)
