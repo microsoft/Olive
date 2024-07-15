@@ -12,10 +12,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 
-import olive.cache as cache_utils
 from olive.common.config_utils import validate_config
 from olive.common.constants import DEFAULT_WORKFLOW_ID
 from olive.common.utils import hash_dict
+from olive.engine.cache import OliveCache
 from olive.engine.cloud_cache_helper import (
     CloudCacheHelper,
     check_model_cache,
@@ -88,9 +88,10 @@ class Engine:
         # default evaluator
         self.evaluator_config = validate_config(evaluator, OliveEvaluatorConfig) if evaluator else None
 
-        self.cache_dir = str(Path(cache_dir) / workflow_id)
-        self.clean_cache = clean_cache
-        self.clean_evaluation_cache = clean_evaluation_cache
+        self.cache = OliveCache(
+            str(Path(cache_dir) / workflow_id), clean_cache=clean_cache, clean_evaluation_cache=clean_evaluation_cache
+        )
+
         self.plot_pareto_frontier = plot_pareto_frontier
         self.azureml_client_config = azureml_client_config
 
@@ -110,36 +111,12 @@ class Engine:
 
     def initialize(self):
         """Initialize engine state. This should be done before running the registered passes."""
-        # pylint: disable=attribute-defined-outside-init
-
-        cache_utils.set_cache_dir(self.cache_dir)
-        if self.clean_cache:
-            cache_utils.clean_cache()
-        if self.clean_evaluation_cache:
-            cache_utils.clean_evaluation_cache()
-
-        logger.info("Using cache directory: %s", self.cache_dir)
-        self.cache_sub_dirs = cache_utils.get_cache_sub_dirs()
-        cache_utils.create_cache()
-
-        # initialize counters
-        # we do this before cleaning pass run caches to ensure we don't reuse model numbers even if the model was
-        # deleted from the cache
-        self._new_model_number = 0
-        # model jsons have the format <model_number>_<pass_type>-<source_model>-<pass_config_hash>.json
-        # model contents are stored in <model_number>_<pass_type>-<source_model>-<pass_config_hash> folder
-        # sometimes the folder is created with contents but the json is not created when the pass fails to run
-        # so we check for both when determining the new model number
-        model_files = list(self.cache_sub_dirs["models"].glob("*_*"))
-        if len(model_files) > 0:
-            self._new_model_number = max(int(model_file.stem.split("_")[0]) for model_file in model_files) + 1
-
         # clean pass run cache if requested
         # removes all run cache for pass type and all children elements
         for pass_config in self.pass_config.values():
             clean_run_cache = pass_config["clean_run_cache"]
             if clean_run_cache:
-                cache_utils.clean_pass_run_cache(pass_config["type"].__name__)
+                self.cache.clean_pass_run_cache(pass_config["type"].__name__)
 
         # prepare non-local resources if host/target is not AzureML
         # TODO(anyone): Should the cloud cache care about this? If so, the cloud cache helper can
@@ -147,16 +124,16 @@ class Engine:
         # during hash calculation.
         if self.target_config.type != SystemType.AzureML:
             if self.evaluator_config:
-                self.evaluator_config = cache_utils.prepare_resources_for_local(self.evaluator_config)
+                self.evaluator_config = self.cache.prepare_resources_for_local(self.evaluator_config)
             for pass_config in self.pass_config.values():
                 if pass_config["evaluator"]:
-                    pass_config["evaluator"] = cache_utils.prepare_resources_for_local(pass_config["evaluator"])
+                    pass_config["evaluator"] = self.cache.prepare_resources_for_local(pass_config["evaluator"])
 
         for pass_config in self.pass_config.values():
             host_type = pass_config["host"].system_type if pass_config["host"] else self.host_config.type
             if host_type == SystemType.AzureML:
                 continue
-            pass_config["config"] = cache_utils.prepare_resources_for_local(pass_config["config"])
+            pass_config["config"] = self.cache.prepare_resources_for_local(pass_config["config"])
 
         self.set_pass_flows(self.pass_flows)
         self._initialized = True
@@ -490,7 +467,7 @@ class Engine:
             for pass_output_name, pass_output_model_id in zip(pass_output_names, model_ids):
                 if not pass_output_name:
                     continue
-                output_model_json = cache_utils.save_model(
+                output_model_json = self.cache.save_model(
                     model_number=pass_output_model_id,
                     output_dir=output_dir_with_pf,
                     output_name=f"{pass_output_name}_model",
@@ -720,19 +697,6 @@ class Engine:
             return self.evaluator_config
         return e
 
-    def _get_new_model_number(self):
-        """Get a new model number."""
-        while True:
-            new_model_number = self._new_model_number
-            self._new_model_number += 1
-            if not list(self.cache_sub_dirs["models"].glob(f"{new_model_number}_*")):
-                break
-        return new_model_number
-
-    def get_model_json_path(self, model_id: str) -> Path:
-        """Get the path to the model json file."""
-        return self.cache_sub_dirs["models"] / f"{model_id}.json"
-
     def _cache_model(self, model: Union[ModelConfig, str], model_id: str, check_object: bool = True):
         """Cache the model in the cache directory."""
         # TODO(trajep): move model/pass run/evaluation cache into footprints
@@ -740,7 +704,7 @@ class Engine:
             model_json = {}
         else:
             model_json = model.to_json(check_object=check_object)
-        model_json_path = self.get_model_json_path(model_id)
+        model_json_path = self.cache.get_model_json_path(model_id)
         try:
             with model_json_path.open("w") as f:
                 json.dump(model_json, f, indent=4)
@@ -750,7 +714,7 @@ class Engine:
 
     def _load_model(self, model_id: str) -> Union[ModelConfig, str]:
         """Load the model from the cache directory."""
-        model_json_path = self.get_model_json_path(model_id)
+        model_json_path = self.cache.get_model_json_path(model_id)
         try:
             with model_json_path.open() as f:
                 model_json = json.load(f)
@@ -772,24 +736,6 @@ class Engine:
 
         return model_hash
 
-    def get_run_json_path(
-        self,
-        pass_name: int,
-        input_model_number: str,
-        pass_config: dict,
-        accelerator_spec: Optional["AcceleratorSpec"],
-    ):
-        """Get the path to the run json."""
-        pass_config_hash = hash_dict(pass_config)[:8]
-        if not accelerator_spec:
-            run_json_path = self.cache_sub_dirs["runs"] / f"{pass_name}-{input_model_number}-{pass_config_hash}.json"
-        else:
-            run_json_path = (
-                self.cache_sub_dirs["runs"]
-                / f"{pass_name}-{input_model_number}-{pass_config_hash}-{accelerator_spec}.json"
-            )
-        return run_json_path
-
     def _cache_run(
         self,
         pass_name: int,
@@ -810,7 +756,7 @@ class Engine:
             "run_end_time": run_end_time,
         }
         input_model_number = input_model_id.split("_")[0]
-        run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config, accelerator_spec)
+        run_json_path = self.cache.get_run_json_path(pass_name, input_model_number, pass_config, accelerator_spec)
         try:
             with run_json_path.open("w") as f:
                 json.dump(run_json, f, indent=4)
@@ -821,7 +767,7 @@ class Engine:
     def _load_run(self, input_model_id: str, pass_name: int, pass_config: dict, accelerator_spec: "AcceleratorSpec"):
         """Load the run from the cache directory."""
         input_model_number = input_model_id.split("_")[0]
-        run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config, accelerator_spec)
+        run_json_path = self.cache.get_run_json_path(pass_name, input_model_number, pass_config, accelerator_spec)
         run_json = {}
         if run_json_path.exists():
             try:
@@ -964,7 +910,7 @@ class Engine:
                     start_time=run_cache.get("run_start_time", 0),
                     end_time=run_cache.get("run_end_time", 0),
                 )
-                logger.info("Loaded model from cache: %s from %s", output_model_id, self.cache_sub_dirs["runs"])
+                logger.info("Loaded model from cache: %s", output_model_id)
                 return output_model_config, output_model_id, None
 
         # new model id
@@ -972,7 +918,7 @@ class Engine:
         # Note: the final output model id need contains the accelerator information
         # if the output model is accelerator dependent.
         output_model_id_parts = [
-            f"{self._get_new_model_number()}_{pass_name}",
+            f"{self.cache.get_new_model_number()}_{pass_name}",
             input_model_number,
             hash_dict(pass_config)[:8],
         ]
@@ -981,9 +927,7 @@ class Engine:
             output_model_id_parts.append(f"{accelerator_spec}")
 
         output_model_id = "-".join(map(str, output_model_id_parts))
-        output_model_path = self.cache_sub_dirs["models"] / f"{output_model_id}" / "output_model"
-        output_model_path.parent.mkdir(parents=True, exist_ok=True)
-        output_model_path = str(output_model_path)
+        output_model_path = str(self.cache.get_model_output_path(output_model_id))
 
         run_start_time = datetime.now().timestamp()
 
@@ -1000,7 +944,7 @@ class Engine:
 
             host = self.host_for_pass(pass_id)
             if host.system_type != SystemType.AzureML:
-                input_model_config = cache_utils.prepare_resources_for_local(input_model_config)
+                input_model_config = self.cache.prepare_resources_for_local(input_model_config)
 
             try:
                 if p.run_on_target:
@@ -1057,13 +1001,9 @@ class Engine:
 
         return output_model_config, output_model_id, output_model_hash
 
-    def get_evaluation_json_path(self, model_id: str):
-        """Get the path to the evaluation json."""
-        return self.cache_sub_dirs["evaluations"] / f"{model_id}.json"
-
     def save_olive_config(self, olive_config: dict):
         """Save the olive config to the output directory."""
-        olive_config_path = Path(self.cache_dir) / "olive_config.json"
+        olive_config_path = self.cache.get_cache_dir() / "olive_config.json"
         olive_config_path.parent.mkdir(parents=True, exist_ok=True)
         with olive_config_path.open("w") as f:
             json.dump(olive_config, f, indent=4)
@@ -1075,7 +1015,7 @@ class Engine:
             "model_id": model_id,
             "signal": signal.dict(),
         }
-        evaluation_json_path = self.get_evaluation_json_path(model_id)
+        evaluation_json_path = self.cache.get_evaluation_json_path(model_id)
         try:
             with evaluation_json_path.open("w") as f:
                 json.dump(evaluation_json, f, indent=4)
@@ -1084,7 +1024,7 @@ class Engine:
 
     def _load_evaluation(self, model_id: str):
         """Load the evaluation from the cache directory."""
-        evaluation_json_path = self.get_evaluation_json_path(model_id)
+        evaluation_json_path = self.cache.get_evaluation_json_path(model_id)
         if evaluation_json_path.exists():
             try:
                 with evaluation_json_path.open() as f:
@@ -1131,7 +1071,7 @@ class Engine:
         # evaluate model
         metrics = evaluator_config.metrics if evaluator_config else []
         if self.target.system_type != SystemType.AzureML:
-            model_config = cache_utils.prepare_resources_for_local(model_config)
+            model_config = self.cache.prepare_resources_for_local(model_config)
         signal = self.target.evaluate_model(model_config, metrics, accelerator_spec)
 
         # cache evaluation
