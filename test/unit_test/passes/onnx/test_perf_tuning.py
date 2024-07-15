@@ -71,15 +71,15 @@ def test_ort_perf_tuning_with_customized_configs(mock_run, config):
 
     # assert
     if "providers_list" not in config:
-        assert mock_run.call_args.args[2]["providers_list"] == [
+        assert mock_run.call_args.args[1]["providers_list"] == [
             "CPUExecutionProvider"
         ], "providers_list is not set correctly as ['CPUExecutionProvider'] by default when user does not specify it"
     if "device" not in config:
         assert (
-            mock_run.call_args.args[2]["device"] == "cpu"
+            mock_run.call_args.args[1]["device"] == "cpu"
         ), "device is not set correctly as cpu by default when user does not specify it"
     for k, v in config.items():
-        assert mock_run.call_args.args[2][k] == v, f"{k} is not set correctly as {v}"
+        assert mock_run.call_args.args[1][k] == v, f"{k} is not set correctly as {v}"
 
 
 @pytest.mark.parametrize("return_baseline", [True, False])
