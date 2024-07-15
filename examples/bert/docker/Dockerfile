@@ -20,6 +20,7 @@ RUN pip install pandas \
             datasets \
             transformers \
             onnxruntime-openvino \
+            "numpy<2.0" \
             evaluate \
             scikit-learn \
             git+https://github.com/microsoft/Olive.git \

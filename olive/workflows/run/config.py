@@ -10,14 +10,16 @@ from olive.auto_optimizer import AutoOptimizerConfig
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.constants import DEFAULT_WORKFLOW_ID
-from olive.common.pydantic_v1 import validator
+from olive.common.pydantic_v1 import Field, validator
 from olive.data.config import DataConfig
+from olive.data.container.dummy_data_container import TRANSFORMER_DUMMY_DATA_CONTAINER
 from olive.data.container.huggingface_container import HuggingfaceContainer
 from olive.engine import Engine, EngineConfig
+from olive.engine.cloud_cache_helper import CloudCacheConfig
 from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
-from olive.passes import FullPassConfig
+from olive.passes import AbstractPassConfig
 from olive.passes.pass_config import PassParamDefault
 from olive.resource_path import AZUREML_RESOURCE_TYPES
 from olive.systems.system_config import SystemConfig
@@ -25,11 +27,53 @@ from olive.systems.system_config import SystemConfig
 logger = logging.getLogger(__name__)
 
 
-class RunPassConfig(FullPassConfig):
-    host: SystemConfig = None
-    evaluator: OliveEvaluatorConfig = None
-    clean_run_cache: bool = False
-    output_name: str = None
+class RunPassConfig(AbstractPassConfig):
+    """Pass configuration for Olive workflow.
+
+    This is the configuration for a single pass in Olive workflow. It includes configurations for pass type, config,
+    etc.
+
+    Example:
+    .. code-block:: json
+
+        {
+            "type": "OlivePass",
+            "config": {
+                "param1": "value1",
+                "param2": "value2"
+            }
+        }
+
+    """
+
+    host: Union[SystemConfig, str] = Field(
+        None,
+        description=(
+            "Host system for the pass. If it is a string, must refer to a system config under `systems` section. If not"
+            " provided, use the engine's host system."
+        ),
+    )
+    evaluator: Union[OliveEvaluatorConfig, str] = Field(
+        None,
+        description=(
+            "Evaluator for the pass. If it is a string, must refer to an evaluator config under `evaluators` section."
+            " If not provided, use the engine's evaluator."
+        ),
+    )
+    clean_run_cache: bool = Field(
+        False,
+        description=(
+            "Whether to clean the run cache before running the pass. If set to True, the cache related to all runs"
+            " related to this pass type will be cleaned."
+        ),
+    )
+    output_name: str = Field(
+        None,
+        description=(
+            "Prefix of the name of the output of this pass in the output directory. Only used when the workflow is run"
+            " in no-search mode. If not provided, only the output of the last pass will be saved."
+        ),
+    )
 
 
 class RunEngineConfig(EngineConfig):
@@ -37,10 +81,19 @@ class RunEngineConfig(EngineConfig):
     output_dir: Union[Path, str] = None
     output_name: str = None
     packaging_config: Union[PackagingConfig, List[PackagingConfig]] = None
+    cloud_cache_config: Union[bool, CloudCacheConfig] = False
     log_severity_level: int = 1
     ort_log_severity_level: int = 3
     ort_py_log_severity_level: int = 3
     log_to_file: bool = False
+
+    @validator("cloud_cache_config", pre=True, always=True)
+    def validate_cloud_cache(cls, v):
+        if isinstance(v, bool):
+            cloud_cache_config = CloudCacheConfig()
+            cloud_cache_config.enable_cloud_cache = v
+            v = cloud_cache_config
+        return v
 
     def create_engine(self, azureml_client_config, workflow_id):
         config = self.dict(include=EngineConfig.__fields__.keys())
@@ -48,17 +101,68 @@ class RunEngineConfig(EngineConfig):
 
 
 class RunConfig(ConfigBase):
-    workflow_id: str = DEFAULT_WORKFLOW_ID
-    azureml_client: AzureMLClientConfig = None
-    input_model: ModelConfig
-    systems: Dict[str, SystemConfig] = None
-    data_root: str = None
-    data_configs: List[DataConfig] = []  # noqa: RUF012
-    evaluators: Dict[str, OliveEvaluatorConfig] = None
-    engine: RunEngineConfig = None
-    pass_flows: List[List[str]] = None
-    passes: Dict[str, RunPassConfig] = None
-    auto_optimizer_config: AutoOptimizerConfig = None
+    """Run configuration for Olive workflow.
+
+    This is the top-level configuration. It includes configurations for input model, systems, data,
+    evaluators, engine, passes, and auto optimizer.
+    """
+
+    workflow_id: str = Field(
+        DEFAULT_WORKFLOW_ID, description="Workflow ID. If not provided, use the default ID 'default_workflow'."
+    )
+    azureml_client: AzureMLClientConfig = Field(
+        None,
+        description=(
+            "AzureML client configuration. This client configuration will be used for all AzureML related resources in"
+            " the workflow."
+        ),
+    )
+    input_model: ModelConfig = Field(description="Input model configuration.")
+    systems: Dict[str, SystemConfig] = Field(
+        None,
+        description="System configurations. Other fields such as engine and passes can refer to these systems by name.",
+    )
+    data_root: str = Field(
+        None,
+        description=(
+            "Root directory for data. If provided, all relative data paths in other configs will be resolved based on"
+            " this root."
+        ),
+    )
+    data_configs: List[DataConfig] = Field(
+        default_factory=list,
+        description=(
+            "Data configurations. Each data config must have a unique name. Other fields such as engine, passes and"
+            " evaluators can refer to these data configs by name. In auto-optimizer mode, only one data config is"
+            " allowed."
+        ),
+    )
+    evaluators: Dict[str, OliveEvaluatorConfig] = Field(
+        None,
+        description=(
+            "Evaluator configurations. Other fields such as engine and passes can refer to these evaluators by name."
+        ),
+    )
+    engine: RunEngineConfig = Field(
+        default_factory=RunEngineConfig,
+        description=(
+            "Engine configuration. If not provided, the workflow uses the default engine configuration which runs in"
+            " no-search or auto-optimizer mode based on whether passes field is provided."
+        ),
+    )
+    passes: Dict[str, RunPassConfig] = Field(None, description="Pass configurations.")
+    pass_flows: List[List[str]] = Field(
+        None,
+        description=(
+            "Pass flows. Each member must be a list of pass names from `passes` field. If provided,"
+            " each flow will be run sequentially. If not provided, all passes will be run as a single flow in the order"
+            " of `passes` field."
+        ),
+    )
+    auto_optimizer_config: AutoOptimizerConfig = Field(
+        default_factory=AutoOptimizerConfig,
+        description="Auto optimizer configuration. Only valid when passes field is empty or not provided.",
+    )
 
     @validator("input_model", pre=True)
     def insert_aml_client(cls, v, values):
@@ -72,12 +176,6 @@ class RunConfig(ConfigBase):
 
         if _have_aml_client(input_model_path, values):
             v["config"]["model_path"]["config"]["azureml_client"] = values["azureml_client"]
-        return v
-
-    @validator("engine", pre=True, always=True)
-    def default_engine_config(cls, v):
-        if v is None:
-            v = {}
         return v
 
     @validator("data_configs", pre=True)
@@ -99,25 +197,48 @@ class RunConfig(ConfigBase):
         if "input_model" not in values:
             raise ValueError("Invalid input model")
 
-        hf_config = values["input_model"].dict()["config"].get("hf_config", {})
-
         if isinstance(v, DataConfig):
             v = v.dict()
 
+        if v["type"] in TRANSFORMER_DUMMY_DATA_CONTAINER:
+            # if user already set kv_cache in io_config, use it directly and ignore the default value
+            io_config = values["input_model"].dict()["config"].get("io_config", {})
+            hf_config = values["input_model"].dict()["config"].get("hf_config", {})
+            kv_cache = io_config.get("kv_cache", False)
+
+            for component_config_name in ["load_dataset_config"]:
+                v[component_config_name] = component_config = v.get(component_config_name) or {}
+                component_config["params"] = component_config_params = component_config.get("params") or {}
+                for key in ["model_name"]:
+                    if not component_config_params.get(key, None):
+                        component_config_params[key] = hf_config.get(key, None)
+                if isinstance(kv_cache, dict):
+                    for key in ["ort_past_key_name", "ort_past_value_name", "batch_size"]:
+                        if not component_config_params.get(key, None) and kv_cache.get(key):
+                            component_config_params[key] = kv_cache.get(key, None)
+
         if v["type"] == HuggingfaceContainer.__name__:
+            hf_config = values["input_model"].dict()["config"].get("hf_config", {})
+
             # auto insert model_name and task from input model hf config if not present
             # both are required for huggingface container
-            for key in ["model_name", "task"]:
-                if not v["params_config"].get(key, None):
-                    v["params_config"][key] = hf_config.get(key, None)
+            for component_config_name in ["pre_process_data_config", "post_process_data_config"]:
+                v[component_config_name] = component_config = v.get(component_config_name) or {}
+                component_config["params"] = component_config_params = component_config.get("params") or {}
+                for key in ["model_name", "task"]:
+                    if not component_config_params.get(key, None):
+                        component_config_params[key] = hf_config.get(key, None)
+
             # auto insert trust_remote_code from input model hf config
             # won't override if value was set to False explicitly
-            for key in ["trust_remote_code"]:
-                if (
-                    hf_config.get("from_pretrained_args", {}).get(key, None)
-                    and v["params_config"].get(key, None) is None
-                ):
-                    v["params_config"][key] = hf_config["from_pretrained_args"][key]
+            if hf_config.get("from_pretrained_args", {}).get("trust_remote_code"):
+                for config_name in ["pre_process_data_config", "load_dataset_config"]:
+                    v[config_name] = component_config = v.get(config_name) or {}
+                    component_config["params"] = component_config_params = component_config.get("params") or {}
+                    if component_config_params.get("trust_remote_code") is None:
+                        component_config_params["trust_remote_code"] = hf_config["from_pretrained_args"][
+                            "trust_remote_code"
+                        ]
 
         return validate_config(v, DataConfig)
 
@@ -193,12 +314,6 @@ class RunConfig(ConfigBase):
             )
         return v
 
-    @validator("auto_optimizer_config", always=True)
-    def validate_auto_optimizer_config(cls, v, values):
-        if not v:
-            v = AutoOptimizerConfig()
-        return v
-
 
 def _resolve_config_str(v, values, alias, component_name):
     """Resolve string value for alias in v to corresponding component config in values.
@@ -246,7 +361,7 @@ def _resolve_config_str(v, values, alias, component_name):
 
 def _resolve_system(v, values, system_alias):
     v = _resolve_config_str(v, values, system_alias, component_name="systems")
-    if system_alias in v:
+    if v.get(system_alias):
         v[system_alias] = validate_config(v[system_alias], SystemConfig)
         if v[system_alias].type == "AzureML":
             if not values["azureml_client"]:
@@ -285,6 +400,7 @@ def _resolve_evaluator(v, values):
     if isinstance(evaluator, dict):
         for idx, metric in enumerate(evaluator.get("metrics", [])):
             evaluator["metrics"][idx] = _resolve_data_config(metric, values, "data_config")
+        return v
     elif not isinstance(evaluator, str):
         return v
 

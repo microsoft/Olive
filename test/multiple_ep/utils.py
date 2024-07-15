@@ -9,6 +9,7 @@ from torchvision import datasets
 from torchvision.transforms import ToTensor
 
 from olive.engine import Engine
+from olive.engine.cloud_cache_helper import CloudCacheConfig
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.passes.onnx.perf_tuning import OrtPerfTuning
@@ -89,7 +90,13 @@ def create_and_run_workflow(tmp_path, system_config, model_config, metric, only_
     engine = Engine(**config)
     engine.register(OrtPerfTuning)
     accelerator_specs = create_accelerators(system_config)
-    output = engine.run(model_config, accelerator_specs, output_dir=output_dir, evaluate_input_model=True)
+    output = engine.run(
+        model_config,
+        accelerator_specs,
+        output_dir=output_dir,
+        evaluate_input_model=True,
+        cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
+    )
 
     results = [next(iter(output[accelerator].nodes.values())) for accelerator in accelerator_specs]
     return tuple(results)

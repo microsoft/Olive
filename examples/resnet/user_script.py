@@ -12,6 +12,7 @@ from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
 from olive.constants import Framework
+from olive.data.registry import Registry
 from olive.model import OliveModelHandler
 
 # -------------------------------------------------------------------------
@@ -84,9 +85,14 @@ def post_process(output):
 # -------------------------------------------------------------------------
 
 
+@Registry.register_dataset()
+def cifar10_dataset(data_dir):
+    return PytorchResNetDataset(CIFAR10DataSet(data_dir).val_dataset)
+
+
+# TODO(shaahji): Remove this once metrics transitions to using DataConfig only!
 def create_dataloader(data_dir, batch_size, *args, **kwargs):
-    cifar10_dataset = CIFAR10DataSet(data_dir)
-    return DataLoader(PytorchResNetDataset(cifar10_dataset.val_dataset), batch_size=batch_size, drop_last=True)
+    return DataLoader(cifar10_dataset(data_dir), batch_size=batch_size, drop_last=True)
 
 
 # -------------------------------------------------------------------------
@@ -137,7 +143,7 @@ def eval_accuracy(model: OliveModelHandler, data_dir, batch_size, device, execut
             else:
                 input_data_copy = input_data.tolist()
                 input_dict = dict(zip(input_names, [input_data_copy]))
-            res = sess.run(input_feed=input_dict, output_names=None)
+            res = model.run_session(sess, input_dict)
             if len(output_names) == 1:
                 result = torch.Tensor(res[0])
             else:
@@ -148,10 +154,7 @@ def eval_accuracy(model: OliveModelHandler, data_dir, batch_size, device, execut
 
     elif model.framework == Framework.PYTORCH:
         for input_data, labels in dataloader:
-            if isinstance(input_data, dict):
-                result = sess(**input_data)
-            else:
-                result = sess(input_data)
+            result = model.run_session(sess, input_data)
             outputs = post_process(result)
             preds.extend(outputs.tolist())
             target.extend(labels.data.tolist())
@@ -179,9 +182,9 @@ def create_qat_config():
 # -------------------------------------------------------------------------
 
 
-def create_train_dataloader(data_dir, batchsize, *args, **kwargs):
-    cifar10_dataset = CIFAR10DataSet(data_dir)
-    return DataLoader(PytorchResNetDataset(cifar10_dataset.train_dataset), batch_size=batchsize, drop_last=True)
+def create_train_dataloader(data_dir, batch_size, *args, **kwargs):
+    dataset = CIFAR10DataSet(data_dir)
+    return DataLoader(PytorchResNetDataset(dataset.train_dataset), batch_size=batch_size, drop_last=True)
 
 
 # -------------------------------------------------------------------------

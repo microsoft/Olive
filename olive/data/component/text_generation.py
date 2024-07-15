@@ -69,7 +69,7 @@ class TextGenParams(ConfigBase):
     user_script: Union[str, Path] = None  # user script use to define formatting functions
     script_dir: Union[str, Path] = None  # directory with user script dependencies
     max_samples: int = None  # max number of samples to use, None for all
-    source_max_len: int  # max length of source sequence
+    source_max_len: int = 1024  # max length of source sequence
     # TODO(jambayk): currently only support padding to max length since we preprocess all data at once
     # might have to expose collator for dataloader to support dynamic padding of batches
     # if false, cannot guarantee all sequences are same length. data loader will have to handle this during collation
@@ -101,15 +101,15 @@ class TextGenCorpusParams(TextGenParams):
     # a python f-string template for the text with {column_name} as placeholders
     text_template: str = None
     # list of text columns, columns are concatenated together using a space
-    text_cols: Union[str, List[str]] = None
+    text_cols: Union[str, List[str]] = "text"
     # in JOIN strategies, the rows of text_cols are concatenated together
-    corpus_strategy: TextGenCorpusStrategy = TextGenCorpusStrategy.LINE_BY_LINE
+    corpus_strategy: TextGenCorpusStrategy = TextGenCorpusStrategy.JOIN
     stride: int = None  # required when corpus_strategy is JOIN_SLIDING_WINDOW
     # text to join the rows of input columns when corpus_strategy is JOIN
     # add_special_tokens: "{bos_token} {text_col1} {eos_token} {joiner} {bos_token} {text_col2} {eos_token}..."
     # no add_special_tokens: "{text_col1} {joiner} {text_col2}..."
     # if None, joined with a space
-    joiner: str = None
+    joiner: str = "\n\n"
     processing_batch_size: int = 1024  # number of examples to process at a time
     random_seed: int = None  # random seed for LINE_BY_LINE_RANDOM and JOIN_RANDOM
     random_retries: int = (

@@ -4,6 +4,13 @@ Olive enables users to easily compose and customize their own model optimization
 used to compose a pipeline. Olive receives input model, target hardware, performance requirements, and list of optimizations techniques
 to apply from user in the form of a json dictionary. In this document, we document the options user can set in this dictionary.
 
+**Note**:
+- The json schema for the config file can be found [here](https://microsoft.github.io/Olive/schema.json). It can be used in IDEs like VSCode to provide intellisense by adding the following line at the top of the config file:
+```json
+"$schema": "https://microsoft.github.io/Olive/schema.json"
+```
+- The config file can also be provided as a YAML file with the extension `.yaml` or `.yml`.
+
 The options are organized into following sections:
 
 - [Workflow id](#workflow-id) `workflow_id`
@@ -112,13 +119,13 @@ find more details in [Olive Models](https://microsoft.github.io/Olive/api/models
           - If it is `False`, Olive will not use key value cache.
           - If it is `True`, Olive will infer the cache configuration from the input_names/input_shapes and input model based on default `kv_cache`.
           - If it is a dictionary, it should contains the key value cache configuration. Here is an default configuration example:
-            - `ort_past_key_name`: "past_key_<id>"
+            - `ort_past_key_name`: "past_key_values.<id>.key"
                 Template for the past key name. The `<id>` will be replaced by the id of the past key.
-            - `ort_past_value_name`: "past_value_<id>"
+            - `ort_past_value_name`: "past_key_values.<id>.value"
                 Template for the past value name. The `<id>` will be replaced by the id of the past value.
-            - `ort_present_key_name`: "present_key_<id>"
+            - `ort_present_key_name`: "present.<id>.key"
                 Template for the present key name. The `<id>` will be replaced by the id of the present key.
-            - `ort_present_value_name`: "present_value_<id>"
+            - `ort_present_value_name`: "present.<id>.value"
                 Template for the present value name. The `<id>` will be replaced by the id of the present value.
             - `world_size`: 1
                 It is only used for distributed models.

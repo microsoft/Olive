@@ -136,9 +136,9 @@ class AutoAWQQuantizer(Pass):
             # set default values for data config
             data_kwargs.update(
                 {
-                    "calib_data": config["data_config"].params_config.get("data_name"),
-                    "split": config["data_config"].params_config.get("split"),
-                    "text_column": config["data_config"].params_config.get("input_cols"),
+                    "calib_data": config["data_config"].load_dataset_params.get("data_name"),
+                    "split": config["data_config"].load_dataset_params.get("split"),
+                    "text_column": config["data_config"].pre_process_params.get("input_cols"),
                 }
             )
 

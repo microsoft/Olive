@@ -2,10 +2,7 @@
     "lora": {
         "type": "LoRA",
         "config": {
-            "target_modules": [
-                "o_proj",
-                "qkv_proj"
-            ],
+            "target_modules": [ "o_proj", "qkv_proj" ],
             "lora_r": 64,
             "lora_alpha": 64,
             "lora_dropout": 0.1,

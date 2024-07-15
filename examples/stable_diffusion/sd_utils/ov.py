@@ -492,7 +492,7 @@ def get_ov_pipeline(common_args, ov_args, optimized_model_dir):
 
 
 def run_ov_image_inference(
-    pipe, image_path, prompt, strength, guidance_scale, image_size, num_inference_steps, common_args
+    pipe, image_path, prompt, strength, guidance_scale, image_size, num_inference_steps, common_args, generator=None
 ):
     image = None
     if image_path:
@@ -511,6 +511,7 @@ def run_ov_image_inference(
         width=image_size,
         strength=strength,
         guidance_scale=guidance_scale,
+        generator=generator,
     )
 
 

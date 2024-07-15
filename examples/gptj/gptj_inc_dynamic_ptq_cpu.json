@@ -1,5 +1,5 @@
 {
-    "input_model":{
+    "input_model": {
         "type": "PyTorchModel",
         "config": {
             "hf_config": {
@@ -11,14 +11,12 @@
     },
     "evaluators": {
         "common_evaluator": {
-            "metrics":[
+            "metrics": [
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_types": [
-                        {"name": "avg", "priority": 1}
-                    ],
-                    "user_config":{
+                    "sub_types": [ { "name": "avg", "priority": 1 } ],
+                    "user_config": {
                         "user_script": "user_script.py",
                         "dataloader_func": "create_dataloader",
                         "batch_size": 1
@@ -38,10 +36,7 @@
         },
         "quantization": {
             "type": "IncDynamicQuantization",
-            "config": {
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true
-            }
+            "config": { "save_as_external_data": true, "all_tensors_to_one_file": true }
         }
     },
     "engine": {

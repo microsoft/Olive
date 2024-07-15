@@ -5,11 +5,7 @@
         "model_config": {
             "config": {
                 "model_path": "a/b/c/model2.onnx",
-                "inference_settings": {
-                    "provided_list": [
-                        "CPUExecutionProvider"
-                    ]
-                }
+                "inference_settings": { "provided_list": [ "CPUExecutionProvider" ] }
             }
         },
         "metrics": {
@@ -44,11 +40,7 @@
         "model_config": {
             "config": {
                 "model_path": "a/b/c/model1.onnx",
-                "inference_settings": {
-                    "provided_list": [
-                        "CPUExecutionProvider"
-                    ]
-                }
+                "inference_settings": { "provided_list": [ "CPUExecutionProvider" ] }
             }
         },
         "metrics": {
@@ -79,12 +71,7 @@
     },
     "node0": {
         "model_id": "node0",
-        "model_config": {
-            "config": {
-                "model_path": "a/b/c/model.pt",
-                "inference_settings": null
-            }
-        },
+        "model_config": { "config": { "model_path": "a/b/c/model.pt", "inference_settings": null } },
         "metrics": {
             "value": {
                 "accuracy-accuracy_score": {

@@ -290,7 +290,7 @@ class OrtInferenceSession:
         """Get the full input feed including constant inputs."""
         return {**input_feed, **self.constant_inputs}
 
-    def run(self, input_feed: Dict[str, "NDArray"]) -> Sequence["NDArray"]:
+    def run(self, output_names, input_feed: Dict[str, "NDArray"], run_options=None) -> Sequence["NDArray"]:
         """Run inference with the given input data."""
         input_feed = self.get_full_input_feed(input_feed)
         if self.io_bind and self.device == "gpu":
@@ -308,7 +308,7 @@ class OrtInferenceSession:
             res = [i.numpy() for i in self.io_binding.get_outputs()]
             self.io_binding.clear_binding_inputs()
         else:
-            res = self.session.run(input_feed=input_feed, output_names=None)
+            res = self.session.run(None, input_feed)
         return res
 
     def time_run(
@@ -336,7 +336,7 @@ class OrtInferenceSession:
                 latencies.append(time.perf_counter() - t)
             else:
                 t = time.perf_counter()
-                self.session.run(input_feed=input_feed, output_names=None)
+                self.session.run(None, input_feed)
                 latencies.append(time.perf_counter() - t)
             time.sleep(sleep_time)
 

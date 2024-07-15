@@ -36,11 +36,9 @@ def test_openvino_quantization(data_source, tmp_path):
             {
                 "data_config": DataConfig(
                     name="test_dc_config",
-                    components={
-                        "load_dataset": {
-                            "type": "cifar10_dataset",
-                            "params": {"data_dir": data_dir},
-                        }
+                    load_dataset_config={
+                        "type": "cifar10_dataset",
+                        "params": {"data_dir": data_dir},
                     },
                 )
             }
@@ -85,11 +83,9 @@ def test_openvino_quantization_with_accuracy(data_source, tmp_path):
             {
                 "data_config": DataConfig(
                     name="test_dc_config",
-                    components={
-                        "load_dataset": {
-                            "type": "cifar10_dataset",
-                            "params": {"data_dir": data_dir},
-                        }
+                    load_dataset_config={
+                        "type": "cifar10_dataset",
+                        "params": {"data_dir": data_dir},
                     },
                 )
             }
@@ -147,10 +143,10 @@ def cifar10_dataset(data_dir):
     return CIFAR10(root=data_dir, train=False, transform=ToTensor(), download=True)
 
 
-def create_dataloader(data_dir, batchsize, *args, **kwargs):
+def create_dataloader(data_dir, batch_size, *args, **kwargs):
     from torch.utils.data.dataloader import DataLoader
     from torchvision.datasets import CIFAR10
     from torchvision.transforms import ToTensor
 
     dataset = CIFAR10(root=data_dir, train=False, transform=ToTensor(), download=True)
-    return DataLoader(dataset, batchsize, shuffle=True)
+    return DataLoader(dataset, batch_size, shuffle=True)

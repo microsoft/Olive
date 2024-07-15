@@ -9,11 +9,16 @@
                 "input_names": [ "sample", "timestep", "encoder_hidden_states", "text_embeds", "time_ids" ],
                 "output_names": [ "out_sample" ],
                 "dynamic_axes": {
-                    "sample": {"0": "unet_sample_batch", "1": "unet_sample_channels", "2": "unet_sample_height", "3": "unet_sample_width"},
-                    "timestep": {"0": "unet_time_batch"},
-                    "encoder_hidden_states": {"0": "unet_hidden_batch", "1": "unet_hidden_sequence"},
-                    "text_embeds": {"0": "unet_text_embeds_batch", "1": "unet_text_embeds_size"},
-                    "time_ids": {"0": "unet_time_ids_batch", "1": "unet_time_ids_size"}
+                    "sample": {
+                        "0": "unet_sample_batch",
+                        "1": "unet_sample_channels",
+                        "2": "unet_sample_height",
+                        "3": "unet_sample_width"
+                    },
+                    "timestep": { "0": "unet_time_batch" },
+                    "encoder_hidden_states": { "0": "unet_hidden_batch", "1": "unet_hidden_sequence" },
+                    "text_embeds": { "0": "unet_text_embeds_batch", "1": "unet_text_embeds_size" },
+                    "time_ids": { "0": "unet_time_ids_batch", "1": "unet_time_ids_size" }
                 }
             },
             "dummy_inputs_func": "unet_conversion_inputs"
@@ -22,16 +27,7 @@
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": {
-                "accelerators": [
-                    {
-                        "device": "gpu",
-                        "execution_providers": [
-                            "DmlExecutionProvider"
-                        ]
-                    }
-                ]
-            }
+            "config": { "accelerators": [ { "device": "gpu", "execution_providers": [ "DmlExecutionProvider" ] } ] }
         }
     },
     "evaluators": {
@@ -40,7 +36,7 @@
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_types": [{"name": "avg"}],
+                    "sub_types": [ { "name": "avg" } ],
                     "user_config": {
                         "user_script": "user_script.py",
                         "dataloader_func": "unet_data_loader",
@@ -89,10 +85,8 @@
                     "enable_bias_add": false,
                     "group_norm_channels_last": false
                 },
-                "force_fp32_ops": ["RandomNormalLike"],
-                "force_fp16_inputs": {
-                    "GroupNorm": [0, 1, 2]
-                }
+                "force_fp32_ops": [ "RandomNormalLike" ],
+                "force_fp16_inputs": { "GroupNorm": [ 0, 1, 2 ] }
             }
         },
         "optimize_cuda": {
@@ -106,9 +100,7 @@
             }
         }
     },
-    "pass_flows": [
-        ["convert", "optimize"]
-    ],
+    "pass_flows": [ [ "convert", "optimize" ] ],
     "engine": {
         "evaluator": "common_evaluator",
         "evaluate_input_model": false,

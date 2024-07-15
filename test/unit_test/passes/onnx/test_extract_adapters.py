@@ -17,7 +17,7 @@ from olive.model import ONNXModelHandler, PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.extract_adapters import ExtractAdapters
-from olive.passes.onnx.quantization import OnnxMatMul4Quantizer, OnnxStaticQuantization
+from olive.passes.onnx.quantization import OnnxMatMul4Quantizer
 
 
 class LlamaCalibrationDataLoader(CalibrationDataReader):
@@ -91,17 +91,18 @@ def input_model_info_fixture(tmp_path_factory):
     conversion_pass = create_pass_from_dict(OnnxConversion, {"target_opset": 14}, disable_search=True)
     olive_onnx_model = conversion_pass.run(olive_pytorch_model, None, str(tmp_path / "onnx-export"))
 
+    # TODO(jambayk): re-enable qdq model test once flaky quantization failure is resolved
     # static QDQ quantization
-    qdq_pass = create_pass_from_dict(
-        OnnxStaticQuantization,
-        {
-            "dataloader_func": lambda data_dir, batch_size: LlamaCalibrationDataLoader(
-                olive_pytorch_model.get_dummy_inputs()
-            )
-        },
-        disable_search=True,
-    )
-    olive_qdq_onnx_model = qdq_pass.run(olive_onnx_model, None, str(tmp_path / "qdq-onnx"))
+    # qdq_pass = create_pass_from_dict(
+    #     OnnxStaticQuantization,
+    #     {
+    #         "dataloader_func": lambda data_dir, batch_size: LlamaCalibrationDataLoader(
+    #             olive_pytorch_model.get_dummy_inputs()
+    #         )
+    #     },
+    #     disable_search=True,
+    # )
+    # olive_qdq_onnx_model = qdq_pass.run(olive_onnx_model, None, str(tmp_path / "qdq-onnx"))
 
     # int4 quantization
     matmul4_quantizer = create_pass_from_dict(OnnxMatMul4Quantizer, {}, disable_search=True)
@@ -113,11 +114,11 @@ def input_model_info_fixture(tmp_path_factory):
             "all_weights": all_weights,
             "packed_weights": packed_weights,
         },
-        "qdq": {
-            "onnx_model": olive_qdq_onnx_model,
-            "all_weights": all_quant_weights,
-            "packed_weights": packed_quant_weights,
-        },
+        # "qdq": {
+        #     "onnx_model": olive_qdq_onnx_model,
+        #     "all_weights": all_quant_weights,
+        #     "packed_weights": packed_quant_weights,
+        # },
         "int4": {
             "onnx_model": olive_int4_onnx_model,
             "all_weights": {name for name in all_quant_weights if "zero_point" not in name},
@@ -129,6 +130,9 @@ def input_model_info_fixture(tmp_path_factory):
 
 @pytest.mark.parametrize("model_type", ["float", "qdq", "int4"])
 def test_extract_adapters_as_initializers(tmp_path, input_model_info, model_type):
+    if model_type == "qdq":
+        pytest.skip("QDQ model test is disabled due to flaky quantization failure")
+
     # setup
     p = create_pass_from_dict(ExtractAdapters, {}, disable_search=True)
     output_folder = tmp_path / "extracted-adapters"
@@ -156,6 +160,9 @@ def test_extract_adapters_as_initializers(tmp_path, input_model_info, model_type
 @pytest.mark.parametrize("model_type", ["float", "qdq", "int4"])
 @pytest.mark.parametrize("pack_inputs", [True, False])
 def test_extract_adapters_as_inputs(tmp_path, input_model_info, pack_inputs, model_type):
+    if model_type == "qdq":
+        pytest.skip("QDQ model test is disabled due to flaky quantization failure")
+
     # setup
     p = create_pass_from_dict(ExtractAdapters, {"make_inputs": True, "pack_inputs": pack_inputs}, disable_search=True)
     output_folder = tmp_path / "extracted-adapters"

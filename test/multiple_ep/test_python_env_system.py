@@ -7,6 +7,7 @@ from test.unit_test.utils import create_onnx_model_file, get_custom_metric, get_
 
 import pytest
 
+from olive.common.constants import OS
 from olive.systems.system_config import PythonEnvironmentTargetUserConfig, SystemConfig
 
 # pylint: disable=attribute-defined-outside-init
@@ -39,7 +40,7 @@ class TestOliveManagedPythonEnvironmentSystem:
         assert dml_res.metrics.value.__root__
         assert openvino_res.metrics.value.__root__
 
-    @pytest.mark.skipif(platform.system() == "Windows", reason="Test for Linux only")
+    @pytest.mark.skipif(platform.system() == OS.WINDOWS, reason="Test for Linux only")
     def test_run_pass_evaluate_linux(self, tmp_path):
         # use the olive managed python environment as the test environment
 

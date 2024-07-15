@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 from typing import List, Union
 
+from olive.common.constants import OS
 from olive.common.utils import run_subprocess
 from olive.platform_sdk.qualcomm.qnn.env import QNNSDKEnv
 from olive.platform_sdk.qualcomm.snpe.env import SNPESDKEnv
@@ -49,11 +50,11 @@ class SDKRunner:
         import platform
 
         if isinstance(cmd, str):
-            cmd_list = shlex.split(cmd, posix=(platform.system() != "Windows"))
+            cmd_list = shlex.split(cmd, posix=(platform.system() != OS.WINDOWS))
         else:
             cmd_list = cmd
 
-        if platform.system() == "Windows" and cmd_list[0].startswith(("snpe-", "qnn-")):
+        if platform.system() == OS.WINDOWS and cmd_list[0].startswith(("snpe-", "qnn-")):
             logger.debug("Resolving command %s on Windows.", cmd_list)
             cmd_dir = Path(self.sdk_env.sdk_root_path) / "bin" / self.sdk_env.target_arch
             cmd_name = cmd_list[0]

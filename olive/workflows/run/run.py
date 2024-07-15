@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Generator, List, Union
 
 from olive.auto_optimizer import AutoOptimizer
+from olive.common.utils import set_tempdir
 from olive.logging import enable_filelog, set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
 from olive.package_config import OlivePackageConfig
 from olive.systems.accelerator_creator import create_accelerators
@@ -266,6 +267,7 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig, data_r
                 run_config.engine.output_dir,
                 run_config.engine.output_name,
                 run_config.engine.evaluate_input_model,
+                run_config.engine.cloud_cache_config,
             )
         )
     return run_rls
@@ -276,22 +278,16 @@ def run(
     setup: bool = False,
     data_root: str = None,
     package_config: Union[str, Path, dict] = None,
+    tempdir: Union[str, Path] = None,
 ):
+    # set tempdir
+    set_tempdir(tempdir)
+
     if package_config is None:
         package_config = OlivePackageConfig.get_default_config_path()
 
-    # we use parse_file and parse_obj to be safe. If implemented as expected, both should be equivalent.
-    if isinstance(package_config, (str, Path)):
-        logger.info("Loading Olive module configuration from: %s", package_config)
-        package_config = OlivePackageConfig.parse_file(package_config)
-    else:
-        package_config = OlivePackageConfig.parse_obj(package_config)
-
-    if isinstance(run_config, (str, Path)):
-        logger.info("Loading run configuration from: %s", run_config)
-        run_config = RunConfig.parse_file(run_config)
-    else:
-        run_config = RunConfig.parse_obj(run_config)
+    package_config = OlivePackageConfig.parse_file_or_obj(package_config)
+    run_config = RunConfig.parse_file_or_obj(run_config)
 
     # set log level for olive
     set_default_logger_severity(run_config.engine.log_severity_level)
@@ -348,9 +344,10 @@ def get_local_ort_packages() -> List[str]:
     local_ort_packages = []
     for package in all_packages:
         package_name = package.metadata["Name"]
-        if package_name == "onnxruntime-extensions":
+        if package_name == "onnxruntime-extensions" or package_name.startswith("onnxruntime-genai"):
             # onnxruntime-packages is under onnxruntime_extensions namespace
-            # not an actual onnxruntime package
+            # onnxruntime-genai is under onnxruntime_genai namespace
+            # not onnxruntime packages
             continue
         if package_name.startswith(("onnxruntime", "ort-nightly")):
             local_ort_packages.append(package_name)

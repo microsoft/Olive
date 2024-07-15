@@ -1,28 +1,15 @@
 {
     "input_model": {
         "type": "PyTorchModel",
-        "config": {
-            "hf_config": {
-                "model_name": "Jean-Baptiste/camembert-ner",
-                "task": "ner"
-            }
-        }
+        "config": { "hf_config": { "model_name": "Jean-Baptiste/camembert-ner", "task": "ner" } }
     },
     "data_configs": [
         {
             "name": "wikiner_fr_test",
             "type": "HuggingfaceContainer",
-            "params_config": {
-                "data_name": "Jean-Baptiste/wikiner_fr",
-                "split": "test",
-                "input_cols": [
-                    "tokens"
-                ],
-                "label_cols": [
-                    "ner_tags"
-                ],
-                "batch_size": 1
-            }
+            "load_dataset_config": { "params": { "data_name": "Jean-Baptiste/wikiner_fr", "split": "test" } },
+            "pre_process_data_config": { "params": { "input_cols": [ "tokens" ], "label_cols": [ "ner_tags" ] } },
+            "dataloader_config": { "params": { "batch_size": 1 } }
         }
     ],
     "evaluators": {
@@ -36,10 +23,7 @@
                         {
                             "name": "accuracy_score",
                             "priority": 1,
-                            "goal": {
-                                "type": "max-degradation",
-                                "value": 0.01
-                            },
+                            "goal": { "type": "max-degradation", "value": 0.01 },
                             "metric_config": {
                                 "task": "multiclass",
                                 "num_classes": "5",
@@ -56,26 +40,17 @@
                         {
                             "name": "avg",
                             "priority": 2,
-                            "goal": {
-                                "type": "percent-min-improvement",
-                                "value": 20
-                            }
+                            "goal": { "type": "percent-min-improvement", "value": 20 }
                         },
-                        {
-                            "name": "max"
-                        },
-                        {
-                            "name": "min"
-                        }
+                        { "name": "max" },
+                        { "name": "min" }
                     ]
                 }
             ]
         }
     },
     "passes": {
-        "conversion": {
-            "type": "OnnxConversion"
-        },
+        "conversion": { "type": "OnnxConversion" },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
             "config": {
@@ -85,28 +60,15 @@
                 "float16": false
             }
         },
-        "quantization": {
-            "type": "OnnxQuantization",
-            "config": {
-                "data_config": "wikiner_fr_test"
-            }
-        },
-        "perf_tuning": {
-            "type": "OrtPerfTuning",
-            "config": {
-                "data_config": "wikiner_fr_test"
-            }
-        }
+        "quantization": { "type": "OnnxQuantization", "config": { "data_config": "wikiner_fr_test" } },
+        "perf_tuning": { "type": "OrtPerfTuning", "config": { "data_config": "wikiner_fr_test" } }
     },
     "engine": {
         "log_severity_level": 0,
         "search_strategy": {
             "execution_order": "joint",
             "search_algorithm": "tpe",
-            "search_algorithm_config": {
-                "num_samples": 3,
-                "seed": 0
-            }
+            "search_algorithm_config": { "num_samples": 3, "seed": 0 }
         },
         "evaluator": "common_evaluator",
         "clean_cache": true,

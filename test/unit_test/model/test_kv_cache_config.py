@@ -28,10 +28,16 @@ def test_kv_cache_dynamic_axes(num_hidden_layers, shared_kv, sequence_length_idx
 
     past_sequence_length_name = "past_sequence_length" if not shared_kv else "max_sequence_length"
     present_sequence_length_name = "past_sequence_length + sequence_length" if not shared_kv else "max_sequence_length"
-    assert dynamic_axes["past_key_0"] == {"0": "batch_size", str(sequence_length_idx): past_sequence_length_name}
-    assert dynamic_axes["past_value_0"] == {"0": "batch_size", str(sequence_length_idx): past_sequence_length_name}
-    assert dynamic_axes["present_key_0"] == {"0": "batch_size", str(sequence_length_idx): present_sequence_length_name}
-    assert dynamic_axes["present_value_0"] == {
+    assert dynamic_axes["past_key_values.0.key"] == {
+        "0": "batch_size",
+        str(sequence_length_idx): past_sequence_length_name,
+    }
+    assert dynamic_axes["past_key_values.0.value"] == {
+        "0": "batch_size",
+        str(sequence_length_idx): past_sequence_length_name,
+    }
+    assert dynamic_axes["present.0.key"] == {"0": "batch_size", str(sequence_length_idx): present_sequence_length_name}
+    assert dynamic_axes["present.0.value"] == {
         "0": "batch_size",
         str(sequence_length_idx): present_sequence_length_name,
     }
@@ -52,8 +58,8 @@ def test_kv_cache_output_names(num_hidden_layers):
     )
     output_names = config.get_output_names()
     for i in range(num_hidden_layers):
-        assert output_names[i] == f"present_key_{i}"
-        assert output_names[i + num_hidden_layers] == f"present_value_{i}"
+        assert output_names[i] == f"present.{i}.key"
+        assert output_names[i + num_hidden_layers] == f"present.{i}.value"
 
 
 @pytest.mark.parametrize("num_hidden_layers", [16, 32])
@@ -73,8 +79,8 @@ def test_kv_cache_input_names_shape_types(num_hidden_layers, num_attention_heads
     )
     input_names, input_shape, input_types = config.get_input_names_shapes_types()
     for i in range(num_hidden_layers):
-        assert input_names[i] == f"past_key_{i}"
-        assert input_names[i + num_hidden_layers] == f"past_value_{i}"
+        assert input_names[i] == f"past_key_values.{i}.key"
+        assert input_names[i + num_hidden_layers] == f"past_key_values.{i}.value"
         assert input_shape[i] == [2, num_attention_heads // 1, 128, hidden_size // num_attention_heads]
         assert input_shape[i + num_hidden_layers] == [
             2,

@@ -9,6 +9,8 @@ from pathlib import Path
 import pytest
 from utils import check_output, patch_config
 
+from olive.common.constants import OS
+
 
 @pytest.fixture(scope="module", autouse=True)
 def setup():
@@ -25,12 +27,12 @@ def setup():
 @pytest.mark.parametrize("system", ["docker_system"])
 @pytest.mark.parametrize("olive_json", ["bert_ptq_cpu.json"])
 def test_bert(search_algorithm, execution_order, system, olive_json):
-    if system == "docker_system" and platform.system() == "Windows":
+    if system == "docker_system" and platform.system() == OS.WINDOWS:
         pytest.skip("Skip Linux containers on Windows host test case.")
 
     from olive.workflows import run as olive_run
 
     olive_config = patch_config(olive_json, search_algorithm, execution_order, system)
 
-    footprint = olive_run(olive_config)
+    footprint = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
     check_output(footprint)

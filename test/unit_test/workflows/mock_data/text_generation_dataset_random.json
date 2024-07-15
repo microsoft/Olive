@@ -4,7 +4,8 @@
         "config": {
             "hf_config": {
                 "model_name": "gpt2",
-                "task": "text-generation"
+                "task": "text-generation",
+                "from_pretrained_args": { "trust_remote_code": true }
             }
         }
     },
@@ -12,20 +13,20 @@
         {
             "name": "penn_treebank_ptb_text_only",
             "type": "HuggingfaceContainer",
-            "params_config": {
-                "data_name": "ptb_text_only",
-                "subset": "penn_treebank",
-                "split": "train",
-                "component_kwargs": {
-                    "pre_process_data": {
-                        "text_cols": [
-                            "sentence"
-                        ],
-                        "corpus_strategy": "join-random",
-                        "source_max_len": 1024,
-                        "max_samples": 5,
-                        "random_seed": 42
-                    }
+            "load_dataset_config": {
+                "params": {
+                    "data_name": "ptb_text_only",
+                    "subset": "penn_treebank",
+                    "split": "train"
+                }
+            },
+            "pre_process_data_config": {
+                "params": {
+                    "text_cols": [ "sentence" ],
+                    "corpus_strategy": "join-random",
+                    "source_max_len": 1024,
+                    "max_samples": 5,
+                    "random_seed": 42
                 }
             }
         }
@@ -37,41 +38,22 @@
                     "name": "perplexity",
                     "type": "accuracy",
                     "data_config": "penn_treebank_ptb_text_only",
-                    "sub_types": [
-                        {
-                            "name": "perplexity"
-                        }
-                    ]
+                    "sub_types": [ { "name": "perplexity" } ]
                 }
             ]
         }
     },
     "passes": {
-        "conversion": {
-            "type": "OnnxConversion"
-        },
-        "quantization": {
-            "type": "OnnxQuantization",
-            "config": {
-                "data_config": "penn_treebank_ptb_text_only"
-            }
-        },
-        "perf_tuning": {
-            "type": "OrtPerfTuning",
-            "config": {
-                "data_config": "penn_treebank_ptb_text_only"
-            }
-        }
+        "conversion": { "type": "OnnxConversion" },
+        "quantization": { "type": "OnnxQuantization", "config": { "data_config": "penn_treebank_ptb_text_only" } },
+        "perf_tuning": { "type": "OrtPerfTuning", "config": { "data_config": "penn_treebank_ptb_text_only" } }
     },
     "engine": {
         "log_severity_level": 0,
         "search_strategy": {
             "execution_order": "joint",
             "search_algorithm": "tpe",
-            "search_algorithm_config": {
-                "num_samples": 3,
-                "seed": 0
-            }
+            "search_algorithm_config": { "num_samples": 3, "seed": 0 }
         },
         "evaluator": "common_evaluator",
         "clean_cache": true,

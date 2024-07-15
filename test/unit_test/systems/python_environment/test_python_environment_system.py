@@ -19,6 +19,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from olive.common.constants import OS
 from olive.common.utils import run_subprocess
 from olive.evaluator.metric_result import MetricResult, joint_metric_key
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
@@ -39,7 +40,7 @@ class TestPythonEnvironmentSystem:
         venv_path = tmp_path / "venv"
         venv.create(venv_path, with_pip=True)
         # python path
-        if platform.system() == "Windows":
+        if platform.system() == OS.WINDOWS:
             self.python_environment_path = Path(venv_path) / "Scripts"
         else:
             self.python_environment_path = Path(venv_path) / "bin"

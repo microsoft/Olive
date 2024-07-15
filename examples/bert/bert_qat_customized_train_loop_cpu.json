@@ -1,27 +1,34 @@
 {
-    "input_model":{
+    "input_model": {
         "type": "PyTorchModel",
         "config": {
             "model_loader": "load_pytorch_origin_model",
             "model_script": "user_script.py",
             "io_config": {
-                "input_names": ["input_ids", "attention_mask", "token_type_ids"],
-                "input_shapes": [[1, 128], [1, 128], [1, 128]],
-                "input_types": ["int64", "int64", "int64"],
-                "output_names": ["output"]
+                "input_names": [ "input_ids", "attention_mask", "token_type_ids" ],
+                "input_shapes": [ [ 1, 128 ], [ 1, 128 ], [ 1, 128 ] ],
+                "input_types": [ "int64", "int64", "int64" ],
+                "output_names": [ "output" ]
             }
         }
     },
+    "data_configs": [
+        {
+            "name": "perf_tuning_data_config",
+            "type": "HuggingfaceContainer",
+            "user_script": "user_script.py",
+            "load_dataset_config": { "type": "create_bert_dataset" },
+            "dataloader_config": { "type": "create_bert_dataloader" }
+        }
+    ],
     "evaluators": {
         "common_evaluator": {
-            "metrics":[
+            "metrics": [
                 {
                     "name": "accuracy",
                     "type": "accuracy",
-                    "sub_types": [
-                        {"name": "accuracy_score", "priority": 1}
-                    ],
-                    "user_config":{
+                    "sub_types": [ { "name": "accuracy_score", "priority": 1 } ],
+                    "user_config": {
                         "post_processing_func": "qat_post_process",
                         "user_script": "user_script.py",
                         "dataloader_func": "create_dataloader",
@@ -31,10 +38,8 @@
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_types": [
-                        {"name": "avg", "priority": 2}
-                    ],
-                    "user_config":{
+                    "sub_types": [ { "name": "avg", "priority": 2 } ],
+                    "user_config": {
                         "user_script": "user_script.py",
                         "dataloader_func": "create_dataloader",
                         "batch_size": 1
@@ -44,33 +49,14 @@
         }
     },
     "passes": {
-        "quantization_aware_training":{
+        "quantization_aware_training": {
             "type": "QuantizationAwareTraining",
-            "config":{
-                "user_script": "user_script.py",
-                "training_loop_func": "training_loop_func"
-            }
+            "config": { "user_script": "user_script.py", "training_loop_func": "training_loop_func" }
         },
-        "conversion": {
-            "type": "OnnxConversion",
-            "config": {
-                "target_opset": 17
-            }
-        },
-        "model_optimizer": {
-            "type": "ONNXModelOptimizer"
-        },
-        "transformers_optimization": {
-            "type": "OrtTransformersOptimization"
-        },
-        "perf_tuning": {
-            "type": "OrtPerfTuning",
-            "config": {
-                "user_script": "user_script.py",
-                "dataloader_func": "create_dataloader",
-                "batch_size": 1
-            }
-        }
+        "conversion": { "type": "OnnxConversion", "config": { "target_opset": 17 } },
+        "model_optimizer": { "type": "ONNXModelOptimizer" },
+        "transformers_optimization": { "type": "OrtTransformersOptimization" },
+        "perf_tuning": { "type": "OrtPerfTuning", "config": { "data_config": "perf_tuning_data_config" } }
     },
     "engine": {
         "evaluator": "common_evaluator",

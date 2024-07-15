@@ -55,16 +55,22 @@ def test_torch_trt_conversion_success(tmp_path):
     )
 
     dataset = {
-        "data_name": "ptb_text_only",
-        "subset": "penn_treebank",
-        "split": "train",
-        "component_kwargs": {
-            "pre_process_data": {
+        "load_dataset_config": {
+            "params": {
+                "data_name": "ptb_text_only",
+                "subset": "penn_treebank",
+                "split": "train",
+                "trust_remote_code": True,
+            }
+        },
+        "pre_process_data_config": {
+            "params": {
                 "text_cols": ["sentence"],
                 "corpus_strategy": "join-random",
                 "source_max_len": 100,
                 "max_samples": 1,
                 "random_seed": 42,
+                "trust_remote_code": True,
             }
         },
     }

@@ -71,7 +71,7 @@ class QatTrainer:
                     ptl_data_module = self.config.ptl_data_module()
             else:
                 train_dataloader_func = self.config.train_dataloader_func(
-                    self.config.train_data_dir, self.config.train_batch_size
+                    self.config.train_data_dir, batch_size=self.config.train_batch_size
                 )
                 ptl_module = DefaultPTLModule(model=quan_model, training_dataloader=train_dataloader_func)
 
@@ -165,12 +165,11 @@ class QatTrainer:
         return state and hasattr(obj, attribs)
 
     def _check_feasible_fuse(self, model, group):
-        if not all(self._recursive_hasattr(model, m) for m in group):
-            return False
-        return True
+        return all(self._recursive_hasattr(model, m) for m in group)
 
 
 class DefaultPTLModule(LightningModule):
+    # pylint: disable=W0221
     def __init__(self, model, training_dataloader):
         super().__init__()
         self.save_hyperparameters()

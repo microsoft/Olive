@@ -83,11 +83,10 @@ setup(
     package_data={
         "olive": ["olive_config.json"],
         "olive.auto_optimizer": ["config_template/*.yaml"],
-        "olive.engine.packaging": ["sample_code/*/*/*"],
-        "olive.passes.onnx.auto_fusion_utils.codegen": ["custom_op_src/*"],
         "olive.platform_sdk.qualcomm": ["create_python_env.sh", "create_python_env.ps1", "copy_libcdsprpc.ps1"],
         "olive.systems.docker": ["Dockerfile*"],
         "olive.systems.python_environment": ["common_requirements.txt"],
+        "olive.passes.onnx.auto_fusion_utils.codegen": ["custom_op_src/*"],
     },
     data_files=[],
     entry_points={

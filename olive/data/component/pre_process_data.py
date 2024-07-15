@@ -17,12 +17,28 @@ from olive.data.registry import Registry
 
 
 @Registry.register_default_pre_process()
-def pre_process(dataset):
+def pre_process(dataset, **kwargs):
     """Pre-process data.
 
     Args:
         dataset (object): Data to be pre-processed, reserved for internal dataset assignment.
         **kwargs: Additional arguments.
+
+    Returns:
+        object: Pre-processed data.
+
+    """
+    return dataset
+
+
+@Registry.register_pre_process()
+def skip_pre_process(dataset, *args, **kwargs):
+    """Pre-process data.
+
+    Args:
+        dataset (object): Data to be pre-processed, reserved for internal dataset assignment.
+        *args: Additional unnamed arguments.
+        **kwargs: Additional named arguments.
 
     Returns:
         object: Pre-processed data.
@@ -167,7 +183,7 @@ def ner_huggingface_preprocess(
 def text_generation_huggingface_pre_process(
     dataset,
     model_name: str,
-    source_max_len: int,
+    source_max_len: int = 1024,
     dataset_type: TextGenDatasetType = TextGenDatasetType.CORPUS,
     max_samples: Optional[int] = None,
     trust_remote_code: Optional[bool] = None,
@@ -194,6 +210,9 @@ def text_generation_huggingface_pre_process(
     from transformers import AutoTokenizer
 
     all_kwargs = deepcopy(kwargs)
+    # task is not used in the pre-process function. Will pop it so that the config validation doesn't warn about
+    # unused kwargs
+    all_kwargs.pop("task", None)
     all_kwargs.update({"max_samples": max_samples, "source_max_len": source_max_len})
 
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=trust_remote_code)

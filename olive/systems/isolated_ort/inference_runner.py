@@ -76,7 +76,7 @@ def main(raw_args=None):
     if config["mode"] == "inference":
         for i in range(config["num_batches"]):
             input_feed = load_batch(args.input_dir, f"input_{i}.npz")
-            result = session_wrapper.run(input_feed)
+            result = session_wrapper.run(None, input_feed)
             np.save(args.output_dir / f"output_{i}.npy", result)
     else:
         warmup_num = config["warmup_num"]

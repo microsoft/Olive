@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from enum import Enum
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.pydantic_v1 import validator
@@ -107,6 +107,9 @@ class Metric(ConfigBase):
             return self.user_config.inference_settings.get(framework)
         else:
             return None
+
+    def get_run_kwargs(self) -> Dict[str, Any]:
+        return self.user_config.run_kwargs if (self.user_config and self.user_config.run_kwargs) else {}
 
     def get_sub_type_info(self, info_name, no_priority_filter=True, callback=lambda x: x):
         sub_type_info = {}

@@ -8,6 +8,7 @@ import platform
 from pathlib import Path
 from typing import Any, Dict
 
+from olive.common.constants import OS
 from olive.constants import ModelFileFormat
 from olive.hardware import AcceleratorSpec
 from olive.model import QNNModelHandler
@@ -53,7 +54,7 @@ class QNNModelLibGenerator(Pass):
     ) -> QNNModelHandler:
         main_cmd = "qnn-model-lib-generator"
         runner = QNNSDKRunner(use_dev_tools=True)
-        if platform.system() == "Windows":
+        if platform.system() == OS.WINDOWS:
             main_cmd = "python " + str(
                 Path(runner.sdk_env.sdk_root_path) / "bin" / runner.sdk_env.target_arch / main_cmd
             )

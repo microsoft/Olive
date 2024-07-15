@@ -18,6 +18,8 @@ import time
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
+from olive.common.constants import OS
+
 logger = logging.getLogger(__name__)
 
 
@@ -25,7 +27,7 @@ def run_subprocess(cmd, env=None, cwd=None, check=False):
     logger.debug("Running command: %s", cmd)
 
     assert isinstance(cmd, (str, list)), f"cmd must be a string or a list, got {type(cmd)}."
-    windows = platform.system() == "Windows"
+    windows = platform.system() == OS.WINDOWS
     if isinstance(cmd, str):
         # In posix model, the cmd string will be handled with specific posix rules.
         # https://docs.python.org/3.8/library/shlex.html#parsing-rules
@@ -147,6 +149,26 @@ def flatten_dict(dictionary, stop_condition=None):  # pragma: no cover
         else:
             result[(key,)] = value
     return result
+
+
+def get_dict_value(dictionary: dict, key: Union[str, Tuple, List[str]]):
+    """Get value from a nested dictionary."""
+    if isinstance(key, str):
+        key = [key]
+
+    for k in key:
+        dictionary = dictionary[k]
+    return dictionary
+
+
+def set_dict_value(dictionary: dict, key: Union[str, Tuple, List[str]], new_value):
+    """Replace value in a nested dictionary."""
+    if isinstance(key, str):
+        key = [key]
+
+    for k in key[:-1]:
+        dictionary = dictionary[k]
+    dictionary[key[-1]] = new_value
 
 
 def retry_func(func, args=None, kwargs=None, max_tries=3, delay=5, backoff=2, exceptions=None):
@@ -425,3 +447,28 @@ def find_first_matched_value(original_dict: Dict, keys: Union[str, Tuple, List[s
     if raise_key_error:
         raise KeyError(f"Keys {keys} not found in {original_dict}")
     return None
+
+
+def get_credentials(default_auth_params: Dict = None):
+    """Get credentials for MLClient.
+
+    Order of credential providers:
+    1. Azure CLI
+    2. DefaultAzureCredential
+    3. InteractiveBrowserCredential
+    """
+    from azure.identity import DefaultAzureCredential, InteractiveBrowserCredential
+
+    logger.debug("Getting credentials for MLClient")
+    try:
+        default_auth_params = default_auth_params or {}
+        credential = DefaultAzureCredential(**default_auth_params)
+        # Check if given credential can get token successfully.
+        credential.get_token("https://management.azure.com/.default")
+        logger.debug("Using DefaultAzureCredential")
+    except Exception:
+        logger.warning("Using InteractiveBrowserCredential since of default credential errors", exc_info=True)
+        # Fall back to InteractiveBrowserCredential in case DefaultAzureCredential not work
+        credential = InteractiveBrowserCredential()
+
+    return credential

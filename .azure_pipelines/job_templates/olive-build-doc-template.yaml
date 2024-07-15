@@ -11,6 +11,8 @@ jobs:
   - job: ${{parameters.job_name}}
     displayName: ${{parameters.display_name}}
     pool: ${{ parameters.pool}}
+    variables:
+      PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
 
     steps:
     - task: UsePythonVersion@0
@@ -35,6 +37,7 @@ jobs:
         python -m pip install -r requirements.txt
         make html
         make linkcheck
+        make schema
       displayName: Make Docs
 
     - task:  PublishPipelineArtifact@1

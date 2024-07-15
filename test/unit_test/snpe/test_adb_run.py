@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 import pytest
 
+from olive.common.constants import OS
 from olive.platform_sdk.qualcomm.runner import SDKRunner
 from olive.platform_sdk.qualcomm.snpe.utils.adb import run_adb_command
 
@@ -35,7 +36,7 @@ def test_run_adb_command(mock_run_subprocess, android_target):
 
 
 def test_run_snpe_command():
-    if platform.system() == "Windows":
+    if platform.system() == OS.WINDOWS:
         os.environ["SNPE_ROOT"] = "C:\\snpe"
         target_arch = "x86_64-windows-msvc"
     else:
@@ -51,7 +52,7 @@ def test_run_snpe_command():
         mock_run_subprocess.return_value = CompletedProcess(None, returncode=0, stdout=b"stdout", stderr=b"stderr")
         runner = SDKRunner(platform="SNPE")
         stdout, _ = runner.run(cmd="snpe-net-run --container xxxx")
-        if platform.system() == "Linux":
+        if platform.system() == OS.LINUX:
             env = {
                 "LD_LIBRARY_PATH": "/snpe/lib/x86_64-linux-clang",
                 "PATH": f"/snpe/bin/x86_64-linux-clang:/usr/bin:{os.environ['PATH']}",

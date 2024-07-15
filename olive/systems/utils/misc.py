@@ -12,6 +12,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
+from olive.common.constants import OS
 from olive.common.utils import hash_dir, run_subprocess
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
 from olive.hardware.constants import PROVIDER_DOCKERFILE_MAPPING, PROVIDER_PACKAGE_MAPPING
@@ -56,7 +57,7 @@ def create_managed_system(system_config: "SystemConfig", accelerator: "Accelerat
 
         from olive.systems.python_environment import PythonEnvironmentSystem
 
-        if platform.system() == "Linux":
+        if platform.system() == OS.LINUX:
             destination_dir = os.path.join(os.environ.get("HOME", ""), "tmp")
             if not os.path.exists(destination_dir):
                 os.makedirs(destination_dir)
@@ -67,7 +68,7 @@ def create_managed_system(system_config: "SystemConfig", accelerator: "Accelerat
         venv.create(venv_path, with_pip=True, system_site_packages=True)
         logger.info("Virtual environment '%s' created.", venv_path)
 
-        if platform.system() == "Windows":
+        if platform.system() == OS.WINDOWS:
             python_environment_path = f"{venv_path}/Scripts"
         else:
             python_environment_path = f"{venv_path}/bin"

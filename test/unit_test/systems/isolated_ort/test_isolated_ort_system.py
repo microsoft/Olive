@@ -16,6 +16,7 @@ import numpy as np
 import pytest
 import torch
 
+from olive.common.constants import OS
 from olive.common.utils import run_subprocess
 from olive.constants import Framework
 from olive.evaluator.metric import AccuracySubType, LatencySubType
@@ -107,7 +108,7 @@ class TestIsolatedORTEvaluator:
         venv_path = tmp_path / "venv"
         venv.create(venv_path, with_pip=True)
         # python path
-        if platform.system() == "Windows":
+        if platform.system() == OS.WINDOWS:
             python_environment_path = f"{venv_path}/Scripts"
         else:
             python_environment_path = f"{venv_path}/bin"
@@ -115,7 +116,7 @@ class TestIsolatedORTEvaluator:
 
         python_path = shutil.which("python", path=python_environment_path)
         # install only onnxruntime
-        run_subprocess([python_path, "-m", "pip", "install", "onnxruntime"], env=self.system.environ)
+        run_subprocess([python_path, "-m", "pip", "install", "onnxruntime", "numpy<2"], env=self.system.environ)
 
         self.evaluator = IsolatedORTEvaluator(self.system.environ)
         self.onnx_evaluator = OnnxEvaluator()
@@ -124,7 +125,7 @@ class TestIsolatedORTEvaluator:
 
     def test__inference(self):
         model = get_onnx_model_config().create_model()
-        metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, random_dataloader=False)
+        metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         metric = OliveEvaluator.generate_metric_user_config_with_model_io(metric, model)
         dataloader, _, post_func = OliveEvaluator.get_user_config(model.framework, None, metric)
 
@@ -247,7 +248,9 @@ class TestIsolatedORTEvaluator:
         )
         if mode == "inference":
             assert mock_wrapper.run.call_count == num_batches
-            assert mock_wrapper.run.mock_calls == [mock.call({"input": np.array([i])}) for i in range(num_batches)]
+            assert mock_wrapper.run.mock_calls == [
+                mock.call(None, {"input": np.array([i])}) for i in range(num_batches)
+            ]
             for i in range(num_batches):
                 batch_output_path = output_dir / f"output_{i}.npy"
                 assert batch_output_path.exists()

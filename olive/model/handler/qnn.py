@@ -7,6 +7,7 @@ import platform
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+from olive.common.constants import OS
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
 from olive.model.config import IoConfig
@@ -55,10 +56,10 @@ class QNNModelHandler(OliveModelHandler):
                 logger.debug(
                     "QNNModelHandler: lib_targets is not provided, using default lib_targets x86_64-linux-clang"
                 )
-                if platform.system() == "Linux":
+                if platform.system() == OS.LINUX:
                     lib_targets = "x86_64-linux-clang"
                     model_lib_suffix = ".so"
-                elif platform.system() == "Windows":
+                elif platform.system() == OS.WINDOWS:
                     # might be different for arm devices
                     lib_targets = "x64"
                     model_lib_suffix = ".dll"
@@ -92,3 +93,11 @@ class QNNModelHandler(OliveModelHandler):
         inference_settings["backend"] = model_attributes.get("backend") or inference_settings.get("backend")
         session_options = QNNSessionOptions(**inference_settings)
         return QNNInferenceSession(self.model_path, self.io_config, session_options)
+
+    def run_session(
+        self,
+        session: Any = None,
+        inputs: Union[Dict[str, Any], List[Any], Tuple[Any, ...]] = None,
+        **kwargs: Dict[str, Any],
+    ) -> Any:
+        return session(inputs, **kwargs)

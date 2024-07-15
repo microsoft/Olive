@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import torch
 
+from olive.common.constants import OS
 from olive.data.template import huggingface_data_config_template
 from olive.model import PyTorchModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
@@ -22,16 +23,22 @@ from olive.passes.pytorch.lora import LoftQ, LoRA, QLoRA
 
 def get_pass_config(model_name, task, **kwargs):
     dataset = {
-        "data_name": "ptb_text_only",
-        "subset": "penn_treebank",
-        "split": "train",
-        "component_kwargs": {
-            "pre_process_data": {
+        "load_dataset_config": {
+            "params": {
+                "data_name": "ptb_text_only",
+                "subset": "penn_treebank",
+                "split": "train",
+                "trust_remote_code": True,
+            }
+        },
+        "pre_process_data_config": {
+            "params": {
                 "text_cols": ["sentence"],
                 "corpus_strategy": "line-by-line",
                 "source_max_len": 512,
                 "max_samples": 10,
                 "pad_to_max_len": False,
+                "trust_remote_code": True,
             }
         },
     }
@@ -83,7 +90,7 @@ def test_lora(tmp_path):
 
 
 @pytest.mark.skipif(
-    platform.system() == "Windows" or not torch.cuda.is_available(),
+    platform.system() == OS.WINDOWS or not torch.cuda.is_available(),
     reason="bitsandbytes requires Linux GPU.",
 )
 def test_qlora(tmp_path):
@@ -96,7 +103,7 @@ def test_qlora(tmp_path):
 
 
 @pytest.mark.skipif(
-    platform.system() == "Windows" or not torch.cuda.is_available(),
+    platform.system() == OS.WINDOWS or not torch.cuda.is_available(),
     reason="bitsandbytes requires Linux GPU.",
 )
 def test_loftq(tmp_path):

@@ -1,15 +1,15 @@
 {
-    "input_model":{
+    "input_model": {
         "type": "PyTorchModel",
         "config": {
             "model_path": "models/resnet_trained_for_cifar10.pt",
             "io_config": {
-                "input_names": ["input"],
-                "input_shapes": [[1, 3, 32, 32]],
-                "output_names": ["output"],
+                "input_names": [ "input" ],
+                "input_shapes": [ [ 1, 3, 32, 32 ] ],
+                "output_names": [ "output" ],
                 "dynamic_axes": {
-                    "input": {"0": "batch_size"},
-                    "output": {"0": "batch_size"}
+                    "input": { "0": "batch_size" },
+                    "output": { "0": "batch_size" }
                 }
             }
         }
@@ -17,20 +17,22 @@
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": {
-                "accelerators": [
-                    {
-                        "execution_providers": [
-                            "CPUExecutionProvider"
-                        ]
-                    }
-                ]
-            }
+            "config": { "accelerators": [ { "execution_providers": [ "CPUExecutionProvider" ] } ] }
         }
     },
+    "data_configs": [
+        {
+            "name": "cifar10_data_config",
+            "type": "HuggingfaceContainer",
+            "user_script": "user_script.py",
+            "load_dataset_config": { "type": "cifar10_dataset", "params": { "data_dir": "data" } },
+            "pre_process_data_config": { "type": "skip_pre_process" },
+            "dataloader_config": { "params": { "batch_size": 16, "drop_last": true } }
+        }
+    ],
     "evaluators": {
-        "common_evaluator":{
-            "metrics":[
+        "common_evaluator": {
+            "metrics": [
                 {
                     "name": "accuracy",
                     "type": "custom",
@@ -38,10 +40,10 @@
                         {
                             "name": "accuracy_custom",
                             "priority": 1, "higher_is_better": true,
-                            "goal": {"type": "max-degradation", "value": 0.05}
+                            "goal": { "type": "max-degradation", "value": 0.05 }
                         }
                     ],
-                    "user_config":{
+                    "user_config": {
                         "user_script": "user_script.py",
                         "data_dir": "data",
                         "evaluate_func": "eval_accuracy",
@@ -55,10 +57,10 @@
                         {
                             "name": "avg",
                             "priority": 2,
-                            "goal": {"type": "percent-min-improvement", "value": 10}
+                            "goal": { "type": "percent-min-improvement", "value": 10 }
                         }
                     ],
-                    "user_config":{
+                    "user_config": {
                         "user_script": "user_script.py",
                         "data_dir": "data",
                         "dataloader_func": "create_dataloader",
@@ -69,12 +71,7 @@
         }
     },
     "passes": {
-        "onnx_conversion": {
-            "type": "OnnxConversion",
-            "config": {
-                "target_opset": 13
-            }
-        },
+        "onnx_conversion": { "type": "OnnxConversion", "config": { "target_opset": 13 } },
         "onnx_quantization": {
             "type": "OnnxQuantization",
             "config": {
@@ -86,21 +83,10 @@
                 "quant_preprocess": true
             }
         },
-        "perf_tuning": {
-            "type": "OrtPerfTuning",
-            "config": {
-                "user_script": "user_script.py",
-                "dataloader_func": "create_dataloader",
-                "batch_size": 16,
-                "data_dir": "data"
-            }
-        }
+        "perf_tuning": { "type": "OrtPerfTuning", "config": { "data_config": "cifar10_data_config" } }
     },
     "engine": {
-        "search_strategy": {
-            "execution_order": "joint",
-            "search_algorithm": "exhaustive"
-        },
+        "search_strategy": { "execution_order": "joint", "search_algorithm": "exhaustive" },
         "host": "local_system",
         "target": "local_system",
         "evaluator": "common_evaluator",

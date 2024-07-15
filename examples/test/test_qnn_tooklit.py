@@ -7,8 +7,9 @@ import platform
 from pathlib import Path
 
 import pytest
-from utils import check_output, download_azure_blob
+from utils import check_output, download_conda_installer, download_qc_toolkit
 
+from olive.common.constants import OS
 from olive.common.utils import retry_func, run_subprocess
 from olive.logging import set_verbosity_debug
 
@@ -18,27 +19,9 @@ set_verbosity_debug()
 class TestQnnToolkit:
     @pytest.fixture(autouse=True)
     def setup(self, tmp_path):
-        """Download the qnn sdk."""
-        blob, download_path = "", ""
-        if platform.system() == "Windows":
-            blob, download_path = "qnn_sdk_windows.zip", "qnn_sdk_windows.zip"
-        elif platform.system() == "Linux":
-            blob, download_path = "qnn_sdk_linux.zip", "qnn_sdk_linux.zip"
-
-        download_azure_blob(
-            container="olivetest",
-            blob=blob,
-            download_path=download_path,
-        )
-        target_path = tmp_path / "qnn_sdk"
-        target_path.mkdir(parents=True, exist_ok=True)
-        if platform.system() == "Windows":
-            cmd = f"powershell Expand-Archive -Path {download_path} -DestinationPath {str(target_path)}"
-            run_subprocess(cmd=cmd, check=True)
-        elif platform.system() == "Linux":
-            run_subprocess(cmd=f"unzip {download_path} -d {str(target_path)}", check=True)
-
-        os.environ["QNN_SDK_ROOT"] = str(target_path / "opt" / "qcom" / "aistack")
+        """Download the qnn sdk and conda installer."""
+        os.environ["QNN_SDK_ROOT"] = f"{download_qc_toolkit(tmp_path, 'qnn')}/opt/qcom/aistack"
+        os.environ["CONDA_INSTALLER"] = download_conda_installer(tmp_path)
 
     def _setup_resource(self, use_olive_env):
         """Setups any state specific to the execution of the given module."""
@@ -55,9 +38,9 @@ class TestQnnToolkit:
             )
             # install dependencies
             python_cmd = ""
-            if platform.system() == "Windows":
+            if platform.system() == OS.WINDOWS:
                 python_cmd = str(Path(os.environ["QNN_SDK_ROOT"]) / "olive-pyenv" / "python.exe")
-            elif platform.system() == "Linux":
+            elif platform.system() == OS.LINUX:
                 python_cmd = str(Path(os.environ["QNN_SDK_ROOT"]) / "olive-pyenv" / "bin" / "python")
             install_cmd = [
                 python_cmd,
@@ -69,7 +52,7 @@ class TestQnnToolkit:
             packages = ["tensorflow==2.10.1", "numpy==1.23.5"]
             retry_func(run_subprocess, kwargs={"cmd": f"python -m pip install {' '.join(packages)}", "check": True})
             os.environ["PYTHONPATH"] = str(Path(os.environ["QNN_SDK_ROOT"]) / "lib" / "python")
-            if platform.system() == "Linux":
+            if platform.system() == OS.LINUX:
                 os.environ["PATH"] = (
                     str(Path(os.environ["QNN_SDK_ROOT"]) / "bin" / "x86_64-linux-clang")
                     + os.path.pathsep
@@ -93,5 +76,5 @@ class TestQnnToolkit:
 
         self._setup_resource(use_olive_env)
 
-        footprint = olive_run("raw_qnn_sdk_config.json")
+        footprint = olive_run("raw_qnn_sdk_config.json", tempdir=os.environ.get("OLIVE_TEMPDIR", None))
         check_output(footprint)

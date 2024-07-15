@@ -284,16 +284,14 @@ Then the design for `DataContainer` interface will be like:
         ...
 
     DataConfig(
-        components={
-            "load_dataset": {
-                "type": "test_dataset",
-                "params": {"test_value": "test_value"},
-            },
-            "dataloader": {
-                "type": "_test_dataloader",  # This is the key to get dataloader
-                "params": {"test_value": "test_value"},
-            },
-        }
+        load_dataset_config=DataComponentConfig(
+            type="test_dataset",
+            params={"test_value": "test_value"},
+        ),
+        dataloader_config=DataComponentConfig(
+            type="_test_dataloader",  # This is the key to get dataloader
+            params={"test_value": "test_value"},
+        ),
     )
     ```
 
@@ -324,17 +322,17 @@ In this way, we can compose different components which contain built-in and user
 {
     // compose with built-in components
     "built_in_dataset_config": {
-        "load_dataset": "olive_load_dataset_1",
-        "pre_process_data": "olive_pre_process_data_2",
-        "post_process_data": "olive_post_process_data_1",
-        "dataloader": "olive_dataloader_4",
+        "load_dataset_config": { "type": "olive_load_dataset_1" },
+        "pre_process_data_config": { "type": "olive_pre_process_data_2" },
+        "post_process_data_config": { "type": "olive_post_process_data_1" },
+        "dataloader_config": { "type": "olive_dataloader_4" },
     },
     // compose with customized components
     "customized_dataset_config": {
-        "load_dataset": "my_load_dataset_2",
-        "pre_process_data": "my_pre_process_data_2",
-        "post_process_data": "my_post_process_data_2",
-        "dataloader": "my_dataloader_2",
+        "load_dataset_config": { "type": "my_load_dataset_2" },
+        "pre_process_data_config": { "type": "my_pre_process_data_2" },
+        "post_process_data_config": { "type": "my_post_process_data_2" },
+        "dataloader_config": { "type": "my_dataloader_2" },
     },
 }
 ```
@@ -343,12 +341,24 @@ For popular huggingface dataset, we can wrap above data config with more concise
 ```json
 {
     "huggingface_dataset_config": {
-        "data_name":"glue",
-        "subset": "mrpc",
-        "split": "validation",
-        "input_cols": ["sentence1", "sentence2"],
-        "label_cols": ["label"],
-        "batch_size": 1
+        "load_dataset_config": {
+            "params": {
+                "data_name":"glue",
+                "subset": "mrpc",
+                "split": "validation",
+            }
+        },
+        "pre_process_data_config": {
+            "params": {
+                "input_cols": ["sentence1", "sentence2"],
+                "label_cols": ["label"],
+            }
+        },
+        "dataloader_config":{
+            "params": {
+                "batch_size": 1
+            }
+        }
     }
 }
 ```

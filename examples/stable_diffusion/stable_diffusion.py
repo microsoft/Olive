@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Dict
 
 import config
+import numpy as np
 import torch
 from diffusers import DiffusionPipeline
 from packaging import version
@@ -53,6 +54,7 @@ def run_inference_loop(
     guidance_scale,
     strength: float,
     provider: str,
+    generator=None,
     image_callback=None,
     step_callback=None,
 ):
@@ -74,6 +76,7 @@ def run_inference_loop(
             height=image_size,
             width=image_size,
             guidance_scale=guidance_scale,
+            generator=generator,
             **kwargs,
         )
 
@@ -81,7 +84,16 @@ def run_inference_loop(
 
 
 def run_inference_gui(
-    pipeline, prompt, num_images, batch_size, image_size, num_inference_steps, guidance_scale, strength, provider
+    pipeline,
+    prompt,
+    num_images,
+    batch_size,
+    image_size,
+    num_inference_steps,
+    guidance_scale,
+    strength,
+    provider,
+    generator,
 ):
     import threading
     import tkinter as tk
@@ -115,6 +127,7 @@ def run_inference_gui(
                 guidance_scale,
                 strength,
                 provider,
+                generator,
                 image_completed,
                 update_progress_bar,
             ),
@@ -304,6 +317,12 @@ def parse_common_args(raw_args):
         "that are not semantically consistent with the input.",
     )
     parser.add_argument("--image_size", default=512, type=int, help="Width and height of the images to generate")
+    parser.add_argument(
+        "--seed",
+        default=None,
+        type=int,
+        help="The seed to give to the generator to generate deterministic results.",
+    )
 
     return parser.parse_known_args(raw_args)
 
@@ -369,6 +388,8 @@ def main(raw_args=None):
                 validate_args(ort_args, common_args.provider)
             optimize(common_args.model_id, common_args.provider, unoptimized_model_dir, optimized_model_dir)
 
+    generator = None if common_args.seed is None else np.random.RandomState(seed=common_args.seed)
+
     if not common_args.optimize:
         model_dir = unoptimized_model_dir if common_args.test_unoptimized else optimized_model_dir
         with warnings.catch_warnings():
@@ -395,6 +416,7 @@ def main(raw_args=None):
                         common_args.image_size,
                         common_args.num_inference_steps,
                         common_args,
+                        generator=generator,
                     )
                 if ov_args.img_to_img_example:
                     from sd_utils.ov import run_ov_img_to_img_example
@@ -414,6 +436,7 @@ def main(raw_args=None):
                     guidance_scale,
                     common_args.strength,
                     provider=provider,
+                    generator=generator,
                 )
             else:
                 run_inference_loop(
@@ -426,6 +449,7 @@ def main(raw_args=None):
                     guidance_scale,
                     common_args.strength,
                     provider=provider,
+                    generator=generator,
                 )
 
 

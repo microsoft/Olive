@@ -29,6 +29,7 @@ _common_user_config = {
     "input_types": ConfigParam(type_=List),
     "shared_kv_buffer": ConfigParam(type_=bool, default_value=False),
     "io_bind": ConfigParam(type_=bool, default_value=False),
+    "run_kwargs": ConfigParam(type_=dict),
 }
 
 _common_user_config_validators = {
@@ -55,12 +56,6 @@ def get_user_config_class(metric_type: str):
     validators = _common_user_config_validators.copy()
     validators.update(_type_to_user_config_validators.get(metric_type, {}))
     return create_config_class(f"{metric_type.title()}UserConfig", default_config, ConfigBase, validators)
-
-
-def get_user_config_properties_from_metric_type(metric_type):
-    user_config_class = get_user_config_class(metric_type)
-    # avoid to use schema() to get the fields, because it will skip the ones with object type
-    return list(user_config_class.__fields__)
 
 
 # TODO(jambayk): automate latency metric config also we standardize accuracy metric config

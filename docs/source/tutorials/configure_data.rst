@@ -46,7 +46,7 @@ The data config template is defined in `olive.data.template <https://github.com/
 
 Currently, we support the following data container which can be generated from ``olive.data.template``:
 
-1. `DummyDataContainer <https://github.com/microsoft/Olive/blob/main/olive/data/template.py#L9>`_ :
+1. DummyDataContainer:
 Convert the dummy data config to the data container.
 
 .. tabs::
@@ -57,11 +57,13 @@ Convert the dummy data config to the data container.
             {
                 "name": "dummy_data_config_template",
                 "type": "DummyDataContainer",
-                "params_config": {
-                    "input_shapes": [[1, 128], [1, 128], [1, 128]],
-                    "input_names": ["input_ids", "attention_mask", "token_type_ids"],
-                    "input_types": ["int64", "int64", "int64"],
-                },
+                "load_dataset_config": {
+                    "params": {
+                        "input_shapes": [[1, 128], [1, 128], [1, 128]],
+                        "input_names": ["input_ids", "attention_mask", "token_type_ids"],
+                        "input_types": ["int64", "int64", "int64"],
+                    }
+                }
             }
 
     .. tab:: Python Class
@@ -72,14 +74,14 @@ Convert the dummy data config to the data container.
             data_config = DataConfig(
                 name="dummy_data_config_template",
                 type="DummyDataContainer",
-                params_config={
+                load_dataset_config=DataComponentConfig(params={
                     "input_shapes": [[1, 128], [1, 128], [1, 128]],
                     "input_names": ["input_ids", "attention_mask", "token_type_ids"],
                     "input_types": ["int64", "int64", "int64"],
-                },
+                })
             )
 
-2. `HuggingfaceContainer <https://github.com/microsoft/Olive/blob/main/olive/data/template.py#L9>`_ :
+2. HuggingfaceContainer:
 Convert the huggingface data config to the data container.
 
 .. tabs::
@@ -88,18 +90,33 @@ Convert the huggingface data config to the data container.
         .. code-block:: json
 
             {
-                "name": "huggingface_data_config_template",
+                "name": "huggingface_data_config",
                 "type": "HuggingfaceContainer",
-                "params_config": {
-                    "model_name": "Intel/bert-base-uncased-mrpc",
-                    "task": "text-classification",
-                    "batch_size": 1,
-                    "data_name": "glue",
-                    "input_cols": ["sentence1", "sentence2"],
-                    "label_cols": ["label"],
-                    "split": "validation",
-                    "subset": "mrpc",
+                "load_dataset_config": {
+                    "params": {
+                        "data_name": "glue",
+                        "split": "validation",
+                        "subset": "mrpc"
+                    }
                 },
+                "pre_process_data_config": {
+                    "params": {
+                        "model_name": "Intel/bert-base-uncased-mrpc",
+                        "task": "text-classification",
+                        "input_cols": ["sentence1", "sentence2"],
+                        "label_cols": ["label"]
+                    }
+                },
+                "post_process_data_config": {
+                    "params": {
+                        "task": "text-classification",
+                    }
+                },
+                "dataloader_config": {
+                    "params": {
+                        "batch_size": 1
+                    }
+                }
             }
 
     .. tab:: Python Class
@@ -108,22 +125,26 @@ Convert the huggingface data config to the data container.
 
             from olive.data.config import DataConfig
             data_config = DataConfig(
-                name="huggingface_data_config_template",
+                name="huggingface_data_config",
                 type="HuggingfaceContainer",
-                params_config={
+                load_dataset_config=DataComponentConfig(params={
                     "model_name": "Intel/bert-base-uncased-mrpc",
                     "task": "text-classification",
-                    "batch_size": 1,
                     "data_name": "glue",
-                    "input_cols": ["sentence1", "sentence2"],
-                    "label_cols": ["label"],
                     "split": "validation",
                     "subset": "mrpc",
-                },
+                }),
+                pre_process_data_config=DataComponentConfig(params={
+                    "input_cols": ["sentence1", "sentence2"],
+                    "label_cols": ["label"],
+                })
+                dataloader_config=DataComponentConfig(params={
+                    "batch_size": 1,
+                })
             )
 
 
-3. `RawDataContainer <https://github.com/microsoft/Olive/blob/main/olive/data/template.py#L72>`_ :
+3. RawDataContainer:
 Convert the raw data config to the data container.
 
 .. tabs::
@@ -134,13 +155,15 @@ Convert the raw data config to the data container.
             {
                 "name": "raw_data",
                 "type": "RawDataContainer",
-                "params_config": {
-                    "data_dir": "data",
-                    "input_names": ["data"],
-                    "input_shapes": [[1, 3, 224, 224]],
-                    "input_dirs": ["."],
-                    "input_suffix": ".raw",
-                    "input_order_file": "input_order.txt"
+                "load_dataset_config": {
+                    "params": {
+                        "data_dir": "data",
+                        "input_names": ["data"],
+                        "input_shapes": [[1, 3, 224, 224]],
+                        "input_dirs": ["."],
+                        "input_suffix": ".raw",
+                        "input_order_file": "input_order.txt"
+                    }
                 }
             }
 
@@ -152,16 +175,47 @@ Convert the raw data config to the data container.
             data_config = DataConfig(
                 name="raw_data",
                 type="RawDataContainer",
-                params_config={
+                load_dataset_config=DataComponentConfig(params={
                     "data_dir": "data",
                     "input_names": ["data"],
                     "input_shapes": [[1, 3, 224, 224]],
                     "input_dirs": ["."],
                     "input_suffix": ".raw",
                     "input_order_file": "input_order.txt"
-                }
+                })
             )
 
+4. TransformersDummyDataContainer:
+Convert the transformer dummy data config to the data container.
+
+.. tabs::
+    .. tab:: Config JSON
+
+        .. code-block:: json
+
+            {
+                "name": "transformers_dummy_data_config",
+                "type": "TransformersDummyDataContainer"
+            }
+
+    .. tab:: Python Class
+
+        .. code-block:: python
+
+            from olive.data.config import DataConfig
+            data_config = DataConfig(
+                name="transformers_dummy_data_config",
+                type="TransformersDummyDataContainer",
+                load_dataset_config=DataComponentConfig(params={
+                    # model_name can be filled with the model name in input model's hf_config
+                    # if you start olive with olive run --config <config_path>
+                    "model_name": "meta-llama/Llama-2-7b-hf"
+                })
+            )
+
+    Also, based on ``TransformersDummyDataContainer``, Olive provides templates for transformer inference based on prompt(first prediction, no kv_cache now) and token(with kv_cache) inputs.
+    - ``TransformersPromptDummyDataContainer`` where ``seq_len`` >= 1(default 8) and ``past_seq_len`` = 0.
+    - ``TransformersTokenDummyDataContainer`` where ``seq_len`` == 1 and ``past_seq_len`` >= 1(default 8).
 
 
 Generic Data Config
@@ -188,7 +242,7 @@ If no data config template can meet the requirement, we can also define the `dat
             * - `post_process_data <https://github.com/microsoft/Olive/blob/main/olive/data/component/post_process_data.py>`_
               - post_process(default), text_classification_post_process, ner_post_process, text_generation_post_process
             * - `dataloader <https://github.com/microsoft/Olive/blob/main/olive/data/component/dataloader.py>`_
-              - default_dataloader(default), skip_dataloader, no_auto_batch_dataloader
+              - default_dataloader(default), no_auto_batch_dataloader
 
         each component can be customized by the following fields:
             - ``name``: the name of the component.
@@ -211,42 +265,40 @@ Then the complete config would be like:
             {
                 "name": "data",
                 "type": "DataContainer",
-                "components": {
-                    "load_dataset": {
-                        "type": "huggingface_dataset",
-                        "params": {
-                            "data_dir": null,
-                            "data_name": "glue",
-                            "subset": "mrpc",
-                            "split": "validation",
-                            "data_files": null
-                        }
-                    },
-                    "pre_process_data": {
-                        "type": "huggingface_pre_process",
-                        "params": {
-                            "model_name": "Intel/bert-base-uncased-mrpc",
-                            "input_cols": [
-                                "sentence1",
-                                "sentence2"
-                            ],
-                            "label_cols": [
-                                "label"
-                            ],
-                            "max_samples": null
-                        }
-                    },
-                    "post_process_data": {
-                        "type": "text_classification_post_process",
-                        "params": {}
-                    },
-                    "dataloader": {
-                        "type": "default_dataloader",
-                        "params": {
-                            "batch_size": 1
-                        }
+                "load_dataset_config": {
+                    "type": "huggingface_dataset",
+                    "params": {
+                        "data_dir": null,
+                        "data_name": "glue",
+                        "subset": "mrpc",
+                        "split": "validation",
+                        "data_files": null
                     }
                 },
+                "pre_process_data_config": {
+                    "type": "huggingface_pre_process",
+                    "params": {
+                        "model_name": "Intel/bert-base-uncased-mrpc",
+                        "input_cols": [
+                            "sentence1",
+                            "sentence2"
+                        ],
+                        "label_cols": [
+                            "label"
+                        ],
+                        "max_samples": null
+                    }
+                },
+                "post_process_data_config": {
+                    "type": "text_classification_post_process",
+                    "params": {}
+                },
+                "dataloader_config": {
+                    "type": "default_dataloader",
+                    "params": {
+                        "batch_size": 1
+                    }
+                }
             }
 
     .. tab:: Python Class
@@ -257,42 +309,40 @@ Then the complete config would be like:
             data_config = DataConfig(
                 name="data",
                 type="DataContainer",
-                components={
-                    "load_dataset": {
-                        "type": "huggingface_dataset",
-                        "params": {
-                            "data_dir": null,
-                            "data_name": "glue",
-                            "subset": "mrpc",
-                            "split": "validation",
-                            "data_files": null
-                        }
-                    },
-                    "pre_process_data": {
-                        "type": "huggingface_pre_process",
-                        "params": {
-                            "model_name": "Intel/bert-base-uncased-mrpc",
-                            "input_cols": [
-                                "sentence1",
-                                "sentence2"
-                            ],
-                            "label_cols": [
-                                "label"
-                            ],
-                            "max_samples": null
-                        }
-                    },
-                    "post_process_data": {
-                        "type": "text_classification_post_process",
-                        "params": {}
-                    },
-                    "dataloader": {
-                        "type": "default_dataloader",
-                        "params": {
-                            "batch_size": 1
-                        }
+                load_dataset_config=DataComponentConfig(
+                    type="huggingface_dataset",
+                    params={
+                        "data_dir": null,
+                        "data_name": "glue",
+                        "subset": "mrpc",
+                        "split": "validation",
+                        "data_files": null
                     }
-                },
+                ),
+                pre_process_data_config=DataComponentConfig(
+                    type="huggingface_pre_process",
+                    params={
+                        "model_name": "Intel/bert-base-uncased-mrpc",
+                        "input_cols": [
+                            "sentence1",
+                            "sentence2"
+                        ],
+                        "label_cols": [
+                            "label"
+                        ],
+                        "max_samples": null
+                    }
+                ),
+                post_process_data_config=DataComponentConfig(
+                    type="text_classification_post_process",
+                    params={}
+                ),
+                dataloader_config=DataComponentConfig(
+                    type="default_dataloader",
+                    params={
+                        "batch_size": 1
+                    }
+                )
             )
 
 
@@ -312,16 +362,14 @@ The above case shows to rewrite all the components in data config. But sometime,
                 "type": "DataContainer",
                 "user_script": "user_script.py",
                 "script_dir": "user_dir",
-                "components": {
-                    "load_dataset": {
-                        "type": "customized_huggingface_dataset",
-                        "params": {
-                            "data_dir": null,
-                            "data_name": "glue",
-                            "subset": "mrpc",
-                        }
-                    },
-                },
+                "load_dataset_config": {
+                    "type": "customized_huggingface_dataset",
+                    "params": {
+                        "data_dir": null,
+                        "data_name": "glue",
+                        "subset": "mrpc",
+                    }
+                }
             }
 
     .. tab:: Python Class
@@ -331,7 +379,7 @@ The above case shows to rewrite all the components in data config. But sometime,
             from olive.data.registry import Registry
 
             @Registry.register_dataset()
-            def customized_huggingface_dataset(_output):
+            def customized_huggingface_dataset(_output, trust_remote_code=None, **kwargs):
                 ...
 
             from olive.data.config import DataConfig
@@ -340,31 +388,32 @@ The above case shows to rewrite all the components in data config. But sometime,
                 type="DataContainer",
                 user_script="user_script.py",
                 script_dir="user_dir",
-                components={
-                    "load_dataset": {
-                        "type": "customized_huggingface_dataset",
-                        "params": {
-                            "data_dir": null,
-                            "data_name": "glue",
-                            "subset": "mrpc",
-                        }
-                    },
-                },
+                load_dataset_config=DataComponentConfig(
+                    type="customized_huggingface_dataset",
+                    params={
+                        "data_dir": null,
+                        "data_name": "glue",
+                        "subset": "mrpc",
+                    }
+                )
             )
 
 .. note::
-    User should provide the ``user_script`` and ``script_dir`` if they want to customize the component type. The ``user_script`` should be a python script which contains the customized component type. The ``script_dir`` should be the directory path which contains the ``user_script``. Here is an example for ``user_script``:
+    User should provide the ``user_script`` and ``script_dir`` if they want to customize the component type. The ``user_script`` should be a python script which contains the customized component type. The ``script_dir`` should be the directory path which contains the ``user_script``. Another thing you might need to notice is that when your customized dataset is from huggingface, you should at least allow the ``trust_remote_code`` in your function's arguments list to indicate whether you trust the remote code or not. ``kwargs`` is the additional keyword arguments provided in the config, it can cover the case of ``trust_remote_code`` as well.
+    Here is an example for ``user_script``:
 
     .. code-block:: python
 
         from olive.data.registry import Registry
 
         @Registry.register_dataset()
-        def customized_huggingface_dataset(data_dir):
+        def customized_huggingface_dataset(data_dir, **kwargs):
+            # kwargs can cover the case of trust_remote_code or user can add trust_remote_code in the function's
+            # arguments list, like, customized_huggingface_dataset(data_dir, trust_remote_code=None, **kwargs):
             ...
 
         @Registry.register_pre_process()
-        def customized_huggingface_pre_process(dataset):
+        def customized_huggingface_pre_process(dataset, **kwargs):
             ...
 
         @Registry.register_post_process()

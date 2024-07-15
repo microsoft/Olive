@@ -6,11 +6,12 @@
 import logging
 import platform
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Union
 
+from olive.common.constants import OS
 from olive.constants import ModelFileFormat
 from olive.hardware import AcceleratorSpec
-from olive.model import QNNModelHandler
+from olive.model import QNNModelHandler, SNPEModelHandler
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import PassConfigParam
 from olive.platform_sdk.qualcomm.runner import QNNSDKRunner
@@ -26,7 +27,7 @@ class QNNContextBinaryGenerator(Pass):
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        if platform.system() == "Windows":
+        if platform.system() == OS.WINDOWS:
             raise NotImplementedError("QNNContextBinaryGenerator is not supported on Windows.")
 
         return {
@@ -52,13 +53,26 @@ class QNNContextBinaryGenerator(Pass):
 
     def _run_for_config(
         self,
-        model: QNNModelHandler,
+        model: Union[QNNModelHandler, SNPEModelHandler],
         data_root: str,
         config: Dict[str, Any],
         output_model_path: str,
     ) -> QNNModelHandler:
         main_cmd = "qnn-context-binary-generator"
         runner = QNNSDKRunner(use_dev_tools=True)
+
+        extra_args = config["extra_args"] or ""
+        model_arg = f"--model {model.model_path}"
+
+        if model.model_file_format == ModelFileFormat.SNPE_DLC and "--dlc_path" not in extra_args:
+            extra_args += f" --dlc_path {model.model_path}"
+
+        # if dlc_path is set, use {qnn_root_path}/lib/{qnn_target_arch_name}/libQnnModelDlc.so
+        # as the model argument
+        if "--dlc_path" in extra_args:
+            qnn_root_path = runner.sdk_env.sdk_root_path
+            qnn_target_arch_name = runner.sdk_env.target_arch
+            model_arg = f"--model {qnn_root_path}/lib/{qnn_target_arch_name}/libQnnModelDlc.so"
 
         # input model path's name without suffix
         # TODO(trajep): find .so file in the same directory as the model
@@ -72,11 +86,11 @@ class QNNContextBinaryGenerator(Pass):
 
         cmd_list = [
             main_cmd,
-            f"--model {model.model_path}",
+            model_arg,
             f"--backend {config['backend']}",
             f"--output_dir {output_model_path}",
             f"--binary_file {binary_file}" if binary_file else "",
-            config["extra_args"] or "",
+            extra_args,
         ]
 
         runner.run(" ".join(cmd_list))
