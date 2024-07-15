@@ -162,8 +162,8 @@ class QNNMixedPrecisionOverrides(Pass):
                     add_initializer_tensor_to_16bit_overrides(node.input[0])
 
         model_modified = False
-        for tensor_name in conflict_data:
-            if conflict_data[tensor_name]["counts"] == 0:
+        for tensor_name, tensor_attrs in conflict_data.items():
+            if tensor_attrs["counts"] == 0:
                 # If initializer tensor is input to multiple nodes but all of them have 16bit constraint
                 # convert the tensor regularly
                 add_initializer_tensor_to_16bit_overrides(tensor_name)
@@ -175,7 +175,7 @@ class QNNMixedPrecisionOverrides(Pass):
                 copy_of_initializer.name = copy_of_initializer.name + "_MixedPrecision_copy"
                 onnx_model.graph.initializer.extend([copy_of_initializer])
 
-                for node in conflict_data[tensor_name]["nodes"]:
+                for node in tensor_attrs["nodes"]:
                     for i, item in enumerate(node.input):
                         # for all nodes that require their input to be 16 bit, we replace input tensor with copy
                         node.input[i] = copy_of_initializer.name if item == tensor_name else item
