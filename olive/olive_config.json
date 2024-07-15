@@ -93,6 +93,9 @@
         "QNNPreprocess": {
             "module_path": "olive.passes.onnx.qnn.qnn_preprocess.QNNPreprocess"
         },
+        "QNNMixedPrecisionOverrides": {
+            "module_path": "olive.passes.onnx.qnn.qnn_mixed_precision_overrides.QNNMixedPrecisionOverrides"
+        },
         "VitisAIQuantization": {
             "module_path": "olive.passes.onnx.vitis_ai_quantization.VitisAIQuantization"
         },

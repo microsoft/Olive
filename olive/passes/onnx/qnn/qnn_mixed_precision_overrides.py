@@ -85,7 +85,7 @@ class QNNMixedPrecisionOverrides(Pass):
         if isinstance(config["overrides_config"], dict):
             overrides_content = config["overrides_config"]
         elif isinstance(config["overrides_config"], str):
-            overrides_config_path = Path(config["mixed_precision_overrides_json_file"])
+            overrides_config_path = Path(config["overrides_config"])
             with overrides_config_path.open() as f:
                 overrides_content = json.load(f)
         else:
@@ -178,7 +178,7 @@ class QNNMixedPrecisionOverrides(Pass):
                 for node in conflict_data[tensor_name]["nodes"]:
                     for i, item in enumerate(node.input):
                         # for all nodes that require their input to be 16 bit, we replace input tensor with copy
-                        node.item[i] = copy_of_initializer.name if item == tensor_name else item
+                        node.input[i] = copy_of_initializer.name if item == tensor_name else item
                 # and assign convert operator to it
                 add_initializer_tensor_to_16bit_overrides(copy_of_initializer.name)
                 model_modified = True

@@ -457,6 +457,7 @@ Please also find the detailed options from following table for each pass:
 | [MergeAdapterWeights](merge_adapter_weights) | Merge adapter weights into the base model and save transformer context files. |
 | [OptimumConversion](optimum_conversion) | Convert huggingface models to ONNX via the Optimum library. |
 | [OptimumMerging](optimum_merging) | Merge 2 models together with an `if` node via the Optimum library. |
+| [QNNMixedPrecisionOverrides](qnn_mixed_precision_overrides) | Preprocesses the model for mixed precision quantization with qnn configs. |
 
 ### Example
 ```json
