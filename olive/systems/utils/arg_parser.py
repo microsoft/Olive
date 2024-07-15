@@ -6,7 +6,7 @@ import argparse
 import json
 from typing import Tuple
 
-from olive.common.utils import set_dict_value
+from olive.common.utils import set_nested_dict_value
 
 
 def parse_common_args(raw_args):
@@ -51,7 +51,7 @@ def parse_config(raw_args, name: str) -> Tuple[dict, str]:
     args, extra_args = parser.parse_known_args(extra_args)
     args = vars(args)
     for resource_name, resource_key in resource_map.items():
-        set_dict_value(config, resource_key, args[resource_name])
+        set_nested_dict_value(config, resource_key, args[resource_name])
 
     return config, extra_args
 

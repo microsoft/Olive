@@ -9,9 +9,9 @@ import shutil
 from pathlib import Path
 from typing import Dict, Optional, Union
 
-from olive.common.config_utils import serialize_to_json
-from olive.common.utils import hash_dict
-from olive.resource_path import ResourcePath, create_resource_path
+from olive.common.config_utils import ConfigBase, convert_configs_to_dicts, serialize_to_json, validate_config
+from olive.common.utils import hash_dict, set_nested_dict_value
+from olive.resource_path import ResourcePath, create_resource_path, find_all_resources
 
 logger = logging.getLogger(__name__)
 
@@ -154,21 +154,28 @@ def download_resource(resource_path: ResourcePath):
     return local_resource_path
 
 
-def get_local_path(resource_path: Optional[ResourcePath]):
-    """Return the local path of the any resource path.
+def prepare_non_local_resources(config: Union[Dict, ConfigBase]) -> Union[Dict, ConfigBase]:
+    """Prepare non-local resources in the config.
 
-    If the resource path is a local resource, the path is returned.
-    If the resource path is an AzureML resource, the resource is downloaded to the cache and the path is returned.
+    Download all non-local resources in the config to the cache.
     """
-    if resource_path is None:
-        return None
+    # keep track of the original config class
+    config_class = None
+    if isinstance(config, ConfigBase):
+        config_class = config.__class__
 
-    if resource_path.is_local_resource_or_string_name():
-        return resource_path.get_path()
-    elif resource_path.is_azureml_resource():
-        return download_resource(resource_path).get_path()
-    else:
-        return None
+    # find and download all non-local resources
+    config = convert_configs_to_dicts(config)
+    all_resources = find_all_resources(config)
+    for resource_key, resource_path in all_resources.items():
+        if not resource_path.is_local_resource_or_string_name():
+            set_nested_dict_value(config, resource_key, download_resource(resource_path).get_path())
+
+    # validate the config if it was a ConfigBase
+    if config_class:
+        config = validate_config(config, config_class)
+
+    return config
 
 
 def save_model(

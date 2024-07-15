@@ -141,6 +141,23 @@ class Engine:
             if clean_run_cache:
                 cache_utils.clean_pass_run_cache(pass_config["type"].__name__)
 
+        # prepare non-local resources if host/target is not AzureML
+        # TODO(anyone): Should the cloud cache care about this? If so, the cloud cache helper can
+        # check for cached non-local resource paths and replace them with the original config
+        # during hash calculation.
+        if self.target_config.type != SystemType.AzureML:
+            if self.evaluator_config:
+                self.evaluator_config = cache_utils.prepare_non_local_resources(self.evaluator_config)
+            for pass_config in self.pass_config.values():
+                if pass_config["evaluator"]:
+                    pass_config["evaluator"] = cache_utils.prepare_non_local_resources(pass_config["evaluator"])
+
+        for pass_config in self.pass_config.values():
+            host_type = pass_config["host"].system_type if pass_config["host"] else self.host_config.type
+            if host_type == SystemType.AzureML:
+                continue
+            pass_config["config"] = cache_utils.prepare_non_local_resources(pass_config["config"])
+
         self.set_pass_flows(self.pass_flows)
         self._initialized = True
 
@@ -746,20 +763,6 @@ class Engine:
 
         return ModelConfig.from_json(model_json)
 
-    def _prepare_non_local_model(self, model_config: ModelConfig) -> ModelConfig:
-        """Prepare models with non-local model path for local run by downloading the model resources to cache."""
-        # TODO(myguo): maybe we can move this method into OliveSystem?
-        resource_paths = model_config.get_resource_paths()
-        for resource_name, resource_path in resource_paths.items():
-            if not resource_path or resource_path.is_local_resource_or_string_name():
-                continue
-            downloaded_resource_path = cache_utils.download_resource(resource_path)
-            if downloaded_resource_path:
-                # set local resource path
-                model_config.config[resource_name] = downloaded_resource_path
-
-        return model_config
-
     def _init_input_model(self, input_model_config: ModelConfig):
         """Initialize the input model."""
         model_hash = hash_dict(input_model_config.to_json())[:8]
@@ -997,7 +1000,7 @@ class Engine:
 
             host = self.host_for_pass(pass_id)
             if host.system_type != SystemType.AzureML:
-                input_model_config = self._prepare_non_local_model(input_model_config)
+                input_model_config = cache_utils.prepare_non_local_resources(input_model_config)
 
             try:
                 if p.run_on_target:
@@ -1128,7 +1131,7 @@ class Engine:
         # evaluate model
         metrics = evaluator_config.metrics if evaluator_config else []
         if self.target.system_type != SystemType.AzureML:
-            model_config = self._prepare_non_local_model(model_config)
+            model_config = cache_utils.prepare_non_local_resources(model_config)
         signal = self.target.evaluate_model(model_config, metrics, accelerator_spec)
 
         # cache evaluation
