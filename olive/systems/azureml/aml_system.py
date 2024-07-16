@@ -207,9 +207,6 @@ class AzureMLSystem(OliveSystem):
             # create a copy of the config to avoid modifying the original config
             config_copy = deepcopy(config)
 
-            # create input for the config
-            inputs[f"{name}_config"] = Input(type=AssetTypes.URI_FILE)
-
             # using a list of tuples since json cannot have tuple keys
             resource_map = []
             # create inputs and args for each resource in the config
@@ -224,11 +221,14 @@ class AzureMLSystem(OliveSystem):
                 resource_map.append((resource_key, all_resources[resource_str]))
                 set_nested_dict_value(config_copy, resource_key, None)
 
+            # input for the config
             config_path = tmp_dir / f"{name}_config.json"
             with config_path.open("w") as f:
                 json.dump(config_copy, f, sort_keys=True, indent=4)
+            inputs[f"{name}_config"] = Input(type=AssetTypes.URI_FILE)
             args[f"{name}_config"] = Input(type=AssetTypes.URI_FILE, path=config_path)
 
+            # input for the resource map
             if resource_map:
                 resource_map_path = tmp_dir / f"{name}_resource_map.json"
                 with resource_map_path.open("w") as f:
