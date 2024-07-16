@@ -23,9 +23,9 @@ def main(raw_args=None):
     # login to hf if HF_LOGIN is set to True
     aml_runner_hf_login()
 
-    model_config, pipeline_output, extra_args = get_common_args(raw_args)
-    metric_config, extra_args = parse_config(extra_args, "metric")
-    accelerator_config, extra_args = parse_config(extra_args, "accelerator")
+    pipeline_output, resources, model_config, extra_args = get_common_args(raw_args)
+    metric_config, extra_args = parse_config(extra_args, "metric", resources)
+    accelerator_config, extra_args = parse_config(extra_args, "accelerator", resources)
 
     # load metric
     metric = Metric.from_json(metric_config)
