@@ -55,7 +55,7 @@ class TestLocalEvaluation:
         model_config = model_config_func()
         metric = metric_func()
         model_conf = ModelConfig.parse_obj({"type": type, "config": model_config})
-        actual_res = LocalSystem().evaluate_model(model_conf, None, [metric], DEFAULT_CPU_ACCELERATOR)
+        actual_res = LocalSystem().evaluate_model(model_conf, [metric], DEFAULT_CPU_ACCELERATOR)
         for sub_type in metric.sub_types:
             joint_key = joint_metric_key(metric.name, sub_type.name)
             assert actual_res[joint_key].value >= expected_res

@@ -41,7 +41,7 @@ def test_snpe_model_input(mocked_qnn_sdk_runner, config, tmp_path):
     with patch.object(Path, "is_file") as mock_is_file, patch.object(Path, "exists") as mock_exists:
         mock_is_file.return_value = True
         mock_exists.return_value = True
-        p.run(input_model, None, tmp_path)
+        p.run(input_model, tmp_path)
 
     extra_args = config.get("extra_args") or ""
     if "dlc_path" not in extra_args:

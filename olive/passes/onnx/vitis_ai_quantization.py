@@ -10,7 +10,6 @@ from typing import Any, Callable, Dict, Union
 
 import onnx
 
-from olive.cache import get_local_path_from_root
 from olive.common.utils import exclude_keys, hash_string
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler
@@ -259,7 +258,7 @@ class VitisAIQuantization(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
         from onnxruntime.quantization.quant_utils import QuantFormat, QuantType
 
@@ -341,15 +340,14 @@ class VitisAIQuantization(Pass):
         # TODO(XiaoSheng): only use data config
         dataloader = None
         if config["dataloader_func"]:
-            data_dir = get_local_path_from_root(data_root, config["data_dir"])
             dataloader = self._user_module_loader.call_object(
                 config["dataloader_func"],
-                data_dir,
+                config["data_dir"],
                 config["batch_size"],
                 **(config["dataloader_func_kwargs"] or {}),
             )
         elif self._data_config:
-            dataloader = self._data_config.to_data_container().create_calibration_dataloader(data_root)
+            dataloader = self._data_config.to_data_container().create_calibration_dataloader()
 
         execution_provider = self.accelerator_spec.execution_provider
 

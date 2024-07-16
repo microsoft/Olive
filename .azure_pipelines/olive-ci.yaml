@@ -94,6 +94,10 @@ jobs:
       bert_ptq_cpu_docker:
         exampleFolder: bert
         exampleName: bert_ptq_cpu_docker
+      # running on linux is enough, only testing cuda ep on aml
+      bert_cuda_gpu_aml:
+        exampleFolder: bert
+        exampleName: bert_cuda_gpu_aml
       resnet_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_ptq_cpu

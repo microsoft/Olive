@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
-from utils import check_output, patch_config, set_azure_identity_logging
+from utils import check_output, patch_config
 
 from olive.common.utils import retry_func, run_subprocess
 
@@ -24,7 +24,6 @@ def setup():
     # retry since it fails randomly
     retry_func(run_subprocess, kwargs={"cmd": "python prepare_model_data.py", "check": True})
 
-    set_azure_identity_logging()
     yield
     os.chdir(cur_dir)
 

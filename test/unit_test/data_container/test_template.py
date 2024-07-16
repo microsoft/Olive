@@ -38,7 +38,7 @@ class TestDataConfigTemplate:
                 }
             ),
         )
-        dataloader = dataloader.to_data_container().create_dataloader(data_root_path=None)
+        dataloader = dataloader.to_data_container().create_dataloader()
         assert dataloader is not None, "Failed to create dataloader from huggingface template."
 
     @pytest.mark.parametrize(

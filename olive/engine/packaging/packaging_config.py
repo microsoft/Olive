@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Optional, Union
 
 from olive.common.config_utils import ConfigBase, validate_config
+from olive.common.constants import BASE_IMAGE
 from olive.common.pydantic_v1 import validator
 
 
@@ -16,6 +17,7 @@ class PackagingType(str, Enum):
     AzureMLModels = "AzureMLModels"
     AzureMLData = "AzureMLData"
     AzureMLDeployment = "AzureMLDeployment"
+    Dockerfile = "Dockerfile"
 
 
 class CommonPackagingConfig(ConfigBase):
@@ -34,6 +36,11 @@ class AzureMLDataPackagingConfig(CommonPackagingConfig):
 class AzureMLModelsPackagingConfig(CommonPackagingConfig):
     version: Union[int, str] = "1"
     description: Optional[str] = None
+
+
+class DockerfilePackagingConfig(CommonPackagingConfig):
+    base_image: str = BASE_IMAGE
+    requirements_file: Optional[str] = None
 
 
 class InferencingServerType(str, Enum):
@@ -89,6 +96,7 @@ _type_to_config = {
     PackagingType.AzureMLModels: AzureMLModelsPackagingConfig,
     PackagingType.AzureMLData: AzureMLDataPackagingConfig,
     PackagingType.AzureMLDeployment: AzureMLDeploymentPackagingConfig,
+    PackagingType.Dockerfile: DockerfilePackagingConfig,
 }
 
 

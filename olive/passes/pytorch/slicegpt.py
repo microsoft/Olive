@@ -37,25 +37,25 @@ class SliceGPT(Pass):
             "calibration_data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
                 required=True,
-                description=("Data config for Dataset to calibrate and calculate perplexity on."),
+                description="Data config for Dataset to calibrate and calculate perplexity on.",
             ),
             "calibration_nsamples": PassConfigParam(
                 type_=int,
                 required=False,
                 default_value=128,
-                description=("Number of samples of the calibration data to load."),
+                description="Number of samples of the calibration data to load.",
             ),
             "calibration_batch_size": PassConfigParam(
                 type_=int,
                 required=False,
                 default_value=16,
-                description=("Batch size for loading the calibration data."),
+                description="Batch size for loading the calibration data.",
             ),
             "seed": PassConfigParam(
                 type_=int,
                 required=False,
                 default_value=42,
-                description=("Seed for sampling the calibration data."),
+                description="Seed for sampling the calibration data.",
             ),
             "sparsity": PassConfigParam(
                 type_=float,
@@ -76,7 +76,7 @@ class SliceGPT(Pass):
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: PyTorchModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModelHandler:
         if sys.version_info < (3, 10):
             raise ValueError("SliceGPT requires python3.10 or higher")
@@ -118,7 +118,7 @@ class SliceGPT(Pass):
         )
 
         data_config = validate_config(config.calibration_data_config, DataConfig)
-        dataloader = data_config.to_data_container().create_dataloader(data_root)
+        dataloader = data_config.to_data_container().create_dataloader()
         dataset = [
             {
                 "input_ids": data[0]["input_ids"].squeeze(),

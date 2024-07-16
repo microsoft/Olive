@@ -72,7 +72,6 @@ def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, m
     engine.run(
         input_model_config=input_model_config,
         accelerator_specs=[DEFAULT_CPU_ACCELERATOR],
-        data_root=None,
         packaging_config=packaging_config,
         output_dir=output_dir,
         cloud_cache_config=CloudCacheConfig(enable_cloud_cache=False),
@@ -339,7 +338,7 @@ def test_generate_azureml_data(mock_create_resource_path, mock_retry_func):
 
 @patch("olive.engine.packaging.packaging_generator.retry_func")
 @pytest.mark.parametrize(
-    ("inferencing_server_type"),
+    "inferencing_server_type",
     [(InferencingServerType.AzureMLOnline), (InferencingServerType.AzureMLBatch)],
 )
 def test_azureml_deployment(mock_retry_func, inferencing_server_type):
@@ -488,6 +487,26 @@ def test_azureml_deployment(mock_retry_func, inferencing_server_type):
         delay=azureml_client_config.operation_retry_interval,
         exceptions=ServiceResponseError,
     )
+
+
+def test__package_dockerfile(tmp_path):
+    # setup
+    model_id = "model_id"
+    model_path = "fake_model_file"
+    footprints = get_footprints(model_id, model_path)
+    output_dir = tmp_path / "outputs"
+    docker_context_path = output_dir / "docker_content"
+
+    packaging_config = PackagingConfig(type=PackagingType.Dockerfile)
+
+    # execute
+    generate_output_artifacts(packaging_config, footprints, footprints, output_dir)
+
+    # assert
+    dockerfile_path = output_dir / "Dockerfile"
+    assert dockerfile_path.exists()
+    onnxruntime_packages_path = docker_context_path / "ONNXRuntimePackages"
+    assert onnxruntime_packages_path.exists()
 
 
 def get_footprints(model_id, model_path):

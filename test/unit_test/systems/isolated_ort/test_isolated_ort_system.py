@@ -69,7 +69,7 @@ class TestIsolatedORTSystem:
 
     def test_unsupported_pass_run(self):
         with pytest.raises(NotImplementedError):
-            self.system.run_pass(None, None, None, None)
+            self.system.run_pass(None, None, None)
 
     @patch("olive.systems.isolated_ort.isolated_ort_system.IsolatedORTEvaluator.evaluate")
     def test_evaluate_model(self, mock_evaluate):
@@ -80,12 +80,11 @@ class TestIsolatedORTSystem:
 
         metric = MagicMock()
 
-        self.system.evaluate_model(olive_model_config, None, [metric], DEFAULT_CPU_ACCELERATOR)
+        self.system.evaluate_model(olive_model_config, [metric], DEFAULT_CPU_ACCELERATOR)
 
         # assert
         mock_evaluate.assert_called_once_with(
             olive_model,
-            None,
             [metric],
             device=DEFAULT_CPU_ACCELERATOR.accelerator_type,
             execution_providers=DEFAULT_CPU_ACCELERATOR.execution_provider,
@@ -96,7 +95,7 @@ class TestIsolatedORTSystem:
         olive_model_config.type = "PyTorchModel"
 
         with pytest.raises(ValueError) as errinfo:  # noqa: PT011
-            self.system.evaluate_model(olive_model_config, None, None, None)
+            self.system.evaluate_model(olive_model_config, None, None)
 
         assert "IsolatedORTSystem only supports evaluation for ONNXModel" in str(errinfo.value)
 
@@ -127,7 +126,7 @@ class TestIsolatedORTEvaluator:
         model = get_onnx_model_config().create_model()
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         metric = OliveEvaluator.generate_metric_user_config_with_model_io(metric, model)
-        dataloader, _, post_func = OliveEvaluator.get_user_config(model.framework, None, metric)
+        dataloader, _, post_func = OliveEvaluator.get_user_config(model.framework, metric)
 
         actual_model_output, actual_target = self.evaluator._inference(
             model,
@@ -155,11 +154,10 @@ class TestIsolatedORTEvaluator:
         model = get_onnx_model_config().create_model()
         metric = get_latency_metric(LatencySubType.AVG)
         metric = OliveEvaluator.generate_metric_user_config_with_model_io(metric, model)
-        dataloader, _, _ = OliveEvaluator.get_user_config(model.framework, None, metric)
+        dataloader, _, _ = OliveEvaluator.get_user_config(model.framework, metric)
 
         res = self.evaluator._evaluate_raw_latency(
             model,
-            None,
             metric,
             dataloader,
             post_func=None,

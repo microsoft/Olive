@@ -45,7 +45,6 @@ class OliveSystem(ABC):
         self,
         the_pass: "Pass",
         model_config: "ModelConfig",
-        data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
     ) -> "ModelConfig":
@@ -54,7 +53,7 @@ class OliveSystem(ABC):
 
     @abstractmethod
     def evaluate_model(
-        self, model_config: "ModelConfig", data_root: str, metrics: List["Metric"], accelerator: "AcceleratorSpec"
+        self, model_config: "ModelConfig", metrics: List["Metric"], accelerator: "AcceleratorSpec"
     ) -> "MetricResult":
         """Evaluate the model."""
         raise NotImplementedError

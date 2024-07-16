@@ -32,10 +32,10 @@ class TestLocalSystem:
         output_model_path = "output_model_path"
 
         # execute
-        self.system.run_pass(p, olive_model, None, output_model_path)
+        self.system.run_pass(p, olive_model, output_model_path)
 
         # assert
-        p.run.assert_called_once_with(olive_model.create_model(), None, output_model_path, None)
+        p.run.assert_called_once_with(olive_model.create_model(), output_model_path, None)
 
     METRIC_TEST_CASE: ClassVar[List[Metric]] = [
         (partial(get_accuracy_metric, AccuracySubType.ACCURACY_SCORE)),
@@ -93,19 +93,19 @@ class TestLocalSystem:
         mock_get_user_config.return_value = (None, None, None)
 
         # execute
-        actual_res = self.system.evaluate_model(olive_model_config, None, [metric], DEFAULT_CPU_ACCELERATOR)
+        actual_res = self.system.evaluate_model(olive_model_config, [metric], DEFAULT_CPU_ACCELERATOR)
         # assert
         if metric.type == MetricType.ACCURACY:
             mock_evaluate_accuracy.assert_called_once_with(
-                olive_model, None, metric, None, None, "cpu", "CPUExecutionProvider"
+                olive_model, metric, None, None, "cpu", "CPUExecutionProvider"
             )
         if metric.type == MetricType.LATENCY:
             mock_evaluate_latency.assert_called_once_with(
-                olive_model, None, metric, None, None, "cpu", "CPUExecutionProvider"
+                olive_model, metric, None, None, "cpu", "CPUExecutionProvider"
             )
         if metric.type == MetricType.CUSTOM:
             mock_evaluate_custom.assert_called_once_with(
-                olive_model, None, metric, None, None, None, "cpu", "CPUExecutionProvider"
+                olive_model, metric, None, None, None, "cpu", "CPUExecutionProvider"
             )
 
         joint_keys = [joint_metric_key(metric.name, sub_metric.name) for sub_metric in metric.sub_types]

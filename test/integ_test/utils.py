@@ -20,13 +20,13 @@ def get_olive_workspace_config():
     if workspace_name is None:
         raise Exception("Please set the environment variable WORKSPACE_NAME")
 
-    client_id = os.environ.get("MANAGED_IDENTITY_CLIENT_ID")
-    if client_id is None:
-        raise Exception("Please set the environment variable MANAGED_IDENTITY_CLIENT_ID")
-
     exclude_managed_identity_credential = (
         {"exclude_managed_identity_credential": True} if "EXCLUDE_MANAGED_IDENTITY_CREDENTIAL" in os.environ else {}
     )
+
+    client_id = os.environ.get("MANAGED_IDENTITY_CLIENT_ID")
+    if client_id is None and not exclude_managed_identity_credential:
+        raise Exception("Please set the environment variable MANAGED_IDENTITY_CLIENT_ID")
 
     return {
         "subscription_id": subscription_id,

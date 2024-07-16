@@ -109,7 +109,6 @@ class PythonEnvironmentSystem(OliveSystem):
         self,
         the_pass: "Pass",
         model_config: ModelConfig,
-        data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
     ) -> ModelConfig:
@@ -125,14 +124,13 @@ class PythonEnvironmentSystem(OliveSystem):
         output_model_json = self._run_command(
             self.pass_runner_path,
             config_jsons,
-            data_root=data_root,
             tempdir=tempfile.tempdir,
             output_model_path=output_model_path,
         )
         return ModelConfig.parse_obj(output_model_json)
 
     def evaluate_model(
-        self, model_config: ModelConfig, data_root: str, metrics: List["Metric"], accelerator: "AcceleratorSpec"
+        self, model_config: ModelConfig, metrics: List["Metric"], accelerator: "AcceleratorSpec"
     ) -> MetricResult:
         """Evaluate the model."""
         config_jsons = {
@@ -140,9 +138,7 @@ class PythonEnvironmentSystem(OliveSystem):
             "metrics_config": [metric.to_json(check_object=True) for metric in metrics],
             "accelerator_config": accelerator.to_json(),
         }
-        metric_results = self._run_command(
-            self.evaluation_runner_path, config_jsons, data_root=data_root, tempdir=tempfile.tempdir
-        )
+        metric_results = self._run_command(self.evaluation_runner_path, config_jsons, tempdir=tempfile.tempdir)
         return MetricResult.parse_obj(metric_results)
 
     def get_supported_execution_providers(self) -> List[str]:

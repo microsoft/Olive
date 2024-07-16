@@ -270,24 +270,23 @@ class OrtPerfTuning(Pass):
         }
 
     def _run_for_config(
-        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
         config = self._config_class(**config)
         # TODO(jambayk): decide on whether to ignore the output_model_path
         # if we want to ignore it, we can just return the model
         # otherwise save or symlink the original model to the output_model_path
-        runner = PerfTuningRunner(self.accelerator_spec, config, data_root)
+        runner = PerfTuningRunner(self.accelerator_spec, config)
         return runner.tune_onnx_model(model)
 
 
 class PerfTuningRunner:
-    def __init__(self, accelerator_spec: AcceleratorSpec, config: Dict[str, Any], data_root: str = None):
+    def __init__(self, accelerator_spec: AcceleratorSpec, config: Dict[str, Any]):
         assert accelerator_spec, "accelerator_spec should not be None"
         assert config, "config should not be None"
 
         self.accelerator_spec = accelerator_spec
         self.config = config
-        self.data_root = data_root
 
     def tune_onnx_model(self, model):
         if not self.config.data_config:
@@ -431,7 +430,7 @@ class PerfTuningRunner:
 
             start_time = time.perf_counter()
             evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
-            metric_result = evaluator.evaluate(model, self.data_root, [latency_metric], self.config.device, None)
+            metric_result = evaluator.evaluate(model, [latency_metric], self.config.device, None)
 
             end_time = time.perf_counter()
             latency_ms = metric_result[joint_key].value

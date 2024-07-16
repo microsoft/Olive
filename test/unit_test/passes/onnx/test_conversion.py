@@ -32,7 +32,7 @@ def test_onnx_conversion_pass(input_model, tmp_path):
 
     # The conversion need torch version > 1.13.1, otherwise, it will complain
     # Unsupported ONNX opset version: 18
-    onnx_model = p.run(input_model, None, output_folder)
+    onnx_model = p.run(input_model, output_folder)
 
     # assert
     assert Path(onnx_model.model_path).exists()
@@ -60,7 +60,7 @@ def test_onnx_conversion_pass_quant_model(add_quantized_modules, tmp_path):
     p = create_pass_from_dict(OnnxConversion, {}, disable_search=True)
     output_folder = str(tmp_path / "onnx")
 
-    onnx_model = p.run(input_model, None, output_folder)
+    onnx_model = p.run(input_model, output_folder)
 
     # assert
     assert Path(onnx_model.model_path).exists()
@@ -76,7 +76,7 @@ def test_onnx_op_version_conversion_pass(target_opset, tmp_path):
     p = create_pass_from_dict(OnnxOpVersionConversion, {"target_opset": target_opset}, disable_search=True)
     output_folder = str(tmp_path / "onnx")
 
-    onnx_model = p.run(input_model, None, output_folder)
+    onnx_model = p.run(input_model, output_folder)
 
     # assert
     assert onnx_model.load_model().opset_import[0].version == target_opset
@@ -181,5 +181,5 @@ def test_onnx_conversion_with_past_key_values(mock_onnx_export, tmp_path, io_con
     mock_onnx_export.side_effect = mock_onnx_export_func
     # setup
     p = create_pass_from_dict(OnnxConversion, {}, disable_search=True)
-    _ = p.run(input_model, None, str(output_folder))
+    _ = p.run(input_model, str(output_folder))
     assert "past_key_values" in dummy_inputs  # pylint: disable=unsupported-membership-test

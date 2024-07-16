@@ -339,7 +339,9 @@ class LoRABase(Pass):
         return new_batch
 
     @staticmethod
-    def get_datasets(config: ConfigBase, data_root: str) -> tuple:
+    def get_datasets(
+        config: ConfigBase,
+    ) -> tuple:
         """Load training and evaluation datasets."""
         train_data_config = config.train_data_config
         eval_data_config = config.eval_data_config
@@ -347,14 +349,14 @@ class LoRABase(Pass):
 
         # load training dataset
         train_data_container = train_data_config.to_data_container()
-        train_dataset = train_data_container.pre_process(train_data_container.load_dataset(data_root))
+        train_dataset = train_data_container.pre_process(train_data_container.load_dataset())
         train_dataset = train_dataset.to_hf_dataset(label_name="labels")
 
         # load evaluation dataset if needed
         if eval_data_config:
             # eval data config has been provided
             eval_data_container = eval_data_config.to_data_container()
-            eval_dataset = eval_data_container.pre_process(eval_data_container.load_dataset(data_root))
+            eval_dataset = eval_data_container.pre_process(eval_data_container.load_dataset())
             eval_dataset = eval_dataset.to_hf_dataset(label_name="labels")
         elif eval_dataset_size:
             if eval_dataset_size >= 1:
@@ -572,7 +574,6 @@ class LoRABase(Pass):
         model: "PeftModel",
         tokenizer: "PreTrainedTokenizer",
         config: ConfigBase,
-        data_root: str,
         output_model: PyTorchModelHandler,
         output_model_path: str,
     ) -> PyTorchModelHandler:
@@ -583,7 +584,6 @@ class LoRABase(Pass):
         :param model: The prepared LoRA model to train.
         :param tokenizer: The tokenizer for the model.
         :param config: The config for the pass run.
-        :param data_root: The root directory for the data.
         :param output_model: The output model handler.
         :param output_model_path: The path to save the output model to.
         :return: The output model handler.
@@ -593,7 +593,7 @@ class LoRABase(Pass):
             torch.backends.cuda.matmul.allow_tf32 = config.allow_tf32
 
         # get datasets
-        train_dataset, eval_dataset = self.get_datasets(config, data_root)
+        train_dataset, eval_dataset = self.get_datasets(config)
 
         # get training arguments
         if config.training_args.evaluation_strategy is None and eval_dataset is not None:
@@ -800,7 +800,7 @@ class LoRA(LoRABase):
         return config
 
     def _run_for_config(
-        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: PyTorchModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModelHandler:
         # convert config to pass config class
         # this will validate the config and convert to the correct types
@@ -830,9 +830,7 @@ class LoRA(LoRABase):
         )
 
         # train and return new model
-        return self.train_and_save_new_model(
-            pytorch_model, tokenizer, config, data_root, new_model_handler, output_model_path
-        )
+        return self.train_and_save_new_model(pytorch_model, tokenizer, config, new_model_handler, output_model_path)
 
 
 class QLoRABase(LoRABase):
@@ -856,7 +854,7 @@ class QLoRABase(LoRABase):
         return config
 
     def _run_for_config(
-        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: PyTorchModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModelHandler:
         # convert config to pass config class
         # this will validate the config and convert to the correct types
@@ -883,7 +881,7 @@ class QLoRABase(LoRABase):
 
         # train and get new model
         output_model = self.train_and_save_new_model(
-            pytorch_model, tokenizer, config, data_root, new_model_handler, output_model_path
+            pytorch_model, tokenizer, config, new_model_handler, output_model_path
         )
         # add quantized_modules attributes
         output_model.model_attributes["quantized_modules"] = quantized_modules

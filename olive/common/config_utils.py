@@ -210,6 +210,7 @@ class ConfigWithExtraArgs(ConfigBase):
         return values
 
 
+# TODO(jambayk): remove ParamCategory once validate object is removed or updated
 class ParamCategory(str, Enum):
     NONE = "none"
     OBJECT = "object"
@@ -320,4 +321,15 @@ def validate_config(
         raise ValueError(
             f"Invalid config class. Expected {instance_class.__name__} but got {config.__class__.__name__}"
         )
+    return config
+
+
+def convert_configs_to_dicts(config: Any) -> Any:
+    """Convert all ConfigBase objects to dictionaries."""
+    if isinstance(config, ConfigBase):
+        return config.dict()
+    if isinstance(config, dict):
+        return {k: convert_configs_to_dicts(v) for k, v in config.items()}
+    if isinstance(config, list):
+        return [convert_configs_to_dicts(v) for v in config]
     return config

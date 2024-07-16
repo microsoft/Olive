@@ -127,9 +127,9 @@ class OnnxConversion(Pass):
         return config
 
     def _run_for_config(
-        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: PyTorchModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> Union[CompositeModelHandler, DistributedOnnxModelHandler, ONNXModelHandler]:
-        output_model = self._run_for_config_internal(model, data_root, config, output_model_path)
+        output_model = self._run_for_config_internal(model, config, output_model_path)
 
         if model.hf_config and config["save_metadata_for_token_generation"]:
             if isinstance(output_model, CompositeModelHandler):
@@ -161,7 +161,7 @@ class OnnxConversion(Pass):
         return output_model
 
     def _run_for_config_internal(
-        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: PyTorchModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> Union[CompositeModelHandler, DistributedOnnxModelHandler, ONNXModelHandler]:
         # get the device to use for conversion
         # default to "cpu" for PyTorchModelHandler and "cuda" for DistributedPyTorchModel
@@ -174,19 +174,17 @@ class OnnxConversion(Pass):
         if isinstance(model, DistributedPyTorchModelHandler):
             if not config["device"]:
                 device = "cuda"
-            return self._convert_distributed_model_on_device(
-                model, data_root, config, output_model_path, device, torch_dtype
-            )
+            return self._convert_distributed_model_on_device(model, config, output_model_path, device, torch_dtype)
 
         if not model.hf_config or not model.hf_config.components:
-            return self._convert_model_on_device(model, data_root, config, output_model_path, device, torch_dtype)
+            return self._convert_model_on_device(model, config, output_model_path, device, torch_dtype)
 
         onnx_models = []
         component_names = []
         for component_name, component_model in model.get_hf_components():
             component_output_path = str(Path(output_model_path).with_suffix("") / component_name)
             output_model_component = self._convert_model_on_device(
-                component_model, data_root, config, component_output_path, device, torch_dtype
+                component_model, config, component_output_path, device, torch_dtype
             )
             # inherit model attributes from the input model if the output model does not have model attributes
             output_model_component.model_attributes = output_model_component.model_attributes or model.model_attributes
@@ -410,7 +408,6 @@ class OnnxConversion(Pass):
     def _convert_model_on_device(
         self,
         model: PyTorchModelHandler,
-        data_root: str,
         config: Dict[str, Any],
         output_model_path: str,
         device: str,
@@ -531,7 +528,6 @@ class OnnxConversion(Pass):
     def _convert_distributed_model_on_device(
         self,
         model: DistributedPyTorchModelHandler,
-        data_root: str,
         config: Dict[str, Any],
         output_model_path: str,
         device: str,
@@ -592,7 +588,7 @@ class OnnxOpVersionConversion(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModelHandler:
         # get current models's opset version
         model_proto = model.load_model()

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from olive.resource_path import ResourceType, create_resource_path
+from olive.resource_path import ResourceType, create_resource_path, find_all_resources
 
 # pylint: disable=attribute-defined-outside-init
 
@@ -30,6 +30,34 @@ class TestResourcePath:
             ResourceType.LocalFolder: self.local_folder,
             ResourceType.StringName: "string_name",
         }
+
+        self.all_resources_configs = [
+            ([], None, {}),
+            ({}, None, {}),
+            ("string_name", None, {}),
+            ([self.local_file], None, {(0,): self.local_file}),
+            (
+                [self.local_file, self.local_folder, "string_name"],
+                None,
+                {(0,): self.local_file, (1,): self.local_folder},
+            ),
+            ({"key0": self.local_file}, None, {("key0",): self.local_file}),
+            (
+                {"key0": self.local_file, "key1": {"key2": self.local_folder}, "key3": "string_name"},
+                None,
+                {("key0",): self.local_file, ("key1", "key2"): self.local_folder},
+            ),
+            (
+                {"key0": self.local_file, "key1": [self.local_folder]},
+                None,
+                {("key0",): self.local_file, ("key1", 0): self.local_folder},
+            ),
+            (
+                {"key0": self.local_file, "key1": {"key2": self.local_folder}, "key3": "string_name"},
+                ["key2"],
+                {("key0",): self.local_file},
+            ),
+        ]
 
     @pytest.mark.parametrize(
         "resource_path_type",
@@ -65,3 +93,9 @@ class TestResourcePath:
         saved_resource = resource_path.save_to_dir(self.tmp_dir_path / "save_to_dir", overwrite=True)
         assert Path(saved_resource).exists()
         assert Path(saved_resource).name == Path(self.resource_path_configs[resource_path_type]).name
+
+    def test_find_all_resources(self):
+        for resources, ignore_keys, expected in self.all_resources_configs:
+            for key, value in find_all_resources(resources, ignore_keys=ignore_keys).items():
+                assert key in expected
+                assert value.get_path() == str(expected[key])

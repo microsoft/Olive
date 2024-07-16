@@ -95,7 +95,6 @@ class SNPEConversion(Pass):
     def _run_for_config(
         self,
         model: Union[ONNXModelHandler, TensorFlowModelHandler],
-        data_root: str,
         config: Dict[str, Any],
         output_model_path: str,
     ) -> SNPEModelHandler:

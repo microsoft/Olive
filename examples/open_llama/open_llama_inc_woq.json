@@ -1,55 +1,20 @@
 {
-    "input_model":{
+    "input_model": {
         "type": "PyTorchModel",
         "config": {
             "io_config": {
-                "input_names": [
-                    "input_ids",
-                    "attention_mask",
-                    "position_ids"
-                ],
-                "output_names": [
-                    "logits"
-                ],
-                "input_shapes": [
-                    [
-                        2,
-                        8
-                    ],
-                    [
-                        2,
-                        40
-                    ],
-                    [
-                        2,
-                        8
-                    ]
-                ],
-                "input_types": [
-                    "int32",
-                    "int32",
-                    "int32"
-                ],
+                "input_names": [ "input_ids", "attention_mask", "position_ids" ],
+                "output_names": [ "logits" ],
+                "input_shapes": [ [ 2, 8 ], [ 2, 40 ], [ 2, 8 ] ],
+                "input_types": [ "int32", "int32", "int32" ],
                 "dynamic_axes": {
-                    "input_ids": {
-                        "0": "batch_size",
-                        "1": "sequence_length"
-                    },
-                    "attention_mask": {
-                        "0": "batch_size",
-                        "1": "total_sequence_length"
-                    },
-                    "position_ids": {
-                        "0": "batch_size",
-                        "1": "sequence_length"
-                    }
+                    "input_ids": { "0": "batch_size", "1": "sequence_length" },
+                    "attention_mask": { "0": "batch_size", "1": "total_sequence_length" },
+                    "position_ids": { "0": "batch_size", "1": "sequence_length" }
                 },
                 "kv_cache": true
             },
-            "hf_config": {
-                "model_name": "openlm-research/open_llama_3b",
-                "task": "text-generation"
-            }
+            "hf_config": { "model_name": "openlm-research/open_llama_3b", "task": "text-generation" }
         }
     },
     "evaluators": {
@@ -58,10 +23,8 @@
                 {
                     "name": "accuracy",
                     "type": "custom",
-                    "sub_types": [
-                        {"name": "accuracy_custom", "higher_is_better": true}
-                    ],
-                    "user_config":{
+                    "sub_types": [ { "name": "accuracy_custom", "higher_is_better": true } ],
+                    "user_config": {
                         "user_script": "user_script.py",
                         "evaluate_func": "eval_accuracy",
                         "batch_size": 64
@@ -87,9 +50,7 @@
                 "keep_io_types": true,
                 "num_heads": 32,
                 "hidden_size": 4096,
-                "optimization_options": {
-                    "use_multi_head_attention": false
-                },
+                "optimization_options": { "use_multi_head_attention": false },
                 "save_as_external_data": true,
                 "all_tensors_to_one_file": true
             }
@@ -99,12 +60,9 @@
             "config": {
                 "user_script": "user_script.py",
                 "approach": "weight_only",
-                "weight_only_config": {
-                    "bits": 4,
-                    "algorithm": "GPTQ"
-                },
+                "weight_only_config": { "bits": 4, "algorithm": "GPTQ" },
                 "dataloader_func": "calib_dataloader",
-                "calibration_sampling_size": [8],
+                "calibration_sampling_size": [ 8 ],
                 "save_as_external_data": true,
                 "all_tensors_to_one_file": true
             }

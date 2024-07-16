@@ -63,7 +63,7 @@ def test_dynamic_to_fixed_shape(pass_config, tmp_path):
     assert input_onnx_model.graph.output[0].type.tensor_type.shape.dim[0].dim_param == "batch_size"
 
     p = create_pass_from_dict(DynamicToFixedShape, pass_config, disable_search=True)
-    out = p.run(input_model, None, tmp_path)
+    out = p.run(input_model, tmp_path)
     output_model = out.load_model()
 
     assert output_model.graph.input[0].type.tensor_type.shape.dim[0].dim_value == 1

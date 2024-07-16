@@ -27,4 +27,4 @@ def test_insert_beam_search_pass(tmp_path):
     output_folder = str(tmp_path / "onnx")
 
     # execute
-    p.run(composite_model, None, output_folder)
+    p.run(composite_model, output_folder)
