@@ -35,11 +35,6 @@
         "$ref": "#/definitions/SystemConfig"
       }
     },
-    "data_root": {
-      "title": "Data Root",
-      "description": "Root directory for data. If provided, all relative data paths in other configs will be resolved based on this root.",
-      "type": "string"
-    },
     "data_configs": {
       "title": "Data Configs",
       "description": "Data configurations. Each data config must have a unique name. Other fields such as engine, passes and evaluators can refer to these data configs by name. In auto-optimizer mode, only one data config is allowed.",

@@ -69,11 +69,6 @@
 <li class="toctree-l3"><a class="reference internal" href="#id1">Example</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#data-information">Data Information</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#local-examples">Local Examples</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#azureml-examples">Azureml Examples</a></li>
-</ul>
-</li>
 <li class="toctree-l2"><a class="reference internal" href="#systems-information">Systems Information</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#id2">Example</a></li>
 </ul>
@@ -188,7 +183,6 @@ to apply from user in the form of a json dictionary. In this document, we docume
 <li><p><a class="reference internal" href="#workflow-id"><span class="xref myst">Workflow id</span></a> <code class="docutils literal notranslate"><span class="pre">workflow_id</span></code></p></li>
 <li><p><a class="reference internal" href="#azure-ml-client"><span class="xref myst">Azure ML client</span></a> <code class="docutils literal notranslate"><span class="pre">azureml_client</span></code></p></li>
 <li><p><a class="reference internal" href="#input-model-information"><span class="xref myst">Input Model Information</span></a> <code class="docutils literal notranslate"><span class="pre">input_model</span></code></p></li>
-<li><p><a class="reference internal" href="#data-information"><span class="xref myst">Data Information</span></a> <code class="docutils literal notranslate"><span class="pre">data_root</span></code></p></li>
 <li><p><a class="reference internal" href="#systems-information"><span class="xref myst">Systems Information</span></a> <code class="docutils literal notranslate"><span class="pre">systems</span></code></p></li>
 <li><p><a class="reference internal" href="#evaluators-information"><span class="xref myst">Evaluators Information</span></a> <code class="docutils literal notranslate"><span class="pre">evaluators</span></code></p></li>
 <li><p><a class="reference internal" href="#passes-information"><span class="xref myst">Passes Information</span></a> <code class="docutils literal notranslate"><span class="pre">passes</span></code></p></li>
@@ -411,22 +405,6 @@ For instance, <code class="docutils literal notranslate"><span class="pre">&quot
 <span class="p">}</span>
 </pre></div>
 </div>
-</section>
-</section>
-<section id="data-information">
-<h2>Data Information<a class="headerlink" href="#data-information" title="Permalink to this heading">¶</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">data_root:</span> <span class="pre">[str]</span></code></p>
-<p>This is the root directory that contains the data for the model evaluation, quantization, performance tuning, QAT and all other place that need use data for model optimization.
-if <code class="docutils literal notranslate"><span class="pre">data_root</span></code> is specified, the data_dir in metrics evaluation or other passes which are relative path will be concatenated to the <code class="docutils literal notranslate"><span class="pre">data_root</span></code>. If not specified, the data_dir in metrics evaluation or other passes will be used.
-On the other hand, if the <code class="docutils literal notranslate"><span class="pre">data_dir</span></code> is an absolute path, the <code class="docutils literal notranslate"><span class="pre">data_root</span></code> will be ignored. For example, if the <code class="docutils literal notranslate"><span class="pre">data_dir</span></code> is /home/user/data, then the <code class="docutils literal notranslate"><span class="pre">data_root</span></code> will be ignored and the final data_dir will be /home/user/data.</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">data_root</span></code> could be passed either in config json or by command line like: olive run –config &lt;config_file&gt;.json –data_root /home/user/data config.json. If both are provided, the command line will override the config json.</p>
-<section id="local-examples">
-<h3>Local Examples<a class="headerlink" href="#local-examples" title="Permalink to this heading">¶</a></h3>
-<p>If <code class="docutils literal notranslate"><span class="pre">data_root</span></code> is /home/user/data, and the data_dir in metrics evaluation is <code class="docutils literal notranslate"><span class="pre">data_dir:</span> <span class="pre">&quot;cifar-10-batches-py&quot;</span></code>, then the final data_dir will be <code class="docutils literal notranslate"><span class="pre">/home/user/data/cifar-10-batches-py</span></code>.</p>
-</section>
-<section id="azureml-examples">
-<h3>Azureml Examples<a class="headerlink" href="#azureml-examples" title="Permalink to this heading">¶</a></h3>
-<p>If <code class="docutils literal notranslate"><span class="pre">data_root</span></code> is <code class="docutils literal notranslate"><span class="pre">azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test</span></code>, and the data_dir in metrics evaluation is <code class="docutils literal notranslate"><span class="pre">data_dir:</span> <span class="pre">&quot;cifar-10-batches-py&quot;</span></code>, then the final data_dir will be <code class="docutils literal notranslate"><span class="pre">azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test/cifar-10-batches-py</span></code>.</p>
 </section>
 </section>
 <section id="systems-information">
