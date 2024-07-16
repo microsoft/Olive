@@ -243,7 +243,7 @@ class OliveCache:
         with model_jsons[0].open("r") as f:
             model_json = serialize_to_json(json.load(f))
 
-        if model_json["type"].lower() in ("compositemodel", "compositepytorchmodel"):
+        if model_json["type"].lower() == "compositemodel":
             logger.warning("Saving models of type '%s' is not supported yet.", model_json["type"])
             return None
 

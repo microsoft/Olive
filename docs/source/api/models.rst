@@ -40,9 +40,6 @@ PyTorch Model Handler
 ---------------------
 .. autoclass:: olive.model.PyTorchModelHandler
 
-DistributedPyTorchModelHandler Model
-------------------------------------
-.. autoclass:: olive.model.DistributedPyTorchModelHandler
 
 .. _snpe_model:
 
@@ -50,8 +47,3 @@ SNPEHandler Model
 -----------------
 .. autoclass:: olive.model.SNPEModelHandler
 
-CompositePyTorchModel Model Handler
------------------------------------
-.. autoclass:: olive.model.CompositePyTorchModelHandler
-
-.. _distributed_pytorch_model:

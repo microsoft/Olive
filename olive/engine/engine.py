@@ -473,7 +473,7 @@ class Engine:
                     output_name=f"{pass_output_name}_model",
                     overwrite=True,
                 )
-                # it is not supported to save compositepytorchmodel/compositemodel again
+                # it is not supported to save compositemodel again
                 # so the output_model_json could be None
                 output_models[pass_output_model_id] = output_model_json
 

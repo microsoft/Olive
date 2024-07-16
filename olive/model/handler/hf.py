@@ -9,6 +9,7 @@ from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 import torch
 
 from olive.common.config_utils import serialize_to_json, validate_config
+from olive.common.utils import dict_diff
 from olive.constants import Framework
 from olive.hardware.accelerator import Device
 from olive.model.config import HfLoadKwargs, IoConfig
@@ -91,7 +92,9 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowMixin, HfMixin):  # pylint: 
         io_config = None
         if self._io_config:
             # io_config is provided
-            io_config = self.get_resolved_io_config(self._io_config, force_kv_cache=self.task.endswith("-with-past"))
+            io_config = self.get_resolved_io_config(
+                self._io_config, force_kv_cache=self.task.endswith("-with-past"), model_attributes=self.model_attributes
+            )
         else:
             logger.debug("Trying hf onnx_config to get io_config")
             io_config = self.get_hf_io_config()
@@ -128,11 +131,7 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowMixin, HfMixin):  # pylint: 
         config = super().to_json(check_object)
         # only keep model_attributes that are not in hf model config
         hf_model_config_dict = self.get_hf_model_config().to_dict()
-        config["config"]["model_attributes"] = {
-            key: value
-            for key, value in self.model_attributes.items()
-            if key not in hf_model_config_dict or hf_model_config_dict[key] != value
-        } or None
+        config["config"]["model_attributes"] = dict_diff(self.model_attributes, hf_model_config_dict)
         return serialize_to_json(config, check_object)
 
 

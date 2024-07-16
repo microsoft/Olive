@@ -1,5 +1,5 @@
 {
-    
+
     "input_model": {
         "type": "HfModel    ",
         "config": { "model_path": "microsoft/phi-1_5" }

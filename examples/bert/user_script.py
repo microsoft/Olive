@@ -14,7 +14,6 @@ from neural_compressor.data import DefaultDataLoader
 from torch.utils.data import Dataset
 from transformers import (
     AutoConfig,
-    AutoModelForSequenceClassification,
     AutoTokenizer,
     EvalPrediction,
     Trainer,

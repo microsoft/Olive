@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from abc import abstractmethod
 
 import olive.data.template as data_config_template
 

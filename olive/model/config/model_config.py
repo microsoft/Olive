@@ -9,62 +9,7 @@ from olive.resource_path import create_resource_path
 
 
 class ModelConfig(ConfigBase):
-    """Input model config which will be used to create the model handler.
-
-    For example, the config looks like for llama2:
-
-    .. code-block:: json
-
-        {
-            "input_model": {
-                "type": "CompositePyTorchModel",
-                "config": {
-                    "model_path": "llama_v2",
-                    "generative": False,
-                    "model_components": [
-                        {
-                            "name": "decoder_model",
-                            "type": "PyTorchModel",
-                            "config": {
-                                "model_script": "user_script.py",
-                                "io_config": {
-                                    "input_names": ["tokens", "position_ids", "attn_mask", //...],
-                                    "output_names": ["logits", "attn_mask_out", //...],
-                                    "dynamic_axes": {
-                                        "tokens": { "0": "batch_size", "1": "seq_len" },
-                                        "position_ids": { "0": "batch_size", "1": "seq_len" },
-                                        "attn_mask": { "0": "batch_size", "1": "max_seq_len" },
-                                        //...
-                                    }
-                                },
-                                "model_loader": "load_decoder_model",
-                                "dummy_inputs_func": "decoder_inputs"
-                            }
-                        },
-                        {
-                            "name": "decoder_with_past_model",
-                            "type": "PyTorchModel",
-                            "config": {
-                                "model_script": "user_script.py",
-                                "io_config": {
-                                    "input_names": ["tokens_increment", "position_ids_increment", "attn_mask", //...],
-                                    "output_names": ["logits", "attn_mask_out", //...],
-                                    "dynamic_axes": {
-                                        "tokens_increment": { "0": "batch_size", "1": "seq_len_increment" },
-                                        "position_ids_increment": { "0": "batch_size", "1": "seq_len_increment" },
-                                        "attn_mask": { "0": "batch_size", "1": "max_seq_len" },
-                                        //...
-                                    }
-                                },
-                                "model_loader": "load_decoder_with_past_model",
-                                "dummy_inputs_func": "decoder_with_past_inputs"
-                            }
-                        }
-                    ]
-                }
-            }
-        }
-    """
+    """Input model config which will be used to create the model handler."""
 
     type: str = Field(description="The type of the model handler.")
     config: dict = Field(description="The config for the model handler. Used to initialize the model handler.")

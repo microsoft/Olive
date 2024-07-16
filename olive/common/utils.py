@@ -16,7 +16,7 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from olive.common.constants import OS
 
@@ -169,6 +169,13 @@ def set_nested_dict_value(dictionary: dict, key: Union[str, Tuple, List[str]], n
     for k in key[:-1]:
         dictionary = dictionary[k]
     dictionary[key[-1]] = new_value
+
+
+def dict_diff(dict1: Optional[dict], dict2: Optional[dict]) -> Optional[dict]:
+    """Return all members of dict1 that are not in dict2 or have different values."""
+    dict1 = dict1 or {}
+    dict2 = dict2 or {}
+    return {k: v for k, v in dict1.items() if k not in dict2 or dict2[k] != v} or None
 
 
 def retry_func(func, args=None, kwargs=None, max_tries=3, delay=5, backoff=2, exceptions=None):

@@ -8,7 +8,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 
-from olive.common.config_utils import serialize_to_json
+from olive.common.config_utils import serialize_to_json, validate_config
 from olive.common.user_module_loader import UserModuleLoader
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
@@ -47,30 +47,24 @@ class PyTorchModelHandlerBase(
             results = session.generate(inputs, **kwargs) if self.generative else session(inputs, **kwargs)
         return results
 
+    @staticmethod
     def get_resolved_io_config(
-        self,
-        io_config: Union[Dict[str, Any], IoConfig, str, Callable],
+        io_config: Union[Dict[str, Any], IoConfig],
         force_kv_cache: bool = False,
+        model_attributes: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Resolve io_config to a dictionary.
 
         :param io_config: io_config to resolve.
         :param force_kv_cache: whether to enable kv_cache if not already enabled.
         """
-        io_config_obj = None
-        if isinstance(io_config, dict):
-            io_config_obj = IoConfig.parse_obj(io_config)
-        elif isinstance(io_config, IoConfig):
-            # return a new copy of io_config to avoid modifying the original one
-            io_config_obj = io_config.copy(deep=True)
-        else:
-            raise ValueError(f"Unsupported io_config type: {type(io_config)}")
+        io_config_obj = validate_config(io_config, IoConfig)
 
         # enable kv_cache
         io_config_obj.kv_cache = io_config_obj.kv_cache or force_kv_cache
 
         if io_config_obj.kv_cache:
-            kv_cache_config = complete_kv_cache_with_model_attributes(io_config_obj.kv_cache, self.model_attributes)
+            kv_cache_config = complete_kv_cache_with_model_attributes(io_config_obj.kv_cache, model_attributes)
             io_config_obj = extend_io_config_with_kv_cache(io_config_obj, kv_cache_config)
         return io_config_obj.dict(exclude_none=True)
 
@@ -187,7 +181,12 @@ class PyTorchModelHandler(PyTorchModelHandlerBase):  # pylint: disable=too-many-
         if not self._io_config:
             return None
 
-        return self.get_resolved_io_config(self._io_config)
+        io_config = self._io_config
+        if isinstance(io_config, (str, Callable)):
+            user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
+            io_config = user_module_loader.call_object(io_config, self)
+
+        return self.get_resolved_io_config(io_config, model_attributes=self.model_attributes)
 
     def get_dummy_inputs(self, filter_hook=None, filter_hook_kwargs=None):
         """Return a dummy input for the model."""

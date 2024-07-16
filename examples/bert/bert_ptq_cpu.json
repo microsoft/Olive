@@ -2,7 +2,7 @@
     "input_model": {
         "type": "HfModel",
         "config": {
-            "model_path": "Intel/bert-base-uncased-mrpc", 
+            "model_path": "Intel/bert-base-uncased-mrpc",
             "task": "text-classification",
             "load_kwargs": { "attn_implementation": "eager" }
         }
