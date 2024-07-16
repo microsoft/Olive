@@ -67,7 +67,6 @@ class QNNConversion(Pass):
     def _run_for_config(
         self,
         model: Union[TensorFlowModelHandler, PyTorchModelHandler, ONNXModelHandler],
-        data_root: str,
         config: Dict[str, Any],
         output_model_path: str,
     ) -> QNNModelHandler:

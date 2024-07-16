@@ -63,7 +63,6 @@ class IsolatedORTSystem(OliveSystem):
         self,
         the_pass: "Pass",
         model_config: "ModelConfig",
-        data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
     ) -> "ModelConfig":
@@ -72,7 +71,7 @@ class IsolatedORTSystem(OliveSystem):
         raise NotImplementedError
 
     def evaluate_model(
-        self, model_config: "ModelConfig", data_root: str, metrics: List["Metric"], accelerator: "AcceleratorSpec"
+        self, model_config: "ModelConfig", metrics: List["Metric"], accelerator: "AcceleratorSpec"
     ) -> "MetricResult":
         """Evaluate the model."""
         # only onnx model handler is supported
@@ -84,7 +83,7 @@ class IsolatedORTSystem(OliveSystem):
 
         model = model_config.create_model()
         evaluator = IsolatedORTEvaluator(self.environ)
-        return evaluator.evaluate(model, data_root, metrics, device=device, execution_providers=execution_providers)
+        return evaluator.evaluate(model, metrics, device=device, execution_providers=execution_providers)
 
     def get_supported_execution_providers(self) -> List[str]:
         """Get the available execution providers."""
@@ -215,7 +214,6 @@ class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_in
     def _evaluate_accuracy(
         self,
         model: "ONNXModelHandler",
-        data_root: str,
         metric: "Metric",
         dataloader: Dataset,
         post_func=None,
@@ -228,7 +226,6 @@ class IsolatedORTEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework="ort_in
     def _evaluate_raw_latency(
         self,
         model: "ONNXModelHandler",
-        data_root: str,
         metric: "Metric",
         dataloader: Dataset,
         post_func=None,

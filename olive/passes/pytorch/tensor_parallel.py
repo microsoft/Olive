@@ -144,7 +144,7 @@ class PyTorchTensorParallel(Pass):
         return 1  # Return 1 for success.
 
     def _run_for_config(
-        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: PyTorchModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> DistributedPyTorchModelHandler:
         world_size = int(config["world_size"])
         output_model_path = Path(output_model_path)

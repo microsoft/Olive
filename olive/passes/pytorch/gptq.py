@@ -39,15 +39,19 @@ class GptqQuantizer(Pass):
             "layers_block_name": PassConfigParam(
                 type_=str,
                 default_value="model.layers",
-                description="Block name to quantize. Default value is model.layers. "
-                "For models can't be auto filled, you can refer this link to fill these parameters.\n"
-                "https://github.com/AutoGPTQ/AutoGPTQ/blob/896d8204bc89a7cfbda42bf3314e13cf4ce20b02/auto_gptq/modeling/llama.py#L19-L26",
+                description=(
+                    "Block name to quantize. Default value is model.layers. "
+                    "For models can't be auto filled, you can refer this link to fill these parameters.\n"
+                    "https://github.com/AutoGPTQ/AutoGPTQ/blob/896d8204bc89a7cfbda42bf3314e13cf4ce20b02/auto_gptq/modeling/llama.py#L19-L26"
+                ),
             ),
             "outside_layer_modules": PassConfigParam(
                 type_=List[str],
                 default_value=None,
-                description="Names of other nn modules that in the same level as the transformer layer block. "
-                "Default value is None.",
+                description=(
+                    "Names of other nn modules that in the same level as the transformer layer block. "
+                    "Default value is None."
+                ),
             ),
             "inside_layer_modules": PassConfigParam(
                 type_=List[List[str]],
@@ -120,7 +124,7 @@ class GptqQuantizer(Pass):
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: PyTorchModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModelHandler:
         from auto_gptq import BaseQuantizeConfig
         from auto_gptq.modeling import BaseGPTQForCausalLM
@@ -144,7 +148,7 @@ class GptqQuantizer(Pass):
             )
         elif config["data_config"]:
             data_config = validate_config(config["data_config"], DataConfig)
-            dataloader = data_config.to_data_container().create_dataloader(data_root)
+            dataloader = data_config.to_data_container().create_dataloader()
             dataset = [data[0] for data in dataloader]
 
         if (

@@ -52,7 +52,7 @@ def test_openvino_quantization(data_source, tmp_path):
     output_folder = str(tmp_path / "quantized")
 
     # execute
-    quantized_model = p.run(ov_model, None, output_folder)
+    quantized_model = p.run(ov_model, output_folder)
 
     # assert
     assert Path(quantized_model.model_path).exists()
@@ -99,7 +99,7 @@ def test_openvino_quantization_with_accuracy(data_source, tmp_path):
     output_folder = str(tmp_path / "quantized")
 
     # execute
-    quantized_model = p.run(ov_model, None, output_folder)
+    quantized_model = p.run(ov_model, output_folder)
 
     # assert
     assert Path(quantized_model.model_path).exists()
@@ -132,7 +132,7 @@ def get_openvino_model(tmp_path):
     output_folder = str(tmp_path / "openvino")
 
     # execute
-    return p.run(pytorch_model, None, output_folder)
+    return p.run(pytorch_model, output_folder)
 
 
 @Registry.register_dataset()

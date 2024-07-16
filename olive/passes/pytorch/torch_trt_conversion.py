@@ -78,7 +78,7 @@ class TorchTRTConversion(Pass):
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: PyTorchModelHandler, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: PyTorchModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModelHandler:
         from olive.passes.pytorch.trt_utils import compile_trt_model
 
@@ -92,7 +92,7 @@ class TorchTRTConversion(Pass):
 
         # load_data
         data_config = validate_config(config["data_config"], DataConfig)
-        first_batch = data_config.to_data_container().get_first_batch(data_root_path=data_root)[0]
+        first_batch = data_config.to_data_container().get_first_batch()[0]
         first_batch = tensor_data_to_device(first_batch, device=device)
         batch_size = first_batch["input_ids"].shape[0]
         # get max sequence length

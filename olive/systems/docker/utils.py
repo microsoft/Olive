@@ -8,7 +8,6 @@ import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, List
 
-from olive.cache import get_local_path_from_root
 from olive.common.utils import copy_dir
 
 if TYPE_CHECKING:
@@ -68,7 +67,7 @@ def create_run_command(run_params: dict):
     return run_command_dict
 
 
-def create_metric_volumes_list(data_root: str, metrics: List["Metric"], container_root_path: Path) -> List[str]:
+def create_metric_volumes_list(metrics: List["Metric"], container_root_path: Path) -> List[str]:
     volume_list = []
     for metric in metrics:
         metric_path = container_root_path / "metrics" / metric.name
@@ -88,9 +87,8 @@ def create_metric_volumes_list(data_root: str, metrics: List["Metric"], containe
             volume_list.append(f"{script_dir_path}:{script_dir_mount_path}")
             metric.user_config.script_dir = script_dir_mount_path
 
-        if data_root or metric.user_config.data_dir:
-            data_dir = get_local_path_from_root(data_root, metric.user_config.data_dir)
-            volume_list.append(f"{data_dir}:{str(metric_path / 'data_dir')}")
+        if metric.user_config.data_dir:
+            volume_list.append(f"{metric.user_config.data_dir}:{str(metric_path / 'data_dir')}")
             metric.user_config.data_dir = str(metric_path / "data_dir")
 
     return volume_list

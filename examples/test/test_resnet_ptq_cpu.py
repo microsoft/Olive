@@ -24,7 +24,6 @@ def setup():
     # retry since it fails randomly
     retry_func(run_subprocess, kwargs={"cmd": "python prepare_model_data.py", "check": True})
 
-    # set_azure_identity_logging()
     yield
     os.chdir(cur_dir)
 

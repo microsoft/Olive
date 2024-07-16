@@ -32,7 +32,7 @@ def test_inc_quantization(tmp_path):
     # create IncQuantization pass
     p = create_pass_from_dict(IncQuantization, config, disable_search=True)
     # execute
-    quantized_model = p.run(ov_model, None, output_folder)
+    quantized_model = p.run(ov_model, output_folder)
     # assert
     assert quantized_model.model_path.endswith(".onnx")
     assert Path(quantized_model.model_path).exists()
@@ -44,7 +44,7 @@ def test_inc_quantization(tmp_path):
     # create IncDynamicQuantization pass
     p = create_pass_from_dict(IncDynamicQuantization, config, disable_search=True)
     # execute
-    quantized_model = p.run(ov_model, None, output_folder)
+    quantized_model = p.run(ov_model, output_folder)
     # assert
     assert quantized_model.model_path.endswith(".onnx")
     assert Path(quantized_model.model_path).exists()
@@ -56,7 +56,7 @@ def test_inc_quantization(tmp_path):
     # create IncStaticQuantization pass
     p = create_pass_from_dict(IncStaticQuantization, config, disable_search=True)
     # execute
-    quantized_model = p.run(ov_model, None, output_folder)
+    quantized_model = p.run(ov_model, output_folder)
     # assert
     assert quantized_model.model_path.endswith(".onnx")
     assert Path(quantized_model.model_path).exists()
@@ -77,7 +77,7 @@ def test_inc_weight_only_quantization(tmp_path):
     # create IncQuantization pass
     p = create_pass_from_dict(IncQuantization, config, disable_search=True)
     # execute
-    quantized_model = p.run(ov_model, None, output_folder)
+    quantized_model = p.run(ov_model, output_folder)
     # assert
     assert quantized_model.model_path.endswith(".onnx")
     assert Path(quantized_model.model_path).exists()
@@ -88,7 +88,7 @@ def test_inc_weight_only_quantization(tmp_path):
     # create IncStaticQuantization pass
     p = create_pass_from_dict(IncStaticQuantization, config, disable_search=True)
     # execute
-    quantized_model = p.run(ov_model, None, output_folder)
+    quantized_model = p.run(ov_model, output_folder)
     # assert
     assert quantized_model.model_path.endswith(".onnx")
     assert Path(quantized_model.model_path).exists()
@@ -111,7 +111,7 @@ def test_inc_quantization_with_data_config(mock_model_saver, tmp_path):
     # create IncQuantization pass
     p = create_pass_from_dict(IncQuantization, config, disable_search=True)
     # execute
-    quantized_model = p.run(ov_model, None, output_folder)
+    quantized_model = p.run(ov_model, output_folder)
     # assert
     assert quantized_model.model_path.endswith(".onnx")
     assert Path(quantized_model.model_path).exists()
@@ -133,7 +133,7 @@ def get_onnx_model(tmp_path):
     output_folder = str(tmp_path / "onnx")
 
     # execute
-    return p.run(pytorch_model, None, output_folder)
+    return p.run(pytorch_model, output_folder)
 
 
 def create_dataloader(data_dir, batch_size, *args, **kwargs):

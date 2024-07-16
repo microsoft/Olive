@@ -5,7 +5,7 @@
 import json
 from pathlib import Path
 
-from olive.common.utils import aml_runner_hf_login, set_dict_value
+from olive.common.utils import aml_runner_hf_login, set_nested_dict_value
 from olive.logging import set_verbosity_from_env
 from olive.model import ModelConfig
 from olive.package_config import OlivePackageConfig
@@ -37,7 +37,7 @@ def main(raw_args=None):
     output_model_path = str(Path(pipeline_output) / "output_model")
 
     # run pass
-    output_model = p.run(input_model, None, output_model_path)
+    output_model = p.run(input_model, output_model_path)
 
     # save model json
     model_json = output_model.to_json()
@@ -55,7 +55,7 @@ def main(raw_args=None):
     for resource_key, resource_path in output_model_resources.items():
         input_model_resource_path = input_model_resources.get(resource_key)
         if resource_path.get_path() == (input_model_resource_path.get_path() if input_model_resource_path else None):
-            set_dict_value(model_json, resource_key, None)
+            set_nested_dict_value(model_json, resource_key, None)
             model_json["same_resources_as_input"].append(resource_key)
             continue
         # need to ensure that the path is a local resource
@@ -65,7 +65,7 @@ def main(raw_args=None):
         relative_path = str(Path(resource_path.get_path()).relative_to(Path(pipeline_output)))
         path_json = resource_path.to_json()
         path_json["config"]["path"] = relative_path
-        set_dict_value(model_json, resource_key, path_json)
+        set_nested_dict_value(model_json, resource_key, path_json)
         model_json["resources"].append(resource_key)
 
     # save model json

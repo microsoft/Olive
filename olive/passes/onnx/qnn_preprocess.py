@@ -27,7 +27,7 @@ class QNNPreprocess(Pass):
                 type_=bool,
                 default_value=False,
                 required=False,
-                description=("Whether to fuse ReduceMean sequence into a single LayerNormalization node."),
+                description="Whether to fuse ReduceMean sequence into a single LayerNormalization node.",
             ),
             "inputs_to_make_channel_last": PassConfigParam(
                 type_=list,
@@ -75,7 +75,6 @@ class QNNPreprocess(Pass):
     def _run_for_config(
         self,
         model: ONNXModelHandler,
-        data_root: str,
         config: Dict[str, Any],
         output_model_path: str,
     ) -> ONNXModelHandler:

@@ -43,4 +43,4 @@ def test_sparsegpt(tmp_path):
     output_folder = str(tmp_path / "sparse")
 
     # execute
-    p.run(input_model, None, output_folder)
+    p.run(input_model, output_folder)

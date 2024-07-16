@@ -83,7 +83,7 @@ def test_torch_trt_conversion_success(tmp_path):
     output_folder = str(tmp_path / "sparse")
 
     # execute
-    model = p.run(input_model, None, output_folder)
+    model = p.run(input_model, output_folder)
 
     # assert
     pytorch_model = model.load_model()

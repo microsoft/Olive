@@ -44,7 +44,7 @@ def test_aml_model_pass_run(tmp_path):
     }
     onnx_model_file = tmp_path / "model.onnx"
     onnx_conversion_pass = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
-    onnx_model = aml_system.run_pass(onnx_conversion_pass, pytorch_model_config, None, onnx_model_file)
+    onnx_model = aml_system.run_pass(onnx_conversion_pass, pytorch_model_config, onnx_model_file)
     model_path = onnx_model.config["model_path"]
     if isinstance(model_path, ResourcePath):
         model_path = model_path.get_path()

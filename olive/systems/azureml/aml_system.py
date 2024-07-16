@@ -19,7 +19,7 @@ from azure.core.exceptions import HttpResponseError, ServiceResponseError
 
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import validate_config
-from olive.common.utils import copy_dir, get_dict_value, retry_func, set_dict_value
+from olive.common.utils import copy_dir, get_nested_dict_value, retry_func, set_nested_dict_value
 from olive.evaluator.metric_result import MetricResult
 from olive.model import ModelConfig
 from olive.resource_path import (
@@ -67,7 +67,6 @@ def get_asset_type_from_resource_path(resource_path: ResourcePath):
     return AssetTypes.URI_FILE
 
 
-# TODO(jambayk): remove data_root. Not used at all and makes the logic unnecessarily complex
 class AzureMLSystem(OliveSystem):
     system_type = SystemType.AzureML
     olive_config = None
@@ -160,7 +159,6 @@ class AzureMLSystem(OliveSystem):
         self,
         the_pass: "Pass",
         model_config: ModelConfig,
-        data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
     ) -> ModelConfig:
@@ -199,7 +197,7 @@ class AzureMLSystem(OliveSystem):
             resource_name = f"{name}__{'__'.join(map(str, resource_key))}"
             inputs[resource_name], args[resource_name] = self._create_arg_and_input_from_resource_path(resource_path)
             resource_map[resource_name] = resource_key
-            set_dict_value(config_json, resource_key, None)
+            set_nested_dict_value(config_json, resource_key, None)
 
         if resource_map:
             resource_map_path = tmp_dir / f"{name}_resource_map.json"
@@ -432,12 +430,12 @@ class AzureMLSystem(OliveSystem):
         # set the resources that are the same as the input model
         same_resources_as_input = model_json.pop("same_resources_as_input")
         for resource_key in same_resources_as_input:
-            set_dict_value(model_json, resource_key, get_dict_value(input_model_config, resource_key))
+            set_nested_dict_value(model_json, resource_key, get_nested_dict_value(input_model_config, resource_key))
 
         # resolve resource names that are relative paths and save them to the output folder
         relative_resource_names = model_json.pop("resources")
         for resource_key in relative_resource_names:
-            resource_json = get_dict_value(model_json, resource_key)
+            resource_json = get_nested_dict_value(model_json, resource_key)
             # can only be local file or folder
             resource_type = resource_json["type"]
             assert resource_type in LOCAL_RESOURCE_TYPES, f"Expected local file or folder, got {resource_type}"
@@ -460,12 +458,12 @@ class AzureMLSystem(OliveSystem):
             output_resource_path = deepcopy(resource_json)
             output_resource_path["config"]["path"] = str(output_path)
             output_resource_path = create_resource_path(output_resource_path)
-            set_dict_value(model_json, resource_key, output_resource_path)
+            set_nested_dict_value(model_json, resource_key, output_resource_path)
 
         return ModelConfig(**model_json)
 
     def evaluate_model(
-        self, model_config: ModelConfig, data_root: str, metrics: List["Metric"], accelerator: "AcceleratorSpec"
+        self, model_config: ModelConfig, metrics: List["Metric"], accelerator: "AcceleratorSpec"
     ) -> MetricResult:
         if model_config.type.lower() == "SNPEModel".lower():
             raise NotImplementedError("SNPE model does not support azureml evaluation")

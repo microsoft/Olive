@@ -18,7 +18,6 @@ def get_args(raw_args):
 
     parser.add_argument("--model_config", type=str, required=True, help="Path to input model json file")
     parser.add_argument("--pass_config", type=str, required=True, help="Path to pass json file")
-    parser.add_argument("--data_root", type=str, required=False, help="Path to data root")
     parser.add_argument("--tempdir", type=str, required=False, help="Root directory for tempfile directories and files")
     parser.add_argument("--output_model_path", type=str, required=True, help="Path to output model file")
     parser.add_argument("--output_path", type=str, required=True, help="Path to output model json file")
@@ -43,7 +42,7 @@ def main(raw_args=None):
     the_pass = pass_config.create_pass()
 
     # run pass
-    output_model = the_pass.run(model, args.data_root, args.output_model_path)
+    output_model = the_pass.run(model, args.output_model_path)
 
     # save model json
     with Path(args.output_path).open("w") as f:

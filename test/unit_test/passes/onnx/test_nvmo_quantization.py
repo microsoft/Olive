@@ -43,7 +43,7 @@ def test_nvmo_quantization(tmp_path):
 
     # create NVModelOptQuantization pass and run quantization
     p = create_pass_from_dict(NVModelOptQuantization, config, disable_search=True)
-    quantized_model = p.run(ov_model, None, output_folder)
+    quantized_model = p.run(ov_model, output_folder)
 
     # assert
     assert quantized_model.model_path.endswith(".onnx")

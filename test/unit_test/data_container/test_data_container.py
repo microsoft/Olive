@@ -41,13 +41,13 @@ class TestDataConfig:
         # override the default components from task_type
         assert dc_config.post_process_data_config.type == "text_classification_post_process"
         dc = dc_config.to_data_container()
-        dc.create_dataloader(data_root_path=None)
-        dc.create_calibration_dataloader(data_root_path=None)
+        dc.create_dataloader()
+        dc.create_calibration_dataloader()
 
     def test_transformer_dummy_dc_runner(self):
         dc_config = get_transformer_dummy_input_data_config()
         dc = dc_config.to_data_container()
-        dataloader = dc.create_dataloader(data_root_path=None)
+        dataloader = dc.create_dataloader()
         for data in dataloader:
             assert "input_ids" in data[0]
             # batch_size
@@ -91,8 +91,8 @@ class TestDataConfig:
             assert input_data[input_name].dtype == input_types[input_names.index(input_name)]
             assert np.array_equal(input_data[input_name], data[input_name][0])
 
-        dc.create_dataloader(data_root_path=None)
-        dc.create_calibration_dataloader(data_root_path=None)
+        dc.create_dataloader()
+        dc.create_calibration_dataloader()
 
     def test_dc_runner(self):
         try:
