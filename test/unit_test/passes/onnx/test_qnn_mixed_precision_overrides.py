@@ -15,5 +15,5 @@ def test_qnn_mixed_precision_overrides(tmp_path):
         },
         disable_search=True,
     )
-    out = p.run(input_model, None, tmp_path)
+    out = p.run(input_model, tmp_path)
     assert out == input_model
