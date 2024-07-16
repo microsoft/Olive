@@ -54,7 +54,6 @@ class QNNMixedPrecisionOverrides(Pass):
     def _run_for_config(
         self,
         model: ONNXModelHandler,
-        data_root: str,
         config: Dict[str, Any],
         output_model_path: str,
     ) -> ONNXModelHandler:
@@ -204,7 +203,9 @@ class QNNMixedPrecisionOverrides(Pass):
             tensor: [{"quant_type": quant["quant_type"].name} for quant in quant_list]
             for tensor, quant_list in overrides.items()
         }
-        return ONNXModelHandler(output_model_path, model_attributes={"mixed_precision_overrides": overrides_jsonable})
+        model_attributes = model.model_attributes or {}
+        model_attributes.update({"mixed_precision_overrides": overrides_jsonable})
+        return ONNXModelHandler(output_model_path, model_attributes=model_attributes)
 
     # check if tensor is input to other nodes
     def tensor_input_to_which_nodes(self, onnx_model, tensor_name):
