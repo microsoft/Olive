@@ -204,12 +204,16 @@ class AzureMLSystem(OliveSystem):
         # multiple inputs referring to the same aml model resource leads to invalid job error
         resource_inputs, resource_args = {}, {}
         for name, config in all_configs.items():
+            # create a copy of the config to avoid modifying the original config
+            config_copy = deepcopy(config)
+
+            # create input for the config
             inputs[f"{name}_config"] = Input(type=AssetTypes.URI_FILE)
 
             # using a list of tuples since json cannot have tuple keys
             resource_map = []
             # create inputs and args for each resource in the config
-            for resource_key, resource_path in find_all_resources(config, ignore_keys=ignore_keys).items():
+            for resource_key, resource_path in find_all_resources(config_copy, ignore_keys=ignore_keys).items():
                 resource_str = resource_path.get_path()
                 if resource_str not in all_resources:
                     resource_input_name = f"resource__{len(all_resources)}"
@@ -218,11 +222,11 @@ class AzureMLSystem(OliveSystem):
                     )
                     all_resources[resource_str] = resource_input_name
                 resource_map.append((resource_key, all_resources[resource_str]))
-                set_nested_dict_value(config, resource_key, None)
+                set_nested_dict_value(config_copy, resource_key, None)
 
             config_path = tmp_dir / f"{name}_config.json"
             with config_path.open("w") as f:
-                json.dump(config, f, sort_keys=True, indent=4)
+                json.dump(config_copy, f, sort_keys=True, indent=4)
             args[f"{name}_config"] = Input(type=AssetTypes.URI_FILE, path=config_path)
 
             if resource_map:
@@ -232,8 +236,7 @@ class AzureMLSystem(OliveSystem):
                 inputs[f"{name}_resource_map"] = Input(type=AssetTypes.URI_FILE)
                 args[f"{name}_resource_map"] = Input(type=AssetTypes.URI_FILE, path=resource_map_path)
 
-        # add num_resources to inputs and args afterwards just for the sake of cleaner inputs and args
-        # order
+        # add resources to inputs and args at the end just for the sake of cleaner inputs and args order
         return {**inputs, "num_resources": Input(type="integer"), **resource_inputs}, {
             **args,
             "num_resources": len(all_resources),
