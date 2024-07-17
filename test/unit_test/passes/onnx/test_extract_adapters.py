@@ -13,7 +13,7 @@ from peft.tuners.lora import LoraLayer
 from transformers import AutoModelForCausalLM
 
 from olive.common.utils import find_submodules
-from olive.model import ONNXModelHandler, PyTorchModelHandler
+from olive.model import HfModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.extract_adapters import ExtractAdapters
@@ -83,9 +83,7 @@ def input_model_info_fixture(tmp_path_factory):
     del peft_model, pytorch_model
 
     # pytorch model
-    olive_pytorch_model = PyTorchModelHandler(
-        hf_config={"model_name": model_name, "task": "text-generation"}, adapter_path=adapters_path
-    )
+    olive_pytorch_model = HfModelHandler(model_path=model_name, task="text-generation", adapter_path=adapters_path)
 
     # export to onnx
     conversion_pass = create_pass_from_dict(OnnxConversion, {"target_opset": 14}, disable_search=True)

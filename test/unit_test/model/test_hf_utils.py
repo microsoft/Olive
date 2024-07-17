@@ -11,15 +11,15 @@ from packaging import version
 from transformers.onnx import OnnxConfig
 
 from olive.common.pydantic_v1 import ValidationError
-from olive.model.config.hf_config import HfFromPretrainedArgs
-from olive.model.utils.hf_utils import get_onnx_config, load_hf_model_from_model_class, load_hf_model_from_task
+from olive.model.config.hf_config import HfLoadKwargs
+from olive.model.utils.hf_utils import get_onnx_config, load_hf_model_from_task
 
 
 def test_load_hf_model_from_task():
     # The model name and task type is gotten from
     # https://huggingface.co/docs/transformers/v4.28.1/en/main_classes/pipelines#transformers.pipeline
     task = "text-classification"
-    model_name = "Intel/bert-base-uncased-mrpc"
+    model_name = "hf-internal-testing/tiny-random-BertForSequenceClassification"
 
     model = load_hf_model_from_task(task, model_name)
     assert isinstance(model, torch.nn.Module)
@@ -65,18 +65,11 @@ def test_load_hf_model_from_task_exception_handling(exceptions, expected_excepti
                 _ = load_hf_model_from_task("text-classification", "dummy-model-name")
 
 
-def test_load_hf_model_from_model_class():
-    model_class = "AutoModelForSequenceClassification"
-    model_name = "Intel/bert-base-uncased-mrpc"
-    model = load_hf_model_from_model_class(model_class, model_name)
-    assert isinstance(model, torch.nn.Module)
-
-
 @pytest.mark.parametrize(
     ("model_name", "task", "feature"),
     [
-        ("Intel/bert-base-uncased-mrpc", "text-classification", "default"),
-        ("facebook/opt-125m", "text-generation", "default"),
+        ("hf-internal-testing/tiny-random-BertForSequenceClassification", "text-classification", "default"),
+        ("hf-internal-testing/tiny-random-LlamaForCausalLM", "text-generation", "default"),
     ],
 )
 def test_get_onnx_config(model_name, task, feature):
@@ -84,7 +77,7 @@ def test_get_onnx_config(model_name, task, feature):
     assert isinstance(onnx_config, OnnxConfig)
 
 
-class TestHFFromPretrainedArgs:
+class TestHfLoadKwargs:
     @pytest.mark.parametrize(
         ("inputs", "inner", "output"),
         [
@@ -95,7 +88,7 @@ class TestHFFromPretrainedArgs:
         ],
     )
     def test_torch_dtype(self, inputs, inner, output):
-        args = HfFromPretrainedArgs(torch_dtype=inputs)
+        args = HfLoadKwargs(torch_dtype=inputs)
         assert args.torch_dtype == inner
         assert args.get_torch_dtype() == output
 
@@ -110,10 +103,10 @@ class TestHFFromPretrainedArgs:
         ],
     )
     def test_device_map(self, inputs, inner):
-        args = HfFromPretrainedArgs(device_map=inputs)
+        args = HfLoadKwargs(device_map=inputs)
         assert args.device_map == inner
 
-        args = HfFromPretrainedArgs(device_map={"": inputs})
+        args = HfLoadKwargs(device_map={"": inputs})
         assert args.device_map == {"": inner}
 
     @pytest.mark.parametrize(
@@ -129,14 +122,10 @@ class TestHFFromPretrainedArgs:
     def test_quant(self, quantization_method, quantization_config, valid):
         if not valid:
             with pytest.raises(ValidationError):
-                _ = HfFromPretrainedArgs(
-                    quantization_method=quantization_method, quantization_config=quantization_config
-                )
+                _ = HfLoadKwargs(quantization_method=quantization_method, quantization_config=quantization_config)
 
         else:
-            args = HfFromPretrainedArgs(
-                quantization_method=quantization_method, quantization_config=quantization_config
-            )
+            args = HfLoadKwargs(quantization_method=quantization_method, quantization_config=quantization_config)
             if quantization_method is None:
                 return
 
@@ -157,7 +146,7 @@ class TestHFFromPretrainedArgs:
 
         quanntization_method = "bitsandbytes"
         quantization_config = {"load_in_8bit": True}
-        args = HfFromPretrainedArgs(quantization_method=quanntization_method, quantization_config=quantization_config)
+        args = HfLoadKwargs(quantization_method=quanntization_method, quantization_config=quantization_config)
         config = args.get_quantization_config()
 
         assert isinstance(config, BitsAndBytesConfig)

@@ -19,7 +19,12 @@ class DummyInputsMixin:
         if not self._io_config:
             return None
 
-        resolved_io_config = self.get_resolved_io_config(self._io_config, force_kv_cache=force_kv_cache) or {}
+        resolved_io_config = (
+            self.get_resolved_io_config(
+                self._io_config, force_kv_cache=force_kv_cache, model_attributes=self.model_attributes
+            )
+            or {}
+        )
         if not resolved_io_config.get("input_shapes"):
             return None
 

@@ -9,7 +9,7 @@
             "io_config": {
                 "input_names": [ "input_ids", "attention_mask", "position_ids" ],
                 "output_names": [ "logits" ],
-                "input_shapes": [ [ 2, 8 ], [ 2, 40 ], [ 2, 8 ] ],
+                "input_shapes": [ [ 2, 8 ], [ 2, 8 ], [ 2, 8 ] ],
                 "input_types": [ "int64", "int64", "int64" ],
                 "dynamic_axes": {
                     "input_ids": { "0": "batch_size", "1": "sequence_length" },
@@ -66,14 +66,14 @@
             "config": {
                 "lora_dropout": 0.1,
                 "train_data_config": "tiny_codes_train",
-                "eval_dataset_size": 100,
+                "eval_dataset_size": 1024,
                 "training_args": {
                     "per_device_train_batch_size": 16,
                     "per_device_eval_batch_size": 16,
                     "gradient_accumulation_steps": 1,
-                    "max_steps": 5,
-                    "logging_steps": 5,
-                    "save_steps": 5,
+                    "max_steps": 150,
+                    "logging_steps": 50,
+                    "save_steps": 50,
                     "evaluation_strategy": "steps",
                     "adam_beta2": 0.999,
                     "max_grad_norm": 0.3,

@@ -64,7 +64,7 @@ class PyTorchModelHandlerBase(
         io_config_obj.kv_cache = io_config_obj.kv_cache or force_kv_cache
 
         if io_config_obj.kv_cache:
-            kv_cache_config = complete_kv_cache_with_model_attributes(io_config_obj.kv_cache, model_attributes)
+            kv_cache_config = complete_kv_cache_with_model_attributes(io_config_obj.kv_cache, model_attributes or {})
             io_config_obj = extend_io_config_with_kv_cache(io_config_obj, kv_cache_config)
         return io_config_obj.dict(exclude_none=True)
 
@@ -169,7 +169,7 @@ class PyTorchModelHandler(PyTorchModelHandlerBase):  # pylint: disable=too-many-
 
         model_name = self.model_attributes.get("model_name")
         if not model_name:
-            raise ValueError("`model_name` model attributed is required to load SliceGPT model.")
+            raise ValueError("`model_name` model attribute is required to load SliceGPT model.")
 
         logger.info("Loading SliceGPT model with model_name %s from %s", model_name, self.model_path)
         loaded_model, _ = load_sliced_model(model_name, self.model_path)

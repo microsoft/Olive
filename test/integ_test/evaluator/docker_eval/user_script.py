@@ -36,7 +36,7 @@ def create_hf_dataloader(data_dir, batch_size, *args, **kwargs):
     from torch.utils.data import Dataset
     from transformers import AutoTokenizer
 
-    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
+    tokenizer = AutoTokenizer.from_pretrained("hf-internal-testing/tiny-random-BertForSequenceClassification")
     dataset = load_dataset("glue", "mrpc", split="validation")
 
     class BaseData(Dataset):

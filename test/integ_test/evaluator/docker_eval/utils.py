@@ -94,7 +94,10 @@ def download_data():
 
 
 def get_huggingface_model():
-    return {"hf_config": {"model_class": "AutoModelForSequenceClassification", "model_name": "prajjwal1/bert-tiny"}}
+    return {
+        "model_path": "hf-internal-testing/tiny-random-BertForSequenceClassification",
+        "task": "text-classification",
+    }
 
 
 def get_pytorch_model():

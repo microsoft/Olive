@@ -7,7 +7,6 @@ from functools import partial
 from itertools import chain
 from typing import TYPE_CHECKING, Callable, Dict, Optional, Tuple, Union
 
-import transformers
 from transformers import AutoConfig, AutoModel, AutoTokenizer, GenerationConfig
 
 from olive.common.utils import get_attr
@@ -66,20 +65,6 @@ def load_hf_model_from_task(task: str, name: str, **kwargs) -> "PreTrainedModel"
     return model
 
 
-def huggingface_model_loader(model_loader: Union[str, Callable]) -> Callable:
-    if model_loader is None:
-        model_loader = "AutoModel"
-    if isinstance(model_loader, str):
-        try:
-            model_loader = getattr(transformers, model_loader)
-        except AttributeError:
-            raise AttributeError(f"{model_loader} is not found in transformers") from None
-    elif not isinstance(model_loader, Callable):
-        raise ValueError("model_loader must be a callable or a string defined in transformers")
-
-    return model_loader.from_pretrained
-
-
 def get_hf_model_config(model_name: str, **kwargs) -> "PretrainedConfig":
     """Get HF Config for the given model name."""
     return AutoConfig.from_pretrained(model_name, **kwargs)
@@ -108,11 +93,6 @@ def save_hf_model_tokenizer(
 ) -> Tuple[str]:
     """Save input tokenizer to output directory."""
     return tokenizer.save_pretrained(output_dir, **kwargs)
-
-
-def load_hf_model_from_model_class(model_class: str, name: str, **kwargs):
-    """Load huggingface model from model_loader and name."""
-    return huggingface_model_loader(model_class)(name, **kwargs)
 
 
 # patched version of transformers.onnx.features.supported_features_mapping

@@ -5,6 +5,7 @@
 # -------------------------------------------------------------------------
 import json
 import logging
+import sys
 from typing import Any, Dict, Union
 
 import torch
@@ -78,8 +79,8 @@ class SliceGPT(Pass):
     def _run_for_config(
         self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModelHandler:
-        # if sys.version_info < (3, 10):
-        #     raise ValueError("SliceGPT requires python3.10 or higher")
+        if sys.version_info < (3, 10):
+            raise ValueError("SliceGPT requires python3.10 or higher")
 
         from slicegpt import layernorm_fusion, rotate
         from slicegpt.hf_utils import get_model_and_tokenizer

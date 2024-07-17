@@ -48,7 +48,7 @@ def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, m
     metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
     evaluator_config = OliveEvaluatorConfig(metrics=[metric])
     options = {
-        "cache_dir": "./cache",
+        "cache_dir": tmp_path / "cache",
         "clean_cache": True,
         "search_strategy": {
             "execution_order": "joint",
@@ -110,7 +110,7 @@ def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, m
 def test_generate_zipfile_artifacts_no_search(tmp_path):
     # setup
     options = {
-        "cache_dir": "./cache",
+        "cache_dir": tmp_path / "cache",
         "clean_cache": True,
         "clean_evaluation_cache": True,
     }
@@ -152,7 +152,7 @@ def test_generate_zipfile_artifacts_no_search(tmp_path):
 def test_generate_zipfile_artifacts_mlflow(tmp_path):
     # setup
     options = {
-        "cache_dir": "./cache",
+        "cache_dir": tmp_path / "cache",
         "clean_cache": True,
         "clean_evaluation_cache": True,
     }

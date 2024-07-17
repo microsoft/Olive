@@ -60,7 +60,7 @@ def create_hf_dataloader(data_dir, batch_size, *args, **kwargs):
     from torch.utils.data import Dataset
     from transformers import AutoTokenizer
 
-    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
+    tokenizer = AutoTokenizer.from_pretrained("hf-internal-testing/tiny-random-BertForSequenceClassification")
     dataset = load_dataset("glue", "mrpc", split="validation")
 
     class BaseData(Dataset):
@@ -137,7 +137,10 @@ def get_pytorch_model():
 
 
 def get_huggingface_model():
-    return {"hf_config": {"model_class": "AutoModelForSequenceClassification", "model_name": "prajjwal1/bert-tiny"}}
+    return {
+        "model_path": "hf-internal-testing/tiny-random-BertForSequenceClassification",
+        "task": "text-classification",
+    }
 
 
 def get_onnx_model():
