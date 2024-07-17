@@ -134,9 +134,10 @@ class TestAzureMLSystem:
         # setup
         ml_client = MagicMock()
         self.system.azureml_client_config.create_client.return_value = ml_client
+        run_config = MagicMock(workflow_id="workflow_id")
 
         # execute
-        self.system.submit_workflow("workflow_id")
+        self.system.submit_workflow(run_config)
 
         # assert
         mock_create_pipeline_for_workflow.assert_called_once()

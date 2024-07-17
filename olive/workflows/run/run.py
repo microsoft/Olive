@@ -305,12 +305,7 @@ def run(
         workflow_host = run_config.workflow_host
         if workflow_host.type == SystemType.AzureML:
             workflow_host = workflow_host.create_system()
-            workflow_id = run_config.workflow_id
-            run_config.workflow_host = None
-            run_config.engine.log_to_file = True
-            olive_config = run_config.to_json()
-            set_olive_config_for_aml_system(olive_config)
-            return workflow_host.submit_workflow(workflow_id)
+            return workflow_host.submit_workflow(run_config)
         elif workflow_host.type == SystemType.Local:
             logger.warning("Running workflow locally.")
         else:

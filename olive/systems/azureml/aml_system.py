@@ -18,8 +18,8 @@ from azure.ai.ml.exceptions import JobException
 from azure.core.exceptions import HttpResponseError, ServiceResponseError
 
 from olive.azureml.azureml_client import AzureMLClientConfig
-from olive.common.constants import HF_LOGIN, KEYVAULT_NAME, WORKFLOW_ARTIFACTS, WORKFLOW_CONFIG
 from olive.common.config_utils import validate_config
+from olive.common.constants import HF_LOGIN, KEYVAULT_NAME, WORKFLOW_ARTIFACTS, WORKFLOW_CONFIG
 from olive.common.utils import copy_dir, get_dict_value, retry_func, set_dict_value
 from olive.evaluator.metric_result import MetricResult
 from olive.model import ModelConfig
@@ -35,6 +35,7 @@ from olive.resource_path import (
 from olive.systems.common import AcceleratorConfig, AzureMLDockerConfig, AzureMLEnvironmentConfig, SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import AzureMLTargetUserConfig
+from olive.workflows.run.config import RunConfig
 
 if TYPE_CHECKING:
     from olive.evaluator.metric import Metric
@@ -117,12 +118,13 @@ class AzureMLSystem(OliveSystem):
         self.env_vars = self._get_hf_token_env(self.azureml_client_config.keyvault_name) if self.hf_token else None
         self.temp_dirs = []
 
-    def submit_workflow(self, workflow_id: str):
+    def submit_workflow(self, run_config: RunConfig):
+        workflow_id = run_config.workflow_id
         logger.info("Submitting workflow %s to the AzureML system.", workflow_id)
         ml_client = self.azureml_client_config.create_client()
 
         with tempfile.TemporaryDirectory() as tempdir:
-            workflow_pipeline = self._create_pipeline_for_workflow(workflow_id, tempdir)
+            workflow_pipeline = self._create_pipeline_for_workflow(run_config, tempdir)
             self._run_workflow_job(
                 ml_client,
                 workflow_pipeline,
@@ -130,18 +132,47 @@ class AzureMLSystem(OliveSystem):
                 tags={"Workflow": workflow_id},
             )
 
-    def _create_pipeline_for_workflow(self, workflow_id: str, tmp_dir):
+    def _create_pipeline_for_workflow(self, run_config: RunConfig, tmp_dir):
+        workflow_id = run_config.workflow_id
         logger.info("Creating pipeline for workflow %s", workflow_id)
         script_name = "aml_workflow_runner.py"
 
         tmp_dir = Path(tmp_dir)
-        olive_config_path = self._create_olive_config_file(self.olive_config, tmp_dir)
+
+        run_config.workflow_host = None
+        run_config.engine.log_to_file = True
+        olive_config = run_config.to_json()
+
+        olive_config_path = self._create_olive_config_file(olive_config, tmp_dir)
+
         config_root = tmp_dir / "config"
         cur_dir = Path(__file__).resolve().parent
         code_files = [cur_dir / script_name, olive_config_path]
         self.copy_files(code_files, config_root)
 
         inputs = {WORKFLOW_CONFIG: Input(type=AssetTypes.URI_FILE)}
+        args = {WORKFLOW_CONFIG: Input(type=AssetTypes.URI_FILE, path=olive_config_path)}
+
+        config_list = []
+        config_list.append(("model", run_config.input_model.to_json(check_object=True)))
+
+        if run_config.data_configs:
+            config_list.extend(
+                [(data_config.name, data_config.to_json(check_object=True)) for data_config in run_config.data_configs]
+            )
+
+        resources_check_list = [run_config.passes, run_config.evaluators, run_config.systems]
+        for resources in resources_check_list:
+            if resources:
+                config_list = self._get_dict_resources_config(resources, config_list)
+
+        for name, config_json in config_list:
+            name_inputs, name_args = self.create_inputs_and_args(
+                name, config_json, tmp_dir, ignore_keys=["model_attributes"] if name == "model" else None
+            )
+            inputs.update(name_inputs)
+            args.update(name_args)
+
         outputs = {
             WORKFLOW_ARTIFACTS: Output(
                 type=AssetTypes.URI_FOLDER,
@@ -162,7 +193,6 @@ class AzureMLSystem(OliveSystem):
             outputs=outputs,
             script_name=script_name,
         )
-        args = {WORKFLOW_CONFIG: Input(type=AssetTypes.URI_FILE, path=olive_config_path)}
 
         @pipeline()
         def workflow_runner_pipeline():
@@ -172,6 +202,11 @@ class AzureMLSystem(OliveSystem):
             return outputs
 
         return workflow_runner_pipeline()
+
+    def _get_dict_resources_config(self, resources: Dict, config_list: List):
+        for resource_name, resource_config in resources.items():
+            config_list.append((resource_name, resource_config.to_json(check_object=True)))
+        return config_list
 
     def _get_hf_token_env(self, keyvault_name: Optional[str]):
         if keyvault_name is None:
