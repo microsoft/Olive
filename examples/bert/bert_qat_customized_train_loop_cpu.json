@@ -1,18 +1,7 @@
 {
     "input_model": {
-        "type": "PyTorchModel",
-        "config": {
-            "hf_config": {
-                "model_name": "Intel/bert-base-uncased-mrpc",
-                "task": "text-classification"
-            },
-            "io_config": {
-                "input_names": [ "input_ids", "attention_mask", "token_type_ids" ],
-                "input_shapes": [ [ 1, 128 ], [ 1, 128 ], [ 1, 128 ] ],
-                "input_types": [ "int64", "int64", "int64" ],
-                "output_names": [ "output" ]
-            }
-        }
+        "type": "HfModel",
+        "config": { "model_path": "Intel/bert-base-uncased-mrpc", "task": "text-classification" }
     },
     "data_configs": [
         {

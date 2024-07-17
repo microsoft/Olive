@@ -12,10 +12,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 
+from olive.cache import OliveCache
 from olive.common.config_utils import validate_config
-from olive.common.constants import DEFAULT_WORKFLOW_ID
+from olive.common.constants import DEFAULT_CACHE_DIR, DEFAULT_WORKFLOW_ID
 from olive.common.utils import hash_dict
-from olive.engine.cache import OliveCache
 from olive.engine.cloud_cache_helper import (
     CloudCacheHelper,
     check_model_cache,
@@ -31,7 +31,7 @@ from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.exception import EXCEPTIONS_TO_RAISE, OlivePassError
 from olive.hardware import AcceleratorSpec
 from olive.model import ModelConfig
-from olive.resource_path import ResourceType, create_resource_path
+from olive.resource_path import create_resource_path
 from olive.strategy.search_strategy import SearchStrategy, SearchStrategyConfig
 from olive.systems.common import SystemType
 from olive.systems.system_config import SystemConfig
@@ -59,7 +59,7 @@ class Engine:
         host: Optional[Union[Dict[str, Any], "SystemConfig"]] = None,
         target: Optional[Union[Dict[str, Any], "SystemConfig"]] = None,
         evaluator: Optional[Union[Dict[str, Any], "OliveEvaluatorConfig"]] = None,
-        cache_dir: str = ".olive-cache",
+        cache_dir: str = DEFAULT_CACHE_DIR,
         clean_cache: bool = False,
         clean_evaluation_cache: bool = False,
         plot_pareto_frontier: bool = False,
@@ -111,6 +111,10 @@ class Engine:
 
     def initialize(self):
         """Initialize engine state. This should be done before running the registered passes."""
+        # set cache dir environment variables
+        # might be used by other parts of olive to cache data
+        self.cache.set_cache_env()
+
         # clean pass run cache if requested
         # removes all run cache for pass type and all children elements
         for pass_config in self.pass_config.values():
@@ -473,7 +477,7 @@ class Engine:
                     output_name=f"{pass_output_name}_model",
                     overwrite=True,
                 )
-                # it is not supported to save compositepytorchmodel/compositemodel again
+                # it is not supported to save compositemodel again
                 # so the output_model_json could be None
                 output_models[pass_output_model_id] = output_model_json
 
@@ -797,19 +801,18 @@ class Engine:
         output_model_hash = None
 
         if cloud_cache_config.enable_cloud_cache:
-            if (
-                model_config.config.get("model_path")
-                and create_resource_path(model_config.config.get("model_path")) == ResourceType.StringName
+            if not (
+                model_config.type.lower() == "hfmodel"
+                and create_resource_path(model_config.config.get("model_path")).is_string_name()
             ):
                 logger.warning(
-                    "Model path is a str name, should not use cloud model cache. Set enable_cloud_cache=False."
+                    "Only HfModel with huggingface id as model_path is supported by cloud cache. Setting"
+                    " enable_cloud_cache=False."
                 )
                 cloud_cache_config.enable_cloud_cache = False
             else:
-                cloud_cache_dir = Path(self.cache_dir) / "cloud_models"
-                cloud_cache_dir.mkdir(parents=True, exist_ok=True)
                 self.cloud_cache_helper = CloudCacheHelper(
-                    cloud_cache_dir,
+                    self.cache.dirs.cloud_cache,
                     cloud_cache_config.account_url,
                     cloud_cache_config.contaier_name,
                     cloud_cache_config.input_model_config,

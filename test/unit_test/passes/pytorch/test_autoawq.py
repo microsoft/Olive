@@ -8,7 +8,7 @@ import pytest
 import torch
 
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.model.handler.pytorch import PyTorchModelHandler
+from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.autoawq import AutoAWQQuantizer
 
@@ -20,14 +20,7 @@ from olive.passes.pytorch.autoawq import AutoAWQQuantizer
 @pytest.mark.parametrize("pack_model_for_onnx_conversion", [True, False])
 def test_awq(pack_model_for_onnx_conversion, tmp_path: Path):
     # setup
-    input_model = PyTorchModelHandler(
-        hf_config={
-            "model_class": "OPTForCausalLM",
-            "model_name": "facebook/opt-125m",
-            "task": "text-generation",
-            "from_pretrained_args": {"extra_args": {"use_safetensors": False}},
-        }
-    )
+    input_model = HfModelHandler(model_path="facebook/opt-125m", load_kwargs={"use_safetensors": False})
 
     p = create_pass_from_dict(
         AutoAWQQuantizer,

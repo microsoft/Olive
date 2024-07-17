@@ -8,8 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Union
 
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import CompositeModelHandler, ONNXModelHandler, PyTorchModelHandler
-from olive.model.config.hf_config import HfConfig
+from olive.model import CompositeModelHandler, HfModelHandler, ONNXModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
 
@@ -63,7 +62,7 @@ class OptimumConversion(Pass):
         return True
 
     def _run_for_config(
-        self, model: PyTorchModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> Union[ONNXModelHandler, CompositeModelHandler]:
         from optimum import version as optimum_version
         from optimum.exporters.onnx import main_export as export_optimum_model
@@ -77,9 +76,8 @@ class OptimumConversion(Pass):
                 "device": config["device"],
             }
         )
-        hf_config = model.hf_config or HfConfig()
-        if hf_config.from_pretrained_args and "trust_remote_code" not in extra_args:
-            extra_args["trust_remote_code"] = hf_config.from_pretrained_args.trust_remote_code
+        if model.load_kwargs and "trust_remote_code" not in extra_args:
+            extra_args["trust_remote_code"] = model.load_kwargs.trust_remote_code
 
         if version.parse(optimum_version.__version__) < version.parse("1.14.0"):
             logger.warning(
@@ -96,7 +94,7 @@ class OptimumConversion(Pass):
 
         # export directly to the output path
         # TODO(anyone): consider using a temporary directory to export the model and then save the relevant components
-        export_optimum_model(model.model_path or hf_config.model_name, output_model_path, **extra_args)
+        export_optimum_model(model.model_name_or_path, output_model_path, **extra_args)
 
         # check the exported components
         exported_models = [name.stem for name in Path(output_model_path).iterdir() if name.suffix == ".onnx"]

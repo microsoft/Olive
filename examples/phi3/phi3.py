@@ -28,8 +28,7 @@ AML_MODEL_Path = {
     "model_path": {
         "type": "azureml_registry_model",
         "config": {"registry_name": "azureml", "name": "Phi-3-mini-4k-instruct", "version": "7"},
-    },
-    "model_file_format": "PyTorch.MLflow",
+    }
 }
 
 
@@ -49,16 +48,20 @@ def get_args(raw_args):
         type=str,
         default=None,
         choices=["qlora", "lora"],
-        help="Finetune method before onnxruntime optimization. "
-        "qlora finetuned model cannot be converted to onnx by model builder.",
+        help=(
+            "Finetune method before onnxruntime optimization. "
+            "qlora finetuned model cannot be converted to onnx by model builder."
+        ),
     )
     parser.add_argument(
         "--precision",
         type=str,
         default="int4",
         choices=["fp32", "fp16", "int4"],
-        help="Choose from fp32 or int4(default) for cpu target; "
-        "fp32 or fp16 or int4(default) for gpu target; int4(default) for mobile or web",
+        help=(
+            "Choose from fp32 or int4(default) for cpu target; "
+            "fp32 or fp16 or int4(default) for gpu target; int4(default) for mobile or web"
+        ),
     )
     parser.add_argument(
         "--inference",

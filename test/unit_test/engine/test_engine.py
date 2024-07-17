@@ -232,7 +232,7 @@ class TestEngine:
         mock_local_system.get_supported_execution_providers.return_value = ["CPUExecutionProvider"]
         mock_local_system.olive_managed_env = False
 
-        engine = Engine()
+        engine = Engine(cache_dir=tmpdir)
         engine.register(OptimumConversion, disable_search=True, clean_run_cache=True)
         engine.set_pass_flows()
         # output model to output_dir

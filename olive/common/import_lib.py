@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Optional, Union
 
 
-def import_module_from_file(module_path: Union[Path, str], module_name: str = None):
+def import_module_from_file(module_path: Union[Path, str], module_name: Optional[str] = None):
     module_path = Path(module_path).resolve()
     if not module_path.exists():
         raise ValueError(f"{module_path} doesn't exist")

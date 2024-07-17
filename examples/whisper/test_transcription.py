@@ -60,7 +60,7 @@ def main(raw_args=None):
         config = json.load(f)
 
     # get model information
-    model_name = config["input_model"]["config"]["hf_config"]["model_name"]
+    model_name = config["input_model"]["config"]["model_components"][0]["config"]["model_path"]
     use_audio_decoder = config["passes"]["prepost"]["config"]["tool_command_args"]["use_audio_decoder"]
     # check if model is multilingual
     multilingual = config["passes"]["insert_beam_search"]["config"].get("use_forced_decoder_ids", False)

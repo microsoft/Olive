@@ -35,7 +35,7 @@ class LocalSystem(OliveSystem):
         self, model_config: ModelConfig, metrics: List["Metric"], accelerator: AcceleratorSpec
     ) -> "MetricResult":
         """Evaluate the model."""
-        if model_config.type.lower() in ("compositemodel", "compositepytorchmodel"):
+        if model_config.type.lower() == "compositemodel":
             raise NotImplementedError
 
         device = accelerator.accelerator_type if accelerator else Device.CPU

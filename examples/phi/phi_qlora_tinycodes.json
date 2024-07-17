@@ -1,13 +1,8 @@
 {
+
     "input_model": {
-        "type": "PyTorchModel",
-        "config": {
-            "hf_config": {
-                "model_name": "microsoft/phi-1_5",
-                "task": "text-generation",
-                "from_pretrained_args": { "trust_remote_code": true }
-            }
-        }
+        "type": "HfModel",
+        "config": { "model_path": "microsoft/phi-1_5" }
     },
     "systems": { "local_system": { "type": "LocalSystem", "config": { "accelerators": [ { "device": "gpu" } ] } } },
     "data_configs": [
