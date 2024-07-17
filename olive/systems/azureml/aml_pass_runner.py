@@ -5,7 +5,8 @@
 import json
 from pathlib import Path
 
-from olive.common.utils import aml_runner_hf_login, set_nested_dict_value
+from olive.common.hf.login import aml_runner_hf_login
+from olive.common.utils import set_nested_dict_value
 from olive.logging import set_verbosity_from_env
 from olive.model import ModelConfig
 from olive.package_config import OlivePackageConfig

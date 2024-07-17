@@ -15,9 +15,8 @@ from olive.common.utils import dict_diff
 from olive.model.config.io_config import IoConfig
 from olive.model.handler.hf import HfModelHandler
 
+
 # pylint: disable=attribute-defined-outside-init
-
-
 class TestHfMLflowModel(unittest.TestCase):
     @pytest.fixture(autouse=True)
     def setup(self, tmp_path):
@@ -26,6 +25,7 @@ class TestHfMLflowModel(unittest.TestCase):
         self.task = "text-classification"
         self.model_name = "hf-internal-testing/tiny-random-BertForSequenceClassification"
         # cache dir where the mlflow transformers model is saved
+        original_cache_dir = os.environ.get("OLIVE_CACHE_DIR", None)
         os.environ["OLIVE_CACHE_DIR"] = str(self.root_dir / "cache")
 
         original_model = transformers.BertForSequenceClassification.from_pretrained(self.model_name)
@@ -40,6 +40,13 @@ class TestHfMLflowModel(unittest.TestCase):
             },
             pip_requirements=["transformers"],
         )
+
+        yield
+
+        if original_cache_dir:
+            os.environ["OLIVE_CACHE_DIR"] = original_cache_dir
+        else:
+            os.environ.pop("OLIVE_CACHE_DIR", None)
 
     def test_mlflow_model_hfconfig_function(self):
         hf_model = HfModelHandler(model_path=self.model_path, task=self.task)
@@ -74,6 +81,10 @@ class TestHfMLflowModel(unittest.TestCase):
         assert isinstance(olive_model, transformers.BertForSequenceClassification)
         assert olive_model.dtype == torch.float16
 
+    def test_model_name_or_path(self):
+        olive_model = HfModelHandler(model_path=self.model_path, task=self.task)
+        assert olive_model.model_name_or_path.startswith(os.environ["OLIVE_CACHE_DIR"])
+
 
 class TestHFModel(unittest.TestCase):
     @pytest.fixture(autouse=True)
@@ -82,17 +93,21 @@ class TestHFModel(unittest.TestCase):
         self.task = "text-classification"
         self.model_name = "hf-internal-testing/tiny-random-BertForSequenceClassification"
 
-    def test_hf_config_task(self):
+    def test_load_model(self):
         olive_model = HfModelHandler(model_path=self.model_name, task=self.task)
 
         pytorch_model = olive_model.load_model()
         assert isinstance(pytorch_model, transformers.BertForSequenceClassification)
 
-    def test_hf_load_kwargs(self):
+    def test_load_model_with_kwargs(self):
         olive_model = HfModelHandler(model_path=self.model_name, task=self.task, load_kwargs={"torch_dtype": "float16"})
         pytorch_model = olive_model.load_model()
         assert isinstance(pytorch_model, transformers.BertForSequenceClassification)
         assert pytorch_model.dtype == torch.float16
+
+    def test_model_name_or_path(self):
+        olive_model = HfModelHandler(model_path=self.model_name, task=self.task)
+        assert olive_model.model_name_or_path == self.model_name
 
 
 class TestHFDummyInput(unittest.TestCase):
@@ -137,14 +152,14 @@ class TestHFDummyInput(unittest.TestCase):
         io_config = olive_model.io_config
         assert io_config == IoConfig(**self.io_config).dict(exclude_none=True)
 
-    @patch("olive.model.handler.mixin.hf.get_hf_model_io_config")
-    def test_hf_config_io_config(self, get_hf_model_io_config):
-        get_hf_model_io_config.return_value = self.io_config
+    @patch("olive.model.handler.mixin.hf.get_model_io_config")
+    def test_hf_config_io_config(self, get_model_io_config):
+        get_model_io_config.return_value = self.io_config
         olive_model = HfModelHandler(model_path=self.model_name, task=self.task)
         # get io config
         io_config = olive_model.io_config
         assert io_config == self.io_config
-        get_hf_model_io_config.assert_called_once_with(self.model_name, self.task)
+        get_model_io_config.assert_called_once_with(self.model_name, self.task)
 
     @patch("olive.data.template.dummy_data_config_template")
     def test_input_shapes_dummy_inputs(self, dummy_data_config_template):
@@ -166,12 +181,12 @@ class TestHFDummyInput(unittest.TestCase):
         data_container.get_first_batch.assert_called_once()
         assert dummy_inputs == 1
 
-    @patch("olive.model.handler.mixin.hf.get_hf_model_dummy_input")
-    def test_hf_onnx_config_dummy_inputs(self, get_hf_model_dummy_input):
-        get_hf_model_dummy_input.return_value = 1
+    @patch("olive.model.handler.mixin.hf.get_model_dummy_input")
+    def test_hf_onnx_config_dummy_inputs(self, get_model_dummy_input):
+        get_model_dummy_input.return_value = 1
         olive_model = HfModelHandler(model_path=self.model_name, task=self.task)
         # get dummy inputs
         dummy_inputs = olive_model.get_dummy_inputs()
 
-        get_hf_model_dummy_input.assert_called_once_with(self.model_name, self.task)
+        get_model_dummy_input.assert_called_once_with(self.model_name, self.task)
         assert dummy_inputs == 1

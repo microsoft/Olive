@@ -6,10 +6,10 @@ from copy import deepcopy
 from typing import Any, Dict, List, Union
 
 from olive.common.config_utils import ConfigBase
+from olive.common.hf.mappings import HIDDEN_SIZE_NAMES, NUM_HEADS_NAMES, NUM_HIDDEN_LAYER_NAMES
 from olive.common.pydantic_v1 import validator
 from olive.common.utils import find_first_matched_value
 from olive.model.config.kv_cache_config import KVCacheConfig
-from olive.model.utils.hf_mappings import HIDDEN_SIZE_NAMES, NUM_HEADS_NAMES, NUM_HIDDEN_LAYER_NAMES
 
 
 class IoConfig(ConfigBase):

@@ -168,7 +168,7 @@ class ModelBuilder(Pass):
             model_path = None
             input_path = str(model.get_resource("model_path"))
         else:
-            model_path = model.model_path
+            model_path = model.model_name_or_path
             input_path = ""
 
         if config.get("int4_block_size"):

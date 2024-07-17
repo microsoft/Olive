@@ -6,14 +6,13 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-from olive.model.utils.hf_utils import (
-    get_hf_model_config,
-    get_hf_model_dummy_input,
-    get_hf_model_generation_config,
-    get_hf_model_io_config,
-    get_hf_model_tokenizer,
-    save_hf_model_config,
-    save_hf_model_tokenizer,
+from olive.common.hf.model_io import get_model_dummy_input, get_model_io_config
+from olive.common.hf.utils import (
+    get_generation_config,
+    get_model_config,
+    get_tokenizer,
+    save_model_config,
+    save_tokenizer,
 )
 
 if TYPE_CHECKING:
@@ -30,15 +29,15 @@ class HfMixin:
         return self.load_kwargs.get_load_kwargs() if self.load_kwargs else {}
 
     def get_hf_model_config(self) -> "PretrainedConfig":
-        return get_hf_model_config(self.model_path, **self.get_load_kwargs())
+        return get_model_config(self.model_path, **self.get_load_kwargs())
 
-    def get_hf_model_generation_config(self) -> "GenerationConfig":
-        return get_hf_model_generation_config(self.model_path, **self.get_load_kwargs())
+    def get_hf_generation_config(self) -> "GenerationConfig":
+        return get_generation_config(self.model_path, **self.get_load_kwargs())
 
-    def get_hf_model_tokenizer(self) -> Union["PreTrainedTokenizer", "PreTrainedTokenizerFast"]:
+    def get_hf_tokenizer(self) -> Union["PreTrainedTokenizer", "PreTrainedTokenizerFast"]:
         # don't provide loading args for tokenizer directly since it tries to serialize all kwargs
         # TODO(anyone): only provide relevant kwargs, no use case for now to provide kwargs
-        return get_hf_model_tokenizer(self.model_path)
+        return get_tokenizer(self.model_path)
 
     def save_metadata(self, output_dir: str, **kwargs) -> List[str]:
         """Save model metadata files to the output directory.
@@ -56,29 +55,29 @@ class HfMixin:
         saved_filepaths = []
 
         # save model config
-        save_hf_model_config(self.get_hf_model_config(), output_dir, **kwargs)
+        save_model_config(self.get_hf_model_config(), output_dir, **kwargs)
         saved_filepaths.append(str(output_dir / "config.json"))
 
         # save model generation config
         # non-generative models won't have generation config
-        generation_config = self.get_hf_model_generation_config()
+        generation_config = self.get_hf_generation_config()
         if generation_config:
-            save_hf_model_config(generation_config, output_dir, **kwargs)
+            save_model_config(generation_config, output_dir, **kwargs)
             saved_filepaths.append(str(output_dir / "generation_config.json"))
 
         # save tokenizer
-        tokenizer_filepaths = save_hf_model_tokenizer(self.get_hf_model_tokenizer(), output_dir, **kwargs)
+        tokenizer_filepaths = save_tokenizer(self.get_hf_tokenizer(), output_dir, **kwargs)
         saved_filepaths.extend([fp for fp in tokenizer_filepaths if Path(fp).exists()])
 
         return saved_filepaths
 
     def get_hf_io_config(self) -> Optional[Dict[str, Any]]:
         """Get Io config for the model."""
-        return get_hf_model_io_config(self.model_path, self.task, **self.get_load_kwargs())
+        return get_model_io_config(self.model_path, self.task, **self.get_load_kwargs())
 
     def get_hf_dummy_inputs(self) -> Optional[Dict[str, Any]]:
         """Get dummy inputs for the model."""
-        return get_hf_model_dummy_input(
+        return get_model_dummy_input(
             self.model_path,
             self.task,
             **self.get_load_kwargs(),

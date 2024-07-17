@@ -9,7 +9,7 @@ from typing import Dict, List, Union
 from olive.auto_optimizer import AutoOptimizerConfig
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
-from olive.common.constants import DEFAULT_WORKFLOW_ID
+from olive.common.constants import DEFAULT_HF_TASK, DEFAULT_WORKFLOW_ID
 from olive.common.pydantic_v1 import Field, validator
 from olive.data.config import DataConfig
 from olive.data.container.dummy_data_container import TRANSFORMER_DUMMY_DATA_CONTAINER
@@ -19,7 +19,6 @@ from olive.engine.cloud_cache_helper import CloudCacheConfig
 from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
-from olive.model.utils import DEFAULT_HF_TASK
 from olive.passes import AbstractPassConfig
 from olive.passes.pass_config import PassParamDefault
 from olive.resource_path import AZUREML_RESOURCE_TYPES

@@ -9,6 +9,8 @@ from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 import torch
 
 from olive.common.config_utils import serialize_to_json, validate_config
+from olive.common.constants import DEFAULT_HF_TASK
+from olive.common.hf.utils import load_model_from_task
 from olive.common.utils import dict_diff
 from olive.constants import Framework
 from olive.hardware.accelerator import Device
@@ -17,7 +19,6 @@ from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
 from olive.model.handler.mixin import HfMixin, MLTransformersFlowMixin
 from olive.model.handler.pytorch import PyTorchModelHandlerBase
-from olive.model.utils.hf_utils import DEFAULT_HF_TASK, load_hf_model_from_task
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 logger = logging.getLogger(__name__)
@@ -50,20 +51,22 @@ class HfModelHandler(PyTorchModelHandlerBase, MLTransformersFlowMixin, HfMixin):
         self.task = task
         self.load_kwargs = validate_config(load_kwargs, HfLoadKwargs, warn_unused_keys=False) if load_kwargs else None
 
-        self.mlflow_model_path = None
-        self.maybe_init_mlflow_transformers()
-
         self.model_attributes = {**self.get_hf_model_config().to_dict(), **(self.model_attributes or {})}
 
         self.model = None
         self.dummy_inputs = None
 
     @property
-    def model_path(self):
-        return self.mlflow_model_path or self.get_resource("model_path")
+    def model_name_or_path(self) -> str:
+        """Return the path to valid hf transformers checkpoint.
+
+        Call this instead of model_path if you expect a checkpoint path.
+        """
+        return self.get_mlflow_transformers_path() or self.model_path
 
     @property
     def adapter_path(self) -> str:
+        """Return the path to the peft adapter."""
         return self.get_resource("adapter_path")
 
     def load_model(self, rank: int = None) -> torch.nn.Module:
@@ -71,7 +74,7 @@ class HfModelHandler(PyTorchModelHandlerBase, MLTransformersFlowMixin, HfMixin):
         if self.model is not None:
             return self.model
 
-        model = load_hf_model_from_task(self.task, self.model_path, **self.get_load_kwargs())
+        model = load_model_from_task(self.task, self.model_path, **self.get_load_kwargs())
 
         # we only have peft adapters for now
         if self.adapter_path:

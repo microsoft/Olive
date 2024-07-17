@@ -94,7 +94,7 @@ class SliceGPT(Pass):
         # this will validate the config and convert to the correct types
         config = self._config_class(**config)
 
-        model_adapter, _ = get_model_and_tokenizer(model_handler.model_path)
+        model_adapter, _ = get_model_and_tokenizer(model_handler.model_name_or_path)
         model_handler.model = model_adapter.model
         model = model_handler.load_model()
 
@@ -154,5 +154,5 @@ class SliceGPT(Pass):
             model_handler,
             output_model_path,
             model_file_format=ModelFileFormat.PYTORCH_SLICE_GPT_MODEL,
-            model_name=model_handler.model_path,
+            model_name=model_handler.model_name_or_path,
         )

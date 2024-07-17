@@ -156,9 +156,9 @@ class AutoAWQQuantizer(Pass):
 
         # autoawq load the model with fp16 by default and they did not expose the interface to change it
         awq_model = AutoAWQForCausalLM.from_pretrained(
-            model.model_path, **self._resolve_load_args(model.get_load_kwargs())
+            model.model_name_or_path, **self._resolve_load_args(model.get_load_kwargs())
         )
-        tokenizer = model.get_hf_model_tokenizer()
+        tokenizer = model.get_hf_tokenizer()
         try:
             awq_model_base.AwqQuantizer = quantizer
             awq_model.quantize(

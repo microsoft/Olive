@@ -5,7 +5,7 @@
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from olive.common.utils import aml_runner_hf_login
+from olive.common.hf.login import aml_runner_hf_login
 from olive.evaluator.metric import Metric
 from olive.hardware import AcceleratorSpec
 from olive.logging import set_verbosity_from_env

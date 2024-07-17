@@ -7,6 +7,7 @@
 from copy import deepcopy
 from typing import Any, Dict, List, Optional
 
+from olive.common.hf.utils import get_model_config, get_tokenizer
 from olive.data.component.dataset import BaseDataset
 from olive.data.component.text_generation import (
     TextGenDatasetType,
@@ -92,10 +93,9 @@ def huggingface_pre_process(
         object: Pre-processed data.
 
     """
-    from transformers import AutoConfig, AutoTokenizer
 
     def _tokenizer_and_align_labels(examples):
-        tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=trust_remote_code)
+        tokenizer = get_tokenizer(model_name, trust_remote_code=trust_remote_code)
         tokenized_inputs = tokenizer(
             *[examples[input_col] for input_col in input_cols],
             padding=kwargs.get("padding", True),
@@ -114,9 +114,7 @@ def huggingface_pre_process(
     # align_labels -> align_labels_with_mapping
     # Also to support customized operation arguments from users
     if kwargs.pop("align_labels", False):
-        model_hf_config = AutoConfig.from_pretrained(
-            model_config_path or model_name, trust_remote_code=trust_remote_code
-        )
+        model_hf_config = get_model_config(model_config_path or model_name, trust_remote_code=trust_remote_code)
         if model_hf_config and model_hf_config.label2id:
             dataset = dataset.align_labels_with_mapping(model_hf_config.label2id, label_cols[0])
 
@@ -132,7 +130,6 @@ def ner_huggingface_preprocess(
     dataset, model_name, input_cols, label_cols, max_samples=None, trust_remote_code=None, **kwargs
 ):
     """Pre-process data for ner task."""
-    from transformers import AutoTokenizer
 
     def _align_labels_with_tokens(labels, word_ids):
         new_labels = []
@@ -156,7 +153,7 @@ def ner_huggingface_preprocess(
         return new_labels
 
     def _tokenizer_and_align_labels(examples):
-        tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=trust_remote_code)
+        tokenizer = get_tokenizer(model_name, trust_remote_code=trust_remote_code)
         tokenized_inputs = tokenizer(
             *[examples[input_col] for input_col in input_cols],
             padding=kwargs.get("padding", True),
@@ -207,15 +204,13 @@ def text_generation_huggingface_pre_process(
             Note: the TextGenCorpusParams and TextGenPairParams subclasses already include the common arguments.
 
     """
-    from transformers import AutoTokenizer
-
     all_kwargs = deepcopy(kwargs)
     # task is not used in the pre-process function. Will pop it so that the config validation doesn't warn about
     # unused kwargs
     all_kwargs.pop("task", None)
     all_kwargs.update({"max_samples": max_samples, "source_max_len": source_max_len})
 
-    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=trust_remote_code)
+    tokenizer = get_tokenizer(model_name, trust_remote_code=trust_remote_code)
 
     if dataset_type == TextGenDatasetType.CORPUS:
         return text_gen_corpus_pre_process(dataset, tokenizer, all_kwargs)
@@ -254,12 +249,12 @@ def audio_classification_pre_process(
 
     """
     from datasets import Audio
-    from transformers import AutoConfig, AutoFeatureExtractor
+    from transformers import AutoFeatureExtractor
 
     assert len(input_cols) == 1, "Only one input column is supported for audio classification task."
 
     # align labels with model configs
-    model_config = AutoConfig.from_pretrained(model_name, trust_remote_code=trust_remote_code)
+    model_config = get_model_config(model_name, trust_remote_code=trust_remote_code)
     labels_to_filter = kwargs.get("labels_to_filter", None) or []
     dataset = dataset.filter(
         lambda x: x not in dataset.features["label"].str2int(labels_to_filter), input_columns=label_cols[0]

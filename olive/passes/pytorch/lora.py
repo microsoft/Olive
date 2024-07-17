@@ -22,6 +22,7 @@ import transformers
 from packaging import version
 
 from olive.common.config_utils import ConfigBase, ConfigWithExtraArgs
+from olive.common.hf.utils import get_peft_task_type_from_task
 from olive.common.pydantic_v1 import Field, validator
 from olive.common.utils import find_submodules, resolve_torch_dtype
 from olive.data.config import DataConfig
@@ -29,7 +30,6 @@ from olive.data.constants import IGNORE_INDEX
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler
 from olive.model.config.hf_config import HfLoadKwargs
-from olive.model.utils.hf_utils import get_peft_task_type_from_task
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 
@@ -808,7 +808,7 @@ class LoRA(LoRABase):
             pytorch_model.to("cuda")
 
         # tokenizer
-        tokenizer = new_model_handler.get_hf_model_tokenizer()
+        tokenizer = new_model_handler.get_hf_tokenizer()
 
         # add lora modules
         pytorch_model = self.enable_lora(
@@ -859,7 +859,7 @@ class QLoRABase(LoRABase):
         config.training_args = config.training_args or HFTrainingArguments()
 
         # get models and tokenizer
-        new_model_handler, pytorch_model, tokenizer, quantized_modules = self.get_model_tokenizer(
+        new_model_handler, pytorch_model, tokenizer, quantized_modules = self.get_tokenizer(
             model, config, output_model_path
         )
 
@@ -872,7 +872,7 @@ class QLoRABase(LoRABase):
         return output_model
 
     @abstractmethod
-    def get_model_tokenizer(
+    def get_tokenizer(
         self, model: HfModelHandler, config: ConfigBase, output_model_path: str
     ) -> Tuple[HfModelHandler, "PreTrainedModel", "PreTrainedTokenizer", List[str]]:
         """Get the model handler, LoRA model and tokenizer for fine-tuning."""
@@ -906,7 +906,7 @@ class QLoRA(QLoRABase):
         config.update(super()._default_config(accelerator_spec))
         return config
 
-    def get_model_tokenizer(
+    def get_tokenizer(
         self, model: HfModelHandler, config: ConfigBase, output_model_path: str
     ) -> Tuple[HfModelHandler, "PreTrainedModel", "PreTrainedTokenizer", List[str]]:
         """Get the model handler, LoRA model and tokenizer for QLoRA fine-tuning.
@@ -937,7 +937,7 @@ class QLoRA(QLoRABase):
         logger.debug("Quantized modules: %s", quantized_modules)
 
         # tokenizer
-        tokenizer = new_model_handler.get_hf_model_tokenizer()
+        tokenizer = new_model_handler.get_hf_tokenizer()
 
         # enable lora fine-tuning with new lora modules
         pytorch_model = self.enable_lora(
@@ -977,7 +977,7 @@ class LoftQ(QLoRABase):
         if version.parse(peft_version) < version.parse("0.7.0"):
             raise ImportError(f"Please install peft >= 0.7.0 to use {cls.__name__} pass.")
 
-    def get_model_tokenizer(
+    def get_tokenizer(
         self, model: HfModelHandler, config: ConfigBase, output_model_path: str
     ) -> Tuple[HfModelHandler, "PreTrainedModel", "PreTrainedTokenizer", List[str]]:
         """Get the model handler, LoRA model and tokenizer for LoftQ fine-tuning.
@@ -1047,7 +1047,7 @@ class LoftQ(QLoRABase):
         pytorch_model.config.torch_dtype = pytorch_model.dtype
 
         # tokenizer
-        tokenizer = new_model_handler.get_hf_model_tokenizer()
+        tokenizer = new_model_handler.get_hf_tokenizer()
 
         # enable lora fine-tuning with the loftq initialized adapter weights
         pytorch_model = self.enable_lora(

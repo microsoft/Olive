@@ -94,7 +94,7 @@ class OptimumConversion(Pass):
 
         # export directly to the output path
         # TODO(anyone): consider using a temporary directory to export the model and then save the relevant components
-        export_optimum_model(model.model_path, output_model_path, **extra_args)
+        export_optimum_model(model.model_name_or_path, output_model_path, **extra_args)
 
         # check the exported components
         exported_models = [name.stem for name in Path(output_model_path).iterdir() if name.suffix == ".onnx"]
