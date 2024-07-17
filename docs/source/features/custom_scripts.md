@@ -11,8 +11,6 @@ You can define your custom functions, and use them as attributes in configuratio
 
 Olive supports following custom attributes in different configurations:
 
-* `dataloader_func`: function name of your dataloader function.
-* `post_processing_func`: function name of your post processing function.
 * `evaluate_func`: function name of your evaluate function.
 * `metric_func`: function name of your metric function (`OpenVINOQuantization` pass only).
 
@@ -20,12 +18,14 @@ Olive supports following custom attributes in different configurations:
 
 ### Examples
 
-You can create your own `my_script.py` with `dataloader_func` and `post_processing_func`:
+You can create your own `my_script.py` with `dataloader` and `post_process`:
 ```python
 # my_script.py
 
+from olive.data.registry import Registry
+
 class MyDataLoader:
-    def __init__(self, data_dir, batch_size):
+    def __init__(self, dataset, batch_size):
         ...
 
     def __len__(self):
@@ -34,10 +34,12 @@ class MyDataLoader:
     def __getitem__(self):
         ...
 
-def create_dataloader(data_dir, batch_size):
-    return MyDataloader(data_dir, batch_size)
+@Registry.register_dataloader()
+def my_dataloader(dataset, batch_size):
+    return MyDataloader(dataset, batch_size)
 
-def post_process(output):
+@Registry.register_post_process()
+def my_post_process(output):
     # your post processing logic here
     ...
 ```
@@ -45,21 +47,27 @@ def post_process(output):
 Use `my_script.py` with Olive workflow configuration json file(sub_types name should be the returned dict key of your custom function):
 
 ```json
+"data_configs": [
+    {
+        "name": "accuracy_data_config",
+        "type": "HuggingfaceContainer",
+        "user_script": "user_script.py",
+        "load_dataset_config": { "type": "skip_dataset" },
+        "pre_process_data_config": { "type": "skip_pre_process" },
+        "post_process_data_config": { "type": "my_post_process" },
+        "dataloader_config": { "type": "my_dataloader", "params": { "batch_size": 4 } }
+    }
+],
 "metrics":[
     {
         "name": "accuracy",
         "type": "accuracy",
+        "data_config": "accuracy_data_config",
         "sub_types": [
             {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
             {"name": "f1_score"},
             {"name": "auroc"}
-        ],
-        "user_config":{
-            "post_processing_func": "post_process",
-            "user_script": "user_script.py",
-            "dataloader_func": "create_dataloader",
-            "batch_size": 4
-        }
+        ]
     }
 ]
 ```
@@ -97,22 +105,28 @@ print(file.my_val)
 Use `script_dir` and `my_script.py` with Olive workflow configuration json file:
 
 ```json
+"data_configs": [
+    {
+        "name": "accuracy_data_config",
+        "type": "HuggingfaceContainer",
+        "user_script": "user_script.py",
+        "script_dir": "my_modules",
+        "load_dataset_config": { "type": "skip_dataset" },
+        "pre_process_data_config": { "type": "skip_pre_process" },
+        "post_process_data_config": { "type": "my_post_process" },
+        "dataloader_config": { "type": "my_dataloader", "params": { "batch_size": 4 } }
+    }
+],
 "metrics":[
     {
         "name": "accuracy",
         "type": "accuracy",
+        "data_config": "accuracy_data_config",
         "sub_types": [
             {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
             {"name": "f1_score"},
             {"name": "auroc"}
         ]
-        "user_config":{
-            "post_processing_func": "post_process",
-            "user_script": "user_script.py",
-            "script_dir": "my_modules"
-            "dataloader_func": "create_dataloader",
-            "batch_size": 4
-        }
     }
 ]
 ```

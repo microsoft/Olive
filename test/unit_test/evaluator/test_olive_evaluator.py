@@ -297,12 +297,10 @@ class TestOliveEvaluator:
 
         # execute
         _, eval_func, _ = OliveEvaluator.get_user_config(None, metric)
-        eval_func("model", "data_dir", "batch_size", "device", "execution_providers")
+        eval_func("model", "device", "execution_providers")
 
         # assert
-        evaluate_func.assert_called_once_with(
-            "model", "data_dir", "batch_size", "device", "execution_providers", **(evaluate_func_kwargs or {})
-        )
+        evaluate_func.assert_called_once_with("model", "device", "execution_providers", **(evaluate_func_kwargs or {}))
 
     @patch("onnxruntime.InferenceSession")
     def test_evaluate_latency_with_tunable_op(self, inference_session_mock):

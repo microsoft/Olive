@@ -15,6 +15,7 @@
                 "label_cols": [ "label" ],
                 "max_samples": 100
             },
+            "post_process_data_config": { "type": "bert_post_process" },
             "dataloader_config": { "batch_size": 1 }
         }
     ],
@@ -31,8 +32,7 @@
                             "priority": 1,
                             "goal": { "type": "percent-max-degradation", "value": 2 }
                         }
-                    ],
-                    "user_config": { "post_processing_func": "post_process", "user_script": "user_script.py" }
+                    ]
                 },
                 {
                     "name": "latency",
@@ -60,19 +60,14 @@
             "metric": {
                 "name": "accuracy",
                 "type": "accuracy",
+                "data_config": "glue_mrpc",
                 "sub_types": [
                     {
                         "name": "accuracy_score",
                         "priority": 1,
                         "goal": { "type": "percent-max-degradation", "value": 2 }
                     }
-                ],
-                "user_config": {
-                    "post_processing_func": "post_process",
-                    "user_script": "user_script.py",
-                    "dataloader_func": "create_dataloader",
-                    "batch_size": 1
-                }
+                ]
             }
         }
     },

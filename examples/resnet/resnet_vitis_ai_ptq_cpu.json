@@ -32,7 +32,6 @@
                 {
                     "name": "accuracy",
                     "type": "custom",
-                    "data_config": "cifar10_data_config",
                     "sub_types": [
                         {
                             "name": "accuracy_custom",
@@ -41,18 +40,18 @@
                             "goal": { "type": "max-degradation", "value": 0.1 }
                         }
                     ],
-                    "user_config": { "user_script": "user_script.py", "evaluate_func": "eval_accuracy" }
+                    "user_config": {
+                        "user_script": "user_script.py",
+                        "evaluate_func": "eval_accuracy",
+                        "evaluate_func_kwargs": { "data_dir": "data", "batch_size": 1 }
+                    }
                 },
                 {
                     "name": "latency",
                     "type": "latency",
                     "data_config": "cifar10_data_config",
                     "sub_types": [
-                        {
-                            "name": "avg",
-                            "priority": 2,
-                            "goal": { "type": "percent-min-improvement", "value": 10 }
-                        }
+                        { "name": "avg", "priority": 2, "goal": { "type": "percent-min-improvement", "value": 10 } }
                     ]
                 }
             ]

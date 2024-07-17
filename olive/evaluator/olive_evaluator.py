@@ -142,15 +142,7 @@ class OliveEvaluator(ABC):
     ) -> MetricResult:
         raw_res = None
         if metric.user_config.evaluate_func:
-            data_dir = metric.data_config.load_dataset_params.get("data_dir") if metric.data_config else None
-            batch_size = metric.data_config.dataloader_params.get("batch_size", 1) if metric.data_config else 1
-            raw_res = eval_func(
-                model,
-                data_dir,
-                batch_size,
-                device,
-                execution_providers,
-            )
+            raw_res = eval_func(model, device, execution_providers)
         else:
             inference_output, targets = self._inference(
                 model, metric, dataloader, post_func, device, execution_providers
@@ -483,7 +475,6 @@ class OnnxEvaluator(OliveEvaluator, OnnxEvaluatorMixin, framework=Framework.ONNX
         execution_providers: Union[str, List[str]] = None,
     ) -> List[float]:
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
-
         session, inference_settings = OnnxEvaluator.get_session_wrapper(
             model, metric, dataloader, device, execution_providers
         )

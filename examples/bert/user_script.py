@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import copy
-from typing import Union
 
 import numpy as np
 import torch
@@ -111,7 +110,8 @@ class BertDatasetWrapper(Dataset):
 # -------------------------------------------------------------------------
 
 
-def post_process(output):
+@Registry.register_post_process()
+def bert_post_process(output):
     if isinstance(output, transformers.modeling_outputs.SequenceClassifierOutput):
         _, preds = torch.max(output[0], dim=1)
     else:
@@ -124,13 +124,13 @@ def post_process(output):
 # -------------------------------------------------------------------------
 
 
-@Registry.register_dataset("bert_dataset")
-def create_dataset(data_name: str, split: str, language: str, token: Union[bool, str] = True):
+@Registry.register_dataset()
+def bert_dataset(data_name: str):
     return BertDataset(data_name).get_eval_dataset()
 
 
-@Registry.register_dataloader("bert_dataloader")
-def create_dataloader(dataset, batch_size, *args, **kwargs):
+@Registry.register_dataloader()
+def bert_dataloader(dataset, batch_size, **kwargs):
     return torch.utils.data.DataLoader(BertDatasetWrapper(dataset), batch_size=batch_size, drop_last=True)
 
 
@@ -160,10 +160,10 @@ class IncBertDataset:
         return input_dict, label
 
 
-def inc_glue_calibration_reader(data_dir, batch_size, *args, **kwargs):
-    bert_dataset = BertDataset("Intel/bert-base-uncased-mrpc")
-    bert_dataset = IncBertDataset(bert_dataset.get_eval_dataset())
-    return DefaultDataLoader(dataset=bert_dataset, batch_size=batch_size)
+def inc_glue_calibration_reader(data_dir, batch_size, **kwargs):
+    dataset = BertDataset("Intel/bert-base-uncased-mrpc")
+    dataset = IncBertDataset(dataset.get_eval_dataset())
+    return DefaultDataLoader(dataset=dataset, batch_size=batch_size)
 
 
 # -------------------------------------------------------------------------
@@ -171,8 +171,9 @@ def inc_glue_calibration_reader(data_dir, batch_size, *args, **kwargs):
 # -------------------------------------------------------------------------
 
 
-def eval_accuracy(model: OliveModelHandler, data_dir, batch_size, device, execution_providers):
-    dataloader = create_dataloader(data_dir, batch_size)
+def eval_accuracy(model: OliveModelHandler, device, execution_providers, batch_size, **kwargs):
+    dataset = bert_dataset("Intel/bert-base-uncased-mrpc")
+    dataloader = bert_dataloader(dataset, batch_size)
     preds = []
     target = []
     sess = model.prepare_session(inference_settings=None, device=device, execution_providers=execution_providers)
@@ -190,13 +191,13 @@ def eval_accuracy(model: OliveModelHandler, data_dir, batch_size, device, execut
                 result = torch.Tensor(res[0])
             else:
                 result = torch.Tensor(res)
-            outputs = post_process(result)
+            outputs = bert_post_process(result)
             preds.extend(outputs.tolist())
             target.extend(labels.data.tolist())
     elif model.framework == Framework.PYTORCH:
         for inputs, labels in dataloader:
             result = model.run_session(sess, inputs)
-            outputs = post_process(result)
+            outputs = bert_post_process(result)
             preds.extend(outputs.tolist())
             target.extend(labels.data.tolist())
 
@@ -235,16 +236,16 @@ def training_loop_func(model):
     training_args.save_total_limit = 1
     training_args.metric_for_best_model = "accuracy"
 
-    bert_dataset = BertDataset("Intel/bert-base-uncased-mrpc")
+    dataset = BertDataset("Intel/bert-base-uncased-mrpc")
 
     trainer = Trainer(
         model=model,
         args=training_args,
-        train_dataset=bert_dataset.get_train_dataset(),
-        eval_dataset=bert_dataset.get_eval_dataset(),
+        train_dataset=dataset.get_train_dataset(),
+        eval_dataset=dataset.get_eval_dataset(),
         compute_metrics=compute_metrics,
-        tokenizer=bert_dataset.tokenizer,
-        data_collator=bert_dataset.data_collator,
+        tokenizer=dataset.tokenizer,
+        data_collator=dataset.data_collator,
     )
 
     trainer.train(resume_from_checkpoint=None)

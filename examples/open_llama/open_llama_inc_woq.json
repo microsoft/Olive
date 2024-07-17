@@ -24,7 +24,7 @@
                     "user_config": {
                         "user_script": "user_script.py",
                         "evaluate_func": "eval_accuracy",
-                        "batch_size": 64
+                        "evaluate_func_kwargs": { "batch_size": 64 }
                     }
                 }
             ]
