@@ -8,8 +8,8 @@ import pytest
 import torch
 from transformers.onnx import OnnxConfig
 
-from olive.common.hf.utils import load_model_from_task
 from olive.common.hf.model_io import get_onnx_config
+from olive.common.hf.utils import load_model_from_task
 
 
 def test_load_model_from_task():
