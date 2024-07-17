@@ -16,29 +16,15 @@ from olive.data.component.text_generation import (
 from olive.data.registry import Registry
 
 
+@Registry.register_pre_process()
 @Registry.register_default_pre_process()
+@Registry.register_pre_process("skip_pre_process")
 def pre_process(dataset, **kwargs):
     """Pre-process data.
 
     Args:
         dataset (object): Data to be pre-processed, reserved for internal dataset assignment.
         **kwargs: Additional arguments.
-
-    Returns:
-        object: Pre-processed data.
-
-    """
-    return dataset
-
-
-@Registry.register_pre_process()
-def skip_pre_process(dataset, *args, **kwargs):
-    """Pre-process data.
-
-    Args:
-        dataset (object): Data to be pre-processed, reserved for internal dataset assignment.
-        *args: Additional unnamed arguments.
-        **kwargs: Additional named arguments.
 
     Returns:
         object: Pre-processed data.

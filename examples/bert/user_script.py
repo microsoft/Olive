@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import copy
+from typing import Union
 
 import numpy as np
 import torch
@@ -147,20 +148,14 @@ def post_process(output):
 # -------------------------------------------------------------------------
 
 
-@Registry.register_dataset()
-def create_bert_dataset(data_dir, *args, **kwargs):
-    return BertDataset("Intel/bert-base-uncased-mrpc")
+@Registry.register_dataset("bert_dataset")
+def create_dataset(data_name: str, split: str, language: str, token: Union[bool, str] = True):
+    return BertDataset(data_name).get_eval_dataset()
 
 
-@Registry.register_dataloader()
-def create_bert_dataloader(dataset, batch_size, *args, **kwargs):
-    return torch.utils.data.DataLoader(
-        BertDatasetWrapper(dataset.get_eval_dataset()), batch_size=batch_size, drop_last=True
-    )
-
-
-def create_dataloader(data_dir, batch_size, *args, **kwargs):
-    return create_bert_dataloader(create_bert_dataset(data_dir), batch_size, *args, **kwargs)
+@Registry.register_dataloader("bert_dataloader")
+def create_dataloader(dataset, batch_size, *args, **kwargs):
+    return torch.utils.data.DataLoader(BertDatasetWrapper(dataset), batch_size=batch_size, drop_last=True)
 
 
 # -------------------------------------------------------------------------

@@ -8,6 +8,7 @@ from test.integ_test.utils import download_azure_blob
 from torchvision import datasets
 from torchvision.transforms import ToTensor
 
+from olive.data.config import DataComponentConfig, DataConfig
 from olive.engine import Engine
 from olive.engine.cloud_cache_helper import CloudCacheConfig
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
@@ -27,24 +28,31 @@ def get_directories():
     data_dir = current_dir / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
 
-    return current_dir, models_dir, data_dir
+    user_script = current_dir / "user_script.py"
+
+    return current_dir, models_dir, data_dir, user_script
 
 
-current_dir, models_dir, data_dir = get_directories()
-user_script = str(current_dir / "user_script.py")
+_current_dir, _models_dir, _data_dir, _user_script = get_directories()
 
 
 def get_latency_metric():
-    latency_metric_config = {
-        "user_script": user_script,
-        "data_dir": str(data_dir),
-        "dataloader_func": "create_dataloader",
-    }
+    data_config = DataConfig(
+        name="latency_metric_data_config",
+        type="HuggingfaceContainer",
+        user_script=str(_user_script),
+        load_dataset_config=DataComponentConfig(
+            type="mnist_dataset_for_multiple_ep",
+            params={"data_dir": str(_data_dir)},
+        ),
+        pre_process_data_config=DataComponentConfig(type="skip_pre_process"),
+        post_process_data_config=DataComponentConfig(type="skip_post_process"),
+    )
     return Metric(
         name="latency",
         type=MetricType.LATENCY,
         sub_types=[{"name": LatencySubType.AVG}],
-        user_config=latency_metric_config,
+        data_config=data_config,
     )
 
 
@@ -52,24 +60,24 @@ def download_models():
     pytorch_model_config = {
         "container": "olivetest",
         "blob": "models/model.pt",
-        "download_path": models_dir / "model.pt",
+        "download_path": str(_models_dir / "model.pt"),
     }
     download_azure_blob(**pytorch_model_config)
 
     onnx_model_config = {
         "container": "olivetest",
         "blob": "models/model.onnx",
-        "download_path": models_dir / "model.onnx",
+        "download_path": str(_models_dir / "model.onnx"),
     }
     download_azure_blob(**onnx_model_config)
 
 
 def download_data():
-    datasets.MNIST(data_dir, download=True, transform=ToTensor())
+    datasets.MNIST(str(_data_dir), download=True, transform=ToTensor())
 
 
 def get_onnx_model():
-    return str(models_dir / "model.onnx")
+    return str(_models_dir / "model.onnx")
 
 
 def create_and_run_workflow(tmp_path, system_config, model_config, metric, only_target=False):

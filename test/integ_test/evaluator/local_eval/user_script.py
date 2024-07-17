@@ -9,24 +9,24 @@ from torchvision.transforms import ToTensor
 from olive.data.registry import Registry
 
 
+@Registry.register_dataset()
+def mnist_dataset_for_local_eval(data_dir):
+    return datasets.MNIST(data_dir, train=True, download=True, transform=ToTensor())
+
+
 @Registry.register_post_process()
-def mnist_post_process_for_docker_eval(res):
+def mnist_post_process_for_local_eval(res):
     return res.argmax(1)
 
 
 @Registry.register_post_process()
-def mnist_post_process_openvino_for_docker_eval(res):
+def mnist_post_process_openvino_for_local_eval(res):
     res = next(iter(res))
     return [res.argmax()]
 
 
-@Registry.register_dataset()
-def mnist_dataset_for_docker_eval(data_dir):
-    return datasets.MNIST(data_dir, transform=ToTensor())
-
-
 @Registry.register_post_process()
-def mnist_post_process_hf_for_docker_eval(res):
+def prajjwal1_post_process_for_local_eval(res):
     import transformers
 
     if isinstance(res, transformers.modeling_outputs.SequenceClassifierOutput):
@@ -37,7 +37,7 @@ def mnist_post_process_hf_for_docker_eval(res):
 
 
 @Registry.register_dataset()
-def prajjwal1_dataset_for_docker_eval(data_dir, *args, **kwargs):
+def prajjwal1_dataset_for_local_eval(data_dir, *args, **kwargs):
     from datasets import load_dataset
     from torch.utils.data import Dataset
     from transformers import AutoTokenizer

@@ -7,6 +7,7 @@ from whisper_dataset import WhisperDataset
 from whisper_decoder import WhisperDecoder, WhisperDecoderInputs
 from whisper_encoder_decoder_init import WhisperEncoderDecoderInit, WhisperEncoderDecoderInitInputs
 
+from olive.data.registry import Registry
 from olive.model import PyTorchModelHandler
 
 
@@ -166,7 +167,8 @@ def decoder_dummy_inputs(olive_model: PyTorchModelHandler):
     return tuple(inputs.to_list())
 
 
-def whisper_dataloader(data_dir, batch_size, *args, **kwargs):
+@Registry.register_dataset()
+def whisper_dataset(data_dir, **kwargs):
     model_name = kwargs["model_name"]
     use_audio_decoder = kwargs["use_audio_decoder"]
     predict_timestamps = kwargs.get("predict_timestamps", False)

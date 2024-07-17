@@ -14,8 +14,6 @@ from test.integ_test.evaluator.local_eval.utils import (
     get_onnx_model,
     get_openvino_model,
     get_pytorch_model,
-    openvino_post_process,
-    post_process,
 )
 from typing import ClassVar, List
 
@@ -37,13 +35,18 @@ class TestLocalEvaluation:
         delete_directories()
 
     EVALUATION_TEST_CASE: ClassVar[List] = [
-        ("PyTorchModel", get_pytorch_model, partial(get_accuracy_metric, post_process), 0.99),
+        ("PyTorchModel", get_pytorch_model, partial(get_accuracy_metric, "mnist_post_process_for_local_eval"), 0.99),
         ("PyTorchModel", get_pytorch_model, get_latency_metric, 0.001),
         ("PyTorchModel", get_huggingface_model, get_hf_accuracy_metric, 0.1),
         ("PyTorchModel", get_huggingface_model, get_hf_latency_metric, 0.001),
-        ("ONNXModel", get_onnx_model, partial(get_accuracy_metric, post_process), 0.99),
+        ("ONNXModel", get_onnx_model, partial(get_accuracy_metric, "mnist_post_process_for_local_eval"), 0.99),
         ("ONNXModel", get_onnx_model, get_latency_metric, 0.001),
-        ("OpenVINOModel", get_openvino_model, partial(get_accuracy_metric, openvino_post_process), 0.99),
+        (
+            "OpenVINOModel",
+            get_openvino_model,
+            partial(get_accuracy_metric, "mnist_post_process_openvino_for_local_eval"),
+            0.99,
+        ),
         ("OpenVINOModel", get_openvino_model, get_latency_metric, 0.001),
     ]
 

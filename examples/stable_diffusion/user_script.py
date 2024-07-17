@@ -9,6 +9,8 @@ from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionS
 from huggingface_hub import model_info
 from transformers.models.clip.modeling_clip import CLIPTextModel
 
+from olive.data.registry import Registry
+
 
 # Helper latency-only dataloader that creates random tensors with no label
 class RandomDataLoader:
@@ -135,7 +137,8 @@ def text_encoder_conversion_inputs(model=None):
     return text_encoder_inputs(1, torch.int32)
 
 
-def text_encoder_data_loader(data_dir, batch_size, *args, **kwargs):
+@Registry.register_dataloader()
+def text_encoder_data_loader(dataset, batch_size, *args, **kwargs):
     return RandomDataLoader(text_encoder_inputs, batch_size, torch.int32)
 
 
@@ -194,7 +197,8 @@ def unet_conversion_inputs(model=None):
     return tuple(unet_inputs(1, torch.float32, True).values())
 
 
-def unet_data_loader(data_dir, batch_size, *args, **kwargs):
+@Registry.register_dataloader()
+def unet_data_loader(dataset, batch_size, *args, **kwargs):
     return RandomDataLoader(unet_inputs, batch_size, torch.float16)
 
 
@@ -218,7 +222,8 @@ def vae_encoder_conversion_inputs(model=None):
     return tuple(vae_encoder_inputs(1, torch.float32).values())
 
 
-def vae_encoder_data_loader(data_dir, batch_size, *args, **kwargs):
+@Registry.register_dataloader()
+def vae_encoder_data_loader(dataset, batch_size, *args, **kwargs):
     return RandomDataLoader(vae_encoder_inputs, batch_size, torch.float16)
 
 
@@ -246,7 +251,8 @@ def vae_decoder_conversion_inputs(model=None):
     return tuple(vae_decoder_inputs(1, torch.float32).values())
 
 
-def vae_decoder_data_loader(data_dir, batch_size, *args, **kwargs):
+@Registry.register_dataloader()
+def vae_decoder_data_loader(dataset, batch_size, *args, **kwargs):
     return RandomDataLoader(vae_decoder_inputs, batch_size, torch.float16)
 
 
@@ -273,5 +279,6 @@ def safety_checker_conversion_inputs(model=None):
     return tuple(safety_checker_inputs(1, torch.float32).values())
 
 
-def safety_checker_data_loader(data_dir, batch_size, *args, **kwargs):
+@Registry.register_dataloader()
+def safety_checker_data_loader(dataset, batch_size, *args, **kwargs):
     return RandomDataLoader(safety_checker_inputs, batch_size, torch.float16)
