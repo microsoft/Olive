@@ -4,12 +4,14 @@
 # --------------------------------------------------------------------------
 import json
 import logging
+import os
 import shutil
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional, Union
 
 from olive.common.config_utils import ConfigBase, convert_configs_to_dicts, serialize_to_json, validate_config
+from olive.common.constants import DEFAULT_CACHE_DIR, DEFAULT_WORKFLOW_ID
 from olive.common.utils import hash_dict, set_nested_dict_value
 from olive.resource_path import ResourcePath, create_resource_path, find_all_resources
 
@@ -25,6 +27,7 @@ class CacheSubDirs:
     runs: Path
     evaluations: Path
     resources: Path
+    mlflow: Path
 
 
 class OliveCache:
@@ -41,6 +44,7 @@ class OliveCache:
             runs=self.cache_dir / "runs",
             evaluations=self.cache_dir / "evaluations",
             resources=self.cache_dir / "resources",
+            mlflow=self.cache_dir / "mlflow",
         )
 
         if clean_evaluation_cache and self.dirs.evaluations.exists():
@@ -289,3 +293,17 @@ class OliveCache:
             json.dump(model_json, f, indent=4)
 
         return model_json
+
+    def set_cache_env(self):
+        """Set environment variable for the cache directory."""
+        os.environ["OLIVE_CACHE_DIR"] = str(self.cache_dir)
+        logger.debug("Set OLIVE_CACHE_DIR: %s", self.cache_dir)
+
+    @classmethod
+    def from_cache_env(cls) -> "OliveCache":
+        """Create an OliveCache object from the cache directory environment variable."""
+        cache_dir = os.environ.get("OLIVE_CACHE_DIR")
+        if cache_dir is None:
+            logger.debug("OLIVE_CACHE_DIR environment variable not set. Using default cache directory.")
+            cache_dir = Path(DEFAULT_CACHE_DIR).resolve() / DEFAULT_WORKFLOW_ID
+        return cls(cache_dir)

@@ -14,6 +14,8 @@ class OS(str, Enum):
 
 DEFAULT_WORKFLOW_ID = "default_workflow"
 
+DEFAULT_CACHE_DIR = ".olive-cache"
+
 
 ############# Packaging #############
 

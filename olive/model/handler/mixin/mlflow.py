@@ -9,6 +9,7 @@ from pathlib import Path
 import yaml
 
 # from olive.cache import get_cache_sub_dirs
+from olive.cache import OliveCache
 from olive.common.utils import hardlink_copy_dir, hash_string
 
 logger = logging.getLogger(__name__)
@@ -56,8 +57,8 @@ class MLFlowMixin:
             return
 
         # have to gather all contents into a single directory
-        mlflow_cache_dir = Path(get_cache_sub_dirs()["mlflow"])
-        mflow_model_path = mlflow_cache_dir / hash_string(str(parent_dir))
+        cache = OliveCache.from_cache_env()
+        mflow_model_path = cache.dirs.mlflow / hash_string(str(parent_dir))
         if (mflow_model_path / "config.json").exists():
             logger.debug("MLFlow model already exists in cache. Reusing it.")
         else:

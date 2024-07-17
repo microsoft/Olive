@@ -12,10 +12,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 
+from olive.cache import OliveCache
 from olive.common.config_utils import validate_config
-from olive.common.constants import DEFAULT_WORKFLOW_ID
+from olive.common.constants import DEFAULT_CACHE_DIR, DEFAULT_WORKFLOW_ID
 from olive.common.utils import hash_dict
-from olive.engine.cache import OliveCache
 from olive.engine.cloud_cache_helper import (
     CloudCacheHelper,
     check_model_cache,
@@ -59,7 +59,7 @@ class Engine:
         host: Optional[Union[Dict[str, Any], "SystemConfig"]] = None,
         target: Optional[Union[Dict[str, Any], "SystemConfig"]] = None,
         evaluator: Optional[Union[Dict[str, Any], "OliveEvaluatorConfig"]] = None,
-        cache_dir: str = ".olive-cache",
+        cache_dir: str = DEFAULT_CACHE_DIR,
         clean_cache: bool = False,
         clean_evaluation_cache: bool = False,
         plot_pareto_frontier: bool = False,
@@ -111,6 +111,10 @@ class Engine:
 
     def initialize(self):
         """Initialize engine state. This should be done before running the registered passes."""
+        # set cache dir environment variables
+        # might be used by other parts of olive to cache data
+        self.cache.set_cache_env()
+
         # clean pass run cache if requested
         # removes all run cache for pass type and all children elements
         for pass_config in self.pass_config.values():
