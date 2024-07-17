@@ -14,7 +14,7 @@ from olive.common.utils import hardlink_copy_dir, hash_string
 logger = logging.getLogger(__name__)
 
 
-class MLTransformersFlowMixin:
+class MLFlowTransformersMixin:
     def get_mlflow_transformers_path(self) -> Optional[str]:
         if not is_mlflow_transformers(self.model_path):
             return None

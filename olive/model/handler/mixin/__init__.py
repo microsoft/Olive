@@ -7,7 +7,7 @@ from olive.model.handler.mixin.hf import HfMixin
 from olive.model.handler.mixin.io_config import IoConfigMixin
 from olive.model.handler.mixin.json import JsonMixin
 from olive.model.handler.mixin.kv_cache import PytorchKvCacheMixin
-from olive.model.handler.mixin.mlflow import MLTransformersFlowMixin
+from olive.model.handler.mixin.mlflow import MLFlowTransformersMixin
 from olive.model.handler.mixin.onnx_ep import OnnxEpValidateMixin
 from olive.model.handler.mixin.onnx_graph import OnnxGraphMixin
 from olive.model.handler.mixin.resource import ResourceMixin
@@ -17,7 +17,7 @@ __all__ = [
     "HfMixin",
     "IoConfigMixin",
     "JsonMixin",
-    "MLTransformersFlowMixin",
+    "MLFlowTransformersMixin",
     "OnnxEpValidateMixin",
     "OnnxGraphMixin",
     "PytorchKvCacheMixin",
