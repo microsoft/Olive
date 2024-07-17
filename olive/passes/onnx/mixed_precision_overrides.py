@@ -18,13 +18,13 @@ from olive.passes.pass_config import PassConfigParam
 logger = getLogger(__name__)
 
 
-class QNNMixedPrecisionOverrides(Pass):
+class MixedPrecisionOverrides(Pass):
     """Qnn mixed precision overrides pass.
 
-    Preprocesses the model for mixed precision quantization by resolving
+    Pre-processes the model for mixed precision quantization by resolving
     constraints that each operator has when being converted to QNN operator
     Constraints refer to situations where certain tensor cannot be quantized
-    to 16 bits standalone but rather neighbouring tensors as well in order
+    to 16 bits standalone but rather neighboring tensors as well in order
     to have valid operators.
 
     Specific problem that arises here is the situation where certain tensor
@@ -59,11 +59,11 @@ class QNNMixedPrecisionOverrides(Pass):
     ) -> ONNXModelHandler:
         """Run for config.
 
-        Preprocesses the model for mixed precision quantization by
+        Pre-processes the model for mixed precision quantization by
         resolving constraints that each operator has when being converted
         to QNN operator. Constraints refer to situations where certain
         tensor cannot be quantized to 16 bits standalone but rather
-        neighbouring tensors as well in order to have valid operators
+        neighboring tensors as well in order to have valid operators
 
         Specific problem that arises here is the situation where certain
         tensor can be input to multiple nodes and each node requires
@@ -72,9 +72,12 @@ class QNNMixedPrecisionOverrides(Pass):
         NOTE: This function handles just initializer tensors as activation
         tensors are handled by onnxruntime
         args:
-            model_input: path to onnx model
-            activations_16bit: path to mixed precision overrides json {tensor_name: quant_type}
-            model_output: path to save the modified model
+            model: ONNXModelHandler
+                ONNXModelHandler object
+            config: Dict[str, Any]
+                Configuration for the pass
+            output_model_path: str
+                Output model path
         """
         import onnx
         from onnxruntime.quantization import QuantType
