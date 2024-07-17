@@ -15,8 +15,8 @@ from olive.common.utils import hardlink_copy_dir, hash_string
 logger = logging.getLogger(__name__)
 
 
-class MLFlowMixin:
-    def maybe_init_mlflow(self):
+class MLTransformersFlowMixin:
+    def maybe_init_mlflow_transformers(self):
         """Initialize MLFlow model if the model is saved in MLFlow format."""
         parent_dir = Path(self.get_resource("model_path")).resolve()
 
@@ -46,22 +46,22 @@ class MLFlowMixin:
 
         # some mlflow models only have model directory
         if not config_dir.exists() and not tokenizer_dir.exists():
-            self.mlflow_model_path = str(model_dir)
+            self.mlflow_transformers_path = str(model_dir)
             return
 
         # some mlflow models have config and tokenizer directories but model directory also
         # contains the same files
         model_dir_contents = set(model_dir.iterdir())
         if set(config_dir.iterdir()) <= model_dir_contents and set(tokenizer_dir.iterdir()) <= model_dir_contents:
-            self.mlflow_model_path = str(model_dir)
+            self.mlflow_transformers_path = str(model_dir)
             return
 
         # have to gather all contents into a single directory
         cache = OliveCache.from_cache_env()
-        mflow_model_path = cache.dirs.mlflow / hash_string(str(parent_dir))
-        if (mflow_model_path / "config.json").exists():
+        mlflow_transformers_path = cache.dirs.mlflow / hash_string(str(parent_dir))
+        if (mlflow_transformers_path / "config.json").exists():
             logger.debug("MLFlow model already exists in cache. Reusing it.")
         else:
             for src_dir in [model_dir, config_dir, tokenizer_dir]:
-                hardlink_copy_dir(src_dir, mflow_model_path)
-        self.mlflow_model_path = str(mflow_model_path)
+                hardlink_copy_dir(src_dir, mlflow_transformers_path)
+        self.mlflow_transformers_path = str(mlflow_transformers_path)

@@ -77,12 +77,6 @@ class KVCacheConfig(ConfigBase):
     def get_ort_past_kv_names(self):
         return self._get_kv_names("inputs")
 
-    def get_ort_past_key_names(self):
-        return self._get_k_names("inputs")
-
-    def get_ort_past_value_names(self):
-        return self._get_v_names("inputs")
-
     def get_ort_present_kv_names(self):
         return self._get_kv_names("outputs")
 
