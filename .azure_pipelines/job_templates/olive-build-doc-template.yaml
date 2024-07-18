@@ -33,6 +33,8 @@ jobs:
       displayName: Install Olive
 
     - script: |
+        # set -e, otherwise make html fails but the build continues
+        set -e
         cd docs
         python -m pip install -r requirements.txt
         make html
