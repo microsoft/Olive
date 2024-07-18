@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
-from olive.common.constants import HF_LOGIN, KEYVAULT_NAME, OS
+from olive.common.constants import OS
 
 logger = logging.getLogger(__name__)
 

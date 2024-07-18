@@ -115,7 +115,7 @@ class Engine:
         """Initialize engine state. This should be done before running the registered passes."""
         if log_to_file:
             enable_filelog(log_severity_level, self.cache.cache_dir, self.workflow_id)
-        
+
         # set cache dir environment variables
         # might be used by other parts of olive to cache data
         self.cache.set_cache_env()
@@ -948,7 +948,6 @@ class Engine:
                 self.cloud_cache_helper, input_model_config, pass_search_point, input_model_hash
             )
             pass_run_locally = output_model_config is None
-
         # run pass
         if pass_run_locally:
             if enable_cloud_cache and input_model_config.config.get("model_path") is None:
