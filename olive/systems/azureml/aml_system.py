@@ -187,31 +187,61 @@ class AzureMLSystem(OliveSystem):
 
             return self._load_model(model_config.to_json(check_object=True), output_model_path, pipeline_output_path)
 
-    def create_inputs_and_args(self, name: str, config_json: dict, tmp_dir: Path, ignore_keys=None):
-        inputs = {f"{name}_config": Input(type=AssetTypes.URI_FILE)}
-        args = {}
+    def create_inputs_and_args(
+        self, all_configs: Dict[str, Dict], tmp_dir: Path, ignore_keys: Optional[List[str]] = None
+    ):
+        """Create inputs and args for a job.
 
-        resource_map = {}
-        # create inputs and args for each resource in the config
-        for resource_key, resource_path in find_all_resources(config_json, ignore_keys=None).items():
-            resource_name = f"{name}__{'__'.join(map(str, resource_key))}"
-            inputs[resource_name], args[resource_name] = self._create_arg_and_input_from_resource_path(resource_path)
-            resource_map[resource_name] = resource_key
-            set_nested_dict_value(config_json, resource_key, None)
+        :param all_configs: Dictionary of configs used in the job.
+        :param tmp_dir:  The temporary directory to save the config json.
+        :param ignore_keys: The keys to ignore when creating inputs and args.
+        :return: The inputs and args for the job.
+        """
+        all_resources = {}
+        inputs, args = {}, {}
 
-        if resource_map:
-            resource_map_path = tmp_dir / f"{name}_resource_map.json"
-            with resource_map_path.open("w") as f:
-                json.dump(resource_map, f, sort_keys=True, indent=4)
-            inputs[f"{name}_resource_map"] = Input(type=AssetTypes.URI_FILE)
-            args[f"{name}_resource_map"] = Input(type=AssetTypes.URI_FILE, path=resource_map_path)
+        # only create input for a unique resource once
+        # multiple inputs referring to the same aml model resource leads to invalid job error
+        resource_inputs, resource_args = {}, {}
+        for name, config in all_configs.items():
+            # create a copy of the config to avoid modifying the original config
+            config_copy = deepcopy(config)
 
-        config_path = tmp_dir / f"{name}_config.json"
-        with config_path.open("w") as f:
-            json.dump(config_json, f, sort_keys=True, indent=4)
-        args[f"{name}_config"] = Input(type=AssetTypes.URI_FILE, path=config_path)
+            # using a list of tuples since json cannot have tuple keys
+            resource_map = []
+            # create inputs and args for each resource in the config
+            for resource_key, resource_path in find_all_resources(config_copy, ignore_keys=ignore_keys).items():
+                resource_str = resource_path.get_path()
+                if resource_str not in all_resources:
+                    resource_input_name = f"resource__{len(all_resources)}"
+                    resource_inputs[resource_input_name], resource_args[resource_input_name] = (
+                        self._create_arg_and_input_from_resource_path(resource_path)
+                    )
+                    all_resources[resource_str] = resource_input_name
+                resource_map.append((resource_key, all_resources[resource_str]))
+                set_nested_dict_value(config_copy, resource_key, None)
 
-        return inputs, args
+            # input for the config
+            config_path = tmp_dir / f"{name}_config.json"
+            with config_path.open("w") as f:
+                json.dump(config_copy, f, sort_keys=True, indent=4)
+            inputs[f"{name}_config"] = Input(type=AssetTypes.URI_FILE)
+            args[f"{name}_config"] = Input(type=AssetTypes.URI_FILE, path=config_path)
+
+            # input for the resource map
+            if resource_map:
+                resource_map_path = tmp_dir / f"{name}_resource_map.json"
+                with resource_map_path.open("w") as f:
+                    json.dump(resource_map, f, sort_keys=True, indent=4)
+                inputs[f"{name}_resource_map"] = Input(type=AssetTypes.URI_FILE)
+                args[f"{name}_resource_map"] = Input(type=AssetTypes.URI_FILE, path=resource_map_path)
+
+        # add resources to inputs and args at the end just for the sake of cleaner inputs and args order
+        return {**inputs, "num_resources": Input(type="integer"), **resource_inputs}, {
+            **args,
+            "num_resources": len(all_resources),
+            **resource_args,
+        }
 
     def _create_arg_and_input_from_resource_path(self, resource_path: ResourcePath):
         asset_type = get_asset_type_from_resource_path(resource_path)
@@ -339,13 +369,11 @@ class AzureMLSystem(OliveSystem):
         self.copy_code(code_files, code_root)
 
         # prepare inputs
-        inputs, args = {}, {}
-        for name, config_json in [("model", model_config), ("pass", pass_config)]:
-            name_inputs, name_args = self.create_inputs_and_args(
-                name, config_json, tmp_dir, ignore_keys=["model_attributes"] if name == "model" else None
-            )
-            inputs.update(name_inputs)
-            args.update(name_args)
+        # want to ignore model_attributes since hf config has _model_name_or_path
+        # that points to where the config was loaded from
+        inputs, args = self.create_inputs_and_args(
+            {"model": model_config, "pass": pass_config}, tmp_dir, ignore_keys=["model_attributes"]
+        )
 
         # prepare outputs
         outputs = {"pipeline_output": Output(type=AssetTypes.URI_FOLDER)}
@@ -497,15 +525,6 @@ class AzureMLSystem(OliveSystem):
     ):
         tmp_dir = Path(tmp_dir)
 
-        # model args
-        model_inputs, model_args = self.create_inputs_and_args(
-            "model", model_config, tmp_dir, ignore_keys=["model_attributes"]
-        )
-
-        accelerator_config_path: Path = tmp_dir / "accelerator_config.json"
-        with accelerator_config_path.open("w") as f:
-            json.dump(accelerator.to_json(), f, sort_keys=True)
-
         @pipeline
         def evaluate_pipeline():
             outputs = {}
@@ -513,10 +532,9 @@ class AzureMLSystem(OliveSystem):
                 metric_tmp_dir = tmp_dir / metric.name
                 metric_component = self._create_metric_component(
                     metric_tmp_dir,
+                    model_config,
                     metric,
-                    model_inputs,
-                    model_args,
-                    accelerator_config_path,
+                    accelerator.to_json(),
                 )
                 outputs[metric.name] = metric_component.outputs.pipeline_output
             return outputs
@@ -529,10 +547,9 @@ class AzureMLSystem(OliveSystem):
     def _create_metric_component(
         self,
         tmp_dir: Path,
+        model_config: dict,
         metric: "Metric",
-        model_inputs: Dict[str, Input],
-        model_args: Dict[str, Input],
-        accelerator_config_path: str,
+        accelerator_config: dict,
     ):
         metric_json = metric.to_json(check_object=True)
 
@@ -551,13 +568,11 @@ class AzureMLSystem(OliveSystem):
         self.copy_code(code_files, code_root)
 
         # prepare inputs
-        metric_inputs, metric_args = self.create_inputs_and_args("metric", metric_json, tmp_dir)
-        inputs = {**model_inputs, **metric_inputs, "accelerator_config": Input(type=AssetTypes.URI_FILE)}
-        args = {
-            **model_args,
-            **metric_args,
-            "accelerator_config": Input(type=AssetTypes.URI_FILE, path=accelerator_config_path),
-        }
+        inputs, args = self.create_inputs_and_args(
+            {"model": model_config, "metric": metric_json, "accelerator": accelerator_config},
+            tmp_dir,
+            ignore_keys=["model_attributes"],
+        )
 
         # prepare outputs
         outputs = {"pipeline_output": Output(type=AssetTypes.URI_FOLDER)}

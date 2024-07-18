@@ -2,15 +2,17 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import torch
 from torchvision import datasets
 from torchvision.transforms import ToTensor
 
+from olive.data.registry import Registry
 
-def post_process(res):
+
+@Registry.register_post_process()
+def mnist_post_process_for_azureml_eval(res):
     return res.argmax(1)
 
 
-def create_dataloader(data_dir, batch_size, *args, **kwargs):
-    dataset = datasets.MNIST(data_dir, download=True, transform=ToTensor())
-    return torch.utils.data.DataLoader(dataset, batch_size)
+@Registry.register_dataset()
+def mnist_dataset_for_azureml_eval(data_dir):
+    return datasets.MNIST(data_dir, download=True, transform=ToTensor())

@@ -10,6 +10,7 @@ from torch.utils.data import DataLoader, default_collate
 from olive.data.registry import Registry
 
 
+@Registry.register_dataloader()
 @Registry.register_default_dataloader()
 def default_dataloader(dataset, batch_size=1, **kwargs):
     return DataLoader(dataset, batch_size=batch_size, **kwargs)

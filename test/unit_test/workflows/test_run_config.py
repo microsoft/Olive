@@ -8,7 +8,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-import yaml
 
 from olive.common.pydantic_v1 import ValidationError
 from olive.data.config import DataConfig
@@ -27,32 +26,6 @@ class TestRunConfig:
         self.package_config = OlivePackageConfig.parse_file(OlivePackageConfig.get_default_config_path())
         self.user_script_config_file = Path(__file__).parent / "mock_data" / "user_script.json"
 
-    @pytest.mark.parametrize(
-        "config_file",
-        [
-            Path(__file__).parent / "mock_data" / "transformer_dataset.json",
-            Path(__file__).parent / "mock_data" / "only_transformer_dataset.json",
-            Path(__file__).parent / "mock_data" / "ner_task_dataset.json",
-            Path(__file__).parent / "mock_data" / "text_generation_dataset.json",
-            Path(__file__).parent / "mock_data" / "text_generation_dataset_random.json",
-        ],
-    )
-    def test_dataset_config_file(self, config_file):
-        run_config = RunConfig.parse_file(config_file)
-        for dc in run_config.data_configs:
-            dc.to_data_container().create_dataloader()
-
-    @pytest.mark.parametrize("system", ["local_system", "azureml_system"])
-    def test_user_script_config(self, system):
-        with self.user_script_config_file.open() as f:
-            user_script_config = json.load(f)
-
-        user_script_config["engine"]["host"] = system
-        user_script_config["engine"]["target"] = system
-        config = RunConfig.parse_obj(user_script_config)
-        for metric in config.evaluators["common_evaluator"].metrics:
-            assert metric.user_config.data_dir.get_path().startswith("azureml://")
-
     def test_config_without_azureml_config(self):
         with self.user_script_config_file.open() as f:
             user_script_config = json.load(f)
@@ -61,23 +34,6 @@ class TestRunConfig:
         with pytest.raises(ValueError) as e:  # noqa: PT011
             RunConfig.parse_obj(user_script_config)
         assert "AzureML client config is required for AzureML system" in str(e.value)
-
-    @pytest.mark.parametrize("config_type", ["dict", "json", "yaml"])
-    def test_parse_file_or_obj(self, tmp_path, config_type):
-        with open(self.user_script_config_file) as f:
-            config = json.load(f)
-
-        if config_type == "json":
-            config = self.user_script_config_file
-        elif config_type == "yaml":
-            config_file = tmp_path / "user_script.yaml"
-            with open(config_file, "w") as f:
-                yaml.safe_dump(config, f)
-            config = config_file
-
-        config = RunConfig.parse_file_or_obj(config)
-        for metric in config.evaluators["common_evaluator"].metrics:
-            assert metric.user_config.data_dir.get_path().startswith("azureml://")
 
     @pytest.fixture()
     def mock_aml_credentials(self):

@@ -20,8 +20,8 @@ def main(raw_args=None):
     # login to hf if HF_LOGIN is set to True
     aml_runner_hf_login()
 
-    input_model_config, pipeline_output, extra_args = get_common_args(raw_args)
-    pass_config, extra_args = parse_config(extra_args, "pass")
+    pipeline_output, resources, input_model_config, extra_args = get_common_args(raw_args)
+    pass_config, extra_args = parse_config(extra_args, "pass", resources)
 
     # Import the pass package configuration from the package_config
     package_config = OlivePackageConfig.load_default_config()

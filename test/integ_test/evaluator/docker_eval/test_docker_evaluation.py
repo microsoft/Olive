@@ -37,18 +37,28 @@ class TestDockerEvaluation:
         delete_directories()
 
     EVALUATION_TEST_CASE: ClassVar[List] = [
-        ("PyTorchModel", get_pytorch_model, partial(get_accuracy_metric, "post_process"), 0.99),
+        ("PyTorchModel", get_pytorch_model, partial(get_accuracy_metric, "mnist_post_process_for_docker_eval"), 0.99),
         ("PyTorchModel", get_pytorch_model, get_latency_metric, 0.001),
         (
             "PyTorchModel",
             get_huggingface_model,
-            partial(get_accuracy_metric, "hf_post_process", "create_hf_dataloader"),
+            partial(get_accuracy_metric, "mnist_post_process_hf_for_docker_eval", "prajjwal1_dataset_for_docker_eval"),
             0.1,
         ),
-        ("PyTorchModel", get_huggingface_model, partial(get_latency_metric, "create_hf_dataloader"), 0.001),
-        ("ONNXModel", get_onnx_model, partial(get_accuracy_metric, "post_process"), 0.99),
+        (
+            "PyTorchModel",
+            get_huggingface_model,
+            partial(get_latency_metric, "prajjwal1_dataset_for_docker_eval"),
+            0.001,
+        ),
+        ("ONNXModel", get_onnx_model, partial(get_accuracy_metric, "mnist_post_process_for_docker_eval"), 0.99),
         ("ONNXModel", get_onnx_model, get_latency_metric, 0.001),
-        ("OpenVINOModel", get_openvino_model, partial(get_accuracy_metric, "openvino_post_process"), 0.99),
+        (
+            "OpenVINOModel",
+            get_openvino_model,
+            partial(get_accuracy_metric, "mnist_post_process_openvino_for_docker_eval"),
+            0.99,
+        ),
         ("OpenVINOModel", get_openvino_model, get_latency_metric, 0.001),
     ]
 

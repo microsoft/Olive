@@ -63,12 +63,8 @@ class TestLocalSystem:
     @patch("olive.evaluator.olive_evaluator.OnnxEvaluator._evaluate_accuracy")
     @patch("olive.evaluator.olive_evaluator.OnnxEvaluator._evaluate_latency")
     @patch("olive.evaluator.olive_evaluator.OnnxEvaluator._evaluate_custom")
-    @patch(
-        "olive.evaluator.olive_evaluator.OliveEvaluator.generate_metric_user_config_with_model_io",
-        side_effect=lambda x, _: x,
-    )
     def test_evaluate_model(
-        self, _, mock_evaluate_custom, mock_evaluate_latency, mock_evaluate_accuracy, mock_get_user_config, metric_func
+        self, mock_evaluate_custom, mock_evaluate_latency, mock_evaluate_accuracy, mock_get_user_config, metric_func
     ):
         # setup
         olive_model_config = MagicMock()

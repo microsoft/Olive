@@ -119,14 +119,12 @@ def main(raw_args=None):
     if transformers_version_4_36:
         template_json["input_model"]["config"]["hf_config"]["from_pretrained_args"] = {"attn_implementation": "eager"}
 
+    load_dataset_params = template_json["data_configs"][0]["load_dataset_config"]["params"]
+    load_dataset_params["model_name"] = model_name
+    load_dataset_params["use_audio_decoder"] = not args.no_audio_decoder
+
     # set dataloader
-    if not args.skip_evaluation:
-        metric_dataloader_kwargs = template_json["evaluators"]["common_evaluator"]["metrics"][0]["user_config"][
-            "func_kwargs"
-        ]["dataloader_func"]
-        metric_dataloader_kwargs["model_name"] = model_name
-        metric_dataloader_kwargs["use_audio_decoder"] = not args.no_audio_decoder
-    else:
+    if args.skip_evaluation:
         del template_json["evaluators"]
         template_json["engine"]["evaluator"] = None
 

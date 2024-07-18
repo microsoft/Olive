@@ -296,7 +296,7 @@ class DockerSystem(OliveSystem):
         for k, v in model_mounts.items():
             model_json["config"][k] = v
 
-        return {"metrics": [k.dict() for k in metrics], "model": model_json}
+        return {"metrics": [k.to_json(check_object=True) for k in metrics], "model": model_json}
 
     @staticmethod
     def _create_runner_config(

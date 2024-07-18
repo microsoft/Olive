@@ -72,7 +72,8 @@ class PytorchResNetDataset(Dataset):
 # -------------------------------------------------------------------------
 
 
-def post_process(output):
+@Registry.register_post_process()
+def cifar10_post_process(output):
     # max_elements, max_indices = torch.max(input_tensor, dim)
     # This is a two classes classification task, result is a 2D array [[ 1.1541, -0.6622],[[-0.2137,  0.0360]]]
     # the index of this array among dimension 1 will be [1, 0], which are labels of this task
@@ -81,18 +82,13 @@ def post_process(output):
 
 
 # -------------------------------------------------------------------------
-# Dataloader for Evaluation and Performance Tuning
+# DataSet for Evaluation and Performance Tuning
 # -------------------------------------------------------------------------
 
 
 @Registry.register_dataset()
 def cifar10_dataset(data_dir):
     return PytorchResNetDataset(CIFAR10DataSet(data_dir).val_dataset)
-
-
-# TODO(shaahji): Remove this once metrics transitions to using DataConfig only!
-def create_dataloader(data_dir, batch_size, *args, **kwargs):
-    return DataLoader(cifar10_dataset(data_dir), batch_size=batch_size, drop_last=True)
 
 
 # -------------------------------------------------------------------------
@@ -130,7 +126,7 @@ def resnet_calibration_reader(data_dir, batch_size, *args, **kwargs):
 # keep this to demo/test custom evaluation function
 def eval_accuracy(model: OliveModelHandler, data_dir, batch_size, device, execution_providers):
     sess = model.prepare_session(inference_settings=None, device=device, execution_providers=execution_providers)
-    dataloader = create_dataloader(data_dir, batch_size)
+    dataloader = DataLoader(cifar10_dataset(data_dir), batch_size=batch_size, drop_last=True)
 
     preds = []
     target = []
@@ -148,14 +144,14 @@ def eval_accuracy(model: OliveModelHandler, data_dir, batch_size, device, execut
                 result = torch.Tensor(res[0])
             else:
                 result = torch.Tensor(res)
-            outputs = post_process(result)
+            outputs = cifar10_post_process(result)
             preds.extend(outputs.tolist())
             target.extend(labels.data.tolist())
 
     elif model.framework == Framework.PYTORCH:
         for input_data, labels in dataloader:
             result = model.run_session(sess, input_data)
-            outputs = post_process(result)
+            outputs = cifar10_post_process(result)
             preds.extend(outputs.tolist())
             target.extend(labels.data.tolist())
 
