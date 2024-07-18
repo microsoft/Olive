@@ -30,6 +30,7 @@ from olive.evaluator.metric_result import MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.exception import EXCEPTIONS_TO_RAISE, OlivePassError
 from olive.hardware import AcceleratorSpec
+from olive.logging import enable_filelog
 from olive.model import ModelConfig
 from olive.resource_path import ResourceType, create_resource_path
 from olive.strategy.search_strategy import SearchStrategy, SearchStrategyConfig
@@ -112,6 +113,9 @@ class Engine:
 
     def initialize(self, log_to_file: bool = False, log_severity_level: int = 1):
         """Initialize engine state. This should be done before running the registered passes."""
+        if log_to_file:
+            enable_filelog(log_severity_level, self.cache.cache_dir, self.workflow_id)
+        
         # clean pass run cache if requested
         # removes all run cache for pass type and all children elements
         for pass_config in self.pass_config.values():
