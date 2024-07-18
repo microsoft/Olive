@@ -72,20 +72,11 @@
 <li class="toctree-l1"><a class="reference internal" href="model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Huggingface Model Optimization</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#introduction">Introduction</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#hf-config">hf_config</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#input-model">Input Model</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#huggingface-hub-model">Huggingface Hub model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#local-model">Local model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#azure-ml-model">Azure ML model</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#model-config-loading">Model config loading</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#model-loading">Model loading</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#load-huggingface-model-from-huggingface-hub">Load Huggingface model from Huggingface hub</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#pytorch-model">PyTorch model</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#optimum-model">Optimum model</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#model-loading-from-local">Model loading from local</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#model-loading-from-local-with-custom-components">Model loading from local with custom components</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#script-example">Script example</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#model-loading-from-azure-ml-resources">Model loading from Azure ML resources</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#huggingface-datasets">Huggingface datasets</a></li>
@@ -161,144 +152,40 @@
 <h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this heading">¶</a></h2>
 <p>This document outlines the integrations between Olive and Huggingface. Discover how to use Huggingface resources within Olive.</p>
 </section>
-<section id="hf-config">
-<h2>hf_config<a class="headerlink" href="#hf-config" title="Permalink to this heading">¶</a></h2>
-<p>If you want to optimize a Huggingface model, or evaluate a Huggingface model, you will need <code class="docutils literal notranslate"><span class="pre">hf_config</span></code> defined in your <code class="docutils literal notranslate"><span class="pre">input_model</span></code> section. Please refer to <a class="reference internal" href="../overview/options.html#input-model-information"><span class="std std-ref">this section</span></a> for detailed parameters of <code class="docutils literal notranslate"><span class="pre">hf_config</span></code>.</p>
-<p>Here is how you can use <code class="docutils literal notranslate"><span class="pre">hf_config</span></code>:</p>
-<section id="model-config-loading">
-<h3>Model config loading<a class="headerlink" href="#model-config-loading" title="Permalink to this heading">¶</a></h3>
-<p>Olive can automatically retrieve model configurations from Huggingface hub:</p>
-<ul class="simple">
-<li><p>Olive retrieves model <a class="reference external" href="https://huggingface.co/docs/transformers/main/en/model_doc/auto#transformers.AutoConfig">configuration</a> from transformers for future usage.</p></li>
-<li><p>Olive simplifies the process by automatically fetching configurations such as IO config and dummy input required for the <code class="docutils literal notranslate"><span class="pre">OnnxConversion</span></code> pass from <a class="reference external" href="https://huggingface.co/docs/transformers/main_classes/onnx#onnx-configurations">OnnxConfig</a>. This means there’s no need for you to manually specify the IO config and dummy input when using the <code class="docutils literal notranslate"><span class="pre">OnnxConversion</span></code> pass.</p></li>
-</ul>
-<p>If you want to use your own <code class="docutils literal notranslate"><span class="pre">io_config</span></code> or <code class="docutils literal notranslate"><span class="pre">dummy_input</span></code>, you can still add them to the model config:</p>
+<section id="input-model">
+<h2>Input Model<a class="headerlink" href="#input-model" title="Permalink to this heading">¶</a></h2>
+<p>Use the <code class="docutils literal notranslate"><span class="pre">HfModel</span></code> type if you want to optimize a Huggingface model, or evaluate a Huggingface model. The default <code class="docutils literal notranslate"><span class="pre">task</span></code> is <code class="docutils literal notranslate"><span class="pre">text-generation-with-past</span></code>.</p>
+<section id="huggingface-hub-model">
+<h3>Huggingface Hub model<a class="headerlink" href="#huggingface-hub-model" title="Permalink to this heading">¶</a></h3>
+<p>Olive can automatically retrieve models from Huggingface hub:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;input_model&quot;</span><span class="p">:{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PyTorchModel&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HfModel&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;model_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;io_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;get_io_config&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;dummy_inputs_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;get_dummy_inputs&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;hf_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;model_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;meta-llama/Llama-2-7b-hf&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;task&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;text-generation&quot;</span>
-<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;meta-llama/Llama-2-7b-hf&quot;</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 </section>
-<section id="model-loading">
-<h3>Model loading<a class="headerlink" href="#model-loading" title="Permalink to this heading">¶</a></h3>
-<section id="load-huggingface-model-from-huggingface-hub">
-<h4>Load Huggingface model from Huggingface hub<a class="headerlink" href="#load-huggingface-model-from-huggingface-hub" title="Permalink to this heading">¶</a></h4>
-<p>Olive can automatically retrieve models from Huggingface hub. Here are the examples:</p>
-</section>
-<section id="pytorch-model">
-<h4>PyTorch model<a class="headerlink" href="#pytorch-model" title="Permalink to this heading">¶</a></h4>
-<p>Take <code class="docutils literal notranslate"><span class="pre">Intel/bert-base-uncased-mrpc</span></code> as an example, you can specify task name as <code class="docutils literal notranslate"><span class="pre">text-classification</span></code> to form the <code class="docutils literal notranslate"><span class="pre">hf_config</span></code> as follows:</p>
+<section id="local-model">
+<h3>Local model<a class="headerlink" href="#local-model" title="Permalink to this heading">¶</a></h3>
+<p>If you have the Huggingface model prepared in local:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;input_model&quot;</span><span class="p">:{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PyTorchModel&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HfModel&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;hf_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;model_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Intel/bert-base-uncased-mrpc&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;task&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;text-classification&quot;</span>
-<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/to/local/model&quot;</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
+<p><strong>Note:</strong> You must also have the tokenizer and other necessary files in the same local directory.</p>
 </section>
-<section id="optimum-model">
-<h4>Optimum model<a class="headerlink" href="#optimum-model" title="Permalink to this heading">¶</a></h4>
-<p>Optimum model is a special case of PyTorch model. By specifying <code class="docutils literal notranslate"><span class="pre">OptimumModel</span></code> as <code class="docutils literal notranslate"><span class="pre">type</span></code>, the <code class="docutils literal notranslate"><span class="pre">model_path</span></code> should be the model’s name. Then add the names of the model components to <code class="docutils literal notranslate"><span class="pre">model_components</span></code>. Olive will retrieve the components from Huggingface hub:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;input_model&quot;</span><span class="p">:{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OptimumModel&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;openlm-research/open_llama_3b&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;model_components&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;decoder_model.onnx&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;decoder_with_past_model.onnx&quot;</span><span class="p">],</span>
-<span class="w">        </span><span class="nt">&quot;hf_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;model_class&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;LlamaForCausalLM&quot;</span>
-<span class="w">        </span><span class="p">}</span>
-<span class="w">    </span><span class="p">}</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-</section>
-</section>
-<section id="model-loading-from-local">
-<h3>Model loading from local<a class="headerlink" href="#model-loading-from-local" title="Permalink to this heading">¶</a></h3>
-<p>If you have the Huggingface model prepared in local, add <code class="docutils literal notranslate"><span class="pre">model_path</span></code> to the model config, and specify <code class="docutils literal notranslate"><span class="pre">model_name</span></code> and <code class="docutils literal notranslate"><span class="pre">task</span></code> in <code class="docutils literal notranslate"><span class="pre">hf_config</span></code> so that Olive can automatically fetch the model attributes:</p>
-<p>Example:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;input_model&quot;</span><span class="p">:{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PyTorchModel&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path_to_local_model&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;hf_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;model_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Intel/bert-base-uncased-mrpc&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;task&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;text-classification&quot;</span>
-<span class="w">        </span><span class="p">}</span>
-<span class="w">    </span><span class="p">}</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-</section>
-<section id="model-loading-from-local-with-custom-components">
-<h3>Model loading from local with custom components<a class="headerlink" href="#model-loading-from-local-with-custom-components" title="Permalink to this heading">¶</a></h3>
-<p>You can use your own custom components functions for your model. You will need to define the details of your components in your script as functions.</p>
-<p>Example:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;input_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PyTorchModel&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;model_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;hf_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">                </span><span class="nt">&quot;model_class&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;WhisperForConditionalGeneration&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;model_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;openai/whisper-medium&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;components&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">                    </span><span class="p">{</span>
-<span class="w">                        </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;encoder_decoder_init&quot;</span><span class="p">,</span>
-<span class="w">                        </span><span class="nt">&quot;io_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;get_encdec_io_config&quot;</span><span class="p">,</span>
-<span class="w">                        </span><span class="nt">&quot;component_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;get_encoder_decoder_init&quot;</span><span class="p">,</span>
-<span class="w">                        </span><span class="nt">&quot;dummy_inputs_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;encoder_decoder_init_dummy_inputs&quot;</span>
-<span class="w">                    </span><span class="p">},</span>
-<span class="w">                    </span><span class="p">{</span>
-<span class="w">                        </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;decoder&quot;</span><span class="p">,</span>
-<span class="w">                        </span><span class="nt">&quot;io_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;get_dec_io_config&quot;</span><span class="p">,</span>
-<span class="w">                        </span><span class="nt">&quot;component_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;get_decoder&quot;</span><span class="p">,</span>
-<span class="w">                        </span><span class="nt">&quot;dummy_inputs_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;decoder_dummy_inputs&quot;</span>
-<span class="w">                    </span><span class="p">}</span>
-<span class="w">                </span><span class="p">]</span>
-<span class="w">            </span><span class="p">}</span>
-<span class="w">        </span><span class="p">}</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-<section id="script-example">
-<h4>Script example<a class="headerlink" href="#script-example" title="Permalink to this heading">¶</a></h4>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># my_script.py</span>
-<span class="k">def</span> <span class="nf">get_dec_io_config</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">OliveModelHandler</span><span class="p">):</span>
-    <span class="c1"># return your io dict</span>
-    <span class="o">...</span>
-
-<span class="k">def</span> <span class="nf">get_decoder</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">OliveModelHandler</span><span class="p">):</span>
-    <span class="c1"># your component implementation</span>
-    <span class="o">...</span>
-
-<span class="k">def</span> <span class="nf">dummy_inputs_func</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">OliveModelHandler</span><span class="p">):</span>
-    <span class="c1"># return the dummy input for your component</span>
-    <span class="o">...</span>
-</pre></div>
-</div>
-</section>
-</section>
-<section id="model-loading-from-azure-ml-resources">
-<h3>Model loading from Azure ML resources<a class="headerlink" href="#model-loading-from-azure-ml-resources" title="Permalink to this heading">¶</a></h3>
+<section id="azure-ml-model">
+<h3>Azure ML model<a class="headerlink" href="#azure-ml-model" title="Permalink to this heading">¶</a></h3>
 <p>Olive supports loading model from your Azure Machine Learning workspace. Find detailed configurations <a class="reference internal" href="azureml_integration.html"><span class="std std-doc">here</span></a>.</p>
 <p>Example: <a class="reference external" href="https://ml.azure.com/models/Llama-2-7b/version/13/catalog/registry/azureml-meta">Llama-2-7b</a> from Azure ML model catalog:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;input_model&quot;</span><span class="p">:{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PyTorchModel&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HfModel&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_registry_model&quot;</span><span class="p">,</span>
@@ -307,17 +194,39 @@
 <span class="w">                </span><span class="nt">&quot;registry_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml-meta&quot;</span><span class="p">,</span>
 <span class="w">                </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;13&quot;</span>
 <span class="w">            </span><span class="p">}</span>
-<span class="w">        </span><span class="p">},</span>
-<span class="w">        </span><span class="nt">&quot;model_file_format&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PyTorch.MLflow&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;hf_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;model_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;meta-llama/Llama-2-7b-hf&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;task&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;text-generation&quot;</span>
 <span class="w">        </span><span class="p">}</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
-<p>Please note the model for <code class="docutils literal notranslate"><span class="pre">Llama-2-7b</span></code> in Azure ML model catalog is a mlflow model. So <code class="docutils literal notranslate"><span class="pre">&quot;model_file_format&quot;:</span> <span class="pre">&quot;PyTorch.MLflow&quot;</span></code> is required here.</p>
+</section>
+<section id="model-config-loading">
+<h3>Model config loading<a class="headerlink" href="#model-config-loading" title="Permalink to this heading">¶</a></h3>
+<p>Olive can automatically retrieve model configurations from Huggingface hub:</p>
+<ul class="simple">
+<li><p>Olive retrieves model <a class="reference external" href="https://huggingface.co/docs/transformers/main/en/model_doc/auto#transformers.AutoConfig">configuration</a> from transformers for future usage.</p></li>
+<li><p>Olive simplifies the process by automatically fetching configurations such as IO config and dummy input required for the <code class="docutils literal notranslate"><span class="pre">OnnxConversion</span></code> pass from <a class="reference external" href="https://huggingface.co/docs/transformers/main_classes/onnx#onnx-configurations">OnnxConfig</a>. This means there’s no need for you to manually specify the IO config when using the <code class="docutils literal notranslate"><span class="pre">OnnxConversion</span></code> pass.</p></li>
+</ul>
+<p>You can also provide your own IO config which will override the automatically fetched IO config and dummy inputs:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;input_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HfModel&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;meta-llama/Llama-2-7b-hf&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;io_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;input_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="s2">&quot;input_ids&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;attention_mask&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;position_ids&quot;</span><span class="w"> </span><span class="p">],</span>
+<span class="w">            </span><span class="nt">&quot;output_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="s2">&quot;logits&quot;</span><span class="w"> </span><span class="p">],</span>
+<span class="w">            </span><span class="nt">&quot;input_shapes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="w"> </span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="w"> </span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="w"> </span><span class="p">]</span><span class="w"> </span><span class="p">],</span>
+<span class="w">            </span><span class="nt">&quot;input_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="s2">&quot;int64&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;int64&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;int64&quot;</span><span class="w"> </span><span class="p">],</span>
+<span class="w">            </span><span class="nt">&quot;dynamic_axes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;input_ids&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;0&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;batch_size&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;1&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sequence_length&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">                </span><span class="nt">&quot;attention_mask&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;0&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;batch_size&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;1&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;total_sequence_length&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">                </span><span class="nt">&quot;position_ids&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;0&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;batch_size&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;1&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sequence_length&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
 </section>
 </section>
 <section id="huggingface-datasets">

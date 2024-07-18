@@ -207,7 +207,7 @@ Convert the transformer dummy data config to the data container.
                 name="transformers_dummy_data_config",
                 type="TransformersDummyDataContainer",
                 load_dataset_config=DataComponentConfig(params={
-                    # model_name can be filled with the model name in input model's hf_config
+                    # model_name can be filled with the model name in input model's model_path
                     # if you start olive with olive run --config <config_path>
                     "model_name": "meta-llama/Llama-2-7b-hf"
                 })

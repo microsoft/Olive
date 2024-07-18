@@ -184,8 +184,8 @@
 <section id="onnxconversion">
 <span id="onnx-conversion"></span><h2>OnnxConversion<a class="headerlink" href="#onnxconversion" title="Permalink to this heading">¶</a></h2>
 <p>Convert a PyTorch model to ONNX model using torch.onnx.export on CPU.</p>
-<p><strong>Input:</strong> handler.pytorch.PyTorchModelHandler</p>
-<p><strong>Output:</strong> handler.composite.CompositeModelHandler | handler.onnx.DistributedOnnxModelHandler | handler.onnx.ONNXModelHandler</p>
+<p><strong>Input:</strong> handler.hf.DistributedHfModelHandler | handler.hf.HfModelHandler | handler.pytorch.PyTorchModelHandler</p>
+<p><strong>Output:</strong> handler.onnx.DistributedOnnxModelHandler | handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-script_dir">
 <span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-script_dir" title="Permalink to this definition">¶</a></dt>
@@ -234,7 +234,7 @@
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-device">
 <span class="sig-name descname"><span class="pre">device</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-device" title="Permalink to this definition">¶</a></dt>
-<dd><p>The device to use for conversion, e.g., ‘cuda’ or ‘cpu’. If not specified, will use ‘cpu’ for PyTorch model and ‘cuda’ for DistributedPyTorchModel.</p>
+<dd><p>The device to use for conversion, e.g., ‘cuda’ or ‘cpu’. If not specified, will use ‘cpu’ for PyTorch model and ‘cuda’ for DistributedHfModel.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
@@ -255,15 +255,6 @@
 <dd><p>Number of parallel jobs. Defaulted to number of CPUs. Set it to 0 to disable.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> None</p>
-<p><strong>searchable_values:</strong> None</p>
-</dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-merge_components">
-<span class="sig-name descname"><span class="pre">merge_components</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-merge_components" title="Permalink to this definition">¶</a></dt>
-<dd><p>Whether to merge the converted components.</p>
-<p><strong>type:</strong> bool</p>
-<p><strong>default_value:</strong> False</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 
@@ -3703,11 +3694,9 @@
 </section>
 <section id="lora">
 <span id="id2"></span><h2>LoRA<a class="headerlink" href="#lora" title="Permalink to this heading">¶</a></h2>
-<p>Run LoRA fine-tuning on a Hugging Face PyTorch model.
-
-    This pass only supports PyTorchModelHandler with hf_config.</p>
-<p><strong>Input:</strong> handler.pytorch.PyTorchModelHandler</p>
-<p><strong>Output:</strong> handler.pytorch.PyTorchModelHandler</p>
+<p>Run LoRA fine-tuning on a Hugging Face PyTorch model.</p>
+<p><strong>Input:</strong> handler.hf.HfModelHandler</p>
+<p><strong>Output:</strong> handler.hf.HfModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-target_modules">
 <span class="sig-name descname"><span class="pre">target_modules</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-target_modules" title="Permalink to this definition">¶</a></dt>
@@ -3836,11 +3825,9 @@
 </section>
 <section id="qlora">
 <span id="id3"></span><h2>QLoRA<a class="headerlink" href="#qlora" title="Permalink to this heading">¶</a></h2>
-<p>Run QLoRA fine-tuning on a Hugging Face PyTorch model.
-
-    This pass only supports PyTorchModelHandler with hf_config.</p>
-<p><strong>Input:</strong> handler.pytorch.PyTorchModelHandler</p>
-<p><strong>Output:</strong> handler.pytorch.PyTorchModelHandler</p>
+<p>Run QLoRA fine-tuning on a Hugging Face PyTorch model.</p>
+<p><strong>Input:</strong> handler.hf.HfModelHandler</p>
+<p><strong>Output:</strong> handler.hf.HfModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-double_quant">
 <span class="sig-name descname"><span class="pre">double_quant</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-double_quant" title="Permalink to this definition">¶</a></dt>
@@ -3987,11 +3974,9 @@
 </section>
 <section id="loftq">
 <span id="id4"></span><h2>LoftQ<a class="headerlink" href="#loftq" title="Permalink to this heading">¶</a></h2>
-<p>Run LoftQ fine-tuning on a Hugging Face PyTorch model.
-
-    This pass only supports PyTorchModelHandler with hf_config.</p>
-<p><strong>Input:</strong> handler.pytorch.PyTorchModelHandler</p>
-<p><strong>Output:</strong> handler.pytorch.PyTorchModelHandler</p>
+<p>Run LoftQ fine-tuning on a Hugging Face PyTorch model.</p>
+<p><strong>Input:</strong> handler.hf.HfModelHandler</p>
+<p><strong>Output:</strong> handler.hf.HfModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-loftq_iter">
 <span class="sig-name descname"><span class="pre">loftq_iter</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-loftq_iter" title="Permalink to this definition">¶</a></dt>
@@ -4439,7 +4424,7 @@
 <section id="openvinoconversion">
 <span id="openvino-conversion"></span><h2>OpenVINOConversion<a class="headerlink" href="#openvinoconversion" title="Permalink to this heading">¶</a></h2>
 <p>Converts PyTorch, ONNX or TensorFlow Model to OpenVino Model.</p>
-<p><strong>Input:</strong> handler.pytorch.PyTorchModelHandler | handler.onnx.ONNXModelHandler</p>
+<p><strong>Input:</strong> handler.hf.HfModelHandler | handler.pytorch.PyTorchModelHandler | handler.onnx.ONNXModelHandler</p>
 <p><strong>Output:</strong> handler.openvino.OpenVINOModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-244">
@@ -4954,8 +4939,8 @@
 <section id="mergeadapterweights">
 <span id="merge-adapter-weights"></span><h2>MergeAdapterWeights<a class="headerlink" href="#mergeadapterweights" title="Permalink to this heading">¶</a></h2>
 <p>Merge adapter weights into the base model.</p>
-<p><strong>Input:</strong> handler.pytorch.PyTorchModelHandler</p>
-<p><strong>Output:</strong> handler.pytorch.PyTorchModelHandler</p>
+<p><strong>Input:</strong> handler.hf.HfModelHandler</p>
+<p><strong>Output:</strong> handler.hf.HfModelHandler</p>
 </section>
 <section id="sparsegpt">
 <span id="id5"></span><h2>SparseGPT<a class="headerlink" href="#sparsegpt" title="Permalink to this heading">¶</a></h2>
@@ -4963,10 +4948,10 @@
 
     See <a class="reference external" href="https://arxiv.org/abs/2301.00774">https://arxiv.org/abs/2301.00774</a> for more details on the algorithm.
 
-    This pass only supports PyTorchModelHandler with hf_config. The transformers model type
-    must be one of [bloom, gpt2, gpt_neox, llama, opt].</p>
-<p><strong>Input:</strong> handler.pytorch.PyTorchModelHandler</p>
-<p><strong>Output:</strong> handler.pytorch.PyTorchModelHandler</p>
+    This pass only supports HfModelHandler.
+    The transformers model type must be one of [bloom, gpt2, gpt_neox, llama, opt].</p>
+<p><strong>Input:</strong> handler.hf.HfModelHandler</p>
+<p><strong>Output:</strong> handler.hf.HfModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-sparsity">
 <span class="sig-name descname"><span class="pre">sparsity</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-sparsity" title="Permalink to this definition">¶</a></dt>
@@ -5045,8 +5030,8 @@
 
     See <a class="reference external" href="https://arxiv.org/pdf/2401.15024.pdf">https://arxiv.org/pdf/2401.15024.pdf</a> for more details on the algorithm.
 
-    This pass only supports PyTorchModelHandler with hf_config.</p>
-<p><strong>Input:</strong> handler.pytorch.PyTorchModelHandler</p>
+    This pass only supports HfModelHandler.</p>
+<p><strong>Input:</strong> handler.hf.HfModelHandler</p>
 <p><strong>Output:</strong> handler.pytorch.PyTorchModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-calibration_data_config">
@@ -5114,7 +5099,7 @@
 <section id="gptqquantizer">
 <span id="gptq-quantizer"></span><h2>GptqQuantizer<a class="headerlink" href="#gptqquantizer" title="Permalink to this heading">¶</a></h2>
 <p>GPTQ quantization using Hugging Face Optimum and export model with onnxruntime optimized kernel.</p>
-<p><strong>Input:</strong> handler.pytorch.PyTorchModelHandler</p>
+<p><strong>Input:</strong> handler.hf.HfModelHandler | handler.pytorch.PyTorchModelHandler</p>
 <p><strong>Output:</strong> handler.pytorch.PyTorchModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-276">
@@ -5287,7 +5272,7 @@
 <section id="autoawqquantizer">
 <span id="awq-quantizer"></span><h2>AutoAWQQuantizer<a class="headerlink" href="#autoawqquantizer" title="Permalink to this heading">¶</a></h2>
 <p>AWQ quantization.</p>
-<p><strong>Input:</strong> handler.pytorch.PyTorchModelHandler</p>
+<p><strong>Input:</strong> handler.hf.HfModelHandler</p>
 <p><strong>Output:</strong> handler.pytorch.PyTorchModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-283">
@@ -5406,9 +5391,9 @@
     The entire model is saved using <cite>torch.save</cite> and can be loaded using <cite>torch.load</cite>. Loading the model requires
     <cite>torch-tensorrt</cite> and Olive to be installed.
 
-    This pass only supports PyTorchModelHandler with hf_config. The transformers model type
-    must be one of [bloom, gpt2, gpt_neox, llama, opt].</p>
-<p><strong>Input:</strong> handler.pytorch.PyTorchModelHandler</p>
+    This pass only supports HfModelHandler.
+    The transformers model type must be one of [bloom, gpt2, gpt_neox, llama, opt].</p>
+<p><strong>Input:</strong> handler.hf.HfModelHandler</p>
 <p><strong>Output:</strong> handler.pytorch.PyTorchModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-286">
@@ -5458,7 +5443,7 @@
 <section id="optimumconversion">
 <span id="optimum-conversion"></span><h2>OptimumConversion<a class="headerlink" href="#optimumconversion" title="Permalink to this heading">¶</a></h2>
 <p>Convert a Hugging Face PyTorch model to ONNX model using the Optimum export function.</p>
-<p><strong>Input:</strong> handler.pytorch.PyTorchModelHandler</p>
+<p><strong>Input:</strong> handler.hf.HfModelHandler</p>
 <p><strong>Output:</strong> handler.onnx.ONNXModelHandler | handler.composite.CompositeModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-291">
@@ -5589,7 +5574,7 @@
 <p>Converts a Huggingface generative PyTorch model to ONNX model using the Generative AI builder.
 
     See <a class="reference external" href="https://github.com/microsoft/onnxruntime-genai">https://github.com/microsoft/onnxruntime-genai</a></p>
-<p><strong>Input:</strong> handler.pytorch.PyTorchModelHandler | handler.onnx.ONNXModelHandler</p>
+<p><strong>Input:</strong> handler.hf.HfModelHandler | handler.onnx.ONNXModelHandler</p>
 <p><strong>Output:</strong> handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-precision">

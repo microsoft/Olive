@@ -262,6 +262,7 @@ The default value is 3. User can increase if there are network issues and the op
 <span class="p">},</span>
 </pre></div>
 </div>
+<!-- TODO(anyone): Docs for all model handlers-->
 </section>
 </section>
 </section>
@@ -269,27 +270,22 @@ The default value is 3. User can increase if there are network issues and the op
 <h2>Input Model Information<a class="headerlink" href="#input-model-information" title="Permalink to this heading">¶</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">input_model:</span> <span class="pre">[Dict]</span></code></p>
 <p>User should specify input model type and configuration using <code class="docutils literal notranslate"><span class="pre">input</span> <span class="pre">model</span></code> dictionary. It contains following items:</p>
-<ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">[str]</span></code> Type of the input model which is case insensitive.. The supported types contain <code class="docutils literal notranslate"><span class="pre">PyTorchModelHandler</span></code>, <code class="docutils literal notranslate"><span class="pre">ONNXModelHandler</span></code>, <code class="docutils literal notranslate"><span class="pre">OpenVINOModelHandler</span></code>,<code class="docutils literal notranslate"><span class="pre">SNPEModelHandler</span></code> and etc. You can
-find more details in <a class="reference external" href="https://microsoft.github.io/Olive/api/models.html">Olive Models</a>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">config:</span> <span class="pre">[Dict]</span></code> For example, for <code class="docutils literal notranslate"><span class="pre">PytorchModelHandler</span></code>, the input model config dictionary specifies following items:</p>
-<ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">model_path:</span> <span class="pre">[str</span> <span class="pre">|</span> <span class="pre">Dict]</span></code> The model path can be a string or a dictionary. If it is a string, it is either a string name
-used by the model loader or the path to the model file/directory. If it is a dictionary, it contains information about the model path.
-Please refer to <a class="reference internal" href="../tutorials/configure_model_path.html"><span class="std std-doc">Configuring Model Path</span></a> for the more information of the model path dictionary.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">model_loader:</span> <span class="pre">[str]</span></code> The name of the function provided by the user to load the model. The function should take the model path as
-input and return the loaded model.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">model_script:</span> <span class="pre">[str]</span></code> The name of the script provided by the user to assist with model loading.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">script_dir:</span> <span class="pre">[str]</span></code> The directory that contains dependencies for the model script.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">io_config:</span> <span class="pre">[Dict[str,</span> <span class="pre">Any]</span> <span class="pre">|</span> <span class="pre">IoConfig</span> <span class="pre">|</span> <span class="pre">str</span> <span class="pre">|</span> <span class="pre">Callable]</span></code>: The inputs and outputs information of the model. It can be a dictionary, an IoConfig object or a function string under <code class="docutils literal notranslate"><span class="pre">model_script</span></code>. Basically, it contains following items:</p>
 <ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">[str]</span></code> Type of the input model which is case insensitive.. The supported types contain <code class="docutils literal notranslate"><span class="pre">HfModelHandler</span></code>, <code class="docutils literal notranslate"><span class="pre">PyTorchModelHandler</span></code>, <code class="docutils literal notranslate"><span class="pre">ONNXModelHandler</span></code>, <code class="docutils literal notranslate"><span class="pre">OpenVINOModelHandler</span></code>,<code class="docutils literal notranslate"><span class="pre">SNPEModelHandler</span></code> and etc. You can
+find more details in <a class="reference external" href="https://microsoft.github.io/Olive/api/models.html">Olive Models</a>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">config:</span> <span class="pre">[Dict]</span></code> For example, for <code class="docutils literal notranslate"><span class="pre">HfModelHandler</span></code>, the input model config dictionary specifies following items:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">model_path:</span> <span class="pre">[str</span> <span class="pre">|</span> <span class="pre">Dict]</span></code> The model path can be a string or a dictionary. If it is a string, it is a huggingface hub model id or a local directory. If it is a dictionary, it contains information about the model path. Please refer to <a class="reference internal" href="../tutorials/configure_model_path.html"><span class="std std-doc">Configuring Model Path</span></a> for the more information of the model path dictionary.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">task:</span> <span class="pre">[str]</span></code> The task of the model. The default task is <code class="docutils literal notranslate"><span class="pre">text-generation-with-past</span></code> which is equivalent to a causal language model with key-value cache enabled.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">io_config:</span> <span class="pre">[Dict]</span></code>: The inputs and outputs information of the model. If not provided, Olive will try to infer the input and output information from the model. The dictionary contains following items:</p>
+<ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">input_names:</span> <span class="pre">[List[str]]</span></code> The input names of the model.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">input_types:</span> <span class="pre">[List[str]]</span></code> The input types of the model.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">input_shapes:</span> <span class="pre">[List[List[int]]]</span></code> The input shapes of the model.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">output_names:</span> <span class="pre">[List[str]]</span></code> The output names of the model.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">dynamic_axes:</span> <span class="pre">[Dict[str,</span> <span class="pre">Dict[str,</span> <span class="pre">str]]]</span></code> The dynamic axes of the model. The key is the name of the input or output and the value is a dictionary that contains the dynamic axes of the input or output. The key of the value dictionary is the index of the dynamic axis and the value is the name of the dynamic axis. For example, <code class="docutils literal notranslate"><span class="pre">{&quot;input&quot;:</span> <span class="pre">{&quot;0&quot;:</span> <span class="pre">&quot;batch_size&quot;},</span> <span class="pre">&quot;output&quot;:</span> <span class="pre">{&quot;0&quot;:</span> <span class="pre">&quot;batch_size&quot;}}</span></code> means the first dimension of the input and output is dynamic and the name of the dynamic axis is <code class="docutils literal notranslate"><span class="pre">batch_size</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">string_to_int_dim_params:</span> <span class="pre">List[str]</span></code> The list of input names in dynamic axes that need to be converted to int value.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">kv_cache:</span> <span class="pre">Union[bool,</span> <span class="pre">Dict[str,</span> <span class="pre">str]]</span></code> The key value cache configuration.</p>
+<li><p><code class="docutils literal notranslate"><span class="pre">kv_cache:</span> <span class="pre">Union[bool,</span> <span class="pre">Dict[str,</span> <span class="pre">str]]</span></code> The key value cache configuration. If not provided, it is assumed to be <code class="docutils literal notranslate"><span class="pre">True</span></code> if the <code class="docutils literal notranslate"><span class="pre">task</span></code> ends with <code class="docutils literal notranslate"><span class="pre">-with-past</span></code>.</p>
 <ul>
 <li><p>If it is <code class="docutils literal notranslate"><span class="pre">False</span></code>, Olive will not use key value cache.</p></li>
 <li><p>If it is <code class="docutils literal notranslate"><span class="pre">True</span></code>, Olive will infer the cache configuration from the input_names/input_shapes and input model based on default <code class="docutils literal notranslate"><span class="pre">kv_cache</span></code>.</p></li>
@@ -331,34 +327,7 @@ The dynamic axis of the present key value cache. If it is null, Olive will infer
 </li>
 </ul>
 </li>
-<li><p><a name="hf_config"></a> <code class="docutils literal notranslate"><span class="pre">hf_config:</span> <span class="pre">[Dict]</span></code> Instead of <code class="docutils literal notranslate"><span class="pre">model_path</span></code> or <code class="docutils literal notranslate"><span class="pre">model_loader</span></code>, the model can be specified using a dictionary describing a huggingface
-model. This dictionary specifies the following items:</p>
-<ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">model_name:</span> <span class="pre">[str]</span></code>: This the model name of the huggingface model such as <code class="docutils literal notranslate"><span class="pre">distilbert-base-uncased</span></code> which will be used to load the model with huggingface <code class="docutils literal notranslate"><span class="pre">from_pretrained</span></code> method.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">task:</span> <span class="pre">[str]</span></code>: This is the task type for the model such as <code class="docutils literal notranslate"><span class="pre">text-classification</span></code>. The complete list of supported task can be found
-at <a class="reference external" href="https://huggingface.co/docs/transformers/v4.28.1/en/main_classes/pipelines#transformers.pipeline.task">huggingface-tasks</a>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">feature:</span> <span class="pre">[str]</span></code>: The ONNX export features. This is only needed for HuggingFace hub model. It is inferred from <code class="docutils literal notranslate"><span class="pre">task</span></code> if not provided. You must provide the feature if you need past key value cache.
-For instance, <code class="docutils literal notranslate"><span class="pre">&quot;causal-lm-with-past&quot;</span></code>. You can find more info at <a class="reference external" href="https://huggingface.co/docs/transformers/serialization">Export to ONNX</a></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">model_class:</span> <span class="pre">[str]</span></code>: Instead of the <code class="docutils literal notranslate"><span class="pre">task</span></code>, the class of the model can be provided as well. Such as <code class="docutils literal notranslate"><span class="pre">DistilBertForSequenceClassification</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">components:</span> <span class="pre">[List[HFComponent]]</span></code>: HFComponent list:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">HFComponent</span></code>:</p>
-<ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">[str]</span></code>: Component name. Olive will generate a model class with this str as attribute name.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">io_config:</span> <span class="pre">[Dict[str,</span> <span class="pre">Any]</span> <span class="pre">|</span> <span class="pre">IoConfig</span> <span class="pre">|</span> <span class="pre">str</span> <span class="pre">|</span> <span class="pre">Callable]</span></code>: The io_config of this component. If <code class="docutils literal notranslate"><span class="pre">str</span></code>, Olive will load <code class="docutils literal notranslate"><span class="pre">io_config</span></code> from <code class="docutils literal notranslate"><span class="pre">model_script</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">component_func:</span> <span class="pre">[str]</span></code>: The component function name will be loaded from <code class="docutils literal notranslate"><span class="pre">model_script</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">dummy_inputs_func:</span> <span class="pre">[str]</span></code>: The dummy input function name will be loaded from <code class="docutils literal notranslate"><span class="pre">model_script</span></code>.</p></li>
-</ul>
-</li>
-</ul>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>For cases where you do not want to use the huggingface model but want to use the huggingface dataset, you can provide `dataset` config only like above.
-
-</pre></div>
-</div>
-</li>
-<li><p><code class="docutils literal notranslate"><span class="pre">from_pretrained_args:</span> <span class="pre">[dict]</span></code>: Arguments to pass to the <code class="docutils literal notranslate"><span class="pre">from_pretrained</span></code> method of the model class. Refer to <a class="reference external" href="https://huggingface.co/docs/transformers/main_classes/model#transformers.PreTrainedModel.from_pretrained">this documentation</a>.</p></li>
-</ul>
-</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">load_kwargs:</span> <span class="pre">[dict]</span></code>: Arguments to pass to the <code class="docutils literal notranslate"><span class="pre">from_pretrained</span></code> method of the model class. Refer to <a class="reference external" href="https://huggingface.co/docs/transformers/main_classes/model#transformers.PreTrainedModel.from_pretrained">this documentation</a>.</p></li>
 </ul>
 </li>
 </ul>
@@ -370,16 +339,19 @@ For instance, <code class="docutils literal notranslate"><span class="pre">&quot
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td class="text-left"><p>[PytorchModelHandler(pytorch_model)</p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="../api/models.html#hf-model"><span class="std std-ref">HfModelHandler</span></a></p></td>
+<td class="text-left"><p>Hf model</p></td>
+</tr>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="../api/models.html#pytorch-model"><span class="std std-ref">PytorchModelHandler</span></a></p></td>
 <td class="text-left"><p>Pytorch model</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="../api/models.html#onnx-model"><span class="std std-ref">ONNXModelHandler</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="../api/models.html#onnx-model"><span class="std std-ref">ONNXModelHandler</span></a></p></td>
 <td class="text-left"><p>ONNX model</p></td>
 </tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="../api/models.html#openvino-model"><span class="std std-ref">OpenVINOModelHandler</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="../api/models.html#openvino-model"><span class="std std-ref">OpenVINOModelHandler</span></a></p></td>
 <td class="text-left"><p>OpenVINO IR model</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="../api/models.html#snpe-model"><span class="std std-ref">SNPEModelHandler</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="../api/models.html#snpe-model"><span class="std std-ref">SNPEModelHandler</span></a></p></td>
 <td class="text-left"><p>SNPE DLC model</p></td>
 </tr>
 </tbody>
@@ -387,20 +359,9 @@ For instance, <code class="docutils literal notranslate"><span class="pre">&quot
 <section id="id1">
 <h3>Example<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;input_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PyTorchModel&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HfModel&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;model_loader&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;load_pytorch_origin_model&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;model_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;io_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;input_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">],</span>
-<span class="w">            </span><span class="nt">&quot;input_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;int32&quot;</span><span class="p">],</span>
-<span class="w">            </span><span class="nt">&quot;input_shapes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">]],</span>
-<span class="w">            </span><span class="nt">&quot;output_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;output&quot;</span><span class="p">],</span>
-<span class="w">            </span><span class="nt">&quot;dynamic_axes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">                </span><span class="nt">&quot;input&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;0&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;batch_size&quot;</span><span class="p">},</span>
-<span class="w">                </span><span class="nt">&quot;output&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;0&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;batch_size&quot;</span><span class="p">}</span>
-<span class="w">            </span><span class="p">}</span>
-<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;meta-llama/Llama-2-7b-hf&quot;</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
