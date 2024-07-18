@@ -124,6 +124,10 @@ class AzureMLSystem(OliveSystem):
 
         with tempfile.TemporaryDirectory() as tempdir:
             workflow_pipeline = self._create_pipeline_for_workflow(run_config, tempdir)
+            logger.info(
+                "Once the workflow is submitted, it is safe to terminate the process. "
+                "The workflow job will continue running."
+            )
             self._run_job(
                 ml_client,
                 workflow_pipeline,
@@ -131,7 +135,7 @@ class AzureMLSystem(OliveSystem):
                 tags={"Workflow": workflow_id},
                 download_outputs=False,
             )
-            logger.info("Workflow now is running. Please check the AzureML Workspace for the job status.")
+            logger.info("Workflow run succeed. Please check the job details for logs and outputs.")
 
     def _create_pipeline_for_workflow(self, run_config: RunConfig, tmp_dir):
         workflow_id = run_config.workflow_id
