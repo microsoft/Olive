@@ -39,7 +39,7 @@ class TestRunConfig:
         user_script_json = user_script_json.replace("user_script.py", str(user_script_py))
         self.user_script_config_file = tmp_path / "user_script.json"
         with open(self.user_script_config_file, "w") as f:
-            f.write(user_script_json)
+            json.dump(json.loads(user_script_json), f)
 
     def test_config_without_azureml_config(self):
         with self.user_script_config_file.open() as f:
