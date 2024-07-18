@@ -144,6 +144,8 @@ class AzureMLSystem(OliveSystem):
         cur_dir = Path(__file__).resolve().parent
         code_files = [cur_dir / script_name]
         self.copy_files(code_files, config_root)
+        workflow_config = run_config.to_json()
+        [workflow_config.pop(component, None) for component in ["evaluators", "systems", "data_configs", "azureml_client"]]
 
         inputs, args = self.create_inputs_and_args(
             {WORKFLOW_CONFIG: run_config.to_json()},

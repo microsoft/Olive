@@ -33,7 +33,7 @@ def main(raw_args=None):
     resources, extra_args = parse_resources_args(raw_args)
     olive_config, extra_args = parse_config(extra_args, WORKFLOW_CONFIG, resources)
 
-    print("Parsed Olive config: %s", olive_config)
+    print("Parsed Olive config: ", olive_config)
 
     olive_run(olive_config, setup=True)
     olive_run(olive_config)
