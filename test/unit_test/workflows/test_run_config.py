@@ -22,9 +22,24 @@ from olive.workflows.run.run import get_pass_module_path, is_execution_provider_
 class TestRunConfig:
     # like: Systems/Evaluation/Model and etc.
     @pytest.fixture(autouse=True)
-    def setup(self):
+    def setup(self, tmp_path):
         self.package_config = OlivePackageConfig.parse_file(OlivePackageConfig.get_default_config_path())
-        self.user_script_config_file = Path(__file__).parent / "mock_data" / "user_script.json"
+
+        # create a user_script.py file in the tmp_path and refer to it
+        # this way the test can be run from any directory
+        current_dir = Path(__file__).parent
+        with open(current_dir / "mock_data" / "user_script.json") as f:
+            user_script_json = json.load(f)
+        user_script_json = json.dumps(user_script_json)
+
+        user_script_py = tmp_path / "user_script.py"
+        with open(user_script_py, "w") as f:
+            f.write("")
+
+        user_script_json = user_script_json.replace("user_script.py", str(user_script_py))
+        self.user_script_config_file = tmp_path / "user_script.json"
+        with open(self.user_script_config_file, "w") as f:
+            f.write(user_script_json)
 
     def test_config_without_azureml_config(self):
         with self.user_script_config_file.open() as f:
@@ -33,7 +48,7 @@ class TestRunConfig:
         user_script_config.pop("azureml_client")
         with pytest.raises(ValueError) as e:  # noqa: PT011
             RunConfig.parse_obj(user_script_config)
-        assert "AzureML client config is required for AzureML system" in str(e.value)
+        assert "azureml_client is required for AzureML System but not provided." in str(e.value)
 
     @pytest.fixture()
     def mock_aml_credentials(self):
