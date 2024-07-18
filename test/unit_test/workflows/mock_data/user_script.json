@@ -35,7 +35,6 @@
         {
             "name": "accuracy_data_config",
             "type": "HuggingfaceContainer",
-            "user_script": "test/unit_test/assets/user_script.py",
             "load_dataset_config": {
                 "params": {
                     "data_dir": {
@@ -49,7 +48,6 @@
         {
             "name": "latency_data_config",
             "type": "HuggingfaceContainer",
-            "user_script": "test/unit_test/assets/user_script.py",
             "load_dataset_config": {
                 "params": {
                     "data_dir": "azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test/test/cifar-10-batches-py"
@@ -75,7 +73,7 @@
                         { "name": "top5", "goal": { "type": "max-degradation", "value": 0.01 } }
                     ],
                     "user_config": {
-                        "user_script": "test/unit_test/assets/user_script.py",
+                        "user_script": "user_script.py",
                         "evaluate_func": "eval_accuracy"
                     }
                 },
@@ -102,7 +100,7 @@
         "onnx_quantization": {
             "type": "OnnxQuantization",
             "config": {
-                "user_script": "test/unit_test/assets/user_script.py",
+                "user_script": "user_script.py",
                 "data_dir": "data",
                 "dataloader_func": "resnet_calibration_reader",
                 "weight_type": "QUInt8",
@@ -113,7 +111,7 @@
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {
-                "user_script": "test/unit_test/assets/user_script.py",
+                "user_script": "user_script.py",
                 "dataloader_func": "create_dataloader",
                 "batch_size": 16,
                 "data_dir": {
