@@ -10,7 +10,7 @@ from urllib import request
 
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
-from transformers import __version__ as TransformersVersion
+from transformers import AutoConfig
 
 SUPPORTED_WORKFLOWS = {
     ("cpu", "fp32"): ["conversion", "transformers_optimization", "insert_beam_search", "prepost"],
@@ -95,7 +95,6 @@ def main(raw_args=None):
 
     # version check
     version_1_16 = version.parse(OrtVersion) >= version.parse("1.16.0")
-    transformers_version_4_36 = version.parse(TransformersVersion) >= version.parse("4.36.0")
 
     # multi-lingual support check
     if not version_1_16:
@@ -114,10 +113,15 @@ def main(raw_args=None):
         template_json = json.load(f)
     model_name = args.model_name
 
-    # update model name
-    template_json["input_model"]["config"]["hf_config"]["model_name"] = model_name
-    if transformers_version_4_36:
-        template_json["input_model"]["config"]["hf_config"]["from_pretrained_args"] = {"attn_implementation": "eager"}
+    # update model paths
+    for model_component in template_json["input_model"]["config"]["model_components"]:
+        model_component["config"]["model_path"] = model_name
+    # update model attributes
+    template_json["input_model"]["config"]["model_attributes"] = model_attributes = AutoConfig.from_pretrained(
+        model_name
+    ).to_dict()
+    # remove suppress_tokens since it takes too much space in the config
+    model_attributes.pop("suppress_tokens", None)
 
     load_dataset_params = template_json["data_configs"][0]["load_dataset_config"]["params"]
     load_dataset_params["model_name"] = model_name

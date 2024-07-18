@@ -10,10 +10,11 @@ import torch
 from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.model import PyTorchModelHandler
+from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
+from olive.passes.pytorch.common import inherit_pytorch_from_hf, inherit_pytorch_from_pytorch
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +125,7 @@ class GptqQuantizer(Pass):
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: PyTorchModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: Union[HfModelHandler, PyTorchModelHandler], config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModelHandler:
         from auto_gptq import BaseQuantizeConfig
         from auto_gptq.modeling import BaseGPTQForCausalLM
@@ -211,14 +212,7 @@ class GptqQuantizer(Pass):
         output_model_path = normalize_path_suffix(output_model_path, "model.pt")
         torch.save(quantized_model, output_model_path)
 
-        model_config = model.to_json()["config"]
-        model_config["model_path"] = output_model_path
-        model_config.pop("model_loader", None)
-        if model.hf_config is not None:
-            hf_config = model.get_hf_model_config()
-            del model_config["hf_config"]
-            model_config["model_attributes"] = hf_config.to_dict()
+        if isinstance(model, HfModelHandler):
+            return inherit_pytorch_from_hf(model, output_model_path)
 
-        return PyTorchModelHandler(
-            **model_config,
-        )
+        return inherit_pytorch_from_pytorch(model, output_model_path)

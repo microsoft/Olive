@@ -92,12 +92,10 @@ Here is another quick comparison between Auto Optimizer and manual settings.
 
             {
                 "input_model":{
-                    "type": "PyTorchModel",
+                    "type": "HfModel",
                     "config": {
-                        "hf_config": {
-                            "model_name": "Intel/bert-base-uncased-mrpc",
-                            "task": "text-classification"
-                        }
+                        "model_path": "Intel/bert-base-uncased-mrpc",
+                        "task": "text-classification"
                     }
                 },
                 "systems": {
@@ -188,12 +186,10 @@ Here is another quick comparison between Auto Optimizer and manual settings.
 
             {
                 "input_model":{
-                    "type": "PyTorchModel",
+                    "type": "HfModel",
                     "config": {
-                        "hf_config": {
-                            "model_name": "Intel/bert-base-uncased-mrpc",
-                            "task": "text-classification"
-                        }
+                        "model_path": "Intel/bert-base-uncased-mrpc",
+                        "task": "text-classification"
                     }
                 },
                 "systems": {

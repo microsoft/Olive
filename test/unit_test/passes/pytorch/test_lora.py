@@ -14,7 +14,7 @@ import torch
 
 from olive.common.constants import OS
 from olive.data.template import huggingface_data_config_template
-from olive.model import PyTorchModelHandler
+from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.lora import LoftQ, LoRA, QLoRA
 
@@ -66,7 +66,7 @@ def run_finetuning(pass_class, tmp_path, **pass_config_kwargs):
     # setup
     model_name = "hf-internal-testing/tiny-random-OPTForCausalLM"
     task = "text-generation"
-    input_model = PyTorchModelHandler(hf_config={"model_name": model_name, "task": task})
+    input_model = HfModelHandler(model_path=model_name, task=task)
     # convert to json to ensure the pass can handle serialized data config
     config = get_pass_config(model_name, task, **pass_config_kwargs)
     p = create_pass_from_dict(pass_class, config, disable_search=True)

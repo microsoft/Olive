@@ -1,7 +1,7 @@
 {
     "input_model": {
-        "type": "PyTorchModel",
-        "config": { "hf_config": { "model_name": "Jean-Baptiste/camembert-ner", "task": "ner" } }
+        "type": "HfModel",
+        "config": { "model_path": "Jean-Baptiste/camembert-ner", "task": "ner" }
     },
     "data_configs": [
         {

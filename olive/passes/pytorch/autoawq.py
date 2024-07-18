@@ -10,10 +10,11 @@ import torch
 
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.model import PyTorchModelHandler
+from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
+from olive.passes.pytorch.common import inherit_pytorch_from_hf
 
 logger = logging.getLogger(__name__)
 
@@ -116,12 +117,11 @@ class AutoAWQQuantizer(Pass):
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: PyTorchModelHandler, config: Dict[str, Any], output_model_path: str
+        self, model: HfModelHandler, config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModelHandler:
         from awq import AutoAWQForCausalLM
         from awq.models import base as awq_model_base
         from awq.quantize.quantizer import AwqQuantizer as PyAutoAWQQuantizer
-        from transformers import AutoTokenizer
 
         if not torch.cuda.is_available():
             raise ValueError("Please use GPU to run gptq quantization.")
@@ -154,11 +154,11 @@ class AutoAWQQuantizer(Pass):
             else PyAutoAWQQuantizer
         )
 
-        loading_args = self._resolve_load_args(model.hf_config.get_loading_args_from_pretrained())
-        model_path = model.model_path or model.hf_config.model_name
         # autoawq load the model with fp16 by default and they did not expose the interface to change it
-        awq_model = AutoAWQForCausalLM.from_pretrained(model_path, **loading_args)
-        tokenizer = AutoTokenizer.from_pretrained(model_path, **loading_args)
+        awq_model = AutoAWQForCausalLM.from_pretrained(
+            model.model_name_or_path, **self._resolve_load_args(model.get_load_kwargs())
+        )
+        tokenizer = model.get_hf_tokenizer()
         try:
             awq_model_base.AwqQuantizer = quantizer
             awq_model.quantize(
@@ -180,17 +180,7 @@ class AutoAWQQuantizer(Pass):
         output_model_path = normalize_path_suffix(output_model_path, "model.pt")
         torch.save(awq_model.model, output_model_path)
 
-        model_config = model.to_json()["config"]
-        model_config["model_path"] = output_model_path
-        model_config.pop("model_loader", None)
-        if model.hf_config is not None:
-            hf_config = model.get_hf_model_config()
-            del model_config["hf_config"]
-            model_config["model_attributes"] = hf_config.to_dict()
-
-        return PyTorchModelHandler(
-            **model_config,
-        )
+        return inherit_pytorch_from_hf(model, output_model_path)
 
     def _pack_model_for_onnx_conversion(self, config):
         from awq.quantize.quantizer import AwqQuantizer as PyAutoAWQQuantizer

@@ -37,12 +37,12 @@ def mnist_post_process_hf_for_docker_eval(res):
 
 
 @Registry.register_dataset()
-def prajjwal1_dataset_for_docker_eval(data_dir, *args, **kwargs):
+def tiny_bert_dataset_for_docker_eval(data_dir, *args, **kwargs):
     from datasets import load_dataset
     from torch.utils.data import Dataset
     from transformers import AutoTokenizer
 
-    tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-tiny")
+    tokenizer = AutoTokenizer.from_pretrained("hf-internal-testing/tiny-random-BertForSequenceClassification")
     dataset = load_dataset("glue", "mrpc", split="validation")
 
     class BaseData(Dataset):

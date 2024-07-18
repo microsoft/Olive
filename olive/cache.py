@@ -4,12 +4,14 @@
 # --------------------------------------------------------------------------
 import json
 import logging
+import os
 import shutil
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional, Union
 
 from olive.common.config_utils import ConfigBase, convert_configs_to_dicts, serialize_to_json, validate_config
+from olive.common.constants import DEFAULT_CACHE_DIR, DEFAULT_WORKFLOW_ID
 from olive.common.utils import hash_dict, set_nested_dict_value
 from olive.resource_path import ResourcePath, create_resource_path, find_all_resources
 
@@ -25,6 +27,19 @@ class CacheSubDirs:
     runs: Path
     evaluations: Path
     resources: Path
+    mlflow: Path
+    cloud_cache: Path
+
+    @classmethod
+    def from_cache_dir(cls, cache_dir: Path) -> "CacheSubDirs":
+        return cls(
+            models=cache_dir / "models",
+            runs=cache_dir / "runs",
+            evaluations=cache_dir / "evaluations",
+            resources=cache_dir / "resources",
+            mlflow=cache_dir / "mlflow",
+            cloud_cache=cache_dir / "cloud_cache",
+        )
 
 
 class OliveCache:
@@ -36,12 +51,7 @@ class OliveCache:
     ):
         self.cache_dir = Path(cache_dir).resolve()
         logger.info("Using cache directory: %s", self.cache_dir)
-        self.dirs = CacheSubDirs(
-            models=self.cache_dir / "models",
-            runs=self.cache_dir / "runs",
-            evaluations=self.cache_dir / "evaluations",
-            resources=self.cache_dir / "resources",
-        )
+        self.dirs = CacheSubDirs.from_cache_dir(self.cache_dir)
 
         if clean_evaluation_cache and self.dirs.evaluations.exists():
             shutil.rmtree(self.dirs.evaluations, ignore_errors=True)
@@ -243,7 +253,7 @@ class OliveCache:
         with model_jsons[0].open("r") as f:
             model_json = serialize_to_json(json.load(f))
 
-        if model_json["type"].lower() in ("compositemodel", "compositepytorchmodel"):
+        if model_json["type"].lower() == "compositemodel":
             logger.warning("Saving models of type '%s' is not supported yet.", model_json["type"])
             return None
 
@@ -289,3 +299,17 @@ class OliveCache:
             json.dump(model_json, f, indent=4)
 
         return model_json
+
+    def set_cache_env(self):
+        """Set environment variable for the cache directory."""
+        os.environ["OLIVE_CACHE_DIR"] = str(self.cache_dir)
+        logger.debug("Set OLIVE_CACHE_DIR: %s", self.cache_dir)
+
+    @classmethod
+    def from_cache_env(cls) -> "OliveCache":
+        """Create an OliveCache object from the cache directory environment variable."""
+        cache_dir = os.environ.get("OLIVE_CACHE_DIR")
+        if cache_dir is None:
+            logger.debug("OLIVE_CACHE_DIR environment variable not set. Using default cache directory.")
+            cache_dir = Path(DEFAULT_CACHE_DIR).resolve() / DEFAULT_WORKFLOW_ID
+        return cls(cache_dir)

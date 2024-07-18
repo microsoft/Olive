@@ -85,36 +85,31 @@ The default value is 3. User can increase if there are network issues and the op
     "operation_retry_interval" : 5
 },
 ```
+
+<!-- TODO(anyone): Docs for all model handlers-->
 ## Input Model Information
 
 `input_model: [Dict]`
 
 User should specify input model type and configuration using `input model` dictionary. It contains following items:
 
-- `type: [str]` Type of the input model which is case insensitive.. The supported types contain `PyTorchModelHandler`, `ONNXModelHandler`, `OpenVINOModelHandler`,`SNPEModelHandler` and etc. You can
+- `type: [str]` Type of the input model which is case insensitive.. The supported types contain `HfModelHandler`, `PyTorchModelHandler`, `ONNXModelHandler`, `OpenVINOModelHandler`,`SNPEModelHandler` and etc. You can
 find more details in [Olive Models](https://microsoft.github.io/Olive/api/models.html).
 
-- `config: [Dict]` For example, for `PytorchModelHandler`, the input model config dictionary specifies following items:
+- `config: [Dict]` For example, for `HfModelHandler`, the input model config dictionary specifies following items:
 
-    - `model_path: [str | Dict]` The model path can be a string or a dictionary. If it is a string, it is either a string name
-    used by the model loader or the path to the model file/directory. If it is a dictionary, it contains information about the model path.
-    Please refer to [Configuring Model Path](../tutorials/configure_model_path.md) for the more information of the model path dictionary.
+    - `model_path: [str | Dict]` The model path can be a string or a dictionary. If it is a string, it is a huggingface hub model id or a local directory. If it is a dictionary, it contains information about the model path. Please refer to [Configuring Model Path](../tutorials/configure_model_path.md) for the more information of the model path dictionary.
 
-    - `model_loader: [str]` The name of the function provided by the user to load the model. The function should take the model path as
-    input and return the loaded model.
+    - `task: [str]` The task of the model. The default task is `text-generation-with-past` which is equivalent to a causal language model with key-value cache enabled.
 
-    - `model_script: [str]` The name of the script provided by the user to assist with model loading.
-
-    - `script_dir: [str]` The directory that contains dependencies for the model script.
-
-    - `io_config: [Dict[str, Any] | IoConfig | str | Callable]`: The inputs and outputs information of the model. It can be a dictionary, an IoConfig object or a function string under `model_script`. Basically, it contains following items:
+    - `io_config: [Dict]`: The inputs and outputs information of the model. If not provided, Olive will try to infer the input and output information from the model. The dictionary contains following items:
         - `input_names: [List[str]]` The input names of the model.
         - `input_types: [List[str]]` The input types of the model.
         - `input_shapes: [List[List[int]]]` The input shapes of the model.
         - `output_names: [List[str]]` The output names of the model.
         - `dynamic_axes: [Dict[str, Dict[str, str]]]` The dynamic axes of the model. The key is the name of the input or output and the value is a dictionary that contains the dynamic axes of the input or output. The key of the value dictionary is the index of the dynamic axis and the value is the name of the dynamic axis. For example, `{"input": {"0": "batch_size"}, "output": {"0": "batch_size"}}` means the first dimension of the input and output is dynamic and the name of the dynamic axis is `batch_size`.
         - `string_to_int_dim_params: List[str]` The list of input names in dynamic axes that need to be converted to int value.
-        - `kv_cache: Union[bool, Dict[str, str]]` The key value cache configuration.
+        - `kv_cache: Union[bool, Dict[str, str]]` The key value cache configuration. If not provided, it is assumed to be `True` if the `task` ends with `-with-past`.
           - If it is `False`, Olive will not use key value cache.
           - If it is `True`, Olive will infer the cache configuration from the input_names/input_shapes and input model based on default `kv_cache`.
           - If it is a dictionary, it should contains the key value cache configuration. Here is an default configuration example:
@@ -148,35 +143,15 @@ find more details in [Olive Models](https://microsoft.github.io/Olive/api/models
                 The dynamic axis of the past key value cache. If it is null, Olive will infer the dynamic axis.
             - `present_kv_dynamic_axis`: null
                 The dynamic axis of the present key value cache. If it is null, Olive will infer the dynamic axis.
-    - <a name="hf_config"></a> `hf_config: [Dict]` Instead of `model_path` or `model_loader`, the model can be specified using a dictionary describing a huggingface
-    model. This dictionary specifies the following items:
 
-        - `model_name: [str]`: This the model name of the huggingface model such as `distilbert-base-uncased` which will be used to load the model with huggingface `from_pretrained` method.
-
-        - `task: [str]`: This is the task type for the model such as `text-classification`. The complete list of supported task can be found
-        at [huggingface-tasks](https://huggingface.co/docs/transformers/v4.28.1/en/main_classes/pipelines#transformers.pipeline.task).
-
-        - `feature: [str]`: The ONNX export features. This is only needed for HuggingFace hub model. It is inferred from `task` if not provided. You must provide the feature if you need past key value cache.
-        For instance, `"causal-lm-with-past"`. You can find more info at [Export to ONNX](https://huggingface.co/docs/transformers/serialization)
-
-        - `model_class: [str]`: Instead of the `task`, the class of the model can be provided as well. Such as `DistilBertForSequenceClassification`
-
-        - `components: [List[HFComponent]]`: HFComponent list:
-            - `HFComponent`:
-                - `name: [str]`: Component name. Olive will generate a model class with this str as attribute name.
-                - `io_config: [Dict[str, Any] | IoConfig | str | Callable]`: The io_config of this component. If `str`, Olive will load `io_config` from `model_script`.
-                - `component_func: [str]`: The component function name will be loaded from `model_script`.
-                - `dummy_inputs_func: [str]`: The dummy input function name will be loaded from `model_script`.
-            ```
-            For cases where you do not want to use the huggingface model but want to use the huggingface dataset, you can provide `dataset` config only like above.
-
-        - `from_pretrained_args: [dict]`: Arguments to pass to the `from_pretrained` method of the model class. Refer to [this documentation](https://huggingface.co/docs/transformers/main_classes/model#transformers.PreTrainedModel.from_pretrained).
+    - `load_kwargs: [dict]`: Arguments to pass to the `from_pretrained` method of the model class. Refer to [this documentation](https://huggingface.co/docs/transformers/main_classes/model#transformers.PreTrainedModel.from_pretrained).
 
 Please find the detailed config options from following table for each model type:
 
 | Model Type | Description |
 |:----------|:-------------|
-| [PytorchModelHandler(pytorch_model) | Pytorch model |
+| [HfModelHandler](hf_model) | Hf model |
+| [PytorchModelHandler](pytorch_model) | Pytorch model |
 | [ONNXModelHandler](onnx_model) | ONNX model |
 | [OpenVINOModelHandler](openvino_model) | OpenVINO IR model |
 | [SNPEModelHandler](snpe_model) | SNPE DLC model |
@@ -184,20 +159,9 @@ Please find the detailed config options from following table for each model type
 ### Example
 ```json
 "input_model": {
-    "type": "PyTorchModel",
+    "type": "HfModel",
     "config": {
-        "model_loader": "load_pytorch_origin_model",
-        "model_script": "user_script.py",
-        "io_config": {
-            "input_names": ["input"],
-            "input_types": ["int32"],
-            "input_shapes": [[1, 3, 32, 32]],
-            "output_names": ["output"],
-            "dynamic_axes": {
-                "input": {"0": "batch_size"},
-                "output": {"0": "batch_size"}
-            }
-        }
+        "model_path": "meta-llama/Llama-2-7b-hf"
     }
 }
 ```

@@ -23,9 +23,8 @@ class PytorchKvCacheMixin:
             unused_keys = set()
             if kv_cache_config and not dummy_inputs.get(past_kv_names):
                 torch_past_key_values = []
-                k_inputs = kv_cache_config.get_ort_past_key_names()
-                v_inputs = kv_cache_config.get_ort_past_value_names()
-                for k_input, v_input in zip(k_inputs, v_inputs):
+                kv_inputs = kv_cache_config.get_ort_past_kv_names()
+                for k_input, v_input in zip(kv_inputs[::2], kv_inputs[1::2]):
                     if k_input not in dummy_inputs or v_input not in dummy_inputs:
                         raise ValueError(
                             f"Cannot find past key-value pair for {k_input} and {v_input} in dummy inputs."
@@ -51,6 +50,7 @@ class PytorchKvCacheMixin:
         """
         return (self.merge_kv_cache_hook(dummy_inputs, past_kv_names),)
 
+    # TODO(jambayk): consider removing this since we don't use hf dataset for dummy inputs anymore
     def past_key_values_input_filter_hook(self, dummy_inputs, past_kv_names: str = "past_key_values"):
         if not isinstance(dummy_inputs, dict):
             return dummy_inputs

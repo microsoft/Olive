@@ -8,7 +8,7 @@ import logging
 import os
 import sys
 
-from olive.common.utils import huggingface_login
+from olive.common.hf.login import huggingface_login
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorConfig, OliveEvaluatorFactory
 from olive.logging import set_verbosity_from_env
 from olive.model import ModelConfig

@@ -56,10 +56,8 @@ class TestAzureMLSystem:
 
         self.input_model_config = {
             "config": {
-                "hf_config": {
-                    "model_name": "Intel/bert-base-uncased-mrpc",
-                    "task": "text-classification",
-                },
+                "model_path": "hf-internal-testing/tiny-random-BertForSequenceClassification",
+                "task": "text-classification",
                 "io_config": {
                     "dynamic_axes": {
                         "attention_mask": {"0": "batch_size", "1": "seq_length"},
@@ -72,7 +70,7 @@ class TestAzureMLSystem:
                     "output_names": ["output"],
                 },
             },
-            "type": "PyTorchModel",
+            "type": "HfModel",
             "resource_names": [],
         }
 
