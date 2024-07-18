@@ -292,7 +292,7 @@ class RunConfig(ConfigBase):
 
 
 def _insert_azureml_client(config, azureml_client):
-    """Insert azureml_client into config if needed.
+    """Insert azureml_client into config recursively.
 
     Valid cases:
         1. AzureML resource path config without azureml_client
@@ -324,9 +324,11 @@ def _needs_aml_client(config):
 
     config_type = config.get("type")
 
+    # AzureML resource path config without azureml_client
     if config_type in AZUREML_RESOURCE_TYPES and not config.get("config", {}).get("azureml_client"):
         return ("config", "azureml_client"), "AzureML Resource Path"
 
+    # AzureML system config without azureml_client_config
     if config_type == "AzureML" and not config.get("config", {}).get("azureml_client_config"):
         return ("config", "azureml_client_config"), "AzureML System"
 
@@ -382,10 +384,12 @@ def _resolve_system(v, values, system_alias):
 
 
 def _resolve_data_config(v, values, data_config_alias):
-    # it is okay to insert a new member into values
-    # doesn't affect the original values
-    values["data_configs_dict"] = {dc.name: dc for dc in values.get("data_configs") or []}
-    return _resolve_config_str(v, values, data_config_alias, component_name="data_configs_dict")
+    return _resolve_config_str(
+        v,
+        {"data_configs_dict": {dc.name: dc for dc in values.get("data_configs") or []}},
+        data_config_alias,
+        component_name="data_configs_dict",
+    )
 
 
 def _resolve_evaluator(v, values):
@@ -399,17 +403,6 @@ def _resolve_evaluator(v, values):
         return v
 
     return _resolve_config_str(v, values, "evaluator", component_name="evaluators")
-
-
-def _have_aml_client(config_item, values):
-    resource_path_type = config_item.get("type")
-    if resource_path_type in AZUREML_RESOURCE_TYPES:
-        rp_aml_client = config_item.get("config", {}).get("azureml_client")
-        if not rp_aml_client:
-            if "azureml_client" not in values:
-                raise ValueError(f"azureml_client is required for azureml resource path in config of {config_item}")
-            return True
-    return False
 
 
 def _auto_fill_data_config(config, info, config_names, param_names, only_none=False):
