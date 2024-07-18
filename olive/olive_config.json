@@ -33,6 +33,9 @@
         "InsertBeamSearch": {
             "module_path": "olive.passes.onnx.insert_beam_search.InsertBeamSearch"
         },
+        "MixedPrecisionOverrides": {
+            "module_path": "olive.passes.onnx.mixed_precision_overrides.MixedPrecisionOverrides"
+        },
         "MoEExpertsDistributor": {
             "module_path": "olive.passes.onnx.moe_experts_distributor.MoEExpertsDistributor"
         },
@@ -91,7 +94,7 @@
             "module_path": "olive.passes.onnx.transformer_optimization.OrtTransformersOptimization"
         },
         "QNNPreprocess": {
-            "module_path": "olive.passes.onnx.qnn_preprocess.QNNPreprocess"
+            "module_path": "olive.passes.onnx.qnn.qnn_preprocess.QNNPreprocess"
         },
         "VitisAIQuantization": {
             "module_path": "olive.passes.onnx.vitis_ai_quantization.VitisAIQuantization"
