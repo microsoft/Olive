@@ -124,12 +124,14 @@ class AzureMLSystem(OliveSystem):
 
         with tempfile.TemporaryDirectory() as tempdir:
             workflow_pipeline = self._create_pipeline_for_workflow(run_config, tempdir)
-            self._run_workflow_job(
+            self._run_job(
                 ml_client,
                 workflow_pipeline,
                 "olive-workflow",
                 tags={"Workflow": workflow_id},
+                download_outputs=False,
             )
+            logger.info("Workflow now is running. Please check the AzureML Workspace for the job status.")
 
     def _create_pipeline_for_workflow(self, run_config: RunConfig, tmp_dir):
         workflow_id = run_config.workflow_id
@@ -476,27 +478,6 @@ class AzureMLSystem(OliveSystem):
 
         return pass_runner_pipeline()
 
-    def _run_workflow_job(
-        self,
-        ml_client,
-        pipeline_job,
-        experiment_name: str,
-        tags: Dict = None,
-    ):
-        logger.debug("Submitting pipeline")
-        tags = {**self.tags, **(tags or {})}
-        job = retry_func(
-            ml_client.jobs.create_or_update,
-            [pipeline_job],
-            {"experiment_name": experiment_name, "tags": tags},
-            max_tries=self.azureml_client_config.max_operation_retries,
-            delay=self.azureml_client_config.operation_retry_interval,
-            exceptions=(HttpResponseError, JobException),
-        )
-        ml_client.jobs.stream(job.name)
-        logger.info("Pipeline submitted. Job name: %s. Job link: %s", job.name, job.studio_url)
-        logger.info("Workflow now is running. Please check the AzureML Workspace for the job status.")
-
     def _run_job(
         self,
         ml_client,
@@ -505,6 +486,7 @@ class AzureMLSystem(OliveSystem):
         tmp_dir: Union[str, Path],
         tags: Dict = None,
         output_name: str = None,
+        download_outputs: bool = True,
     ) -> Path:
         """Run a pipeline job and return the path to named-outputs."""
         # submit job
@@ -521,26 +503,28 @@ class AzureMLSystem(OliveSystem):
         logger.info("Pipeline submitted. Job name: %s. Job link: %s", job.name, job.studio_url)
         ml_client.jobs.stream(job.name)
 
-        # get output
-        output_dir = Path(tmp_dir) / "pipeline_output"
-        output_dir.mkdir(parents=True, exist_ok=True)
-        # whether to download a single output or all outputs
-        output_arg = {"download_path": output_dir}
-        if output_name:
-            output_arg["output_name"] = output_name
-        else:
-            output_arg["all"] = True
-        logger.debug("Downloading pipeline output to %s", output_dir)
-        retry_func(
-            ml_client.jobs.download,
-            [job.name],
-            output_arg,
-            max_tries=self.azureml_client_config.max_operation_retries,
-            delay=self.azureml_client_config.operation_retry_interval,
-            exceptions=ServiceResponseError,
-        )
+        if download_outputs:
+            # get output
+            output_dir = Path(tmp_dir) / "pipeline_output"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            # whether to download a single output or all outputs
+            output_arg = {"download_path": output_dir}
+            if output_name:
+                output_arg["output_name"] = output_name
+            else:
+                output_arg["all"] = True
+            logger.debug("Downloading pipeline output to %s", output_dir)
+            retry_func(
+                ml_client.jobs.download,
+                [job.name],
+                output_arg,
+                max_tries=self.azureml_client_config.max_operation_retries,
+                delay=self.azureml_client_config.operation_retry_interval,
+                exceptions=ServiceResponseError,
+            )
 
-        return output_dir / "named-outputs"
+            return output_dir / "named-outputs"
+        return None
 
     def _load_model(self, input_model_config: dict, output_model_path, pipeline_output_path):
         model_json_path = pipeline_output_path / "output_model_config.json"

@@ -127,8 +127,8 @@ class TestAzureMLSystem:
                 assert res.get_value(metric.name, sub_type.name) == 0.031415
 
     @patch("olive.systems.azureml.aml_system.AzureMLSystem._create_pipeline_for_workflow")
-    @patch("olive.systems.azureml.aml_system.AzureMLSystem._run_workflow_job")
-    def test_submit_workflow(self, mock_run_workflow_job, mock_create_pipeline_for_workflow):
+    @patch("olive.systems.azureml.aml_system.AzureMLSystem._run_job")
+    def test_submit_workflow(self, mock_run_job, mock_create_pipeline_for_workflow):
         # setup
         ml_client = MagicMock()
         self.system.azureml_client_config.create_client.return_value = ml_client
@@ -139,7 +139,7 @@ class TestAzureMLSystem:
 
         # assert
         mock_create_pipeline_for_workflow.assert_called_once()
-        mock_run_workflow_job.assert_called_once()
+        mock_run_job.assert_called_once()
 
     @patch("olive.systems.azureml.aml_system.retry_func")
     @patch("olive.systems.azureml.aml_system.AzureMLSystem._create_pipeline_for_pass")

@@ -22,7 +22,7 @@ The cache and outputs will be exported to `<datastore>/workflow_artifacts/<workf
 
 To run the Olive workflow, add a `workflow_host` configuation at the top level of the Olive config file:
 
-```(json)
+```
 "workflow_host": "aml_system"
 ```
 
