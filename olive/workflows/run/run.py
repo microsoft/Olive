@@ -12,7 +12,7 @@ from typing import Generator, List, Optional, Union
 
 from olive.auto_optimizer import AutoOptimizer
 from olive.common.utils import set_tempdir
-from olive.logging import enable_filelog, set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
+from olive.logging import set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
 from olive.package_config import OlivePackageConfig
 from olive.systems.accelerator_creator import create_accelerators
 from olive.systems.common import SystemType
@@ -160,9 +160,7 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
     )
 
     if is_azureml_system:
-        from olive.systems.azureml.aml_system import AzureMLSystem
-
-        AzureMLSystem.olive_config = olive_config
+        set_olive_config_for_aml_system(olive_config)
 
     auto_optimizer_enabled = (
         not run_config.passes
@@ -263,10 +261,18 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
                 run_config.engine.output_dir,
                 run_config.engine.output_name,
                 run_config.engine.evaluate_input_model,
+                run_config.engine.log_to_file,
+                run_config.engine.log_severity_level,
                 run_config.engine.cloud_cache_config,
             )
         )
     return run_rls
+
+
+def set_olive_config_for_aml_system(olive_config: dict):
+    from olive.systems.azureml.aml_system import AzureMLSystem
+
+    AzureMLSystem.olive_config = olive_config
 
 
 def run(
@@ -282,12 +288,20 @@ def run(
         package_config = OlivePackageConfig.get_default_config_path()
 
     package_config = OlivePackageConfig.parse_file_or_obj(package_config)
-    run_config = RunConfig.parse_file_or_obj(run_config)
+    run_config: RunConfig = RunConfig.parse_file_or_obj(run_config)
+
+    if run_config.workflow_host is not None:
+        workflow_host = run_config.workflow_host
+        if workflow_host.type == SystemType.AzureML:
+            workflow_host = workflow_host.create_system()
+            return workflow_host.submit_workflow(run_config)
+        elif workflow_host.type == SystemType.Local:
+            logger.warning("Running workflow locally.")
+        else:
+            logger.warning("Workflow host is not supported. Ignoring workflow host.")
 
     # set log level for olive
     set_default_logger_severity(run_config.engine.log_severity_level)
-    if run_config.engine.log_to_file:
-        enable_filelog(run_config.engine.log_severity_level)
 
     if setup:
         # set the log level to INFO for setup

@@ -27,6 +27,7 @@ from azure.ai.ml.entities import UserIdentityConfiguration
 from azure.core.exceptions import ResourceNotFoundError
 
 from olive.azureml.azureml_client import AzureMLClientConfig
+from olive.common.constants import HF_LOGIN, KEYVAULT_NAME
 from olive.data.config import DataConfig
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric
 from olive.evaluator.metric_result import MetricResult
@@ -124,6 +125,21 @@ class TestAzureMLSystem:
         if metric.name == "latency":
             for sub_type in metric.sub_types:
                 assert res.get_value(metric.name, sub_type.name) == 0.031415
+
+    @patch("olive.systems.azureml.aml_system.AzureMLSystem._create_pipeline_for_workflow")
+    @patch("olive.systems.azureml.aml_system.AzureMLSystem._run_job")
+    def test_submit_workflow(self, mock_run_job, mock_create_pipeline_for_workflow):
+        # setup
+        ml_client = MagicMock()
+        self.system.azureml_client_config.create_client.return_value = ml_client
+        run_config = MagicMock(workflow_id="workflow_id")
+
+        # execute
+        self.system.submit_workflow(run_config)
+
+        # assert
+        mock_create_pipeline_for_workflow.assert_called_once()
+        mock_run_job.assert_called_once()
 
     @patch("olive.systems.azureml.aml_system.retry_func")
     @patch("olive.systems.azureml.aml_system.AzureMLSystem._create_pipeline_for_pass")
@@ -540,7 +556,7 @@ def test_aml_system_with_hf_token(mock_env):
         base_image="base_image",
         conda_file_path="conda_file_path",
     )
-    expected_env_vars = {"HF_LOGIN": True, "KEYVAULT_NAME": "keyvault_name"}
+    expected_env_vars = {HF_LOGIN: True, KEYVAULT_NAME: "keyvault_name"}
 
     # execute
     system = AzureMLSystem(mock_azureml_client_config, "dummy", docker_config, hf_token=True)

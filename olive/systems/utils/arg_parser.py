@@ -9,17 +9,14 @@ from typing import Tuple
 from olive.common.utils import set_nested_dict_value
 
 
-def parse_common_args(raw_args):
-    """Parse common args.
+def parse_resources_args(raw_args):
+    """Parse resources args.
 
-    Get the pipeline output path and resources.
+    Get the resources.
     Resources are expected to be provided as inputs of the form --resource__{i} where i is the index of the resource.
     `num_resources` is the number of resources provided.
     """
     parser = argparse.ArgumentParser("Olive common args")
-
-    # pipeline output arg
-    parser.add_argument("--pipeline_output", type=str, help="pipeline output path", required=True)
 
     # resources arg
     parser.add_argument("--num_resources", type=int, help="number of resources", required=True)
@@ -27,7 +24,7 @@ def parse_common_args(raw_args):
     args, extra_args = parser.parse_known_args(raw_args)
 
     if args.num_resources == 0:
-        return args.pipeline_output, {}, extra_args
+        return {}, extra_args
 
     # parse resources
     parser = argparse.ArgumentParser("Olive resources")
@@ -36,7 +33,7 @@ def parse_common_args(raw_args):
 
     resource_args, extra_args = parser.parse_known_args(extra_args)
 
-    return args.pipeline_output, vars(resource_args), extra_args
+    return vars(resource_args), extra_args
 
 
 def parse_config(raw_args, name: str, resources: dict) -> Tuple[dict, str]:
@@ -70,14 +67,26 @@ def parse_config(raw_args, name: str, resources: dict) -> Tuple[dict, str]:
     return config, extra_args
 
 
+def parse_pipeline_output(raw_args):
+    """Parse the pipeline output arg."""
+    parser = argparse.ArgumentParser("Pipeline output")
+
+    parser.add_argument("--pipeline_output", type=str, help="pipeline output path", required=True)
+
+    args, extra_args = parser.parse_known_args(raw_args)
+
+    return args.pipeline_output, extra_args
+
+
 def get_common_args(raw_args):
     """Return the model_config.
 
     The return value includes json with the model resource paths filled in, the pipeline output path, and any
     extra args that were not parsed.
     """
-    pipeline_output, resources, extra_args = parse_common_args(raw_args)
+    resources, extra_args = parse_resources_args(raw_args)
 
+    pipeline_output, extra_args = parse_pipeline_output(extra_args)
     model_json, extra_args = parse_config(extra_args, "model", resources)
 
     return pipeline_output, resources, model_json, extra_args

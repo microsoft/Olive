@@ -30,6 +30,7 @@ from olive.evaluator.metric_result import MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.exception import EXCEPTIONS_TO_RAISE, OlivePassError
 from olive.hardware import AcceleratorSpec
+from olive.logging import enable_filelog
 from olive.model import ModelConfig
 from olive.resource_path import create_resource_path
 from olive.strategy.search_strategy import SearchStrategy, SearchStrategyConfig
@@ -66,6 +67,7 @@ class Engine:
         *,
         azureml_client_config=None,
     ):
+        self.workflow_id = workflow_id
         self.no_search = False
         if not search_strategy:
             # if search strategy is None or False, disable search
@@ -109,8 +111,11 @@ class Engine:
 
         self._initialized = False
 
-    def initialize(self):
+    def initialize(self, log_to_file: bool = False, log_severity_level: int = 1):
         """Initialize engine state. This should be done before running the registered passes."""
+        if log_to_file:
+            enable_filelog(log_severity_level, self.cache.cache_dir, self.workflow_id)
+
         # set cache dir environment variables
         # might be used by other parts of olive to cache data
         self.cache.set_cache_env()
@@ -231,6 +236,8 @@ class Engine:
         output_dir: str = None,
         output_name: str = None,
         evaluate_input_model: bool = True,
+        log_to_file: bool = False,
+        log_severity_level: int = 1,
         cloud_cache_config: "CloudCacheConfig" = None,
     ):
         """Run all the registered Olive passes on the input model and produce one or more candidate models.
@@ -244,6 +251,8 @@ class Engine:
             output_name: output name for the output model, if output_name is provided, the output
                 model will be saved to engine's output_dir with the prefix of output_name.
             evaluate_input_model: if evaluate_input_model is True, run the evaluation on the input model.
+            log_to_file: if save logs to a file.
+            log_severity_level: severity level of the logger.
             cloud_cache_config: Cloud model cache configuration.
 
         Return:
@@ -262,7 +271,7 @@ class Engine:
             raise ValueError("No accelerator specified")
 
         if not self._initialized:
-            self.initialize()
+            self.initialize(log_to_file, log_severity_level)
 
         output_dir: Path = Path(output_dir) if output_dir else Path.cwd()
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -939,7 +948,6 @@ class Engine:
                 self.cloud_cache_helper, input_model_config, pass_search_point, input_model_hash
             )
             pass_run_locally = output_model_config is None
-
         # run pass
         if pass_run_locally:
             if enable_cloud_cache and input_model_config.config.get("model_path") is None:

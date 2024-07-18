@@ -336,6 +336,7 @@ The AzureML system represents the Azure Machine Learning workspace where the Pas
     * :code:`tags`: The tags for the AzureML environment. This is optional.
     * :code:`resources`: The resources dictionary for the AzureML environment. This is optional.
     * :code:`instance_count`: The instance count for the AzureML environment. Default is 1.
+    * :code:`datastore`: The datastore name where to export artifacts. Default is `workspaceblobstore`.
     * :code:`olive_managed_env`: A boolean flag to indicate if the environment is managed by Olive. This is optional and defaults to False.
 
 .. note::

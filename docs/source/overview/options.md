@@ -20,10 +20,16 @@ The options are organized into following sections:
 - [Evaluators Information](#evaluators-information) `evaluators`
 - [Passes Information](#passes-information) `passes`
 - [Engine Information](#engine-information) `engine`
+- [Workflow Host](#workflow-host) `workflow_host`
+
 
 ## Workflow ID
 
 You can name the workflow run by specifying `workflow_id` section in your config file. Olive will save the cache under `<cache_dir>/<workflow_id>` folder, and automatically save the current running config in the cache folder.
+
+## Workflow Host
+
+Workflow host is where the Olive workflow will be run. The default value is `None`. If `None` set for workflow host, Olive will run workflow locally. It suppurts `AzureML` system for now.
 
 ## Azure ML Client
 

@@ -157,6 +157,9 @@ class RunConfig(ConfigBase):
         default_factory=AutoOptimizerConfig,
         description="Auto optimizer configuration. Only valid when passes field is empty or not provided.",
     )
+    workflow_host: SystemConfig = Field(
+        None, description="Workflow host. None by default. If provided, the workflow will be run on the specified host."
+    )
 
     @root_validator(pre=True)
     def insert_azureml_client(cls, values):
@@ -290,6 +293,12 @@ class RunConfig(ConfigBase):
             )
         return v
 
+    @validator("workflow_host", pre=True)
+    def validate_workflow_host(cls, v, values):
+        if v is None:
+            return v
+        return _resolve_config(values, v)
+
 
 def _insert_azureml_client(config, azureml_client):
     """Insert azureml_client into config recursively.
@@ -368,15 +377,22 @@ def _resolve_config_str(v, values, alias, component_name):
     if not isinstance(sub_component, str):
         return v
 
+    component_config = _resolve_config(values, sub_component, component_name)
+
+    v[alias] = component_config
+    return v
+
+
+def _resolve_config(values, sub_component, component_name="systems"):
     # resolve component name to component configs
     if component_name not in values:
         raise ValueError(f"Invalid {component_name}")
+
     components = values[component_name] or {}
     # resolve sub component name to component config
     if sub_component not in components:
-        raise ValueError(f"{alias} {sub_component} not found in {components}")
-    v[alias] = components[sub_component]
-    return v
+        raise ValueError(f"{sub_component} not found in {components}")
+    return components[sub_component]
 
 
 def _resolve_system(v, values, system_alias):

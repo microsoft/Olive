@@ -19,6 +19,7 @@ from azure.core.exceptions import HttpResponseError, ServiceResponseError
 
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import validate_config
+from olive.common.constants import HF_LOGIN, KEYVAULT_NAME, WORKFLOW_ARTIFACTS, WORKFLOW_CONFIG
 from olive.common.utils import copy_dir, get_nested_dict_value, retry_func, set_nested_dict_value
 from olive.evaluator.metric_result import MetricResult
 from olive.model import ModelConfig
@@ -34,6 +35,7 @@ from olive.resource_path import (
 from olive.systems.common import AcceleratorConfig, AzureMLDockerConfig, AzureMLEnvironmentConfig, SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import AzureMLTargetUserConfig
+from olive.workflows.run.config import RunConfig
 
 if TYPE_CHECKING:
     from olive.evaluator.metric import Metric
@@ -115,14 +117,89 @@ class AzureMLSystem(OliveSystem):
         self.env_vars = self._get_hf_token_env(self.azureml_client_config.keyvault_name) if self.hf_token else None
         self.temp_dirs = []
 
+    def submit_workflow(self, run_config: RunConfig):
+        workflow_id = run_config.workflow_id
+        logger.info("Submitting workflow %s to the AzureML system.", workflow_id)
+        ml_client = self.azureml_client_config.create_client()
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            workflow_pipeline = self._create_pipeline_for_workflow(run_config, tempdir)
+            logger.info(
+                "Once the workflow is submitted, it is safe to terminate the process. "
+                "The workflow job will continue running."
+            )
+            self._run_job(
+                ml_client,
+                workflow_pipeline,
+                "olive-workflow",
+                tags={"Workflow": workflow_id},
+                download_outputs=False,
+            )
+            logger.info("Workflow run succeed. Please check the job details for logs and outputs.")
+
+    def _create_pipeline_for_workflow(self, run_config: RunConfig, tmp_dir):
+        workflow_id = run_config.workflow_id
+        logger.info("Creating pipeline for workflow %s", workflow_id)
+        script_name = "aml_workflow_runner.py"
+
+        tmp_dir = Path(tmp_dir)
+
+        run_config.workflow_host = None
+
+        config_root = tmp_dir / "config"
+        cur_dir = Path(__file__).resolve().parent
+        code_files = [cur_dir / script_name]
+        self.copy_files(code_files, config_root)
+        workflow_config = run_config.to_json()
+        [
+            workflow_config.pop(component, None)
+            for component in ["evaluators", "systems", "data_configs", "azureml_client"]
+        ]
+
+        inputs, args = self.create_inputs_and_args(
+            {WORKFLOW_CONFIG: workflow_config},
+            tmp_dir,
+            ignore_keys=["cache_dir", "output_dir", "model_attributes"],
+        )
+
+        outputs = {
+            WORKFLOW_ARTIFACTS: Output(
+                type=AssetTypes.URI_FOLDER,
+                name=f"{workflow_id}",
+                path=f"azureml://datastores/{self.config.datastores}/paths/{workflow_id}",
+            )
+        }
+        cmd = self._create_step(
+            name="workflow",
+            display_name="Olive Workflow",
+            description="Run olive workflow",
+            aml_environment=self.environment,
+            code=str(config_root),
+            compute=self.compute,
+            resources=self.resources,
+            instance_count=self.instance_count,
+            inputs=inputs,
+            outputs=outputs,
+            script_name=script_name,
+        )
+
+        @pipeline()
+        def workflow_runner_pipeline():
+            outputs = {}
+            component = cmd(**args)
+            outputs[WORKFLOW_ARTIFACTS] = component.outputs.workflow_artifacts
+            return outputs
+
+        return workflow_runner_pipeline()
+
     def _get_hf_token_env(self, keyvault_name: Optional[str]):
         if keyvault_name is None:
             raise ValueError(
                 "hf_token is set to True but keyvault name is not provided. "
                 "Please provide a keyvault name to use HF_TOKEN."
             )
-        env_vars = {"HF_LOGIN": True}
-        env_vars.update({"KEYVAULT_NAME": keyvault_name})
+        env_vars = {HF_LOGIN: True}
+        env_vars.update({KEYVAULT_NAME: keyvault_name})
         return env_vars
 
     def _get_environment_from_config(self, aml_environment_config: AzureMLEnvironmentConfig):
@@ -366,7 +443,7 @@ class AzureMLSystem(OliveSystem):
         if olive_config_path:
             code_files.append(olive_config_path)
 
-        self.copy_code(code_files, code_root)
+        self.copy_files(code_files, code_root)
 
         # prepare inputs
         # want to ignore model_attributes since hf config has _model_name_or_path
@@ -410,9 +487,10 @@ class AzureMLSystem(OliveSystem):
         ml_client,
         pipeline_job,
         experiment_name: str,
-        tmp_dir: Union[str, Path],
+        tmp_dir: Optional[Union[str, Path]] = None,
         tags: Dict = None,
         output_name: str = None,
+        download_outputs: bool = True,
     ) -> Path:
         """Run a pipeline job and return the path to named-outputs."""
         # submit job
@@ -429,26 +507,30 @@ class AzureMLSystem(OliveSystem):
         logger.info("Pipeline submitted. Job name: %s. Job link: %s", job.name, job.studio_url)
         ml_client.jobs.stream(job.name)
 
-        # get output
-        output_dir = Path(tmp_dir) / "pipeline_output"
-        output_dir.mkdir(parents=True, exist_ok=True)
-        # whether to download a single output or all outputs
-        output_arg = {"download_path": output_dir}
-        if output_name:
-            output_arg["output_name"] = output_name
-        else:
-            output_arg["all"] = True
-        logger.debug("Downloading pipeline output to %s", output_dir)
-        retry_func(
-            ml_client.jobs.download,
-            [job.name],
-            output_arg,
-            max_tries=self.azureml_client_config.max_operation_retries,
-            delay=self.azureml_client_config.operation_retry_interval,
-            exceptions=ServiceResponseError,
-        )
+        if download_outputs:
+            # get output
+            if tmp_dir is None:
+                raise ValueError("tmp_dir is required to download pipeline output")
+            output_dir = Path(tmp_dir) / "pipeline_output"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            # whether to download a single output or all outputs
+            output_arg = {"download_path": output_dir}
+            if output_name:
+                output_arg["output_name"] = output_name
+            else:
+                output_arg["all"] = True
+            logger.debug("Downloading pipeline output to %s", output_dir)
+            retry_func(
+                ml_client.jobs.download,
+                [job.name],
+                output_arg,
+                max_tries=self.azureml_client_config.max_operation_retries,
+                delay=self.azureml_client_config.operation_retry_interval,
+                exceptions=ServiceResponseError,
+            )
 
-        return output_dir / "named-outputs"
+            return output_dir / "named-outputs"
+        return None
 
     def _load_model(self, input_model_config: dict, output_model_path, pipeline_output_path):
         model_json_path = pipeline_output_path / "output_model_config.json"
@@ -565,7 +647,7 @@ class AzureMLSystem(OliveSystem):
         if olive_config_path:
             code_files.append(olive_config_path)
 
-        self.copy_code(code_files, code_root)
+        self.copy_files(code_files, code_root)
 
         # prepare inputs
         inputs, args = self.create_inputs_and_args(
@@ -601,7 +683,7 @@ class AzureMLSystem(OliveSystem):
         # metric component
         return cmd(**args)
 
-    def copy_code(self, code_files: List, target_path: Path):
+    def copy_files(self, code_files: List, target_path: Path):
         target_path.mkdir(parents=True, exist_ok=True)
         for code_file in code_files:
             shutil.copy2(str(code_file), str(target_path))

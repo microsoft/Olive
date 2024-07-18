@@ -61,10 +61,10 @@ def test_legacy_call(deprecated_module):
     )
 
 
-@patch("olive.workflows.run")
 @pytest.mark.parametrize("setup", [True, False])
 @pytest.mark.parametrize("tempdir", [None, "tempdir"])
-def test_workflow_run_command(mock_run, setup, tempdir):
+@patch("olive.workflows.run")
+def test_workflow_run_command(mock_run, tempdir, setup):
     # setup
     command_args = ["run", "--run-config", "config.json"]
     if setup:
