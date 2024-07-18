@@ -1,13 +1,7 @@
 {
-    "input_model": {
-        "type": "PyTorchModel",
-        "config": {
-            "hf_config": {
-                "model_name": "microsoft/Phi-3-mini-4k-instruct",
-                "task": "text-generation",
-                "from_pretrained_args": { "trust_remote_code": true }
-            }
-        }
+    "input_model":{
+        "type": "HfModel",
+        "config": { "model_path": "microsoft/Phi-3-mini-4k-instruct" }
     },
     "systems": {
         "local_system": {

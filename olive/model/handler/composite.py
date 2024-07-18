@@ -3,10 +3,10 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from copy import deepcopy
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from olive.common.config_utils import serialize_to_json, validate_config
+from olive.common.utils import dict_diff
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
 from olive.model.config.model_config import ModelConfig
@@ -39,18 +39,23 @@ class CompositeModelHandler(OliveModelHandler):
             model_file_format=ModelFileFormat.COMPOSITE_MODEL,
             model_attributes=model_attributes,
         )
-        if isinstance(model_components[0], dict):
-            self.model_components = [validate_config(m, ModelConfig).create_model() for m in model_components]
-        else:
-            assert all(
-                isinstance(m, OliveModelHandler) for m in model_components
-            ), "All components must be OliveModelHandler"
-            self.model_components = model_components
+        self._model_components = [
+            validate_config(m, ModelConfig).create_model() if isinstance(m, dict) else m for m in model_components
+        ]
+        assert all(
+            isinstance(m, OliveModelHandler) for m in self._model_components
+        ), "All components must be OliveModelHandler or dict"
 
-        assert len(self.model_components) == len(model_component_names), "Number of components and names must match"
+        assert len(self._model_components) == len(model_component_names), "Number of components and names must match"
         self.model_component_names = model_component_names
-        for m in self.model_components:
-            m.set_composite_parent(self)
+
+    @property
+    def model_components(self):
+        for m in self._model_components:
+            # the parent attributes should be inherited by the child model
+            # child attributes take precedence
+            m.model_attributes = {**(self.model_attributes or {}), **(m.model_attributes or {})}
+            yield m
 
     def to_json(self, check_object: bool = False):
         json_dict = {
@@ -58,8 +63,13 @@ class CompositeModelHandler(OliveModelHandler):
             "config": {"model_attributes": self.model_attributes, "model_component_names": self.model_component_names},
         }
         json_dict["config"]["model_components"] = []
-        for m in self.model_components:
-            json_dict["config"]["model_components"].append(m.to_json(check_object))
+        for m in self._model_components:
+            component_json = m.to_json(check_object)
+            # only keep attributes that are different from the parent
+            component_json["config"]["model_attributes"] = dict_diff(
+                component_json["config"]["model_attributes"], self.model_attributes
+            )
+            json_dict["config"]["model_components"].append(component_json)
 
         return serialize_to_json(json_dict, check_object)
 
@@ -85,35 +95,3 @@ class CompositeModelHandler(OliveModelHandler):
         **kwargs: Dict[str, Any],
     ) -> Any:
         raise RuntimeError("CompositeModelHandler doesn't have a session of its own")
-
-
-@model_handler_registry("CompositePyTorchModel")
-class CompositePyTorchModelHandler(CompositeModelHandler):
-    """The  CompositePyTorchModel handler.
-
-    Its main responsibility is to create a list of child PyTorch model and used to initialzie a composite model.
-    """
-
-    def __init__(self, model_components: List[Dict[str, Any]], **kwargs):
-        model_names = []
-        pytorch_models = []
-        for model_config in model_components:
-            config_copy = deepcopy(model_config)
-
-            assert "name" in config_copy
-            model_name = config_copy["name"]
-            del config_copy["name"]
-
-            model_names.append(model_name)
-            pytorch_models.append(validate_config(config_copy, ModelConfig).create_model())
-
-        kwargs_inner = {}
-        kwargs_inner["model_components"] = pytorch_models
-        kwargs_inner["model_component_names"] = model_names
-
-        if "model_attributes" in kwargs:
-            kwargs_inner["model_attributes"] = kwargs["model_attributes"]
-        if "model_path" in kwargs:
-            logger.warning("model_path is not used in CompositePyTorchModelHandler")
-
-        super().__init__(**kwargs_inner)

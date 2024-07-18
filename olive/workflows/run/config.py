@@ -9,7 +9,7 @@ from typing import Dict, List, Union
 from olive.auto_optimizer import AutoOptimizerConfig
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
-from olive.common.constants import DEFAULT_WORKFLOW_ID
+from olive.common.constants import DEFAULT_HF_TASK, DEFAULT_WORKFLOW_ID
 from olive.common.pydantic_v1 import Field, validator
 from olive.data.config import DataConfig
 from olive.data.container.dummy_data_container import TRANSFORMER_DUMMY_DATA_CONTAINER
@@ -197,52 +197,53 @@ class RunConfig(ConfigBase):
         return v
 
     @validator("data_configs", pre=True, each_item=True)
-    def validate_data_configs(cls, v, values):
+    def validate_data_configs_with_hf_model(cls, v, values):
         if "input_model" not in values:
             raise ValueError("Invalid input model")
+
+        input_model_config = values["input_model"].dict()
+        if input_model_config["type"].lower() != "hfmodel":
+            return v
 
         if isinstance(v, DataConfig):
             v = v.dict()
 
+        # all model related info used for auto filling
+        model_info = {
+            "model_name": input_model_config["config"]["model_path"],
+            "task": input_model_config["config"].get("task", DEFAULT_HF_TASK),
+        }
+        kv_cache = input_model_config.get("io_config", {}).get("kv_cache")
+        if isinstance(kv_cache, dict):
+            for key in ["ort_past_key_name", "ort_past_value_name", "batch_size"]:
+                model_info[key] = kv_cache.get(key)
+        if input_model_config["config"].get("load_kwargs", {}).get("trust_remote_code"):
+            model_info["trust_remote_code"] = True
+
+        # TODO(anyone): Will this container ever be used with non-HF models?
         if v["type"] in TRANSFORMER_DUMMY_DATA_CONTAINER:
-            # if user already set kv_cache in io_config, use it directly and ignore the default value
-            io_config = values["input_model"].dict()["config"].get("io_config", {})
-            hf_config = values["input_model"].dict()["config"].get("hf_config", {})
-            kv_cache = io_config.get("kv_cache", False)
-
-            for component_config_name in ["load_dataset_config"]:
-                v[component_config_name] = component_config = v.get(component_config_name) or {}
-                component_config["params"] = component_config_params = component_config.get("params") or {}
-                for key in ["model_name"]:
-                    if not component_config_params.get(key, None):
-                        component_config_params[key] = hf_config.get(key, None)
-                if isinstance(kv_cache, dict):
-                    for key in ["ort_past_key_name", "ort_past_value_name", "batch_size"]:
-                        if not component_config_params.get(key, None) and kv_cache.get(key):
-                            component_config_params[key] = kv_cache.get(key, None)
-
-        if v["type"] == HuggingfaceContainer.__name__:
-            hf_config = values["input_model"].dict()["config"].get("hf_config", {})
-
+            _auto_fill_data_config(
+                v,
+                model_info,
+                ["load_dataset_config"],
+                ["model_name", "ort_past_key_name", "ort_past_value_name", "batch_size"],
+            )
+        elif v["type"] == HuggingfaceContainer.__name__:
             # auto insert model_name and task from input model hf config if not present
             # both are required for huggingface container
-            for component_config_name in ["pre_process_data_config", "post_process_data_config"]:
-                v[component_config_name] = component_config = v.get(component_config_name) or {}
-                component_config["params"] = component_config_params = component_config.get("params") or {}
-                for key in ["model_name", "task"]:
-                    if not component_config_params.get(key, None):
-                        component_config_params[key] = hf_config.get(key, None)
+            _auto_fill_data_config(
+                v, model_info, ["pre_process_data_config", "post_process_data_config"], ["model_name", "task"]
+            )
 
             # auto insert trust_remote_code from input model hf config
             # won't override if value was set to False explicitly
-            if hf_config.get("from_pretrained_args", {}).get("trust_remote_code"):
-                for config_name in ["pre_process_data_config", "load_dataset_config"]:
-                    v[config_name] = component_config = v.get(config_name) or {}
-                    component_config["params"] = component_config_params = component_config.get("params") or {}
-                    if component_config_params.get("trust_remote_code") is None:
-                        component_config_params["trust_remote_code"] = hf_config["from_pretrained_args"][
-                            "trust_remote_code"
-                        ]
+            _auto_fill_data_config(
+                v,
+                model_info,
+                ["pre_process_data_config", "load_dataset_config"],
+                ["trust_remote_code"],
+                only_none=True,
+            )
 
         return validate_config(v, DataConfig)
 
@@ -438,3 +439,24 @@ def _have_aml_client(config_item, values):
                 raise ValueError(f"azureml_client is required for azureml resource path in config of {config_item}")
             return True
     return False
+
+
+def _auto_fill_data_config(config, info, config_names, param_names, only_none=False):
+    """Auto fill data config with model info.
+
+    :param config: data config
+    :param info: model info
+    :param config_names: list of config names to fill
+    :param param_names: list of param names to fill in each config
+    :param only_none: only fill if the value is None, otherwise fill if the value is empty or None
+    """
+    for component_config_name in config_names:
+        config[component_config_name] = component_config = config.get(component_config_name) or {}
+        component_config["params"] = component_config_params = component_config.get("params") or {}
+
+        for key in param_names:
+            if (
+                (only_none and component_config_params.get(key) is None)
+                or (not only_none and not component_config_params.get(key))
+            ) and info.get(key):
+                component_config_params[key] = info[key]

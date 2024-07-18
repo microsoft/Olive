@@ -68,12 +68,12 @@ def get_latency_metric(dataset="mnist_dataset_for_local_eval"):
 
 
 def get_hf_accuracy_metric(
-    post_process="prajjwal1_post_process_for_local_eval", dataset="prajjwal1_dataset_for_local_eval"
+    post_process="tiny_bert_post_process_for_local_eval", dataset="tiny_bert_dataset_for_local_eval"
 ):
     return get_accuracy_metric(post_process, dataset)
 
 
-def get_hf_latency_metric(dataset="prajjwal1_dataset_for_local_eval"):
+def get_hf_latency_metric(dataset="tiny_bert_dataset_for_local_eval"):
     return get_latency_metric(dataset)
 
 
@@ -89,7 +89,10 @@ def get_pytorch_model():
 
 
 def get_huggingface_model():
-    return {"hf_config": {"model_class": "AutoModelForSequenceClassification", "model_name": "prajjwal1/bert-tiny"}}
+    return {
+        "model_path": "hf-internal-testing/tiny-random-BertForSequenceClassification",
+        "task": "text-classification",
+    }
 
 
 def get_onnx_model():

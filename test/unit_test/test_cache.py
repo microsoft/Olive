@@ -11,8 +11,8 @@ from unittest.mock import patch
 
 import pytest
 
+from olive.cache import OliveCache
 from olive.common.constants import OS
-from olive.engine.cache import OliveCache
 from olive.resource_path import AzureMLModel
 
 

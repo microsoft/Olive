@@ -1,7 +1,7 @@
 {
     "input_model": {
-        "type": "PyTorchModel",
-        "config": { "hf_config": { "model_name": "openlm-research/open_llama_7b_v2", "task": "text-generation" } }
+        "type": "HfModel",
+        "config": { "model_path": "openlm-research/open_llama_7b_v2" }
     },
     "systems": { "local_system": { "type": "LocalSystem", "config": { "accelerators": [ { "device": "gpu" } ] } } },
     "data_configs": [

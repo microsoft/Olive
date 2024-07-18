@@ -15,7 +15,6 @@ from neural_compressor.data import DefaultDataLoader
 from torch.utils.data import Dataset
 from transformers import (
     AutoConfig,
-    AutoModelForSequenceClassification,
     AutoTokenizer,
     EvalPrediction,
     Trainer,
@@ -33,29 +32,6 @@ datasets_logging.set_verbosity_error()
 
 # pylint: disable=attribute-defined-outside-init, protected-access
 # This file is only used by bert_inc_ptq_cpu, bert_qat_customized_train_loop_cpu
-
-# -------------------------------------------------------------------------
-# Model Loader
-# -------------------------------------------------------------------------
-
-
-def load_pytorch_origin_model(model_path):
-    model = AutoModelForSequenceClassification.from_pretrained("Intel/bert-base-uncased-mrpc")
-    model.eval()
-    return model
-
-
-# -------------------------------------------------------------------------
-# Dummy Input for ONNX Export
-# -------------------------------------------------------------------------
-
-
-def create_input_tensors(model):
-    return {
-        "input_ids": torch.ones(1, 128, dtype=torch.int64),
-        "attention_mask": torch.ones(1, 128, dtype=torch.int64),
-        "token_type_ids": torch.ones(1, 128, dtype=torch.int64),
-    }
 
 
 # -------------------------------------------------------------------------

@@ -1,12 +1,10 @@
 {
     "input_model": {
-        "type": "PyTorchModel",
+        "type": "HfModel",
         "config": {
-            "hf_config": {
-                "model_name": "Intel/bert-base-uncased-mrpc",
-                "task": "text-classification",
-                "from_pretrained_args": { "attn_implementation": "eager" }
-            }
+            "model_path": "Intel/bert-base-uncased-mrpc",
+            "task": "text-classification",
+            "load_kwargs": { "attn_implementation": "eager" }
         }
     },
     "systems": {

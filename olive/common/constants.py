@@ -22,7 +22,13 @@ KEYVAULT_NAME = "KEYVAULT_NAME"
 
 DEFAULT_WORKFLOW_ID = "default_workflow"
 
+DEFAULT_CACHE_DIR = ".olive-cache"
+
 
 ############# Packaging #############
 
 BASE_IMAGE = "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04"
+
+############# HF #############
+
+DEFAULT_HF_TASK = "text-generation-with-past"

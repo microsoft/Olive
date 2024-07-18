@@ -11,7 +11,7 @@ import torch
 import olive.passes.pytorch.sparsegpt_utils as sparsegpt_utils
 from olive.common.utils import get_attr
 from olive.data.template import huggingface_data_config_template
-from olive.model import PyTorchModelHandler
+from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.torch_trt_conversion import TorchTRTConversion
 
@@ -46,7 +46,7 @@ def test_torch_trt_conversion_success(tmp_path):
     model_name = "hf-internal-testing/tiny-random-OPTForCausalLM"
     task = "text-generation"
     model_type = "opt"
-    input_model = PyTorchModelHandler(hf_config={"model_name": model_name, "task": task})
+    input_model = HfModelHandler(model_path=model_name, task=task)
     # torch.nn.Linear submodules per layer in the original model
     original_submodules = list(
         sparsegpt_utils.get_layer_submodules(

@@ -92,9 +92,7 @@ def eval_accuracy(model: OliveModelHandler, data_dir, batch_size, device, execut
     if model.framework == Framework.PYTORCH:
         eval_args = LMEvalParser(
             model="hf",
-            model_args=(
-                f"pretrained={model.model_path or model.hf_config.model_name},tokenizer={model_id},dtype=float32"
-            ),
+            model_args=f"pretrained={model.model_path},tokenizer={model_id},dtype=float32",
             batch_size=batch_size,
             tasks="lambada_openai",
             device="cpu",

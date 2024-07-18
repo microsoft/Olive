@@ -8,7 +8,7 @@ from test.unit_test.utils import get_hf_model
 
 import pytest
 
-from olive.model import CompositeModelHandler, ONNXModelHandler, PyTorchModelHandler
+from olive.model import CompositeModelHandler, HfModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.optimum_conversion import OptimumConversion
 
@@ -44,12 +44,7 @@ def test_optimum_conversion_pass(extra_args, tmp_path):
     ],
 )
 def test_optimum_conversion_pass_with_components(components, extra_args, expected_components, tmp_path):
-    input_model = PyTorchModelHandler(
-        hf_config={
-            "model_name": "hf-internal-testing/tiny-random-OPTForCausalLM",
-            "task": "text-generation",
-        }
-    )
+    input_model = HfModelHandler(model_path="hf-internal-testing/tiny-random-OPTForCausalLM")
     # setup
     p = create_pass_from_dict(
         OptimumConversion, {"components": components, "extra_args": extra_args}, disable_search=True

@@ -18,4 +18,3 @@ WORKDIR /olive/ONNXRuntimePackages/python
 RUN pip install *.whl
 
 WORKDIR /olive
-

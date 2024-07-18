@@ -8,7 +8,7 @@ It is based on the [LoRA paper](https://arxiv.org/abs/2106.09685).
 
 The output model is the input transformers model along with the fine-tuned LoRA adapters. The adapters can be loaded and/or merged into the original model using the `peft` library from Hugging Face.
 
-This pass only supports Hugging Face transformers PyTorch models. Please refer to [LoRA](lora) for more details about the pass and its config parameters.
+This pass only supports HfModels. Please refer to [LoRA](lora) for more details about the pass and its config parameters.
 
 ### Example Configuration
 ```json
@@ -33,7 +33,7 @@ the QLoRA [paper](https://arxiv.org/abs/2305.14314) and [code](https://github.co
 The output model is the input transformers model along with the quantization config and the fine-tuned LoRA adapters. The adapters can be loaded and/or merged into the original model using the
 `peft` library from Hugging Face.
 
-This pass only supports Hugging Face transformers PyTorch models. Please refer to [QLoRA](qlora) for more details about the pass and its config parameters.
+This pass only supports HfModels. Please refer to [QLoRA](qlora) for more details about the pass and its config parameters.
 
 **Note:** QLoRA requires a GPU to run.
 
@@ -60,7 +60,7 @@ and [code](https://github.com/yxli2123/LoftQ). More information on LoRA can be f
 
 The `LoftQ` pass initializes the quantized LoRA model using the LoftQ initialization method and then fine-tunes the adapters. The output model has new quantization aware master weights and the fine-tuned LoRA adapters.
 
-This pass only supports Hugging Face transformers PyTorch models. Please refer to [LoftQ](loftq) for more details about the pass and its config parameters.
+This pass only supports HfModels. Please refer to [LoftQ](loftq) for more details about the pass and its config parameters.
 
 **Note:** LoftQ requires a GPU to run.
 ```json
@@ -193,7 +193,7 @@ as 2:4 and 4:8 patterns.
 
 Please refer to the original paper linked above for more details on the algorithm and performance results for different models, sparsities and datasets.
 
-This pass only supports Hugging Face transformers PyTorch models. Please refer to [SparseGPT](sparsegpt) for more details on the types of transformers models supported.
+This pass only supports HfModels. Please refer to [SparseGPT](sparsegpt) for more details on the types of transformers models supported.
 
 **Note:** TensorRT can accelerate inference on 2:4 sparse models as described in [this blog](https://developer.nvidia.com/blog/accelerating-inference-with-sparsity-using-ampere-and-tensorrt/).
 
@@ -234,7 +234,7 @@ This pass only supports HuggingFace transformer PyTorch models. Please refer to 
 applicable. `torch_tensorrt` is an extension to `torch` where TensorRT compiled engines can be used like regular `torch.nn.Module`s. This pass can be used to accelerate inference on transformer models
 with sparse weights by taking advantage of the 2:4 structured sparsity pattern supported by TensorRT.
 
-This pass only supports Hugging Face transformers PyTorch models. Please refer to [TorchTRTConversion](torch_trt_conversion) for more details on the types of transformers models supported.
+This pass only supports HfModels. Please refer to [TorchTRTConversion](torch_trt_conversion) for more details on the types of transformers models supported.
 
 ### Example Configuration
 ```json

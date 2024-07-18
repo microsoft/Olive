@@ -9,7 +9,7 @@ import os
 import sys
 from pathlib import Path
 
-from olive.common.utils import huggingface_login
+from olive.common.hf.login import huggingface_login
 from olive.logging import set_verbosity_from_env
 from olive.model import ModelConfig
 from olive.package_config import OlivePackageConfig

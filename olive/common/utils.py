@@ -16,7 +16,7 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from olive.common.constants import HF_LOGIN, KEYVAULT_NAME, OS
 
@@ -171,6 +171,13 @@ def set_nested_dict_value(dictionary: dict, key: Union[str, Tuple, List[str]], n
     dictionary[key[-1]] = new_value
 
 
+def dict_diff(dict1: Optional[dict], dict2: Optional[dict]) -> Optional[dict]:
+    """Return all members of dict1 that are not in dict2 or have different values."""
+    dict1 = dict1 or {}
+    dict2 = dict2 or {}
+    return {k: v for k, v in dict1.items() if k not in dict2 or dict2[k] != v} or None
+
+
 def retry_func(func, args=None, kwargs=None, max_tries=3, delay=5, backoff=2, exceptions=None):
     """Retry a function call using an exponential backoff.
 
@@ -286,27 +293,6 @@ def find_submodules(module, submodule_types, full_name=False):
             else:
                 submodules.add(name.split(".")[-1])
     return list(submodules) if submodules else None
-
-
-def huggingface_login(token: str):
-    from huggingface_hub import login
-
-    login(token=token)
-
-
-def aml_runner_hf_login():
-    hf_login = os.environ.get(HF_LOGIN)
-    if hf_login:
-        from azure.identity import DefaultAzureCredential
-        from azure.keyvault.secrets import SecretClient
-
-        keyvault_name = os.environ.get(KEYVAULT_NAME)
-        logger.debug("Getting token from keyvault %s", keyvault_name)
-
-        credential = DefaultAzureCredential()
-        secret_client = SecretClient(vault_url=f"https://{keyvault_name}.vault.azure.net/", credential=credential)
-        token = secret_client.get_secret("hf-token").value
-        huggingface_login(token)
 
 
 def all_files(path, ignore=None):

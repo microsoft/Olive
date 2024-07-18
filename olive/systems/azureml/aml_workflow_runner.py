@@ -7,7 +7,8 @@ import shutil
 from pathlib import Path
 
 from olive.common.constants import WORKFLOW_ARTIFACTS, WORKFLOW_CONFIG
-from olive.common.utils import aml_runner_hf_login, copy_dir
+from olive.common.utils import copy_dir
+from olive.common.hf.login import aml_runner_hf_login
 from olive.logging import set_verbosity_from_env
 from olive.systems.utils.arg_parser import parse_config, parse_resources_args
 from olive.workflows import run as olive_run

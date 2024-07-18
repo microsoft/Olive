@@ -1,13 +1,7 @@
 {
     "input_model": {
-        "type": "PyTorchModel",
-        "config": {
-            "hf_config": {
-                "model_name": "<model_name_placeholder>",
-                "model_class": "LlamaForCausalLM",
-                "task": "text-generation"
-            }
-        }
+        "type": "HfModel",
+        "config": { "model_path": "<model_name_placeholder>" }
     },
     "systems": {
         "local_system": {

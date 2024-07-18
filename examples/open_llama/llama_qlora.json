@@ -1,7 +1,7 @@
 {
     "input_model": {
         "type": "PyTorchModel",
-        "config": { "hf_config": { "model_name": "huggyllama/llama-7b", "task": "text-generation" } }
+        "config": { "model_path": "huggyllama/llama-7b" }
     },
     "systems": { "local_system": { "type": "LocalSystem", "config": { "accelerators": [ { "device": "gpu" } ] } } },
     "data_configs": [

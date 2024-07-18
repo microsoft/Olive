@@ -1,7 +1,7 @@
 {
     "input_model": {
-        "type": "PyTorchModel",
-        "config": { "hf_config": { "model_name": "openlm-research/open_llama_3b", "task": "text-generation" } }
+        "type": "HfModel",
+        "config": { "model_path": "openlm-research/open_llama_3b" }
     },
     "systems": {
         "local_system": {
