@@ -483,7 +483,7 @@ class AzureMLSystem(OliveSystem):
         ml_client,
         pipeline_job,
         experiment_name: str,
-        tmp_dir: Union[str, Path],
+        tmp_dir: Optional[Union[str, Path]] = None,
         tags: Dict = None,
         output_name: str = None,
         download_outputs: bool = True,
@@ -505,6 +505,8 @@ class AzureMLSystem(OliveSystem):
 
         if download_outputs:
             # get output
+            if tmp_dir is None:
+                raise ValueError("tmp_dir is required to download pipeline output")
             output_dir = Path(tmp_dir) / "pipeline_output"
             output_dir.mkdir(parents=True, exist_ok=True)
             # whether to download a single output or all outputs
