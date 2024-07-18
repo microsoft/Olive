@@ -139,38 +139,17 @@ class AzureMLSystem(OliveSystem):
         tmp_dir = Path(tmp_dir)
 
         run_config.workflow_host = None
-        run_config.engine.log_to_file = True
-        olive_config = run_config.to_json()
-
-        olive_config_path = self._create_olive_config_file(olive_config, tmp_dir)
 
         config_root = tmp_dir / "config"
         cur_dir = Path(__file__).resolve().parent
-        code_files = [cur_dir / script_name, olive_config_path]
+        code_files = [cur_dir / script_name]
         self.copy_files(code_files, config_root)
 
-        inputs = {WORKFLOW_CONFIG: Input(type=AssetTypes.URI_FILE)}
-        args = {WORKFLOW_CONFIG: Input(type=AssetTypes.URI_FILE, path=olive_config_path)}
-
-        config_list = []
-        config_list.append(("model", run_config.input_model.to_json(check_object=True)))
-
-        if run_config.data_configs:
-            config_list.extend(
-                [(data_config.name, data_config.to_json(check_object=True)) for data_config in run_config.data_configs]
-            )
-
-        resources_check_list = [run_config.passes, run_config.evaluators, run_config.systems]
-        for resources in resources_check_list:
-            if resources:
-                config_list = self._get_dict_resources_config(resources, config_list)
-
-        for name, config_json in config_list:
-            name_inputs, name_args = self.create_inputs_and_args(
-                name, config_json, tmp_dir, ignore_keys=["model_attributes"] if name == "model" else None
-            )
-            inputs.update(name_inputs)
-            args.update(name_args)
+        inputs, args = self.create_inputs_and_args(
+            {WORKFLOW_CONFIG: run_config.to_json()},
+            tmp_dir,
+            ignore_keys=["cache_dir", "output_dir", "model_attributes"],
+        )
 
         outputs = {
             WORKFLOW_ARTIFACTS: Output(
@@ -201,11 +180,6 @@ class AzureMLSystem(OliveSystem):
             return outputs
 
         return workflow_runner_pipeline()
-
-    def _get_dict_resources_config(self, resources: Dict, config_list: List):
-        for resource_name, resource_config in resources.items():
-            config_list.append((resource_name, resource_config.to_json(check_object=True)))
-        return config_list
 
     def _get_hf_token_env(self, keyvault_name: Optional[str]):
         if keyvault_name is None:

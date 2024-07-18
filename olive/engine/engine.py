@@ -115,7 +115,7 @@ class Engine:
         """Initialize engine state. This should be done before running the registered passes."""
         if log_to_file:
             enable_filelog(log_severity_level, self.cache.cache_dir, self.workflow_id)
-        
+
         # clean pass run cache if requested
         # removes all run cache for pass type and all children elements
         for pass_config in self.pass_config.values():

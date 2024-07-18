@@ -12,11 +12,7 @@ from typing import Generator, List, Optional, Union
 
 from olive.auto_optimizer import AutoOptimizer
 from olive.common.utils import set_tempdir
-from olive.logging import (
-    set_default_logger_severity,
-    set_ort_logger_severity,
-    set_verbosity_info,
-)
+from olive.logging import set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
 from olive.package_config import OlivePackageConfig
 from olive.systems.accelerator_creator import create_accelerators
 from olive.systems.common import SystemType
