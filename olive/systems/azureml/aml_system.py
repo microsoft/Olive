@@ -139,6 +139,7 @@ class AzureMLSystem(OliveSystem):
         tmp_dir = Path(tmp_dir)
 
         run_config.workflow_host = None
+        run_config.engine.log_to_file = True
         olive_config = run_config.to_json()
 
         olive_config_path = self._create_olive_config_file(olive_config, tmp_dir)

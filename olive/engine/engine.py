@@ -110,7 +110,7 @@ class Engine:
 
         self._initialized = False
 
-    def initialize(self):
+    def initialize(self, log_to_file: bool = False, log_severity_level: int = 1):
         """Initialize engine state. This should be done before running the registered passes."""
         # clean pass run cache if requested
         # removes all run cache for pass type and all children elements
@@ -228,6 +228,8 @@ class Engine:
         output_dir: str = None,
         output_name: str = None,
         evaluate_input_model: bool = True,
+        log_to_file: bool = False,
+        log_severity_level: int = 1,
         cloud_cache_config: "CloudCacheConfig" = None,
     ):
         """Run all the registered Olive passes on the input model and produce one or more candidate models.
@@ -241,6 +243,8 @@ class Engine:
             output_name: output name for the output model, if output_name is provided, the output
                 model will be saved to engine's output_dir with the prefix of output_name.
             evaluate_input_model: if evaluate_input_model is True, run the evaluation on the input model.
+            log_to_file: if save logs to a file.
+            log_severity_level: severity level of the logger.
             cloud_cache_config: Cloud model cache configuration.
 
         Return:
@@ -259,7 +263,7 @@ class Engine:
             raise ValueError("No accelerator specified")
 
         if not self._initialized:
-            self.initialize()
+            self.initialize(log_to_file, log_severity_level)
 
         output_dir: Path = Path(output_dir) if output_dir else Path.cwd()
         output_dir.mkdir(parents=True, exist_ok=True)
