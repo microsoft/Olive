@@ -49,12 +49,12 @@ OpenVINO Model Handler
 .. _snpe_model:
 
 SNPE Model Handler
------------------
+------------------
 .. autoclass:: olive.model.SNPEModelHandler
 
 .. _composite_model:
 
 Composite Model Handler
-----------------------------
+-----------------------
 .. autoclass:: olive.model.CompositeModelHandler
 
