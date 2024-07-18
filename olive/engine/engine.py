@@ -112,34 +112,6 @@ class Engine:
 
     def initialize(self, log_to_file: bool = False, log_severity_level: int = 1):
         """Initialize engine state. This should be done before running the registered passes."""
-<<<<<<< HEAD
-        # pylint: disable=attribute-defined-outside-init
-
-        if self.clean_cache:
-            cache_utils.clean_cache(self.cache_dir)
-        if self.clean_evaluation_cache:
-            cache_utils.clean_evaluation_cache(self.cache_dir)
-
-        logger.info("Using cache directory: %s", self.cache_dir)
-        self._model_cache_path, self._run_cache_path, self._evaluation_cache_path, _ = cache_utils.get_cache_sub_dirs(
-            self.cache_dir
-        )
-        cache_utils.create_cache(self.cache_dir, self.workflow_id, log_to_file, log_severity_level)
-
-        # initialize counters
-        # we do this before cleaning pass run caches to ensure we don't reuse model numbers even if the model was
-        # deleted from the cache
-        self._new_model_number = 0
-        # model jsons have the format <model_number>_<pass_type>-<source_model>-<pass_config_hash>.json
-        # model contents are stored in <model_number>_<pass_type>-<source_model>-<pass_config_hash> folder
-        # sometimes the folder is created with contents but the json is not created when the pass fails to run
-        # so we check for both when determining the new model number
-        model_files = list(self._model_cache_path.glob("*_*"))
-        if len(model_files) > 0:
-            self._new_model_number = max(int(model_file.stem.split("_")[0]) for model_file in model_files) + 1
-
-=======
->>>>>>> 08f381f754d841399408ada14b4aa4af21cb2e1a
         # clean pass run cache if requested
         # removes all run cache for pass type and all children elements
         for pass_config in self.pass_config.values():
