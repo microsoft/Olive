@@ -8,9 +8,10 @@ from typing import Dict, List, Union
 
 from olive.auto_optimizer import AutoOptimizerConfig
 from olive.azureml.azureml_client import AzureMLClientConfig
-from olive.common.config_utils import ConfigBase, validate_config
+from olive.common.config_utils import ConfigBase, convert_configs_to_dicts, validate_config
 from olive.common.constants import DEFAULT_HF_TASK, DEFAULT_WORKFLOW_ID
-from olive.common.pydantic_v1 import Field, validator
+from olive.common.pydantic_v1 import Field, root_validator, validator
+from olive.common.utils import set_nested_dict_value
 from olive.data.config import DataConfig
 from olive.data.container.dummy_data_container import TRANSFORMER_DUMMY_DATA_CONTAINER
 from olive.data.container.huggingface_container import HuggingfaceContainer
@@ -157,19 +158,12 @@ class RunConfig(ConfigBase):
         description="Auto optimizer configuration. Only valid when passes field is empty or not provided.",
     )
 
-    @validator("input_model", pre=True)
-    def insert_aml_client(cls, v, values):
-        if isinstance(v, ModelConfig):
-            v = v.dict()
+    @root_validator(pre=True)
+    def insert_azureml_client(cls, values):
+        values = convert_configs_to_dicts(values)
+        _insert_azureml_client(values, values.get("azureml_client"))
 
-        input_model_path = v["config"].get("model_path")
-        # if not a dict, return the original value
-        if not input_model_path or not isinstance(input_model_path, dict):
-            return v
-
-        if _have_aml_client(input_model_path, values):
-            v["config"]["model_path"]["config"]["azureml_client"] = values["azureml_client"]
-        return v
+        return values
 
     @validator("data_configs", pre=True)
     def validate_data_config_names(cls, v):
@@ -240,12 +234,6 @@ class RunConfig(ConfigBase):
     def validate_evaluators(cls, v, values):
         for idx, metric in enumerate(v.get("metrics", [])):
             v["metrics"][idx] = _resolve_data_config(metric, values, "data_config")
-
-            data_dir_config = v["metrics"][idx].get("user_config", {}).get("data_dir", None)
-            if isinstance(data_dir_config, dict):
-                if _have_aml_client(data_dir_config, values):
-                    data_dir_config["config"]["azureml_client"] = values["azureml_client"]
-                v["metrics"][idx]["user_config"]["data_dir"] = data_dir_config
         return v
 
     @validator("engine", pre=True)
@@ -294,12 +282,6 @@ class RunConfig(ConfigBase):
             if param_name.endswith("data_config"):
                 v["config"] = _resolve_data_config(v["config"], values, param_name)
 
-        data_dir_config = v["config"].get("data_dir", None)
-        if isinstance(data_dir_config, dict):
-            if _have_aml_client(data_dir_config, values):
-                data_dir_config["config"]["azureml_client"] = values["azureml_client"]
-            v["config"]["data_dir"] = data_dir_config
-
         if disable_search and searchable_configs:
             raise ValueError(
                 f"You cannot disable search for {v['type']} and"
@@ -307,6 +289,50 @@ class RunConfig(ConfigBase):
                 " Please remove SEARCHABLE_VALUES or enable search(needs search strategy configs)."
             )
         return v
+
+
+def _insert_azureml_client(config, azureml_client):
+    """Insert azureml_client into config recursively.
+
+    Valid cases:
+        1. AzureML resource path config without azureml_client
+        2. AzureML system config without azureml_client_config
+    config is modified in place.
+    """
+    if not isinstance(config, (dict, list)):
+        return
+
+    insert_key, config_type = _needs_aml_client(config)
+
+    if insert_key and not azureml_client:
+        raise ValueError(f"azureml_client is required for {config_type} but not provided.")
+    elif insert_key:
+        set_nested_dict_value(config, insert_key, azureml_client)
+        return
+
+    for value in config.values() if isinstance(config, dict) else config:
+        _insert_azureml_client(value, azureml_client)
+
+
+def _needs_aml_client(config):
+    """Check if azureml_client is needed for the given config.
+
+    Return the path to insert azureml_client and the type of the config.
+    """
+    if not isinstance(config, dict):
+        return None, None
+
+    config_type = config.get("type")
+
+    # AzureML resource path config without azureml_client
+    if config_type in AZUREML_RESOURCE_TYPES and not config.get("config", {}).get("azureml_client"):
+        return ("config", "azureml_client"), "AzureML Resource Path"
+
+    # AzureML system config without azureml_client_config
+    if config_type == "AzureML" and not config.get("config", {}).get("azureml_client_config"):
+        return ("config", "azureml_client_config"), "AzureML System"
+
+    return None, None
 
 
 def _resolve_config_str(v, values, alias, component_name):
@@ -354,36 +380,16 @@ def _resolve_config_str(v, values, alias, component_name):
 
 
 def _resolve_system(v, values, system_alias):
-    v = _resolve_config_str(v, values, system_alias, component_name="systems")
-    if v.get(system_alias):
-        v[system_alias] = validate_config(v[system_alias], SystemConfig)
-        if v[system_alias].type == "AzureML":
-            if not values["azureml_client"]:
-                raise ValueError("AzureML client config is required for AzureML system")
-            v[system_alias].config.azureml_client_config = values["azureml_client"]
-    return v
+    return _resolve_config_str(v, values, system_alias, component_name="systems")
 
 
 def _resolve_data_config(v, values, data_config_alias):
-    if not isinstance(v, dict):
-        # if not a dict, return the original value
-        return v
-
-    # get name of sub component
-    sub_component = v.get(data_config_alias)
-    if not isinstance(sub_component, str):
-        return v
-
-    # resolve data_config_alias to data config
-    components = values.get("data_configs") or []
-    component_map = {cmp.name: cmp for cmp in components}
-
-    # resolve sub component name to component config
-    if sub_component not in component_map:
-        raise ValueError(f"{data_config_alias} {sub_component} not found in {components}")
-
-    v[data_config_alias] = component_map[sub_component]
-    return v
+    return _resolve_config_str(
+        v,
+        {"data_configs_dict": {dc.name: dc for dc in values.get("data_configs") or []}},
+        data_config_alias,
+        component_name="data_configs_dict",
+    )
 
 
 def _resolve_evaluator(v, values):
@@ -395,28 +401,8 @@ def _resolve_evaluator(v, values):
         for idx, metric in enumerate(evaluator.get("metrics", [])):
             evaluator["metrics"][idx] = _resolve_data_config(metric, values, "data_config")
         return v
-    elif not isinstance(evaluator, str):
-        return v
 
-    # resolve evaluator name to evaluators member config
-    if "evaluators" not in values:
-        raise ValueError("Invalid evaluators")
-    evaluators = values["evaluators"] or {}
-    if evaluator not in evaluators:
-        raise ValueError(f"Evaluator {evaluator} not found in evaluators")
-    v["evaluator"] = evaluators[evaluator]
-    return v
-
-
-def _have_aml_client(config_item, values):
-    resource_path_type = config_item.get("type")
-    if resource_path_type in AZUREML_RESOURCE_TYPES:
-        rp_aml_client = config_item.get("config", {}).get("azureml_client")
-        if not rp_aml_client:
-            if "azureml_client" not in values:
-                raise ValueError(f"azureml_client is required for azureml resource path in config of {config_item}")
-            return True
-    return False
+    return _resolve_config_str(v, values, "evaluator", component_name="evaluators")
 
 
 def _auto_fill_data_config(config, info, config_names, param_names, only_none=False):
