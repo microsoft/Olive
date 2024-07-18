@@ -13,7 +13,6 @@ from typing import Generator, List, Optional, Union
 from olive.auto_optimizer import AutoOptimizer
 from olive.common.utils import set_tempdir
 from olive.logging import (
-    WORKFLOW_COMPLETED_LOG,
     set_default_logger_severity,
     set_ort_logger_severity,
     set_verbosity_info,
@@ -271,7 +270,6 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
                 run_config.engine.cloud_cache_config,
             )
         )
-    logger.info(WORKFLOW_COMPLETED_LOG)
     return run_rls
 
 

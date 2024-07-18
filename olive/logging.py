@@ -7,8 +7,6 @@ import os
 import sys
 from pathlib import Path
 
-WORKFLOW_COMPLETED_LOG = "Workflow completed successfully."
-
 
 def get_olive_logger():
     return logging.getLogger(__name__.split(".", maxsplit=1)[0])
